@@ -582,10 +582,10 @@ view app =
                         |> Review.Test.expectNoErrors
             ]
         , describe "RouteBuilder convention detection"
-            [ test "non-conventional head function name bails out (no optimization)" <|
+            [ test "non-conventional head function name works correctly" <|
                 \() ->
                     -- If RouteBuilder uses { head = seoTags, ... } instead of { head = head, ... }
-                    -- we should bail out of optimization to avoid incorrect field tracking
+                    -- we correctly track that seoTags is the head function and optimize accordingly
                     """module Route.Test exposing (Data, route)
 
 import Html.Styled as Html
@@ -617,13 +617,128 @@ view app =
     }
 """
                         |> Review.Test.run rule
-                        -- Should NOT produce Data type transformation errors
-                        -- because we bail out when non-conventional naming is detected
-                        -- But we DO emit a diagnostic explaining why
+                        -- Optimization proceeds: description is ephemeral (only used in seoTags which is the head function)
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"non_conventional_naming\",\"details\":\"RouteBuilder uses non-conventional function names. Expected head=head, data=data but found head=seoTags, data=data. Cannot safely track ephemeral contexts.\"}"
-                                , details = [ "RouteBuilder uses non-conventional function names. Expected head=head, data=data but found head=seoTags, data=data. Cannot safely track ephemeral contexts." ]
+                                { message = "Head function codemod: stub out for client bundle"
+                                , details =
+                                    [ "Replacing head function body with [] because Data fields are being removed."
+                                    , "The head function never runs on the client (it's for SEO at build time), so stubbing it out allows DCE."
+                                    ]
+                                , under = "[ Html.text app.data.description ]"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+seoTags app =
+    []
+
+data routeParams =
+    BackendTask.succeed { title = "Test", description = "Desc" }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: description"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , description : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+import RouteBuilder
+
+type alias Data =
+    { title : String }
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+data routeParams =
+    BackendTask.succeed { title = "Test", description = "Desc" }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data function codemod: stub out for client bundle"
+                                , details =
+                                    [ "Replacing data function body because Data fields are being removed."
+                                    , "The data function never runs on the client (it's for build-time data fetching), so stubbing it out allows DCE."
+                                    ]
+                                , under = "BackendTask.succeed { title = \"Test\", description = \"Desc\" }"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+data routeParams =
+    BackendTask.fail (FatalError.fromString "")
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":9,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
@@ -1135,6 +1250,259 @@ view app =
 """
                             , Review.Test.error
                                 { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "case expression with record pattern tracks specific fields" <|
+                \() ->
+                    -- case app.data of { title } -> ... tracks only title as client-used
+                    -- body can still be ephemeral
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    case app.data of
+        { title } ->
+            { title = title
+            , body = [ View.freeze (Html.text app.data.body) ]
+            }
+"""
+                        |> Review.Test.run rule
+                        -- title is client-used via record pattern, body is ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    case app.data of
+        { title } ->
+            { title = title
+            , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+            }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+view app =
+    case app.data of
+        { title } ->
+            { title = title
+            , body = [ View.freeze (Html.text app.data.body) ]
+            }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "case expression with record pattern only tracks destructured fields" <|
+                \() ->
+                    -- case app.data of { title } -> ... only tracks title
+                    -- subtitle is not destructured, so it's also ephemeral
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , subtitle : String
+    , body : String
+    }
+
+view app =
+    case app.data of
+        { title } ->
+            { title = title
+            , body = [ View.freeze (Html.text app.data.body) ]
+            }
+"""
+                        |> Review.Test.run rule
+                        -- Only title is client-used via record pattern
+                        -- subtitle and body are not accessed, so both are ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , subtitle : String
+    , body : String
+    }
+
+view app =
+    case app.data of
+        { title } ->
+            { title = title
+            , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+            }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body, subtitle"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , subtitle : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+view app =
+    case app.data of
+        { title } ->
+            { title = title
+            , body = [ View.freeze (Html.text app.data.body) ]
+            }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"subtitle\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "case expression with wildcard pattern uses no fields" <|
+                \() ->
+                    -- case app.data of _ -> ... uses no fields from the pattern
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    case app.data of
+        _ ->
+            { title = "constant"
+            , body = [ View.freeze (Html.text app.data.body) ]
+            }
+"""
+                        |> Review.Test.run rule
+                        -- No fields used via pattern, body is only used in freeze
+                        -- title is not used at all, so both title and body are ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    case app.data of
+        _ ->
+            { title = "constant"
+            , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+            }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body, title"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    {}
+
+view app =
+    case app.data of
+        _ ->
+            { title = "constant"
+            , body = [ View.freeze (Html.text app.data.body) ]
+            }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"title\"],\"newDataType\":\"{}\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }

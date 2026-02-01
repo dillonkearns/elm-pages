@@ -439,6 +439,41 @@ trackFieldAccess node context =
             else
                 context
 
+        -- Case expression on app.data: case app.data of {...}
+        -- Track record patterns, bail out on variable patterns
+        Expression.CaseExpression caseBlock ->
+            if isAppDataExpression caseBlock.expression context then
+                if context.inFreezeCall || context.inHeadFunction then
+                    -- In ephemeral context, we don't care
+                    context
+
+                else
+                    -- In client context, try to extract record pattern fields
+                    let
+                        maybeFieldSets =
+                            caseBlock.cases
+                                |> List.map (\( pattern, _ ) -> extractRecordPatternFields pattern)
+
+                        allTrackable =
+                            List.all (\m -> m /= Nothing) maybeFieldSets
+                    in
+                    if allTrackable then
+                        -- All patterns are record patterns - track the fields
+                        let
+                            allFields =
+                                maybeFieldSets
+                                    |> List.filterMap identity
+                                    |> List.foldl Set.union Set.empty
+                        in
+                        Set.foldl addFieldAccess context allFields
+
+                    else
+                        -- Some patterns are untrackable (variable, etc.) - bail out
+                        markAllFieldsAsPersistent context
+
+            else
+                context
+
         _ ->
             context
 
@@ -582,6 +617,49 @@ extractPatternNames node =
 
         _ ->
             Set.empty
+
+
+{-| Try to extract field names from a record pattern.
+Returns Just (Set String) if the pattern is a record pattern (or variation),
+Nothing if it's a variable pattern or other untrackable pattern.
+
+Trackable patterns:
+
+  - `{ title, body }` -> Just {"title", "body"}
+  - `({ title })` -> Just {"title"} (parenthesized)
+  - `{ title } as data` -> Just {"title"} (as pattern wrapping record)
+  - `_` -> Just {} (wildcard - no fields used)
+
+Untrackable patterns:
+
+  - `data` -> Nothing (variable captures whole record)
+  - `Data title body` -> Nothing (constructor pattern)
+
+-}
+extractRecordPatternFields : Node Pattern -> Maybe (Set String)
+extractRecordPatternFields node =
+    case Node.value node of
+        Pattern.RecordPattern fields ->
+            Just (fields |> List.map Node.value |> Set.fromList)
+
+        Pattern.ParenthesizedPattern inner ->
+            extractRecordPatternFields inner
+
+        Pattern.AsPattern inner _ ->
+            -- { title } as data - we can track the record fields
+            extractRecordPatternFields inner
+
+        Pattern.AllPattern ->
+            -- Wildcard `_` matches but uses no fields
+            Just Set.empty
+
+        Pattern.VarPattern _ ->
+            -- Variable pattern captures the whole record - can't track
+            Nothing
+
+        _ ->
+            -- Constructor patterns, tuples, etc. - can't track
+            Nothing
 
 
 {-| Extract a single name from a pattern (for function parameter names).

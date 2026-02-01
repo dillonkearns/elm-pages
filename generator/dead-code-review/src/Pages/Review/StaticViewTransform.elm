@@ -84,6 +84,12 @@ type alias Context =
     -- Ephemeral context tracking
     , inFreezeCall : Bool
     , inHeadFunction : Bool
+    , currentFunctionName : Maybe String
+
+    -- Per-function field tracking (for non-conventional head function names)
+    -- Maps function name -> fields accessed outside freeze in that function
+    -- Used in finalEvaluation to exclude fields accessed by the actual head function
+    , perFunctionClientFields : Dict String (Set String)
 
     -- app.data binding tracking (for let bindings like `let d = app.data`)
     , appDataBindings : Set String
@@ -183,6 +189,8 @@ initialContext =
             , clientUsedFields = Set.empty
             , inFreezeCall = False
             , inHeadFunction = False
+            , currentFunctionName = Nothing
+            , perFunctionClientFields = Dict.empty
             , appDataBindings = Set.empty
             , fieldBindings = Dict.empty
             , fieldBindingRanges = Set.empty
@@ -290,7 +298,10 @@ declarationEnterVisitor node context =
                             []
 
                 contextWithAppDataRanges =
-                    { context | appDataTypeRanges = context.appDataTypeRanges ++ appDataRanges }
+                    { context
+                        | appDataTypeRanges = context.appDataTypeRanges ++ appDataRanges
+                        , currentFunctionName = Just functionName
+                    }
             in
             if functionName == actualHeadFn then
                 ( []
@@ -421,10 +432,10 @@ declarationExitVisitor node context =
                         |> Maybe.withDefault "head"
             in
             if functionName == actualHeadFn then
-                ( [], { context | inHeadFunction = False } )
+                ( [], { context | inHeadFunction = False, currentFunctionName = Nothing } )
 
             else
-                ( [], context )
+                ( [], { context | currentFunctionName = Nothing } )
 
         _ ->
             ( [], context )
@@ -626,7 +637,7 @@ trackFieldAccess node context =
                 context
 
         -- Case expression on app.data: case app.data of {...}
-        -- We can't safely track field destructuring patterns
+        -- Track record patterns, bail out on variable patterns
         Expression.CaseExpression caseBlock ->
             if isAppDataExpression caseBlock.expression context then
                 if context.inFreezeCall || context.inHeadFunction then
@@ -634,8 +645,28 @@ trackFieldAccess node context =
                     context
 
                 else
-                    -- In client context, can't track which fields are used
-                    { context | markAllFieldsAsClientUsed = True }
+                    -- In client context, try to extract record pattern fields
+                    let
+                        maybeFieldSets =
+                            caseBlock.cases
+                                |> List.map (\( pattern, _ ) -> extractRecordPatternFields pattern)
+
+                        allTrackable =
+                            List.all (\m -> m /= Nothing) maybeFieldSets
+                    in
+                    if allTrackable then
+                        -- All patterns are record patterns - track the fields
+                        let
+                            allFields =
+                                maybeFieldSets
+                                    |> List.filterMap identity
+                                    |> List.foldl Set.union Set.empty
+                        in
+                        Set.foldl addFieldAccess context allFields
+
+                    else
+                        -- Some patterns are untrackable (variable, etc.) - bail out
+                        { context | markAllFieldsAsClientUsed = True }
 
             else
                 context
@@ -927,6 +958,49 @@ extractPatternNames node =
 
         _ ->
             Set.empty
+
+
+{-| Try to extract field names from a record pattern.
+Returns Just (Set String) if the pattern is a record pattern (or variation),
+Nothing if it's a variable pattern or other untrackable pattern.
+
+Trackable patterns:
+
+  - `{ title, body }` -> Just {"title", "body"}
+  - `({ title })` -> Just {"title"} (parenthesized)
+  - `{ title } as data` -> Just {"title"} (as pattern wrapping record)
+  - `_` -> Just {} (wildcard - no fields used)
+
+Untrackable patterns:
+
+  - `data` -> Nothing (variable captures whole record)
+  - `Data title body` -> Nothing (constructor pattern)
+
+-}
+extractRecordPatternFields : Node Pattern -> Maybe (Set String)
+extractRecordPatternFields node =
+    case Node.value node of
+        Pattern.RecordPattern fields ->
+            Just (fields |> List.map Node.value |> Set.fromList)
+
+        Pattern.ParenthesizedPattern inner ->
+            extractRecordPatternFields inner
+
+        Pattern.AsPattern inner _ ->
+            -- { title } as data - we can track the record fields
+            extractRecordPatternFields inner
+
+        Pattern.AllPattern ->
+            -- Wildcard `_` matches but uses no fields
+            Just Set.empty
+
+        Pattern.VarPattern _ ->
+            -- Variable pattern captures the whole record - can't track
+            Nothing
+
+        _ ->
+            -- Constructor patterns, tuples, etc. - can't track
+            Nothing
 
 
 {-| Extract a single name from a pattern (for function parameter names).
@@ -1309,6 +1383,11 @@ findDataTypeRanges node =
 
 {-| Add a field access to clientUsedFields if we're in a CLIENT context.
 Fields accessed in ephemeral contexts (freeze, head) are NOT tracked.
+
+Also tracks per-function field accesses for non-conventional head function names.
+If the head function is defined before RouteBuilder, we initially track its field
+accesses as client-used. In finalEvaluation, we subtract these fields when we
+discover the actual head function name.
 -}
 addFieldAccess : String -> Context -> Context
 addFieldAccess fieldName context =
@@ -1318,7 +1397,29 @@ addFieldAccess fieldName context =
 
     else
         -- In client context - field MUST be kept
-        { context | clientUsedFields = Set.insert fieldName context.clientUsedFields }
+        -- Also track per-function for non-conventional head function handling
+        let
+            updatedPerFunction =
+                case context.currentFunctionName of
+                    Just fnName ->
+                        Dict.update fnName
+                            (\maybeFields ->
+                                case maybeFields of
+                                    Just fields ->
+                                        Just (Set.insert fieldName fields)
+
+                                    Nothing ->
+                                        Just (Set.singleton fieldName)
+                            )
+                            context.perFunctionClientFields
+
+                    Nothing ->
+                        context.perFunctionClientFields
+        in
+        { context
+            | clientUsedFields = Set.insert fieldName context.clientUsedFields
+            , perFunctionClientFields = updatedPerFunction
+        }
 
 
 {-| Extract function names from RouteBuilder.preRender/single/serverRender record argument.
@@ -1704,57 +1805,28 @@ finalEvaluation context =
                 _ ->
                     False
 
-        -- Check if RouteBuilder uses conventional naming
-        -- We currently track ephemeral context by looking for functions named "head" and "data"
-        -- If RouteBuilder uses different names (e.g., `head = seoTags`), our tracking is wrong
-        -- So we bail out unless we can confirm conventional naming
-        routeBuilderUsesConventionalNaming =
-            case ( context.routeBuilderFound, context.routeBuilderHeadFn, context.routeBuilderDataFn ) of
-                ( True, Just "head", Just "data" ) ->
-                    -- Perfect: RouteBuilder uses { head = head, data = data }
-                    True
+        -- Determine the actual head function name from RouteBuilder
+        -- This handles non-conventional naming like { head = seoTags }
+        actualHeadFn =
+            context.routeBuilderHeadFn |> Maybe.withDefault "head"
 
-                ( True, Just "head", Nothing ) ->
-                    -- head = head, but data uses lambda or complex expression
-                    -- We can still safely track head, and data body is stubbed anyway
-                    True
+        -- Fields to subtract from clientUsedFields because they were accessed in the head function
+        -- This handles the case where the head function is defined BEFORE RouteBuilder is seen,
+        -- so we initially tracked its field accesses as client-used. Now we correct that.
+        headFunctionFields =
+            if actualHeadFn /= "head" then
+                -- Non-conventional head function name - look up fields accessed in that function
+                Dict.get actualHeadFn context.perFunctionClientFields
+                    |> Maybe.withDefault Set.empty
 
-                ( True, Nothing, Just "data" ) ->
-                    -- data = data, but head uses lambda
-                    -- Similar to above - head body doesn't affect our field tracking much
-                    True
-
-                ( True, Nothing, Nothing ) ->
-                    -- Both use lambdas - we can't track ephemeral contexts
-                    -- But this is actually OK for the client bundle because:
-                    -- - Lambdas in RouteBuilder likely don't access app.data
-                    -- - The view function tracking still works
-                    -- Conservative: allow optimization to proceed
-                    True
-
-                ( True, Just headFn, _ ) ->
-                    -- head = somethingElse, not "head"
-                    -- Our tracking assumes function named "head" is ephemeral, which is wrong
-                    -- Bail out to be safe
-                    headFn == "head"
-
-                ( True, _, Just dataFn ) ->
-                    -- data = somethingElse, not "data"
-                    -- Our tracking assumes function named "data" is ephemeral
-                    -- This is less critical since data function tracking is mainly for stubbing
-                    dataFn == "data"
-
-                ( False, _, _ ) ->
-                    -- No RouteBuilder call found - this is unusual for a Route module
-                    -- Could be a helper module or unusual structure
-                    -- Conservative: allow optimization (original behavior)
-                    True
+            else
+                -- Conventional naming - inHeadFunction was set correctly during traversal
+                Set.empty
     in
     -- Conservative: skip transformation in these cases:
     -- 1. Not a Route module (Site.elm, Shared.elm, etc.)
     -- 2. Data is used as a constructor function (changing type would break it)
-    -- 3. RouteBuilder doesn't use conventional naming
-    -- 4. NarrowedData type alias already exists (fix was already applied)
+    -- 3. NarrowedData type alias already exists (fix was already applied)
     -- Note: markAllFieldsAsClientUsed is handled via effectiveClientUsedFields fallback below
     if not isRouteModule then
         -- Not a Route module, no transformation needed (this is expected for Site.elm, Shared.elm, etc.)
@@ -1769,18 +1841,6 @@ finalEvaluation context =
         [ emitDiagnostic context.moduleName
             "data_used_as_constructor"
             "Data type is used as a record constructor function (e.g., `map4 Data`). Cannot narrow the type without breaking the constructor call."
-        ]
-
-    else if not routeBuilderUsesConventionalNaming then
-        -- Emit diagnostic: Non-conventional naming prevents optimization
-        [ emitDiagnostic context.moduleName
-            "non_conventional_naming"
-            ("RouteBuilder uses non-conventional function names. Expected head=head, data=data but found head="
-                ++ Maybe.withDefault "<lambda>" context.routeBuilderHeadFn
-                ++ ", data="
-                ++ Maybe.withDefault "<lambda>" context.routeBuilderDataFn
-                ++ ". Cannot safely track ephemeral contexts."
-            )
         ]
 
     else
@@ -1829,6 +1889,12 @@ finalEvaluation context =
                     combinedClientUsedFields =
                         Set.union context.clientUsedFields resolvedHelperFields
 
+                    -- Subtract fields accessed by the head function (for non-conventional naming)
+                    -- When head = seoTags and seoTags is defined before RouteBuilder,
+                    -- its field accesses were initially tracked as client-used. Now we correct that.
+                    correctedClientUsedFields =
+                        Set.diff combinedClientUsedFields headFunctionFields
+
                     -- Apply safe fallback: if we can't track field usage, mark ALL as client-used
                     effectiveClientUsedFields =
                         if context.markAllFieldsAsClientUsed || unresolvedHelperCalls then
@@ -1836,7 +1902,7 @@ finalEvaluation context =
                             allFieldNames
 
                         else
-                            combinedClientUsedFields
+                            correctedClientUsedFields
 
                     -- Removable fields: all fields that are NOT used in client context
                     removableFields =

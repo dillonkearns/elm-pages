@@ -753,4 +753,379 @@ view app =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "Case pattern tracking - both agree on record patterns"
+            [ test "AGREEMENT: case with record pattern - server tracks specific fields" <|
+                \() ->
+                    -- case app.data of { title } -> ... tracks title as persistent
+                    -- body is ephemeral since it's not accessed
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    case app.data of
+        { title } ->
+            { title = title
+            , body = []
+            }
+"""
+                    in
+                    -- Server marks body as ephemeral (title is tracked via record pattern)
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view app =
+    case app.data of
+        { title } ->
+            { title = title
+            , body = []
+            }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    case app.data of
+        { title } ->
+            { title = title
+            , body = []
+            }
+"""
+                            ]
+            , test "AGREEMENT: case with record pattern - client also tracks specific fields" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    case app.data of
+        { title } ->
+            { title = title
+            , body = []
+            }
+"""
+                    in
+                    -- Client also marks body as ephemeral (title tracked via record pattern)
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+view app =
+    case app.data of
+        { title } ->
+            { title = title
+            , body = []
+            }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "AGREEMENT: case with variable pattern - server bails out" <|
+                \() ->
+                    -- case app.data of d -> d.title uses variable pattern, must bail out
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    case app.data of
+        d ->
+            { title = d.title
+            , body = []
+            }
+"""
+                    in
+                    -- Server bails out: variable pattern is not trackable
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectNoErrors
+            , test "AGREEMENT: case with variable pattern - client also bails out" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    case app.data of
+        d ->
+            { title = d.title
+            , body = []
+            }
+"""
+                    in
+                    -- Client bails out: variable pattern is not trackable
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)\"}"
+                                , details = [ "No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)" ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
+        , describe "Uncalled helper functions - both agree"
+            [ test "AGREEMENT: uncalled helper with app.data - server marks body as ephemeral" <|
+                \() ->
+                    -- Helper function that's defined but never called from view
+                    -- Its field accesses don't count as client-used
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+unusedHelper app =
+    [ app.data.body ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                    in
+                    -- Server: body is accessed in unusedHelper, but unusedHelper is never called
+                    -- from view, so body is never needed in client context → ephemeral
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+unusedHelper app =
+    [ app.data.body ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+unusedHelper app =
+    [ app.data.body ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            ]
+            , test "AGREEMENT: uncalled helper with app.data - client also marks body as ephemeral" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+unusedHelper app =
+    [ app.data.body ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                    in
+                    -- Client: body is accessed in unusedHelper, but unusedHelper is never called
+                    -- from view, so body is never needed in client context → ephemeral
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+unusedHelper app =
+    [ app.data.body ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         ]
