@@ -24,6 +24,11 @@ const [nodeFolder, elmFolder, elmCodegenFolder] = await Promise.all([
   which("elm-codegen").then(dirname),
 ]);
 
+// System paths needed for lamdera to spawn subprocesses
+const systemPaths = ["/bin", "/usr/bin", "/usr/local/bin"].filter(
+  (p) => existsSync(p)
+);
+
 function tryAndIgnore(thunk) {
   try {
     return thunk();
@@ -73,8 +78,8 @@ describe.sequential("runElmCodegenInstall", () => {
 
   describe("via elm-pages run", () => {
     beforeEach(() => {
-      // Include /bin and /usr/bin so lamdera can find system utilities (sh, etc.)
-      process.env.PATH = [nodeFolder, elmFolder, elmCodegenFolder, "/bin", "/usr/bin"].join(":");
+      // Include system paths so lamdera can spawn subprocesses (sh, etc.)
+      process.env.PATH = [nodeFolder, elmFolder, elmCodegenFolder, ...systemPaths].join(":");
     });
     afterEach(() => {
       process.env.PATH = originalPATH;
