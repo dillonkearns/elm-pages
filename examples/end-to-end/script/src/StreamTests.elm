@@ -219,8 +219,8 @@ b =
                 (Expect.equal "Hi! I'm metadata from customWriteStream!")
         , Stream.fileRead "does-not-exist"
             |> Stream.run
-            |> expectError "file not found error"
-                "Error: ENOENT: no such file or directory, open '/Users/dillonkearns/src/github.com/dillonkearns/elm-pages/examples/end-to-end/does-not-exist'"
+            |> expectErrorContains "file not found error"
+                "ENOENT: no such file or directory"
         , Stream.fromString "This is input..."
             |> Stream.pipe (Stream.fileWrite "/this/is/invalid.txt")
             |> Stream.run
@@ -233,6 +233,43 @@ b =
             |> test "gzip alone is no-op"
                 (\() ->
                     Expect.pass
+                )
+          -- Test that gzip with no input produces valid output that can be unzipped
+        , Stream.gzip
+            |> Stream.pipe Stream.unzip
+            |> Stream.read
+            |> try
+            |> test "gzip with no input can be unzipped to empty"
+                (\{ body } ->
+                    body
+                        |> Expect.equal ""
+                )
+          -- Test that a command with no stdin input completes without hanging
+          -- This is the fix for GUI apps like ksdiff/meld that wait for stdin to close
+        , Stream.command "echo" [ "hello from command with no stdin" ]
+            |> Stream.read
+            |> try
+            |> test "command with no stdin input"
+                (\{ body } ->
+                    body
+                        |> String.trim
+                        |> Expect.equal "hello from command with no stdin"
+                )
+          -- Test piping gzip output to a file, then reading and unzipping
+        , Stream.gzip
+            |> Stream.pipe (Stream.fileWrite "empty-gzip-test.gz")
+            |> Stream.run
+            |> BackendTask.andThen
+                (\() ->
+                    Stream.fileRead "empty-gzip-test.gz"
+                        |> Stream.pipe Stream.unzip
+                        |> Stream.read
+                        |> try
+                )
+            |> test "gzip with no input written to file can be read and unzipped"
+                (\{ body } ->
+                    body
+                        |> Expect.equal ""
                 )
         , Script.exec "does-not-exist-exec" []
             |> expectError "exec with non-0 fails"
@@ -279,6 +316,36 @@ expectError name message task =
                                     |> TerminalText.fromAnsiString
                                     |> TerminalText.toPlainString
                                     |> Expect.equal message
+            )
+
+
+expectErrorContains : String -> String -> BackendTask FatalError a -> BackendTask FatalError Test.Test
+expectErrorContains name substring task =
+    task
+        |> BackendTask.toResult
+        |> BackendTask.map
+            (\result ->
+                Test.test name <|
+                    \() ->
+                        case result of
+                            Ok _ ->
+                                Expect.fail "Expected a failure, but got success!"
+
+                            Err error ->
+                                let
+                                    (FatalError info) =
+                                        error
+
+                                    errorText =
+                                        info.body
+                                            |> TerminalText.fromAnsiString
+                                            |> TerminalText.toPlainString
+                                in
+                                if String.contains substring errorText then
+                                    Expect.pass
+
+                                else
+                                    Expect.fail ("Expected error to contain '" ++ substring ++ "' but got: " ++ errorText)
             )
 
 

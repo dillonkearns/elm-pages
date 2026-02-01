@@ -746,6 +746,9 @@ function runStream(req, portsFile) {
           });
           if (validateStream.isDuplexStream(newLocal.stream)) {
             pipeIfPossible(lastStream, newLocal.stream);
+            if (!lastStream) {
+              endStreamIfNoInput(newLocal.stream);
+            }
             return newLocal;
           } else {
             throw `Expected '${part.portName}' to be a duplex stream!`;
@@ -770,21 +773,28 @@ function runStream(req, portsFile) {
             resolve({ error: "Expected a writable stream!" });
           } else {
             pipeIfPossible(lastStream, newLocal.stream);
+            if (!lastStream) {
+              endStreamIfNoInput(newLocal.stream);
+            }
           }
           return newLocal;
         } else if (part.name === "gzip") {
           const gzip = zlib.createGzip();
           if (!lastStream) {
-            gzip.end();
+            endStreamIfNoInput(gzip);
           }
           return {
             metadata: null,
             stream: pipeIfPossible(lastStream, gzip),
           };
         } else if (part.name === "unzip") {
+          const unzip = zlib.createUnzip();
+          if (!lastStream) {
+            endStreamIfNoInput(unzip);
+          }
           return {
             metadata: null,
-            stream: pipeIfPossible(lastStream, zlib.createUnzip()),
+            stream: pipeIfPossible(lastStream, unzip),
           };
         } else if (part.name === "fileWrite") {
           const destinationPath = path.resolve(part.path);
@@ -801,9 +811,13 @@ function runStream(req, portsFile) {
             newLocal.removeAllListeners();
             resolve({ error: error.toString() });
           });
+          pipeIfPossible(lastStream, newLocal);
+          if (!lastStream) {
+            endStreamIfNoInput(newLocal);
+          }
           return {
             metadata: null,
-            stream: pipeIfPossible(lastStream, newLocal),
+            stream: newLocal,
           };
         } else if (part.name === "httpWrite") {
           const makeFetchHappen = makeFetchHappenOriginal.defaults({
@@ -865,6 +879,9 @@ function runStream(req, portsFile) {
           });
 
           pipeIfPossible(lastStream, newProcess.stdin);
+          if (!lastStream) {
+            endStreamIfNoInput(newProcess.stdin);
+          }
           let newStream;
           if (output === "MergeWithStdout") {
             newStream = mergeStreams([newProcess.stdout, newProcess.stderr]);
@@ -882,7 +899,7 @@ function runStream(req, portsFile) {
           if (isLastProcess) {
             return {
               stream: newStream,
-              metadata: new Promise((resoveMeta) => {
+              metadata: new Promise((resolveMeta) => {
                 newProcess.once("exit", (code) => {
                   if (code !== 0 && !allowNon0Status) {
                     newStream && newStream.end();
@@ -891,7 +908,7 @@ function runStream(req, portsFile) {
                     });
                   }
 
-                  resoveMeta({
+                  resolveMeta({
                     exitCode: code,
                   });
                 });
@@ -928,6 +945,45 @@ function pipeIfPossible(input, destination) {
   } else {
     return destination;
   }
+}
+
+/**
+ * Safely signals EOF to a writable stream when no input will be piped to it.
+ *
+ * This is necessary because when a writable stream (like a child process's stdin)
+ * is created but nothing is piped to it, the receiving end has no way to know
+ * that no data is coming. It will wait indefinitely for the pipe to close.
+ *
+ * GUI applications like ksdiff/meld are particularly affected - they wait for
+ * stdin to close before proceeding, causing hangs if we don't explicitly end it.
+ *
+ * @param {import('stream').Writable | null | undefined} stream - The writable stream to end
+ */
+function endStreamIfNoInput(stream) {
+  if (!stream) {
+    return;
+  }
+
+  // Check if stream is still in a state where .end() is valid
+  // - writable: false if the stream has been destroyed or ended
+  // - writableEnded: true if .end() has already been called
+  // - destroyed: true if .destroy() has been called
+  if (!stream.writable || stream.writableEnded || stream.destroyed) {
+    return;
+  }
+
+  // Add a one-time error handler to prevent unhandled error crashes
+  // This can happen if the child process exits before we call .end()
+  stream.once("error", (err) => {
+    // EPIPE: "broken pipe" - the other end closed before we finished
+    // This is expected if the child process exits quickly
+    if (err.code !== "EPIPE") {
+      // Log unexpected errors but don't crash - this is cleanup code
+      console.error("Stream end error:", err.message);
+    }
+  });
+
+  stream.end();
 }
 
 function stdout() {
