@@ -38,12 +38,6 @@ type alias RouteParams =
     { section : Maybe String }
 
 
-{-| Data type with both persistent and ephemeral fields.
-
-  - `titles`, `metadata`: Used in head and view title (persistent)
-  - `body`, `previousAndNext`, `editUrl`: Used only inside View.freeze (ephemeral, DCE'd)
-
--}
 type alias Data =
     { titles : { title : String }
     , metadata : { title : String, description : String }
@@ -223,28 +217,16 @@ view app sharedModel =
             , Html.article
                 [ Attr.class "prose relative pt-20 pb-16 px-6 w-full max-w-full overflow-x-hidden md:px-8"
                 ]
-                [ -- Frozen content - ephemeral fields (body, previousAndNext, editUrl) are removed
-                  -- from client Data type. The helper uses an extensible record type so it still compiles.
-                  View.freeze (renderStaticContent app.data)
-                ]
+                [ View.freeze (renderStaticContent app.data) ]
             ]
         ]
     }
 
 
-{-| Render the article content as a frozen view.
-All of this code is eliminated from the client bundle via DCE.
-
-Note: We use an extensible record type instead of Data so this function still
-compiles when the Data type alias is narrowed (ephemeral fields removed).
+{-| Render the docs article content. This is static/frozen content that gets
+pre-rendered at build time and hydrated on the client.
 -}
-renderStaticContent :
-    { a
-        | body : List Block
-        , previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item )
-        , editUrl : String
-    }
-    -> Html Never
+renderStaticContent : Data -> Html Never
 renderStaticContent pageData =
     Html.div
         [ Attr.class "max-w-screen-md mx-auto xl:pr-36"

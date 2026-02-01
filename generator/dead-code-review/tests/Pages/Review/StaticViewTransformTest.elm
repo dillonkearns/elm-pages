@@ -1774,6 +1774,100 @@ renderContent data =
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
+            , test "helper with Data type annotation gets Ephemeral type generated" <|
+                \() ->
+                    -- When a freeze-only helper has an explicit Data type annotation,
+                    -- we generate an Ephemeral type alias and change the annotation to use it
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (renderContent app.data) ]
+    }
+
+renderContent : Data -> Html.Html msg
+renderContent pageData =
+    Html.text pageData.body
+"""
+                        |> Review.Test.run rule
+                        -- Should generate Ephemeral type and change helper annotation
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (renderContent app.data)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+
+renderContent : Data -> Html.Html msg
+renderContent pageData =
+    Html.text pageData.body
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    , "Generating Ephemeral type alias and updating helper annotations for: renderContent"
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+
+type alias Ephemeral =
+    { title : String, body : String }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (renderContent app.data) ]
+    }
+
+renderContent : Ephemeral -> Html.Html msg
+renderContent pageData =
+    Html.text pageData.body
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
             , test "app.data passed to trackable helper in client context allows optimization" <|
                 \() ->
                     -- When app.data is passed to a helper function in CLIENT context,

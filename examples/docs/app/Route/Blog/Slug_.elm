@@ -40,15 +40,6 @@ type alias RouteParams =
     { slug : String }
 
 
-{-| Data type with both persistent and ephemeral fields.
-
-  - `metadata`: Used in view title and head (persistent, sent to client)
-  - `body`: Used only inside View.freeze (ephemeral, DCE'd)
-
-The renderFullPage helper uses an extensible record type `{ a | metadata : ..., body : ... }`
-instead of `Data`, so it still compiles when the Data type is narrowed.
-
--}
 type alias Data =
     { metadata : ArticleMetadata
     , body : List Markdown.Block.Block
@@ -86,22 +77,14 @@ view :
     -> View (PagesMsg Msg)
 view app shared =
     { title = app.data.metadata.title
-    , body =
-        [ -- Frozen content - body field is ephemeral (only used in freeze)
-          -- The helper uses an inline record type, not the Data alias, so it still
-          -- compiles when Data is narrowed
-          View.freeze (renderFullPage app.data)
-        ]
+    , body = [ View.freeze (renderFullPage app.data) ]
     }
 
 
-{-| Render the entire page body as frozen content.
-All of this code is eliminated from the client bundle via DCE.
-
-Note: We use an inline record type instead of Data so this function still
-compiles when the Data type alias is narrowed (ephemeral fields removed).
+{-| Render the blog post content. This is static/frozen content that gets
+pre-rendered at build time and hydrated on the client.
 -}
-renderFullPage : { a | metadata : ArticleMetadata, body : List Markdown.Block.Block } -> Html Never
+renderFullPage : Data -> Html Never
 renderFullPage pageData =
     let
         author =
@@ -213,9 +196,6 @@ head app =
            )
 
 
-{-| Load metadata and body.
-Metadata is used in head (persistent), body is used only in freeze (ephemeral).
--}
 data : RouteParams -> BackendTask FatalError Data
 data routeParams =
     MarkdownCodec.withFrontmatter

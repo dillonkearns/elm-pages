@@ -141,6 +141,14 @@ type alias Context =
     -- These need to be resolved in finalEvaluation after all helpers are analyzed
     -- Nothing = unknown function (mark all fields), Just name = lookup in helperFunctions
     , pendingHelperCalls : List (Maybe String)
+
+    -- Helpers called with app.data inside freeze context
+    -- These can have their type annotations updated from Data to Ephemeral
+    , helpersCalledInFreeze : Set String
+
+    -- Ranges where "Data" appears in helper type annotations (maps function name -> list of ranges)
+    -- Used to replace Data with Ephemeral for freeze-only helpers
+    , helperDataTypeRanges : Dict String (List Range)
     }
 
 
@@ -193,6 +201,8 @@ initialContext =
             , narrowedDataExists = False
             , helperFunctions = Dict.empty
             , pendingHelperCalls = []
+            , helpersCalledInFreeze = Set.empty
+            , helperDataTypeRanges = Dict.empty
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -315,16 +325,36 @@ declarationEnterVisitor node context =
                     helperAnalysis =
                         analyzeHelperFunction function
 
+                    -- Find all ranges where "Data" appears in the type annotation
+                    -- These can be replaced with "Ephemeral" for freeze-only helpers
+                    dataRangesInSignature =
+                        case function.signature of
+                            Just (Node _ signature) ->
+                                findDataTypeRanges signature.typeAnnotation
+
+                            Nothing ->
+                                []
+
+                    contextWithDataRanges =
+                        if List.isEmpty dataRangesInSignature then
+                            contextWithAppDataRanges
+
+                        else
+                            { contextWithAppDataRanges
+                                | helperDataTypeRanges =
+                                    Dict.insert functionName dataRangesInSignature contextWithAppDataRanges.helperDataTypeRanges
+                            }
+
                     contextWithHelper =
                         case helperAnalysis of
                             Just analysis ->
-                                { contextWithAppDataRanges
+                                { contextWithDataRanges
                                     | helperFunctions =
-                                        Dict.insert functionName analysis contextWithAppDataRanges.helperFunctions
+                                        Dict.insert functionName analysis contextWithDataRanges.helperFunctions
                                 }
 
                             Nothing ->
-                                contextWithAppDataRanges
+                                contextWithDataRanges
                 in
                 ( [], contextWithHelper )
 
@@ -445,7 +475,7 @@ expressionEnterVisitor node context =
                     contextWithDataConstructorCheck
 
         -- Track entering freeze calls
-        -- Also check if app.data is passed as a whole in CLIENT context
+        -- Also check if app.data is passed as a whole in CLIENT or FREEZE context
         contextWithFreezeTracking =
             case Node.value node of
                 Expression.Application (functionNode :: args) ->
@@ -458,12 +488,12 @@ expressionEnterVisitor node context =
                                     { contextWithRouteBuilder | inFreezeCall = True }
 
                                 _ ->
-                                    -- Check for app.data passed as whole in CLIENT context
-                                    checkAppDataPassedInClientContext contextWithRouteBuilder functionNode args
+                                    -- Check for app.data passed as whole in CLIENT or FREEZE context
+                                    checkAppDataPassedToHelper contextWithRouteBuilder functionNode args
 
                         _ ->
-                            -- Check for app.data passed as whole in CLIENT context
-                            checkAppDataPassedInClientContext contextWithRouteBuilder functionNode args
+                            -- Check for app.data passed as whole in CLIENT or FREEZE context
+                            checkAppDataPassedToHelper contextWithRouteBuilder functionNode args
 
                 _ ->
                     contextWithRouteBuilder
@@ -1236,6 +1266,47 @@ findAppDataRanges node =
             []
 
 
+{-| Find all ranges where "Data" appears as a type in a type annotation.
+
+This is used to replace Data with Ephemeral in freeze-only helper annotations.
+Returns the ranges of the "Data" type references (not the full Typed node).
+
+-}
+findDataTypeRanges : Node TypeAnnotation -> List Range
+findDataTypeRanges node =
+    case Node.value node of
+        TypeAnnotation.Typed (Node range ( [], "Data" )) args ->
+            -- Found "Data" type! Return its range, plus check any type args
+            range :: List.concatMap findDataTypeRanges args
+
+        TypeAnnotation.Typed _ args ->
+            -- Not Data, but check type arguments
+            List.concatMap findDataTypeRanges args
+
+        TypeAnnotation.FunctionTypeAnnotation left right ->
+            findDataTypeRanges left ++ findDataTypeRanges right
+
+        TypeAnnotation.Tupled nodes ->
+            List.concatMap findDataTypeRanges nodes
+
+        TypeAnnotation.Record fields ->
+            fields
+                |> List.concatMap
+                    (\(Node _ ( _, typeNode )) ->
+                        findDataTypeRanges typeNode
+                    )
+
+        TypeAnnotation.GenericRecord _ (Node _ fields) ->
+            fields
+                |> List.concatMap
+                    (\(Node _ ( _, typeNode )) ->
+                        findDataTypeRanges typeNode
+                    )
+
+        _ ->
+            []
+
+
 {-| Add a field access to clientUsedFields if we're in a CLIENT context.
 Fields accessed in ephemeral contexts (freeze, head) are NOT tracked.
 -}
@@ -1331,8 +1402,10 @@ extractSimpleFunctionName node =
             Nothing
 
 
-{-| Check if app.data is passed as a whole to a function in CLIENT context.
-If we're in an ephemeral context (freeze/head), we don't care.
+{-| Check if app.data is passed as a whole to a function.
+
+In CLIENT context: track as pending helper call for field usage analysis.
+In FREEZE context: track as helper called in freeze for potential stubbing.
 
 Instead of immediately resolving helper lookups (which may fail if the helper
 is declared after the call site), we store pending helper calls to be resolved
@@ -1342,84 +1415,106 @@ in finalEvaluation after all helper functions have been analyzed.
   - Nothing = can't track (qualified function, app.data wrapped in list/tuple/etc.)
 
 -}
-checkAppDataPassedInClientContext : Context -> Node Expression -> List (Node Expression) -> Context
-checkAppDataPassedInClientContext context functionNode args =
+checkAppDataPassedToHelper : Context -> Node Expression -> List (Node Expression) -> Context
+checkAppDataPassedToHelper context functionNode args =
+    let
+        -- Check for DIRECT app.data arguments (can potentially use helper analysis)
+        -- vs WRAPPED app.data arguments (list, tuple, etc. - can't track)
+        ( directAppDataArgs, wrappedAppDataArgs ) =
+            args
+                |> List.foldl
+                    (\arg ( direct, wrapped ) ->
+                        case Node.value arg of
+                            -- Check if this is app.data directly (not app.data.field)
+                            Expression.RecordAccess innerExpr (Node _ fieldName) ->
+                                if fieldName == "data" && isAppDataExpression arg context then
+                                    -- This IS app.data passed directly - potentially trackable
+                                    ( arg :: direct, wrapped )
+
+                                else if isAppDataAccess innerExpr context then
+                                    -- This is app.data.field - trackable via normal field tracking, skip
+                                    ( direct, wrapped )
+
+                                else if containsAppDataExpression innerExpr context then
+                                    -- app.data is nested inside - untrackable
+                                    ( direct, arg :: wrapped )
+
+                                else
+                                    ( direct, wrapped )
+
+                            -- If the arg is a function call that contains app.data,
+                            -- we can't track which fields are used - untrackable
+                            Expression.Application innerArgs ->
+                                if List.any (\a -> containsAppDataExpression a context) innerArgs then
+                                    ( direct, arg :: wrapped )
+
+                                else
+                                    ( direct, wrapped )
+
+                            -- Variable bound to app.data passed directly
+                            Expression.FunctionOrValue [] varName ->
+                                if Set.member varName context.appDataBindings then
+                                    ( arg :: direct, wrapped )
+
+                                else
+                                    ( direct, wrapped )
+
+                            -- Lists, tuples, etc. containing app.data - untrackable
+                            _ ->
+                                if containsAppDataExpression arg context then
+                                    ( direct, arg :: wrapped )
+
+                                else
+                                    ( direct, wrapped )
+                    )
+                    ( [], [] )
+
+        hasDirectAppData =
+            not (List.isEmpty directAppDataArgs)
+
+        hasWrappedAppData =
+            not (List.isEmpty wrappedAppDataArgs)
+
+        -- Extract function name if it's a local function
+        maybeFuncName =
+            case Node.value functionNode of
+                Expression.FunctionOrValue [] funcName ->
+                    Just funcName
+
+                _ ->
+                    Nothing
+    in
     if context.inFreezeCall || context.inHeadFunction then
-        -- In ephemeral context - we don't care about tracking here
-        context
+        -- In ephemeral context (freeze/head)
+        -- Track local functions called with app.data for potential stubbing
+        case maybeFuncName of
+            Just funcName ->
+                if hasDirectAppData || hasWrappedAppData then
+                    -- Local function called with app.data in freeze context
+                    { context | helpersCalledInFreeze = Set.insert funcName context.helpersCalledInFreeze }
+
+                else
+                    context
+
+            Nothing ->
+                -- Qualified or complex function - we can't stub it, but that's OK
+                -- in freeze context since the code won't run on client anyway
+                context
 
     else
         -- In client context - check if app.data is passed as a whole
-        let
-            -- Check for DIRECT app.data arguments (can potentially use helper analysis)
-            -- vs WRAPPED app.data arguments (list, tuple, etc. - can't track)
-            ( directAppDataArgs, wrappedAppDataArgs ) =
-                args
-                    |> List.foldl
-                        (\arg ( direct, wrapped ) ->
-                            case Node.value arg of
-                                -- Check if this is app.data directly (not app.data.field)
-                                Expression.RecordAccess innerExpr (Node _ fieldName) ->
-                                    if fieldName == "data" && isAppDataExpression arg context then
-                                        -- This IS app.data passed directly - potentially trackable
-                                        ( arg :: direct, wrapped )
-
-                                    else if isAppDataAccess innerExpr context then
-                                        -- This is app.data.field - trackable via normal field tracking, skip
-                                        ( direct, wrapped )
-
-                                    else if containsAppDataExpression innerExpr context then
-                                        -- app.data is nested inside - untrackable
-                                        ( direct, arg :: wrapped )
-
-                                    else
-                                        ( direct, wrapped )
-
-                                -- If the arg is a function call that contains app.data,
-                                -- we can't track which fields are used - untrackable
-                                Expression.Application innerArgs ->
-                                    if List.any (\a -> containsAppDataExpression a context) innerArgs then
-                                        ( direct, arg :: wrapped )
-
-                                    else
-                                        ( direct, wrapped )
-
-                                -- Variable bound to app.data passed directly
-                                Expression.FunctionOrValue [] varName ->
-                                    if Set.member varName context.appDataBindings then
-                                        ( arg :: direct, wrapped )
-
-                                    else
-                                        ( direct, wrapped )
-
-                                -- Lists, tuples, etc. containing app.data - untrackable
-                                _ ->
-                                    if containsAppDataExpression arg context then
-                                        ( direct, arg :: wrapped )
-
-                                    else
-                                        ( direct, wrapped )
-                        )
-                        ( [], [] )
-
-            hasDirectAppData =
-                not (List.isEmpty directAppDataArgs)
-
-            hasWrappedAppData =
-                not (List.isEmpty wrappedAppDataArgs)
-        in
         if hasWrappedAppData then
             -- app.data is wrapped in list/tuple/etc. - can't track, bail out
             { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
 
         else if hasDirectAppData then
             -- app.data passed directly - may be able to track via helper analysis
-            case Node.value functionNode of
-                Expression.FunctionOrValue [] funcName ->
+            case maybeFuncName of
+                Just funcName ->
                     -- Local function - store name for lookup in finalEvaluation
                     { context | pendingHelperCalls = Just funcName :: context.pendingHelperCalls }
 
-                _ ->
+                Nothing ->
                     -- Qualified or complex function expression - can't look up
                     { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
 
@@ -1831,10 +1926,73 @@ finalEvaluation context =
                                 Nothing ->
                                     []
 
+                        -- Find helpers that are ONLY called from freeze context (not from client)
+                        -- These need their type annotations updated from Data to Ephemeral
+                        helpersCalledInClientContext =
+                            context.pendingHelperCalls
+                                |> List.filterMap identity
+                                |> Set.fromList
+
+                        freezeOnlyHelpers =
+                            context.helpersCalledInFreeze
+                                |> Set.filter (\name -> not (Set.member name helpersCalledInClientContext))
+
+                        -- Find freeze-only helpers that have Data in their type annotation
+                        -- These need Data replaced with Ephemeral to continue type-checking
+                        helpersNeedingEphemeral =
+                            freezeOnlyHelpers
+                                |> Set.filter (\name -> Dict.member name context.helperDataTypeRanges)
+
                         -- Narrow the Data type directly by replacing the record definition
                         -- with only client-used fields
                         removableFieldsList =
                             Set.toList removableFields
+
+                        -- Collect all helper annotation Data->Ephemeral replacements
+                        helperAnnotationReplacements =
+                            helpersNeedingEphemeral
+                                |> Set.toList
+                                |> List.concatMap
+                                    (\helperName ->
+                                        case Dict.get helperName context.helperDataTypeRanges of
+                                            Just dataRanges ->
+                                                dataRanges
+                                                    |> List.map
+                                                        (\dataRange ->
+                                                            Review.Fix.replaceRangeBy dataRange "Ephemeral"
+                                                        )
+
+                                            Nothing ->
+                                                []
+                                    )
+
+                        -- Generate Ephemeral type insertion if needed
+                        ephemeralTypeInsertion =
+                            if Set.isEmpty helpersNeedingEphemeral then
+                                []
+
+                            else
+                                let
+                                    fullTypeAnnotation =
+                                        "{ "
+                                            ++ (context.dataTypeFields
+                                                    |> List.map (\( name, typeNode ) -> name ++ " : " ++ typeAnnotationToString (Node.value typeNode))
+                                                    |> String.join ", "
+                                               )
+                                            ++ " }"
+
+                                    insertPosition =
+                                        { row = context.dataTypeDeclarationEndRow + 1, column = 1 }
+                                in
+                                [ Review.Fix.insertAt insertPosition
+                                    ("\n\ntype alias Ephemeral =\n    " ++ fullTypeAnnotation ++ "\n")
+                                ]
+
+                        -- Combine all fixes into a single error (Data narrowing + Ephemeral generation + annotation updates)
+                        allDataTypeFixes =
+                            [ Review.Fix.replaceRangeBy range newTypeAnnotation ]
+                                ++ ephemeralTypeInsertion
+                                ++ helperAnnotationReplacements
 
                         dataTypeNarrowFix =
                             Rule.errorWithFix
@@ -1843,9 +2001,17 @@ finalEvaluation context =
                                     [ "Removing fields from Data type: " ++ String.join ", " removableFieldsList
                                     , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
                                     ]
+                                        ++ (if Set.isEmpty helpersNeedingEphemeral then
+                                                []
+
+                                            else
+                                                [ "Generating Ephemeral type alias and updating helper annotations for: "
+                                                    ++ String.join ", " (Set.toList helpersNeedingEphemeral)
+                                                ]
+                                           )
                                 }
                                 range
-                                [ Review.Fix.replaceRangeBy range newTypeAnnotation ]
+                                allDataTypeFixes
 
                         -- JSON output for the build system to consume
                         -- This is parsed by generate-template-module-connector.js
