@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.28] - 2026-01-31
+
+### Added
+
+- Support for `Script.readKey` and `Script.readKeyWithDefault` from the Elm package.
+
 ## [3.0.27] - 2026-01-07
 
 ### Fixed
