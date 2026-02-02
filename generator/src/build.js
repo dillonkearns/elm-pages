@@ -266,6 +266,20 @@ export async function render(request) {
       response.htmlString.html = updatedHtml;
     }
 
+    // Add empty static regions prefix to bytesData (decoder expects this format)
+    if (response.contentDatPayload && response.htmlString) {
+      const emptyStaticRegionsJson = JSON.stringify({});
+      const emptyStaticRegionsBuffer = Buffer.from(emptyStaticRegionsJson, 'utf8');
+      const emptyLengthBuffer = Buffer.alloc(4);
+      emptyLengthBuffer.writeUInt32BE(emptyStaticRegionsBuffer.length, 0);
+      const htmlBytesBuffer = Buffer.concat([
+        emptyLengthBuffer,
+        emptyStaticRegionsBuffer,
+        Buffer.from(response.contentDatPayload.buffer)
+      ]);
+      response.htmlString.bytesData = htmlBytesBuffer.toString("base64");
+    }
+
     return {
         body: preRenderHtml.replaceTemplate(htmlTemplate, response.htmlString),
         statusCode: response.statusCode,
