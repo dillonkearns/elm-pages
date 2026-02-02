@@ -3,10 +3,12 @@ module Pages.Review.PersistentFieldTracking exposing
     , CasePatternResult(..)
     , FieldAccessResult(..)
     , HelperAnalysis
+    , PendingHelperAction(..)
     , analyzeHelperFunction
     , classifyAppDataArguments
     , computeEphemeralFields
     , containsAppDataExpression
+    , determinePendingHelperAction
     , extractAppDataAccessorApplicationField
     , extractAppDataFieldName
     , extractAppDataBindingsFromLet
@@ -1342,3 +1344,49 @@ containsAppDataExpressionHelp node appParamName appDataBindings isFreezeCall =
 
         _ ->
             False
+
+
+{-| Actions to take for pending helper call tracking.
+
+Used by both client and server transforms to determine what to do with
+the pendingHelperCalls list based on the AppDataClassification.
+
+-}
+type PendingHelperAction
+    = AddKnownHelper String -- Local function with known name
+    | AddUnknownHelper -- Untrackable (wrapped or unknown function)
+    | NoHelperAction -- Skip (accessor application or no app.data involved)
+
+
+{-| Determine what action to take for pending helper calls based on classification.
+
+This extracts the common client-context logic from checkAppDataPassedToHelper
+that both StaticViewTransform and ServerDataTransform use.
+
+Returns a PendingHelperAction that the transform can apply to its context.
+
+-}
+determinePendingHelperAction : AppDataClassification -> PendingHelperAction
+determinePendingHelperAction classification =
+    -- Skip if this is an accessor function application like .field app.data
+    -- which is already handled by trackFieldAccess
+    if classification.isAccessorApplication then
+        NoHelperAction
+
+    else if classification.hasWrappedAppData then
+        -- app.data is wrapped in list/tuple/etc. - can't track, bail out
+        AddUnknownHelper
+
+    else if classification.hasDirectAppData then
+        -- app.data passed directly - may be able to track via helper analysis
+        case classification.maybeFuncName of
+            Just funcName ->
+                -- Local function - store name for lookup in finalEvaluation
+                AddKnownHelper funcName
+
+            Nothing ->
+                -- Qualified or complex function expression - can't look up
+                AddUnknownHelper
+
+    else
+        NoHelperAction

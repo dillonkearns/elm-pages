@@ -733,49 +733,36 @@ containsAppDataExpression node context =
 In CLIENT context: track as pending helper call for field usage analysis.
 In FREEZE context: we don't care (it's ephemeral).
 
-Uses shared classifyAppDataArguments from PersistentFieldTracking.
+Uses shared classifyAppDataArguments and determinePendingHelperAction from PersistentFieldTracking.
 
 -}
 checkAppDataPassedToHelper : Context -> Node Expression -> List (Node Expression) -> Context
 checkAppDataPassedToHelper context functionNode args =
-    let
-        classification =
-            PersistentFieldTracking.classifyAppDataArguments
-                functionNode
-                args
-                context.appParamName
-                context.appDataBindings
-                (\fn -> isViewFreezeCall fn context)
-                (\expr -> containsAppDataExpression expr context)
-    in
-    -- Skip if this is an accessor function application like .field app.data
-    -- which is already handled by trackFieldAccess
-    if classification.isAccessorApplication then
-        context
-
-    else if context.inFreezeCall || context.inHeadFunction then
-        -- In ephemeral context (freeze/head) - we don't care about tracking
+    -- In ephemeral context (freeze/head) - we don't care about tracking
+    if context.inFreezeCall || context.inHeadFunction then
         context
 
     else
-        -- In client context - check if app.data is passed as a whole
-        if classification.hasWrappedAppData then
-            -- app.data is wrapped in list/tuple/etc. - can't track, bail out
-            { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+        let
+            classification =
+                PersistentFieldTracking.classifyAppDataArguments
+                    functionNode
+                    args
+                    context.appParamName
+                    context.appDataBindings
+                    (\fn -> isViewFreezeCall fn context)
+                    (\expr -> containsAppDataExpression expr context)
+        in
+        -- Use shared logic to determine what action to take
+        case PersistentFieldTracking.determinePendingHelperAction classification of
+            PersistentFieldTracking.AddKnownHelper funcName ->
+                { context | pendingHelperCalls = Just funcName :: context.pendingHelperCalls }
 
-        else if classification.hasDirectAppData then
-            -- app.data passed directly - may be able to track via helper analysis
-            case classification.maybeFuncName of
-                Just funcName ->
-                    -- Local function - store name for lookup in finalEvaluation
-                    { context | pendingHelperCalls = Just funcName :: context.pendingHelperCalls }
+            PersistentFieldTracking.AddUnknownHelper ->
+                { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
 
-                Nothing ->
-                    -- Qualified or complex function expression - can't look up
-                    { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
-
-        else
-            context
+            PersistentFieldTracking.NoHelperAction ->
+                context
 
 
 {-| Mark all fields as persistent (safe fallback when we can't track field usage).
