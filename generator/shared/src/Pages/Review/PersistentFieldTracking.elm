@@ -112,11 +112,25 @@ Returns (accessedFields, isTrackable) where:
 -}
 analyzeFieldAccessesOnParam : String -> Node Expression -> ( Set String, Bool )
 analyzeFieldAccessesOnParam paramName expr =
-    analyzeFieldAccessesHelper paramName expr ( Set.empty, True )
+    -- Start with just the parameter name as the only "alias" we track
+    analyzeFieldAccessesWithAliases (Set.singleton paramName) expr ( Set.empty, True )
 
 
-analyzeFieldAccessesHelper : String -> Node Expression -> ( Set String, Bool ) -> ( Set String, Bool )
-analyzeFieldAccessesHelper paramName node ( fields, trackable ) =
+{-| Check if a variable name is the parameter or an alias of the parameter.
+-}
+isParamOrAlias : Set String -> String -> Bool
+isParamOrAlias paramAliases varName =
+    Set.member varName paramAliases
+
+
+{-| Analyze field accesses with support for let-bound aliases of the parameter.
+
+The paramAliases set contains the original parameter name and any variables
+that are simple aliases (e.g., `let d = data in ...`).
+
+-}
+analyzeFieldAccessesWithAliases : Set String -> Node Expression -> ( Set String, Bool ) -> ( Set String, Bool )
+analyzeFieldAccessesWithAliases paramAliases node ( fields, trackable ) =
     if not trackable then
         ( fields, False )
 
@@ -125,17 +139,18 @@ analyzeFieldAccessesHelper paramName node ( fields, trackable ) =
             Expression.RecordAccess innerExpr (Node _ fieldName) ->
                 case Node.value innerExpr of
                     Expression.FunctionOrValue [] varName ->
-                        if varName == paramName then
+                        if isParamOrAlias paramAliases varName then
                             ( Set.insert fieldName fields, trackable )
 
                         else
                             ( fields, trackable )
 
                     _ ->
-                        analyzeFieldAccessesHelper paramName innerExpr ( fields, trackable )
+                        analyzeFieldAccessesWithAliases paramAliases innerExpr ( fields, trackable )
 
             Expression.FunctionOrValue [] varName ->
-                if varName == paramName then
+                if isParamOrAlias paramAliases varName then
+                    -- Bare usage of param or alias - can't track
                     ( fields, False )
 
                 else
@@ -143,118 +158,145 @@ analyzeFieldAccessesHelper paramName node ( fields, trackable ) =
 
             -- Function application - check for accessor function pattern .field param
             Expression.Application exprs ->
-                case extractAccessorFieldFromApplication exprs paramName of
+                case extractAccessorFieldFromApplicationWithAliases exprs paramAliases of
                     Just fieldName ->
                         ( Set.insert fieldName fields, trackable )
 
                     Nothing ->
                         List.foldl
-                            (\e acc -> analyzeFieldAccessesHelper paramName e acc)
+                            (\e acc -> analyzeFieldAccessesWithAliases paramAliases e acc)
                             ( fields, trackable )
                             exprs
 
             Expression.LetExpression letBlock ->
                 let
+                    -- Extract any new aliases from this let block
+                    -- An alias is a simple binding like `let d = param` where param is already an alias
+                    newAliases =
+                        extractAliasesFromLetDeclarations paramAliases letBlock.declarations
+
+                    -- Combined aliases for analyzing the let body
+                    allAliases =
+                        Set.union paramAliases newAliases
+
+                    -- Analyze declarations, but don't recurse into alias bindings
+                    -- (they're just creating aliases, not using fields)
                     ( declFields, declTrackable ) =
                         List.foldl
                             (\declNode acc ->
                                 case Node.value declNode of
                                     Expression.LetFunction letFn ->
-                                        analyzeFieldAccessesHelper paramName (Node.value letFn.declaration).expression acc
+                                        let
+                                            fnDecl =
+                                                Node.value letFn.declaration
+
+                                            bindingName =
+                                                Node.value fnDecl.name
+
+                                            isAlias =
+                                                Set.member bindingName newAliases
+                                        in
+                                        if isAlias then
+                                            -- Skip analyzing alias bindings - they're just aliases
+                                            acc
+
+                                        else
+                                            analyzeFieldAccessesWithAliases allAliases fnDecl.expression acc
 
                                     Expression.LetDestructuring _ letExpr ->
-                                        analyzeFieldAccessesHelper paramName letExpr acc
+                                        analyzeFieldAccessesWithAliases allAliases letExpr acc
                             )
                             ( fields, trackable )
                             letBlock.declarations
                 in
-                analyzeFieldAccessesHelper paramName letBlock.expression ( declFields, declTrackable )
+                analyzeFieldAccessesWithAliases allAliases letBlock.expression ( declFields, declTrackable )
 
             Expression.IfBlock cond then_ else_ ->
                 let
                     ( condFields, condTrackable ) =
-                        analyzeFieldAccessesHelper paramName cond ( fields, trackable )
+                        analyzeFieldAccessesWithAliases paramAliases cond ( fields, trackable )
 
                     ( thenFields, thenTrackable ) =
-                        analyzeFieldAccessesHelper paramName then_ ( condFields, condTrackable )
+                        analyzeFieldAccessesWithAliases paramAliases then_ ( condFields, condTrackable )
                 in
-                analyzeFieldAccessesHelper paramName else_ ( thenFields, thenTrackable )
+                analyzeFieldAccessesWithAliases paramAliases else_ ( thenFields, thenTrackable )
 
             Expression.CaseExpression caseBlock ->
                 let
-                    caseOnParam =
+                    caseOnParamOrAlias =
                         case Node.value caseBlock.expression of
                             Expression.FunctionOrValue [] varName ->
-                                varName == paramName
+                                isParamOrAlias paramAliases varName
 
                             _ ->
                                 False
 
                     ( exprFields, exprTrackable ) =
-                        if caseOnParam then
+                        if caseOnParamOrAlias then
                             ( fields, False )
 
                         else
-                            analyzeFieldAccessesHelper paramName caseBlock.expression ( fields, trackable )
+                            analyzeFieldAccessesWithAliases paramAliases caseBlock.expression ( fields, trackable )
                 in
                 List.foldl
-                    (\( _, caseExpr ) acc -> analyzeFieldAccessesHelper paramName caseExpr acc)
+                    (\( _, caseExpr ) acc -> analyzeFieldAccessesWithAliases paramAliases caseExpr acc)
                     ( exprFields, exprTrackable )
                     caseBlock.cases
 
             Expression.LambdaExpression lambda ->
                 let
-                    shadowsParam =
+                    -- Check if any lambda arg shadows a param alias
+                    shadowsAlias =
                         lambda.args
                             |> List.any
                                 (\arg ->
                                     case extractPatternName arg of
                                         Just name ->
-                                            name == paramName
+                                            isParamOrAlias paramAliases name
 
                                         Nothing ->
                                             False
                                 )
                 in
-                if shadowsParam then
+                if shadowsAlias then
                     ( fields, trackable )
 
                 else
-                    analyzeFieldAccessesHelper paramName lambda.expression ( fields, trackable )
+                    analyzeFieldAccessesWithAliases paramAliases lambda.expression ( fields, trackable )
 
             -- Pipe operators with accessor: param |> .field or .field <| param
             -- Also handles other operators by recursing into both sides
             Expression.OperatorApplication op _ leftExpr rightExpr ->
-                case extractPipeAccessorField op paramName leftExpr rightExpr of
+                case extractPipeAccessorFieldWithAliases op paramAliases leftExpr rightExpr of
                     Just fieldName ->
                         ( Set.insert fieldName fields, trackable )
 
                     Nothing ->
                         let
                             ( leftFields, leftTrackable ) =
-                                analyzeFieldAccessesHelper paramName leftExpr ( fields, trackable )
+                                analyzeFieldAccessesWithAliases paramAliases leftExpr ( fields, trackable )
                         in
-                        analyzeFieldAccessesHelper paramName rightExpr ( leftFields, leftTrackable )
+                        analyzeFieldAccessesWithAliases paramAliases rightExpr ( leftFields, leftTrackable )
 
             Expression.ParenthesizedExpression inner ->
-                analyzeFieldAccessesHelper paramName inner ( fields, trackable )
+                analyzeFieldAccessesWithAliases paramAliases inner ( fields, trackable )
 
             Expression.TupledExpression exprs ->
                 List.foldl
-                    (\e acc -> analyzeFieldAccessesHelper paramName e acc)
+                    (\e acc -> analyzeFieldAccessesWithAliases paramAliases e acc)
                     ( fields, trackable )
                     exprs
 
             Expression.ListExpr exprs ->
                 List.foldl
-                    (\e acc -> analyzeFieldAccessesHelper paramName e acc)
+                    (\e acc -> analyzeFieldAccessesWithAliases paramAliases e acc)
                     ( fields, trackable )
                     exprs
 
             Expression.RecordExpr recordSetters ->
                 List.foldl
                     (\(Node _ ( _, valueExpr )) acc ->
-                        analyzeFieldAccessesHelper paramName valueExpr acc
+                        analyzeFieldAccessesWithAliases paramAliases valueExpr acc
                     )
                     ( fields, trackable )
                     recordSetters
@@ -262,7 +304,7 @@ analyzeFieldAccessesHelper paramName node ( fields, trackable ) =
             Expression.RecordUpdateExpression (Node _ varName) recordSetters ->
                 let
                     ( updateFields, updateTrackable ) =
-                        if varName == paramName then
+                        if isParamOrAlias paramAliases varName then
                             ( fields, False )
 
                         else
@@ -270,16 +312,106 @@ analyzeFieldAccessesHelper paramName node ( fields, trackable ) =
                 in
                 List.foldl
                     (\(Node _ ( _, valueExpr )) acc ->
-                        analyzeFieldAccessesHelper paramName valueExpr acc
+                        analyzeFieldAccessesWithAliases paramAliases valueExpr acc
                     )
                     ( updateFields, updateTrackable )
                     recordSetters
 
             Expression.Negation inner ->
-                analyzeFieldAccessesHelper paramName inner ( fields, trackable )
+                analyzeFieldAccessesWithAliases paramAliases inner ( fields, trackable )
 
             _ ->
                 ( fields, trackable )
+
+
+{-| Extract aliases from let declarations.
+
+A simple alias is a binding like `let d = paramName` where paramName is an existing alias.
+Returns the set of new alias names.
+
+-}
+extractAliasesFromLetDeclarations : Set String -> List (Node Expression.LetDeclaration) -> Set String
+extractAliasesFromLetDeclarations paramAliases declarations =
+    declarations
+        |> List.filterMap
+            (\declNode ->
+                case Node.value declNode of
+                    Expression.LetFunction letFn ->
+                        let
+                            fnDecl =
+                                Node.value letFn.declaration
+                        in
+                        -- Only simple bindings with no arguments
+                        if List.isEmpty fnDecl.arguments then
+                            case Node.value fnDecl.expression of
+                                Expression.FunctionOrValue [] varName ->
+                                    if isParamOrAlias paramAliases varName then
+                                        -- This is an alias: `let newName = existingAlias`
+                                        Just (Node.value fnDecl.name)
+
+                                    else
+                                        Nothing
+
+                                _ ->
+                                    Nothing
+
+                        else
+                            Nothing
+
+                    Expression.LetDestructuring _ _ ->
+                        -- Destructuring patterns are not simple aliases
+                        Nothing
+            )
+        |> Set.fromList
+
+
+{-| Extract field name from accessor function application with alias support.
+-}
+extractAccessorFieldFromApplicationWithAliases : List (Node Expression) -> Set String -> Maybe String
+extractAccessorFieldFromApplicationWithAliases exprs paramAliases =
+    case exprs of
+        [ functionNode, argNode ] ->
+            case ( Node.value functionNode, Node.value argNode ) of
+                ( Expression.RecordAccessFunction accessorName, Expression.FunctionOrValue [] varName ) ->
+                    if isParamOrAlias paramAliases varName then
+                        Just (String.dropLeft 1 accessorName)
+
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
+
+        _ ->
+            Nothing
+
+
+{-| Extract field name from pipe operator with accessor pattern, with alias support.
+-}
+extractPipeAccessorFieldWithAliases : String -> Set String -> Node Expression -> Node Expression -> Maybe String
+extractPipeAccessorFieldWithAliases op paramAliases leftExpr rightExpr =
+    let
+        ( varExpr, accessorExpr ) =
+            case op of
+                "|>" ->
+                    ( leftExpr, rightExpr )
+
+                "<|" ->
+                    ( rightExpr, leftExpr )
+
+                _ ->
+                    ( leftExpr, rightExpr )
+    in
+    case ( Node.value varExpr, Node.value accessorExpr ) of
+        ( Expression.FunctionOrValue [] varName, Expression.RecordAccessFunction accessorName ) ->
+            if isParamOrAlias paramAliases varName then
+                Just (String.dropLeft 1 accessorName)
+
+            else
+                Nothing
+
+        _ ->
+            Nothing
 
 
 {-| Extract variable names from a pattern (for destructuring).
