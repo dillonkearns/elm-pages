@@ -24,6 +24,7 @@ import RouteBuilder exposing (App, StatefulRoute)
 import Server.Request as Request exposing (Request)
 import Server.Response as Response
 import Shared
+import SyntaxHighlight
 import Time
 import UrlPath
 import View exposing (View)
@@ -158,6 +159,9 @@ view app _ model =
 
             -- Frozen explanation cards
             , View.freeze explanationCards
+
+            -- Frozen syntax-highlighted code example (tests DCE of SyntaxHighlight)
+            , View.freeze syntaxHighlightedCodeExample
 
             -- Interactive tabbed content (island)
             , tabbedSection model
@@ -313,6 +317,46 @@ card cardType title content =
             [ text title ]
         , p [ Attr.class "text-gray-700 text-sm" ]
             content
+        ]
+
+
+{-| Syntax-highlighted code example using SyntaxHighlight.
+This is inside View.freeze so the SyntaxHighlight code should be DCE'd from the client bundle.
+-}
+syntaxHighlightedCodeExample : Html Never
+syntaxHighlightedCodeExample =
+    let
+        exampleCode =
+            """module Route.Example exposing (route)
+
+import View
+
+route =
+    RouteBuilder.single
+        { head = head
+        , data = data
+        }
+        |> RouteBuilder.buildNoState { view = view }
+
+view app =
+    { title = "Example"
+    , body =
+        [ View.freeze
+            (h1 [] [ text "Hello!" ])
+        ]
+    }"""
+    in
+    div [ Attr.class "bg-gray-800 rounded-lg p-6 mb-8" ]
+        [ h3 [ Attr.class "text-white font-semibold mb-3" ]
+            [ text "Syntax-Highlighted Example (Frozen)" ]
+        , p [ Attr.class "text-gray-300 text-sm mb-4" ]
+            [ text "This code block uses the SyntaxHighlight library. Because it's inside View.freeze, the syntax highlighting code is eliminated from the client bundle via DCE." ]
+        , div [ Attr.class "overflow-x-auto" ]
+            [ SyntaxHighlight.elm exampleCode
+                |> Result.map (SyntaxHighlight.toBlockHtml (Just 1))
+                |> Result.withDefault
+                    (pre [ Attr.class "text-gray-100" ] [ Html.code [] [ text exampleCode ] ])
+            ]
         ]
 
 
