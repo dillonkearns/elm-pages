@@ -1243,9 +1243,7 @@ finalEvaluation context =
                 let
                     -- All field names from the Data type
                     allFieldNames =
-                        context.dataTypeFields
-                            |> List.map Tuple.first
-                            |> Set.fromList
+                        PersistentFieldTracking.extractFieldNames context.dataTypeFields
 
                     -- Resolve pending helper calls against the now-complete helperFunctions dict
                     -- Returns (additionalClientUsedFields, shouldMarkAllFieldsAsClientUsed)

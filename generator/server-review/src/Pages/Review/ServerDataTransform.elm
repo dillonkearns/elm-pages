@@ -643,70 +643,63 @@ expressionExitVisitor node context =
 
 
 {-| Track field access on app.data
+
+Uses the shared extractFieldAccess function for common patterns (RecordAccess,
+OperatorApplication, Application, RecordUpdateExpression). Handles LetExpression
+and CaseExpression separately as they need context-specific logic.
+
 -}
 trackFieldAccess : Node Expression -> Context -> Context
 trackFieldAccess node context =
-    case Node.value node of
-        Expression.RecordAccess _ _ ->
-            case PersistentFieldTracking.extractAppDataFieldName node context.appParamName context.appDataBindings of
-                Just fieldName ->
-                    addFieldAccess fieldName context
+    -- First, try the unified field extraction for common patterns
+    case PersistentFieldTracking.extractFieldAccess node context.appParamName context.appDataBindings of
+        PersistentFieldTracking.FieldAccessed fieldName ->
+            addFieldAccess fieldName context
 
-                Nothing ->
-                    context
-
-        Expression.LetExpression letBlock ->
-            let
-                newBindings =
-                    PersistentFieldTracking.extractAppDataBindingsFromLet
-                        letBlock.declarations
-                        context.appParamName
-                        context.appDataBindings
-                        (\expr -> isAppDataAccess expr context)
-            in
-            { context | appDataBindings = newBindings }
-
-        -- Pipe operators with accessor: app.data |> .field or .field <| app.data
-        Expression.OperatorApplication op _ leftExpr rightExpr ->
-            case extractAppDataPipeAccessorField op leftExpr rightExpr context of
-                Just fieldName ->
-                    addFieldAccess fieldName context
-
-                Nothing ->
-                    context
-
-        -- Accessor function application: .field app.data
-        -- This is semantically equivalent to app.data |> .field
-        Expression.Application [ functionNode, argNode ] ->
-            case PersistentFieldTracking.extractAppDataAccessorApplicationField functionNode argNode context.appParamName context.appDataBindings of
-                Just fieldName ->
-                    addFieldAccess fieldName context
-
-                Nothing ->
-                    context
-
-        -- Case expression on app.data: case app.data of {...}
-        -- Track record patterns, bail out on variable patterns
-        Expression.CaseExpression caseBlock ->
-            if isAppDataAccess caseBlock.expression context then
-                if context.inFreezeCall || context.inHeadFunction then
-                    -- In ephemeral context, we don't care
-                    context
-
-                else
-                    -- In client context, extract fields from patterns
-                    case PersistentFieldTracking.extractCasePatternFields caseBlock.cases of
-                        PersistentFieldTracking.TrackableFields allFields ->
-                            Set.foldl addFieldAccess context allFields
-
-                        PersistentFieldTracking.UntrackablePattern ->
-                            markAllFieldsAsPersistent context
-
-            else
+        PersistentFieldTracking.MarkAllFieldsUsed ->
+            if context.inFreezeCall || context.inHeadFunction then
+                -- In ephemeral context, we don't care about record updates
                 context
 
-        _ ->
-            context
+            else
+                markAllFieldsAsPersistent context
+
+        PersistentFieldTracking.NoFieldAccess ->
+            -- Handle patterns that need context-specific logic
+            case Node.value node of
+                Expression.LetExpression letBlock ->
+                    let
+                        newBindings =
+                            PersistentFieldTracking.extractAppDataBindingsFromLet
+                                letBlock.declarations
+                                context.appParamName
+                                context.appDataBindings
+                                (\expr -> isAppDataAccess expr context)
+                    in
+                    { context | appDataBindings = newBindings }
+
+                -- Case expression on app.data: case app.data of {...}
+                -- Track record patterns, bail out on variable patterns
+                Expression.CaseExpression caseBlock ->
+                    if isAppDataAccess caseBlock.expression context then
+                        if context.inFreezeCall || context.inHeadFunction then
+                            -- In ephemeral context, we don't care
+                            context
+
+                        else
+                            -- In client context, extract fields from patterns
+                            case PersistentFieldTracking.extractCasePatternFields caseBlock.cases of
+                                PersistentFieldTracking.TrackableFields allFields ->
+                                    Set.foldl addFieldAccess context allFields
+
+                                PersistentFieldTracking.UntrackablePattern ->
+                                    markAllFieldsAsPersistent context
+
+                    else
+                        context
+
+                _ ->
+                    context
 
 
 {-| Check if a function node is a call to View.freeze.
@@ -733,13 +726,6 @@ containsAppDataExpression node context =
         context.appParamName
         context.appDataBindings
         (\fn -> isViewFreezeCall fn context)
-
-
-{-| Extract field name from pipe operator with accessor pattern on app.data.
--}
-extractAppDataPipeAccessorField : String -> Node Expression -> Node Expression -> Context -> Maybe String
-extractAppDataPipeAccessorField op leftExpr rightExpr context =
-    PersistentFieldTracking.extractAppDataPipeAccessorField op leftExpr rightExpr context.appParamName context.appDataBindings
 
 
 {-| Check if app.data is passed as a whole to a function.
@@ -848,31 +834,15 @@ finalEvaluation context =
                 let
                     -- All field names from the Data type
                     allFieldNames =
-                        context.dataTypeFields
-                            |> List.map Tuple.first
-                            |> Set.fromList
+                        PersistentFieldTracking.extractFieldNames context.dataTypeFields
 
-                    -- Resolve pending helper calls against the now-complete helperFunctions dict
-                    -- Returns (additionalClientUsedFields, hasUnresolvedCalls)
-                    ( resolvedHelperFields, unresolvedHelperCalls ) =
-                        PersistentFieldTracking.resolvePendingHelperCalls
+                    -- Compute ephemeral fields using shared logic
+                    ( ephemeralFields, _ ) =
+                        PersistentFieldTracking.computeEphemeralFields
+                            allFieldNames
+                            context.clientUsedFields
                             context.pendingHelperCalls
                             context.helperFunctions
-
-                    -- Combine direct field accesses with helper-resolved fields
-                    effectiveClientUsedFields =
-                        if unresolvedHelperCalls then
-                            -- Can't track, so assume ALL fields are client-used (safe fallback)
-                            allFieldNames
-
-                        else
-                            Set.union context.clientUsedFields resolvedHelperFields
-
-                    -- Ephemeral fields: all fields that are NOT used in client contexts
-                    -- This is the aggressive formula, aligned with client-side transform
-                    ephemeralFields =
-                        allFieldNames
-                            |> Set.filter (\f -> not (Set.member f effectiveClientUsedFields))
 
                     -- Persistent fields for the new Data type
                     persistentFieldDefs =

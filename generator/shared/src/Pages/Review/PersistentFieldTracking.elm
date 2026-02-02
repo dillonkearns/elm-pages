@@ -1,15 +1,19 @@
 module Pages.Review.PersistentFieldTracking exposing
     ( AppDataClassification
     , CasePatternResult(..)
+    , FieldAccessResult(..)
     , HelperAnalysis
     , analyzeHelperFunction
     , classifyAppDataArguments
+    , computeEphemeralFields
     , containsAppDataExpression
     , extractAppDataAccessorApplicationField
     , extractAppDataFieldName
     , extractAppDataBindingsFromLet
     , extractCasePatternFields
     , extractDataTypeRanges
+    , extractFieldAccess
+    , extractFieldNames
     , extractPatternName
     , extractPatternNames
     , extractRecordPatternFields
@@ -31,10 +35,12 @@ to ensure consistency.
 
 @docs AppDataClassification
 @docs CasePatternResult
+@docs FieldAccessResult
 @docs HelperAnalysis
 @docs analyzeHelperFunction
-@docs classifyAppDataArguments, containsAppDataExpression
+@docs classifyAppDataArguments, computeEphemeralFields, containsAppDataExpression
 @docs extractCasePatternFields
+@docs extractFieldAccess, extractFieldNames
 @docs extractPatternName, extractPatternNames, extractRecordPatternFields
 @docs extractPipeAccessorField, extractAccessorFieldFromApplication
 @docs extractAppDataAccessorApplicationField, extractAppDataFieldName, extractAppDataPipeAccessorField
@@ -538,6 +544,78 @@ extractCasePatternFields cases =
         UntrackablePattern
 
 
+{-| Result of extracting field access from an expression.
+
+This is a unified type for field tracking that both client and server transforms
+can use to handle different expression patterns uniformly.
+
+-}
+type FieldAccessResult
+    = FieldAccessed String -- A specific field was accessed
+    | MarkAllFieldsUsed -- Can't track - mark all fields as client-used (e.g., record update on app.data)
+    | NoFieldAccess -- No app.data field access in this expression
+
+
+{-| Extract field access from an expression.
+
+This unifies the common field tracking logic used by both StaticViewTransform
+and ServerDataTransform. It handles:
+
+  - RecordAccess: `app.data.field`
+  - OperatorApplication: `app.data |> .field` or `.field <| app.data`
+  - Application: `.field app.data`
+  - CaseExpression: `case app.data of {...}`
+  - RecordUpdateExpression: `{ d | field = value }` where `d = app.data`
+
+Returns a FieldAccessResult indicating what was found.
+
+Note: LetExpression binding extraction is handled separately as it needs to
+update context state (appDataBindings), not just report field accesses.
+
+-}
+extractFieldAccess : Node Expression -> Maybe String -> Set String -> FieldAccessResult
+extractFieldAccess node appParamName appDataBindings =
+    case Node.value node of
+        -- Field access: app.data.fieldName
+        Expression.RecordAccess _ _ ->
+            case extractAppDataFieldName node appParamName appDataBindings of
+                Just fieldName ->
+                    FieldAccessed fieldName
+
+                Nothing ->
+                    NoFieldAccess
+
+        -- Pipe operators with accessor: app.data |> .field or .field <| app.data
+        Expression.OperatorApplication op _ leftExpr rightExpr ->
+            case extractAppDataPipeAccessorField op leftExpr rightExpr appParamName appDataBindings of
+                Just fieldName ->
+                    FieldAccessed fieldName
+
+                Nothing ->
+                    NoFieldAccess
+
+        -- Accessor function application: .field app.data
+        Expression.Application [ functionNode, argNode ] ->
+            case extractAppDataAccessorApplicationField functionNode argNode appParamName appDataBindings of
+                Just fieldName ->
+                    FieldAccessed fieldName
+
+                Nothing ->
+                    NoFieldAccess
+
+        -- Record update on app.data binding: { d | field = value } where d = app.data
+        -- All fields from app.data are used (copied) in the update, so we can't track
+        Expression.RecordUpdateExpression (Node _ varName) _ ->
+            if Set.member varName appDataBindings then
+                MarkAllFieldsUsed
+
+            else
+                NoFieldAccess
+
+        _ ->
+            NoFieldAccess
+
+
 {-| Extract a single name from a pattern (for function parameter names).
 -}
 extractPatternName : Node Pattern -> Maybe String
@@ -784,6 +862,64 @@ resolvePendingHelperCalls pendingCalls helperFunctions =
                                 ( fields, True )
             )
             ( Set.empty, False )
+
+
+{-| Extract all field names from a list of field definitions.
+
+This is a common operation in both transforms when computing which fields
+are ephemeral vs persistent.
+
+-}
+extractFieldNames : List ( String, a ) -> Set String
+extractFieldNames fields =
+    fields
+        |> List.map Tuple.first
+        |> Set.fromList
+
+
+{-| Compute which fields are ephemeral given:
+
+  - allFieldNames: All field names from the Data type
+  - clientUsedFields: Fields directly accessed in client contexts
+  - pendingHelperCalls: Helper calls to resolve
+  - helperFunctions: Dictionary of analyzed helper functions
+
+Returns (ephemeralFields, hasUnresolvedCalls) where:
+
+  - ephemeralFields: Fields that can be removed from the client Data type
+  - hasUnresolvedCalls: True if we had to bail out (mark all fields as persistent)
+
+This encapsulates the core ephemeral/persistent field computation logic used
+by both StaticViewTransform and ServerDataTransform.
+
+-}
+computeEphemeralFields :
+    Set String
+    -> Set String
+    -> List (Maybe String)
+    -> Dict String HelperAnalysis
+    -> ( Set String, Bool )
+computeEphemeralFields allFieldNames clientUsedFields pendingHelperCalls helperFunctions =
+    let
+        -- Resolve pending helper calls against the helper functions dict
+        ( resolvedHelperFields, unresolvedHelperCalls ) =
+            resolvePendingHelperCalls pendingHelperCalls helperFunctions
+
+        -- Combine direct field accesses with helper-resolved fields
+        effectiveClientUsedFields =
+            if unresolvedHelperCalls then
+                -- Can't track, so assume ALL fields are client-used (safe fallback)
+                allFieldNames
+
+            else
+                Set.union clientUsedFields resolvedHelperFields
+
+        -- Ephemeral fields: all fields that are NOT used in client contexts
+        ephemeralFields =
+            allFieldNames
+                |> Set.filter (\f -> not (Set.member f effectiveClientUsedFields))
+    in
+    ( ephemeralFields, unresolvedHelperCalls )
 
 
 {-| Check if a function node is a call to View.freeze.
