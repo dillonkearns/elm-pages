@@ -773,42 +773,17 @@ trackFieldAccess node context =
 
 
 {-| Check if a function node is a call to View.freeze.
-Uses the ModuleNameLookupTable to handle all import styles:
-- `View.freeze` (qualified)
-- `freeze` (if imported directly with `exposing (freeze)`)
-- `V.freeze` (if imported with alias `as V`)
 -}
 isViewFreezeCall : Node Expression -> Context -> Bool
 isViewFreezeCall functionNode context =
-    case Node.value functionNode of
-        Expression.FunctionOrValue _ "freeze" ->
-            -- Check if this "freeze" resolves to the View module
-            ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode == Just [ "View" ]
-
-        _ ->
-            False
+    PersistentFieldTracking.isViewFreezeCall functionNode context.lookupTable
 
 
 {-| Check if an expression is `app.data` (or `static.data`, etc. based on context.appParamName)
 -}
 isAppDataAccess : Node Expression -> Context -> Bool
 isAppDataAccess node context =
-    case Node.value node of
-        Expression.RecordAccess innerExpr (Node _ "data") ->
-            case Node.value innerExpr of
-                Expression.FunctionOrValue [] varName ->
-                    -- Check if varName matches the App parameter name (e.g., "app", "static")
-                    context.appParamName == Just varName
-
-                _ ->
-                    False
-
-        -- Also check for bound variables
-        Expression.FunctionOrValue [] varName ->
-            Set.member varName context.appDataBindings
-
-        _ ->
-            False
+    PersistentFieldTracking.isAppDataAccess node context.appParamName context.appDataBindings
 
 
 
@@ -925,33 +900,10 @@ containsAppDataExpression node context =
 
 
 {-| Extract field name from pipe operator with accessor pattern on app.data.
-Handles `app.data |> .field` and `.field <| app.data`.
-Returns Just fieldName if the pattern matches.
 -}
 extractAppDataPipeAccessorField : String -> Node Expression -> Node Expression -> Context -> Maybe String
 extractAppDataPipeAccessorField op leftExpr rightExpr context =
-    let
-        ( dataExpr, accessorExpr ) =
-            case op of
-                "|>" ->
-                    ( leftExpr, rightExpr )
-
-                "<|" ->
-                    ( rightExpr, leftExpr )
-
-                _ ->
-                    ( leftExpr, rightExpr )
-    in
-    if isAppDataAccess dataExpr context then
-        case Node.value accessorExpr of
-            Expression.RecordAccessFunction accessorName ->
-                Just (String.dropLeft 1 accessorName)
-
-            _ ->
-                Nothing
-
-    else
-        Nothing
+    PersistentFieldTracking.extractAppDataPipeAccessorField op leftExpr rightExpr context.appParamName context.appDataBindings
 
 
 {-| Find all occurrences of "App Data ..." in a type annotation.
@@ -1531,30 +1483,9 @@ finalEvaluation context =
                     -- Resolve pending helper calls against the now-complete helperFunctions dict
                     -- Returns (additionalClientUsedFields, shouldMarkAllFieldsAsClientUsed)
                     ( resolvedHelperFields, unresolvedHelperCalls ) =
-                        context.pendingHelperCalls
-                            |> List.foldl
-                                (\pendingCall ( fields, unresolved ) ->
-                                    case pendingCall of
-                                        Nothing ->
-                                            -- Qualified/complex function - can't track
-                                            ( fields, True )
-
-                                        Just funcName ->
-                                            case Dict.get funcName context.helperFunctions of
-                                                Just analysis ->
-                                                    if analysis.isTrackable then
-                                                        -- Known helper with trackable field usage!
-                                                        ( Set.union fields analysis.accessedFields, unresolved )
-
-                                                    else
-                                                        -- Helper uses param in untrackable ways
-                                                        ( fields, True )
-
-                                                Nothing ->
-                                                    -- Unknown function - can't track which fields it uses
-                                                    ( fields, True )
-                                )
-                                ( Set.empty, False )
+                        PersistentFieldTracking.resolvePendingHelperCalls
+                            context.pendingHelperCalls
+                            context.helperFunctions
 
                     -- Combine direct field accesses with helper-resolved fields
                     combinedClientUsedFields =

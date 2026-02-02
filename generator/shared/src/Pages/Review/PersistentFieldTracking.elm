@@ -6,6 +6,10 @@ module Pages.Review.PersistentFieldTracking exposing
     , extractRecordPatternFields
     , extractPipeAccessorField
     , extractAccessorFieldFromApplication
+    , extractAppDataPipeAccessorField
+    , isAppDataAccess
+    , isViewFreezeCall
+    , resolvePendingHelperCalls
     , typeAnnotationToString
     )
 
@@ -18,15 +22,18 @@ to ensure consistency.
 @docs HelperAnalysis
 @docs analyzeHelperFunction
 @docs extractPatternName, extractPatternNames, extractRecordPatternFields
-@docs extractPipeAccessorField, extractAccessorFieldFromApplication
+@docs extractPipeAccessorField, extractAccessorFieldFromApplication, extractAppDataPipeAccessorField
+@docs isAppDataAccess, isViewFreezeCall, resolvePendingHelperCalls
 @docs typeAnnotationToString
 
 -}
 
+import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Set exposing (Set)
 
 
@@ -505,3 +512,114 @@ typeAnnotationToString typeAnnotation =
                             leftStr
             in
             leftWrapped ++ " -> " ++ rightStr
+
+
+{-| Resolve pending helper calls against a dictionary of analyzed helper functions.
+
+Returns (additionalFields, hasUnresolved) where:
+
+  - additionalFields: Set of fields accessed by resolved helpers
+  - hasUnresolved: True if any helper call couldn't be resolved (unknown function or untrackable)
+
+Used by both client and server transforms to determine which fields are used when
+app.data is passed to helper functions.
+
+-}
+resolvePendingHelperCalls : List (Maybe String) -> Dict String HelperAnalysis -> ( Set String, Bool )
+resolvePendingHelperCalls pendingCalls helperFunctions =
+    pendingCalls
+        |> List.foldl
+            (\pendingCall ( fields, unresolved ) ->
+                case pendingCall of
+                    Nothing ->
+                        -- Qualified/complex function - can't track
+                        ( fields, True )
+
+                    Just funcName ->
+                        case Dict.get funcName helperFunctions of
+                            Just analysis ->
+                                if analysis.isTrackable then
+                                    -- Known helper with trackable field usage!
+                                    ( Set.union fields analysis.accessedFields, unresolved )
+
+                                else
+                                    -- Helper uses param in untrackable ways
+                                    ( fields, True )
+
+                            Nothing ->
+                                -- Unknown function - can't track which fields it uses
+                                ( fields, True )
+            )
+            ( Set.empty, False )
+
+
+{-| Check if a function node is a call to View.freeze.
+Uses the ModuleNameLookupTable to handle all import styles:
+
+  - `View.freeze` (qualified)
+  - `freeze` (if imported directly with `exposing (freeze)`)
+  - `V.freeze` (if imported with alias `as V`)
+
+-}
+isViewFreezeCall : Node Expression -> ModuleNameLookupTable -> Bool
+isViewFreezeCall functionNode lookupTable =
+    case Node.value functionNode of
+        Expression.FunctionOrValue _ "freeze" ->
+            ModuleNameLookupTable.moduleNameFor lookupTable functionNode == Just [ "View" ]
+
+        _ ->
+            False
+
+
+{-| Check if an expression is `app.data` (or `static.data`, etc. based on appParamName)
+or a variable bound to app.data.
+
+Takes the app parameter name (e.g., Just "app") and the set of variables bound to app.data.
+
+-}
+isAppDataAccess : Node Expression -> Maybe String -> Set String -> Bool
+isAppDataAccess node appParamName appDataBindings =
+    case Node.value node of
+        Expression.RecordAccess innerExpr (Node _ "data") ->
+            case Node.value innerExpr of
+                Expression.FunctionOrValue [] varName ->
+                    appParamName == Just varName
+
+                _ ->
+                    False
+
+        Expression.FunctionOrValue [] varName ->
+            Set.member varName appDataBindings
+
+        _ ->
+            False
+
+
+{-| Extract field name from pipe operator with accessor pattern on app.data.
+Handles `app.data |> .field` and `.field <| app.data`.
+Returns Just fieldName if the pattern matches.
+-}
+extractAppDataPipeAccessorField : String -> Node Expression -> Node Expression -> Maybe String -> Set String -> Maybe String
+extractAppDataPipeAccessorField op leftExpr rightExpr appParamName appDataBindings =
+    let
+        ( dataExpr, accessorExpr ) =
+            case op of
+                "|>" ->
+                    ( leftExpr, rightExpr )
+
+                "<|" ->
+                    ( rightExpr, leftExpr )
+
+                _ ->
+                    ( leftExpr, rightExpr )
+    in
+    if isAppDataAccess dataExpr appParamName appDataBindings then
+        case Node.value accessorExpr of
+            Expression.RecordAccessFunction accessorName ->
+                Just (String.dropLeft 1 accessorName)
+
+            _ ->
+                Nothing
+
+    else
+        Nothing
