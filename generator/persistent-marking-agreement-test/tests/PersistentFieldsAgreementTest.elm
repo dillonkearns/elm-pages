@@ -368,6 +368,101 @@ someHelper items = ""
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
+            , test "AGREEMENT: record update on app.data binding - server bails out (all persistent)" <|
+                \() ->
+                    -- Record update on a variable bound to app.data uses ALL fields from app.data
+                    -- (the record is copied with modifications), so we can't track individual fields
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    let
+        d = app.data
+    in
+    { title = ({ d | title = "modified" }).title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+"""
+                    in
+                    -- Server bails out: can't track fields through record update on app.data
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectNoErrors
+            , test "AGREEMENT: record update on app.data binding - client bails out (all persistent)" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    let
+        d = app.data
+    in
+    { title = ({ d | title = "modified" }).title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+"""
+                    in
+                    -- Client bails out: can't track fields through record update on app.data
+                    -- No EPHEMERAL_FIELDS_JSON emitted (diagnostic instead)
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text app.data.body ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    let
+        d = app.data
+    in
+    { title = ({ d | title = "modified" }).title
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)\"}"
+                                , details = [ "No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)" ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
             , test "AGREEMENT: accessor pattern - server tracks specific field" <|
                 \() ->
                     -- Both transforms CAN track accessor patterns like app.data |> .field
