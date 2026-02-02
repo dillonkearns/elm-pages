@@ -635,6 +635,26 @@ trackFieldAccess node context =
             else
                 context
 
+        -- Backward pipe operator with accessor: .field <| app.data
+        -- Semantically equivalent to app.data |> .field and .field app.data
+        Expression.OperatorApplication "<|" _ leftExpr rightExpr ->
+            if isAppDataExpression rightExpr context then
+                case Node.value leftExpr of
+                    Expression.RecordAccessFunction accessorName ->
+                        -- Extract field name (RecordAccessFunction stores ".fieldName")
+                        let
+                            fieldName =
+                                String.dropLeft 1 accessorName
+                        in
+                        -- Track this specific field access
+                        addFieldAccess fieldName context
+
+                    _ ->
+                        context
+
+            else
+                context
+
         -- Accessor function application: .field app.data
         -- This is semantically equivalent to app.data |> .field
         -- We can track the specific field being accessed
