@@ -12,8 +12,3 @@
 
 [functions]
   node_bundler = "esbuild"
-
-[[redirects]]
-  from = "*"
-  to = "/.netlify/functions/render/:splat"
-  status = 200
