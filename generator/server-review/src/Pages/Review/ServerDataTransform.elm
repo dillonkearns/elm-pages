@@ -434,7 +434,7 @@ trackFieldAccess node context =
                                         in
                                         case fnDecl.arguments of
                                             [] ->
-                                                if isAppDataExpression fnDecl.expression context then
+                                                if isAppDataAccess fnDecl.expression context then
                                                     Set.insert (Node.value fnDecl.name) acc
 
                                                 else
@@ -444,7 +444,7 @@ trackFieldAccess node context =
                                                 acc
 
                                     Expression.LetDestructuring pattern expr ->
-                                        if isAppDataExpression expr context then
+                                        if isAppDataAccess expr context then
                                             extractPatternNames pattern
                                                 |> Set.union acc
 
@@ -458,7 +458,7 @@ trackFieldAccess node context =
         -- Pipe operator with accessor: app.data |> .field
         -- We CAN track this! The RecordAccessFunction contains the field name
         Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
-            if isAppDataExpression leftExpr context then
+            if isAppDataAccess leftExpr context then
                 case Node.value rightExpr of
                     Expression.RecordAccessFunction accessorName ->
                         -- Extract field name (RecordAccessFunction stores ".fieldName")
@@ -478,7 +478,7 @@ trackFieldAccess node context =
         -- Backward pipe operator with accessor: .field <| app.data
         -- Semantically equivalent to app.data |> .field and .field app.data
         Expression.OperatorApplication "<|" _ leftExpr rightExpr ->
-            if isAppDataExpression rightExpr context then
+            if isAppDataAccess rightExpr context then
                 case Node.value leftExpr of
                     Expression.RecordAccessFunction accessorName ->
                         -- Extract field name (RecordAccessFunction stores ".fieldName")
@@ -501,7 +501,7 @@ trackFieldAccess node context =
         Expression.Application [ functionNode, argNode ] ->
             case Node.value functionNode of
                 Expression.RecordAccessFunction accessorName ->
-                    if isAppDataExpression argNode context then
+                    if isAppDataAccess argNode context then
                         -- Extract field name (RecordAccessFunction stores ".fieldName")
                         let
                             fieldName =
@@ -519,7 +519,7 @@ trackFieldAccess node context =
         -- Case expression on app.data: case app.data of {...}
         -- Track record patterns, bail out on variable patterns
         Expression.CaseExpression caseBlock ->
-            if isAppDataExpression caseBlock.expression context then
+            if isAppDataAccess caseBlock.expression context then
                 if context.inFreezeCall || context.inHeadFunction then
                     -- In ephemeral context, we don't care
                     context
@@ -591,23 +591,6 @@ isAppDataAccess node context =
             False
 
 
-isAppDataExpression : Node Expression -> Context -> Bool
-isAppDataExpression node context =
-    case Node.value node of
-        Expression.RecordAccess innerExpr (Node _ "data") ->
-            case Node.value innerExpr of
-                Expression.FunctionOrValue [] varName ->
-                    -- Check if varName matches the App parameter name (e.g., "app", "static")
-                    context.appParamName == Just varName
-
-                _ ->
-                    False
-
-        Expression.FunctionOrValue [] varName ->
-            Set.member varName context.appDataBindings
-
-        _ ->
-            False
 
 
 containsAppDataExpression : Node Expression -> Context -> Bool
@@ -782,7 +765,7 @@ checkAppDataPassedToHelper context functionNode args =
                         case Node.value arg of
                             -- Check if this is app.data directly (not app.data.field)
                             Expression.RecordAccess innerExpr (Node _ fieldName) ->
-                                if fieldName == "data" && isAppDataExpression arg context then
+                                if fieldName == "data" && isAppDataAccess arg context then
                                     -- This IS app.data passed directly - potentially trackable
                                     ( arg :: direct, wrapped )
 
@@ -1308,7 +1291,7 @@ analyzeHelperFunction function =
 
                 Nothing ->
                     -- First param is a pattern - check if it's a record pattern
-                    case extractRecordPatternFieldsForHelper firstArg of
+                    case extractRecordPatternFields firstArg of
                         Just fields ->
                             -- Record pattern like { title, body }
                             -- We know EXACTLY which fields are accessed - no body analysis needed!
@@ -1327,22 +1310,6 @@ analyzeHelperFunction function =
             Nothing
 
 
-{-| Extract field names from a record pattern in a helper function parameter.
--}
-extractRecordPatternFieldsForHelper : Node Pattern -> Maybe (Set String)
-extractRecordPatternFieldsForHelper node =
-    case Node.value node of
-        Pattern.RecordPattern fields ->
-            Just (fields |> List.map Node.value |> Set.fromList)
-
-        Pattern.ParenthesizedPattern inner ->
-            extractRecordPatternFieldsForHelper inner
-
-        Pattern.AsPattern inner _ ->
-            extractRecordPatternFieldsForHelper inner
-
-        _ ->
-            Nothing
 
 
 {-| Analyze an expression to find all field accesses on a given parameter name.

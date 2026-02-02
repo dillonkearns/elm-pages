@@ -618,7 +618,7 @@ trackFieldAccess node context =
         -- Pipe operator with accessor: app.data |> .field
         -- We CAN track this! The RecordAccessFunction contains the field name
         Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
-            if isAppDataExpression leftExpr context then
+            if isAppDataAccess leftExpr context then
                 case Node.value rightExpr of
                     Expression.RecordAccessFunction accessorName ->
                         -- Extract field name (RecordAccessFunction stores ".fieldName")
@@ -638,7 +638,7 @@ trackFieldAccess node context =
         -- Backward pipe operator with accessor: .field <| app.data
         -- Semantically equivalent to app.data |> .field and .field app.data
         Expression.OperatorApplication "<|" _ leftExpr rightExpr ->
-            if isAppDataExpression rightExpr context then
+            if isAppDataAccess rightExpr context then
                 case Node.value leftExpr of
                     Expression.RecordAccessFunction accessorName ->
                         -- Extract field name (RecordAccessFunction stores ".fieldName")
@@ -661,7 +661,7 @@ trackFieldAccess node context =
         Expression.Application [ functionNode, argNode ] ->
             case Node.value functionNode of
                 Expression.RecordAccessFunction accessorName ->
-                    if isAppDataExpression argNode context then
+                    if isAppDataAccess argNode context then
                         -- Extract field name (RecordAccessFunction stores ".fieldName")
                         let
                             fieldName =
@@ -679,7 +679,7 @@ trackFieldAccess node context =
         -- Case expression on app.data: case app.data of {...}
         -- Track record patterns, bail out on variable patterns
         Expression.CaseExpression caseBlock ->
-            if isAppDataExpression caseBlock.expression context then
+            if isAppDataAccess caseBlock.expression context then
                 if context.inFreezeCall || context.inHeadFunction then
                     -- In ephemeral context, we don't care
                     context
@@ -758,7 +758,7 @@ trackFieldAccess node context =
                                                         )
 
                                                     Nothing ->
-                                                        if isAppDataExpression fnDecl.expression context then
+                                                        if isAppDataAccess fnDecl.expression context then
                                                             -- let d = app.data
                                                             ( Set.insert varName appBindings, fieldBinds, bindingRanges )
 
@@ -771,7 +771,7 @@ trackFieldAccess node context =
                                     Expression.LetDestructuring pattern expr ->
                                         -- Handle: let { field1, field2 } = app.data in ...
                                         -- With record destructuring, variable names ARE field names
-                                        if isAppDataExpression expr context then
+                                        if isAppDataAccess expr context then
                                             let
                                                 destructuredNames =
                                                     extractPatternNames pattern
@@ -844,25 +844,6 @@ isAppDataAccess node context =
             False
 
 
-{-| Check if an expression represents app.data (for let binding detection)
--}
-isAppDataExpression : Node Expression -> Context -> Bool
-isAppDataExpression node context =
-    case Node.value node of
-        Expression.RecordAccess innerExpr (Node _ "data") ->
-            case Node.value innerExpr of
-                Expression.FunctionOrValue [] varName ->
-                    -- Check if varName matches the App parameter name (e.g., "app", "static")
-                    context.appParamName == Just varName
-
-                _ ->
-                    False
-
-        Expression.FunctionOrValue [] varName ->
-            Set.member varName context.appDataBindings
-
-        _ ->
-            False
 
 
 {-| Extract the field name if the expression is `app.data.fieldName`.
@@ -1114,7 +1095,7 @@ analyzeHelperFunction function =
 
                 Nothing ->
                     -- First param is a pattern - check if it's a record pattern
-                    case extractRecordPatternFieldsForHelper firstArg of
+                    case extractRecordPatternFields firstArg of
                         Just fields ->
                             -- Record pattern like { title, body }
                             -- We know EXACTLY which fields are accessed - no body analysis needed!
@@ -1134,36 +1115,6 @@ analyzeHelperFunction function =
             Nothing
 
 
-{-| Extract field names from a record pattern in a helper function parameter.
-
-This is similar to extractRecordPatternFields but specifically for helper function
-parameter analysis. Returns Just with the set of field names if the pattern is
-a record pattern (or parenthesized record pattern), Nothing otherwise.
-
-Examples:
-
-  - `{ title, body }` -> Just {"title", "body"}
-  - `({ title })` -> Just {"title"}
-  - `data` -> Nothing (use extractPatternName instead)
-  - `(a, b)` -> Nothing (tuple pattern)
-
--}
-extractRecordPatternFieldsForHelper : Node Pattern -> Maybe (Set String)
-extractRecordPatternFieldsForHelper node =
-    case Node.value node of
-        Pattern.RecordPattern fields ->
-            Just (fields |> List.map Node.value |> Set.fromList)
-
-        Pattern.ParenthesizedPattern inner ->
-            extractRecordPatternFieldsForHelper inner
-
-        Pattern.AsPattern inner _ ->
-            -- { title, body } as data - the record pattern part tells us the fields
-            extractRecordPatternFieldsForHelper inner
-
-        _ ->
-            -- Not a record pattern
-            Nothing
 
 
 {-| Analyze an expression to find all field accesses on a given parameter name.
@@ -1707,7 +1658,7 @@ checkAppDataPassedToHelper context functionNode args =
                         case Node.value arg of
                             -- Check if this is app.data directly (not app.data.field)
                             Expression.RecordAccess innerExpr (Node _ fieldName) ->
-                                if fieldName == "data" && isAppDataExpression arg context then
+                                if fieldName == "data" && isAppDataAccess arg context then
                                     -- This IS app.data passed directly - potentially trackable
                                     ( arg :: direct, wrapped )
 
@@ -1822,43 +1773,31 @@ checkAppDataPassedToHelper context functionNode args =
 handleViewModuleCall : Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )
 handleViewModuleCall functionNode node context =
     case Node.value functionNode of
-        Expression.FunctionOrValue _ "freeze" ->
-            let
-                -- If Html.Styled is imported, wrap with Html.Styled conversion
-                -- Otherwise use plain Html (no wrapper needed since View.freeze returns Html)
-                replacement =
-                    if context.htmlStyledAlias /= Nothing then
-                        viewStaticAdoptCallStyled context
+        Expression.FunctionOrValue _ fnName ->
+            if fnName == "freeze" || fnName == "static" then
+                let
+                    -- If Html.Styled is imported, wrap with Html.Styled conversion
+                    -- Otherwise use plain Html
+                    replacement =
+                        if context.htmlStyledAlias /= Nothing then
+                            viewStaticAdoptCallStyled context
 
-                    else
-                        viewStaticAdoptCallPlain context
+                        else
+                            viewStaticAdoptCallPlain context
 
-                fixes =
-                    [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
-                        ++ viewStaticImportFix context
-            in
-            ( [ createTransformErrorWithFixes "View.freeze" "View.Static.adopt" node fixes ]
-            , { context | staticIndex = context.staticIndex + 1 }
-            )
+                    fixes =
+                        [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
+                            ++ viewStaticImportFix context
 
-        Expression.FunctionOrValue _ "static" ->
-            let
-                -- If Html.Styled is imported, wrap with Html.Styled conversion
-                -- Otherwise use plain Html (no wrapper needed since View.static returns Html)
-                replacement =
-                    if context.htmlStyledAlias /= Nothing then
-                        viewStaticAdoptCallStyled context
+                    fromFn =
+                        "View." ++ fnName
+                in
+                ( [ createTransformErrorWithFixes fromFn "View.Static.adopt" node fixes ]
+                , { context | staticIndex = context.staticIndex + 1 }
+                )
 
-                    else
-                        viewStaticAdoptCallPlain context
-
-                fixes =
-                    [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
-                        ++ viewStaticImportFix context
-            in
-            ( [ createTransformErrorWithFixes "View.static" "View.Static.adopt" node fixes ]
-            , { context | staticIndex = context.staticIndex + 1 }
-            )
+            else
+                ( [], context )
 
         _ ->
             ( [], context )
@@ -1871,24 +1810,16 @@ handleViewStaticModuleCall functionNode node context =
             let
                 replacement =
                     viewStaticAdoptCallPlain context
+
+                fixes =
+                    [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
             in
-            ( [ createTransformError "View.Static.static" "View.Static.adopt" node replacement ]
+            ( [ createTransformErrorWithFixes "View.Static.static" "View.Static.adopt" node fixes ]
             , { context | staticIndex = context.staticIndex + 1 }
             )
 
         _ ->
             ( [], context )
-
-
-createTransformError : String -> String -> Node Expression -> String -> Error {}
-createTransformError fromFn toFn node replacement =
-    Rule.errorWithFix
-        { message = "Static region codemod: transform " ++ fromFn ++ " to " ++ toFn
-        , details = [ "Transforms " ++ fromFn ++ " to " ++ toFn ++ " for client-side adoption and DCE" ]
-        }
-        (Node.range node)
-        [ Review.Fix.replaceRangeBy (Node.range node) replacement
-        ]
 
 
 createTransformErrorWithFixes : String -> String -> Node Expression -> List Review.Fix.Fix -> Error {}
