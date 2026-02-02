@@ -65,6 +65,7 @@ type alias Context =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
     , htmlLazyImport : HtmlLazyImport
+    , virtualDomImported : Bool
     , htmlStyledAlias : Maybe ModuleName
     , lastImportRow : Int
     , staticIndex : Int
@@ -175,6 +176,7 @@ initialContext =
             { lookupTable = lookupTable
             , moduleName = moduleName
             , htmlLazyImport = NotImported
+            , virtualDomImported = False
             , htmlStyledAlias = Nothing
             , lastImportRow = 2
             , staticIndex = 0
@@ -229,6 +231,14 @@ importVisitor node context =
                     |> Maybe.map Node.value
                     |> Maybe.withDefault [ "Html", "Lazy" ]
                     |> ImportedAs
+            , lastImportRow = max context.lastImportRow importEndRow
+          }
+        )
+
+    else if moduleName == [ "VirtualDom" ] then
+        ( []
+        , { context
+            | virtualDomImported = True
             , lastImportRow = max context.lastImportRow importEndRow
           }
         )
@@ -1138,35 +1148,66 @@ createTransformErrorWithFixes fromFn toFn node fixes =
         fixes
 
 
-{-| Generate a fix to add `import Html.Lazy` if it's not already imported.
+{-| Generate fixes to add `import Html.Lazy` and `import VirtualDom` if not already imported.
+The generated code uses:
+- `Html.Lazy.lazy` for the lazy thunk
+- `VirtualDom.text ""` as the placeholder (avoids conflicts with Html.Styled aliased as Html)
 -}
 htmlLazyImportFix : Context -> List Review.Fix.Fix
 htmlLazyImportFix context =
-    case context.htmlLazyImport of
-        ImportedAs _ ->
-            -- Already imported, no fix needed
-            []
+    let
+        needsHtmlLazy =
+            case context.htmlLazyImport of
+                ImportedAs _ ->
+                    False
 
-        NotImported ->
-            -- Add the import after the last import
-            [ Review.Fix.insertAt
-                { row = context.lastImportRow + 1, column = 1 }
+                NotImported ->
+                    True
+
+        needsVirtualDom =
+            not context.virtualDomImported
+
+        importsToAdd =
+            (if needsHtmlLazy then
                 "import Html.Lazy\n"
-            ]
+
+             else
+                ""
+            )
+                ++ (if needsVirtualDom then
+                        "import VirtualDom\n"
+
+                    else
+                        ""
+                   )
+    in
+    if String.isEmpty importsToAdd then
+        []
+
+    else
+        [ Review.Fix.insertAt
+            { row = context.lastImportRow + 1, column = 1 }
+            importsToAdd
+        ]
 
 
 {-| Generate inlined lazy thunk with View.htmlToFreezable wrapper and map never.
 
 The generated code:
 
-    Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0"
+    Html.Lazy.lazy (\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0"
         |> View.htmlToFreezable
         |> Html.Styled.map never
 
 This creates a lazy thunk with a magic string prefix that the virtual-dom codemod
 detects at runtime to adopt pre-rendered HTML. The View.htmlToFreezable wrapper
-converts the Html Never back to the user's Freezable type, and map never converts
+converts the Html.Html Never back to the user's Freezable type, and map never converts
 from `Freezable` (Html Never) to `Html msg`.
+
+We use `VirtualDom.text ""` instead of `Html.text ""` because:
+1. VirtualDom is always available (it's a dependency of elm/html)
+2. VirtualDom.Node is the same type as Html.Html
+3. It avoids conflicts when Html.Styled is aliased as "Html"
 
 -}
 inlinedLazyThunk : Context -> String
@@ -1194,8 +1235,8 @@ inlinedLazyThunk context =
         staticId =
             "\"__ELM_PAGES_STATIC__" ++ String.fromInt context.staticIndex ++ "\""
     in
-    -- Generate: Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never
-    "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> Html.text \"\") " ++ staticId ++ " |> View.htmlToFreezable |> " ++ mapPrefix ++ ".map never)"
+    -- Generate: Html.Lazy.lazy (\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never
+    "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> VirtualDom.text \"\") " ++ staticId ++ " |> View.htmlToFreezable |> " ++ mapPrefix ++ ".map never)"
 
 
 {-| Final evaluation - emit Data type transformation if there are removable fields.

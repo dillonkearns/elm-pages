@@ -103,34 +103,6 @@ view app shared model =
                     ]
                         |> Review.Test.runOnModules rule
                         |> Review.Test.expectNoErrors
-            , test "reports View.Static.static in non-Route module" <|
-                \() ->
-                    [ """module Shared exposing (view)
-
-import View.Static
-import Html exposing (text)
-
-view app shared model =
-    View.Static.static (text "hello")
-"""
-                    ]
-                        |> Review.Test.runOnModules rule
-                        |> Review.Test.expectErrorsForModules
-                            [ ( "Shared"
-                              , [ Review.Test.error
-                                    { message = "`View.Static.static` can only be called from Route modules"
-                                    , details =
-                                        [ "Static region functions like `View.Static.static` are transformed by elm-review during the client-side build to enable dead code elimination (DCE)."
-                                        , "This transformation only works for Route modules (Route.Index, Route.Blog.Slug_, etc.). Calling these functions from other modules like Shared.elm or helper modules will NOT enable DCE - the heavy dependencies will still be included in the client bundle."
-                                        , "To fix this, either:"
-                                        , "1. Move the `View.Static.static` call into a Route module, or"
-                                        , "2. Create a helper function that returns data/Html and call `View.Static.static` in the Route module"
-                                        ]
-                                    , under = "View.Static.static"
-                                    }
-                                ]
-                              )
-                            ]
             ]
         , describe "Runtime app fields"
             [ test "detects app.action inside freeze" <|

@@ -3,10 +3,10 @@ module Pages.Review.StaticRegionScope exposing (rule)
 {-| This rule ensures that static region functions are only called from Route modules
 and that model (or values derived from model) is not referenced inside freeze calls.
 
-Static regions (View.freeze, View.Static.static) are transformed by elm-review during
-the client-side build. This transformation only works for Route modules. Calling these
-functions from other modules (like Shared.elm or helper modules) will NOT enable DCE -
-the heavy dependencies will still be in the client bundle.
+Static regions (View.freeze) are transformed by elm-review during the client-side build.
+This transformation only works for Route modules. Calling these functions from other
+modules (like Shared.elm or helper modules) will NOT enable DCE - the heavy dependencies
+will still be in the client bundle.
 
 This rule also tracks taint across module boundaries by collecting function taint
 signatures from each module. For example:
@@ -300,11 +300,6 @@ staticFunctionNames =
     [ "freeze" ]
 
 
-{-| Static functions in View.Static module
--}
-viewStaticFunctionNames : List String
-viewStaticFunctionNames =
-    [ "static", "view" ]
 
 
 
@@ -435,14 +430,6 @@ expressionEnterVisitor node context =
                                         _ ->
                                             context.inFreezeCall
 
-                                Just [ "View", "Static" ] ->
-                                    case Node.value functionNode of
-                                        Expression.FunctionOrValue _ name ->
-                                            List.member name viewStaticFunctionNames || context.inFreezeCall
-
-                                        _ ->
-                                            context.inFreezeCall
-
                                 _ ->
                                     context.inFreezeCall
 
@@ -482,18 +469,6 @@ checkStaticRegionFunctionCall functionNode context =
                 _ ->
                     Nothing
 
-        Just [ "View", "Static" ] ->
-            case Node.value functionNode of
-                Expression.FunctionOrValue _ name ->
-                    if List.member name viewStaticFunctionNames && not (isAllowedModule context.moduleName) then
-                        Just (staticRegionScopeError (Node.range functionNode) ("View.Static." ++ name))
-
-                    else
-                        Nothing
-
-                _ ->
-                    Nothing
-
         _ ->
             Nothing
 
@@ -507,18 +482,6 @@ expressionExitVisitor node context =
                     case Node.value functionNode of
                         Expression.FunctionOrValue _ "freeze" ->
                             ( [], { context | inFreezeCall = False } )
-
-                        _ ->
-                            ( [], context )
-
-                Just [ "View", "Static" ] ->
-                    case Node.value functionNode of
-                        Expression.FunctionOrValue _ name ->
-                            if List.member name viewStaticFunctionNames then
-                                ( [], { context | inFreezeCall = False } )
-
-                            else
-                                ( [], context )
 
                         _ ->
                             ( [], context )

@@ -6,6 +6,7 @@ module View exposing (View, map, freeze, Freezable, freezableToHtml, htmlToFreez
 
 -}
 
+import Html
 import Html.Styled
 
 
