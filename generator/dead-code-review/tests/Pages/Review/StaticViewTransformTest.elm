@@ -1017,11 +1017,11 @@ view app =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
-        , describe "Bail-out patterns for unsafe field tracking"
-            [ test "accessor pattern app.data |> .field causes bail-out in client context" <|
+        , describe "Accessor pattern field tracking"
+            [ test "accessor pattern app.data |> .field tracks the specific field" <|
                 \() ->
-                    -- When app.data |> .field is used outside freeze/head,
-                    -- we can't track which field is being accessed, so bail out entirely
+                    -- When app.data |> .field is used, we CAN track which field is accessed
+                    -- The accessor function explicitly names the field
                     """module Route.Test exposing (Data, route)
 
 import Html.Styled as Html
@@ -1039,13 +1039,36 @@ view app =
     }
 """
                         |> Review.Test.run rule
-                        -- Should NOT produce any Data type transformation errors
-                        -- because we bail out when accessor pattern is detected
-                        -- But we DO emit a diagnostic explaining why
+                        -- Should track title as client-used, body as ephemeral
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)\"}"
-                                , details = [ "No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)" ]
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = app.data |> .title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
