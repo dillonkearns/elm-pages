@@ -13,6 +13,7 @@ import * as https from "https";
 import * as codegen from "./codegen.js";
 import * as kleur from "kleur/colors";
 import { default as serveStatic } from "serve-static";
+import { default as mimeTypes } from "mime-types";
 import { default as connect } from "connect";
 import { restoreColorSafe } from "./error-formatter.js";
 import { Worker, SHARE_ENV } from "worker_threads";
@@ -593,7 +594,7 @@ export async function start(options) {
                 res.writeHead(serverResponse.statusCode);
                 res.end(serverResponse.body);
               } else if (renderResult.body.kind === "static-file") {
-                let mimeType = serveStatic.mime.lookup(pathname || "text/html");
+                let mimeType = mimeTypes.lookup(pathname) || "text/html";
                 mimeType =
                   mimeType === "application/octet-stream"
                     ? "text/html"
