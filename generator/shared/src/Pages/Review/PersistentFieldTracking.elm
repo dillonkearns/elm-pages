@@ -1,6 +1,9 @@
 module Pages.Review.PersistentFieldTracking exposing
-    ( HelperAnalysis
+    ( AppDataClassification
+    , HelperAnalysis
     , analyzeHelperFunction
+    , classifyAppDataArguments
+    , containsAppDataExpression
     , extractPatternName
     , extractPatternNames
     , extractRecordPatternFields
@@ -19,8 +22,10 @@ Both StaticViewTransform (client) and ServerDataTransform (server) need to agree
 on which fields are ephemeral. This module provides the shared analysis functions
 to ensure consistency.
 
+@docs AppDataClassification
 @docs HelperAnalysis
 @docs analyzeHelperFunction
+@docs classifyAppDataArguments, containsAppDataExpression
 @docs extractPatternName, extractPatternNames, extractRecordPatternFields
 @docs extractPipeAccessorField, extractAccessorFieldFromApplication, extractAppDataPipeAccessorField
 @docs isAppDataAccess, isViewFreezeCall, resolvePendingHelperCalls
@@ -755,3 +760,228 @@ extractAppDataPipeAccessorField op leftExpr rightExpr appParamName appDataBindin
 
     else
         Nothing
+
+
+{-| Result of classifying function arguments for app.data usage.
+-}
+type alias AppDataClassification =
+    { hasDirectAppData : Bool -- app.data passed directly as argument
+    , hasWrappedAppData : Bool -- app.data wrapped in list/tuple/etc.
+    , isAccessorApplication : Bool -- .field app.data pattern (handled by trackFieldAccess)
+    , maybeFuncName : Maybe String -- local function name if applicable
+    }
+
+
+{-| Classify function arguments for app.data usage patterns.
+
+This extracts the common logic from checkAppDataPassedToHelper that both
+StaticViewTransform and ServerDataTransform need.
+
+Arguments:
+
+  - functionNode: The function being called
+  - args: The arguments to the function
+  - appParamName: The app parameter name (e.g., Just "app")
+  - appDataBindings: Set of variables bound to app.data
+  - isFreezeCall: Callback to check if an expression is a View.freeze call
+  - containsAppData: Callback to recursively check for app.data (allows context-specific logic)
+
+-}
+classifyAppDataArguments :
+    Node Expression
+    -> List (Node Expression)
+    -> Maybe String
+    -> Set String
+    -> (Node Expression -> Bool)
+    -> (Node Expression -> Bool)
+    -> AppDataClassification
+classifyAppDataArguments functionNode args appParamName appDataBindings isFreezeCall containsAppData =
+    let
+        -- Check for DIRECT app.data arguments (can potentially use helper analysis)
+        -- vs WRAPPED app.data arguments (list, tuple, etc. - can't track)
+        ( directAppDataArgs, wrappedAppDataArgs ) =
+            args
+                |> List.foldl
+                    (\arg ( direct, wrapped ) ->
+                        case Node.value arg of
+                            -- Check if this is app.data directly (not app.data.field)
+                            Expression.RecordAccess innerExpr (Node _ fieldName) ->
+                                if fieldName == "data" && isAppDataAccess arg appParamName appDataBindings then
+                                    -- This IS app.data passed directly - potentially trackable
+                                    ( arg :: direct, wrapped )
+
+                                else if isAppDataAccess innerExpr appParamName appDataBindings then
+                                    -- This is app.data.field - trackable via normal field tracking, skip
+                                    ( direct, wrapped )
+
+                                else if containsAppData innerExpr then
+                                    -- app.data is nested inside - untrackable
+                                    ( direct, arg :: wrapped )
+
+                                else
+                                    ( direct, wrapped )
+
+                            -- If the arg is a function call that contains app.data,
+                            -- we can't track which fields are used - untrackable
+                            Expression.Application innerArgs ->
+                                if List.any containsAppData innerArgs then
+                                    ( direct, arg :: wrapped )
+
+                                else
+                                    ( direct, wrapped )
+
+                            -- Variable bound to app.data passed directly
+                            Expression.FunctionOrValue [] varName ->
+                                if Set.member varName appDataBindings then
+                                    ( arg :: direct, wrapped )
+
+                                else
+                                    ( direct, wrapped )
+
+                            -- Lists, tuples, etc. containing app.data - untrackable
+                            _ ->
+                                if containsAppData arg then
+                                    ( direct, arg :: wrapped )
+
+                                else
+                                    ( direct, wrapped )
+                    )
+                    ( [], [] )
+
+        hasDirectAppData =
+            not (List.isEmpty directAppDataArgs)
+
+        hasWrappedAppData =
+            not (List.isEmpty wrappedAppDataArgs)
+
+        -- Check if this is a record accessor function application: .field app.data
+        -- This is handled by trackFieldAccess, so we don't need to process it here
+        isAccessorApplication =
+            case Node.value functionNode of
+                Expression.RecordAccessFunction _ ->
+                    -- Single arg and it's app.data - this is .field app.data
+                    -- which is tracked by trackFieldAccess, so skip here
+                    List.length args == 1 && hasDirectAppData
+
+                _ ->
+                    False
+
+        -- Extract function name if it's a local function
+        maybeFuncName =
+            case Node.value functionNode of
+                Expression.FunctionOrValue [] funcName ->
+                    Just funcName
+
+                _ ->
+                    Nothing
+    in
+    { hasDirectAppData = hasDirectAppData
+    , hasWrappedAppData = hasWrappedAppData
+    , isAccessorApplication = isAccessorApplication
+    , maybeFuncName = maybeFuncName
+    }
+
+
+{-| Check if an expression contains app.data being passed as a WHOLE to a function.
+
+This returns True ONLY for `app.data` itself, NOT for field accesses like `app.data.field`.
+The reason: if someone writes `someFunction app.data.field`, we CAN track that field access.
+But if they write `someFunction app.data`, we CANNOT know which fields that function uses.
+
+Examples:
+
+  - `app.data` → True (app.data passed as whole)
+  - `app.data.title` → False (field access, we can track "title")
+  - `someFunction app.data` → True (app.data passed to function)
+  - `someFunction app.data.title` → False (just passing the value of title field)
+
+Arguments:
+
+  - node: The expression to check
+  - appParamName: The app parameter name (e.g., Just "app")
+  - appDataBindings: Set of variables bound to app.data
+  - isFreezeCall: Callback to check if an expression is a View.freeze call
+
+-}
+containsAppDataExpression : Node Expression -> Maybe String -> Set String -> (Node Expression -> Bool) -> Bool
+containsAppDataExpression node appParamName appDataBindings isFreezeCall =
+    containsAppDataExpressionHelp node appParamName appDataBindings isFreezeCall
+
+
+containsAppDataExpressionHelp : Node Expression -> Maybe String -> Set String -> (Node Expression -> Bool) -> Bool
+containsAppDataExpressionHelp node appParamName appDataBindings isFreezeCall =
+    case Node.value node of
+        -- app.data exactly (with field "data" on the app param)
+        Expression.RecordAccess innerExpr (Node _ "data") ->
+            case Node.value innerExpr of
+                Expression.FunctionOrValue [] varName ->
+                    -- Check if varName matches the App parameter name (e.g., "app", "static")
+                    if appParamName == Just varName then
+                        -- This IS app.data being used as a whole
+                        True
+
+                    else
+                        -- Something else with .data field, recurse
+                        containsAppDataExpressionHelp innerExpr appParamName appDataBindings isFreezeCall
+
+                _ ->
+                    -- Something else with .data field, recurse
+                    containsAppDataExpressionHelp innerExpr appParamName appDataBindings isFreezeCall
+
+        -- app.data.field - accessing a field OF app.data is fine, we can track that
+        -- The field access is already tracked by trackFieldAccess
+        Expression.RecordAccess _ _ ->
+            -- Don't recurse here - we don't care if app.data is deep inside a field access chain
+            -- because accessing app.data.foo.bar still tracks "foo" as the accessed field
+            False
+
+        Expression.FunctionOrValue [] varName ->
+            -- Check if this variable is bound to app.data
+            Set.member varName appDataBindings
+
+        Expression.Application ((functionNode :: _) as exprs) ->
+            -- Check if this is a View.freeze call
+            -- View.freeze calls are ephemeral context - don't worry about app.data inside them
+            if isFreezeCall functionNode then
+                False
+
+            else
+                List.any (\e -> containsAppDataExpressionHelp e appParamName appDataBindings isFreezeCall) exprs
+
+        Expression.ParenthesizedExpression inner ->
+            containsAppDataExpressionHelp inner appParamName appDataBindings isFreezeCall
+
+        Expression.TupledExpression exprs ->
+            List.any (\e -> containsAppDataExpressionHelp e appParamName appDataBindings isFreezeCall) exprs
+
+        Expression.ListExpr exprs ->
+            List.any (\e -> containsAppDataExpressionHelp e appParamName appDataBindings isFreezeCall) exprs
+
+        Expression.IfBlock cond then_ else_ ->
+            containsAppDataExpressionHelp cond appParamName appDataBindings isFreezeCall
+                || containsAppDataExpressionHelp then_ appParamName appDataBindings isFreezeCall
+                || containsAppDataExpressionHelp else_ appParamName appDataBindings isFreezeCall
+
+        Expression.CaseExpression caseBlock ->
+            containsAppDataExpressionHelp caseBlock.expression appParamName appDataBindings isFreezeCall
+                || List.any (\( _, expr ) -> containsAppDataExpressionHelp expr appParamName appDataBindings isFreezeCall) caseBlock.cases
+
+        Expression.LambdaExpression lambda ->
+            containsAppDataExpressionHelp lambda.expression appParamName appDataBindings isFreezeCall
+
+        Expression.LetExpression letBlock ->
+            containsAppDataExpressionHelp letBlock.expression appParamName appDataBindings isFreezeCall
+
+        Expression.OperatorApplication _ _ left right ->
+            containsAppDataExpressionHelp left appParamName appDataBindings isFreezeCall
+                || containsAppDataExpressionHelp right appParamName appDataBindings isFreezeCall
+
+        -- Record update: { varName | field = value }
+        -- In Elm, record update uses a variable name, not an expression.
+        -- If the variable is bound to app.data (via let d = app.data),
+        -- then we're using app.data as a whole.
+        Expression.RecordUpdateExpression (Node _ varName) _ ->
+            Set.member varName appDataBindings
+
+        _ ->
+            False
