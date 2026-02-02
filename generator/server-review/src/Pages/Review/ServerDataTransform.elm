@@ -1378,11 +1378,40 @@ analyzeFieldAccessesHelper paramName node ( fields, trackable ) =
                 else
                     ( fields, trackable )
 
+            -- Function application - check for accessor function pattern .field param
             Expression.Application exprs ->
-                List.foldl
-                    (\e acc -> analyzeFieldAccessesHelper paramName e acc)
-                    ( fields, trackable )
-                    exprs
+                case exprs of
+                    [ functionNode, argNode ] ->
+                        case ( Node.value functionNode, Node.value argNode ) of
+                            ( Expression.RecordAccessFunction accessorName, Expression.FunctionOrValue [] varName ) ->
+                                if varName == paramName then
+                                    -- .field param - track the field
+                                    let
+                                        fieldName =
+                                            String.dropLeft 1 accessorName
+                                    in
+                                    ( Set.insert fieldName fields, trackable )
+
+                                else
+                                    -- Some other variable, recurse normally
+                                    List.foldl
+                                        (\e acc -> analyzeFieldAccessesHelper paramName e acc)
+                                        ( fields, trackable )
+                                        exprs
+
+                            _ ->
+                                -- Not the pattern we're looking for, recurse normally
+                                List.foldl
+                                    (\e acc -> analyzeFieldAccessesHelper paramName e acc)
+                                    ( fields, trackable )
+                                    exprs
+
+                    _ ->
+                        -- Not 2 args, recurse normally
+                        List.foldl
+                            (\e acc -> analyzeFieldAccessesHelper paramName e acc)
+                            ( fields, trackable )
+                            exprs
 
             Expression.LetExpression letBlock ->
                 let
@@ -1453,6 +1482,65 @@ analyzeFieldAccessesHelper paramName node ( fields, trackable ) =
                 else
                     analyzeFieldAccessesHelper paramName lambda.expression ( fields, trackable )
 
+            -- Forward pipe with accessor: param |> .field
+            -- This is equivalent to param.field - we CAN track the specific field
+            Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
+                case ( Node.value leftExpr, Node.value rightExpr ) of
+                    ( Expression.FunctionOrValue [] varName, Expression.RecordAccessFunction accessorName ) ->
+                        if varName == paramName then
+                            -- param |> .field - track the field
+                            let
+                                fieldName =
+                                    String.dropLeft 1 accessorName
+                            in
+                            ( Set.insert fieldName fields, trackable )
+
+                        else
+                            -- Some other variable, recurse normally
+                            let
+                                ( leftFields, leftTrackable ) =
+                                    analyzeFieldAccessesHelper paramName leftExpr ( fields, trackable )
+                            in
+                            analyzeFieldAccessesHelper paramName rightExpr ( leftFields, leftTrackable )
+
+                    _ ->
+                        -- Not the pattern we're looking for, recurse normally
+                        let
+                            ( leftFields, leftTrackable ) =
+                                analyzeFieldAccessesHelper paramName leftExpr ( fields, trackable )
+                        in
+                        analyzeFieldAccessesHelper paramName rightExpr ( leftFields, leftTrackable )
+
+            -- Backward pipe with accessor: .field <| param
+            -- This is equivalent to param.field - we CAN track the specific field
+            Expression.OperatorApplication "<|" _ leftExpr rightExpr ->
+                case ( Node.value leftExpr, Node.value rightExpr ) of
+                    ( Expression.RecordAccessFunction accessorName, Expression.FunctionOrValue [] varName ) ->
+                        if varName == paramName then
+                            -- .field <| param - track the field
+                            let
+                                fieldName =
+                                    String.dropLeft 1 accessorName
+                            in
+                            ( Set.insert fieldName fields, trackable )
+
+                        else
+                            -- Some other variable, recurse normally
+                            let
+                                ( leftFields, leftTrackable ) =
+                                    analyzeFieldAccessesHelper paramName leftExpr ( fields, trackable )
+                            in
+                            analyzeFieldAccessesHelper paramName rightExpr ( leftFields, leftTrackable )
+
+                    _ ->
+                        -- Not the pattern we're looking for, recurse normally
+                        let
+                            ( leftFields, leftTrackable ) =
+                                analyzeFieldAccessesHelper paramName leftExpr ( fields, trackable )
+                        in
+                        analyzeFieldAccessesHelper paramName rightExpr ( leftFields, leftTrackable )
+
+            -- Other operators - recurse into both sides
             Expression.OperatorApplication _ _ left right ->
                 let
                     ( leftFields, leftTrackable ) =
