@@ -3,7 +3,8 @@
     "source-directories": [
         "src",
         "../../src",
-        "tests"
+        "tests",
+        "../shared/src"
     ],
     "elm-version": "0.19.1",
     "dependencies": {

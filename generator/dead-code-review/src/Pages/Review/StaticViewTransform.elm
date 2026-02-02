@@ -47,6 +47,7 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Pages.Review.PersistentFieldTracking as PersistentFieldTracking
 import Review.Fix
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -63,10 +64,7 @@ rangeToComparable range =
 {-| Analysis of a helper function's field usage on its first parameter.
 -}
 type alias HelperAnalysis =
-    { paramName : String -- First parameter name
-    , accessedFields : Set String -- Fields accessed on first param (e.g., param.field)
-    , isTrackable : Bool -- False if param is used in ways we can't track
-    }
+    PersistentFieldTracking.HelperAnalysis
 
 
 type alias Context =
@@ -325,7 +323,7 @@ declarationEnterVisitor node context =
                             |> Node.value
                             |> .arguments
                             |> List.head
-                            |> Maybe.andThen extractPatternName
+                            |> Maybe.andThen PersistentFieldTracking.extractPatternName
                 in
                 ( [], { contextWithAppDataRanges | appParamName = maybeAppParam } )
 
@@ -334,7 +332,7 @@ declarationEnterVisitor node context =
                 -- This allows us to track which fields they access when called with app.data
                 let
                     helperAnalysis =
-                        analyzeHelperFunction function
+                        PersistentFieldTracking.analyzeHelperFunction function
 
                     -- Find all ranges where "Data" appears in the type annotation
                     -- These can be replaced with "Ephemeral" for freeze-only helpers
@@ -658,7 +656,7 @@ trackFieldAccess node context =
                     let
                         maybeFieldSets =
                             caseBlock.cases
-                                |> List.map (\( pattern, _ ) -> extractRecordPatternFields pattern)
+                                |> List.map (\( pattern, _ ) -> PersistentFieldTracking.extractRecordPatternFields pattern)
 
                         allTrackable =
                             List.all (\m -> m /= Nothing) maybeFieldSets
@@ -743,7 +741,7 @@ trackFieldAccess node context =
                                         if isAppDataAccess expr context then
                                             let
                                                 destructuredNames =
-                                                    extractPatternNames pattern
+                                                    PersistentFieldTracking.extractPatternNames pattern
 
                                                 -- For record destructuring of app.data, variable name = field name
                                                 newFieldBinds =
@@ -926,143 +924,6 @@ containsAppDataExpression node context =
             False
 
 
-{-| Extract variable names from a pattern (for destructuring)
--}
-extractPatternNames : Node Pattern -> Set String
-extractPatternNames node =
-    case Node.value node of
-        Pattern.VarPattern name ->
-            Set.singleton name
-
-        Pattern.RecordPattern fields ->
-            fields |> List.map Node.value |> Set.fromList
-
-        Pattern.TuplePattern patterns ->
-            patterns |> List.foldl (\p acc -> Set.union (extractPatternNames p) acc) Set.empty
-
-        Pattern.ParenthesizedPattern inner ->
-            extractPatternNames inner
-
-        Pattern.AsPattern inner (Node _ name) ->
-            Set.insert name (extractPatternNames inner)
-
-        _ ->
-            Set.empty
-
-
-{-| Try to extract field names from a record pattern.
-Returns Just (Set String) if the pattern is a record pattern (or variation),
-Nothing if it's a variable pattern or other untrackable pattern.
-
-Trackable patterns:
-
-  - `{ title, body }` -> Just {"title", "body"}
-  - `({ title })` -> Just {"title"} (parenthesized)
-  - `{ title } as data` -> Just {"title"} (as pattern wrapping record)
-  - `_` -> Just {} (wildcard - no fields used)
-
-Untrackable patterns:
-
-  - `data` -> Nothing (variable captures whole record)
-  - `Data title body` -> Nothing (constructor pattern)
-
--}
-extractRecordPatternFields : Node Pattern -> Maybe (Set String)
-extractRecordPatternFields node =
-    case Node.value node of
-        Pattern.RecordPattern fields ->
-            Just (fields |> List.map Node.value |> Set.fromList)
-
-        Pattern.ParenthesizedPattern inner ->
-            extractRecordPatternFields inner
-
-        Pattern.AsPattern inner _ ->
-            -- { title } as data - we can track the record fields
-            extractRecordPatternFields inner
-
-        Pattern.AllPattern ->
-            -- Wildcard `_` matches but uses no fields
-            Just Set.empty
-
-        Pattern.VarPattern _ ->
-            -- Variable pattern captures the whole record - can't track
-            Nothing
-
-        _ ->
-            -- Constructor patterns, tuples, etc. - can't track
-            Nothing
-
-
-{-| Extract a single name from a pattern (for function parameter names).
--}
-extractPatternName : Node Pattern -> Maybe String
-extractPatternName node =
-    case Node.value node of
-        Pattern.VarPattern name ->
-            Just name
-
-        Pattern.ParenthesizedPattern inner ->
-            extractPatternName inner
-
-        Pattern.AsPattern _ (Node _ name) ->
-            Just name
-
-        _ ->
-            Nothing
-
-
-{-| Extract field name from pipe operator with accessor pattern.
-Handles both `param |> .field` and `.field <| param`.
-Returns Just fieldName if the pattern matches with the given paramName.
--}
-extractPipeAccessorField : String -> String -> Node Expression -> Node Expression -> Maybe String
-extractPipeAccessorField op paramName leftExpr rightExpr =
-    let
-        ( varExpr, accessorExpr ) =
-            case op of
-                "|>" ->
-                    ( leftExpr, rightExpr )
-
-                "<|" ->
-                    ( rightExpr, leftExpr )
-
-                _ ->
-                    ( leftExpr, rightExpr )
-    in
-    case ( Node.value varExpr, Node.value accessorExpr ) of
-        ( Expression.FunctionOrValue [] varName, Expression.RecordAccessFunction accessorName ) ->
-            if varName == paramName then
-                Just (String.dropLeft 1 accessorName)
-
-            else
-                Nothing
-
-        _ ->
-            Nothing
-
-
-{-| Extract field name from accessor function application: .field param
-Returns Just fieldName if the pattern matches with the given paramName.
--}
-extractAccessorFieldFromApplication : List (Node Expression) -> String -> Maybe String
-extractAccessorFieldFromApplication exprs paramName =
-    case exprs of
-        [ functionNode, argNode ] ->
-            case ( Node.value functionNode, Node.value argNode ) of
-                ( Expression.RecordAccessFunction accessorName, Expression.FunctionOrValue [] varName ) ->
-                    if varName == paramName then
-                        Just (String.dropLeft 1 accessorName)
-
-                    else
-                        Nothing
-
-                _ ->
-                    Nothing
-
-        _ ->
-            Nothing
-
-
 {-| Extract field name from pipe operator with accessor pattern on app.data.
 Handles `app.data |> .field` and `.field <| app.data`.
 Returns Just fieldName if the pattern matches.
@@ -1091,299 +952,6 @@ extractAppDataPipeAccessorField op leftExpr rightExpr context =
 
     else
         Nothing
-
-
-{-| Analyze a helper function to determine which fields it accesses on its first parameter.
-
-This enables tracking field usage when app.data is passed to a helper function.
-For example, if we have:
-
-    extractTitle data = data.title
-
-We can determine that only the "title" field is accessed, so when someone writes:
-
-    view app = { title = extractTitle app.data, ... }
-
-We know that only "title" is client-used via this call.
-
-Also handles record destructuring patterns:
-
-    renderContent { title, body } = Html.text (title ++ body)
-
-In this case, we KNOW exactly which fields are accessed - the ones in the pattern.
-This is actually MORE precise than body analysis since the pattern explicitly declares
-which fields are used.
-
-Returns Nothing if the function has no parameters.
-
--}
-analyzeHelperFunction : Expression.Function -> Maybe HelperAnalysis
-analyzeHelperFunction function =
-    let
-        declaration =
-            Node.value function.declaration
-
-        arguments =
-            declaration.arguments
-
-        body =
-            declaration.expression
-    in
-    case arguments of
-        firstArg :: _ ->
-            case extractPatternName firstArg of
-                Just paramName ->
-                    -- Regular variable pattern: analyze body for field accesses
-                    let
-                        ( accessedFields, isTrackable ) =
-                            analyzeFieldAccessesOnParam paramName body
-                    in
-                    Just
-                        { paramName = paramName
-                        , accessedFields = accessedFields
-                        , isTrackable = isTrackable
-                        }
-
-                Nothing ->
-                    -- First param is a pattern - check if it's a record pattern
-                    case extractRecordPatternFields firstArg of
-                        Just fields ->
-                            -- Record pattern like { title, body }
-                            -- We know EXACTLY which fields are accessed - no body analysis needed!
-                            -- This is the most precise tracking possible
-                            Just
-                                { paramName = "_record_pattern_"
-                                , accessedFields = fields
-                                , isTrackable = True
-                                }
-
-                        Nothing ->
-                            -- Other pattern (tuple, constructor, etc.) - can't track safely
-                            Nothing
-
-        [] ->
-            -- No parameters, not a helper that takes data
-            Nothing
-
-
-
-
-{-| Analyze an expression to find all field accesses on a given parameter name.
-
-Returns (accessedFields, isTrackable) where:
-
-  - accessedFields: Set of field names accessed like `param.fieldName`
-  - isTrackable: False if the parameter is used in ways we can't track
-    (passed to another function, used in case expression, etc.)
-
--}
-analyzeFieldAccessesOnParam : String -> Node Expression -> ( Set String, Bool )
-analyzeFieldAccessesOnParam paramName expr =
-    analyzeFieldAccessesHelper paramName expr ( Set.empty, True )
-
-
-analyzeFieldAccessesHelper : String -> Node Expression -> ( Set String, Bool ) -> ( Set String, Bool )
-analyzeFieldAccessesHelper paramName node ( fields, trackable ) =
-    if not trackable then
-        -- Already untrackable, short-circuit
-        ( fields, False )
-
-    else
-        case Node.value node of
-            -- param.fieldName - this is what we're looking for!
-            Expression.RecordAccess innerExpr (Node _ fieldName) ->
-                case Node.value innerExpr of
-                    Expression.FunctionOrValue [] varName ->
-                        if varName == paramName then
-                            ( Set.insert fieldName fields, trackable )
-
-                        else
-                            -- Some other variable's field access, continue
-                            ( fields, trackable )
-
-                    _ ->
-                        -- Nested field access like param.foo.bar - track "foo"
-                        analyzeFieldAccessesHelper paramName innerExpr ( fields, trackable )
-
-            -- param used as bare variable (not field access)
-            Expression.FunctionOrValue [] varName ->
-                if varName == paramName then
-                    -- Parameter used without field access - untrackable
-                    -- (e.g., passed to another function, used in case, etc.)
-                    ( fields, False )
-
-                else
-                    ( fields, trackable )
-
-            -- Function application - check for accessor function pattern .field param
-            Expression.Application exprs ->
-                case extractAccessorFieldFromApplication exprs paramName of
-                    Just fieldName ->
-                        ( Set.insert fieldName fields, trackable )
-
-                    Nothing ->
-                        List.foldl
-                            (\e acc -> analyzeFieldAccessesHelper paramName e acc)
-                            ( fields, trackable )
-                            exprs
-
-            -- Let expression
-            Expression.LetExpression letBlock ->
-                let
-                    -- Analyze declarations
-                    ( declFields, declTrackable ) =
-                        List.foldl
-                            (\declNode acc ->
-                                case Node.value declNode of
-                                    Expression.LetFunction letFn ->
-                                        let
-                                            fnBody =
-                                                (Node.value letFn.declaration).expression
-                                        in
-                                        analyzeFieldAccessesHelper paramName fnBody acc
-
-                                    Expression.LetDestructuring _ letExpr ->
-                                        analyzeFieldAccessesHelper paramName letExpr acc
-                            )
-                            ( fields, trackable )
-                            letBlock.declarations
-                in
-                -- Then analyze the body
-                analyzeFieldAccessesHelper paramName letBlock.expression ( declFields, declTrackable )
-
-            -- If expression
-            Expression.IfBlock cond then_ else_ ->
-                let
-                    ( condFields, condTrackable ) =
-                        analyzeFieldAccessesHelper paramName cond ( fields, trackable )
-
-                    ( thenFields, thenTrackable ) =
-                        analyzeFieldAccessesHelper paramName then_ ( condFields, condTrackable )
-                in
-                analyzeFieldAccessesHelper paramName else_ ( thenFields, thenTrackable )
-
-            -- Case expression
-            Expression.CaseExpression caseBlock ->
-                let
-                    -- Check if we're doing case on the parameter itself
-                    caseOnParam =
-                        case Node.value caseBlock.expression of
-                            Expression.FunctionOrValue [] varName ->
-                                varName == paramName
-
-                            _ ->
-                                False
-
-                    ( exprFields, exprTrackable ) =
-                        if caseOnParam then
-                            -- case param of ... - untrackable (could destructure)
-                            ( fields, False )
-
-                        else
-                            analyzeFieldAccessesHelper paramName caseBlock.expression ( fields, trackable )
-                in
-                -- Analyze each case branch
-                List.foldl
-                    (\( _, caseExpr ) acc -> analyzeFieldAccessesHelper paramName caseExpr acc)
-                    ( exprFields, exprTrackable )
-                    caseBlock.cases
-
-            -- Lambda
-            Expression.LambdaExpression lambda ->
-                -- Check if lambda shadows our param name
-                let
-                    shadowsParam =
-                        lambda.args
-                            |> List.any
-                                (\arg ->
-                                    case extractPatternName arg of
-                                        Just name ->
-                                            name == paramName
-
-                                        Nothing ->
-                                            False
-                                )
-                in
-                if shadowsParam then
-                    -- Lambda shadows the param, stop tracking in this branch
-                    ( fields, trackable )
-
-                else
-                    analyzeFieldAccessesHelper paramName lambda.expression ( fields, trackable )
-
-            -- Pipe operators with accessor: param |> .field or .field <| param
-            -- Also handles other operators by recursing into both sides
-            Expression.OperatorApplication op _ leftExpr rightExpr ->
-                case extractPipeAccessorField op paramName leftExpr rightExpr of
-                    Just fieldName ->
-                        ( Set.insert fieldName fields, trackable )
-
-                    Nothing ->
-                        let
-                            ( leftFields, leftTrackable ) =
-                                analyzeFieldAccessesHelper paramName leftExpr ( fields, trackable )
-                        in
-                        analyzeFieldAccessesHelper paramName rightExpr ( leftFields, leftTrackable )
-
-            -- Parenthesized
-            Expression.ParenthesizedExpression inner ->
-                analyzeFieldAccessesHelper paramName inner ( fields, trackable )
-
-            -- Tuples
-            Expression.TupledExpression exprs ->
-                List.foldl
-                    (\e acc -> analyzeFieldAccessesHelper paramName e acc)
-                    ( fields, trackable )
-                    exprs
-
-            -- Lists
-            Expression.ListExpr exprs ->
-                List.foldl
-                    (\e acc -> analyzeFieldAccessesHelper paramName e acc)
-                    ( fields, trackable )
-                    exprs
-
-            -- Record literal - check values
-            Expression.RecordExpr recordSetters ->
-                List.foldl
-                    (\(Node _ ( _, valueExpr )) acc ->
-                        analyzeFieldAccessesHelper paramName valueExpr acc
-                    )
-                    ( fields, trackable )
-                    recordSetters
-
-            -- Record update
-            Expression.RecordUpdateExpression (Node _ varName) recordSetters ->
-                let
-                    updateOnParam =
-                        varName == paramName
-
-                    ( updateFields, updateTrackable ) =
-                        if updateOnParam then
-                            -- { param | field = value } uses all fields
-                            ( fields, False )
-
-                        else
-                            ( fields, trackable )
-                in
-                List.foldl
-                    (\(Node _ ( _, valueExpr )) acc ->
-                        analyzeFieldAccessesHelper paramName valueExpr acc
-                    )
-                    ( updateFields, updateTrackable )
-                    recordSetters
-
-            -- Negation
-            Expression.Negation inner ->
-                analyzeFieldAccessesHelper paramName inner ( fields, trackable )
-
-            -- Record access function like .field - fine, no param usage
-            Expression.RecordAccessFunction _ ->
-                ( fields, trackable )
-
-            -- Literals and other expressions that don't use the param
-            _ ->
-                ( fields, trackable )
 
 
 {-| Find all occurrences of "App Data ..." in a type annotation.
@@ -2051,7 +1619,7 @@ finalEvaluation context =
                             else
                                 "{ "
                                     ++ (clientUsedFieldDefs
-                                            |> List.map (\( name, typeNode ) -> name ++ " : " ++ typeAnnotationToString (Node.value typeNode))
+                                            |> List.map (\( name, typeNode ) -> name ++ " : " ++ PersistentFieldTracking.typeAnnotationToString (Node.value typeNode))
                                             |> String.join ", "
                                        )
                                     ++ " }"
@@ -2145,7 +1713,7 @@ finalEvaluation context =
                                     fullTypeAnnotation =
                                         "{ "
                                             ++ (context.dataTypeFields
-                                                    |> List.map (\( name, typeNode ) -> name ++ " : " ++ typeAnnotationToString (Node.value typeNode))
+                                                    |> List.map (\( name, typeNode ) -> name ++ " : " ++ PersistentFieldTracking.typeAnnotationToString (Node.value typeNode))
                                                     |> String.join ", "
                                                )
                                             ++ " }"
@@ -2215,103 +1783,6 @@ finalEvaluation context =
                         ++ headStubFix
                         ++ dataStubFix
                         ++ [ jsonOutputError ]
-
-
-{-| Convert a TypeAnnotation back to string representation.
-This is a simplified version - may need enhancement for complex types.
--}
-typeAnnotationToString : TypeAnnotation -> String
-typeAnnotationToString typeAnnotation =
-    case typeAnnotation of
-        TypeAnnotation.GenericType name ->
-            name
-
-        TypeAnnotation.Typed (Node _ ( moduleName, name )) args ->
-            let
-                qualified =
-                    case moduleName of
-                        [] ->
-                            name
-
-                        _ ->
-                            String.join "." moduleName ++ "." ++ name
-
-                argsStr =
-                    args
-                        |> List.map (\(Node _ arg) -> typeAnnotationToString arg)
-                        |> List.map
-                            (\s ->
-                                if String.contains " " s && not (String.startsWith "(" s) then
-                                    "(" ++ s ++ ")"
-
-                                else
-                                    s
-                            )
-                        |> String.join " "
-            in
-            if String.isEmpty argsStr then
-                qualified
-
-            else
-                qualified ++ " " ++ argsStr
-
-        TypeAnnotation.Unit ->
-            "()"
-
-        TypeAnnotation.Tupled nodes ->
-            "( "
-                ++ (nodes
-                        |> List.map (\(Node _ t) -> typeAnnotationToString t)
-                        |> String.join ", "
-                   )
-                ++ " )"
-
-        TypeAnnotation.Record fields ->
-            if List.isEmpty fields then
-                "{}"
-
-            else
-                "{ "
-                    ++ (fields
-                            |> List.map
-                                (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
-                                    fieldName ++ " : " ++ typeAnnotationToString fieldType
-                                )
-                            |> String.join ", "
-                       )
-                    ++ " }"
-
-        TypeAnnotation.GenericRecord (Node _ extName) (Node _ fields) ->
-            "{ "
-                ++ extName
-                ++ " | "
-                ++ (fields
-                        |> List.map
-                            (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
-                                fieldName ++ " : " ++ typeAnnotationToString fieldType
-                            )
-                        |> String.join ", "
-                   )
-                ++ " }"
-
-        TypeAnnotation.FunctionTypeAnnotation (Node _ left) (Node _ right) ->
-            let
-                leftStr =
-                    typeAnnotationToString left
-
-                rightStr =
-                    typeAnnotationToString right
-
-                -- Wrap function types on the left in parens
-                leftWrapped =
-                    case left of
-                        TypeAnnotation.FunctionTypeAnnotation _ _ ->
-                            "(" ++ leftStr ++ ")"
-
-                        _ ->
-                            leftStr
-            in
-            leftWrapped ++ " -> " ++ rightStr
 
 
 {-| Escape a string for use in a JSON string value.
