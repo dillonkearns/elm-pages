@@ -455,45 +455,14 @@ trackFieldAccess node context =
             in
             { context | appDataBindings = newBindings }
 
-        -- Pipe operator with accessor: app.data |> .field
-        -- We CAN track this! The RecordAccessFunction contains the field name
-        Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
-            if isAppDataAccess leftExpr context then
-                case Node.value rightExpr of
-                    Expression.RecordAccessFunction accessorName ->
-                        -- Extract field name (RecordAccessFunction stores ".fieldName")
-                        let
-                            fieldName =
-                                String.dropLeft 1 accessorName
-                        in
-                        -- Track this specific field access
-                        addFieldAccess fieldName context
+        -- Pipe operators with accessor: app.data |> .field or .field <| app.data
+        Expression.OperatorApplication op _ leftExpr rightExpr ->
+            case extractAppDataPipeAccessorField op leftExpr rightExpr context of
+                Just fieldName ->
+                    addFieldAccess fieldName context
 
-                    _ ->
-                        context
-
-            else
-                context
-
-        -- Backward pipe operator with accessor: .field <| app.data
-        -- Semantically equivalent to app.data |> .field and .field app.data
-        Expression.OperatorApplication "<|" _ leftExpr rightExpr ->
-            if isAppDataAccess rightExpr context then
-                case Node.value leftExpr of
-                    Expression.RecordAccessFunction accessorName ->
-                        -- Extract field name (RecordAccessFunction stores ".fieldName")
-                        let
-                            fieldName =
-                                String.dropLeft 1 accessorName
-                        in
-                        -- Track this specific field access
-                        addFieldAccess fieldName context
-
-                    _ ->
-                        context
-
-            else
-                context
+                Nothing ->
+                    context
 
         -- Accessor function application: .field app.data
         -- This is semantically equivalent to app.data |> .field
@@ -738,6 +707,88 @@ extractPatternName node =
 
         _ ->
             Nothing
+
+
+{-| Extract field name from pipe operator with accessor pattern.
+Handles both `param |> .field` and `.field <| param`.
+Returns Just fieldName if the pattern matches with the given paramName.
+-}
+extractPipeAccessorField : String -> String -> Node Expression -> Node Expression -> Maybe String
+extractPipeAccessorField op paramName leftExpr rightExpr =
+    let
+        ( varExpr, accessorExpr ) =
+            case op of
+                "|>" ->
+                    ( leftExpr, rightExpr )
+
+                "<|" ->
+                    ( rightExpr, leftExpr )
+
+                _ ->
+                    ( leftExpr, rightExpr )
+    in
+    case ( Node.value varExpr, Node.value accessorExpr ) of
+        ( Expression.FunctionOrValue [] varName, Expression.RecordAccessFunction accessorName ) ->
+            if varName == paramName then
+                Just (String.dropLeft 1 accessorName)
+
+            else
+                Nothing
+
+        _ ->
+            Nothing
+
+
+{-| Extract field name from accessor function application: .field param
+Returns Just fieldName if the pattern matches with the given paramName.
+-}
+extractAccessorFieldFromApplication : List (Node Expression) -> String -> Maybe String
+extractAccessorFieldFromApplication exprs paramName =
+    case exprs of
+        [ functionNode, argNode ] ->
+            case ( Node.value functionNode, Node.value argNode ) of
+                ( Expression.RecordAccessFunction accessorName, Expression.FunctionOrValue [] varName ) ->
+                    if varName == paramName then
+                        Just (String.dropLeft 1 accessorName)
+
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
+
+        _ ->
+            Nothing
+
+
+{-| Extract field name from pipe operator with accessor pattern on app.data.
+Handles `app.data |> .field` and `.field <| app.data`.
+Returns Just fieldName if the pattern matches.
+-}
+extractAppDataPipeAccessorField : String -> Node Expression -> Node Expression -> Context -> Maybe String
+extractAppDataPipeAccessorField op leftExpr rightExpr context =
+    let
+        ( dataExpr, accessorExpr ) =
+            case op of
+                "|>" ->
+                    ( leftExpr, rightExpr )
+
+                "<|" ->
+                    ( rightExpr, leftExpr )
+
+                _ ->
+                    ( leftExpr, rightExpr )
+    in
+    if isAppDataAccess dataExpr context then
+        case Node.value accessorExpr of
+            Expression.RecordAccessFunction accessorName ->
+                Just (String.dropLeft 1 accessorName)
+
+            _ ->
+                Nothing
+
+    else
+        Nothing
 
 
 {-| Check if app.data is passed as a whole to a function.
@@ -1347,34 +1398,11 @@ analyzeFieldAccessesHelper paramName node ( fields, trackable ) =
 
             -- Function application - check for accessor function pattern .field param
             Expression.Application exprs ->
-                case exprs of
-                    [ functionNode, argNode ] ->
-                        case ( Node.value functionNode, Node.value argNode ) of
-                            ( Expression.RecordAccessFunction accessorName, Expression.FunctionOrValue [] varName ) ->
-                                if varName == paramName then
-                                    -- .field param - track the field
-                                    let
-                                        fieldName =
-                                            String.dropLeft 1 accessorName
-                                    in
-                                    ( Set.insert fieldName fields, trackable )
+                case extractAccessorFieldFromApplication exprs paramName of
+                    Just fieldName ->
+                        ( Set.insert fieldName fields, trackable )
 
-                                else
-                                    -- Some other variable, recurse normally
-                                    List.foldl
-                                        (\e acc -> analyzeFieldAccessesHelper paramName e acc)
-                                        ( fields, trackable )
-                                        exprs
-
-                            _ ->
-                                -- Not the pattern we're looking for, recurse normally
-                                List.foldl
-                                    (\e acc -> analyzeFieldAccessesHelper paramName e acc)
-                                    ( fields, trackable )
-                                    exprs
-
-                    _ ->
-                        -- Not 2 args, recurse normally
+                    Nothing ->
                         List.foldl
                             (\e acc -> analyzeFieldAccessesHelper paramName e acc)
                             ( fields, trackable )
@@ -1449,71 +1477,19 @@ analyzeFieldAccessesHelper paramName node ( fields, trackable ) =
                 else
                     analyzeFieldAccessesHelper paramName lambda.expression ( fields, trackable )
 
-            -- Forward pipe with accessor: param |> .field
-            -- This is equivalent to param.field - we CAN track the specific field
-            Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
-                case ( Node.value leftExpr, Node.value rightExpr ) of
-                    ( Expression.FunctionOrValue [] varName, Expression.RecordAccessFunction accessorName ) ->
-                        if varName == paramName then
-                            -- param |> .field - track the field
-                            let
-                                fieldName =
-                                    String.dropLeft 1 accessorName
-                            in
-                            ( Set.insert fieldName fields, trackable )
+            -- Pipe operators with accessor: param |> .field or .field <| param
+            -- Also handles other operators by recursing into both sides
+            Expression.OperatorApplication op _ leftExpr rightExpr ->
+                case extractPipeAccessorField op paramName leftExpr rightExpr of
+                    Just fieldName ->
+                        ( Set.insert fieldName fields, trackable )
 
-                        else
-                            -- Some other variable, recurse normally
-                            let
-                                ( leftFields, leftTrackable ) =
-                                    analyzeFieldAccessesHelper paramName leftExpr ( fields, trackable )
-                            in
-                            analyzeFieldAccessesHelper paramName rightExpr ( leftFields, leftTrackable )
-
-                    _ ->
-                        -- Not the pattern we're looking for, recurse normally
+                    Nothing ->
                         let
                             ( leftFields, leftTrackable ) =
                                 analyzeFieldAccessesHelper paramName leftExpr ( fields, trackable )
                         in
                         analyzeFieldAccessesHelper paramName rightExpr ( leftFields, leftTrackable )
-
-            -- Backward pipe with accessor: .field <| param
-            -- This is equivalent to param.field - we CAN track the specific field
-            Expression.OperatorApplication "<|" _ leftExpr rightExpr ->
-                case ( Node.value leftExpr, Node.value rightExpr ) of
-                    ( Expression.RecordAccessFunction accessorName, Expression.FunctionOrValue [] varName ) ->
-                        if varName == paramName then
-                            -- .field <| param - track the field
-                            let
-                                fieldName =
-                                    String.dropLeft 1 accessorName
-                            in
-                            ( Set.insert fieldName fields, trackable )
-
-                        else
-                            -- Some other variable, recurse normally
-                            let
-                                ( leftFields, leftTrackable ) =
-                                    analyzeFieldAccessesHelper paramName leftExpr ( fields, trackable )
-                            in
-                            analyzeFieldAccessesHelper paramName rightExpr ( leftFields, leftTrackable )
-
-                    _ ->
-                        -- Not the pattern we're looking for, recurse normally
-                        let
-                            ( leftFields, leftTrackable ) =
-                                analyzeFieldAccessesHelper paramName leftExpr ( fields, trackable )
-                        in
-                        analyzeFieldAccessesHelper paramName rightExpr ( leftFields, leftTrackable )
-
-            -- Other operators - recurse into both sides
-            Expression.OperatorApplication _ _ left right ->
-                let
-                    ( leftFields, leftTrackable ) =
-                        analyzeFieldAccessesHelper paramName left ( fields, trackable )
-                in
-                analyzeFieldAccessesHelper paramName right ( leftFields, leftTrackable )
 
             Expression.ParenthesizedExpression inner ->
                 analyzeFieldAccessesHelper paramName inner ( fields, trackable )
