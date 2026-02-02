@@ -36,11 +36,11 @@ view app =
                         -- title is accessed both inside freeze and outside, so it's persistent
                         -- No ephemeral fields, so no transformation
                         |> Review.Test.expectNoErrors
-            , test "app.data passed to helper in client context marks all fields persistent (safe fallback)" <|
+            , test "app.data passed to trackable helper allows optimization" <|
                 \() ->
-                    -- When app.data is passed to a helper function in CLIENT context,
-                    -- we can't track which fields are used, so ALL fields are persistent
-                    -- This is the key test case that verifies the safe fallback behavior
+                    -- When app.data is passed to a TRACKABLE helper function in CLIENT context,
+                    -- we analyze the helper to determine which fields it uses.
+                    -- extractTitle only accesses 'title', so 'body' can be ephemeral.
                     """module Route.Test exposing (Data, route)
 
 import View
@@ -59,9 +59,75 @@ extractTitle data =
     data.title
 """
                         |> Review.Test.run rule
-                        -- All fields marked as persistent (safe fallback)
-                        -- No ephemeral fields, so no transformation
-                        |> Review.Test.expectNoErrors
+                        -- extractTitle only uses 'title' field, so 'body' can be ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view app =
+    { title = extractTitle app.data
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+extractTitle data =
+    data.title
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = extractTitle app.data
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+extractTitle data =
+    data.title
+"""
+                            ]
             , test "app.data in list passed to function marks all fields persistent" <|
                 \() ->
                     -- When [ app.data ] is passed to a function outside freeze,

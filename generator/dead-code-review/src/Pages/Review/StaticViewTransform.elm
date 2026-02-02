@@ -1034,7 +1034,15 @@ We can determine that only the "title" field is accessed, so when someone writes
 
 We know that only "title" is client-used via this call.
 
-Returns Nothing if the function has no parameters or uses record destructuring.
+Also handles record destructuring patterns:
+
+    renderContent { title, body } = Html.text (title ++ body)
+
+In this case, we KNOW exactly which fields are accessed - the ones in the pattern.
+This is actually MORE precise than body analysis since the pattern explicitly declares
+which fields are used.
+
+Returns Nothing if the function has no parameters.
 
 -}
 analyzeHelperFunction : Expression.Function -> Maybe HelperAnalysis
@@ -1053,6 +1061,7 @@ analyzeHelperFunction function =
         firstArg :: _ ->
             case extractPatternName firstArg of
                 Just paramName ->
+                    -- Regular variable pattern: analyze body for field accesses
                     let
                         ( accessedFields, isTrackable ) =
                             analyzeFieldAccessesOnParam paramName body
@@ -1064,12 +1073,56 @@ analyzeHelperFunction function =
                         }
 
                 Nothing ->
-                    -- First param is a pattern (record destructuring, etc.)
-                    -- We could potentially track this but it's complex
-                    Nothing
+                    -- First param is a pattern - check if it's a record pattern
+                    case extractRecordPatternFieldsForHelper firstArg of
+                        Just fields ->
+                            -- Record pattern like { title, body }
+                            -- We know EXACTLY which fields are accessed - no body analysis needed!
+                            -- This is the most precise tracking possible
+                            Just
+                                { paramName = "_record_pattern_"
+                                , accessedFields = fields
+                                , isTrackable = True
+                                }
+
+                        Nothing ->
+                            -- Other pattern (tuple, constructor, etc.) - can't track safely
+                            Nothing
 
         [] ->
             -- No parameters, not a helper that takes data
+            Nothing
+
+
+{-| Extract field names from a record pattern in a helper function parameter.
+
+This is similar to extractRecordPatternFields but specifically for helper function
+parameter analysis. Returns Just with the set of field names if the pattern is
+a record pattern (or parenthesized record pattern), Nothing otherwise.
+
+Examples:
+
+  - `{ title, body }` -> Just {"title", "body"}
+  - `({ title })` -> Just {"title"}
+  - `data` -> Nothing (use extractPatternName instead)
+  - `(a, b)` -> Nothing (tuple pattern)
+
+-}
+extractRecordPatternFieldsForHelper : Node Pattern -> Maybe (Set String)
+extractRecordPatternFieldsForHelper node =
+    case Node.value node of
+        Pattern.RecordPattern fields ->
+            Just (fields |> List.map Node.value |> Set.fromList)
+
+        Pattern.ParenthesizedPattern inner ->
+            extractRecordPatternFieldsForHelper inner
+
+        Pattern.AsPattern inner _ ->
+            -- { title, body } as data - the record pattern part tells us the fields
+            extractRecordPatternFieldsForHelper inner
+
+        _ ->
+            -- Not a record pattern
             Nothing
 
 

@@ -2416,5 +2416,193 @@ renderBody body meta =
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
+            , test "helper with record destructuring pattern in client context allows optimization" <|
+                \() ->
+                    -- When a helper function has a record destructuring pattern like { title, body },
+                    -- and app.data is passed to it in CLIENT context, we know EXACTLY which fields
+                    -- are used (the ones in the pattern). This allows optimization even without
+                    -- analyzing the function body.
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    , unused : String
+    }
+
+view app =
+    { title = extractTitle app.data
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+-- This helper uses record destructuring - we know it only needs 'title'
+extractTitle { title } =
+    title
+"""
+                        |> Review.Test.run rule
+                        -- extractTitle only destructures 'title', so only 'title' is client-used
+                        -- 'body' is only used in freeze, so it's ephemeral
+                        -- 'unused' is never used, so it's also ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    , unused : String
+    }
+
+view app =
+    { title = extractTitle app.data
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+
+-- This helper uses record destructuring - we know it only needs 'title'
+extractTitle { title } =
+    title
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body, unused"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    , unused : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = extractTitle app.data
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+-- This helper uses record destructuring - we know it only needs 'title'
+extractTitle { title } =
+    title
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"unused\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "helper with record destructuring that accesses multiple fields" <|
+                \() ->
+                    -- Record pattern with multiple fields should track all of them
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , author : String
+    , body : String
+    }
+
+view app =
+    { title = renderHeader app.data
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+-- This helper destructures both title and author
+renderHeader { title, author } =
+    title ++ " by " ++ author
+"""
+                        |> Review.Test.run rule
+                        -- title and author are used in client context (via renderHeader)
+                        -- body is only used in freeze, so it's ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , author : String
+    , body : String
+    }
+
+view app =
+    { title = renderHeader app.data
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+
+-- This helper destructures both title and author
+renderHeader { title, author } =
+    title ++ " by " ++ author
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , author : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String, author : String }
+
+view app =
+    { title = renderHeader app.data
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+-- This helper destructures both title and author
+renderHeader { title, author } =
+    title ++ " by " ++ author
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String, author : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
             ]
         ]
