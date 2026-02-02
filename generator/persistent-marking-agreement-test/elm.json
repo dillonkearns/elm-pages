@@ -1,7 +1,6 @@
 {
     "type": "application",
     "source-directories": [
-        "src",
         "../server-review/src",
         "../dead-code-review/src",
         "../shared/src",
