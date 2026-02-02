@@ -1,9 +1,13 @@
 module Pages.Review.PersistentFieldTracking exposing
     ( AppDataClassification
+    , CasePatternResult(..)
     , HelperAnalysis
     , analyzeHelperFunction
     , classifyAppDataArguments
     , containsAppDataExpression
+    , extractAppDataAccessorApplicationField
+    , extractAppDataFieldName
+    , extractCasePatternFields
     , extractPatternName
     , extractPatternNames
     , extractRecordPatternFields
@@ -23,11 +27,14 @@ on which fields are ephemeral. This module provides the shared analysis function
 to ensure consistency.
 
 @docs AppDataClassification
+@docs CasePatternResult
 @docs HelperAnalysis
 @docs analyzeHelperFunction
 @docs classifyAppDataArguments, containsAppDataExpression
+@docs extractCasePatternFields
 @docs extractPatternName, extractPatternNames, extractRecordPatternFields
-@docs extractPipeAccessorField, extractAccessorFieldFromApplication, extractAppDataPipeAccessorField
+@docs extractPipeAccessorField, extractAccessorFieldFromApplication
+@docs extractAppDataAccessorApplicationField, extractAppDataFieldName, extractAppDataPipeAccessorField
 @docs isAppDataAccess, isViewFreezeCall, resolvePendingHelperCalls
 @docs typeAnnotationToString
 
@@ -486,6 +493,47 @@ extractRecordPatternFields node =
             Nothing
 
 
+{-| Result of extracting fields from case expression patterns.
+-}
+type CasePatternResult
+    = TrackableFields (Set String) -- All patterns were record patterns, these fields are used
+    | UntrackablePattern -- At least one pattern captures the whole record (variable, etc.)
+
+
+{-| Extract fields from all case expression patterns on app.data.
+
+This is the common logic used by both StaticViewTransform and ServerDataTransform
+when handling `case app.data of ...` expressions.
+
+Returns:
+
+  - `TrackableFields fields` if all patterns are record patterns (including wildcards)
+  - `UntrackablePattern` if any pattern captures the whole record
+
+-}
+extractCasePatternFields : List ( Node Pattern, Node expression ) -> CasePatternResult
+extractCasePatternFields cases =
+    let
+        maybeFieldSets =
+            cases
+                |> List.map (\( pattern, _ ) -> extractRecordPatternFields pattern)
+
+        allTrackable =
+            List.all (\m -> m /= Nothing) maybeFieldSets
+    in
+    if allTrackable then
+        let
+            allFields =
+                maybeFieldSets
+                    |> List.filterMap identity
+                    |> List.foldl Set.union Set.empty
+        in
+        TrackableFields allFields
+
+    else
+        UntrackablePattern
+
+
 {-| Extract a single name from a pattern (for function parameter names).
 -}
 extractPatternName : Node Pattern -> Maybe String
@@ -708,6 +756,39 @@ isViewFreezeCall functionNode lookupTable =
             False
 
 
+{-| Extract the field name being accessed from app.data.
+
+Handles both direct access (`app.data.field`) and nested access (`app.data.nested.field`).
+For nested access, returns the top-level field name (e.g., "nested" for `app.data.nested.field`).
+
+Returns Just fieldName if the expression is a field access on app.data, Nothing otherwise.
+
+-}
+extractAppDataFieldName : Node Expression -> Maybe String -> Set String -> Maybe String
+extractAppDataFieldName node appParamName appDataBindings =
+    case Node.value node of
+        Expression.RecordAccess innerExpr (Node _ fieldName) ->
+            if isAppDataAccess innerExpr appParamName appDataBindings then
+                -- Direct app.data.field access
+                Just fieldName
+
+            else
+                -- Check for nested access like app.data.something.field
+                case Node.value innerExpr of
+                    Expression.RecordAccess innerInner (Node _ topLevelField) ->
+                        if isAppDataAccess innerInner appParamName appDataBindings then
+                            Just topLevelField
+
+                        else
+                            Nothing
+
+                    _ ->
+                        Nothing
+
+        _ ->
+            Nothing
+
+
 {-| Check if an expression is `app.data` (or `static.data`, etc. based on appParamName)
 or a variable bound to app.data.
 
@@ -760,6 +841,31 @@ extractAppDataPipeAccessorField op leftExpr rightExpr appParamName appDataBindin
 
     else
         Nothing
+
+
+{-| Extract field name from accessor function application pattern: `.field app.data`
+
+Handles the common pattern where a record accessor function is applied to app.data.
+This is semantically equivalent to `app.data |> .field`.
+
+Returns Just fieldName if the expression is a single-argument application where:
+
+  - The function is a RecordAccessFunction (e.g., `.field`)
+  - The argument is `app.data` or a variable bound to app.data
+
+-}
+extractAppDataAccessorApplicationField : Node Expression -> Node Expression -> Maybe String -> Set String -> Maybe String
+extractAppDataAccessorApplicationField functionNode argNode appParamName appDataBindings =
+    case Node.value functionNode of
+        Expression.RecordAccessFunction accessorName ->
+            if isAppDataAccess argNode appParamName appDataBindings then
+                Just (String.dropLeft 1 accessorName)
+
+            else
+                Nothing
+
+        _ ->
+            Nothing
 
 
 {-| Result of classifying function arguments for app.data usage.

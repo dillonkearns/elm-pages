@@ -661,21 +661,13 @@ expressionExitVisitor node context =
 trackFieldAccess : Node Expression -> Context -> Context
 trackFieldAccess node context =
     case Node.value node of
-        Expression.RecordAccess innerExpr (Node _ fieldName) ->
-            if isAppDataAccess innerExpr context then
-                addFieldAccess fieldName context
+        Expression.RecordAccess _ _ ->
+            case PersistentFieldTracking.extractAppDataFieldName node context.appParamName context.appDataBindings of
+                Just fieldName ->
+                    addFieldAccess fieldName context
 
-            else
-                case Node.value innerExpr of
-                    Expression.RecordAccess innerInner (Node _ topLevelField) ->
-                        if isAppDataAccess innerInner context then
-                            addFieldAccess topLevelField context
-
-                        else
-                            context
-
-                    _ ->
-                        context
+                Nothing ->
+                    context
 
         Expression.LetExpression letBlock ->
             let
@@ -723,23 +715,12 @@ trackFieldAccess node context =
 
         -- Accessor function application: .field app.data
         -- This is semantically equivalent to app.data |> .field
-        -- We can track the specific field being accessed
         Expression.Application [ functionNode, argNode ] ->
-            case Node.value functionNode of
-                Expression.RecordAccessFunction accessorName ->
-                    if isAppDataAccess argNode context then
-                        -- Extract field name (RecordAccessFunction stores ".fieldName")
-                        let
-                            fieldName =
-                                String.dropLeft 1 accessorName
-                        in
-                        -- Track this specific field access
-                        addFieldAccess fieldName context
+            case PersistentFieldTracking.extractAppDataAccessorApplicationField functionNode argNode context.appParamName context.appDataBindings of
+                Just fieldName ->
+                    addFieldAccess fieldName context
 
-                    else
-                        context
-
-                _ ->
+                Nothing ->
                     context
 
         -- Case expression on app.data: case app.data of {...}
@@ -751,28 +732,13 @@ trackFieldAccess node context =
                     context
 
                 else
-                    -- In client context, try to extract record pattern fields
-                    let
-                        maybeFieldSets =
-                            caseBlock.cases
-                                |> List.map (\( pattern, _ ) -> PersistentFieldTracking.extractRecordPatternFields pattern)
+                    -- In client context, extract fields from patterns
+                    case PersistentFieldTracking.extractCasePatternFields caseBlock.cases of
+                        PersistentFieldTracking.TrackableFields allFields ->
+                            Set.foldl addFieldAccess context allFields
 
-                        allTrackable =
-                            List.all (\m -> m /= Nothing) maybeFieldSets
-                    in
-                    if allTrackable then
-                        -- All patterns are record patterns - track the fields
-                        let
-                            allFields =
-                                maybeFieldSets
-                                    |> List.filterMap identity
-                                    |> List.foldl Set.union Set.empty
-                        in
-                        Set.foldl addFieldAccess context allFields
-
-                    else
-                        -- Some patterns are untrackable (variable, etc.) - bail out
-                        markAllFieldsAsPersistent context
+                        PersistentFieldTracking.UntrackablePattern ->
+                            markAllFieldsAsPersistent context
 
             else
                 context

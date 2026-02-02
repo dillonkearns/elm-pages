@@ -578,30 +578,21 @@ trackFieldAccess node context =
             Set.member nodeRange context.fieldBindingRanges
     in
     case Node.value node of
-        -- Direct field access: app.data.fieldName
+        -- Field access: app.data.fieldName or app.data.nested.fieldName
         -- Skip if this is the RHS of a let binding that we're extracting as a field binding
         -- (those will be tracked via the variable usage)
-        Expression.RecordAccess innerExpr (Node _ fieldName) ->
+        Expression.RecordAccess _ _ ->
             if isFieldBindingRHS then
                 -- This is a field binding RHS like `let title = app.data.title`
                 -- Don't track here - it will be tracked when the variable is used
                 context
 
-            else if isAppDataAccess innerExpr context then
-                -- Direct app.data.field access (not in a field binding RHS)
-                addFieldAccess fieldName context
-
             else
-                -- Check for app.data.something.field (nested) - track top-level field
-                case Node.value innerExpr of
-                    Expression.RecordAccess innerInner (Node _ topLevelField) ->
-                        if isAppDataAccess innerInner context then
-                            addFieldAccess topLevelField context
+                case PersistentFieldTracking.extractAppDataFieldName node context.appParamName context.appDataBindings of
+                    Just fieldName ->
+                        addFieldAccess fieldName context
 
-                        else
-                            context
-
-                    _ ->
+                    Nothing ->
                         context
 
         -- Variable reference: check if it's bound to an app.data field
@@ -625,23 +616,12 @@ trackFieldAccess node context =
 
         -- Accessor function application: .field app.data
         -- This is semantically equivalent to app.data |> .field
-        -- We can track the specific field being accessed
         Expression.Application [ functionNode, argNode ] ->
-            case Node.value functionNode of
-                Expression.RecordAccessFunction accessorName ->
-                    if isAppDataAccess argNode context then
-                        -- Extract field name (RecordAccessFunction stores ".fieldName")
-                        let
-                            fieldName =
-                                String.dropLeft 1 accessorName
-                        in
-                        -- Track this specific field access
-                        addFieldAccess fieldName context
+            case PersistentFieldTracking.extractAppDataAccessorApplicationField functionNode argNode context.appParamName context.appDataBindings of
+                Just fieldName ->
+                    addFieldAccess fieldName context
 
-                    else
-                        context
-
-                _ ->
+                Nothing ->
                     context
 
         -- Case expression on app.data: case app.data of {...}
@@ -653,28 +633,13 @@ trackFieldAccess node context =
                     context
 
                 else
-                    -- In client context, try to extract record pattern fields
-                    let
-                        maybeFieldSets =
-                            caseBlock.cases
-                                |> List.map (\( pattern, _ ) -> PersistentFieldTracking.extractRecordPatternFields pattern)
+                    -- In client context, extract fields from patterns
+                    case PersistentFieldTracking.extractCasePatternFields caseBlock.cases of
+                        PersistentFieldTracking.TrackableFields allFields ->
+                            Set.foldl addFieldAccess context allFields
 
-                        allTrackable =
-                            List.all (\m -> m /= Nothing) maybeFieldSets
-                    in
-                    if allTrackable then
-                        -- All patterns are record patterns - track the fields
-                        let
-                            allFields =
-                                maybeFieldSets
-                                    |> List.filterMap identity
-                                    |> List.foldl Set.union Set.empty
-                        in
-                        Set.foldl addFieldAccess context allFields
-
-                    else
-                        -- Some patterns are untrackable (variable, etc.) - bail out
-                        { context | markAllFieldsAsClientUsed = True }
+                        PersistentFieldTracking.UntrackablePattern ->
+                            { context | markAllFieldsAsClientUsed = True }
 
             else
                 context
