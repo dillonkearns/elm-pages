@@ -5,13 +5,21 @@
  * where pre-rendered HTML can be adopted by the virtual-dom without re-rendering.
  *
  * The patch intercepts the thunk (lazy) rendering to:
- * 1. Detect thunks with a StaticId marker in their refs
+ * 1. Detect thunks with a magic string marker "__ELM_PAGES_STATIC__" in their refs
  * 2. On initial load: adopt existing DOM nodes with matching data-static attribute
  * 3. On SPA navigation: parse HTML strings from window.__ELM_PAGES_STATIC_REGIONS__
  *
  * This enables dead-code elimination of static content dependencies (markdown parsers, etc.)
  * while preserving server-rendered HTML.
+ *
+ * Detection uses a magic string prefix instead of a custom type, which is more robust
+ * because strings survive minification unchanged (unlike type tags which vary between
+ * debug/optimized modes).
  */
+
+// Magic prefix for static region identification
+const STATIC_REGION_PREFIX = '__ELM_PAGES_STATIC__';
+const STATIC_REGION_PREFIX_LENGTH = STATIC_REGION_PREFIX.length; // 21
 
 /**
  * Inlined static region handling code for the thunk render patch.
@@ -19,14 +27,13 @@
  */
 const STATIC_REGION_INLINE_CHECK = `
     // Static region adoption: check if this thunk is for a static region
-    // In debug mode: refs[1].$ === 'StaticId' (string variant name)
-    // In optimized mode: refs[1].$ === 0 (numeric variant index)
+    // Detection: refs[1] is a string starting with "__ELM_PAGES_STATIC__"
     var __staticRefs = vNode.l;
-    var __isStaticRegion = __staticRefs && __staticRefs.length >= 2 && __staticRefs[1] &&
-        (__staticRefs[1].$ === 'StaticId' || __staticRefs[1].$ === 0) &&
-        typeof __staticRefs[1].a === 'string';
+    var __isStaticRegion = __staticRefs && __staticRefs.length >= 2 &&
+        typeof __staticRefs[1] === 'string' &&
+        __staticRefs[1].startsWith('${STATIC_REGION_PREFIX}');
     if (__isStaticRegion) {
-        var __staticId = __staticRefs[1].a;
+        var __staticId = __staticRefs[1].slice(${STATIC_REGION_PREFIX_LENGTH});
         // Check global first (populated on SPA navigation BEFORE render)
         // This ensures we use the NEW page's content, not stale DOM from old page
         var __staticRegions = window.__ELM_PAGES_STATIC_REGIONS__ || {};
@@ -64,12 +71,11 @@ const STATIC_REGION_INLINE_CHECK = `
  * This allows proper caching on initial load while ensuring navigation updates work.
  */
 const STATIC_REGION_DIFF_CHECK = `
-    // Static region: check if refs have StaticId
-    // In debug mode: $ === 'StaticId', in optimized mode: $ === 0
-    var __xIsStatic = xRefs && xRefs.length >= 2 && xRefs[1] && (xRefs[1].$ === 'StaticId' || xRefs[1].$ === 0);
-    var __yIsStatic = yRefs && yRefs.length >= 2 && yRefs[1] && (yRefs[1].$ === 'StaticId' || yRefs[1].$ === 0);
+    // Static region: check if refs have magic string prefix
+    var __xIsStatic = xRefs && xRefs.length >= 2 && typeof xRefs[1] === 'string' && xRefs[1].startsWith('${STATIC_REGION_PREFIX}');
+    var __yIsStatic = yRefs && yRefs.length >= 2 && typeof yRefs[1] === 'string' && yRefs[1].startsWith('${STATIC_REGION_PREFIX}');
     if (__xIsStatic && __yIsStatic) {
-        var __staticId = yRefs[1].a;
+        var __staticId = yRefs[1].slice(${STATIC_REGION_PREFIX_LENGTH});
         var __globalContent = (window.__ELM_PAGES_STATIC_REGIONS__ || {})[__staticId];
         if (__globalContent && __globalContent.length > 0) {
             // Global has content - SPA navigation
@@ -80,7 +86,8 @@ const STATIC_REGION_DIFF_CHECK = `
             return;
         } else {
             // No global content - initial load, compare by value to enable caching
-            same = xRefs[1].a === yRefs[1].a;
+            // Strings compare by value, so this works correctly
+            same = xRefs[1] === yRefs[1];
         }
     } else `;
 
@@ -170,7 +177,7 @@ export function patchStaticRegions(elmCode) {
 }
 
 /**
- * Patches the thunk diffing code to handle StaticId comparison.
+ * Patches the thunk diffing code to handle static region comparison.
  *
  * Original diffing (in _VirtualDom_diffHelp, case 5 for THUNK):
  *   var xRefs = x.l;
@@ -182,7 +189,8 @@ export function patchStaticRegions(elmCode) {
  *   }
  *   if (same) { y.k = x.k; return; }
  *
- * We need to add a special case for static regions that compares StaticId by value.
+ * We need to add a special case for static regions that detects the magic string prefix
+ * and handles caching/navigation correctly.
  */
 function patchThunkDiffing(elmCode) {
   // Look for the thunk diffing pattern in _VirtualDom_diffHelp

@@ -90,15 +90,15 @@ describe("Static Region Codemod", () => {
     expect(hasOriginalThunk).toBe(true);
   });
 
-  it("supports both debug and optimized modes", () => {
+  it("uses magic string prefix detection", () => {
     const patched = patchStaticRegions(SAMPLE_VDOM_CODE);
 
-    // The patched code should support both debug mode ('StaticId') and optimized mode (0)
-    const hasStringCheck = patched.includes("'StaticId'") || patched.includes('"StaticId"');
-    const hasNumericCheck = patched.includes('=== 0') || patched.includes('===0');
+    // The patched code should detect magic string prefix "__ELM_PAGES_STATIC__"
+    const hasMagicPrefixCheck = patched.includes('__ELM_PAGES_STATIC__');
+    const hasStringTypeCheck = patched.includes("typeof") && patched.includes("=== 'string'");
 
-    expect(hasStringCheck).toBe(true);
-    expect(hasNumericCheck).toBe(true);
+    expect(hasMagicPrefixCheck).toBe(true);
+    expect(hasStringTypeCheck).toBe(true);
   });
 
   it("includes global fallback mechanism", () => {

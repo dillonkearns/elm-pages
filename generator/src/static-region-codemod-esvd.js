@@ -18,8 +18,15 @@
  * 3. SPA navigation: thunk-vs-thunk with different static IDs.
  *    Parse HTML from window.__ELM_PAGES_STATIC_REGIONS__ and use __reinsert flag.
  *
+ * Detection uses a magic string prefix "__ELM_PAGES_STATIC__" instead of a custom type,
+ * which is more robust because strings survive minification unchanged.
+ *
  * See: tnode-explainer.md and proposed-esvd-design.md for detailed architecture notes.
  */
+
+// Magic prefix for static region identification
+const STATIC_REGION_PREFIX = '__ELM_PAGES_STATIC__';
+const STATIC_REGION_PREFIX_LENGTH = STATIC_REGION_PREFIX.length; // 21
 
 /**
  * Patch for the "old is not thunk, new is thunk" case in diffHelp.
@@ -35,13 +42,14 @@
  */
 const STATIC_REGION_VIRTUALIZE_ADOPTION = `
     // Static region adoption: check if new thunk is for a static region
+    // Detection: refs[1] is a string starting with "__ELM_PAGES_STATIC__"
     var __yRefs = y.l;
-    var __isStaticRegion = __yRefs && __yRefs.length >= 2 && __yRefs[1] &&
-        (__yRefs[1].$ === 'StaticId' || __yRefs[1].$ === 0) &&
-        typeof __yRefs[1].a === 'string';
+    var __isStaticRegion = __yRefs && __yRefs.length >= 2 &&
+        typeof __yRefs[1] === 'string' &&
+        __yRefs[1].startsWith('${STATIC_REGION_PREFIX}');
 
     if (__isStaticRegion) {
-        var __staticId = __yRefs[1].a;
+        var __staticId = __yRefs[1].slice(${STATIC_REGION_PREFIX_LENGTH});
         var __existingDom = tNode.r;  // DOM from virtualize
 
         // Check if existing DOM has matching data-static attribute
@@ -70,14 +78,13 @@ const STATIC_REGION_VIRTUALIZE_ADOPTION = `
  */
 const STATIC_REGION_SPA_NAVIGATION = `
     // Static region: check if this is a static region thunk
-    var __yIsStatic = yRefs && yRefs.length >= 2 && yRefs[1] &&
-        (yRefs[1].$ === 'StaticId' || yRefs[1].$ === 0);
-    var __xIsStatic = xRefs && xRefs.length >= 2 && xRefs[1] &&
-        (xRefs[1].$ === 'StaticId' || xRefs[1].$ === 0);
+    // Detection: refs[1] is a string starting with "__ELM_PAGES_STATIC__"
+    var __yIsStatic = yRefs && yRefs.length >= 2 && typeof yRefs[1] === 'string' && yRefs[1].startsWith('${STATIC_REGION_PREFIX}');
+    var __xIsStatic = xRefs && xRefs.length >= 2 && typeof xRefs[1] === 'string' && xRefs[1].startsWith('${STATIC_REGION_PREFIX}');
 
     if (__yIsStatic && __xIsStatic) {
-        var __newStaticId = yRefs[1].a;
-        var __oldStaticId = xRefs[1].a;
+        var __newStaticId = yRefs[1].slice(${STATIC_REGION_PREFIX_LENGTH});
+        var __oldStaticId = xRefs[1].slice(${STATIC_REGION_PREFIX_LENGTH});
 
         // Case 1: Same static region, re-render after adoption
         // x.k is undefined because we adopted without evaluating

@@ -1,13 +1,12 @@
-module View exposing (View, map, freeze)
+module View exposing (View, map, freeze, Freezable, freezableToHtml, htmlToFreezable)
 
-{-| View module for elm-pages.
+{-| View module for elm-pages with frozen view support.
 
-@docs View, map, freeze
+@docs View, map, freeze, Freezable, freezableToHtml, htmlToFreezable
 
 -}
 
 import Html.Styled
-import View.Static
 
 
 {-| -}
@@ -23,6 +22,27 @@ map fn doc =
     { title = doc.title
     , body = List.map (Html.Styled.map fn) doc.body
     }
+
+
+{-| The type of content that can be frozen. Must produce no messages (Never).
+Users can customize this type alias for their view library (elm-css, elm-ui, etc.).
+-}
+type alias Freezable =
+    Html.Styled.Html Never
+
+
+{-| Convert Freezable content to plain Html for server-side rendering.
+-}
+freezableToHtml : Freezable -> Html.Html Never
+freezableToHtml =
+    Html.Styled.toUnstyled
+
+
+{-| Convert plain Html back to Freezable for client-side adoption.
+-}
+htmlToFreezable : Html.Html Never -> Freezable
+htmlToFreezable =
+    Html.Styled.fromUnstyled
 
 
 {-| Mark content as frozen for build-time rendering and client-side adoption.
@@ -51,19 +71,17 @@ Fields from `app.data` that are ONLY accessed inside `View.freeze` calls are
 automatically detected and removed from the client-side Data type, enabling
 dead-code elimination of the render functions and their dependencies.
 
-At build time, an ID is automatically assigned based on the order of `View.freeze`
-calls in your view. The elm-review transformation replaces `View.freeze expr` with
-`View.Static.adopt "id"`, allowing DCE to eliminate `expr` and its dependencies.
+The elm-pages build system handles wrapping with `data-static` attributes on the server
+and transforms `freeze` calls to lazy thunks on the client for DOM adoption.
 
 Important: Do not reference `model` inside `View.freeze` - frozen content is
 rendered at build time when model doesn't exist. The elm-review rule will
 report an error if you try to use model inside freeze.
 
 -}
-freeze : Html.Styled.Html Never -> Html.Styled.Html msg
+freeze : Freezable -> Html.Styled.Html msg
 freeze content =
     content
-        |> Html.Styled.toUnstyled
-        |> View.Static.static
-        |> Html.Styled.fromUnstyled
+        |> freezableToHtml
+        |> htmlToFreezable
         |> Html.Styled.map never

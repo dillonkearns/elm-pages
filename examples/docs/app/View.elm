@@ -1,15 +1,23 @@
-module View exposing (View, freeze, map)
+module View exposing (View, map, freeze, Freezable, freezableToHtml, htmlToFreezable)
+
+{-| View module for elm-pages with frozen view support.
+
+@docs View, map, freeze, Freezable, freezableToHtml, htmlToFreezable
+
+-}
 
 import Html exposing (Html)
-import View.Static
+import Html.Attributes
 
 
+{-| -}
 type alias View msg =
     { title : String
     , body : List (Html msg)
     }
 
 
+{-| -}
 map : (msg1 -> msg2) -> View msg1 -> View msg2
 map fn doc =
     { title = doc.title
@@ -17,14 +25,54 @@ map fn doc =
     }
 
 
-{-| Freeze a view so its content is rendered at build time and not hydrated on the client.
+{-| The type of content that can be frozen. Must produce no messages (Never).
+For plain Html, this is just Html Never.
+-}
+type alias Freezable =
+    Html Never
+
+
+{-| Convert Freezable content to plain Html for server-side rendering.
+For plain Html, this is identity.
+-}
+freezableToHtml : Freezable -> Html Never
+freezableToHtml =
+    identity
+
+
+{-| Convert plain Html back to Freezable for client-side adoption.
+For plain Html, this is identity.
+-}
+htmlToFreezable : Html Never -> Freezable
+htmlToFreezable =
+    identity
+
+
+{-| Freeze a view so its content is rendered at build time and adopted on the client.
 Use this for static content that doesn't need interactivity.
 
-At build time, this wraps the content with a `data-static` attribute.
-The elm-review codemod then transforms this to `View.Static.adopt` on the client,
-which adopts the pre-rendered DOM without re-rendering.
+Frozen content is:
+
+  - Rendered at build time and included in the HTML
+  - Adopted by the client without re-rendering
+  - Eligible for dead-code elimination (rendering code removed from client bundle)
+
+At build time, this wraps the content with a `data-static` attribute for extraction.
+The elm-review codemod then transforms `freeze` calls to lazy thunks on the client,
+which adopt the pre-rendered DOM without re-rendering.
+
 -}
-freeze : Html Never -> Html msg
+freeze : Freezable -> Html msg
 freeze content =
-    View.Static.static content
+    content
+        |> freezableToHtml
+        |> wrapWithDataStatic
+        |> htmlToFreezable
         |> Html.map never
+
+
+{-| Internal: wrap content with data-static attribute for server-side extraction.
+-}
+wrapWithDataStatic : Html Never -> Html Never
+wrapWithDataStatic content =
+    Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ content ]

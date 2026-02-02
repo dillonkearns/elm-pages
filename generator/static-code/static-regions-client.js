@@ -98,13 +98,25 @@ export async function fetchStaticRegions(pathname) {
 
 /**
  * Initialize static regions on initial page load.
- * This populates the global with an empty object - on initial load,
- * static regions are adopted from the existing DOM, not from the global.
+ * Extracts static region HTML from the pre-rendered DOM BEFORE Elm initializes,
+ * since Elm.Main.init() will replace the entire body content.
+ *
+ * The extracted HTML is stored in window.__ELM_PAGES_STATIC_REGIONS__ where
+ * the virtual-dom codemod will find it during rendering.
  */
 export function initStaticRegions() {
-  // On initial load, static regions are adopted from existing DOM
-  // The global is only used for SPA navigation
-  window.__ELM_PAGES_STATIC_REGIONS__ = {};
+  const staticRegions = {};
+
+  // Find all elements with data-static attribute and extract their outerHTML
+  // This must happen BEFORE Elm.Main.init() replaces the DOM
+  document.querySelectorAll('[data-static]').forEach((element) => {
+    const id = element.getAttribute('data-static');
+    if (id !== null) {
+      staticRegions[id] = element.outerHTML;
+    }
+  });
+
+  window.__ELM_PAGES_STATIC_REGIONS__ = staticRegions;
 }
 
 /**

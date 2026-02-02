@@ -15,27 +15,27 @@ all =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 view =
-    { body = [ View.static (Html.text "hello") ] }
+    { body = [ View.freeze (Html.text "hello") ] }
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.static to View.Static.adopt"
-                                , details = [ "Transforms View.static to View.Static.adopt for client-side adoption and DCE" ]
-                                , under = "View.static (Html.text \"hello\")"
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text \"hello\")"
                                 }
                                 |> Review.Test.whenFixed
                                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 view =
-    { body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
 """
                             ]
             , test "uses Html.Styled alias when imported as Html.Styled" <|
@@ -44,27 +44,27 @@ view =
 
 import Html.Styled
 import View
-import View.Static
+import Html.Lazy
 
 view =
-    { body = [ View.static content ] }
+    { body = [ View.freeze content ] }
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.static to View.Static.adopt"
-                                , details = [ "Transforms View.static to View.Static.adopt for client-side adoption and DCE" ]
-                                , under = "View.static content"
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze content"
                                 }
                                 |> Review.Test.whenFixed
                                     """module Route.Index exposing (Data, route)
 
 import Html.Styled
 import View
-import View.Static
+import Html.Lazy
 
 view =
-    { body = [ (View.Static.adopt "0" |> Html.Styled.fromUnstyled |> Html.Styled.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never) ] }
 """
                             ]
             ]
@@ -75,7 +75,7 @@ view =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 view app =
     { body = [ View.freeze (renderFn app.data.content) ] }
@@ -83,8 +83,8 @@ view app =
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (renderFn app.data.content)"
                                 }
                                 |> Review.Test.whenFixed
@@ -92,93 +92,41 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 view app =
-    { body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
 """
                             ]
             ]
-        , describe "View.Static module calls"
-            [ test "transforms View.Static.static to View.Static.adopt (plain Html)" <|
-                \() ->
-                    """module Route.Index exposing (Data, route)
-
-import View.Static
-
-view =
-    View.Static.static (Html.text "hello")
-"""
-                        |> Review.Test.run rule
-                        |> Review.Test.expectErrors
-                            [ Review.Test.error
-                                { message = "Static region codemod: transform View.Static.static to View.Static.adopt"
-                                , details = [ "Transforms View.Static.static to View.Static.adopt for client-side adoption and DCE" ]
-                                , under = "View.Static.static (Html.text \"hello\")"
-                                }
-                                |> Review.Test.whenFixed
-                                    """module Route.Index exposing (Data, route)
-
-import View.Static
-
-view =
-    (View.Static.adopt "0" |> Html.map never)
-"""
-                            ]
-            , test "transforms View.Static.static with function call (plain Html)" <|
-                \() ->
-                    """module Route.Index exposing (Data, route)
-
-import View.Static
-
-view app =
-    View.Static.static (renderFn app.data.content)
-"""
-                        |> Review.Test.run rule
-                        |> Review.Test.expectErrors
-                            [ Review.Test.error
-                                { message = "Static region codemod: transform View.Static.static to View.Static.adopt"
-                                , details = [ "Transforms View.Static.static to View.Static.adopt for client-side adoption and DCE" ]
-                                , under = "View.Static.static (renderFn app.data.content)"
-                                }
-                                |> Review.Test.whenFixed
-                                    """module Route.Index exposing (Data, route)
-
-import View.Static
-
-view app =
-    (View.Static.adopt "0" |> Html.map never)
-"""
-                            ]
-            ]
-        , describe "View.Static import aliasing"
-            [ test "uses View.Static alias when imported with alias" <|
+        , describe "Html.Lazy import aliasing"
+            [ test "uses Html.Lazy alias when imported with alias" <|
                 \() ->
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
 import View
-import View.Static as VS
+import Html.Lazy as Lazy
 
 view =
-    { body = [ View.static content ] }
+    { body = [ View.freeze content ] }
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.static to View.Static.adopt"
-                                , details = [ "Transforms View.static to View.Static.adopt for client-side adoption and DCE" ]
-                                , under = "View.static content"
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze content"
                                 }
                                 |> Review.Test.whenFixed
                                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
 import View
-import View.Static as VS
+import Html.Lazy as Lazy
 
 view =
-    { body = [ (VS.adopt "0" |> Html.fromUnstyled |> Html.map never) ] }
+    { body = [ (Lazy.lazy (\\_ -> Html.text \"\") \"__ELM_PAGES_STATIC__0\" |> View.htmlToFreezable |> Html.map never) ] }
 """
                             ]
             ]
@@ -189,59 +137,59 @@ view =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 view =
     { body =
-        [ View.static content1
-        , View.static content2
+        [ View.freeze content1
+        , View.freeze content2
         ]
     }
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.static to View.Static.adopt"
-                                , details = [ "Transforms View.static to View.Static.adopt for client-side adoption and DCE" ]
-                                , under = "View.static content1"
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze content1"
                                 }
                                 |> Review.Test.whenFixed
                                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 view =
     { body =
-        [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never)
-        , View.static content2
+        [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
+        , View.freeze content2
         ]
     }
 """
                             , Review.Test.error
-                                { message = "Static region codemod: transform View.static to View.Static.adopt"
-                                , details = [ "Transforms View.static to View.Static.adopt for client-side adoption and DCE" ]
-                                , under = "View.static content2"
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze content2"
                                 }
                                 |> Review.Test.whenFixed
                                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 view =
     { body =
-        [ View.static content1
-        , (View.Static.adopt "1" |> Html.fromUnstyled |> Html.map never)
+        [ View.freeze content1
+        , (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__1" |> View.htmlToFreezable |> Html.map never)
         ]
     }
 """
                             ]
             ]
-        , describe "auto-adding View.Static import"
-            [ test "adds View.Static import when not present" <|
+        , describe "auto-adding Html.Lazy import"
+            [ test "adds Html.Lazy import when not present" <|
                 \() ->
                     """module Route.Index exposing (Data, route)
 
@@ -249,24 +197,24 @@ import Html.Styled as Html
 import View
 
 view =
-    { body = [ View.static content ] }
+    { body = [ View.freeze content ] }
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.static to View.Static.adopt"
-                                , details = [ "Transforms View.static to View.Static.adopt for client-side adoption and DCE" ]
-                                , under = "View.static content"
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze content"
                                 }
                                 |> Review.Test.whenFixed
                                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 view =
-    { body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
 """
                             ]
             ]
@@ -277,7 +225,7 @@ view =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -292,8 +240,8 @@ view app =
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text app.data.body)"
                                 }
                                 |> Review.Test.whenFixed
@@ -301,7 +249,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -310,7 +258,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -328,7 +276,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -351,7 +299,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -365,8 +313,8 @@ view app =
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text app.data.title)"
                                 }
                                 |> Review.Test.whenFixed
@@ -374,7 +322,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -382,7 +330,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             ]
@@ -392,7 +340,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -422,7 +370,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -452,7 +400,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -478,7 +426,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { titles : { title : String }
@@ -508,7 +456,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { titles : { title : String }
@@ -538,7 +486,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { titles : { title : String } }
@@ -564,7 +512,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -590,7 +538,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 import RouteBuilder
 
 type alias Data =
@@ -632,7 +580,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 import RouteBuilder
 
 type alias Data =
@@ -673,7 +621,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 import RouteBuilder
 
 type alias Data =
@@ -710,7 +658,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 import RouteBuilder
 
 type alias Data =
@@ -751,7 +699,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 import RouteBuilder
 
 type alias Data =
@@ -792,7 +740,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 import RouteBuilder
 
 type alias Data =
@@ -832,7 +780,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 import RouteBuilder
 
 type alias Data =
@@ -864,7 +812,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 import RouteBuilder
 
 type alias Data =
@@ -905,7 +853,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 import RouteBuilder
 
 type alias Data =
@@ -946,7 +894,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 import RouteBuilder
 
 type alias Data =
@@ -983,7 +931,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 import RouteBuilder
 
 type alias Data =
@@ -1026,7 +974,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1056,7 +1004,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -1081,7 +1029,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1097,8 +1045,8 @@ view app =
                         -- Should produce transformation because accessor is only in freeze
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text (app.data |> .body))"
                                 }
                                 |> Review.Test.whenFixed
@@ -1106,7 +1054,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1115,7 +1063,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1133,7 +1081,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -1158,7 +1106,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1191,7 +1139,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1213,8 +1161,8 @@ view app =
                         -- Should produce transformation because case is only in freeze
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = """View.freeze
             (case app.data of
                 data ->
@@ -1226,7 +1174,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1236,7 +1184,7 @@ type alias Data =
 view app =
     { title = app.data.title
     , body =
-        [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never)
+        [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
         ]
     }
 """
@@ -1255,7 +1203,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -1286,7 +1234,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1304,8 +1252,8 @@ view app =
                         -- title is client-used via record pattern, body is ephemeral
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text app.data.body)"
                                 }
                                 |> Review.Test.whenFixed
@@ -1313,7 +1261,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1324,7 +1272,7 @@ view app =
     case app.data of
         { title } ->
             { title = title
-            , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+            , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
             }
 """
                             , Review.Test.error
@@ -1342,7 +1290,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -1369,7 +1317,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1389,8 +1337,8 @@ view app =
                         -- subtitle and body are not accessed, so both are ephemeral
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text app.data.body)"
                                 }
                                 |> Review.Test.whenFixed
@@ -1398,7 +1346,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1410,7 +1358,7 @@ view app =
     case app.data of
         { title } ->
             { title = title
-            , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+            , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
             }
 """
                             , Review.Test.error
@@ -1429,7 +1377,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -1455,7 +1403,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1474,8 +1422,8 @@ view app =
                         -- title is not used at all, so both title and body are ephemeral
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text app.data.body)"
                                 }
                                 |> Review.Test.whenFixed
@@ -1483,7 +1431,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1494,7 +1442,7 @@ view app =
     case app.data of
         _ ->
             { title = "constant"
-            , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+            , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
             }
 """
                             , Review.Test.error
@@ -1512,7 +1460,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     {}
@@ -1541,7 +1489,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1561,8 +1509,8 @@ view app =
                         -- 'body' is only used in freeze, so it's ephemeral
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text app.data.body)"
                                 }
                                 |> Review.Test.whenFixed
@@ -1570,7 +1518,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1582,7 +1530,7 @@ view app =
         title = app.data.title
     in
     { title = title
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1600,7 +1548,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -1628,7 +1576,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1647,8 +1595,8 @@ view app =
                         -- 'body' is only used in freeze context, so it's ephemeral
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text body)"
                                 }
                                 |> Review.Test.whenFixed
@@ -1656,7 +1604,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1668,7 +1616,7 @@ view app =
         body = app.data.body
     in
     { title = app.data.title
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1686,7 +1634,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -1714,7 +1662,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1734,8 +1682,8 @@ view app =
                         -- 'body' is only used in freeze, so it's ephemeral
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text body)"
                                 }
                                 |> Review.Test.whenFixed
@@ -1743,7 +1691,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1755,7 +1703,7 @@ view app =
         { title, body } = app.data
     in
     { title = title
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1773,7 +1721,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -1804,7 +1752,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1826,8 +1774,8 @@ view app =
                         -- Diagnostic explains why optimization was skipped
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text app.data.body)"
                                 }
                                 |> Review.Test.whenFixed
@@ -1835,7 +1783,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1848,7 +1796,7 @@ view app =
         modifiedData = { d | title = "new" }
     in
     { title = modifiedData.title
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1867,7 +1815,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1887,8 +1835,8 @@ someHelper items = ""
                         -- Diagnostic explains why
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text app.data.body)"
                                 }
                                 |> Review.Test.whenFixed
@@ -1896,7 +1844,7 @@ someHelper items = ""
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1905,7 +1853,7 @@ type alias Data =
 
 view app =
     { title = someHelper [ app.data ]
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 someHelper items = ""
@@ -1926,7 +1874,7 @@ someHelper items = ""
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1946,8 +1894,8 @@ someHelper pair = ""
                         -- Diagnostic explains why
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text app.data.body)"
                                 }
                                 |> Review.Test.whenFixed
@@ -1955,7 +1903,7 @@ someHelper pair = ""
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -1964,7 +1912,7 @@ type alias Data =
 
 view app =
     { title = someHelper ( app.data, "extra" )
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 someHelper pair = ""
@@ -1983,7 +1931,7 @@ someHelper pair = ""
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2007,8 +1955,8 @@ view app =
                         -- Should produce transformation because record update is only in freeze
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = """View.freeze
             (let
                 d = app.data
@@ -2022,7 +1970,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2032,7 +1980,7 @@ type alias Data =
 view app =
     { title = app.data.title
     , body =
-        [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never)
+        [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
         ]
     }
 """
@@ -2051,7 +1999,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -2087,7 +2035,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2106,8 +2054,8 @@ renderContent data =
                         -- body field should be ephemeral (only used inside freeze via helper)
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (renderContent app.data)"
                                 }
                                 |> Review.Test.whenFixed
@@ -2115,7 +2063,7 @@ renderContent data =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2124,7 +2072,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 renderContent data =
@@ -2145,7 +2093,7 @@ renderContent data =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -2173,7 +2121,7 @@ renderContent data =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2193,8 +2141,8 @@ renderContent pageData =
                         -- Should generate Ephemeral type and change helper annotation
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (renderContent app.data)"
                                 }
                                 |> Review.Test.whenFixed
@@ -2202,7 +2150,7 @@ renderContent pageData =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2211,7 +2159,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 renderContent : Data -> Html.Html msg
@@ -2234,7 +2182,7 @@ renderContent pageData =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -2269,7 +2217,7 @@ renderContent pageData =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2289,8 +2237,8 @@ extractTitle data =
                         -- body is only used in freeze, so it's ephemeral and can be removed
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text app.data.body)"
                                 }
                                 |> Review.Test.whenFixed
@@ -2298,7 +2246,7 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2307,7 +2255,7 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 extractTitle data =
@@ -2328,7 +2276,7 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -2357,7 +2305,7 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2378,8 +2326,8 @@ renderBody body meta =
                         -- body and metadata are ephemeral (only in freeze)
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (renderBody app.data.body app.data.metadata)"
                                 }
                                 |> Review.Test.whenFixed
@@ -2387,7 +2335,7 @@ renderBody body meta =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2397,7 +2345,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 renderBody body meta =
@@ -2419,7 +2367,7 @@ renderBody body meta =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -2449,7 +2397,7 @@ renderBody body meta =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2472,8 +2420,8 @@ extractTitle { title } =
                         -- 'unused' is never used, so it's also ephemeral
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text app.data.body)"
                                 }
                                 |> Review.Test.whenFixed
@@ -2481,7 +2429,7 @@ extractTitle { title } =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2491,7 +2439,7 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 -- This helper uses record destructuring - we know it only needs 'title'
@@ -2514,7 +2462,7 @@ extractTitle { title } =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -2542,7 +2490,7 @@ extractTitle { title } =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2564,8 +2512,8 @@ renderHeader { title, author } =
                         -- body is only used in freeze, so it's ephemeral
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text app.data.body)"
                                 }
                                 |> Review.Test.whenFixed
@@ -2573,7 +2521,7 @@ renderHeader { title, author } =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2583,7 +2531,7 @@ type alias Data =
 
 view app =
     { title = renderHeader app.data
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 -- This helper destructures both title and author
@@ -2606,7 +2554,7 @@ renderHeader { title, author } =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String, author : String }
@@ -2637,7 +2585,7 @@ renderHeader { title, author } =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2666,7 +2614,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -2690,7 +2638,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2705,8 +2653,8 @@ view app =
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
-                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.text (.body app.data))"
                                 }
                                 |> Review.Test.whenFixed
@@ -2714,7 +2662,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2723,7 +2671,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -2741,7 +2689,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -2770,7 +2718,7 @@ view app =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2805,7 +2753,7 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -2833,7 +2781,7 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2866,7 +2814,7 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }
@@ -2894,7 +2842,7 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String
@@ -2927,7 +2875,7 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
-import View.Static
+import Html.Lazy
 
 type alias Data =
     { title : String }

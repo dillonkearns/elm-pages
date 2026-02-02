@@ -1,21 +1,16 @@
 module Pages.Review.StaticViewTransform exposing (rule)
 
-{-| This rule transforms static region render calls into adopt calls in the client
+{-| This rule transforms static region render calls into inlined lazy thunks in the client
 bundle. This enables dead-code elimination of the static rendering dependencies
 (markdown parsers, syntax highlighters, etc.) while preserving the pre-rendered
 HTML for adoption by the virtual-dom.
 
 ## Transformations
 
-    -- View.freeze (single argument, new API):
+    -- View.freeze (user-defined in View.elm):
     View.freeze (heavyRender data)
     -- becomes:
-    View.Static.adopt "0" |> Html.Styled.fromUnstyled |> Html.Styled.map never
-
-    -- View.Static.static (plain Html):
-    View.Static.static (heavyRender data)
-    -- becomes:
-    View.Static.adopt "0"
+    Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable
 
 ## Data Type Transformation
 
@@ -32,9 +27,8 @@ Fields used only in ephemeral contexts (freeze, head) are removed from the
 `Data` type alias in the client bundle, enabling DCE to eliminate the field
 accessors and any rendering code that depends on them.
 
-Note: This rule always uses View.Static.adopt from the elm-pages package,
-not from the user's View module. If View.Static is not imported, the rule
-adds the import automatically.
+The inlined lazy thunk uses a magic string prefix "__ELM_PAGES_STATIC__" that
+the virtual-dom codemod detects at runtime to adopt pre-rendered HTML.
 
 -}
 
@@ -70,7 +64,7 @@ type alias HelperAnalysis =
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
-    , viewStaticImport : ViewStaticImport
+    , htmlLazyImport : HtmlLazyImport
     , htmlStyledAlias : Maybe ModuleName
     , lastImportRow : Int
     , staticIndex : Int
@@ -156,7 +150,7 @@ type alias Context =
     }
 
 
-type ViewStaticImport
+type HtmlLazyImport
     = NotImported
     | ImportedAs ModuleName
 
@@ -180,7 +174,7 @@ initialContext =
         (\lookupTable moduleName () ->
             { lookupTable = lookupTable
             , moduleName = moduleName
-            , viewStaticImport = NotImported
+            , htmlLazyImport = NotImported
             , htmlStyledAlias = Nothing
             , lastImportRow = 2
             , staticIndex = 0
@@ -227,13 +221,13 @@ importVisitor node context =
         importEndRow =
             (Node.range node).end.row
     in
-    if moduleName == [ "View", "Static" ] then
+    if moduleName == [ "Html", "Lazy" ] then
         ( []
         , { context
-            | viewStaticImport =
+            | htmlLazyImport =
                 import_.moduleAlias
                     |> Maybe.map Node.value
-                    |> Maybe.withDefault [ "View", "Static" ]
+                    |> Maybe.withDefault [ "Html", "Lazy" ]
                     |> ImportedAs
             , lastImportRow = max context.lastImportRow importEndRow
           }
@@ -515,14 +509,11 @@ expressionEnterVisitor node context =
     case Node.value node of
         Expression.Application applicationExpressions ->
             case applicationExpressions of
-                -- Single-argument application: View.freeze expr, View.Static.static expr
+                -- Single-argument application: View.freeze expr
                 functionNode :: _ :: [] ->
                     case ModuleNameLookupTable.moduleNameFor contextWithFieldTracking.lookupTable functionNode of
                         Just [ "View" ] ->
-                            handleViewModuleCall functionNode node contextWithFieldTracking
-
-                        Just [ "View", "Static" ] ->
-                            handleViewStaticModuleCall functionNode node contextWithFieldTracking
+                            handleViewFreezeCall functionNode node contextWithFieldTracking
 
                         _ ->
                             ( [], contextWithFieldTracking )
@@ -1116,51 +1107,20 @@ checkAppDataPassedToHelper context functionNode args =
             context
 
 
-handleViewModuleCall : Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )
-handleViewModuleCall functionNode node context =
+handleViewFreezeCall : Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )
+handleViewFreezeCall functionNode node context =
     case Node.value functionNode of
-        Expression.FunctionOrValue _ fnName ->
-            if fnName == "freeze" || fnName == "static" then
-                let
-                    -- If Html.Styled is imported, wrap with Html.Styled conversion
-                    -- Otherwise use plain Html
-                    replacement =
-                        if context.htmlStyledAlias /= Nothing then
-                            viewStaticAdoptCallStyled context
-
-                        else
-                            viewStaticAdoptCallPlain context
-
-                    fixes =
-                        [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
-                            ++ viewStaticImportFix context
-
-                    fromFn =
-                        "View." ++ fnName
-                in
-                ( [ createTransformErrorWithFixes fromFn "View.Static.adopt" node fixes ]
-                , { context | staticIndex = context.staticIndex + 1 }
-                )
-
-            else
-                ( [], context )
-
-        _ ->
-            ( [], context )
-
-
-handleViewStaticModuleCall : Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )
-handleViewStaticModuleCall functionNode node context =
-    case Node.value functionNode of
-        Expression.FunctionOrValue _ "static" ->
+        Expression.FunctionOrValue _ "freeze" ->
             let
+                -- Generate inlined lazy thunk with View.htmlToFreezable wrapper
                 replacement =
-                    viewStaticAdoptCallPlain context
+                    inlinedLazyThunk context
 
                 fixes =
                     [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
+                        ++ htmlLazyImportFix context
             in
-            ( [ createTransformErrorWithFixes "View.Static.static" "View.Static.adopt" node fixes ]
+            ( [ createTransformErrorWithFixes "View.freeze" "inlined lazy thunk" node fixes ]
             , { context | staticIndex = context.staticIndex + 1 }
             )
 
@@ -1178,11 +1138,11 @@ createTransformErrorWithFixes fromFn toFn node fixes =
         fixes
 
 
-{-| Generate a fix to add `import View.Static` if it's not already imported.
+{-| Generate a fix to add `import Html.Lazy` if it's not already imported.
 -}
-viewStaticImportFix : Context -> List Review.Fix.Fix
-viewStaticImportFix context =
-    case context.viewStaticImport of
+htmlLazyImportFix : Context -> List Review.Fix.Fix
+htmlLazyImportFix context =
+    case context.htmlLazyImport of
         ImportedAs _ ->
             -- Already imported, no fix needed
             []
@@ -1191,59 +1151,51 @@ viewStaticImportFix context =
             -- Add the import after the last import
             [ Review.Fix.insertAt
                 { row = context.lastImportRow + 1, column = 1 }
-                "import View.Static\n"
+                "import Html.Lazy\n"
             ]
 
 
-{-| Generate View.Static.adopt "index" for View module calls (View.freeze).
+{-| Generate inlined lazy thunk with View.htmlToFreezable wrapper and map never.
 
-Wraps with Html.Styled conversion since the user's View module works with Html.Styled types.
-Uses the correct Html.Styled alias if one is defined.
+The generated code:
+
+    Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0"
+        |> View.htmlToFreezable
+        |> Html.Styled.map never
+
+This creates a lazy thunk with a magic string prefix that the virtual-dom codemod
+detects at runtime to adopt pre-rendered HTML. The View.htmlToFreezable wrapper
+converts the Html Never back to the user's Freezable type, and map never converts
+from `Freezable` (Html Never) to `Html msg`.
+
 -}
-viewStaticAdoptCallStyled : Context -> String
-viewStaticAdoptCallStyled context =
+inlinedLazyThunk : Context -> String
+inlinedLazyThunk context =
     let
-        viewStaticPrefix =
-            case context.viewStaticImport of
+        htmlLazyPrefix =
+            case context.htmlLazyImport of
                 ImportedAs alias ->
                     String.join "." alias
 
                 NotImported ->
-                    "View.Static"
+                    "Html.Lazy"
 
-        htmlStyledPrefix =
-            context.htmlStyledAlias
-                |> Maybe.withDefault [ "Html", "Styled" ]
-                |> String.join "."
-
-        idStr =
-            "\"" ++ String.fromInt context.staticIndex ++ "\""
-    in
-    -- Wrap with Html.Styled conversion to match the original View.freeze return type
-    "(" ++ viewStaticPrefix ++ ".adopt " ++ idStr ++ " |> " ++ htmlStyledPrefix ++ ".fromUnstyled |> " ++ htmlStyledPrefix ++ ".map never)"
-
-
-{-| Generate View.Static.adopt "index" for plain Html (not Html.Styled).
-
-Since View.Static.adopt returns Html Never, we need to wrap with Html.map never
-to convert to the generic Html msg type expected by the View type.
--}
-viewStaticAdoptCallPlain : Context -> String
-viewStaticAdoptCallPlain context =
-    let
-        modulePrefix =
-            case context.viewStaticImport of
-                ImportedAs alias ->
+        -- Determine the map function prefix based on whether Html.Styled is used
+        -- If Html.Styled is imported, use it for map never; otherwise use plain Html
+        mapPrefix =
+            case context.htmlStyledAlias of
+                Just alias ->
                     String.join "." alias
 
-                NotImported ->
-                    "View.Static"
+                Nothing ->
+                    "Html"
 
-        idStr =
-            "\"" ++ String.fromInt context.staticIndex ++ "\""
+        -- Magic prefix that vdom codemod detects
+        staticId =
+            "\"__ELM_PAGES_STATIC__" ++ String.fromInt context.staticIndex ++ "\""
     in
-    -- Wrap with Html.map never to convert Html Never -> Html msg
-    "(" ++ modulePrefix ++ ".adopt " ++ idStr ++ " |> Html.map never)"
+    -- Generate: Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never
+    "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> Html.text \"\") " ++ staticId ++ " |> View.htmlToFreezable |> " ++ mapPrefix ++ ".map never)"
 
 
 {-| Final evaluation - emit Data type transformation if there are removable fields.
