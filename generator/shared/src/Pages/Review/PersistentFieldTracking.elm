@@ -67,6 +67,7 @@ type alias HelperAnalysis =
     { paramName : String -- First parameter name
     , accessedFields : Set String -- Fields accessed on first param (e.g., param.field)
     , isTrackable : Bool -- False if param is used in ways we can't track
+    , aliasTarget : Maybe String -- If this is an alias to another function (e.g., myRender = renderContent)
     }
 
 
@@ -75,6 +76,9 @@ type alias HelperAnalysis =
 This enables tracking field usage when app.data is passed to a helper function.
 Also handles record destructuring patterns like `renderContent { title, body } = ...`
 where we know EXACTLY which fields are used.
+
+Also detects function aliases like `myRender = renderContent` where the function
+has no parameters and its body is just a reference to another function.
 
 -}
 analyzeHelperFunction : Expression.Function -> Maybe HelperAnalysis
@@ -102,6 +106,7 @@ analyzeHelperFunction function =
                         { paramName = paramName
                         , accessedFields = accessedFields
                         , isTrackable = isTrackable
+                        , aliasTarget = Nothing
                         }
 
                 Nothing ->
@@ -114,6 +119,7 @@ analyzeHelperFunction function =
                                 { paramName = "_record_pattern_"
                                 , accessedFields = fields
                                 , isTrackable = True
+                                , aliasTarget = Nothing
                                 }
 
                         Nothing ->
@@ -121,7 +127,44 @@ analyzeHelperFunction function =
                             Nothing
 
         [] ->
-            -- No parameters, not a helper that takes data
+            -- No parameters - check if this is a function alias like `myRender = renderContent`
+            case extractSimpleFunctionReference body of
+                Just targetFuncName ->
+                    -- This is an alias to another function
+                    Just
+                        { paramName = "_alias_"
+                        , accessedFields = Set.empty
+                        , isTrackable = True
+                        , aliasTarget = Just targetFuncName
+                        }
+
+                Nothing ->
+                    -- Not a simple function reference, can't track
+                    Nothing
+
+
+{-| Extract a simple local function reference from an expression.
+
+Returns Just funcName if the expression is a simple reference to a local function
+(e.g., `renderContent` not `Module.renderContent`).
+
+-}
+extractSimpleFunctionReference : Node Expression -> Maybe String
+extractSimpleFunctionReference node =
+    case Node.value node of
+        Expression.FunctionOrValue [] funcName ->
+            -- Local function reference (not qualified)
+            -- Make sure it's not a constructor (starts with uppercase)
+            if Char.isLower (String.uncons funcName |> Maybe.map Tuple.first |> Maybe.withDefault 'A') then
+                Just funcName
+
+            else
+                Nothing
+
+        Expression.ParenthesizedExpression inner ->
+            extractSimpleFunctionReference inner
+
+        _ ->
             Nothing
 
 
@@ -849,7 +892,8 @@ resolvePendingHelperCalls pendingCalls helperFunctions =
                         ( fields, True )
 
                     Just funcName ->
-                        case Dict.get funcName helperFunctions of
+                        -- Follow alias chain to get the final analysis
+                        case resolveHelperWithAliases funcName helperFunctions Set.empty of
                             Just analysis ->
                                 if analysis.isTrackable then
                                     -- Known helper with trackable field usage!
@@ -860,10 +904,39 @@ resolvePendingHelperCalls pendingCalls helperFunctions =
                                     ( fields, True )
 
                             Nothing ->
-                                -- Unknown function - can't track which fields it uses
+                                -- Unknown function or cycle detected - can't track
                                 ( fields, True )
             )
             ( Set.empty, False )
+
+
+{-| Resolve a helper function, following alias chains to find the actual implementation.
+
+Takes a set of already-visited function names to detect cycles.
+Returns Nothing if the function is unknown or if a cycle is detected.
+
+-}
+resolveHelperWithAliases : String -> Dict String HelperAnalysis -> Set String -> Maybe HelperAnalysis
+resolveHelperWithAliases funcName helperFunctions visited =
+    if Set.member funcName visited then
+        -- Cycle detected - bail out
+        Nothing
+
+    else
+        case Dict.get funcName helperFunctions of
+            Just analysis ->
+                case analysis.aliasTarget of
+                    Just targetName ->
+                        -- This is an alias, follow the chain
+                        resolveHelperWithAliases targetName helperFunctions (Set.insert funcName visited)
+
+                    Nothing ->
+                        -- Not an alias, return the analysis
+                        Just analysis
+
+            Nothing ->
+                -- Unknown function
+                Nothing
 
 
 {-| Extract all field names from a list of field definitions.
