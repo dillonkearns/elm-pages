@@ -214,6 +214,7 @@ ${
 }
 
 import * as preRenderHtml from "./pre-render-html.js";
+import { extractAndReplaceStaticRegions } from "./extract-static-regions.js";
 const basePath = \`${options.base || "/"}\`;
 const htmlTemplate = ${JSON.stringify(processedIndexTemplate)};
 const mode = "build";
@@ -232,8 +233,19 @@ export async function render(request) {
     false
   );
   if (response.kind === "bytes") {
+    // Extract static regions from HTML and prepend to content.dat
+    const { regions: staticRegions } = extractAndReplaceStaticRegions(response.html || "");
+    const staticRegionsJson = JSON.stringify(staticRegions);
+    const staticRegionsBuffer = Buffer.from(staticRegionsJson, 'utf8');
+    const lengthBuffer = Buffer.alloc(4);
+    lengthBuffer.writeUInt32BE(staticRegionsBuffer.length, 0);
+    const contentDatBuffer = Buffer.concat([
+      lengthBuffer,
+      staticRegionsBuffer,
+      Buffer.from(response.contentDatPayload.buffer)
+    ]);
     return {
-        body: response.contentDatPayload.buffer,
+        body: contentDatBuffer,
         statusCode: response.statusCode,
         kind: response.kind,
         headers: response.headers,
