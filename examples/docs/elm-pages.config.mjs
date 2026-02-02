@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import { ViteWebfontDownload } from "vite-plugin-webfont-dl";
+import adapter from "../../adapter/netlify.js";
 
 export default {
   vite: defineConfig({
@@ -11,6 +12,7 @@ export default {
       ]),
     ],
   }),
+  adapter,
   headTagsTemplate(context) {
     return `
 <link rel="stylesheet" href="/style.css" />
