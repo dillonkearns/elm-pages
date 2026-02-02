@@ -366,7 +366,7 @@ explanationCards =
             [ text "Content wrapped in "
             , code [] [ text "View.freeze" ]
             , text " is rendered on the server and adopted by the client without re-rendering. "
-            , text "The rendering code is eliminated from the client bundle."
+            , text "The rendering code is eliminated from the client bundle, along with any dependencies that become unused."
             ]
         , card "island"
             "Interactive Islands"
@@ -430,7 +430,7 @@ view app =
         [ h3 [ Attr.class "text-white font-semibold mb-3" ]
             [ text "Syntax-Highlighted Example (Frozen)" ]
         , p [ Attr.class "text-gray-300 text-sm mb-4" ]
-            [ text "This code block uses the SyntaxHighlight library. Because it's inside View.freeze, the syntax highlighting code is eliminated from the client bundle via DCE." ]
+            [ text "This code block uses the SyntaxHighlight library. Because it's inside View.freeze, the entire library is eliminated from the client bundle since nothing else uses it." ]
         , div [ Attr.class "overflow-x-auto" ]
             [ SyntaxHighlight.elm exampleCode
                 |> Result.map (SyntaxHighlight.toBlockHtml (Just 1))
@@ -493,14 +493,14 @@ tabContent tab =
                     [ li [] [ text "Renders the content on the server" ]
                     , li [] [ text "Extracts it as a static region in the HTML" ]
                     , li [] [ text "On the client, adopts the pre-rendered DOM without re-rendering" ]
-                    , li [] [ text "Eliminates the rendering code from the client bundle via DCE" ]
+                    , li [] [ text "Eliminates the rendering code from the client bundle, along with any dependencies that become unused" ]
                     ]
                 ]
 
         Benefits ->
             div []
                 [ ul [ Attr.class "space-y-3" ]
-                    [ benefitItem "Smaller client bundles" "Rendering code for frozen content is dead-code eliminated"
+                    [ benefitItem "Smaller client bundles" "Rendering code is dead-code eliminated, along with any dependencies that become unused"
                     , benefitItem "Faster hydration" "No need to re-render static content on the client"
                     , benefitItem "SEO friendly" "All content is in the initial HTML response"
                     , benefitItem "Progressive enhancement" "Static content works without JavaScript"
