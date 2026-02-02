@@ -260,6 +260,12 @@ export async function render(request) {
         isBase64Encoded: response.body.isBase64Encoded,
     }
   } else {
+    // Replace __STATIC__ placeholders with numeric IDs in the HTML
+    const { html: updatedHtml } = extractAndReplaceStaticRegions(response.htmlString?.html || "");
+    if (response.htmlString) {
+      response.htmlString.html = updatedHtml;
+    }
+
     return {
         body: preRenderHtml.replaceTemplate(htmlTemplate, response.htmlString),
         statusCode: response.statusCode,
