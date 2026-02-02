@@ -537,22 +537,11 @@ expressionEnterVisitor node context =
 
 expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionExitVisitor node context =
-    case Node.value node of
-        Expression.Application (functionNode :: _) ->
-            case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
-                Just [ "View" ] ->
-                    case Node.value functionNode of
-                        Expression.FunctionOrValue _ "freeze" ->
-                            ( [], { context | inFreezeCall = False } )
+    if PersistentFieldTracking.isExitingFreezeCall node context.lookupTable then
+        ( [], { context | inFreezeCall = False } )
 
-                        _ ->
-                            ( [], context )
-
-                _ ->
-                    ( [], context )
-
-        _ ->
-            ( [], context )
+    else
+        ( [], context )
 
 
 {-| Track field access on app.data and variables bound to app.data.
@@ -858,38 +847,8 @@ Returns the ranges of the "Data" type references (not the full Typed node).
 
 -}
 findDataTypeRanges : Node TypeAnnotation -> List Range
-findDataTypeRanges node =
-    case Node.value node of
-        TypeAnnotation.Typed (Node range ( [], "Data" )) args ->
-            -- Found "Data" type! Return its range, plus check any type args
-            range :: List.concatMap findDataTypeRanges args
-
-        TypeAnnotation.Typed _ args ->
-            -- Not Data, but check type arguments
-            List.concatMap findDataTypeRanges args
-
-        TypeAnnotation.FunctionTypeAnnotation left right ->
-            findDataTypeRanges left ++ findDataTypeRanges right
-
-        TypeAnnotation.Tupled nodes ->
-            List.concatMap findDataTypeRanges nodes
-
-        TypeAnnotation.Record fields ->
-            fields
-                |> List.concatMap
-                    (\(Node _ ( _, typeNode )) ->
-                        findDataTypeRanges typeNode
-                    )
-
-        TypeAnnotation.GenericRecord _ (Node _ fields) ->
-            fields
-                |> List.concatMap
-                    (\(Node _ ( _, typeNode )) ->
-                        findDataTypeRanges typeNode
-                    )
-
-        _ ->
-            []
+findDataTypeRanges =
+    PersistentFieldTracking.extractDataTypeRanges
 
 
 {-| Add a field access to clientUsedFields if we're in a CLIENT context.

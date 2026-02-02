@@ -638,22 +638,11 @@ isDataStaticAttribute node =
 
 expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionExitVisitor node context =
-    case Node.value node of
-        Expression.Application (functionNode :: _) ->
-            case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
-                Just [ "View" ] ->
-                    case Node.value functionNode of
-                        Expression.FunctionOrValue _ "freeze" ->
-                            ( [], { context | inFreezeCall = False } )
+    if PersistentFieldTracking.isExitingFreezeCall node context.lookupTable then
+        ( [], { context | inFreezeCall = False } )
 
-                        _ ->
-                            ( [], context )
-
-                _ ->
-                    ( [], context )
-
-        _ ->
-            ( [], context )
+    else
+        ( [], context )
 
 
 {-| Track field access on app.data
@@ -672,35 +661,11 @@ trackFieldAccess node context =
         Expression.LetExpression letBlock ->
             let
                 newBindings =
-                    letBlock.declarations
-                        |> List.foldl
-                            (\declNode acc ->
-                                case Node.value declNode of
-                                    Expression.LetFunction letFn ->
-                                        let
-                                            fnDecl =
-                                                Node.value letFn.declaration
-                                        in
-                                        case fnDecl.arguments of
-                                            [] ->
-                                                if isAppDataAccess fnDecl.expression context then
-                                                    Set.insert (Node.value fnDecl.name) acc
-
-                                                else
-                                                    acc
-
-                                            _ ->
-                                                acc
-
-                                    Expression.LetDestructuring pattern expr ->
-                                        if isAppDataAccess expr context then
-                                            PersistentFieldTracking.extractPatternNames pattern
-                                                |> Set.union acc
-
-                                        else
-                                            acc
-                            )
-                            context.appDataBindings
+                    PersistentFieldTracking.extractAppDataBindingsFromLet
+                        letBlock.declarations
+                        context.appParamName
+                        context.appDataBindings
+                        (\expr -> isAppDataAccess expr context)
             in
             { context | appDataBindings = newBindings }
 
@@ -847,41 +812,8 @@ markAllFieldsAsPersistent context =
 {-| Extract all ranges where "Data" appears as a type reference in a type annotation.
 -}
 extractDataTypeReferences : Node TypeAnnotation -> List Range
-extractDataTypeReferences node =
-    case Node.value node of
-        TypeAnnotation.Typed (Node typeRange ( [], "Data" )) args ->
-            -- Found a reference to "Data" (unqualified)
-            typeRange :: List.concatMap extractDataTypeReferences args
-
-        TypeAnnotation.Typed _ args ->
-            -- Some other type, but check its arguments
-            List.concatMap extractDataTypeReferences args
-
-        TypeAnnotation.Tupled nodes ->
-            List.concatMap extractDataTypeReferences nodes
-
-        TypeAnnotation.Record fields ->
-            fields
-                |> List.concatMap
-                    (\(Node _ ( _, fieldType )) ->
-                        extractDataTypeReferences fieldType
-                    )
-
-        TypeAnnotation.GenericRecord _ (Node _ fields) ->
-            fields
-                |> List.concatMap
-                    (\(Node _ ( _, fieldType )) ->
-                        extractDataTypeReferences fieldType
-                    )
-
-        TypeAnnotation.FunctionTypeAnnotation left right ->
-            extractDataTypeReferences left ++ extractDataTypeReferences right
-
-        TypeAnnotation.GenericType _ ->
-            []
-
-        TypeAnnotation.Unit ->
-            []
+extractDataTypeReferences =
+    PersistentFieldTracking.extractDataTypeRanges
 
 
 addFieldAccess : String -> Context -> Context

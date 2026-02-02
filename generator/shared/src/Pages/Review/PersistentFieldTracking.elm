@@ -7,7 +7,9 @@ module Pages.Review.PersistentFieldTracking exposing
     , containsAppDataExpression
     , extractAppDataAccessorApplicationField
     , extractAppDataFieldName
+    , extractAppDataBindingsFromLet
     , extractCasePatternFields
+    , extractDataTypeRanges
     , extractPatternName
     , extractPatternNames
     , extractRecordPatternFields
@@ -15,6 +17,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , extractAccessorFieldFromApplication
     , extractAppDataPipeAccessorField
     , isAppDataAccess
+    , isExitingFreezeCall
     , isViewFreezeCall
     , resolvePendingHelperCalls
     , typeAnnotationToString
@@ -44,6 +47,7 @@ import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
+import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Set exposing (Set)
@@ -699,6 +703,50 @@ typeAnnotationToString typeAnnotation =
             leftWrapped ++ " -> " ++ rightStr
 
 
+{-| Find all ranges where "Data" appears as a type in a type annotation.
+
+This is used by both StaticViewTransform (to replace Data with Ephemeral in
+freeze-only helper annotations) and ServerDataTransform (to update type
+references from Data to Ephemeral).
+
+Returns the ranges of the "Data" type references (unqualified only).
+
+-}
+extractDataTypeRanges : Node TypeAnnotation -> List Range
+extractDataTypeRanges node =
+    case Node.value node of
+        TypeAnnotation.Typed (Node range ( [], "Data" )) args ->
+            -- Found "Data" type! Return its range, plus check any type args
+            range :: List.concatMap extractDataTypeRanges args
+
+        TypeAnnotation.Typed _ args ->
+            -- Not Data, but check type arguments
+            List.concatMap extractDataTypeRanges args
+
+        TypeAnnotation.FunctionTypeAnnotation left right ->
+            extractDataTypeRanges left ++ extractDataTypeRanges right
+
+        TypeAnnotation.Tupled nodes ->
+            List.concatMap extractDataTypeRanges nodes
+
+        TypeAnnotation.Record fields ->
+            fields
+                |> List.concatMap
+                    (\(Node _ ( _, typeNode )) ->
+                        extractDataTypeRanges typeNode
+                    )
+
+        TypeAnnotation.GenericRecord _ (Node _ fields) ->
+            fields
+                |> List.concatMap
+                    (\(Node _ ( _, typeNode )) ->
+                        extractDataTypeRanges typeNode
+                    )
+
+        _ ->
+            []
+
+
 {-| Resolve pending helper calls against a dictionary of analyzed helper functions.
 
 Returns (additionalFields, hasUnresolved) where:
@@ -754,6 +802,73 @@ isViewFreezeCall functionNode lookupTable =
 
         _ ->
             False
+
+
+{-| Check if an expression node represents exiting a View.freeze call.
+
+This is used by expressionExitVisitor in both StaticViewTransform and
+ServerDataTransform to reset the inFreezeCall flag when exiting a freeze call.
+
+Returns True if the expression is `View.freeze <arg>` (an Application with freeze).
+
+-}
+isExitingFreezeCall : Node Expression -> ModuleNameLookupTable -> Bool
+isExitingFreezeCall node lookupTable =
+    case Node.value node of
+        Expression.Application (functionNode :: _) ->
+            isViewFreezeCall functionNode lookupTable
+
+        _ ->
+            False
+
+
+{-| Extract app.data bindings from let declarations.
+
+This handles the common pattern of extracting variable bindings to app.data:
+- `let d = app.data` → adds "d" to bindings
+- `let { title, body } = app.data` → adds "title", "body" to bindings
+
+Both StaticViewTransform and ServerDataTransform need this logic.
+Returns the new set of app.data bindings (union of existing + new).
+
+-}
+extractAppDataBindingsFromLet :
+    List (Node Expression.LetDeclaration)
+    -> Maybe String
+    -> Set String
+    -> (Node Expression -> Bool)
+    -> Set String
+extractAppDataBindingsFromLet declarations appParamName existingBindings isAppData =
+    declarations
+        |> List.foldl
+            (\declNode acc ->
+                case Node.value declNode of
+                    Expression.LetFunction letFn ->
+                        let
+                            fnDecl =
+                                Node.value letFn.declaration
+                        in
+                        case fnDecl.arguments of
+                            [] ->
+                                -- No arguments - could be binding app.data
+                                if isAppData fnDecl.expression then
+                                    Set.insert (Node.value fnDecl.name) acc
+
+                                else
+                                    acc
+
+                            _ ->
+                                acc
+
+                    Expression.LetDestructuring pattern expr ->
+                        if isAppData expr then
+                            extractPatternNames pattern
+                                |> Set.union acc
+
+                        else
+                            acc
+            )
+            existingBindings
 
 
 {-| Extract the field name being accessed from app.data.
