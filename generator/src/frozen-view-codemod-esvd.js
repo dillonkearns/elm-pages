@@ -1,5 +1,5 @@
 /**
- * Static Region Codemod for elm-safe-virtual-dom (lydell's fork)
+ * Frozen View Codemod for elm-safe-virtual-dom (lydell's fork)
  *
  * This version works WITH elm-safe-virtual-dom's virtualize mechanism rather than against it.
  *
@@ -9,14 +9,14 @@
  *
  * Our approach:
  * 1. Initial page load: virtualize has already adopted the DOM and built the tNode tree.
- *    When diffing sees virtualized-node vs static-region-thunk, we check if the DOM has
+ *    When diffing sees virtualized-node vs frozen-view-thunk, we check if the DOM has
  *    a matching data-static attribute and keep it without evaluating the thunk.
  *
- * 2. Re-renders (counter clicks, etc.): thunk-vs-thunk with same static ID.
+ * 2. Re-renders (counter clicks, etc.): thunk-vs-thunk with same frozen view ID.
  *    We keep the existing DOM from tNode.r.
  *
- * 3. SPA navigation: thunk-vs-thunk with different static IDs.
- *    Parse HTML from window.__ELM_PAGES_STATIC_REGIONS__ and use __reinsert flag.
+ * 3. SPA navigation: thunk-vs-thunk with different frozen view IDs.
+ *    Parse HTML from window.__ELM_PAGES_FROZEN_VIEWS__ and use __reinsert flag.
  *
  * Detection uses a magic string prefix "__ELM_PAGES_STATIC__" instead of a custom type,
  * which is more robust because strings survive minification unchanged.
@@ -24,9 +24,9 @@
  * See: tnode-explainer.md and proposed-esvd-design.md for detailed architecture notes.
  */
 
-// Magic prefix for static region identification
-const STATIC_REGION_PREFIX = '__ELM_PAGES_STATIC__';
-const STATIC_REGION_PREFIX_LENGTH = STATIC_REGION_PREFIX.length; // 21
+// Magic prefix for frozen view identification
+const FROZEN_VIEW_PREFIX = '__ELM_PAGES_STATIC__';
+const FROZEN_VIEW_PREFIX_LENGTH = FROZEN_VIEW_PREFIX.length; // 21
 
 /**
  * Patch for the "old is not thunk, new is thunk" case in diffHelp.
@@ -37,25 +37,25 @@ const STATIC_REGION_PREFIX_LENGTH = STATIC_REGION_PREFIX.length; // 21
  *       return _VirtualDom_diffHelp(x, y.k || (y.k = y.m()), eventNode, tNode);
  *   }
  *
- * We intercept to check: if the new thunk is a static region, and the existing DOM
+ * We intercept to check: if the new thunk is a frozen view, and the existing DOM
  * (from virtualize) has a matching data-static attribute, keep it without evaluating the thunk.
  */
-const STATIC_REGION_VIRTUALIZE_ADOPTION = `
-    // Static region adoption: check if new thunk is for a static region
+const FROZEN_VIEW_VIRTUALIZE_ADOPTION = `
+    // Frozen view adoption: check if new thunk is for a frozen view
     // Detection: refs[1] is a string starting with "__ELM_PAGES_STATIC__"
     var __yRefs = y.l;
-    var __isStaticRegion = __yRefs && __yRefs.length >= 2 &&
+    var __isFrozenView = __yRefs && __yRefs.length >= 2 &&
         typeof __yRefs[1] === 'string' &&
-        __yRefs[1].startsWith('${STATIC_REGION_PREFIX}');
+        __yRefs[1].startsWith('${FROZEN_VIEW_PREFIX}');
 
-    if (__isStaticRegion) {
-        var __staticId = __yRefs[1].slice(${STATIC_REGION_PREFIX_LENGTH});
+    if (__isFrozenView) {
+        var __frozenId = __yRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH});
         var __existingDom = tNode.r;  // DOM from virtualize
 
         // Check if existing DOM has matching data-static attribute
         if (__existingDom && __existingDom.nodeType === 1) {
-            var __existingStaticId = __existingDom.getAttribute('data-static');
-            if (__existingStaticId === __staticId) {
+            var __existingFrozenId = __existingDom.getAttribute('data-static');
+            if (__existingFrozenId === __frozenId) {
                 // Keep the existing DOM - don't evaluate thunk!
                 return {
                     r: __existingDom,
@@ -73,22 +73,22 @@ const STATIC_REGION_VIRTUALIZE_ADOPTION = `
  * Cases handled:
  * 1. Re-render after adoption: x.k is undefined but tNode.r has the adopted DOM
  *    → Keep existing DOM, don't evaluate thunk
- * 2. SPA navigation: Need HTML from window.__ELM_PAGES_STATIC_REGIONS__
+ * 2. SPA navigation: Need HTML from window.__ELM_PAGES_FROZEN_VIEWS__
  *    → Parse HTML, return with reinsert flag
  */
-const STATIC_REGION_SPA_NAVIGATION = `
-    // Static region: check if this is a static region thunk
+const FROZEN_VIEW_SPA_NAVIGATION = `
+    // Frozen view: check if this is a frozen view thunk
     // Detection: refs[1] is a string starting with "__ELM_PAGES_STATIC__"
-    var __yIsStatic = yRefs && yRefs.length >= 2 && typeof yRefs[1] === 'string' && yRefs[1].startsWith('${STATIC_REGION_PREFIX}');
-    var __xIsStatic = xRefs && xRefs.length >= 2 && typeof xRefs[1] === 'string' && xRefs[1].startsWith('${STATIC_REGION_PREFIX}');
+    var __yIsFrozen = yRefs && yRefs.length >= 2 && typeof yRefs[1] === 'string' && yRefs[1].startsWith('${FROZEN_VIEW_PREFIX}');
+    var __xIsFrozen = xRefs && xRefs.length >= 2 && typeof xRefs[1] === 'string' && xRefs[1].startsWith('${FROZEN_VIEW_PREFIX}');
 
-    if (__yIsStatic && __xIsStatic) {
-        var __newStaticId = yRefs[1].slice(${STATIC_REGION_PREFIX_LENGTH});
-        var __oldStaticId = xRefs[1].slice(${STATIC_REGION_PREFIX_LENGTH});
+    if (__yIsFrozen && __xIsFrozen) {
+        var __newFrozenId = yRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH});
+        var __oldFrozenId = xRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH});
 
-        // Case 1: Same static region, re-render after adoption
+        // Case 1: Same frozen view, re-render after adoption
         // x.k is undefined because we adopted without evaluating
-        if (__newStaticId === __oldStaticId) {
+        if (__newFrozenId === __oldFrozenId) {
             var __existingDom = tNode.r;
             if (__existingDom && __existingDom.nodeType === 1) {
                 // Keep existing DOM, skip thunk evaluation
@@ -100,8 +100,8 @@ const STATIC_REGION_SPA_NAVIGATION = `
             }
         }
 
-        // Case 2: Different static region (SPA navigation)
-        var __globalContent = (window.__ELM_PAGES_STATIC_REGIONS__ || {})[__newStaticId];
+        // Case 2: Different frozen view (SPA navigation)
+        var __globalContent = (window.__ELM_PAGES_FROZEN_VIEWS__ || {})[__newFrozenId];
 
         if (__globalContent && __globalContent.length > 0) {
             // Parse HTML string into DOM
@@ -131,7 +131,7 @@ const STATIC_REGION_SPA_NAVIGATION = `
  * @param {string} elmCode - The compiled Elm JavaScript code
  * @returns {string} - The patched code
  */
-export function patchStaticRegionsESVD(elmCode) {
+export function patchFrozenViewsESVD(elmCode) {
     let patchedCode = elmCode;
     let patchCount = 0;
 
@@ -142,7 +142,7 @@ export function patchStaticRegionsESVD(elmCode) {
 
     if (virtualizePatchPattern.test(patchedCode)) {
         patchedCode = patchedCode.replace(virtualizePatchPattern,
-            `$1${STATIC_REGION_VIRTUALIZE_ADOPTION}
+            `$1${FROZEN_VIEW_VIRTUALIZE_ADOPTION}
     $2`
         );
         patchCount++;
@@ -155,17 +155,17 @@ export function patchStaticRegionsESVD(elmCode) {
     if (spaNavigationPattern.test(patchedCode)) {
         patchedCode = patchedCode.replace(spaNavigationPattern,
             `$1
-                ${STATIC_REGION_SPA_NAVIGATION}
+                ${FROZEN_VIEW_SPA_NAVIGATION}
                 $2`
         );
         patchCount++;
     }
 
     if (patchCount < 2) {
-        throw new Error(`[static-region-codemod-esvd] Only applied ${patchCount}/2 patches - elm-safe-virtual-dom structure may have changed`);
+        throw new Error(`[frozen-view-codemod-esvd] Only applied ${patchCount}/2 patches - elm-safe-virtual-dom structure may have changed`);
     }
 
     return patchedCode;
 }
 
-export default { patchStaticRegionsESVD };
+export default { patchFrozenViewsESVD };

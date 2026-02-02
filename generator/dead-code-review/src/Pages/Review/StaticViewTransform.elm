@@ -1,7 +1,7 @@
 module Pages.Review.StaticViewTransform exposing (rule)
 
-{-| This rule transforms static region render calls into inlined lazy thunks in the client
-bundle. This enables dead-code elimination of the static rendering dependencies
+{-| This rule transforms frozen view render calls into inlined lazy thunks in the client
+bundle. This enables dead-code elimination of the frozen view rendering dependencies
 (markdown parsers, syntax highlighters, etc.) while preserving the pre-rendered
 HTML for adoption by the virtual-dom.
 
@@ -1106,7 +1106,7 @@ handleViewFreezeCall functionNode node context =
 createTransformErrorWithFixes : String -> String -> Node Expression -> List Review.Fix.Fix -> Error {}
 createTransformErrorWithFixes fromFn toFn node fixes =
     Rule.errorWithFix
-        { message = "Static region codemod: transform " ++ fromFn ++ " to " ++ toFn
+        { message = "Frozen view codemod: transform " ++ fromFn ++ " to " ++ toFn
         , details = [ "Transforms " ++ fromFn ++ " to " ++ toFn ++ " for client-side adoption and DCE" ]
         }
         (Node.range node)

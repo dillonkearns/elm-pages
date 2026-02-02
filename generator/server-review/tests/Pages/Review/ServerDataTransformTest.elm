@@ -364,7 +364,7 @@ view app =
                             [ Review.Test.error
                                 { message = "Server codemod: wrap freeze argument with data-static"
                                 , details =
-                                    [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
                                     ]
                                 , under = "View.freeze (Html.text \"hello\")"
                                 }
@@ -408,7 +408,7 @@ view app =
             , test "wraps multiple View.freeze calls with sequential indices" <|
                 \() ->
                     -- Multiple freeze calls should get unique __STATIC__ markers
-                    -- (the placeholder is the same, but extract-static-regions.js assigns indices)
+                    -- (the placeholder is the same, but extract-frozen-views.js assigns indices)
                     """module Route.Test exposing (Data, route)
 
 import Html
@@ -432,7 +432,7 @@ view app =
                             [ Review.Test.error
                                 { message = "Server codemod: wrap freeze argument with data-static"
                                 , details =
-                                    [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
                                     ]
                                 , under = "View.freeze (Html.text \"first\")"
                                 }
@@ -457,7 +457,7 @@ view app =
                             , Review.Test.error
                                 { message = "Server codemod: wrap freeze argument with data-static"
                                 , details =
-                                    [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
                                     ]
                                 , under = "View.freeze (Html.text \"second\")"
                                 }
@@ -502,7 +502,7 @@ view app =
                             [ Review.Test.error
                                 { message = "Server codemod: wrap freeze argument with data-static"
                                 , details =
-                                    [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
                                     ]
                                 , under = "View.freeze (H.text \"hello\")"
                                 }
@@ -545,7 +545,7 @@ content = Html.Attributes.attribute "foo" "bar"
                             [ Review.Test.error
                                 { message = "Server codemod: wrap freeze argument with data-static"
                                 , details =
-                                    [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
                                     ]
                                 , under = "View.freeze content"
                                 }
@@ -588,7 +588,7 @@ view app =
                             [ Review.Test.error
                                 { message = "Server codemod: wrap freeze argument with data-static"
                                 , details =
-                                    [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
                                     ]
                                 , under = "View.freeze (Html.text \"hello\")"
                                 }
@@ -630,7 +630,7 @@ content = someHelper "test"
                             [ Review.Test.error
                                 { message = "Server codemod: wrap freeze argument with data-static"
                                 , details =
-                                    [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
                                     ]
                                 , under = "View.freeze content"
                                 }
@@ -675,7 +675,7 @@ view app =
                             [ Review.Test.error
                                 { message = "Server codemod: wrap freeze argument with data-static"
                                 , details =
-                                    [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
                                     ]
                                 , under = "View.freeze (Html.Styled.text \"hello\")"
                                 }

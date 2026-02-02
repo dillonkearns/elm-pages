@@ -27,7 +27,7 @@ import * as esbuild from "esbuild";
 import { merge_vite_configs } from "./vite-utils.js";
 import { templateHtml } from "./pre-render-html.js";
 import { resolveConfig } from "./config.js";
-import { extractAndReplaceStaticRegions, replaceStaticPlaceholders } from "./extract-static-regions.js";
+import { extractAndReplaceFrozenViews, replaceFrozenViewPlaceholders } from "./extract-frozen-views.js";
 import * as globby from "globby";
 import { fileURLToPath } from "url";
 
@@ -505,16 +505,16 @@ export async function start(options) {
           switch (renderResult.kind) {
             case "bytes": {
               // Create combined format for content.dat
-              // Format: [4 bytes: static regions JSON length][N bytes: JSON][remaining: ResponseSketch]
-              // Extract static regions from the HTML (needed for SPA navigation)
-              const { regions: staticRegions, html: updatedHtml } = extractAndReplaceStaticRegions(renderResult.html || "");
-              const staticRegionsJson = JSON.stringify(staticRegions);
-              const staticRegionsBuffer = Buffer.from(staticRegionsJson, 'utf8');
+              // Format: [4 bytes: frozen views JSON length][N bytes: JSON][remaining: ResponseSketch]
+              // Extract frozen views from the HTML (needed for SPA navigation)
+              const { regions: frozenViews, html: updatedHtml } = extractAndReplaceFrozenViews(renderResult.html || "");
+              const frozenViewsJson = JSON.stringify(frozenViews);
+              const frozenViewsBuffer = Buffer.from(frozenViewsJson, 'utf8');
               const lengthBuffer = Buffer.alloc(4);
-              lengthBuffer.writeUInt32BE(staticRegionsBuffer.length, 0);
+              lengthBuffer.writeUInt32BE(frozenViewsBuffer.length, 0);
               const combinedBuffer = Buffer.concat([
                 lengthBuffer,
-                staticRegionsBuffer,
+                frozenViewsBuffer,
                 Buffer.from(renderResult.contentDatPayload.buffer)
               ]);
               res.writeHead(is404 ? 404 : renderResult.statusCode, {
@@ -544,22 +544,22 @@ export async function start(options) {
                 const info = renderResult.htmlString;
 
                 // Replace __STATIC__ placeholders in HTML with indices
-                // (but don't include static regions in bytesData - they're already in the rendered DOM)
-                const updatedHtml = replaceStaticPlaceholders(info.html || "");
+                // (but don't include frozen views in bytesData - they're already in the rendered DOM)
+                const updatedHtml = replaceFrozenViewPlaceholders(info.html || "");
 
-                // Create combined format with empty static regions for initial page load
-                // (static regions are already in the DOM, so client adopts from there)
-                const emptyStaticRegions = {};
-                const staticRegionsJson = JSON.stringify(emptyStaticRegions);
-                const staticRegionsBuffer = Buffer.from(staticRegionsJson, 'utf8');
+                // Create combined format with empty frozen views for initial page load
+                // (frozen views are already in the DOM, so client adopts from there)
+                const emptyFrozenViews = {};
+                const frozenViewsJson = JSON.stringify(emptyFrozenViews);
+                const frozenViewsBuffer = Buffer.from(frozenViewsJson, 'utf8');
                 const lengthBuffer = Buffer.alloc(4);
-                lengthBuffer.writeUInt32BE(staticRegionsBuffer.length, 0);
+                lengthBuffer.writeUInt32BE(frozenViewsBuffer.length, 0);
 
-                // Decode original bytesData and prepend empty static regions header
+                // Decode original bytesData and prepend empty frozen views header
                 const originalBytes = Buffer.from(info.bytesData, 'base64');
                 const combinedBuffer = Buffer.concat([
                   lengthBuffer,
-                  staticRegionsBuffer,
+                  frozenViewsBuffer,
                   originalBytes
                 ]);
                 const combinedBytesData = combinedBuffer.toString('base64');

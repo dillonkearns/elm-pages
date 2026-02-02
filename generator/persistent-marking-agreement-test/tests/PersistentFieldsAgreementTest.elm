@@ -144,7 +144,7 @@ view app =
                         |> Review.Test.run StaticViewTransform.rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
                                 , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text app.data.body ])"
                                 }
@@ -253,7 +253,7 @@ view app =
                         |> Review.Test.run StaticViewTransform.rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
                                 , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text app.data.title ])"
                                 }
@@ -336,7 +336,7 @@ someHelper items = ""
                         |> Review.Test.run StaticViewTransform.rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
                                 , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text app.data.body ])"
                                 }
@@ -645,7 +645,7 @@ renderContent data =
                         |> Review.Test.run StaticViewTransform.rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
                                 , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ renderContent app.data ])"
                                 }
@@ -830,7 +830,7 @@ view app =
                         |> Review.Test.run StaticViewTransform.rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
                                 , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text (app.data.body ++ app.data.metadata) ])"
                                 }
@@ -1402,7 +1402,7 @@ extractTitle { title } =
                         |> Review.Test.run StaticViewTransform.rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
                                 , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
                                 , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text app.data.body ])"
                                 }

@@ -1,9 +1,9 @@
 module Pages.Review.StaticRegionScope exposing (rule)
 
-{-| This rule ensures that static region functions are only called from Route modules
+{-| This rule ensures that frozen view functions are only called from Route modules
 and that model (or values derived from model) is not referenced inside freeze calls.
 
-Static regions (View.freeze) are transformed by elm-review during the client-side build.
+Frozen views (View.freeze) are transformed by elm-review during the client-side build.
 This transformation only works for Route modules. Calling these functions from other
 modules (like Shared.elm or helper modules) will NOT enable DCE - the heavy dependencies
 will still be in the client bundle.
@@ -284,7 +284,7 @@ isRouteModule moduleName =
             False
 
 
-{-| Check if a module name is allowed to use static region functions.
+{-| Check if a module name is allowed to use frozen view functions.
 This includes Route modules and the View module (which provides helper functions
 that are ultimately called from Route modules).
 -}
@@ -293,7 +293,7 @@ isAllowedModule moduleName =
     isRouteModule moduleName || moduleName == [ "View" ]
 
 
-{-| Static region functions that should only be called from Route modules.
+{-| Frozen view functions that should only be called from Route modules.
 -}
 staticFunctionNames : List String
 staticFunctionNames =
@@ -411,8 +411,8 @@ expressionEnterVisitor : Node Expression -> ModuleContext -> ( List (Error {}), 
 expressionEnterVisitor node context =
     case Node.value node of
         Expression.Application (functionNode :: _) ->
-            -- Check if this is a call to a static region function
-            case checkStaticRegionFunctionCall functionNode context of
+            -- Check if this is a call to a frozen view function
+            case checkFrozenViewFunctionCall functionNode context of
                 Just scopeError ->
                     -- Report scope error and don't enter freeze mode (no point checking taint)
                     ( [ scopeError ], context )
@@ -451,17 +451,17 @@ expressionEnterVisitor node context =
                 ( [], context )
 
 
-{-| Check if a function call is to a static region function and if the current module is allowed.
-Returns Just error if not allowed, Nothing if allowed or not a static region function.
+{-| Check if a function call is to a frozen view function and if the current module is allowed.
+Returns Just error if not allowed, Nothing if allowed or not a frozen view function.
 -}
-checkStaticRegionFunctionCall : Node Expression -> ModuleContext -> Maybe (Error {})
-checkStaticRegionFunctionCall functionNode context =
+checkFrozenViewFunctionCall : Node Expression -> ModuleContext -> Maybe (Error {})
+checkFrozenViewFunctionCall functionNode context =
     case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
         Just [ "View" ] ->
             case Node.value functionNode of
                 Expression.FunctionOrValue _ name ->
                     if List.member name staticFunctionNames && not (isAllowedModule context.moduleName) then
-                        Just (staticRegionScopeError (Node.range functionNode) ("View." ++ name))
+                        Just (frozenViewScopeError (Node.range functionNode) ("View." ++ name))
 
                     else
                         Nothing
@@ -857,12 +857,12 @@ crossModuleTaintError range functionName =
         range
 
 
-staticRegionScopeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
-staticRegionScopeError range functionName =
+frozenViewScopeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+frozenViewScopeError range functionName =
     Rule.error
         { message = "`" ++ functionName ++ "` can only be called from Route modules"
         , details =
-            [ "Static region functions like `" ++ functionName ++ "` are transformed by elm-review during the client-side build to enable dead code elimination (DCE)."
+            [ "Frozen view functions like `" ++ functionName ++ "` are transformed by elm-review during the client-side build to enable dead code elimination (DCE)."
             , "This transformation only works for Route modules (Route.Index, Route.Blog.Slug_, etc.). Calling these functions from other modules like Shared.elm or helper modules will NOT enable DCE - the heavy dependencies will still be included in the client bundle."
             , "To fix this, either:"
             , "1. Move the `" ++ functionName ++ "` call into a Route module, or"

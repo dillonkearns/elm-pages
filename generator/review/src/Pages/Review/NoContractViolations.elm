@@ -139,7 +139,7 @@ coreModulesAndExports =
 
 
 {-| The freeze contract exports. If ANY of these are present, ALL must be present.
-This enables the frozen view feature for static regions.
+This enables the frozen view feature.
 -}
 freezeContractExports : List String
 freezeContractExports =

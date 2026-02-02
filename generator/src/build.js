@@ -1,8 +1,8 @@
 import * as fs from "./dir-helpers.js";
 import * as fsPromises from "fs/promises";
 import { runElmReview } from "./compile-elm.js";
-import { patchStaticRegions } from "./static-region-codemod.js";
-import { patchStaticRegionsESVD } from "./static-region-codemod-esvd.js";
+import { patchFrozenViews } from "./frozen-view-codemod.js";
+import { patchFrozenViewsESVD } from "./frozen-view-codemod-esvd.js";
 import { restoreColorSafe } from "./error-formatter.js";
 import * as path from "path";
 import { spawn as spawnCallback } from "cross-spawn";
@@ -214,7 +214,7 @@ ${
 }
 
 import * as preRenderHtml from "./pre-render-html.js";
-import { extractAndReplaceStaticRegions } from "./extract-static-regions.js";
+import { extractAndReplaceFrozenViews } from "./extract-frozen-views.js";
 const basePath = \`${options.base || "/"}\`;
 const htmlTemplate = ${JSON.stringify(processedIndexTemplate)};
 const mode = "build";
@@ -233,15 +233,15 @@ export async function render(request) {
     false
   );
   if (response.kind === "bytes") {
-    // Extract static regions from HTML and prepend to content.dat
-    const { regions: staticRegions } = extractAndReplaceStaticRegions(response.html || "");
-    const staticRegionsJson = JSON.stringify(staticRegions);
-    const staticRegionsBuffer = Buffer.from(staticRegionsJson, 'utf8');
+    // Extract frozen views from HTML and prepend to content.dat
+    const { regions: frozenViews } = extractAndReplaceFrozenViews(response.html || "");
+    const frozenViewsJson = JSON.stringify(frozenViews);
+    const frozenViewsBuffer = Buffer.from(frozenViewsJson, 'utf8');
     const lengthBuffer = Buffer.alloc(4);
-    lengthBuffer.writeUInt32BE(staticRegionsBuffer.length, 0);
+    lengthBuffer.writeUInt32BE(frozenViewsBuffer.length, 0);
     const contentDatBuffer = Buffer.concat([
       lengthBuffer,
-      staticRegionsBuffer,
+      frozenViewsBuffer,
       Buffer.from(response.contentDatPayload.buffer)
     ]);
     return {
@@ -261,20 +261,20 @@ export async function render(request) {
     }
   } else {
     // Replace __STATIC__ placeholders with numeric IDs in the HTML
-    const { html: updatedHtml } = extractAndReplaceStaticRegions(response.htmlString?.html || "");
+    const { html: updatedHtml } = extractAndReplaceFrozenViews(response.htmlString?.html || "");
     if (response.htmlString) {
       response.htmlString.html = updatedHtml;
     }
 
-    // Add empty static regions prefix to bytesData (decoder expects this format)
+    // Add empty frozen views prefix to bytesData (decoder expects this format)
     if (response.contentDatPayload && response.htmlString) {
-      const emptyStaticRegionsJson = JSON.stringify({});
-      const emptyStaticRegionsBuffer = Buffer.from(emptyStaticRegionsJson, 'utf8');
+      const emptyFrozenViewsJson = JSON.stringify({});
+      const emptyFrozenViewsBuffer = Buffer.from(emptyFrozenViewsJson, 'utf8');
       const emptyLengthBuffer = Buffer.alloc(4);
-      emptyLengthBuffer.writeUInt32BE(emptyStaticRegionsBuffer.length, 0);
+      emptyLengthBuffer.writeUInt32BE(emptyFrozenViewsBuffer.length, 0);
       const htmlBytesBuffer = Buffer.concat([
         emptyLengthBuffer,
-        emptyStaticRegionsBuffer,
+        emptyFrozenViewsBuffer,
         Buffer.from(response.contentDatPayload.buffer)
       ]);
       response.htmlString.bytesData = htmlBytesBuffer.toString("base64");
@@ -460,12 +460,12 @@ async function compileElm(options, config) {
     path.join(process.cwd(), "./elm-stuff/elm-pages/client")
   );
 
-  // Apply static region adoption codemod to patch virtual-dom
+  // Apply frozen view adoption codemod to patch virtual-dom
   // Use elm-safe-virtual-dom specific patches if configured
   const elmCode = await fsPromises.readFile(fullOutputPath, "utf-8");
   const patchedCode = config.elmSafeVirtualDom
-    ? patchStaticRegionsESVD(elmCode)
-    : patchStaticRegions(elmCode);
+    ? patchFrozenViewsESVD(elmCode)
+    : patchFrozenViews(elmCode);
   await fsPromises.writeFile(fullOutputPath, patchedCode);
 
   if (!options.debug) {

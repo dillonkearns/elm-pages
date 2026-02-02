@@ -1,15 +1,15 @@
 /**
- * Static Region Codemod
+ * Frozen View Codemod
  *
- * This codemod patches the compiled Elm virtual-dom code to support "static region adoption"
+ * This codemod patches the compiled Elm virtual-dom code to support "frozen view adoption"
  * where pre-rendered HTML can be adopted by the virtual-dom without re-rendering.
  *
  * The patch intercepts the thunk (lazy) rendering to:
  * 1. Detect thunks with a magic string marker "__ELM_PAGES_STATIC__" in their refs
  * 2. On initial load: adopt existing DOM nodes with matching data-static attribute
- * 3. On SPA navigation: parse HTML strings from window.__ELM_PAGES_STATIC_REGIONS__
+ * 3. On SPA navigation: parse HTML strings from window.__ELM_PAGES_FROZEN_VIEWS__
  *
- * This enables dead-code elimination of static content dependencies (markdown parsers, etc.)
+ * This enables dead-code elimination of frozen view dependencies (markdown parsers, etc.)
  * while preserving server-rendered HTML.
  *
  * Detection uses a magic string prefix instead of a custom type, which is more robust
@@ -17,27 +17,27 @@
  * debug/optimized modes).
  */
 
-// Magic prefix for static region identification
-const STATIC_REGION_PREFIX = '__ELM_PAGES_STATIC__';
-const STATIC_REGION_PREFIX_LENGTH = STATIC_REGION_PREFIX.length; // 21
+// Magic prefix for frozen view identification
+const FROZEN_VIEW_PREFIX = '__ELM_PAGES_STATIC__';
+const FROZEN_VIEW_PREFIX_LENGTH = FROZEN_VIEW_PREFIX.length; // 21
 
 /**
- * Inlined static region handling code for the thunk render patch.
+ * Inlined frozen view handling code for the thunk render patch.
  * This gets inserted directly in the tag === 5 (THUNK) case.
  */
-const STATIC_REGION_INLINE_CHECK = `
-    // Static region adoption: check if this thunk is for a static region
+const FROZEN_VIEW_INLINE_CHECK = `
+    // Frozen view adoption: check if this thunk is for a frozen view
     // Detection: refs[1] is a string starting with "__ELM_PAGES_STATIC__"
-    var __staticRefs = vNode.l;
-    var __isStaticRegion = __staticRefs && __staticRefs.length >= 2 &&
-        typeof __staticRefs[1] === 'string' &&
-        __staticRefs[1].startsWith('${STATIC_REGION_PREFIX}');
-    if (__isStaticRegion) {
-        var __staticId = __staticRefs[1].slice(${STATIC_REGION_PREFIX_LENGTH});
+    var __frozenRefs = vNode.l;
+    var __isFrozenView = __frozenRefs && __frozenRefs.length >= 2 &&
+        typeof __frozenRefs[1] === 'string' &&
+        __frozenRefs[1].startsWith('${FROZEN_VIEW_PREFIX}');
+    if (__isFrozenView) {
+        var __frozenId = __frozenRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH});
         // Check global first (populated on SPA navigation BEFORE render)
         // This ensures we use the NEW page's content, not stale DOM from old page
-        var __staticRegions = window.__ELM_PAGES_STATIC_REGIONS__ || {};
-        var __htmlFromGlobal = __staticRegions[__staticId];
+        var __frozenViews = window.__ELM_PAGES_FROZEN_VIEWS__ || {};
+        var __htmlFromGlobal = __frozenViews[__frozenId];
         if (__htmlFromGlobal && __htmlFromGlobal.length > 0) {
             var __template = document.createElement('template');
             __template.innerHTML = __htmlFromGlobal;
@@ -48,35 +48,35 @@ const STATIC_REGION_INLINE_CHECK = `
             }
         }
         // Fall back to DOM adoption (initial page load - global is empty {})
-        var __existingDom = document.querySelector('[data-static="' + __staticId + '"]');
+        var __existingDom = document.querySelector('[data-static="' + __frozenId + '"]');
         if (__existingDom) {
             if (__existingDom.parentNode) __existingDom.parentNode.removeChild(__existingDom);
             vNode.k = _VirtualDom_virtualize(__existingDom);
             return __existingDom;
         }
         var __placeholder = document.createElement('div');
-        __placeholder.setAttribute('data-static', __staticId);
-        __placeholder.textContent = 'Loading static region...';
+        __placeholder.setAttribute('data-static', __frozenId);
+        __placeholder.textContent = 'Loading frozen view...';
         return __placeholder;
     }
 `;
 
 /**
- * Inlined static region refs comparison for thunk diffing.
+ * Inlined frozen view refs comparison for thunk diffing.
  *
- * For static regions:
+ * For frozen views:
  * - On initial load: global is {}, so we compare by value and cache the adopted DOM
  * - On SPA navigation: global has content, so we virtualize from global instead of calling thunk
  *
  * This allows proper caching on initial load while ensuring navigation updates work.
  */
-const STATIC_REGION_DIFF_CHECK = `
-    // Static region: check if refs have magic string prefix
-    var __xIsStatic = xRefs && xRefs.length >= 2 && typeof xRefs[1] === 'string' && xRefs[1].startsWith('${STATIC_REGION_PREFIX}');
-    var __yIsStatic = yRefs && yRefs.length >= 2 && typeof yRefs[1] === 'string' && yRefs[1].startsWith('${STATIC_REGION_PREFIX}');
-    if (__xIsStatic && __yIsStatic) {
-        var __staticId = yRefs[1].slice(${STATIC_REGION_PREFIX_LENGTH});
-        var __globalContent = (window.__ELM_PAGES_STATIC_REGIONS__ || {})[__staticId];
+const FROZEN_VIEW_DIFF_CHECK = `
+    // Frozen view: check if refs have magic string prefix
+    var __xIsFrozen = xRefs && xRefs.length >= 2 && typeof xRefs[1] === 'string' && xRefs[1].startsWith('${FROZEN_VIEW_PREFIX}');
+    var __yIsFrozen = yRefs && yRefs.length >= 2 && typeof yRefs[1] === 'string' && yRefs[1].startsWith('${FROZEN_VIEW_PREFIX}');
+    if (__xIsFrozen && __yIsFrozen) {
+        var __frozenId = yRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH});
+        var __globalContent = (window.__ELM_PAGES_FROZEN_VIEWS__ || {})[__frozenId];
         if (__globalContent && __globalContent.length > 0) {
             // Global has content - SPA navigation
             // Use REDRAW with the thunk itself (y), not virtualized content
@@ -104,8 +104,8 @@ const STATIC_REGION_DIFF_CHECK = `
  *
  * Patched version:
  *   if (tag === 5) {
- *     if (_VirtualDom_isStaticRegion(vNode.l)) {
- *       return _VirtualDom_handleStaticRegion(vNode, vNode.l, eventNode);
+ *     if (_VirtualDom_isFrozenView(vNode.l)) {
+ *       return _VirtualDom_handleFrozenView(vNode, vNode.l, eventNode);
  *     }
  *     return _VirtualDom_render(vNode.k || (vNode.k = vNode.m()), eventNode);
  *   }
@@ -116,7 +116,7 @@ const STATIC_REGION_DIFF_CHECK = `
  * - vNode.k = cached node (__node)
  * - vNode.m = thunk function (__thunk)
  */
-export function patchStaticRegions(elmCode) {
+export function patchFrozenViews(elmCode) {
   let patchedCode = elmCode;
   let patched = false;
 
@@ -126,7 +126,7 @@ export function patchStaticRegions(elmCode) {
 
   if (debugPattern.test(patchedCode)) {
     patchedCode = patchedCode.replace(debugPattern,
-      `$1${STATIC_REGION_INLINE_CHECK}
+      `$1${FROZEN_VIEW_INLINE_CHECK}
     $2`
     );
     patched = true;
@@ -139,10 +139,10 @@ export function patchStaticRegions(elmCode) {
     if (elmHotPattern.test(patchedCode)) {
       patchedCode = patchedCode.replace(elmHotPattern, (match, condition, body) => {
         // Check if we already patched it
-        if (body.includes('__staticRefs')) {
+        if (body.includes('__frozenRefs')) {
           return match;
         }
-        return `${condition} {${STATIC_REGION_INLINE_CHECK}
+        return `${condition} {${FROZEN_VIEW_INLINE_CHECK}
     ${body.trim()}
   }`;
       });
@@ -157,7 +157,7 @@ export function patchStaticRegions(elmCode) {
 
     if (generalPattern.test(patchedCode)) {
       patchedCode = patchedCode.replace(generalPattern,
-        `$1${STATIC_REGION_INLINE_CHECK}
+        `$1${FROZEN_VIEW_INLINE_CHECK}
     $2`
       );
       patched = true;
@@ -165,19 +165,19 @@ export function patchStaticRegions(elmCode) {
   }
 
   if (!patched) {
-    throw new Error('Could not patch thunk rendering for static regions - virtual-dom structure may have changed');
+    throw new Error('Could not patch thunk rendering for frozen views - virtual-dom structure may have changed');
   }
 
-  // Now patch the thunk DIFFING code to handle StaticId comparison
-  // The diff code compares refs by reference, but StaticId creates new objects each render
-  // We need to use value comparison for StaticId
+  // Now patch the thunk DIFFING code to handle frozen view comparison
+  // The diff code compares refs by reference, but frozen views create new objects each render
+  // We need to use value comparison for frozen views
   patchedCode = patchThunkDiffing(patchedCode);
 
   return patchedCode;
 }
 
 /**
- * Patches the thunk diffing code to handle static region comparison.
+ * Patches the thunk diffing code to handle frozen view comparison.
  *
  * Original diffing (in _VirtualDom_diffHelp, case 5 for THUNK):
  *   var xRefs = x.l;
@@ -189,7 +189,7 @@ export function patchStaticRegions(elmCode) {
  *   }
  *   if (same) { y.k = x.k; return; }
  *
- * We need to add a special case for static regions that detects the magic string prefix
+ * We need to add a special case for frozen views that detects the magic string prefix
  * and handles caching/navigation correctly.
  */
 function patchThunkDiffing(elmCode) {
@@ -203,7 +203,7 @@ function patchThunkDiffing(elmCode) {
 
   if (diffPattern.test(elmCode)) {
     elmCode = elmCode.replace(diffPattern, (match, prefix, comparison) => {
-      return `${prefix}${STATIC_REGION_DIFF_CHECK}{
+      return `${prefix}${FROZEN_VIEW_DIFF_CHECK}{
 				${comparison}
 			}`;
     });
@@ -216,14 +216,14 @@ function patchThunkDiffing(elmCode) {
 
   if (fallbackPattern.test(elmCode)) {
     elmCode = elmCode.replace(fallbackPattern, (match, prefix, whileLoop) => {
-      return `${prefix}${STATIC_REGION_DIFF_CHECK}{
+      return `${prefix}${FROZEN_VIEW_DIFF_CHECK}{
 				${whileLoop}
 			}`;
     });
     return elmCode;
   }
 
-  throw new Error('Could not patch thunk diffing for static regions - virtual-dom structure may have changed');
+  throw new Error('Could not patch thunk diffing for frozen views - virtual-dom structure may have changed');
 }
 
-export default { patchStaticRegions };
+export default { patchFrozenViews };

@@ -271,7 +271,7 @@ init config flags url key =
                     , pageFormState = Dict.empty
                     , pendingRedirect = False
                     , pendingData = Nothing
-                    , pendingStaticRegionsUrl = Nothing
+                    , pendingFrozenViewsUrl = Nothing
                     }
             in
             ( { initialModel
@@ -294,7 +294,7 @@ init config flags url key =
               , pageFormState = Dict.empty
               , pendingRedirect = False
               , pendingData = Nothing
-              , pendingStaticRegionsUrl = Nothing
+              , pendingFrozenViewsUrl = Nothing
               }
             , NoEffect
             )
@@ -316,7 +316,7 @@ init config flags url key =
               , pageFormState = Dict.empty
               , pendingRedirect = False
               , pendingData = Nothing
-              , pendingStaticRegionsUrl = Nothing
+              , pendingFrozenViewsUrl = Nothing
               }
             , NoEffect
             )
@@ -336,7 +336,7 @@ type Msg userMsg pageData actionData sharedData errorPage
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ProcessFetchResponse Int (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
-    | StaticRegionsReady (Maybe String)
+    | FrozenViewsReady (Maybe String)
     | NoOp
 
 
@@ -367,7 +367,7 @@ type alias Model userModel pageData actionData sharedData =
     , pageFormState : Form.Model
     , pendingRedirect : Bool
     , pendingData : Maybe ( pageData, sharedData, Maybe actionData )
-    , pendingStaticRegionsUrl : Maybe Url
+    , pendingFrozenViewsUrl : Maybe Url
     }
 
 
@@ -384,7 +384,7 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | UserCmd userEffect
     | CancelRequest Int
     | RunCmd (Cmd (Msg userMsg pageData actionData sharedData errorPage))
-    | FetchStaticRegions { path : String, query : Maybe String }
+    | FetchFrozenViews { path : String, query : Maybe String }
 
 
 {-| -}
@@ -911,8 +911,8 @@ update config appMsg model =
             , NoEffect
             )
 
-        StaticRegionsReady maybePageDataBase64 ->
-            case ( maybePageDataBase64, model.pendingStaticRegionsUrl, model.pageData ) of
+        FrozenViewsReady maybePageDataBase64 ->
+            case ( maybePageDataBase64, model.pendingFrozenViewsUrl, model.pageData ) of
                 ( Just pageDataBase64, Just pendingUrl, Ok previousPageData ) ->
                     -- Static regions and page data received from JS
                     case Base64.toBytes pageDataBase64 of
@@ -939,7 +939,7 @@ update config appMsg model =
                                         clearedModel =
                                             { model
                                                 | pendingData = Nothing
-                                                , pendingStaticRegionsUrl = Nothing
+                                                , pendingFrozenViewsUrl = Nothing
                                             }
                                     in
                                     loadDataAndUpdateUrl
@@ -953,15 +953,15 @@ update config appMsg model =
 
                                 Nothing ->
                                     -- Decode failed
-                                    ( { model | pendingStaticRegionsUrl = Nothing }, NoEffect )
+                                    ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
 
                         Nothing ->
                             -- Base64 decode failed
-                            ( { model | pendingStaticRegionsUrl = Nothing }, NoEffect )
+                            ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
 
                 _ ->
                     -- No page data, no pending path, or page not loaded - just clear the pending flag
-                    ( { model | pendingStaticRegionsUrl = Nothing }, NoEffect )
+                    ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
 
         NoOp ->
             ( model, NoEffect )
@@ -1098,9 +1098,9 @@ perform config model effect =
         CancelRequest transitionKey ->
             Http.cancel (String.fromInt transitionKey)
 
-        FetchStaticRegions { path, query } ->
+        FetchFrozenViews { path, query } ->
             Json.Encode.object
-                [ ( "tag", Json.Encode.string "FetchStaticRegions" )
+                [ ( "tag", Json.Encode.string "FetchFrozenViews" )
                 , ( "path", Json.Encode.string path )
                 , ( "query"
                   , case query of
@@ -1319,7 +1319,7 @@ application config =
                             |> Sub.map
                                 (\json ->
                                     case Decode.decodeValue (Decode.field "tag" Decode.string) json of
-                                        Ok "StaticRegionsReady" ->
+                                        Ok "FrozenViewsReady" ->
                                             let
                                                 pageDataBase64 : Maybe String
                                                 pageDataBase64 =
@@ -1328,7 +1328,7 @@ application config =
                                                         json
                                                         |> Result.withDefault Nothing
                                             in
-                                            StaticRegionsReady pageDataBase64
+                                            FrozenViewsReady pageDataBase64
 
                                         _ ->
                                             -- Ignore unknown messages
@@ -1555,11 +1555,11 @@ startNewGetLoad urlToGet ( model, effect ) =
 
         fetchEffect : Effect userMsg pageData actionData sharedData userEffect errorPage
         fetchEffect =
-            FetchStaticRegions { path = urlToGet.path, query = urlToGet.query }
+            FetchFrozenViews { path = urlToGet.path, query = urlToGet.query }
     in
     ( { model
         | nextTransitionKey = model.nextTransitionKey + 1
-        , pendingStaticRegionsUrl = Just urlToGet
+        , pendingFrozenViewsUrl = Just urlToGet
         , transition =
             ( model.nextTransitionKey
             , case model.transition of

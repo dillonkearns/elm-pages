@@ -4,7 +4,7 @@ import * as fs from "./dir-helpers.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { parentPort, threadId, workerData } from "node:worker_threads";
 import * as url from "node:url";
-import { extractAndReplaceStaticRegions, replaceStaticPlaceholders } from "./extract-static-regions.js";
+import { extractAndReplaceFrozenViews, replaceFrozenViewPlaceholders } from "./extract-frozen-views.js";
 
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
@@ -67,44 +67,44 @@ async function outputString(
       await fs.tryMkdir(`./dist/${normalizedRoute}`);
       const template = readFileSync("./dist/template.html", "utf8");
 
-      // Extract static regions from rendered HTML and replace __STATIC__ placeholders
-      const { regions: staticRegions, html: updatedHtml } = extractAndReplaceStaticRegions(args.htmlString?.html || "");
+      // Extract frozen views from rendered HTML and replace __STATIC__ placeholders
+      const { regions: frozenViews, html: updatedHtml } = extractAndReplaceFrozenViews(args.htmlString?.html || "");
 
-      // Update the HTML with resolved static region IDs
+      // Update the HTML with resolved frozen view IDs
       if (args.htmlString) {
         args.htmlString.html = updatedHtml;
       }
 
       if (args.contentDatPayload) {
-        // Create combined format for content.dat (includes static regions for SPA navigation)
-        // Format: [4 bytes: static regions JSON length (big-endian uint32)]
-        //         [N bytes: static regions JSON (UTF-8)]
+        // Create combined format for content.dat (includes frozen views for SPA navigation)
+        // Format: [4 bytes: frozen views JSON length (big-endian uint32)]
+        //         [N bytes: frozen views JSON (UTF-8)]
         //         [remaining bytes: original ResponseSketch binary]
-        const staticRegionsJson = JSON.stringify(staticRegions);
-        const staticRegionsBuffer = Buffer.from(staticRegionsJson, 'utf8');
+        const frozenViewsJson = JSON.stringify(frozenViews);
+        const frozenViewsBuffer = Buffer.from(frozenViewsJson, 'utf8');
         const lengthBuffer = Buffer.alloc(4);
-        lengthBuffer.writeUInt32BE(staticRegionsBuffer.length, 0);
+        lengthBuffer.writeUInt32BE(frozenViewsBuffer.length, 0);
 
         const contentDatBuffer = Buffer.concat([
           lengthBuffer,
-          staticRegionsBuffer,
+          frozenViewsBuffer,
           Buffer.from(args.contentDatPayload.buffer)
         ]);
 
         // Write the combined content.dat for SPA navigation
         writeFileSync(`dist/${normalizedRoute}/content.dat`, contentDatBuffer);
 
-        // For bytesData embedded in HTML, use empty static regions prefix
-        // The decoder (skipStaticRegionsPrefix) expects this format even for initial load
-        const emptyStaticRegions = {};
-        const emptyStaticRegionsJson = JSON.stringify(emptyStaticRegions);
-        const emptyStaticRegionsBuffer = Buffer.from(emptyStaticRegionsJson, 'utf8');
+        // For bytesData embedded in HTML, use empty frozen views prefix
+        // The decoder (skipFrozenViewsPrefix) expects this format even for initial load
+        const emptyFrozenViews = {};
+        const emptyFrozenViewsJson = JSON.stringify(emptyFrozenViews);
+        const emptyFrozenViewsBuffer = Buffer.from(emptyFrozenViewsJson, 'utf8');
         const emptyLengthBuffer = Buffer.alloc(4);
-        emptyLengthBuffer.writeUInt32BE(emptyStaticRegionsBuffer.length, 0);
+        emptyLengthBuffer.writeUInt32BE(emptyFrozenViewsBuffer.length, 0);
 
         const htmlBytesBuffer = Buffer.concat([
           emptyLengthBuffer,
-          emptyStaticRegionsBuffer,
+          emptyFrozenViewsBuffer,
           Buffer.from(args.contentDatPayload.buffer)
         ]);
 

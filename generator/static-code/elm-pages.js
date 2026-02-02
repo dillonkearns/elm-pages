@@ -1,5 +1,5 @@
 import userInit from "/index";
-import { initStaticRegions, prefetchContentDat, fetchContentWithStaticRegions } from "./static-regions-client.js";
+import { initFrozenViews, prefetchContentDat, fetchContentWithFrozenViews } from "./frozen-views-client.js";
 
 let prefetchedPages;
 let initialLocationHash;
@@ -7,8 +7,8 @@ let initialLocationHash;
  * @returns
  */
 function loadContentAndInitializeApp() {
-  // Initialize static regions - on initial load, they're adopted from existing DOM
-  initStaticRegions();
+  // Initialize frozen views - on initial load, they're adopted from existing DOM
+  initFrozenViews();
 
   let path = window.location.pathname.replace(/(\w)$/, "$1/");
   if (!path.endsWith("/")) {
@@ -28,19 +28,19 @@ function loadContentAndInitializeApp() {
   });
 
   app.ports.toJsPort.subscribe(async (fromElm) => {
-    if (fromElm.tag === "FetchStaticRegions") {
-      // Fetch content.dat which contains both static regions and page data
-      const result = await fetchContentWithStaticRegions(fromElm.path, fromElm.query);
+    if (fromElm.tag === "FetchFrozenViews") {
+      // Fetch content.dat which contains both frozen views and page data
+      const result = await fetchContentWithFrozenViews(fromElm.path, fromElm.query);
       if (result && result.rawBytes) {
         // Send the FULL content.dat bytes (with prefix) to Elm
-        // The Elm decoder (skipStaticRegionsPrefix) expects this format
+        // The Elm decoder (skipFrozenViewsPrefix) expects this format
         const contentDatBase64 = uint8ArrayToBase64(result.rawBytes);
         app.ports.fromJsPort.send({
-          tag: "StaticRegionsReady",
+          tag: "FrozenViewsReady",
           pageDataBase64: contentDatBase64
         });
       } else {
-        app.ports.fromJsPort.send({ tag: "StaticRegionsReady", pageDataBase64: null });
+        app.ports.fromJsPort.send({ tag: "FrozenViewsReady", pageDataBase64: null });
       }
     } else {
       loadNamedAnchor();
@@ -71,7 +71,7 @@ function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
     document.head.appendChild(link);
 
     // Prefetch is handled by the content.dat link added above
-    // (content.dat now includes both page data and static regions)
+    // (content.dat now includes both page data and frozen views)
   }
 }
 

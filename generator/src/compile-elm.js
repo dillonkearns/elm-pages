@@ -8,8 +8,8 @@ import { inject } from "elm-hot";
 import { fileURLToPath } from "url";
 import { rewriteElmJson } from "./rewrite-elm-json-help.js";
 import { ensureDirSync } from "./file-helpers.js";
-import { patchStaticRegions } from "./static-region-codemod.js";
-import { patchStaticRegionsESVD } from "./static-region-codemod-esvd.js";
+import { patchFrozenViews } from "./frozen-view-codemod.js";
+import { patchFrozenViewsESVD } from "./frozen-view-codemod-esvd.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -47,7 +47,7 @@ export async function compileElmForBrowser(options, config = {}) {
   // Apply transforms in sequence:
   // 1. elm-hot injection for development
   // 2. Form data stringify replacement
-  // 3. Static region adoption patch
+  // 3. Frozen view adoption patch
   let transformedCode = inject(rawElmCode);
 
   transformedCode = transformedCode.replace(
@@ -59,11 +59,11 @@ export async function compileElmForBrowser(options, config = {}) {
         : "[...(new FormData(event.target))")
   );
 
-  // Apply static region adoption codemod
+  // Apply frozen view adoption codemod
   // Use elm-safe-virtual-dom specific patches if configured
   transformedCode = config.elmSafeVirtualDom
-    ? patchStaticRegionsESVD(transformedCode)
-    : patchStaticRegions(transformedCode);
+    ? patchFrozenViewsESVD(transformedCode)
+    : patchFrozenViews(transformedCode);
 
   return fs.promises.writeFile("./.elm-pages/cache/elm.js", transformedCode);
 }
@@ -296,13 +296,13 @@ export async function runElmReview(cwd) {
 /**
  * Run elm-review with the dead-code-review config to apply DCE transforms.
  * This transforms View.renderStatic calls to View.embedStatic (View.Static.adopt ...)
- * enabling dead-code elimination of static region dependencies.
+ * enabling dead-code elimination of frozen view dependencies.
  *
  * @param {string} [ cwd ]
  */
 export async function runElmReviewForDCE(cwd) {
   const startTime = Date.now();
-  console.log("Applying static region DCE transforms via elm-review...");
+  console.log("Applying frozen view DCE transforms via elm-review...");
 
   return new Promise((resolve, reject) => {
     const child = spawnCallback(

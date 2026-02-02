@@ -538,7 +538,7 @@ handleViewFreezeWrapping applicationNode functionNode args context =
                 ( [ Rule.errorWithFix
                         { message = "Server codemod: wrap freeze argument with data-static"
                         , details =
-                            [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                            [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
                             ]
                         }
                         (Node.range applicationNode)

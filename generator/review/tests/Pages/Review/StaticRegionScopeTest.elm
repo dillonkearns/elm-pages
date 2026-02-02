@@ -51,7 +51,7 @@ view app shared model =
                               , [ Review.Test.error
                                     { message = "`View.freeze` can only be called from Route modules"
                                     , details =
-                                        [ "Static region functions like `View.freeze` are transformed by elm-review during the client-side build to enable dead code elimination (DCE)."
+                                        [ "Frozen view functions like `View.freeze` are transformed by elm-review during the client-side build to enable dead code elimination (DCE)."
                                         , "This transformation only works for Route modules (Route.Index, Route.Blog.Slug_, etc.). Calling these functions from other modules like Shared.elm or helper modules will NOT enable DCE - the heavy dependencies will still be included in the client bundle."
                                         , "To fix this, either:"
                                         , "1. Move the `View.freeze` call into a Route module, or"
@@ -79,7 +79,7 @@ frozenContent =
                               , [ Review.Test.error
                                     { message = "`View.freeze` can only be called from Route modules"
                                     , details =
-                                        [ "Static region functions like `View.freeze` are transformed by elm-review during the client-side build to enable dead code elimination (DCE)."
+                                        [ "Frozen view functions like `View.freeze` are transformed by elm-review during the client-side build to enable dead code elimination (DCE)."
                                         , "This transformation only works for Route modules (Route.Index, Route.Blog.Slug_, etc.). Calling these functions from other modules like Shared.elm or helper modules will NOT enable DCE - the heavy dependencies will still be included in the client bundle."
                                         , "To fix this, either:"
                                         , "1. Move the `View.freeze` call into a Route module, or"

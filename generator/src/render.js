@@ -200,7 +200,7 @@ function runGeneratorAppHelp(
             statusCode: args.statusCode,
             headers: args.headers,
             contentDatPayload,
-            // Include raw HTML for static region extraction
+            // Include raw HTML for frozen view extraction
             html: args.html,
           });
         } else {
@@ -335,7 +335,7 @@ function runElmApp(
             statusCode: args.statusCode,
             headers: args.headers,
             contentDatPayload,
-            // Include raw HTML for static region extraction
+            // Include raw HTML for frozen view extraction
             html: args.html,
           });
         } else {

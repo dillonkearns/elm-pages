@@ -1,27 +1,27 @@
 /**
- * Extract Static Regions from Rendered HTML
+ * Extract Frozen Views from Rendered HTML
  *
  * This module extracts all elements with `data-static` attributes from
  * rendered HTML and returns them as a map of {id: outerHTML}.
  *
- * This enables SPA navigation to use pre-rendered HTML for static regions
+ * This enables SPA navigation to use pre-rendered HTML for frozen views
  * without re-rendering on the client.
  */
 
 /**
- * Extract all static regions from HTML string.
+ * Extract all frozen views from HTML string.
  *
- * Handles two types of static region markers:
+ * Handles two types of frozen view markers:
  * - Explicit IDs: data-static="my-id" → regions["my-id"]
  * - Auto-indexed: data-static="__STATIC__" → regions["0"], regions["1"], etc.
  *
  * The __STATIC__ placeholder is replaced with sequential indices (0, 1, 2, ...)
- * in DOM order, matching the order that elm-review assigns to View.static calls.
+ * in DOM order, matching the order that elm-review assigns to View.freeze calls.
  *
  * @param {string} html - The rendered HTML containing data-static elements
- * @returns {Record<string, string>} Map of static region IDs to their outerHTML
+ * @returns {Record<string, string>} Map of frozen view IDs to their outerHTML
  */
-export function extractStaticRegions(html) {
+export function extractFrozenViews(html) {
   const regions = {};
   let autoIndex = 0;
 
@@ -133,7 +133,7 @@ function extractElement(html, startIndex, tagName) {
  * @param {string} html - The HTML string containing __STATIC__ placeholders
  * @returns {string} The HTML with placeholders replaced by indices
  */
-export function replaceStaticPlaceholders(html) {
+export function replaceFrozenViewPlaceholders(html) {
   let index = 0;
   return html.replace(/data-static="__STATIC__"/g, () => {
     const result = `data-static="${index}"`;
@@ -143,15 +143,15 @@ export function replaceStaticPlaceholders(html) {
 }
 
 /**
- * Extract static regions and return both the regions map and the updated HTML.
+ * Extract frozen views and return both the regions map and the updated HTML.
  *
  * @param {string} html - The rendered HTML containing data-static elements
  * @returns {{ regions: Record<string, string>, html: string }} Object with regions map and updated HTML
  */
-export function extractAndReplaceStaticRegions(html) {
-  const updatedHtml = replaceStaticPlaceholders(html);
-  const regions = extractStaticRegions(updatedHtml);
+export function extractAndReplaceFrozenViews(html) {
+  const updatedHtml = replaceFrozenViewPlaceholders(html);
+  const regions = extractFrozenViews(updatedHtml);
   return { regions, html: updatedHtml };
 }
 
-export default { extractStaticRegions, replaceStaticPlaceholders, extractAndReplaceStaticRegions };
+export default { extractFrozenViews, replaceFrozenViewPlaceholders, extractAndReplaceFrozenViews };

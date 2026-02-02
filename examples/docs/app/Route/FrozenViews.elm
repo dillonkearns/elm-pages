@@ -1,16 +1,17 @@
-module Route.Islands exposing (ActionData, Data, Model, Msg, route)
+module Route.FrozenViews exposing (ActionData, Data, Model, Msg, route)
 
-{-| Demo page showcasing the Islands architecture with View.freeze.
+{-| Demo page showcasing Frozen Views with View.freeze.
 
 This server-rendered route demonstrates:
 
-1.  Server-rendered data (request time, user agent)
+1.  Server-rendered data from the HTTP request
 2.  Frozen content that is server-rendered and adopted by the client
 3.  Interactive islands that maintain client-side state
 
 -}
 
 import BackendTask exposing (BackendTask)
+import Dict
 import Effect exposing (Effect)
 import FatalError exposing (FatalError)
 import Head
@@ -59,7 +60,10 @@ type alias ActionData =
 type alias Data =
     { userAgent : String
     , requestTime : Time.Posix
-    , method : String
+    , acceptLanguage : String
+    , host : String
+    , path : String
+    , queryParams : List ( String, String )
     }
 
 
@@ -88,15 +92,39 @@ data _ request =
         requestTime =
             Request.requestTime request
 
-        method =
-            Request.method request
-                |> Request.methodToString
+        acceptLanguage =
+            Request.header "accept-language" request
+                |> Maybe.withDefault "Not specified"
+
+        host =
+            Request.header "host" request
+                |> Maybe.withDefault "Unknown"
+
+        rawUrl =
+            Request.rawUrl request
+
+        path =
+            rawUrl
+                |> String.split "?"
+                |> List.head
+                |> Maybe.withDefault rawUrl
+
+        queryParams =
+            Request.queryParams request
+                |> Dict.toList
+                |> List.concatMap
+                    (\( key, values ) ->
+                        List.map (\v -> ( key, v )) values
+                    )
     in
     BackendTask.succeed
         (Response.render
             { userAgent = userAgent
             , requestTime = requestTime
-            , method = method
+            , acceptLanguage = acceptLanguage
+            , host = host
+            , path = path
+            , queryParams = queryParams
             }
         )
 
@@ -139,16 +167,16 @@ head _ =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = "Demo of Islands architecture with frozen views and interactive islands"
+        , description = "Demo of Frozen Views with View.freeze for server-rendered content"
         , locale = Nothing
-        , title = "Islands Architecture Demo"
+        , title = "Frozen Views Demo"
         }
         |> Seo.website
 
 
 view : App Data ActionData RouteParams -> Shared.Model -> Model -> View (PagesMsg Msg)
 view app _ model =
-    { title = "Islands Architecture Demo"
+    { title = "Frozen Views Demo"
     , body =
         [ div [ Attr.class "max-w-4xl mx-auto px-4 py-12" ]
             [ -- Frozen hero section
@@ -168,9 +196,6 @@ view app _ model =
 
             -- Interactive counter (island)
             , counterSection model
-
-            -- Frozen footer
-            , View.freeze footerSection
             ]
         ]
     }
@@ -180,7 +205,7 @@ heroSection : Html Never
 heroSection =
     div [ Attr.class "text-center mb-12" ]
         [ h1 [ Attr.class "text-4xl font-bold mb-4" ]
-            [ text "Islands Architecture" ]
+            [ text "Frozen Views" ]
         , p [ Attr.class "text-xl text-gray-600 max-w-2xl mx-auto" ]
             [ text "Combine server-rendered static content with interactive client-side islands. "
             , text "Get the best of both worlds: fast initial loads and rich interactivity."
@@ -194,24 +219,79 @@ serverInfoSection pageData =
         [ Attr.class "bg-amber-50 border border-amber-200 rounded-lg p-6 mb-8"
         ]
         [ h3 [ Attr.class "font-semibold text-amber-800 mb-2" ]
-            [ text "Server-Rendered Data" ]
-        , p [ Attr.class "text-amber-700 text-sm mb-2" ]
-            [ text "This section shows data from the server request (refresh to see time update):" ]
-        , ul [ Attr.class "text-sm text-amber-600 space-y-1" ]
-            [ li []
-                [ strong [] [ text "Request Time: " ]
-                , text (formatTime pageData.requestTime)
-                ]
-            , li []
-                [ strong [] [ text "HTTP Method: " ]
-                , text pageData.method
-                ]
-            , li []
-                [ strong [] [ text "User-Agent: " ]
-                , text (String.left 60 pageData.userAgent ++ "...")
-                ]
+            [ text "Live Server Data" ]
+        , p [ Attr.class "text-amber-700 text-sm mb-4" ]
+            [ text "This section displays data captured from your HTTP request. Try adding "
+            , code [ Attr.class "bg-amber-100 px-1 rounded" ] [ text "?name=yourname" ]
+            , text " to the URL and refresh!"
             ]
+        , div [ Attr.class "grid md:grid-cols-2 gap-4 text-sm" ]
+            [ infoCard "Request Time" (formatTime pageData.requestTime)
+            , infoCard "Host" pageData.host
+            , infoCard "Language Preferences" (truncateText 40 pageData.acceptLanguage)
+            , infoCard "Browser" (parseBrowserFromUserAgent pageData.userAgent)
+            ]
+        , if List.isEmpty pageData.queryParams then
+            text ""
+
+          else
+            div [ Attr.class "mt-4 pt-4 border-t border-amber-200" ]
+                [ h4 [ Attr.class "font-medium text-amber-800 mb-2" ]
+                    [ text "Query Parameters" ]
+                , div [ Attr.class "flex flex-wrap gap-2" ]
+                    (List.map
+                        (\( key, value ) ->
+                            span
+                                [ Attr.class "inline-flex items-center bg-amber-100 rounded-full px-3 py-1 text-sm" ]
+                                [ span [ Attr.class "font-medium text-amber-800" ] [ text key ]
+                                , span [ Attr.class "text-amber-600 mx-1" ] [ text "=" ]
+                                , span [ Attr.class "text-amber-700" ] [ text value ]
+                                ]
+                        )
+                        pageData.queryParams
+                    )
+                ]
         ]
+
+
+infoCard : String -> String -> Html Never
+infoCard label value =
+    div [ Attr.class "bg-white rounded-lg p-3 border border-amber-100" ]
+        [ div [ Attr.class "text-xs text-amber-600 uppercase tracking-wide mb-1" ]
+            [ text label ]
+        , div [ Attr.class "text-amber-900 font-medium" ]
+            [ text value ]
+        ]
+
+
+truncateText : Int -> String -> String
+truncateText maxLen str =
+    if String.length str > maxLen then
+        String.left maxLen str ++ "..."
+
+    else
+        str
+
+
+parseBrowserFromUserAgent : String -> String
+parseBrowserFromUserAgent ua =
+    if String.contains "Firefox" ua then
+        "Firefox"
+
+    else if String.contains "Edg/" ua then
+        "Edge"
+
+    else if String.contains "Chrome" ua then
+        "Chrome"
+
+    else if String.contains "Safari" ua then
+        "Safari"
+
+    else if String.contains "curl" ua then
+        "curl"
+
+    else
+        "Unknown Browser"
 
 
 formatTime : Time.Posix -> String
@@ -487,15 +567,5 @@ counterSection model =
                 , Attr.class "w-10 h-10 rounded-full bg-green-600 text-white font-bold hover:bg-green-700 transition-colors"
                 ]
                 [ text "+" ]
-            ]
-        ]
-
-
-footerSection : Html Never
-footerSection =
-    div [ Attr.class "text-center text-gray-500 text-sm pt-8 border-t border-gray-200" ]
-        [ p []
-            [ text "This entire page demonstrates the Islands architecture. "
-            , text "Frozen sections (blue) are server-rendered, while islands (green) are interactive."
             ]
         ]

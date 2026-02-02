@@ -1937,19 +1937,19 @@ otherFile routes phaseString routesWithEphemeral =
                         )
                 )
 
-        -- | Decoder that skips the static regions prefix in content.dat
-        -- The format is: [4 bytes: length][N bytes: static regions JSON][remaining: ResponseSketch]
-        skipStaticRegionsPrefix : Elm.Declare.Function (Elm.Expression -> Elm.Expression)
-        skipStaticRegionsPrefix =
-            Elm.Declare.fn "skipStaticRegionsPrefix"
+        -- | Decoder that skips the frozen views prefix in content.dat
+        -- The format is: [4 bytes: length][N bytes: frozen views JSON][remaining: ResponseSketch]
+        skipFrozenViewsPrefix : Elm.Declare.Function (Elm.Expression -> Elm.Expression)
+        skipFrozenViewsPrefix =
+            Elm.Declare.fn "skipFrozenViewsPrefix"
                 (Elm.Arg.varWith "innerDecoder" (Gen.Bytes.Decode.annotation_.decoder (Type.var "a")))
                 (\innerDecoder ->
-                    -- Read 4 bytes as unsigned 32-bit big-endian integer (static regions JSON length)
+                    -- Read 4 bytes as unsigned 32-bit big-endian integer (frozen views JSON length)
                     Gen.Bytes.Decode.unsignedInt32 Gen.Bytes.make_.bE
                         |> Gen.Bytes.Decode.andThen
-                            (\staticRegionsLength ->
-                                -- Read (and discard) the static regions JSON bytes
-                                Gen.Bytes.Decode.call_.bytes staticRegionsLength
+                            (\frozenViewsLength ->
+                                -- Read (and discard) the frozen views JSON bytes
+                                Gen.Bytes.Decode.call_.bytes frozenViewsLength
                                     |> Gen.Bytes.Decode.andThen (\_ -> innerDecoder)
                             )
                 )
@@ -1957,7 +1957,7 @@ otherFile routes phaseString routesWithEphemeral =
         decodeResponse : Elm.Declare.Value
         decodeResponse =
             Elm.Declare.value "decodeResponse"
-                (skipStaticRegionsPrefix.call
+                (skipFrozenViewsPrefix.call
                     (Elm.apply
                         (Elm.value
                             { annotation = Nothing
@@ -2247,7 +2247,7 @@ otherFile routes phaseString routesWithEphemeral =
         , customPageDataEncoder.declaration
         , encodeResponse.declaration
         , pathPatterns.declaration
-        , skipStaticRegionsPrefix.declaration
+        , skipFrozenViewsPrefix.declaration
         , decodeResponse.declaration
         , Elm.portIncoming "hotReloadData"
             Gen.Bytes.annotation_.bytes

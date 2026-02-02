@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { extractStaticRegions } from "../src/extract-static-regions.js";
+import { extractFrozenViews } from "../src/extract-frozen-views.js";
 
-describe("extractStaticRegions", () => {
-  it("extracts a simple static region", () => {
+describe("extractFrozenViews", () => {
+  it("extracts a simple frozen view", () => {
     const html = `
       <div>
         <div data-static="test-id">
@@ -11,7 +11,7 @@ describe("extractStaticRegions", () => {
       </div>
     `;
 
-    const regions = extractStaticRegions(html);
+    const regions = extractFrozenViews(html);
 
     expect(Object.keys(regions)).toEqual(["test-id"]);
     expect(regions["test-id"]).toContain("<p>Hello World</p>");
@@ -19,7 +19,7 @@ describe("extractStaticRegions", () => {
     expect(regions["test-id"].endsWith("</div>")).toBe(true);
   });
 
-  it("extracts multiple static regions", () => {
+  it("extracts multiple frozen views", () => {
     const html = `
       <div>
         <div data-static="region-1">Content 1</div>
@@ -27,7 +27,7 @@ describe("extractStaticRegions", () => {
       </div>
     `;
 
-    const regions = extractStaticRegions(html);
+    const regions = extractFrozenViews(html);
 
     expect(Object.keys(regions).sort()).toEqual([
       "region-1",
@@ -46,7 +46,7 @@ describe("extractStaticRegions", () => {
       </div>
     `;
 
-    const regions = extractStaticRegions(html);
+    const regions = extractFrozenViews(html);
 
     expect(Object.keys(regions)).toEqual(["outer"]);
     expect(regions["outer"]).toContain("Nested content");
@@ -60,17 +60,17 @@ describe("extractStaticRegions", () => {
       </section>
     `;
 
-    const regions = extractStaticRegions(html);
+    const regions = extractFrozenViews(html);
 
     expect(Object.keys(regions)).toEqual(["my-section"]);
     expect(regions["my-section"].startsWith('<section data-static="my-section">')).toBe(true);
     expect(regions["my-section"].endsWith("</section>")).toBe(true);
   });
 
-  it("returns empty object when no static regions", () => {
-    const html = `<div><p>No static regions here</p></div>`;
+  it("returns empty object when no frozen views", () => {
+    const html = `<div><p>No frozen views here</p></div>`;
 
-    const regions = extractStaticRegions(html);
+    const regions = extractFrozenViews(html);
 
     expect(regions).toEqual({});
   });
@@ -78,7 +78,7 @@ describe("extractStaticRegions", () => {
   it("handles attributes before data-static", () => {
     const html = `<div class="foo" data-static="test">Content</div>`;
 
-    const regions = extractStaticRegions(html);
+    const regions = extractFrozenViews(html);
 
     expect(Object.keys(regions)).toEqual(["test"]);
   });
@@ -86,7 +86,7 @@ describe("extractStaticRegions", () => {
   it("handles attributes after data-static", () => {
     const html = `<div data-static="test" class="foo">Content</div>`;
 
-    const regions = extractStaticRegions(html);
+    const regions = extractFrozenViews(html);
 
     expect(Object.keys(regions)).toEqual(["test"]);
   });

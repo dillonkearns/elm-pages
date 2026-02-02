@@ -1,12 +1,12 @@
 /**
- * Test for the static region codemod
+ * Test for the frozen view codemod
  *
  * This test verifies that the codemod correctly patches the virtual-dom
- * thunk rendering to support static region adoption.
+ * thunk rendering to support frozen view adoption.
  */
 
 import { describe, it, expect } from "vitest";
-import { patchStaticRegions } from "../src/static-region-codemod.js";
+import { patchFrozenViews } from "../src/frozen-view-codemod.js";
 
 // Sample compiled Elm virtual-dom code (simplified but with thunk diffing structure)
 const SAMPLE_VDOM_CODE = `
@@ -59,24 +59,24 @@ function _VirtualDom_diffHelp(x, y, patches, index) {
 }
 `;
 
-describe("Static Region Codemod", () => {
-  it("injects static region code", () => {
-    const patched = patchStaticRegions(SAMPLE_VDOM_CODE);
+describe("Frozen View Codemod", () => {
+  it("injects frozen view code", () => {
+    const patched = patchFrozenViews(SAMPLE_VDOM_CODE);
 
     // The new approach inlines the check directly
-    const hasStaticRefsVar = patched.includes('__staticRefs') || patched.includes('__isStaticRegion');
+    const hasFrozenRefsVar = patched.includes('__frozenRefs') || patched.includes('__isFrozenView');
     const hasDataStaticSelector = patched.includes('data-static');
-    const hasStaticIdCheck = patched.includes("StaticId") || patched.includes("=== 0");
+    const hasFrozenIdCheck = patched.includes("FrozenId") || patched.includes("=== 0");
 
-    expect(hasStaticRefsVar).toBe(true);
+    expect(hasFrozenRefsVar).toBe(true);
     expect(hasDataStaticSelector).toBe(true);
-    expect(hasStaticIdCheck).toBe(true);
+    expect(hasFrozenIdCheck).toBe(true);
   });
 
   it("patches the thunk case", () => {
-    const patched = patchStaticRegions(SAMPLE_VDOM_CODE);
+    const patched = patchFrozenViews(SAMPLE_VDOM_CODE);
 
-    // The patched code should have the static region check in the tag === 5 block
+    // The patched code should have the frozen view check in the tag === 5 block
     const hasTag5Block = patched.includes('tag === 5');
 
     // Check for the virtualize call (used to convert adopted DOM to virtual-dom)
@@ -91,7 +91,7 @@ describe("Static Region Codemod", () => {
   });
 
   it("uses magic string prefix detection", () => {
-    const patched = patchStaticRegions(SAMPLE_VDOM_CODE);
+    const patched = patchFrozenViews(SAMPLE_VDOM_CODE);
 
     // The patched code should detect magic string prefix "__ELM_PAGES_STATIC__"
     const hasMagicPrefixCheck = patched.includes('__ELM_PAGES_STATIC__');
@@ -102,10 +102,10 @@ describe("Static Region Codemod", () => {
   });
 
   it("includes global fallback mechanism", () => {
-    const patched = patchStaticRegions(SAMPLE_VDOM_CODE);
+    const patched = patchFrozenViews(SAMPLE_VDOM_CODE);
 
-    // Check for window.__ELM_PAGES_STATIC_REGIONS__ fallback
-    const hasGlobalFallback = patched.includes('__ELM_PAGES_STATIC_REGIONS__');
+    // Check for window.__ELM_PAGES_FROZEN_VIEWS__ fallback
+    const hasGlobalFallback = patched.includes('__ELM_PAGES_FROZEN_VIEWS__');
 
     expect(hasGlobalFallback).toBe(true);
   });
@@ -151,17 +151,17 @@ function _VirtualDom_diffHelp(x, y, patches, index) {
 }
 `;
 
-    const patched = patchStaticRegions(SAFE_VDOM_CODE);
+    const patched = patchFrozenViews(SAFE_VDOM_CODE);
 
-    // Verify the static region check was injected
-    const hasStaticRefsVar = patched.includes('__staticRefs') || patched.includes('__isStaticRegion');
+    // Verify the frozen view check was injected
+    const hasFrozenRefsVar = patched.includes('__frozenRefs') || patched.includes('__isFrozenView');
     const hasDataStaticSelector = patched.includes('data-static');
 
     // Verify the original thunk rendering with tNode is still there as fallback
     const hasOriginalThunk = patched.includes('vNode.k || (vNode.k = vNode.m())');
     const hasTNodeParam = patched.includes('eventNode, tNode');
 
-    expect(hasStaticRefsVar).toBe(true);
+    expect(hasFrozenRefsVar).toBe(true);
     expect(hasDataStaticSelector).toBe(true);
     expect(hasOriginalThunk).toBe(true);
     expect(hasTNodeParam).toBe(true);
