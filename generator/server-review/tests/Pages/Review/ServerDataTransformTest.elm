@@ -522,6 +522,181 @@ view app =
     }
 """
                             ]
+            , test "adds Html import when not imported" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze content ]
+    }
+
+content = Html.Attributes.attribute "foo" "bar"
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                                    ]
+                                , under = "View.freeze content"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Attributes
+import View
+import Html
+
+type alias Data =
+    { title : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ content ]) ]
+    }
+
+content = Html.Attributes.attribute "foo" "bar"
+"""
+                            ]
+            , test "adds Html.Attributes import when not imported" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import Html
+import View
+
+type alias Data =
+    { title : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text "hello") ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                                    ]
+                                , under = "View.freeze (Html.text \"hello\")"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import View
+import Html.Attributes
+
+type alias Data =
+    { title : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text "hello" ]) ]
+    }
+"""
+                            ]
+            , test "adds both Html and Html.Attributes imports when neither imported" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Data =
+    { title : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze content ]
+    }
+
+content = someHelper "test"
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                                    ]
+                                , under = "View.freeze content"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import View
+import Html
+import Html.Attributes
+
+type alias Data =
+    { title : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ content ]) ]
+    }
+
+content = someHelper "test"
+"""
+                            ]
+            , test "adds Html import when Html.Styled imported without alias" <|
+                \() ->
+                    -- Html.Styled is imported but not as "Html", so we need elm/html's Html
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled
+import Html.Styled.Attributes
+import View
+
+type alias Data =
+    { title : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.Styled.text "hello") ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                                    ]
+                                , under = "View.freeze (Html.Styled.text \"hello\")"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled
+import Html.Styled.Attributes
+import View
+import Html
+import Html.Attributes
+
+type alias Data =
+    { title : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.Styled.text "hello" ]) ]
+    }
+"""
+                            ]
             ]
         , describe "app.data passed inside freeze still allows optimization"
             [ test "app.data passed to helper inside freeze produces transformation" <|

@@ -91,6 +91,9 @@ type alias Context =
     -- Import aliases for Html and Html.Attributes (for freeze wrapping)
     , htmlAlias : Maybe ModuleName
     , htmlAttributesAlias : Maybe ModuleName
+
+    -- Track last import row for inserting new imports
+    , lastImportRow : Int
     }
 
 
@@ -186,13 +189,14 @@ initialContext =
             , pendingHelperCalls = []
             , htmlAlias = Nothing
             , htmlAttributesAlias = Nothing
+            , lastImportRow = 0
             }
         )
         |> Rule.withModuleNameLookupTable
         |> Rule.withModuleName
 
 
-{-| Track Html and Html.Attributes import aliases.
+{-| Track Html and Html.Attributes import aliases and last import row.
 -}
 importVisitor : Node Import -> Context -> ( List (Rule.Error {}), Context )
 importVisitor node context =
@@ -202,10 +206,17 @@ importVisitor node context =
 
         moduleName =
             Node.value import_.moduleName
+
+        -- Track the last import row for inserting new imports
+        importEndRow =
+            (Node.range node).end.row
+
+        contextWithImportRow =
+            { context | lastImportRow = max context.lastImportRow importEndRow }
     in
     if moduleName == [ "Html" ] then
         ( []
-        , { context
+        , { contextWithImportRow
             | htmlAlias =
                 import_.moduleAlias
                     |> Maybe.map Node.value
@@ -216,7 +227,7 @@ importVisitor node context =
 
     else if moduleName == [ "Html", "Attributes" ] then
         ( []
-        , { context
+        , { contextWithImportRow
             | htmlAttributesAlias =
                 import_.moduleAlias
                     |> Maybe.map Node.value
@@ -226,7 +237,7 @@ importVisitor node context =
         )
 
     else
-        ( [], context )
+        ( [], contextWithImportRow )
 
 
 declarationEnterVisitor : Node Declaration -> Context -> ( List (Error {}), Context )
@@ -459,6 +470,36 @@ handleViewFreezeWrapping applicationNode functionNode args context =
                             |> Maybe.map (String.join ".")
                             |> Maybe.withDefault "Html.Attributes"
 
+                    -- Check if we need to add imports
+                    needsHtmlImport =
+                        context.htmlAlias == Nothing
+
+                    needsHtmlAttributesImport =
+                        context.htmlAttributesAlias == Nothing
+
+                    -- Build import string (Html first, then Html.Attributes for alphabetical order)
+                    importsToAdd =
+                        (if needsHtmlImport then
+                            "import Html\n"
+
+                         else
+                            ""
+                        )
+                            ++ (if needsHtmlAttributesImport then
+                                    "import Html.Attributes\n"
+
+                                else
+                                    ""
+                               )
+
+                    -- Import fixes - insert after the last import
+                    importFixes =
+                        if String.isEmpty importsToAdd then
+                            []
+
+                        else
+                            [ Review.Fix.insertAt { row = context.lastImportRow + 1, column = 1 } importsToAdd ]
+
                     -- Use the inner expression's range, not the parenthesized wrapper
                     innerRange =
                         Node.range innerNode
@@ -485,10 +526,14 @@ handleViewFreezeWrapping applicationNode functionNode args context =
                             , " ])"
                             )
 
-                    fix =
+                    wrapperFixes =
                         [ Review.Fix.insertAt innerRange.start wrapperPrefix
                         , Review.Fix.insertAt innerRange.end wrapperSuffix
                         ]
+
+                    -- Combine import fixes with wrapper fixes
+                    fix =
+                        importFixes ++ wrapperFixes
                 in
                 ( [ Rule.errorWithFix
                         { message = "Server codemod: wrap freeze argument with data-static"
