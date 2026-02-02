@@ -43,10 +43,9 @@ type alias Context =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
 
-    -- Field tracking (same as client-side)
-    , fieldsInFreeze : Set String
-    , fieldsInHead : Set String
-    , fieldsOutsideFreeze : Set String
+    -- Field tracking: fields accessed in CLIENT contexts (outside freeze/head)
+    -- These are the fields that MUST be kept in the Data type for wire transmission
+    , clientUsedFields : Set String
     , inFreezeCall : Bool
     , inHeadFunction : Bool
 
@@ -169,9 +168,7 @@ initialContext =
         (\lookupTable moduleName () ->
             { lookupTable = lookupTable
             , moduleName = moduleName
-            , fieldsInFreeze = Set.empty
-            , fieldsInHead = Set.empty
-            , fieldsOutsideFreeze = Set.empty
+            , clientUsedFields = Set.empty
             , inFreezeCall = False
             , inHeadFunction = False
             , appDataBindings = Set.empty
@@ -796,7 +793,7 @@ checkAppDataPassedToHelper context functionNode args =
 
 
 {-| Mark all fields as persistent (safe fallback when we can't track field usage).
-This adds all field names to fieldsOutsideFreeze, which means nothing will be ephemeral.
+This adds all field names to clientUsedFields, which means nothing will be ephemeral.
 -}
 markAllFieldsAsPersistent : Context -> Context
 markAllFieldsAsPersistent context =
@@ -806,7 +803,7 @@ markAllFieldsAsPersistent context =
                 |> List.map Tuple.first
                 |> Set.fromList
     in
-    { context | fieldsOutsideFreeze = Set.union context.fieldsOutsideFreeze allFieldNames }
+    { context | clientUsedFields = Set.union context.clientUsedFields allFieldNames }
 
 
 {-| Extract all ranges where "Data" appears as a type reference in a type annotation.
@@ -818,19 +815,18 @@ extractDataTypeReferences =
 
 addFieldAccess : String -> Context -> Context
 addFieldAccess fieldName context =
-    if context.inFreezeCall then
-        { context | fieldsInFreeze = Set.insert fieldName context.fieldsInFreeze }
-
-    else if context.inHeadFunction then
-        { context | fieldsInHead = Set.insert fieldName context.fieldsInHead }
+    if context.inFreezeCall || context.inHeadFunction then
+        -- In ephemeral context - don't track (field can potentially be removed)
+        context
 
     else
-        { context | fieldsOutsideFreeze = Set.insert fieldName context.fieldsOutsideFreeze }
+        -- In client context - field MUST be kept
+        { context | clientUsedFields = Set.insert fieldName context.clientUsedFields }
 
 
 {-| Final evaluation - generate Ephemeral/Data split and ephemeralToData function.
 
-The formula is: ephemeral = allFields - fieldsOutsideFreeze
+The formula is: ephemeral = allFields - clientUsedFields
 
 This is the aggressive approach that aligns with the client-side transform.
 Pending helper calls are resolved here against the now-complete helperFunctions dict.
@@ -857,26 +853,26 @@ finalEvaluation context =
                             |> Set.fromList
 
                     -- Resolve pending helper calls against the now-complete helperFunctions dict
-                    -- Returns (additionalPersistentFields, shouldMarkAllFieldsAsPersistent)
+                    -- Returns (additionalClientUsedFields, hasUnresolvedCalls)
                     ( resolvedHelperFields, unresolvedHelperCalls ) =
                         PersistentFieldTracking.resolvePendingHelperCalls
                             context.pendingHelperCalls
                             context.helperFunctions
 
                     -- Combine direct field accesses with helper-resolved fields
-                    effectiveFieldsOutsideFreeze =
+                    effectiveClientUsedFields =
                         if unresolvedHelperCalls then
-                            -- Can't track, so assume ALL fields are used outside freeze (safe fallback)
+                            -- Can't track, so assume ALL fields are client-used (safe fallback)
                             allFieldNames
 
                         else
-                            Set.union context.fieldsOutsideFreeze resolvedHelperFields
+                            Set.union context.clientUsedFields resolvedHelperFields
 
-                    -- Ephemeral fields: all fields that are NOT used outside freeze/head
+                    -- Ephemeral fields: all fields that are NOT used in client contexts
                     -- This is the aggressive formula, aligned with client-side transform
                     ephemeralFields =
                         allFieldNames
-                            |> Set.filter (\f -> not (Set.member f effectiveFieldsOutsideFreeze))
+                            |> Set.filter (\f -> not (Set.member f effectiveClientUsedFields))
 
                     -- Persistent fields for the new Data type
                     persistentFieldDefs =
