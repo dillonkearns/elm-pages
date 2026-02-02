@@ -24,7 +24,6 @@
     "vite-plugin-webfont-dl": "^3.10.4"
   },
   "dependencies": {
-    "airtable": "^0.12.2",
-    "cloudinary": "^1.41.0"
+    "airtable": "^0.12.2"
   }
 }
