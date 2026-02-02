@@ -32,6 +32,8 @@ all =
                         testModule =
                             """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Data =
@@ -41,7 +43,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.text app.data.body) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 """
                     in
@@ -63,6 +65,8 @@ view app =
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Ephemeral =
@@ -83,7 +87,7 @@ ephemeralToData ephemeral =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.text app.data.body) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 """
                             , Review.Test.error
@@ -97,6 +101,8 @@ view app =
                                 |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Data =
@@ -106,7 +112,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.text app.data.body) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 """
                             ]
@@ -116,6 +122,8 @@ view app =
                         testModule =
                             """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -127,7 +135,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.text app.data.body) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 """
                     in
@@ -138,10 +146,12 @@ view app =
                             [ Review.Test.error
                                 { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
                                 , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
-                                , under = "View.freeze (Html.text app.data.body)"
+                                , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text app.data.body ])"
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -153,7 +163,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -168,6 +178,8 @@ view app =
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -177,11 +189,11 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.text app.data.body) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":10,\"column\":5},\"end\":{\"row\":12,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -195,6 +207,8 @@ view app =
                         testModule =
                             """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Data =
@@ -203,7 +217,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.text app.data.title) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.title ]) ]
     }
 """
                     in
@@ -217,6 +231,8 @@ view app =
                         testModule =
                             """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -227,7 +243,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.text app.data.title) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.title ]) ]
     }
 """
                     in
@@ -238,10 +254,12 @@ view app =
                             [ Review.Test.error
                                 { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
                                 , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
-                                , under = "View.freeze (Html.text app.data.title)"
+                                , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text app.data.title ])"
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -252,7 +270,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             ]
@@ -264,6 +282,8 @@ view app =
                         testModule =
                             """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Data =
@@ -273,7 +293,7 @@ type alias Data =
 
 view app =
     { title = someHelper [ app.data ]
-    , body = [ View.freeze (Html.text app.data.body) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 
 someHelper items = ""
@@ -289,6 +309,8 @@ someHelper items = ""
                         testModule =
                             """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -300,7 +322,7 @@ type alias Data =
 
 view app =
     { title = someHelper [ app.data ]
-    , body = [ View.freeze (Html.text app.data.body) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 
 someHelper items = ""
@@ -314,10 +336,12 @@ someHelper items = ""
                             [ Review.Test.error
                                 { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
                                 , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
-                                , under = "View.freeze (Html.text app.data.body)"
+                                , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text app.data.body ])"
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -329,7 +353,7 @@ type alias Data =
 
 view app =
     { title = someHelper [ app.data ]
-    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 someHelper items = ""
@@ -494,6 +518,8 @@ view app =
                         testModule =
                             """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Data =
@@ -503,7 +529,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (renderContent app.data) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ renderContent app.data ]) ]
     }
 
 renderContent data =
@@ -528,6 +554,8 @@ renderContent data =
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Ephemeral =
@@ -548,7 +576,7 @@ ephemeralToData ephemeral =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (renderContent app.data) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ renderContent app.data ]) ]
     }
 
 renderContent data =
@@ -565,6 +593,8 @@ renderContent data =
                                 |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Data =
@@ -574,7 +604,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (renderContent app.data) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ renderContent app.data ]) ]
     }
 
 renderContent data =
@@ -587,6 +617,8 @@ renderContent data =
                         testModule =
                             """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -598,7 +630,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (renderContent app.data) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ renderContent app.data ]) ]
     }
 
 renderContent data =
@@ -612,10 +644,12 @@ renderContent data =
                             [ Review.Test.error
                                 { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
                                 , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
-                                , under = "View.freeze (renderContent app.data)"
+                                , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ renderContent app.data ])"
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -627,7 +661,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 renderContent data =
@@ -645,6 +679,8 @@ renderContent data =
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -654,14 +690,14 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (renderContent app.data) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ renderContent app.data ]) ]
     }
 
 renderContent data =
     Html.text data.body
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":10,\"column\":5},\"end\":{\"row\":12,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -675,6 +711,8 @@ renderContent data =
                         testModule =
                             """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Data =
@@ -685,7 +723,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.text (app.data.body ++ app.data.metadata)) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text (app.data.body ++ app.data.metadata) ]) ]
     }
 """
                     in
@@ -707,6 +745,8 @@ view app =
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Ephemeral =
@@ -728,7 +768,7 @@ ephemeralToData ephemeral =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.text (app.data.body ++ app.data.metadata)) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text (app.data.body ++ app.data.metadata) ]) ]
     }
 """
                             , Review.Test.error
@@ -742,6 +782,8 @@ view app =
                                 |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Data =
@@ -752,7 +794,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.text (app.data.body ++ app.data.metadata)) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text (app.data.body ++ app.data.metadata) ]) ]
     }
 """
                             ]
@@ -762,6 +804,8 @@ view app =
                         testModule =
                             """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -774,7 +818,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.text (app.data.body ++ app.data.metadata)) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text (app.data.body ++ app.data.metadata) ]) ]
     }
 """
                     in
@@ -784,10 +828,12 @@ view app =
                             [ Review.Test.error
                                 { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
                                 , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
-                                , under = "View.freeze (Html.text (app.data.body ++ app.data.metadata))"
+                                , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text (app.data.body ++ app.data.metadata) ])"
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -800,7 +846,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -816,6 +862,8 @@ view app =
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -825,11 +873,11 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.text (app.data.body ++ app.data.metadata)) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text (app.data.body ++ app.data.metadata) ]) ]
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"metadata\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"metadata\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":10,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -1220,6 +1268,8 @@ view app =
                         testModule =
                             """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Data =
@@ -1230,7 +1280,7 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ View.freeze (Html.text app.data.body) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 
 extractTitle { title } =
@@ -1256,6 +1306,8 @@ extractTitle { title } =
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Ephemeral =
@@ -1277,7 +1329,7 @@ ephemeralToData ephemeral =
 
 view app =
     { title = extractTitle app.data
-    , body = [ View.freeze (Html.text app.data.body) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 
 extractTitle { title } =
@@ -1294,6 +1346,8 @@ extractTitle { title } =
                                 |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
 
+import Html
+import Html.Attributes
 import View
 
 type alias Data =
@@ -1304,7 +1358,7 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ View.freeze (Html.text app.data.body) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 
 extractTitle { title } =
@@ -1317,6 +1371,8 @@ extractTitle { title } =
                         testModule =
                             """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -1329,7 +1385,7 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ View.freeze (Html.text app.data.body) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 
 extractTitle { title } =
@@ -1343,10 +1399,12 @@ extractTitle { title } =
                             [ Review.Test.error
                                 { message = "Static region codemod: transform View.freeze to inlined lazy thunk"
                                 , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
-                                , under = "View.freeze (Html.text app.data.body)"
+                                , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text app.data.body ])"
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -1359,7 +1417,7 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 extractTitle { title } =
@@ -1378,6 +1436,8 @@ extractTitle { title } =
                                 }
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
+import Html
+import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
@@ -1387,14 +1447,14 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ View.freeze (Html.text app.data.body) ]
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 
 extractTitle { title } =
     title
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"unused\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"unused\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":10,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }

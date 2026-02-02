@@ -87,6 +87,10 @@ type alias Context =
     -- These need to be resolved in finalEvaluation after all helpers are analyzed
     -- Nothing = unknown function (mark all fields), Just name = lookup in helperFunctions
     , pendingHelperCalls : List (Maybe String)
+
+    -- Import aliases for Html and Html.Attributes (for freeze wrapping)
+    , htmlAlias : Maybe ModuleName
+    , htmlAttributesAlias : Maybe ModuleName
     }
 
 
@@ -94,6 +98,7 @@ rule : Rule
 rule =
     Rule.newModuleRuleSchemaUsingContextCreator "Pages.Review.ServerDataTransform" initialContext
         |> Rule.providesFixesForModuleRule
+        |> Rule.withImportVisitor importVisitor
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
         |> Rule.withDeclarationExitVisitor declarationExitVisitor
@@ -179,10 +184,49 @@ initialContext =
             , dataExportRange = Nothing
             , helperFunctions = Dict.empty
             , pendingHelperCalls = []
+            , htmlAlias = Nothing
+            , htmlAttributesAlias = Nothing
             }
         )
         |> Rule.withModuleNameLookupTable
         |> Rule.withModuleName
+
+
+{-| Track Html and Html.Attributes import aliases.
+-}
+importVisitor : Node Import -> Context -> ( List (Rule.Error {}), Context )
+importVisitor node context =
+    let
+        import_ =
+            Node.value node
+
+        moduleName =
+            Node.value import_.moduleName
+    in
+    if moduleName == [ "Html" ] then
+        ( []
+        , { context
+            | htmlAlias =
+                import_.moduleAlias
+                    |> Maybe.map Node.value
+                    |> Maybe.withDefault [ "Html" ]
+                    |> Just
+          }
+        )
+
+    else if moduleName == [ "Html", "Attributes" ] then
+        ( []
+        , { context
+            | htmlAttributesAlias =
+                import_.moduleAlias
+                    |> Maybe.map Node.value
+                    |> Maybe.withDefault [ "Html", "Attributes" ]
+                    |> Just
+          }
+        )
+
+    else
+        ( [], context )
 
 
 declarationEnterVisitor : Node Declaration -> Context -> ( List (Error {}), Context )
@@ -346,35 +390,205 @@ expressionEnterVisitor node context =
                 _ ->
                     context
 
-        -- Track entering freeze calls and check for app.data passed in client context
-        contextWithFreezeTracking =
+        -- Track entering freeze calls, check for app.data passed in client context,
+        -- and handle freeze wrapping
+        ( freezeErrors, contextWithFreezeTracking ) =
             case Node.value node of
                 Expression.Application (functionNode :: args) ->
                     case ModuleNameLookupTable.moduleNameFor contextWithDataConstructorCheck.lookupTable functionNode of
                         Just [ "View" ] ->
                             case Node.value functionNode of
                                 Expression.FunctionOrValue _ "freeze" ->
-                                    -- Entering freeze context - we don't care about tracking inside
-                                    { contextWithDataConstructorCheck
-                                        | inFreezeCall = True
-                                    }
+                                    -- Handle View.freeze call - wrap argument if not already wrapped
+                                    let
+                                        ( errors, newContext ) =
+                                            handleViewFreezeWrapping node functionNode args contextWithDataConstructorCheck
+                                    in
+                                    ( errors
+                                    , { newContext | inFreezeCall = True }
+                                    )
 
                                 _ ->
                                     -- Check for app.data passed as whole in CLIENT context
-                                    checkAppDataPassedToHelper contextWithDataConstructorCheck functionNode args
+                                    ( [], checkAppDataPassedToHelper contextWithDataConstructorCheck functionNode args )
 
                         _ ->
                             -- Check for app.data passed as whole in CLIENT context
-                            checkAppDataPassedToHelper contextWithDataConstructorCheck functionNode args
+                            ( [], checkAppDataPassedToHelper contextWithDataConstructorCheck functionNode args )
 
                 _ ->
-                    contextWithDataConstructorCheck
+                    ( [], contextWithDataConstructorCheck )
 
         -- Track field access patterns
         contextWithFieldTracking =
             trackFieldAccess node contextWithFreezeTracking
     in
-    ( [], contextWithFieldTracking )
+    ( freezeErrors, contextWithFieldTracking )
+
+
+{-| Handle View.freeze calls - wrap the argument with data-static if not already wrapped.
+-}
+handleViewFreezeWrapping : Node Expression -> Node Expression -> List (Node Expression) -> Context -> ( List (Error {}), Context )
+handleViewFreezeWrapping applicationNode functionNode args context =
+    case args of
+        argNode :: [] ->
+            -- Unwrap ParenthesizedExpression if present to get the inner expression
+            let
+                innerNode =
+                    unwrapParenthesizedExpression argNode
+
+                -- Check if the original argument is already parenthesized
+                isParenthesized =
+                    isParenthesizedExpression argNode
+            in
+            -- Check if the argument is already wrapped with data-static
+            if isAlreadyWrappedWithDataStatic innerNode then
+                -- Already wrapped, no transformation needed (base case)
+                ( [], context )
+
+            else
+                -- Generate the wrapping fix
+                let
+                    htmlPrefix =
+                        context.htmlAlias
+                            |> Maybe.map (String.join ".")
+                            |> Maybe.withDefault "Html"
+
+                    attrPrefix =
+                        context.htmlAttributesAlias
+                            |> Maybe.map (String.join ".")
+                            |> Maybe.withDefault "Html.Attributes"
+
+                    -- Use the inner expression's range, not the parenthesized wrapper
+                    innerRange =
+                        Node.range innerNode
+
+                    -- We'll wrap it with: Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ <arg> ]
+                    -- Need to add outer parentheses if not already parenthesized
+                    ( wrapperPrefix, wrapperSuffix ) =
+                        if isParenthesized then
+                            -- Original had parentheses, we use the inner range and add just the wrapper
+                            ( htmlPrefix
+                                ++ ".div [ "
+                                ++ attrPrefix
+                                ++ ".attribute \"data-static\" \"__STATIC__\" ] [ "
+                            , " ]"
+                            )
+
+                        else
+                            -- Original didn't have parentheses, we need to add them
+                            ( "("
+                                ++ htmlPrefix
+                                ++ ".div [ "
+                                ++ attrPrefix
+                                ++ ".attribute \"data-static\" \"__STATIC__\" ] [ "
+                            , " ])"
+                            )
+
+                    fix =
+                        [ Review.Fix.insertAt innerRange.start wrapperPrefix
+                        , Review.Fix.insertAt innerRange.end wrapperSuffix
+                        ]
+                in
+                ( [ Rule.errorWithFix
+                        { message = "Server codemod: wrap freeze argument with data-static"
+                        , details =
+                            [ "Wrapping View.freeze argument with data-static attribute for static region extraction."
+                            ]
+                        }
+                        (Node.range applicationNode)
+                        fix
+                  ]
+                , context
+                )
+
+        _ ->
+            -- Not a single-argument application, ignore
+            ( [], context )
+
+
+{-| Check if an expression is a ParenthesizedExpression.
+-}
+isParenthesizedExpression : Node Expression -> Bool
+isParenthesizedExpression node =
+    case Node.value node of
+        Expression.ParenthesizedExpression _ ->
+            True
+
+        _ ->
+            False
+
+
+{-| Unwrap ParenthesizedExpression to get the inner expression.
+-}
+unwrapParenthesizedExpression : Node Expression -> Node Expression
+unwrapParenthesizedExpression node =
+    case Node.value node of
+        Expression.ParenthesizedExpression innerNode ->
+            unwrapParenthesizedExpression innerNode
+
+        _ ->
+            node
+
+
+{-| Check if an expression is already wrapped with Html.div with data-static attribute.
+This is the base case to prevent infinite loops.
+
+Looks for pattern:
+Html.div [ Html.Attributes.attribute "data-static" "..." ] [ ... ]
+
+-}
+isAlreadyWrappedWithDataStatic : Node Expression -> Bool
+isAlreadyWrappedWithDataStatic node =
+    case Node.value node of
+        Expression.Application (functionNode :: attrListNode :: _) ->
+            -- Check if function is Html.div (or aliased)
+            case Node.value functionNode of
+                Expression.FunctionOrValue moduleName "div" ->
+                    -- Could be Html.div, H.div, etc.
+                    -- Check if the attribute list contains data-static
+                    containsDataStaticAttribute attrListNode
+
+                _ ->
+                    False
+
+        _ ->
+            False
+
+
+{-| Check if an attribute list expression contains a data-static attribute.
+-}
+containsDataStaticAttribute : Node Expression -> Bool
+containsDataStaticAttribute node =
+    case Node.value node of
+        Expression.ListExpr items ->
+            List.any isDataStaticAttribute items
+
+        _ ->
+            False
+
+
+{-| Check if an expression is an Html.Attributes.attribute "data-static" "..." call.
+-}
+isDataStaticAttribute : Node Expression -> Bool
+isDataStaticAttribute node =
+    case Node.value node of
+        Expression.Application (functionNode :: args) ->
+            case Node.value functionNode of
+                Expression.FunctionOrValue _ "attribute" ->
+                    -- Check if first argument is "data-static"
+                    case args of
+                        (Node _ (Expression.Literal "data-static")) :: _ ->
+                            True
+
+                        _ ->
+                            False
+
+                _ ->
+                    False
+
+        _ ->
+            False
 
 
 expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )

@@ -7,7 +7,6 @@ module View exposing (View, map, freeze, Freezable, freezableToHtml, htmlToFreez
 -}
 
 import Html exposing (Html)
-import Html.Attributes
 
 
 {-| -}
@@ -57,7 +56,7 @@ Frozen content is:
   - Adopted by the client without re-rendering
   - Eligible for dead-code elimination (rendering code removed from client bundle)
 
-At build time, this wraps the content with a `data-static` attribute for extraction.
+At build time, the server codemod wraps the content with a `data-static` attribute for extraction.
 The elm-review codemod then transforms `freeze` calls to lazy thunks on the client,
 which adopt the pre-rendered DOM without re-rendering.
 
@@ -66,13 +65,5 @@ freeze : Freezable -> Html msg
 freeze content =
     content
         |> freezableToHtml
-        |> wrapWithDataStatic
         |> htmlToFreezable
         |> Html.map never
-
-
-{-| Internal: wrap content with data-static attribute for server-side extraction.
--}
-wrapWithDataStatic : Html Never -> Html Never
-wrapWithDataStatic content =
-    Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ content ]
