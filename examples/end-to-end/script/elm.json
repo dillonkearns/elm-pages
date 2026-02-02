@@ -12,7 +12,7 @@
             "danfishgold/base64-bytes": "1.1.0",
             "danyx23/elm-mimetype": "4.0.1",
             "dillonkearns/elm-bcp47-language-tag": "2.0.0",
-            "dillonkearns/elm-cli-options-parser": "3.2.0",
+            "dillonkearns/elm-cli-options-parser": "4.0.0",
             "dillonkearns/elm-date-or-date-time": "2.0.0",
             "elm/browser": "1.0.2",
             "elm/bytes": "1.0.8",

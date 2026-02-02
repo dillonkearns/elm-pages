@@ -24,6 +24,19 @@ import * as validateStream from "./validate-stream.js";
 import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 import mergeStreams from "@sindresorhus/merge-streams";
 
+function detectColorSupport() {
+  const env = process.env;
+  if ("FORCE_COLOR" in env) {
+    return env.FORCE_COLOR !== "0" && env.FORCE_COLOR !== "false";
+  }
+  if ("NO_COLOR" in env) return false;
+  if (env.TERM === "dumb") return false;
+  if (!process.stdout.isTTY) return false;
+  if (env.CI && (env.GITHUB_ACTIONS || env.GITLAB_CI || env.CIRCLECI))
+    return true;
+  return true;
+}
+
 let verbosity = 2;
 const spinnies = new Spinnies();
 
@@ -152,6 +165,7 @@ function runGeneratorAppHelp(
         compatibilityKey,
         argv: ["", `elm-pages run ${scriptModuleName}`, ...cliOptions],
         versionMessage: versionMessage || "",
+        colorMode: detectColorSupport(),
       },
     });
 

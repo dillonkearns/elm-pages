@@ -181,7 +181,7 @@ The naming convention follows the same naming as the HTML form field elements or
 In addition to using the appropriate field type, this will also give you an Elm type with the corresponding base type (like `Date` for `date` or `Bool` for `checkbox`).
 
 -}
-restArgsParser : Cli.Option.Option (List String) (List ( String, Kind )) Cli.Option.RestArgsOption
+restArgsParser : Cli.Option.Option (List String) (List ( String, Kind )) { position : Cli.Option.RestArgsOption }
 restArgsParser =
     Cli.Option.restArgs "formFields"
         |> Cli.Option.validateMap
