@@ -7,7 +7,7 @@
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
-            "dillonkearns/elm-cli-options-parser": "3.1.0",
+            "dillonkearns/elm-cli-options-parser": "4.0.0",
             "elm/browser": "1.0.2",
             "elm/core": "1.0.5",
             "elm/html": "1.0.0",

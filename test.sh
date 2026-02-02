@@ -15,3 +15,6 @@ elm-verify-examples --run-tests --elm-test-args '--compiler=lamdera'
 (cd test-scripts && npm i && (npx elm-pages run src/TestInternalError.elm || true) | grep -q -- '-- Internal error ---------------')
 
 (cd test-scripts && npx elm-pages run src/TestBinaryRead.elm)
+
+# Stream tests - tests gzip, unzip, command stdin handling, etc.
+(cd examples/end-to-end && npm i && npx elm-pages run script/src/StreamTests.elm)

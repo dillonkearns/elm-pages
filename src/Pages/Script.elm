@@ -3,7 +3,7 @@ module Pages.Script exposing
     , withCliOptions, withoutCliOptions
     , writeFile
     , command, exec
-    , log, sleep, doThen, which, expectWhich, question
+    , log, sleep, doThen, which, expectWhich, question, readKey, readKeyWithDefault
     , Error(..)
     )
 
@@ -31,7 +31,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 ## Utilities
 
-@docs log, sleep, doThen, which, expectWhich, question
+@docs log, sleep, doThen, which, expectWhich, question, readKey, readKeyWithDefault
 
 
 ## Errors
@@ -311,6 +311,77 @@ question prompt =
         , expect = BackendTask.Http.expectJson Decode.string
         , name = "question"
         }
+
+
+{-| Read a single keypress from stdin without requiring Enter.
+
+This is useful for interactive prompts where you want immediate response
+to a single key, like confirmation dialogs (y/n) or menu navigation.
+
+    module ConfirmDemo exposing (run)
+
+    import BackendTask
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Script.log "Approve this change? [y/n] "
+                |> BackendTask.andThen (\_ -> Script.readKey)
+                |> BackendTask.andThen
+                    (\key ->
+                        if key == "y" then
+                            Script.log "Approved!"
+
+                        else
+                            Script.log "Rejected."
+                    )
+            )
+
+Note: Returns the raw key character. Control characters like Ctrl+C will
+terminate the process.
+
+When not running in an interactive terminal (e.g., piped input or CI),
+falls back to line-buffered input and returns the first character of the line.
+This allows scripts to work both interactively and with piped input like
+`echo "y" | elm-pages run MyScript.elm`.
+
+-}
+readKey : BackendTask error String
+readKey =
+    BackendTask.Internal.Request.request
+        { body = BackendTask.Http.emptyBody
+        , expect = BackendTask.Http.expectJson Decode.string
+        , name = "readKey"
+        }
+
+
+{-| Like [`readKey`](#readKey), but returns a default value when Enter is pressed.
+
+    Script.log "Continue? [Y/n] "
+        |> BackendTask.andThen (\_ -> Script.readKeyWithDefault "y")
+        |> BackendTask.andThen
+            (\key ->
+                if String.toLower key == "y" then
+                    continue
+
+                else
+                    abort
+            )
+
+Useful for prompts where pressing Enter should accept a default option.
+
+-}
+readKeyWithDefault : String -> BackendTask error String
+readKeyWithDefault default =
+    readKey
+        |> BackendTask.map
+            (\key ->
+                if key == "\u{000D}" || key == "\n" then
+                    default
+
+                else
+                    key
+            )
 
 
 {-| Like [`command`](#command), but prints stderr and stdout to the console as the command runs instead of capturing them.

@@ -74,7 +74,7 @@ jobs:
         run: lamdera make --docs docs.json
 
       - name: Setup for cypress
-        run: (cd examples/end-to-end && npm install && npx elm-tooling install && rm -rf elm-stuff && npx elm-pages gen && lamdera make app/Route/Index.elm)
+        run: (cd examples/end-to-end && rm -f formatted-elm.txt && npm install && npx elm-tooling install && rm -rf elm-stuff && npx elm-pages gen && lamdera make app/Route/Index.elm)
       - name: Cypress tests
         uses: cypress-io/github-action@v6
         with:
@@ -103,7 +103,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./examples/base-path/dist
       - name: Elm Publish
-        uses: dillonkearns/elm-publish-action@c42e6b74c43830ba50fcd0b5bd1a99baf3cb350f
+        uses: dillonkearns/elm-publish-action@modernize-action
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-elm: ./node_modules/.bin/elm

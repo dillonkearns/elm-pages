@@ -25,6 +25,11 @@ const [nodeFolder, elmFolder, elmCodegenFolder, lamderaFolder] = await Promise.a
   which("lamdera").then(dirname).catch(() => null), // lamdera is optional
 ]);
 
+// System paths needed for lamdera to spawn subprocesses
+const systemPaths = ["/bin", "/usr/bin", "/usr/local/bin"].filter(
+  (p) => existsSync(p)
+);
+
 function tryAndIgnore(thunk) {
   try {
     return thunk();

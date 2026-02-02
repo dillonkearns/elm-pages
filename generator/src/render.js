@@ -24,6 +24,19 @@ import * as validateStream from "./validate-stream.js";
 import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 import mergeStreams from "@sindresorhus/merge-streams";
 
+function detectColorSupport() {
+  const env = process.env;
+  if ("FORCE_COLOR" in env) {
+    return env.FORCE_COLOR !== "0" && env.FORCE_COLOR !== "false";
+  }
+  if ("NO_COLOR" in env) return false;
+  if (env.TERM === "dumb") return false;
+  if (!process.stdout.isTTY) return false;
+  if (env.CI && (env.GITHUB_ACTIONS || env.GITLAB_CI || env.CIRCLECI))
+    return true;
+  return true;
+}
+
 let verbosity = 2;
 const spinnies = new Spinnies();
 
@@ -152,6 +165,7 @@ function runGeneratorAppHelp(
         compatibilityKey,
         argv: ["", `elm-pages run ${scriptModuleName}`, ...cliOptions],
         versionMessage: versionMessage || "",
+        colorMode: detectColorSupport(),
       },
     });
 
@@ -540,6 +554,8 @@ async function runInternalJob(
         return [requestHash, await runWhich(requestToPerform)];
       case "elm-pages-internal://question":
         return [requestHash, await runQuestion(requestToPerform)];
+      case "elm-pages-internal://readKey":
+        return [requestHash, await runReadKey(requestToPerform)];
       case "elm-pages-internal://shell":
         return [requestHash, await runShell(requestToPerform)];
       case "elm-pages-internal://stream":
@@ -642,6 +658,10 @@ async function runQuestion(req) {
   return jsonResponse(req, await question(req.body.args[0]));
 }
 
+async function runReadKey(req) {
+  return jsonResponse(req, await readKey());
+}
+
 function runStream(req, portsFile) {
   return new Promise(async (resolve) => {
     const context = getContext(req);
@@ -671,19 +691,21 @@ function runStream(req, portsFile) {
         index += 1;
       }
       if (kind === "json") {
-        resolve(
-          jsonResponse(req, {
-            body: await consumers.json(lastStream),
-            metadata: await tryCallingFunction(metadataResponse),
-          })
-        );
+        try {
+          const body = await consumers.json(lastStream);
+          const metadata = await tryCallingFunction(metadataResponse);
+          resolve(jsonResponse(req, { body, metadata }));
+        } catch (error) {
+          resolve(jsonResponse(req, { error: error.toString() }));
+        }
       } else if (kind === "text") {
-        resolve(
-          jsonResponse(req, {
-            body: await consumers.text(lastStream),
-            metadata: await tryCallingFunction(metadataResponse),
-          })
-        );
+        try {
+          const body = await consumers.text(lastStream);
+          const metadata = await tryCallingFunction(metadataResponse);
+          resolve(jsonResponse(req, { body, metadata }));
+        } catch (error) {
+          resolve(jsonResponse(req, { error: error.toString() }));
+        }
       } else if (kind === "none") {
         if (!lastStream) {
           // ensure all error handling gets a chance to fire before resolving successfully
@@ -691,22 +713,21 @@ function runStream(req, portsFile) {
           resolve(jsonResponse(req, { body: null }));
         } else {
           let resolvedMeta = await tryCallingFunction(metadataResponse);
-          lastStream.once("finish", async () => {
+          // Writable streams emit "finish", Readable streams emit "end"
+          // Duplex streams emit both - use a flag to prevent double-resolve
+          let resolved = false;
+          const onComplete = () => {
+            if (resolved) return;
+            resolved = true;
             resolve(
               jsonResponse(req, {
                 body: null,
                 metadata: resolvedMeta,
               })
             );
-          });
-          lastStream.once("end", async () => {
-            resolve(
-              jsonResponse(req, {
-                body: null,
-                metadata: resolvedMeta,
-              })
-            );
-          });
+          };
+          lastStream.once("finish", onComplete);
+          lastStream.once("end", onComplete);
         }
       } else if (kind === "command") {
         // already handled in parts.forEach
@@ -749,19 +770,36 @@ function runStream(req, portsFile) {
             env,
           });
           if (validateStream.isDuplexStream(newLocal.stream)) {
+            newLocal.stream.once("error", (error) => {
+              newLocal.stream.destroy();
+              resolve({ error: `Custom duplex stream '${part.portName}' error: ${error.message}` });
+            });
             pipeIfPossible(lastStream, newLocal.stream);
+            if (!lastStream) {
+              endStreamIfNoInput(newLocal.stream);
+            }
             return newLocal;
           } else {
             throw `Expected '${part.portName}' to be a duplex stream!`;
           }
         } else if (part.name === "customRead") {
+          const newLocal = await portsFile[part.portName](part.input, {
+            cwd,
+            quiet,
+            env,
+          });
+          // customRead can return either a stream directly or { stream, metadata }
+          const stream = newLocal.stream || newLocal;
+          if (!validateStream.isReadableStream(stream)) {
+            throw `Expected '${part.portName}' to return a readable stream!`;
+          }
+          stream.once("error", (error) => {
+            stream.destroy();
+            resolve({ error: `Custom read stream '${part.portName}' error: ${error.message}` });
+          });
           return {
-            metadata: null,
-            stream: await portsFile[part.portName](part.input, {
-              cwd,
-              quiet,
-              env,
-            }),
+            metadata: newLocal.metadata || null,
+            stream: stream,
           };
         } else if (part.name === "customWrite") {
           const newLocal = await portsFile[part.portName](part.input, {
@@ -770,25 +808,42 @@ function runStream(req, portsFile) {
             env,
           });
           if (!validateStream.isWritableStream(newLocal.stream)) {
-            console.error("Expected a writable stream!");
-            resolve({ error: "Expected a writable stream!" });
-          } else {
-            pipeIfPossible(lastStream, newLocal.stream);
+            throw `Expected '${part.portName}' to return a writable stream!`;
+          }
+          newLocal.stream.once("error", (error) => {
+            newLocal.stream.destroy();
+            resolve({ error: `Custom write stream '${part.portName}' error: ${error.message}` });
+          });
+          pipeIfPossible(lastStream, newLocal.stream);
+          if (!lastStream) {
+            endStreamIfNoInput(newLocal.stream);
           }
           return newLocal;
         } else if (part.name === "gzip") {
           const gzip = zlib.createGzip();
+          gzip.once("error", (error) => {
+            gzip.destroy();
+            resolve({ error: `gzip error: ${error.message}` });
+          });
           if (!lastStream) {
-            gzip.end();
+            endStreamIfNoInput(gzip);
           }
           return {
             metadata: null,
             stream: pipeIfPossible(lastStream, gzip),
           };
         } else if (part.name === "unzip") {
+          const unzip = zlib.createUnzip();
+          unzip.once("error", (error) => {
+            unzip.destroy();
+            resolve({ error: `unzip error: ${error.message}` });
+          });
+          if (!lastStream) {
+            endStreamIfNoInput(unzip);
+          }
           return {
             metadata: null,
-            stream: pipeIfPossible(lastStream, zlib.createUnzip()),
+            stream: pipeIfPossible(lastStream, unzip),
           };
         } else if (part.name === "fileWrite") {
           const destinationPath = path.resolve(part.path);
@@ -805,9 +860,13 @@ function runStream(req, portsFile) {
             newLocal.removeAllListeners();
             resolve({ error: error.toString() });
           });
+          pipeIfPossible(lastStream, newLocal);
+          if (!lastStream) {
+            endStreamIfNoInput(newLocal);
+          }
           return {
             metadata: null,
-            stream: pipeIfPossible(lastStream, newLocal),
+            stream: newLocal,
           };
         } else if (part.name === "httpWrite") {
           const makeFetchHappen = makeFetchHappenOriginal.defaults({
@@ -869,6 +928,9 @@ function runStream(req, portsFile) {
           });
 
           pipeIfPossible(lastStream, newProcess.stdin);
+          if (!lastStream) {
+            endStreamIfNoInput(newProcess.stdin);
+          }
           let newStream;
           if (output === "MergeWithStdout") {
             newStream = mergeStreams([newProcess.stdout, newProcess.stderr]);
@@ -878,28 +940,40 @@ function runStream(req, portsFile) {
             newStream = newProcess.stdout;
           }
 
+          // For the last process, we need to track metadata resolution
+          // so we can resolve it even if the process errors
+          let resolveMeta = null;
+          const metadataPromise = isLastProcess
+            ? new Promise((resolve) => {
+                resolveMeta = resolve;
+              })
+            : null;
+
           newProcess.once("error", (error) => {
             newStream && newStream.end();
             newProcess.removeAllListeners();
+            // Resolve metadata Promise to prevent hanging awaits
+            if (resolveMeta) {
+              resolveMeta({ exitCode: null, error: error.toString() });
+            }
             resolve({ error: error.toString() });
           });
+
           if (isLastProcess) {
+            newProcess.once("exit", (code) => {
+              if (code !== 0 && !allowNon0Status) {
+                newStream && newStream.end();
+                resolve({
+                  error: `Command ${command} exited with code ${code}`,
+                });
+              }
+              resolveMeta({
+                exitCode: code,
+              });
+            });
             return {
               stream: newStream,
-              metadata: new Promise((resoveMeta) => {
-                newProcess.once("exit", (code) => {
-                  if (code !== 0 && !allowNon0Status) {
-                    newStream && newStream.end();
-                    resolve({
-                      error: `Command ${command} exited with code ${code}`,
-                    });
-                  }
-
-                  resoveMeta({
-                    exitCode: code,
-                  });
-                });
-              }),
+              metadata: metadataPromise,
             };
           } else {
             return { metadata: null, stream: newStream };
@@ -932,6 +1006,45 @@ function pipeIfPossible(input, destination) {
   } else {
     return destination;
   }
+}
+
+/**
+ * Safely signals EOF to a writable stream when no input will be piped to it.
+ *
+ * This is necessary because when a writable stream (like a child process's stdin)
+ * is created but nothing is piped to it, the receiving end has no way to know
+ * that no data is coming. It will wait indefinitely for the pipe to close.
+ *
+ * GUI applications like ksdiff/meld are particularly affected - they wait for
+ * stdin to close before proceeding, causing hangs if we don't explicitly end it.
+ *
+ * @param {import('stream').Writable | null | undefined} stream - The writable stream to end
+ */
+function endStreamIfNoInput(stream) {
+  if (!stream) {
+    return;
+  }
+
+  // Check if stream is still in a state where .end() is valid
+  // - writable: false if the stream has been destroyed or ended
+  // - writableEnded: true if .end() has already been called
+  // - destroyed: true if .destroy() has been called
+  if (!stream.writable || stream.writableEnded || stream.destroyed) {
+    return;
+  }
+
+  // Add a one-time error handler to prevent unhandled error crashes
+  // This can happen if the child process exits before we call .end()
+  stream.once("error", (err) => {
+    // EPIPE: "broken pipe" - the other end closed before we finished
+    // This is expected if the child process exits quickly
+    if (err.code !== "EPIPE") {
+      // Log unexpected errors but don't crash - this is cleanup code
+      console.error("Stream end error:", err.message);
+    }
+  });
+
+  stream.end();
 }
 
 function stdout() {
@@ -1081,7 +1194,7 @@ export function pipeShells(
       if (previousProcess === null) {
         currentProcess = spawnCallback(command, args, {
           stdio: ["inherit", "pipe", "inherit"],
-          timeout: timeout ? undefined : timeout,
+          timeout: timeout,
           cwd: cwd,
           env: env,
         });
@@ -1091,14 +1204,14 @@ export function pipeShells(
             stdio: quiet
               ? ["pipe", "ignore", "ignore"]
               : ["pipe", "inherit", "inherit"],
-            timeout: timeout ? undefined : timeout,
+            timeout: timeout,
             cwd: cwd,
             env: env,
           });
         } else {
           currentProcess = spawnCallback(command, args, {
             stdio: ["pipe", "pipe", "pipe"],
-            timeout: timeout ? undefined : timeout,
+            timeout: timeout,
             cwd: cwd,
             env: env,
           });
@@ -1153,6 +1266,48 @@ export async function question({ prompt }) {
     return rl.question(prompt, (answer) => {
       rl.close();
       resolve(answer);
+    });
+  });
+}
+
+/**
+ * Read a single keypress from stdin without requiring Enter.
+ * Uses raw mode to capture individual keypresses.
+ * Falls back to line-buffered input when not in a TTY (e.g., piped input).
+ */
+export async function readKey() {
+  const stdin = process.stdin;
+
+  if (!stdin.isTTY) {
+    // Fall back to reading a line when not in a TTY (piped input, CI, etc.)
+    // Takes the first character of the input line
+    const rl = readline.createInterface({ input: stdin });
+    return new Promise((resolve) => {
+      rl.once("line", (line) => {
+        rl.close();
+        resolve(line.charAt(0) || "\n");
+      });
+    });
+  }
+
+  // TTY mode - single keypress without Enter
+  return new Promise((resolve) => {
+    const wasRaw = stdin.isRaw;
+
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding("utf8");
+
+    stdin.once("data", (key) => {
+      stdin.setRawMode(wasRaw);
+      stdin.pause();
+
+      // Handle Ctrl+C to exit gracefully
+      if (key === "\u0003") {
+        process.exit();
+      }
+
+      resolve(key);
     });
   });
 }
@@ -1227,7 +1382,7 @@ async function runGlobNew(req, patternsToWatch) {
         }
         return {
           fullPath: fullPath.path,
-          captures: mm.capture(pattern, fullPath.path),
+          captures: mm.capture(pattern, fullPath.path) || [],
           fileStats: {
             size: stats.size,
             atime: Math.round(stats.atime.getTime()),

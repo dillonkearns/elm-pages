@@ -7,3 +7,7 @@ functions/render/elm-pages-cli.js
 cypress/videos
 cypress/screenshots
 
+# Test artifacts from StreamTests.elm
+empty-gzip-test.gz
+formatted-elm.txt
+

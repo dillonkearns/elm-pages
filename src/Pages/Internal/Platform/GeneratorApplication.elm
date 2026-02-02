@@ -76,7 +76,7 @@ app config =
                 update msg model
                     |> Tuple.mapSecond (perform config)
         , subscriptions =
-            \_ ->
+            \_ _ ->
                 Sub.batch
                     [ config.fromJsPort
                         |> Sub.map
