@@ -4,6 +4,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , FieldAccessResult(..)
     , HelperAnalysis
     , PendingHelperAction(..)
+    , PendingHelperCall
     , analyzeHelperFunction
     , classifyAppDataArguments
     , computeEphemeralFields
@@ -61,27 +62,32 @@ import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNam
 import Set exposing (Set)
 
 
-{-| Analysis of a helper function's field usage on its first parameter.
+{-| Analysis of a helper function's field usage on a parameter.
 -}
 type alias HelperAnalysis =
-    { paramName : String -- First parameter name
-    , accessedFields : Set String -- Fields accessed on first param (e.g., param.field)
+    { paramIndex : Int -- Which parameter position (0-indexed)
+    , paramName : String -- Parameter name
+    , accessedFields : Set String -- Fields accessed on this param (e.g., param.field)
     , isTrackable : Bool -- False if param is used in ways we can't track
     , aliasTarget : Maybe String -- If this is an alias to another function (e.g., myRender = renderContent)
     }
 
 
-{-| Analyze a helper function to determine which fields it accesses on its first parameter.
+{-| Analyze a helper function to determine which fields it accesses on each parameter.
 
-This enables tracking field usage when app.data is passed to a helper function.
+This enables tracking field usage when app.data is passed to a helper function,
+including when app.data is passed in any parameter position (not just the first).
+
 Also handles record destructuring patterns like `renderContent { title, body } = ...`
 where we know EXACTLY which fields are used.
 
 Also detects function aliases like `myRender = renderContent` where the function
 has no parameters and its body is just a reference to another function.
 
+Returns a list of analyses, one per trackable parameter.
+
 -}
-analyzeHelperFunction : Expression.Function -> Maybe HelperAnalysis
+analyzeHelperFunction : Expression.Function -> List HelperAnalysis
 analyzeHelperFunction function =
     let
         declaration =
@@ -94,52 +100,68 @@ analyzeHelperFunction function =
             declaration.expression
     in
     case arguments of
-        firstArg :: _ ->
-            case extractPatternName firstArg of
-                Just paramName ->
-                    -- Regular variable pattern: analyze body for field accesses
-                    let
-                        ( accessedFields, isTrackable ) =
-                            analyzeFieldAccessesOnParam paramName body
-                    in
-                    Just
-                        { paramName = paramName
-                        , accessedFields = accessedFields
-                        , isTrackable = isTrackable
-                        , aliasTarget = Nothing
-                        }
-
-                Nothing ->
-                    -- First param is a pattern - check if it's a record pattern
-                    case extractRecordPatternFields firstArg of
-                        Just fields ->
-                            -- Record pattern like { title, body }
-                            -- We know EXACTLY which fields are accessed - no body analysis needed!
-                            Just
-                                { paramName = "_record_pattern_"
-                                , accessedFields = fields
-                                , isTrackable = True
-                                , aliasTarget = Nothing
-                                }
-
-                        Nothing ->
-                            -- Other pattern (tuple, constructor, etc.) - can't track safely
-                            Nothing
-
         [] ->
             -- No parameters - check if this is a function alias like `myRender = renderContent`
             case extractSimpleFunctionReference body of
                 Just targetFuncName ->
                     -- This is an alias to another function
-                    Just
-                        { paramName = "_alias_"
-                        , accessedFields = Set.empty
-                        , isTrackable = True
-                        , aliasTarget = Just targetFuncName
-                        }
+                    [ { paramIndex = 0
+                      , paramName = "_alias_"
+                      , accessedFields = Set.empty
+                      , isTrackable = True
+                      , aliasTarget = Just targetFuncName
+                      }
+                    ]
 
                 Nothing ->
                     -- Not a simple function reference, can't track
+                    []
+
+        _ ->
+            -- Analyze each parameter
+            arguments
+                |> List.indexedMap
+                    (\index arg ->
+                        analyzeParameter index arg body
+                    )
+                |> List.filterMap identity
+
+
+{-| Analyze a single parameter of a helper function.
+-}
+analyzeParameter : Int -> Node Pattern -> Node Expression -> Maybe HelperAnalysis
+analyzeParameter index arg body =
+    case extractPatternName arg of
+        Just paramName ->
+            -- Regular variable pattern: analyze body for field accesses
+            let
+                ( accessedFields, isTrackable ) =
+                    analyzeFieldAccessesOnParam paramName body
+            in
+            Just
+                { paramIndex = index
+                , paramName = paramName
+                , accessedFields = accessedFields
+                , isTrackable = isTrackable
+                , aliasTarget = Nothing
+                }
+
+        Nothing ->
+            -- Param is a pattern - check if it's a record pattern
+            case extractRecordPatternFields arg of
+                Just fields ->
+                    -- Record pattern like { title, body }
+                    -- We know EXACTLY which fields are accessed - no body analysis needed!
+                    Just
+                        { paramIndex = index
+                        , paramName = "_record_pattern_"
+                        , accessedFields = fields
+                        , isTrackable = True
+                        , aliasTarget = Nothing
+                        }
+
+                Nothing ->
+                    -- Other pattern (tuple, constructor, etc.) - can't track safely
                     Nothing
 
 
@@ -880,8 +902,11 @@ Returns (additionalFields, hasUnresolved) where:
 Used by both client and server transforms to determine which fields are used when
 app.data is passed to helper functions.
 
+The helperFunctions dictionary maps function names to a list of HelperAnalysis,
+one per parameter that could be tracked.
+
 -}
-resolvePendingHelperCalls : List (Maybe String) -> Dict String HelperAnalysis -> ( Set String, Bool )
+resolvePendingHelperCalls : List (Maybe PendingHelperCall) -> Dict String (List HelperAnalysis) -> ( Set String, Bool )
 resolvePendingHelperCalls pendingCalls helperFunctions =
     pendingCalls
         |> List.foldl
@@ -891,9 +916,9 @@ resolvePendingHelperCalls pendingCalls helperFunctions =
                         -- Qualified/complex function - can't track
                         ( fields, True )
 
-                    Just funcName ->
-                        -- Follow alias chain to get the final analysis
-                        case resolveHelperWithAliases funcName helperFunctions Set.empty of
+                    Just { funcName, argIndex } ->
+                        -- Follow alias chain to get the final analysis for this arg position
+                        case resolveHelperWithAliases funcName argIndex helperFunctions Set.empty of
                             Just analysis ->
                                 if analysis.isTrackable then
                                     -- Known helper with trackable field usage!
@@ -904,7 +929,7 @@ resolvePendingHelperCalls pendingCalls helperFunctions =
                                     ( fields, True )
 
                             Nothing ->
-                                -- Unknown function or cycle detected - can't track
+                                -- Unknown function, no matching param, or cycle detected - can't track
                                 ( fields, True )
             )
             ( Set.empty, False )
@@ -913,26 +938,34 @@ resolvePendingHelperCalls pendingCalls helperFunctions =
 {-| Resolve a helper function, following alias chains to find the actual implementation.
 
 Takes a set of already-visited function names to detect cycles.
-Returns Nothing if the function is unknown or if a cycle is detected.
+Returns Nothing if the function is unknown, no matching param index, or if a cycle is detected.
 
 -}
-resolveHelperWithAliases : String -> Dict String HelperAnalysis -> Set String -> Maybe HelperAnalysis
-resolveHelperWithAliases funcName helperFunctions visited =
+resolveHelperWithAliases : String -> Int -> Dict String (List HelperAnalysis) -> Set String -> Maybe HelperAnalysis
+resolveHelperWithAliases funcName argIndex helperFunctions visited =
     if Set.member funcName visited then
         -- Cycle detected - bail out
         Nothing
 
     else
         case Dict.get funcName helperFunctions of
-            Just analysis ->
-                case analysis.aliasTarget of
-                    Just targetName ->
-                        -- This is an alias, follow the chain
-                        resolveHelperWithAliases targetName helperFunctions (Set.insert funcName visited)
+            Just analyses ->
+                -- Find analysis for the matching parameter index
+                case List.filter (\a -> a.paramIndex == argIndex) analyses of
+                    [ analysis ] ->
+                        case analysis.aliasTarget of
+                            Just targetName ->
+                                -- This is an alias, follow the chain
+                                -- For aliases, the argIndex carries through to the target
+                                resolveHelperWithAliases targetName argIndex helperFunctions (Set.insert funcName visited)
 
-                    Nothing ->
-                        -- Not an alias, return the analysis
-                        Just analysis
+                            Nothing ->
+                                -- Not an alias, return the analysis
+                                Just analysis
+
+                    _ ->
+                        -- No matching param index or multiple matches - can't track
+                        Nothing
 
             Nothing ->
                 -- Unknown function
@@ -971,8 +1004,8 @@ by both StaticViewTransform and ServerDataTransform.
 computeEphemeralFields :
     Set String
     -> Set String
-    -> List (Maybe String)
-    -> Dict String HelperAnalysis
+    -> List (Maybe PendingHelperCall)
+    -> Dict String (List HelperAnalysis)
     -> ( Set String, Bool )
 computeEphemeralFields allFieldNames clientUsedFields pendingHelperCalls helperFunctions =
     let
@@ -1201,6 +1234,7 @@ type alias AppDataClassification =
     , hasWrappedAppData : Bool -- app.data wrapped in list/tuple/etc.
     , isAccessorApplication : Bool -- .field app.data pattern (handled by trackFieldAccess)
     , maybeFuncName : Maybe String -- local function name if applicable
+    , appDataArgIndex : Maybe Int -- which argument position has app.data (0-indexed)
     }
 
 
@@ -1231,60 +1265,69 @@ classifyAppDataArguments functionNode args appParamName appDataBindings isFreeze
     let
         -- Check for DIRECT app.data arguments (can potentially use helper analysis)
         -- vs WRAPPED app.data arguments (list, tuple, etc. - can't track)
-        ( directAppDataArgs, wrappedAppDataArgs ) =
+        -- Also track the index of the first direct app.data argument
+        ( directAppDataIndices, wrappedAppDataArgs ) =
             args
+                |> List.indexedMap Tuple.pair
                 |> List.foldl
-                    (\arg ( direct, wrapped ) ->
+                    (\( index, arg ) ( directIndices, wrapped ) ->
                         case Node.value arg of
                             -- Check if this is app.data directly (not app.data.field)
                             Expression.RecordAccess innerExpr (Node _ fieldName) ->
                                 if fieldName == "data" && isAppDataAccess arg appParamName appDataBindings then
                                     -- This IS app.data passed directly - potentially trackable
-                                    ( arg :: direct, wrapped )
+                                    ( index :: directIndices, wrapped )
 
                                 else if isAppDataAccess innerExpr appParamName appDataBindings then
                                     -- This is app.data.field - trackable via normal field tracking, skip
-                                    ( direct, wrapped )
+                                    ( directIndices, wrapped )
 
                                 else if containsAppData innerExpr then
                                     -- app.data is nested inside - untrackable
-                                    ( direct, arg :: wrapped )
+                                    ( directIndices, arg :: wrapped )
 
                                 else
-                                    ( direct, wrapped )
+                                    ( directIndices, wrapped )
 
                             -- If the arg is a function call that contains app.data,
                             -- we can't track which fields are used - untrackable
                             Expression.Application innerArgs ->
                                 if List.any containsAppData innerArgs then
-                                    ( direct, arg :: wrapped )
+                                    ( directIndices, arg :: wrapped )
 
                                 else
-                                    ( direct, wrapped )
+                                    ( directIndices, wrapped )
 
                             -- Variable bound to app.data passed directly
                             Expression.FunctionOrValue [] varName ->
                                 if Set.member varName appDataBindings then
-                                    ( arg :: direct, wrapped )
+                                    ( index :: directIndices, wrapped )
 
                                 else
-                                    ( direct, wrapped )
+                                    ( directIndices, wrapped )
 
                             -- Lists, tuples, etc. containing app.data - untrackable
                             _ ->
                                 if containsAppData arg then
-                                    ( direct, arg :: wrapped )
+                                    ( directIndices, arg :: wrapped )
 
                                 else
-                                    ( direct, wrapped )
+                                    ( directIndices, wrapped )
                     )
                     ( [], [] )
 
         hasDirectAppData =
-            not (List.isEmpty directAppDataArgs)
+            not (List.isEmpty directAppDataIndices)
 
         hasWrappedAppData =
             not (List.isEmpty wrappedAppDataArgs)
+
+        -- Get the first (lowest) index where app.data was passed directly
+        -- We reverse because indices were prepended during fold
+        appDataArgIndex =
+            directAppDataIndices
+                |> List.reverse
+                |> List.head
 
         -- Check if this is a record accessor function application: .field app.data
         -- This is handled by trackFieldAccess, so we don't need to process it here
@@ -1311,6 +1354,7 @@ classifyAppDataArguments functionNode args appParamName appDataBindings isFreeze
     , hasWrappedAppData = hasWrappedAppData
     , isAccessorApplication = isAccessorApplication
     , maybeFuncName = maybeFuncName
+    , appDataArgIndex = appDataArgIndex
     }
 
 
@@ -1419,6 +1463,14 @@ containsAppDataExpressionHelp node appParamName appDataBindings isFreezeCall =
             False
 
 
+{-| A pending helper call with function name and the argument index where app.data was passed.
+-}
+type alias PendingHelperCall =
+    { funcName : String
+    , argIndex : Int
+    }
+
+
 {-| Actions to take for pending helper call tracking.
 
 Used by both client and server transforms to determine what to do with
@@ -1426,7 +1478,7 @@ the pendingHelperCalls list based on the AppDataClassification.
 
 -}
 type PendingHelperAction
-    = AddKnownHelper String -- Local function with known name
+    = AddKnownHelper PendingHelperCall -- Local function with known name and arg position
     | AddUnknownHelper -- Untrackable (wrapped or unknown function)
     | NoHelperAction -- Skip (accessor application or no app.data involved)
 
@@ -1452,13 +1504,13 @@ determinePendingHelperAction classification =
 
     else if classification.hasDirectAppData then
         -- app.data passed directly - may be able to track via helper analysis
-        case classification.maybeFuncName of
-            Just funcName ->
-                -- Local function - store name for lookup in finalEvaluation
-                AddKnownHelper funcName
+        case ( classification.maybeFuncName, classification.appDataArgIndex ) of
+            ( Just funcName, Just argIndex ) ->
+                -- Local function with known arg position - store for lookup in finalEvaluation
+                AddKnownHelper { funcName = funcName, argIndex = argIndex }
 
-            Nothing ->
-                -- Qualified or complex function expression - can't look up
+            _ ->
+                -- Qualified or complex function expression, or missing arg index - can't look up
                 AddUnknownHelper
 
     else

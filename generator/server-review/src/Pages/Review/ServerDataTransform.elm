@@ -78,14 +78,14 @@ type alias Context =
     -- Track range after "Data" in exposing list for inserting ", Ephemeral"
     , dataExportRange : Maybe Range
 
-    -- Helper function analysis: maps function name -> analysis of what fields it accesses
+    -- Helper function analysis: maps function name -> list of analyses (one per trackable parameter)
     -- Used to determine which fields a helper uses when app.data is passed to it
-    , helperFunctions : Dict String HelperAnalysis
+    , helperFunctions : Dict String (List PersistentFieldTracking.HelperAnalysis)
 
-    -- Pending helper calls: function names called with app.data in client context
+    -- Pending helper calls: function calls with app.data in client context
     -- These need to be resolved in finalEvaluation after all helpers are analyzed
-    -- Nothing = unknown function (mark all fields), Just name = lookup in helperFunctions
-    , pendingHelperCalls : List (Maybe String)
+    -- Nothing = unknown function (mark all fields), Just call = lookup in helperFunctions
+    , pendingHelperCalls : List (Maybe PersistentFieldTracking.PendingHelperCall)
 
     -- Import aliases for Html and Html.Attributes (for freeze wrapping)
     , htmlAlias : Maybe ModuleName
@@ -308,15 +308,14 @@ declarationEnterVisitor node context =
                         PersistentFieldTracking.analyzeHelperFunction function
 
                     contextWithHelper =
-                        case helperAnalysis of
-                            Just analysis ->
-                                { contextWithDataRefs
-                                    | helperFunctions =
-                                        Dict.insert functionName analysis contextWithDataRefs.helperFunctions
-                                }
+                        if List.isEmpty helperAnalysis then
+                            contextWithDataRefs
 
-                            Nothing ->
-                                contextWithDataRefs
+                        else
+                            { contextWithDataRefs
+                                | helperFunctions =
+                                    Dict.insert functionName helperAnalysis contextWithDataRefs.helperFunctions
+                            }
                 in
                 ( [], contextWithHelper )
 
@@ -755,8 +754,8 @@ checkAppDataPassedToHelper context functionNode args =
         in
         -- Use shared logic to determine what action to take
         case PersistentFieldTracking.determinePendingHelperAction classification of
-            PersistentFieldTracking.AddKnownHelper funcName ->
-                { context | pendingHelperCalls = Just funcName :: context.pendingHelperCalls }
+            PersistentFieldTracking.AddKnownHelper helperCall ->
+                { context | pendingHelperCalls = Just helperCall :: context.pendingHelperCalls }
 
             PersistentFieldTracking.AddUnknownHelper ->
                 { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }

@@ -60,6 +60,7 @@ The system is conservative by design. If field tracking is uncertain for any rea
 | Chained aliases: `let d = data in let e = d in e.title` | ✅ Working | Recursive alias tracking |
 | Function aliases: `myRender = renderContent` | ✅ Working | `extractSimpleFunctionReference` + `resolveHelperWithAliases` |
 | Chained function aliases: `a = b`, `b = actualHelper` | ✅ Working | Recursive alias chain resolution |
+| Multi-parameter helpers: `formatTitle prefix data = ...` | ✅ Working | `analyzeParameter` + `appDataArgIndex` tracking |
 
 ### RouteBuilder Integration
 
@@ -118,6 +119,10 @@ aliasB = renderContent
 aliasC = aliasB  -- alias chain: aliasC -> aliasB -> renderContent
 view app = aliasC app.data  -- resolves entire chain
 
+-- Multi-parameter helpers (data in any position)
+formatTitle prefix data = prefix ++ data.title  -- data is second param
+view app = formatTitle "Hello: " app.data  -- tracks title on second arg
+
 -- Let bindings
 let title = app.data.title in ...
 
@@ -146,15 +151,7 @@ These patterns cause ALL fields to remain persistent (no optimization, but safe)
 
 These patterns are intentionally not optimized (safe fallback behavior):
 
-### 1. Multi-parameter helpers (data not in first position)
-```elm
--- NOT fully tracked - bails out safely
-helper x data = data.field
-view app = helper "x" app.data
-```
-The `analyzeHelperFunction` only analyzes the **first** parameter. If `data` is passed as a second argument, the system correctly bails out but doesn't optimize.
-
-### 2. Cross-module helpers
+### 1. Cross-module helpers
 ```elm
 -- Intentionally bails out
 import MyHelpers exposing (render)
@@ -162,14 +159,14 @@ view app = render app.data
 ```
 Can't analyze functions from other modules. Bails out correctly.
 
-### 3. Higher-order function patterns
+### 2. Higher-order function patterns
 ```elm
 -- Bails out correctly (app.data wrapped in list)
 view app =
     List.map (\d -> d.field) [app.data]
 ```
 
-### 4. Helper functions that return functions
+### 3. Helper functions that return functions
 ```elm
 -- Complex higher-order patterns - bails out
 makeRenderer field = \data -> data |> field

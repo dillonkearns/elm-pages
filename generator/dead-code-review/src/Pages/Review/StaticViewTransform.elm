@@ -132,14 +132,14 @@ type alias Context =
     -- Track if NarrowedData type alias already exists (to prevent infinite fix loop)
     , narrowedDataExists : Bool
 
-    -- Helper function analysis: maps function name -> analysis of what fields it accesses
+    -- Helper function analysis: maps function name -> list of analyses (one per trackable parameter)
     -- Used to determine which fields a helper uses when app.data is passed to it
-    , helperFunctions : Dict String HelperAnalysis
+    , helperFunctions : Dict String (List PersistentFieldTracking.HelperAnalysis)
 
-    -- Pending helper calls: function names called with app.data in client context
+    -- Pending helper calls: function calls with app.data in client context
     -- These need to be resolved in finalEvaluation after all helpers are analyzed
-    -- Nothing = unknown function (mark all fields), Just name = lookup in helperFunctions
-    , pendingHelperCalls : List (Maybe String)
+    -- Nothing = unknown function (mark all fields), Just call = lookup in helperFunctions
+    , pendingHelperCalls : List (Maybe PersistentFieldTracking.PendingHelperCall)
 
     -- Helpers called with app.data inside freeze context
     -- These can have their type annotations updated from Data to Ephemeral
@@ -359,15 +359,14 @@ declarationEnterVisitor node context =
                             }
 
                     contextWithHelper =
-                        case helperAnalysis of
-                            Just analysis ->
-                                { contextWithDataRanges
-                                    | helperFunctions =
-                                        Dict.insert functionName analysis contextWithDataRanges.helperFunctions
-                                }
+                        if List.isEmpty helperAnalysis then
+                            contextWithDataRanges
 
-                            Nothing ->
-                                contextWithDataRanges
+                        else
+                            { contextWithDataRanges
+                                | helperFunctions =
+                                    Dict.insert functionName helperAnalysis contextWithDataRanges.helperFunctions
+                            }
                 in
                 ( [], contextWithHelper )
 
@@ -980,8 +979,8 @@ checkAppDataPassedToHelper context functionNode args =
     else
         -- In client context - use shared logic
         case PersistentFieldTracking.determinePendingHelperAction classification of
-            PersistentFieldTracking.AddKnownHelper funcName ->
-                { context | pendingHelperCalls = Just funcName :: context.pendingHelperCalls }
+            PersistentFieldTracking.AddKnownHelper helperCall ->
+                { context | pendingHelperCalls = Just helperCall :: context.pendingHelperCalls }
 
             PersistentFieldTracking.AddUnknownHelper ->
                 { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
@@ -1313,6 +1312,7 @@ finalEvaluation context =
                         helpersCalledInClientContext =
                             context.pendingHelperCalls
                                 |> List.filterMap identity
+                                |> List.map .funcName
                                 |> Set.fromList
 
                         freezeOnlyHelpers =
