@@ -2628,4 +2628,135 @@ renderHeader { title, author } =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "Accessor function application pattern"
+            [ test "accessor function applied to app.data tracks specific field" <|
+                \() ->
+                    -- .title app.data is equivalent to app.data |> .title
+                    -- Should track title as client-used, body as ephemeral
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = .title app.data
+    , body = []
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = .title app.data
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "accessor function applied to app.data in freeze context does not cause bail-out" <|
+                \() ->
+                    -- .body app.data inside freeze should not prevent optimization
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text (.body app.data)) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text (.body app.data))"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text (.body app.data)) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         ]

@@ -475,6 +475,27 @@ trackFieldAccess node context =
             else
                 context
 
+        -- Accessor function application: .field app.data
+        -- This is semantically equivalent to app.data |> .field
+        -- We can track the specific field being accessed
+        Expression.Application [ functionNode, argNode ] ->
+            case Node.value functionNode of
+                Expression.RecordAccessFunction accessorName ->
+                    if isAppDataExpression argNode context then
+                        -- Extract field name (RecordAccessFunction stores ".fieldName")
+                        let
+                            fieldName =
+                                String.dropLeft 1 accessorName
+                        in
+                        -- Track this specific field access
+                        addFieldAccess fieldName context
+
+                    else
+                        context
+
+                _ ->
+                    context
+
         -- Case expression on app.data: case app.data of {...}
         -- Track record patterns, bail out on variable patterns
         Expression.CaseExpression caseBlock ->
@@ -789,6 +810,18 @@ checkAppDataPassedToHelper context functionNode args =
         hasWrappedAppData =
             not (List.isEmpty wrappedAppDataArgs)
 
+        -- Check if this is a record accessor function application: .field app.data
+        -- This is handled by trackFieldAccess, so we don't need to process it here
+        isAccessorFunctionApplication =
+            case Node.value functionNode of
+                Expression.RecordAccessFunction _ ->
+                    -- Single arg and it's app.data - this is .field app.data
+                    -- which is tracked by trackFieldAccess, so skip here
+                    List.length args == 1 && hasDirectAppData
+
+                _ ->
+                    False
+
         -- Extract function name if it's a local function
         maybeFuncName =
             case Node.value functionNode of
@@ -798,7 +831,12 @@ checkAppDataPassedToHelper context functionNode args =
                 _ ->
                     Nothing
     in
-    if context.inFreezeCall || context.inHeadFunction then
+    -- Skip if this is an accessor function application like .field app.data
+    -- which is already handled by trackFieldAccess
+    if isAccessorFunctionApplication then
+        context
+
+    else if context.inFreezeCall || context.inHeadFunction then
         -- In ephemeral context (freeze/head) - we don't care about tracking
         context
 
