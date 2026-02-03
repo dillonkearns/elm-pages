@@ -225,6 +225,113 @@ transform d = d
                         |> Review.Test.run rule
                         -- All fields marked as persistent (safe fallback)
                         |> Review.Test.expectNoErrors
+            , test "nested local function extracting specific field is trackable" <|
+                \() ->
+                    -- When (extractField app.data) is passed to another function,
+                    -- we can analyze extractField to see which fields it uses.
+                    -- If extractField only uses specific fields, the outer function
+                    -- only receives those field values (not app.data), so we can optimize.
+                    """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = String.toUpper (extractTitle app.data)
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+
+extractTitle data =
+    data.title
+"""
+                        |> Review.Test.run rule
+                        -- extractTitle only accesses title, so body is ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view app =
+    { title = String.toUpper (extractTitle app.data)
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+
+extractTitle data =
+    data.title
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = String.toUpper (extractTitle app.data)
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+
+extractTitle data =
+    data.title
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                            ]
             , test "skips transformation if Ephemeral type already exists" <|
                 \() ->
                     -- If Ephemeral type already exists, transformation was already applied

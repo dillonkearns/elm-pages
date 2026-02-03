@@ -1419,6 +1419,44 @@ isAppDataAccess node appParamName appDataBindings =
             False
 
 
+{-| Check if app.data is passed directly to an inner function call.
+
+This is used when we have a nested application like `outer (inner app.data)`.
+We check if app.data is passed directly to `inner` (not wrapped in list/tuple/etc).
+If so, the inner call will be tracked separately when the visitor reaches it,
+so we don't need to bail out for the outer call.
+
+Examples:
+
+  - `extractTitle app.data` -> True (app.data passed directly)
+  - `helper [ app.data ]` -> False (app.data wrapped in list)
+  - `transform (inner app.data)` -> False (nested application)
+
+-}
+isAppDataPassedDirectlyToInnerCall : List (Node Expression) -> Maybe String -> Set String -> Bool
+isAppDataPassedDirectlyToInnerCall innerArgs appParamName appDataBindings =
+    List.any
+        (\arg ->
+            case Node.value arg of
+                -- app.data passed directly
+                Expression.RecordAccess innerExpr (Node _ "data") ->
+                    case Node.value innerExpr of
+                        Expression.FunctionOrValue [] varName ->
+                            appParamName == Just varName
+
+                        _ ->
+                            False
+
+                -- Variable bound to app.data passed directly
+                Expression.FunctionOrValue [] varName ->
+                    Set.member varName appDataBindings
+
+                _ ->
+                    False
+        )
+        innerArgs
+
+
 {-| Extract field name from pipe operator with accessor pattern on app.data.
 Handles `app.data |> .field` and `.field <| app.data`.
 Returns Just fieldName if the pattern matches.
@@ -1537,13 +1575,61 @@ classifyAppDataArguments functionNode args appParamName appDataBindings isFreeze
                                     ( directIndices, wrapped )
 
                             -- If the arg is a function call that contains app.data,
-                            -- we can't track which fields are used - untrackable
+                            -- check if it's a trackable local function call
                             Expression.Application innerArgs ->
-                                if List.any containsAppData innerArgs then
-                                    ( directIndices, arg :: wrapped )
+                                case innerArgs of
+                                    (Node _ (Expression.FunctionOrValue [] _)) :: restArgs ->
+                                        -- Inner call is to a local function like `localFn app.data`
+                                        -- Check if app.data is passed directly to this local function
+                                        -- (not wrapped in list/tuple/nested call)
+                                        if isAppDataPassedDirectlyToInnerCall restArgs appParamName appDataBindings then
+                                            -- Don't mark as wrapped - the inner call will be tracked separately
+                                            -- when the visitor reaches it
+                                            ( directIndices, wrapped )
 
-                                else
-                                    ( directIndices, wrapped )
+                                        else if List.any containsAppData innerArgs then
+                                            ( directIndices, arg :: wrapped )
+
+                                        else
+                                            ( directIndices, wrapped )
+
+                                    _ ->
+                                        -- Qualified function or complex expression - can't track
+                                        if List.any containsAppData innerArgs then
+                                            ( directIndices, arg :: wrapped )
+
+                                        else
+                                            ( directIndices, wrapped )
+
+                            -- Parenthesized expression - unwrap and check inner
+                            Expression.ParenthesizedExpression innerNode ->
+                                case Node.value innerNode of
+                                    Expression.Application innerArgs ->
+                                        case innerArgs of
+                                            (Node _ (Expression.FunctionOrValue [] _)) :: restArgs ->
+                                                -- Inner call is to a local function like `(localFn app.data)`
+                                                if isAppDataPassedDirectlyToInnerCall restArgs appParamName appDataBindings then
+                                                    ( directIndices, wrapped )
+
+                                                else if List.any containsAppData innerArgs then
+                                                    ( directIndices, arg :: wrapped )
+
+                                                else
+                                                    ( directIndices, wrapped )
+
+                                            _ ->
+                                                if List.any containsAppData innerArgs then
+                                                    ( directIndices, arg :: wrapped )
+
+                                                else
+                                                    ( directIndices, wrapped )
+
+                                    _ ->
+                                        if containsAppData innerNode then
+                                            ( directIndices, arg :: wrapped )
+
+                                        else
+                                            ( directIndices, wrapped )
 
                             -- Variable bound to app.data passed directly
                             Expression.FunctionOrValue [] varName ->

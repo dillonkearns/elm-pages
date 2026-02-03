@@ -91,6 +91,16 @@ The system is conservative by design. If field tracking is uncertain for any rea
 | `app.data \|> .title \|> String.toUpper` | ✅ Working | Field access tracked before subsequent transforms |
 | `app.data.title \|> String.toUpper` | ✅ Working | Direct field access tracked regardless of pipe target |
 
+### Nested Local Function Applications
+
+| Pattern | Status | Implementation |
+|---------|--------|----------------|
+| `outer (inner app.data)` where `inner` is local | ✅ Working | `isAppDataPassedDirectlyToInnerCall` in `classifyAppDataArguments` |
+| `String.toUpper (extractTitle app.data)` | ✅ Working | Inner call tracked, outer receives result only |
+| `(localFn app.data)` parenthesized | ✅ Working | `ParenthesizedExpression` unwrapping in classification |
+
+**Note**: When `app.data` is passed to a local function inside another function call, like `outer (inner app.data)`, the system now tracks through `inner` to determine which fields are used. The key insight is that `outer` receives the *result* of `inner app.data` (not `app.data` itself), so field tracking happens on the inner call.
+
 ### Control Flow Patterns
 
 | Pattern | Status | Implementation |
@@ -286,6 +296,22 @@ view app =
     { title = String.join ", " [ app.data.title, app.data.subtitle ]
     , body = []
     }
+
+-- Nested local function applications
+-- outer receives the RESULT of extractTitle (a String), not app.data
+-- So only the fields used by extractTitle are tracked
+extractTitle data = data.title
+view app =
+    { title = String.toUpper (extractTitle app.data)  -- only 'title' is tracked
+    , body = []
+    }
+
+-- This also works with parenthesized expressions
+view app =
+    { title = process (helper app.data)  -- tracks fields from helper
+    , body = []
+    }
+helper data = data.title ++ data.subtitle
 ```
 
 ## Safe Fallback Patterns

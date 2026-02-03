@@ -2759,6 +2759,97 @@ view app =
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
+            , test "nested local function application on app.data is trackable" <|
+                \() ->
+                    -- When app.data is passed to a local function inside another function call,
+                    -- like `outer (inner app.data)`, we can analyze `inner` to determine which
+                    -- fields are actually used. The result of `inner app.data` is NOT app.data,
+                    -- so `outer` only receives the extracted value, not the full record.
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = String.toUpper (extractTitle app.data)
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+extractTitle data =
+    data.title
+"""
+                        |> Review.Test.run rule
+                        -- extractTitle only accesses 'title', so only 'title' is client-used
+                        -- String.toUpper receives the result (a String), not app.data
+                        -- 'body' is only used in freeze, so it's ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = String.toUpper (extractTitle app.data)
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+
+extractTitle data =
+    data.title
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = String.toUpper (extractTitle app.data)
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+extractTitle data =
+    data.title
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
             ]
         , describe "Helper function with pipe accessor pattern"
             [ test "helper using data |> .field is trackable and allows optimization" <|
