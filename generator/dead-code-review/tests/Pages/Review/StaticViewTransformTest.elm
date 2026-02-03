@@ -3681,4 +3681,142 @@ formatHelper prefix data =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "Helper function that forwards data to another helper"
+            [ test "helper that forwards data to another local helper is trackable" <|
+                \() ->
+                    -- When a helper function forwards its parameter to another local helper,
+                    -- we should be able to track field usage through the delegation.
+                    -- This enables composing helper functions while maintaining tracking.
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = wrapperHelper app.data
+    , body = []
+    }
+
+-- Wrapper helper that delegates to inner helper
+wrapperHelper data =
+    innerHelper data
+
+-- Inner helper that actually uses the field
+innerHelper data =
+    data.title
+"""
+                        |> Review.Test.run rule
+                        -- wrapperHelper delegates to innerHelper which only uses 'title'
+                        -- So 'body' should be ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = wrapperHelper app.data
+    , body = []
+    }
+
+-- Wrapper helper that delegates to inner helper
+wrapperHelper data =
+    innerHelper data
+
+-- Inner helper that actually uses the field
+innerHelper data =
+    data.title
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "helper that forwards data to unknown function bails out safely" <|
+                \() ->
+                    -- When a helper forwards to an unknown (imported) function,
+                    -- we should bail out safely.
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import SomeModule
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = wrapperHelper app.data
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+-- Wrapper that delegates to imported function
+wrapperHelper data =
+    SomeModule.process data
+"""
+                        |> Review.Test.run rule
+                        -- Can't analyze SomeModule.process, so bail out
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import SomeModule
+import VirtualDom
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = wrapperHelper app.data
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+
+-- Wrapper that delegates to imported function
+wrapperHelper data =
+    SomeModule.process data
+"""
+                            , Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)\"}"
+                                , details = [ "No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)" ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         ]

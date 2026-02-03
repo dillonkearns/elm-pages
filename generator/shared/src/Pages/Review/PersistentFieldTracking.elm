@@ -73,6 +73,16 @@ type alias HelperAnalysis =
     , accessedFields : Set String -- Fields accessed on this param (e.g., param.field)
     , isTrackable : Bool -- False if param is used in ways we can't track
     , aliasTarget : Maybe String -- If this is an alias to another function (e.g., myRender = renderContent)
+    , delegations : List HelperDelegation -- Functions this helper delegates to with the param (e.g., innerHelper data)
+    }
+
+
+{-| A delegation to another helper function with the parameter.
+This tracks patterns like `wrapperHelper data = innerHelper data`.
+-}
+type alias HelperDelegation =
+    { funcName : String
+    , argIndex : Int
     }
 
 
@@ -113,6 +123,7 @@ analyzeHelperFunction function =
                       , accessedFields = Set.empty
                       , isTrackable = True
                       , aliasTarget = Just targetFuncName
+                      , delegations = []
                       }
                     ]
 
@@ -138,7 +149,7 @@ analyzeParameter index arg body =
         Just paramName ->
             -- Regular variable pattern: analyze body for field accesses
             let
-                ( accessedFields, isTrackable ) =
+                ( accessedFields, isTrackable, delegations ) =
                     analyzeFieldAccessesOnParam paramName body
             in
             Just
@@ -147,6 +158,7 @@ analyzeParameter index arg body =
                 , accessedFields = accessedFields
                 , isTrackable = isTrackable
                 , aliasTarget = Nothing
+                , delegations = delegations
                 }
 
         Nothing ->
@@ -161,6 +173,7 @@ analyzeParameter index arg body =
                         , accessedFields = fields
                         , isTrackable = True
                         , aliasTarget = Nothing
+                        , delegations = []
                         }
 
                 Nothing ->
@@ -220,10 +233,12 @@ analyzeInlineLambda funcExpr argIndex =
                         Just paramName ->
                             -- Regular variable pattern: analyze body for field accesses
                             let
-                                ( accessedFields, isTrackable ) =
+                                ( accessedFields, isTrackable, delegations ) =
                                     analyzeFieldAccessesOnParam paramName lambda.expression
                             in
-                            if isTrackable then
+                            -- For inline lambdas, we can't resolve delegations (no helper context)
+                            -- So if there are delegations, treat as untrackable
+                            if isTrackable && List.isEmpty delegations then
                                 LambdaTrackable accessedFields
 
                             else
@@ -254,17 +269,19 @@ analyzeInlineLambda funcExpr argIndex =
 
 {-| Analyze an expression to find all field accesses on a given parameter name.
 
-Returns (accessedFields, isTrackable) where:
+Returns (accessedFields, isTrackable, delegations) where:
 
   - accessedFields: Set of field names accessed like `param.fieldName`
   - isTrackable: False if the parameter is used in ways we can't track
-    (passed to another function, used in case expression, etc.)
+    (passed to a qualified/unknown function, wrapped in a data structure, etc.)
+  - delegations: List of local helper functions the parameter is delegated to
+    (e.g., `innerHelper data` results in a delegation to "innerHelper")
 
 -}
-analyzeFieldAccessesOnParam : String -> Node Expression -> ( Set String, Bool )
+analyzeFieldAccessesOnParam : String -> Node Expression -> ( Set String, Bool, List HelperDelegation )
 analyzeFieldAccessesOnParam paramName expr =
     -- Start with just the parameter name as the only "alias" we track
-    analyzeFieldAccessesWithAliases (Set.singleton paramName) expr ( Set.empty, True )
+    analyzeFieldAccessesWithAliases (Set.singleton paramName) expr ( Set.empty, True, [] )
 
 
 {-| Check if a variable name is the parameter or an alias of the parameter.
@@ -279,11 +296,14 @@ isParamOrAlias paramAliases varName =
 The paramAliases set contains the original parameter name and any variables
 that are simple aliases (e.g., `let d = data in ...`).
 
+The third element of the accumulator and return value is a list of delegations -
+local functions the parameter is passed to (e.g., `innerHelper data`).
+
 -}
-analyzeFieldAccessesWithAliases : Set String -> Node Expression -> ( Set String, Bool ) -> ( Set String, Bool )
-analyzeFieldAccessesWithAliases paramAliases node ( fields, trackable ) =
+analyzeFieldAccessesWithAliases : Set String -> Node Expression -> ( Set String, Bool, List HelperDelegation ) -> ( Set String, Bool, List HelperDelegation )
+analyzeFieldAccessesWithAliases paramAliases node ( fields, trackable, delegations ) =
     if not trackable then
-        ( fields, False )
+        ( fields, False, delegations )
 
     else
         case Node.value node of
@@ -291,33 +311,40 @@ analyzeFieldAccessesWithAliases paramAliases node ( fields, trackable ) =
                 case Node.value innerExpr of
                     Expression.FunctionOrValue [] varName ->
                         if isParamOrAlias paramAliases varName then
-                            ( Set.insert fieldName fields, trackable )
+                            ( Set.insert fieldName fields, trackable, delegations )
 
                         else
-                            ( fields, trackable )
+                            ( fields, trackable, delegations )
 
                     _ ->
-                        analyzeFieldAccessesWithAliases paramAliases innerExpr ( fields, trackable )
+                        analyzeFieldAccessesWithAliases paramAliases innerExpr ( fields, trackable, delegations )
 
             Expression.FunctionOrValue [] varName ->
                 if isParamOrAlias paramAliases varName then
                     -- Bare usage of param or alias - can't track
-                    ( fields, False )
+                    ( fields, False, delegations )
 
                 else
-                    ( fields, trackable )
+                    ( fields, trackable, delegations )
 
             -- Function application - check for accessor function pattern .field param
+            -- Also check for delegation pattern: localHelper param
             Expression.Application exprs ->
                 case extractAccessorFieldFromApplicationWithAliases exprs paramAliases of
                     Just fieldName ->
-                        ( Set.insert fieldName fields, trackable )
+                        ( Set.insert fieldName fields, trackable, delegations )
 
                     Nothing ->
-                        List.foldl
-                            (\e acc -> analyzeFieldAccessesWithAliases paramAliases e acc)
-                            ( fields, trackable )
-                            exprs
+                        -- Check if this is a delegation to a local helper
+                        case extractHelperDelegation exprs paramAliases of
+                            Just delegation ->
+                                -- Found a delegation like `innerHelper data` - record it
+                                ( fields, trackable, delegation :: delegations )
+
+                            Nothing ->
+                                -- Not a simple delegation - analyze all expressions
+                                -- But check if param is passed in untrackable ways
+                                analyzeApplicationExprs paramAliases exprs ( fields, trackable, delegations )
 
             Expression.LetExpression letBlock ->
                 let
@@ -332,7 +359,7 @@ analyzeFieldAccessesWithAliases paramAliases node ( fields, trackable ) =
 
                     -- Analyze declarations, but don't recurse into alias bindings
                     -- (they're just creating aliases, not using fields)
-                    ( declFields, declTrackable ) =
+                    ( declFields, declTrackable, declDelegations ) =
                         List.foldl
                             (\declNode acc ->
                                 case Node.value declNode of
@@ -357,20 +384,20 @@ analyzeFieldAccessesWithAliases paramAliases node ( fields, trackable ) =
                                     Expression.LetDestructuring _ letExpr ->
                                         analyzeFieldAccessesWithAliases allAliases letExpr acc
                             )
-                            ( fields, trackable )
+                            ( fields, trackable, delegations )
                             letBlock.declarations
                 in
-                analyzeFieldAccessesWithAliases allAliases letBlock.expression ( declFields, declTrackable )
+                analyzeFieldAccessesWithAliases allAliases letBlock.expression ( declFields, declTrackable, declDelegations )
 
             Expression.IfBlock cond then_ else_ ->
                 let
-                    ( condFields, condTrackable ) =
-                        analyzeFieldAccessesWithAliases paramAliases cond ( fields, trackable )
+                    ( condFields, condTrackable, condDelegations ) =
+                        analyzeFieldAccessesWithAliases paramAliases cond ( fields, trackable, delegations )
 
-                    ( thenFields, thenTrackable ) =
-                        analyzeFieldAccessesWithAliases paramAliases then_ ( condFields, condTrackable )
+                    ( thenFields, thenTrackable, thenDelegations ) =
+                        analyzeFieldAccessesWithAliases paramAliases then_ ( condFields, condTrackable, condDelegations )
                 in
-                analyzeFieldAccessesWithAliases paramAliases else_ ( thenFields, thenTrackable )
+                analyzeFieldAccessesWithAliases paramAliases else_ ( thenFields, thenTrackable, thenDelegations )
 
             Expression.CaseExpression caseBlock ->
                 let
@@ -382,22 +409,22 @@ analyzeFieldAccessesWithAliases paramAliases node ( fields, trackable ) =
                             _ ->
                                 False
 
-                    ( exprFields, exprTrackable ) =
+                    ( exprFields, exprTrackable, exprDelegations ) =
                         if caseOnParamOrAlias then
                             -- Case is on the parameter - check if all patterns are record patterns
                             case extractCasePatternFields caseBlock.cases of
                                 TrackableFields patternFields ->
                                     -- All patterns are record patterns, we can track the specific fields
-                                    ( Set.union fields patternFields, trackable )
+                                    ( Set.union fields patternFields, trackable, delegations )
 
                                 UntrackablePattern ->
                                     -- At least one pattern captures the whole record
                                     -- But we can still track field accesses on variable bindings!
                                     -- Will be handled in case body analysis below
-                                    ( fields, trackable )
+                                    ( fields, trackable, delegations )
 
                         else
-                            analyzeFieldAccessesWithAliases paramAliases caseBlock.expression ( fields, trackable )
+                            analyzeFieldAccessesWithAliases paramAliases caseBlock.expression ( fields, trackable, delegations )
                 in
                 List.foldl
                     (\( patternNode, caseExpr ) acc ->
@@ -421,7 +448,7 @@ analyzeFieldAccessesWithAliases paramAliases node ( fields, trackable ) =
                         in
                         analyzeFieldAccessesWithAliases branchAliases caseExpr acc
                     )
-                    ( exprFields, exprTrackable )
+                    ( exprFields, exprTrackable, exprDelegations )
                     caseBlock.cases
 
             Expression.LambdaExpression lambda ->
@@ -440,38 +467,38 @@ analyzeFieldAccessesWithAliases paramAliases node ( fields, trackable ) =
                                 )
                 in
                 if shadowsAlias then
-                    ( fields, trackable )
+                    ( fields, trackable, delegations )
 
                 else
-                    analyzeFieldAccessesWithAliases paramAliases lambda.expression ( fields, trackable )
+                    analyzeFieldAccessesWithAliases paramAliases lambda.expression ( fields, trackable, delegations )
 
             -- Pipe operators with accessor: param |> .field or .field <| param
             -- Also handles other operators by recursing into both sides
             Expression.OperatorApplication op _ leftExpr rightExpr ->
                 case extractPipeAccessorFieldWithAliases op paramAliases leftExpr rightExpr of
                     Just fieldName ->
-                        ( Set.insert fieldName fields, trackable )
+                        ( Set.insert fieldName fields, trackable, delegations )
 
                     Nothing ->
                         let
-                            ( leftFields, leftTrackable ) =
-                                analyzeFieldAccessesWithAliases paramAliases leftExpr ( fields, trackable )
+                            ( leftFields, leftTrackable, leftDelegations ) =
+                                analyzeFieldAccessesWithAliases paramAliases leftExpr ( fields, trackable, delegations )
                         in
-                        analyzeFieldAccessesWithAliases paramAliases rightExpr ( leftFields, leftTrackable )
+                        analyzeFieldAccessesWithAliases paramAliases rightExpr ( leftFields, leftTrackable, leftDelegations )
 
             Expression.ParenthesizedExpression inner ->
-                analyzeFieldAccessesWithAliases paramAliases inner ( fields, trackable )
+                analyzeFieldAccessesWithAliases paramAliases inner ( fields, trackable, delegations )
 
             Expression.TupledExpression exprs ->
                 List.foldl
                     (\e acc -> analyzeFieldAccessesWithAliases paramAliases e acc)
-                    ( fields, trackable )
+                    ( fields, trackable, delegations )
                     exprs
 
             Expression.ListExpr exprs ->
                 List.foldl
                     (\e acc -> analyzeFieldAccessesWithAliases paramAliases e acc)
-                    ( fields, trackable )
+                    ( fields, trackable, delegations )
                     exprs
 
             Expression.RecordExpr recordSetters ->
@@ -479,30 +506,106 @@ analyzeFieldAccessesWithAliases paramAliases node ( fields, trackable ) =
                     (\(Node _ ( _, valueExpr )) acc ->
                         analyzeFieldAccessesWithAliases paramAliases valueExpr acc
                     )
-                    ( fields, trackable )
+                    ( fields, trackable, delegations )
                     recordSetters
 
             Expression.RecordUpdateExpression (Node _ varName) recordSetters ->
                 let
-                    ( updateFields, updateTrackable ) =
+                    ( updateFields, updateTrackable, updateDelegations ) =
                         if isParamOrAlias paramAliases varName then
-                            ( fields, False )
+                            ( fields, False, delegations )
 
                         else
-                            ( fields, trackable )
+                            ( fields, trackable, delegations )
                 in
                 List.foldl
                     (\(Node _ ( _, valueExpr )) acc ->
                         analyzeFieldAccessesWithAliases paramAliases valueExpr acc
                     )
-                    ( updateFields, updateTrackable )
+                    ( updateFields, updateTrackable, updateDelegations )
                     recordSetters
 
             Expression.Negation inner ->
-                analyzeFieldAccessesWithAliases paramAliases inner ( fields, trackable )
+                analyzeFieldAccessesWithAliases paramAliases inner ( fields, trackable, delegations )
 
             _ ->
-                ( fields, trackable )
+                ( fields, trackable, delegations )
+
+
+{-| Extract a helper delegation from a function application.
+
+Detects patterns like `innerHelper data` where:
+
+  - The function is a local (unqualified) function reference
+  - One of the arguments is the parameter or an alias of it
+
+Returns Just the delegation if found, Nothing otherwise.
+
+-}
+extractHelperDelegation : List (Node Expression) -> Set String -> Maybe HelperDelegation
+extractHelperDelegation exprs paramAliases =
+    case exprs of
+        (Node _ (Expression.FunctionOrValue [] funcName)) :: args ->
+            -- Local function call - check if any arg is our param
+            -- Make sure it's not a constructor (starts with uppercase)
+            if Char.isLower (String.uncons funcName |> Maybe.map Tuple.first |> Maybe.withDefault 'A') then
+                args
+                    |> List.indexedMap
+                        (\index arg ->
+                            case Node.value arg of
+                                Expression.FunctionOrValue [] varName ->
+                                    if isParamOrAlias paramAliases varName then
+                                        Just { funcName = funcName, argIndex = index }
+
+                                    else
+                                        Nothing
+
+                                _ ->
+                                    Nothing
+                        )
+                    |> List.filterMap identity
+                    |> List.head
+
+            else
+                Nothing
+
+        _ ->
+            Nothing
+
+
+{-| Analyze expressions in a function application, checking for untrackable param usage.
+
+This is called when the application is NOT a simple delegation (like `innerHelper data`).
+If the param is passed in ways we can't track (nested in a complex expression, passed to
+a qualified function, etc.), we mark as untrackable.
+
+-}
+analyzeApplicationExprs : Set String -> List (Node Expression) -> ( Set String, Bool, List HelperDelegation ) -> ( Set String, Bool, List HelperDelegation )
+analyzeApplicationExprs paramAliases exprs ( fields, trackable, delegations ) =
+    -- Check if param is used directly as an argument (untrackable unless it's a simple delegation)
+    let
+        paramUsedDirectly =
+            exprs
+                |> List.any
+                    (\e ->
+                        case Node.value e of
+                            Expression.FunctionOrValue [] varName ->
+                                isParamOrAlias paramAliases varName
+
+                            _ ->
+                                False
+                    )
+    in
+    if paramUsedDirectly then
+        -- Param is passed to something we can't track (qualified func, complex expr, etc.)
+        ( fields, False, delegations )
+
+    else
+        -- No direct param usage, recurse to find nested usages
+        List.foldl
+            (\e acc -> analyzeFieldAccessesWithAliases paramAliases e acc)
+            ( fields, trackable, delegations )
+            exprs
 
 
 {-| Extract aliases from let declarations.
@@ -1027,10 +1130,15 @@ resolvePendingHelperCalls pendingCalls helperFunctions =
             ( Set.empty, False )
 
 
-{-| Resolve a helper function, following alias chains to find the actual implementation.
+{-| Resolve a helper function, following alias chains and resolving delegations.
 
 Takes a set of already-visited function names to detect cycles.
 Returns Nothing if the function is unknown, no matching param index, or if a cycle is detected.
+
+The returned HelperAnalysis has accessedFields that includes all fields from:
+
+  - Direct field accesses in the helper
+  - Recursively resolved delegations to other helpers
 
 -}
 resolveHelperWithAliases : String -> Int -> Dict String (List HelperAnalysis) -> Set String -> Maybe HelperAnalysis
@@ -1052,8 +1160,8 @@ resolveHelperWithAliases funcName argIndex helperFunctions visited =
                                 resolveHelperWithAliases targetName argIndex helperFunctions (Set.insert funcName visited)
 
                             Nothing ->
-                                -- Not an alias, return the analysis
-                                Just analysis
+                                -- Not an alias - resolve any delegations
+                                resolveDelegations analysis helperFunctions (Set.insert funcName visited)
 
                     _ ->
                         -- No matching param index or multiple matches - can't track
@@ -1062,6 +1170,53 @@ resolveHelperWithAliases funcName argIndex helperFunctions visited =
             Nothing ->
                 -- Unknown function
                 Nothing
+
+
+{-| Resolve all delegations in a helper analysis.
+
+Returns the analysis with accessedFields updated to include all fields from
+resolved delegations. Returns Nothing if any delegation can't be resolved.
+
+-}
+resolveDelegations : HelperAnalysis -> Dict String (List HelperAnalysis) -> Set String -> Maybe HelperAnalysis
+resolveDelegations analysis helperFunctions visited =
+    if List.isEmpty analysis.delegations then
+        -- No delegations, return as-is
+        Just analysis
+
+    else
+        -- Resolve each delegation and combine fields
+        let
+            resolveOne delegation ( accFields, accTrackable ) =
+                if not accTrackable then
+                    ( accFields, False )
+
+                else
+                    case resolveHelperWithAliases delegation.funcName delegation.argIndex helperFunctions visited of
+                        Just resolvedAnalysis ->
+                            if resolvedAnalysis.isTrackable then
+                                ( Set.union accFields resolvedAnalysis.accessedFields, True )
+
+                            else
+                                ( accFields, False )
+
+                        Nothing ->
+                            -- Couldn't resolve the delegation
+                            ( accFields, False )
+
+            ( delegatedFields, allResolved ) =
+                List.foldl resolveOne ( Set.empty, True ) analysis.delegations
+        in
+        if allResolved then
+            Just
+                { analysis
+                    | accessedFields = Set.union analysis.accessedFields delegatedFields
+                    , delegations = [] -- Clear delegations since they're now resolved
+                }
+
+        else
+            -- Some delegation couldn't be resolved - mark as untrackable
+            Just { analysis | isTrackable = False }
 
 
 {-| Extract all field names from a list of field definitions.

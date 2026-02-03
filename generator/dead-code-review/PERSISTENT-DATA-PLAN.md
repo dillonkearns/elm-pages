@@ -60,6 +60,7 @@ The system is conservative by design. If field tracking is uncertain for any rea
 | Chained aliases: `let d = data in let e = d in e.title` | ✅ Working | Recursive alias tracking |
 | Function aliases: `myRender = renderContent` | ✅ Working | `extractSimpleFunctionReference` + `resolveHelperWithAliases` |
 | Chained function aliases: `a = b`, `b = actualHelper` | ✅ Working | Recursive alias chain resolution |
+| Helper forwarding: `wrapper data = inner data` | ✅ Working | `extractHelperDelegation` + `resolveDelegations` |
 | Multi-parameter helpers: `formatTitle prefix data = ...` | ✅ Working | `analyzeParameter` + `appDataArgIndex` tracking |
 | Case with record pattern: `case data of { title } -> title` | ✅ Working | `extractCasePatternFields` in `analyzeFieldAccessesWithAliases` |
 | Case with variable pattern: `case data of d -> d.title` | ✅ Working | `extractCaseVariablePatternBindings` + `appDataBindings` tracking |
@@ -138,6 +139,12 @@ renderContent data = data.body
 aliasB = renderContent
 aliasC = aliasB  -- alias chain: aliasC -> aliasB -> renderContent
 view app = aliasC app.data  -- resolves entire chain
+
+-- Helper forwarding (wrapper delegates to inner helper)
+-- Useful for composing helper functions while maintaining field tracking
+innerHelper data = data.title
+wrapperHelper data = innerHelper data  -- forwards data to innerHelper
+view app = wrapperHelper app.data  -- tracks title from innerHelper
 
 -- Multi-parameter helpers (data in any position)
 formatTitle prefix data = prefix ++ data.title  -- data is second param
