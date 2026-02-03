@@ -41,6 +41,36 @@ process.on("unhandledRejection", (error) => {
   process.exitCode = 1;
 });
 
+/**
+ * Parse elm-review validation output and filter to StaticRegionScope errors.
+ * @param {string} elmReviewOutput - JSON output from elm-review
+ * @returns {{errors: Array<{path: string, errors: Array}>}}
+ */
+function parseValidationOutput(elmReviewOutput) {
+  let jsonOutput;
+  try {
+    jsonOutput = JSON.parse(elmReviewOutput);
+  } catch (e) {
+    return { errors: [] };
+  }
+
+  if (!jsonOutput.errors) {
+    return { errors: [] };
+  }
+
+  // Filter to only StaticRegionScope errors
+  const filteredErrors = jsonOutput.errors
+    .map((fileErrors) => ({
+      path: fileErrors.path,
+      errors: fileErrors.errors.filter(
+        (error) => error.rule === "Pages.Review.StaticRegionScope"
+      ),
+    }))
+    .filter((fileErrors) => fileErrors.errors.length > 0);
+
+  return { errors: filteredErrors };
+}
+
 function ELM_FILE_PATH() {
   return path.join(process.cwd(), "./elm-stuff/elm-pages", OUTPUT_FILE_NAME);
 }
@@ -124,6 +154,33 @@ export async function run(options) {
     const compileClientPromise = compileElm(options, config);
     await buildComplete;
     const clientResult = await compileClientPromise;
+
+    // Check for View.freeze de-optimizations and run validation pass if needed
+    const deOptCount = clientResult.deOptimizationCount || 0;
+    if (deOptCount > 0) {
+      // Run StaticRegionScope on ORIGINAL source for nice error messages
+      const validationOutput = await runElmReview();
+      const validationResult = parseValidationOutput(validationOutput);
+
+      if (validationResult.errors.length > 0) {
+        const formatted = restoreColorSafe(validationOutput);
+
+        if (options.strict) {
+          console.error("\n" + formatted);
+          console.error(`\nBuild failed: ${deOptCount} View.freeze call(s) de-optimized.`);
+          console.error("Use without --strict to continue with warnings.\n");
+          process.exitCode = 1;
+          return;
+        } else {
+          // Show as warnings (build continues) - replace red with yellow for warning appearance
+          const warningFormatted = formatted.replace(/\x1b\[31m/g, '\x1b[33m').replace(/\x1b\[91m/g, '\x1b[93m');
+          console.warn("\n\x1b[33mView.freeze optimization warnings:\x1b[0m\n");
+          console.warn(warningFormatted);
+          console.warn(`\n\x1b[33m${deOptCount} View.freeze call(s) de-optimized (code still works, just without DCE).\x1b[0m\n`);
+        }
+      }
+    }
+
     const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);
     const withoutExtension = path.join(process.cwd(), `./dist/elm`);
     const browserElmHash = await fingerprintElmAsset(
@@ -314,10 +371,9 @@ export async function render(request) {
         // banner: { js: `#!/usr/bin/env node\n\n${ESM_REQUIRE_SHIM}` },
       });
     } catch (cliError) {
-      // Check if this is an ephemeral field disagreement error - already formatted, just exit
+      // Check if this is an ephemeral field disagreement error - re-throw to outer catch
       if (cliError.message && cliError.message.includes("EPHEMERAL FIELD DISAGREEMENT")) {
-        console.error(cliError);
-        throw cliError;  // Re-throw to outer catch
+        throw cliError;
       }
 
       // TODO make sure not to print duplicate error output if cleaner review output is printed
@@ -348,7 +404,13 @@ export async function render(request) {
     );
   } catch (error) {
     if (error) {
-      console.error(restoreColorSafe(error));
+      // Plain Error objects (like disagreement errors) should be printed directly
+      // Only use restoreColorSafe for elm-review formatted errors
+      if (error instanceof Error) {
+        console.error(error.message);
+      } else {
+        console.error(restoreColorSafe(error));
+      }
     }
     buildError = true;
     process.exitCode = 1;
@@ -460,7 +522,7 @@ function runCli(options) {
 
 /**
  * Compile the client-side Elm code.
- * @returns {Promise<{ephemeralFields: Map<string, Set<string>>}>}
+ * @returns {Promise<{ephemeralFields: Map<string, Set<string>>, deOptimizationCount: number}>}
  */
 async function compileElm(options, config) {
   ensureDirSync("dist");
@@ -492,7 +554,7 @@ async function compileElm(options, config) {
     await runTerser(fullOutputPath);
   }
 
-  return { ephemeralFields: clientResult.ephemeralFields };
+  return { ephemeralFields: clientResult.ephemeralFields, deOptimizationCount: clientResult.deOptimizationCount || 0 };
 }
 
 async function fingerprintElmAsset(fullOutputPath, withoutExtension) {

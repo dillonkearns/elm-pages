@@ -51,6 +51,10 @@ async function main() {
       "--keep-cache",
       "Preserve the HTTP and JS Port cache instead of deleting it on server start"
     )
+    .option(
+      "--strict",
+      "Fail the build if any View.freeze calls are de-optimized due to model usage"
+    )
     .description("run a full site build")
     .action(async (options) => {
       options.base = normalizeUrl(options.base);

@@ -1439,7 +1439,8 @@ handleViewFreezeCall functionNode node context =
             -- If so, skip transformation to avoid server/client mismatch
             if context.taintedContextDepth > 0 then
                 -- Inside tainted conditional - de-optimize (skip transformation)
-                ( [], context )
+                -- Emit count so build system can run validation pass
+                ( [ emitDeOptimizationCount (Node.range node) "tainted_conditional" ], context )
 
             else
                 -- Extract the freeze argument from the application
@@ -1458,7 +1459,8 @@ handleViewFreezeCall functionNode node context =
                         case argTaint of
                             Taint.Tainted ->
                                 -- Skip transformation - model is used, de-optimize gracefully
-                                ( [], context )
+                                -- Emit count so build system can run validation pass
+                                ( [ emitDeOptimizationCount (Node.range node) "tainted_argument" ], context )
 
                             Taint.Pure ->
                                 -- Safe to transform - no model dependency
@@ -1922,6 +1924,20 @@ escapeJsonString str =
         |> String.replace "\"" "\\\""
         |> String.replace "\n" "\\n"
         |> String.replace "\t" "\\t"
+
+
+{-| Emit a de-optimization count message.
+This signals to the build system that a View.freeze call was skipped
+(not transformed) due to taint analysis. The build system can use this
+to trigger a validation pass that provides user-friendly error messages.
+-}
+emitDeOptimizationCount : Range -> String -> Error {}
+emitDeOptimizationCount range reason =
+    Rule.error
+        { message = "DEOPTIMIZATION_COUNT_JSON:{\"count\":1,\"reason\":\"" ++ reason ++ "\"}"
+        , details = [ "View.freeze optimization skipped due to " ++ reason ]
+        }
+        range
 
 
 {-| Emit a diagnostic message about why optimization was skipped or limited.

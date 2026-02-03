@@ -5103,7 +5103,13 @@ view app shared model =
     { body = [ View.freeze (Html.text model.name) ] }
 """
                         |> Review.Test.run rule
-                        |> Review.Test.expectNoErrors
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "DEOPTIMIZATION_COUNT_JSON:{\"count\":1,\"reason\":\"tainted_argument\"}"
+                                , details = [ "View.freeze optimization skipped due to tainted_argument" ]
+                                , under = "View.freeze (Html.text model.name)"
+                                }
+                            ]
             , test "skips transform when model passed to helper in freeze" <|
                 \() ->
                     """module Route.Index exposing (Data, route)
@@ -5118,7 +5124,13 @@ renderName m =
     Html.text m.name
 """
                         |> Review.Test.run rule
-                        |> Review.Test.expectNoErrors
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "DEOPTIMIZATION_COUNT_JSON:{\"count\":1,\"reason\":\"tainted_argument\"}"
+                                , details = [ "View.freeze optimization skipped due to tainted_argument" ]
+                                , under = "View.freeze (renderName model)"
+                                }
+                            ]
             , test "skips transform when let binding from model used in freeze" <|
                 \() ->
                     """module Route.Index exposing (Data, route)
@@ -5133,7 +5145,13 @@ view app shared model =
     { body = [ View.freeze (Html.text name) ] }
 """
                         |> Review.Test.run rule
-                        |> Review.Test.expectNoErrors
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "DEOPTIMIZATION_COUNT_JSON:{\"count\":1,\"reason\":\"tainted_argument\"}"
+                                , details = [ "View.freeze optimization skipped due to tainted_argument" ]
+                                , under = "View.freeze (Html.text name)"
+                                }
+                            ]
             , test "skips transform when case on model used in freeze" <|
                 \() ->
                     """module Route.Index exposing (Data, route)
@@ -5147,7 +5165,15 @@ view app shared model =
         Inactive -> Html.text "Inactive") ] }
 """
                         |> Review.Test.run rule
-                        |> Review.Test.expectNoErrors
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "DEOPTIMIZATION_COUNT_JSON:{\"count\":1,\"reason\":\"tainted_argument\"}"
+                                , details = [ "View.freeze optimization skipped due to tainted_argument" ]
+                                , under = """View.freeze (case model.status of
+        Active -> Html.text "Active"
+        Inactive -> Html.text "Inactive") """
+                                }
+                            ]
             , test "transforms normally when only app.data used in freeze" <|
                 \() ->
                     """module Route.Index exposing (Data, route)
@@ -5227,7 +5253,13 @@ view app shared model =
     { body = [ View.freeze (Html.text userName) ] }
 """
                         |> Review.Test.run rule
-                        |> Review.Test.expectNoErrors
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "DEOPTIMIZATION_COUNT_JSON:{\"count\":1,\"reason\":\"tainted_argument\"}"
+                                , details = [ "View.freeze optimization skipped due to tainted_argument" ]
+                                , under = "View.freeze (Html.text userName)"
+                                }
+                            ]
             , test "skips transform when case branch binding from model used" <|
                 \() ->
                     """module Route.Index exposing (Data, route)
@@ -5244,7 +5276,13 @@ view app shared model =
             { body = [] }
 """
                         |> Review.Test.run rule
-                        |> Review.Test.expectNoErrors
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "DEOPTIMIZATION_COUNT_JSON:{\"count\":1,\"reason\":\"tainted_conditional\"}"
+                                , details = [ "View.freeze optimization skipped due to tainted_conditional" ]
+                                , under = "View.freeze (Html.text user.name)"
+                                }
+                            ]
             ]
         , describe "View.freeze inside tainted conditionals"
             [ test "skips transform when View.freeze is inside tainted if" <|
@@ -5264,7 +5302,13 @@ view app shared model =
     }
 """
                         |> Review.Test.run rule
-                        |> Review.Test.expectNoErrors
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "DEOPTIMIZATION_COUNT_JSON:{\"count\":1,\"reason\":\"tainted_conditional\"}"
+                                , details = [ "View.freeze optimization skipped due to tainted_conditional" ]
+                                , under = "View.freeze (Html.text \"visible\")"
+                                }
+                            ]
             , test "skips transform when View.freeze is inside tainted case" <|
                 \() ->
                     """module Route.Index exposing (Data, route)
@@ -5281,7 +5325,13 @@ view app shared model =
     }
 """
                         |> Review.Test.run rule
-                        |> Review.Test.expectNoErrors
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "DEOPTIMIZATION_COUNT_JSON:{\"count\":1,\"reason\":\"tainted_conditional\"}"
+                                , details = [ "View.freeze optimization skipped due to tainted_conditional" ]
+                                , under = "View.freeze (Html.text \"active\")"
+                                }
+                            ]
             , test "skips transform in nested tainted conditionals" <|
                 \() ->
                     """module Route.Index exposing (Data, route)
@@ -5302,7 +5352,13 @@ view app shared model =
     }
 """
                         |> Review.Test.run rule
-                        |> Review.Test.expectNoErrors
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "DEOPTIMIZATION_COUNT_JSON:{\"count\":1,\"reason\":\"tainted_conditional\"}"
+                                , details = [ "View.freeze optimization skipped due to tainted_conditional" ]
+                                , under = "View.freeze (Html.text \"nested\")"
+                                }
+                            ]
             , test "transforms when conditional uses pure data" <|
                 \() ->
                     """module Route.Index exposing (Data, route)
@@ -5365,7 +5421,13 @@ view app shared model =
     }
 """
                         |> Review.Test.run rule
-                        |> Review.Test.expectNoErrors
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "DEOPTIMIZATION_COUNT_JSON:{\"count\":1,\"reason\":\"tainted_conditional\"}"
+                                , details = [ "View.freeze optimization skipped due to tainted_conditional" ]
+                                , under = "View.freeze (Html.text \"tainted\")"
+                                }
+                            ]
             , test "skips transform when freeze argument is pure but conditional is tainted" <|
                 \() ->
                     """module Route.Index exposing (Data, route)
@@ -5383,6 +5445,12 @@ view app shared model =
     }
 """
                         |> Review.Test.run rule
-                        |> Review.Test.expectNoErrors
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "DEOPTIMIZATION_COUNT_JSON:{\"count\":1,\"reason\":\"tainted_conditional\"}"
+                                , details = [ "View.freeze optimization skipped due to tainted_conditional" ]
+                                , under = "View.freeze (Html.text app.data.title)"
+                                }
+                            ]
             ]
         ]

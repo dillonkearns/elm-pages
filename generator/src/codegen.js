@@ -96,7 +96,7 @@ async function newCopyBoth(modulePath) {
 /**
  * Generate the client folder with client-specific codemods.
  * @param {string} basePath
- * @returns {Promise<{ephemeralFields: Map<string, Set<string>>}>}
+ * @returns {Promise<{ephemeralFields: Map<string, Set<string>>, deOptimizationCount: number}>}
  */
 export async function generateClientFolder(basePath) {
   const browserCode = await generateTemplateModuleConnector(
@@ -128,7 +128,7 @@ export async function generateClientFolder(basePath) {
     uiFileContent
   );
   const result = await runElmReviewCodemod("./elm-stuff/elm-pages/client/");
-  return { ephemeralFields: result.ephemeralFields };
+  return { ephemeralFields: result.ephemeralFields, deOptimizationCount: result.deOptimizationCount || 0 };
 }
 
 /**
@@ -205,7 +205,7 @@ export async function generateServerFolder(basePath) {
 /**
  * @param {string} [ cwd ]
  * @param {"client" | "server"} [ target ] - which codemod config to use (default: client)
- * @returns {Promise<{ephemeralFields: Map<string, Set<string>>}>}
+ * @returns {Promise<{ephemeralFields: Map<string, Set<string>>, deOptimizationCount: number}>}
  */
 export async function runElmReviewCodemod(cwd, target = "client") {
   // Use different elm-review configs for client vs server transformations
@@ -220,11 +220,50 @@ export async function runElmReviewCodemod(cwd, target = "client") {
   // Run elm-review without fixes first to capture EPHEMERAL_FIELDS_JSON for analysis
   const analysisOutput = await runElmReviewCommand(cwdPath, configPath, lamderaPath, false);
   const ephemeralFields = parseEphemeralFieldsWithFields(analysisOutput);
+  const deOptimizationCount = parseDeOptimizationCount(analysisOutput);
 
   // Now run elm-review with fixes
   await runElmReviewCommand(cwdPath, configPath, lamderaPath, true);
 
-  return { ephemeralFields };
+  return { ephemeralFields, deOptimizationCount };
+}
+
+/**
+ * Parse DEOPTIMIZATION_COUNT_JSON messages from elm-review output.
+ * Returns the total count of de-optimized View.freeze calls.
+ * @param {string} elmReviewOutput
+ * @returns {number}
+ */
+export function parseDeOptimizationCount(elmReviewOutput) {
+  let count = 0;
+  let jsonOutput;
+  try {
+    jsonOutput = JSON.parse(elmReviewOutput);
+  } catch (e) {
+    return count;
+  }
+
+  if (!jsonOutput.errors) {
+    return count;
+  }
+
+  for (const fileErrors of jsonOutput.errors) {
+    for (const error of fileErrors.errors) {
+      if (error.message && error.message.startsWith("DEOPTIMIZATION_COUNT_JSON:")) {
+        try {
+          const jsonStr = error.message.slice("DEOPTIMIZATION_COUNT_JSON:".length);
+          const data = JSON.parse(jsonStr);
+          if (data.count) {
+            count += data.count;
+          }
+        } catch (e) {
+          // Skip malformed JSON
+        }
+      }
+    }
+  }
+
+  return count;
 }
 
 /**
