@@ -1,5 +1,6 @@
 module Pages.Review.PersistentFieldTracking exposing
     ( AppDataClassification
+    , CaseOnAppDataResult(..)
     , CasePatternResult(..)
     , FieldAccessResult(..)
     , HelperAnalysis
@@ -7,6 +8,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , InlineLambdaResult(..)
     , PendingHelperAction(..)
     , PendingHelperCall
+    , analyzeCaseOnAppData
     , analyzeFieldAccessesOnParam
     , analyzeHelperCallInClientContext
     , analyzeHelperFunction
@@ -46,10 +48,10 @@ on which fields are ephemeral. This module provides the shared analysis function
 to ensure consistency.
 
 @docs AppDataClassification
-@docs CasePatternResult
+@docs CaseOnAppDataResult, CasePatternResult
 @docs FieldAccessResult
 @docs HelperAnalysis
-@docs analyzeHelperFunction
+@docs analyzeCaseOnAppData, analyzeHelperFunction
 @docs classifyAppDataArguments, computeEphemeralFields, containsAppDataExpression
 @docs extractCasePatternFields
 @docs extractFieldAccess, extractFieldNames
@@ -779,6 +781,65 @@ extractRecordPatternFields node =
 type CasePatternResult
     = TrackableFields (Set String) -- All patterns were record patterns, these fields are used
     | UntrackablePattern -- At least one pattern captures the whole record (variable, etc.)
+
+
+{-| Result of analyzing a case expression on app.data.
+
+This type unifies the common case expression handling logic used by both
+StaticViewTransform (client) and ServerDataTransform (server).
+
+-}
+type CaseOnAppDataResult
+    = CaseTrackedFields (Set String) -- Specific fields were tracked from record patterns
+    | CaseAddBindings (Set String) -- Variable patterns found - add to appDataBindings for further tracking
+    | CaseMarkAllFieldsUsed -- Untrackable pattern (constructor, etc.) - mark all fields as used
+    | CaseNotOnAppData -- Expression is not a case on app.data
+
+
+{-| Analyze a case expression to determine how to track field usage.
+
+This consolidates the common case expression handling logic from both
+StaticViewTransform and ServerDataTransform. Both transforms had nearly
+identical logic for:
+
+1.  Checking if the case is on app.data
+2.  Extracting fields from record patterns (trackable)
+3.  Adding variable bindings for further tracking
+4.  Bailing out for untrackable patterns
+
+The caller must check if they're in ephemeral context (freeze/head) before
+applying the result - if in ephemeral context, the result should be ignored.
+
+-}
+analyzeCaseOnAppData : Node Expression -> Maybe String -> Set String -> CaseOnAppDataResult
+analyzeCaseOnAppData caseExpr appParamName appDataBindings =
+    case Node.value caseExpr of
+        Expression.CaseExpression caseBlock ->
+            if isAppDataAccess caseBlock.expression appParamName appDataBindings then
+                -- Case is on app.data - analyze patterns
+                case extractCasePatternFields caseBlock.cases of
+                    TrackableFields fields ->
+                        CaseTrackedFields fields
+
+                    UntrackablePattern ->
+                        -- Check for variable patterns we can track
+                        let
+                            caseBindings =
+                                extractCaseVariablePatternBindings caseBlock.cases
+                        in
+                        if Set.isEmpty caseBindings then
+                            -- No variable patterns (constructor patterns, etc.)
+                            CaseMarkAllFieldsUsed
+
+                        else
+                            -- Variable patterns found - caller should add to appDataBindings
+                            CaseAddBindings caseBindings
+
+            else
+                CaseNotOnAppData
+
+        _ ->
+            CaseNotOnAppData
 
 
 {-| Extract fields from all case expression patterns on app.data.

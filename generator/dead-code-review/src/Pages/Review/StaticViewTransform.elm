@@ -881,39 +881,26 @@ trackFieldAccess node context =
                     PersistentFieldTracking.NoFieldAccess ->
                         -- Handle patterns that need context-specific logic
                         case Node.value node of
-                            -- Case expression on app.data: case app.data of {...}
-                            -- Track record patterns, and for variable patterns add to appDataBindings
-                            -- so field accesses in the case body can be tracked
-                            Expression.CaseExpression caseBlock ->
-                                if isAppDataAccess caseBlock.expression context then
-                                    if context.inFreezeCall || context.inHeadFunction then
-                                        -- In ephemeral context, we don't care
-                                        context
-
-                                    else
-                                        -- In client context, extract fields from patterns or track bindings
-                                        case PersistentFieldTracking.extractCasePatternFields caseBlock.cases of
-                                            PersistentFieldTracking.TrackableFields allFields ->
-                                                Set.foldl addFieldAccess context allFields
-
-                                            PersistentFieldTracking.UntrackablePattern ->
-                                                -- Check if we have variable patterns we can track
-                                                -- Add variable names from patterns to appDataBindings
-                                                -- so subsequent field accesses like d.title are tracked
-                                                let
-                                                    caseBindings =
-                                                        extractCaseVariablePatternBindings caseBlock.cases
-                                                in
-                                                if Set.isEmpty caseBindings then
-                                                    -- No variable patterns found (constructor patterns, etc.)
-                                                    { context | markAllFieldsAsClientUsed = True }
-
-                                                else
-                                                    -- Add variable bindings so field accesses can be tracked
-                                                    { context | appDataBindings = Set.union context.appDataBindings caseBindings }
+                            -- Case expression on app.data: use shared analysis
+                            Expression.CaseExpression _ ->
+                                if context.inFreezeCall || context.inHeadFunction then
+                                    -- In ephemeral context, we don't care
+                                    context
 
                                 else
-                                    context
+                                    -- Use unified case analysis from shared module
+                                    case PersistentFieldTracking.analyzeCaseOnAppData node context.appParamName context.appDataBindings of
+                                        PersistentFieldTracking.CaseTrackedFields fields ->
+                                            Set.foldl addFieldAccess context fields
+
+                                        PersistentFieldTracking.CaseAddBindings bindings ->
+                                            { context | appDataBindings = Set.union context.appDataBindings bindings }
+
+                                        PersistentFieldTracking.CaseMarkAllFieldsUsed ->
+                                            { context | markAllFieldsAsClientUsed = True }
+
+                                        PersistentFieldTracking.CaseNotOnAppData ->
+                                            context
 
                             -- Let expressions can bind app.data to a variable, or bind specific fields
                             -- They can also define local helper functions that should be analyzed
@@ -1020,13 +1007,6 @@ isViewFreezeCall functionNode context =
 isAppDataAccess : Node Expression -> Context -> Bool
 isAppDataAccess node context =
     PersistentFieldTracking.isAppDataAccess node context.appParamName context.appDataBindings
-
-
-{-| Delegate to shared extractCaseVariablePatternBindings function.
--}
-extractCaseVariablePatternBindings : List ( Node Pattern, Node expression ) -> Set String
-extractCaseVariablePatternBindings =
-    PersistentFieldTracking.extractCaseVariablePatternBindings
 
 
 {-| Delegate to shared isRecordAccessFunction function.
