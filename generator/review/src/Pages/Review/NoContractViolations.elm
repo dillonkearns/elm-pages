@@ -140,10 +140,15 @@ coreModulesAndExports =
 
 {-| The freeze contract exports. If ANY of these are present, ALL must be present.
 This enables the frozen view feature.
+
+Note: `Freezable` is intentionally not required here. The framework never references
+`View.Freezable` directly - it only calls `View.htmlToFreezable`. If `htmlToFreezable`
+is exposed but `Freezable` isn't, Elm's compiler will error since `Freezable` appears
+in `htmlToFreezable`'s type signature. So Elm enforces that constraint for us.
 -}
 freezeContractExports : List String
 freezeContractExports =
-    [ "Freezable", "freezableToHtml", "htmlToFreezable", "freeze" ]
+    [ "freezableToHtml", "htmlToFreezable", "freeze" ]
 
 
 {-| Check the freeze contract for View module.

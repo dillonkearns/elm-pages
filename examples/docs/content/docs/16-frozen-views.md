@@ -188,7 +188,7 @@ You may be wondering whether it's inefficient to send all this HTML over pre-ren
 To use frozen views, update your `View.elm` to export the required functions:
 
 ```elm
-module View exposing (View, map, freeze, Freezable, freezableToHtml, htmlToFreezable)
+module View exposing (View, map, freeze, freezableToHtml, htmlToFreezable)
 
 import Html exposing (Html)
 
@@ -248,7 +248,7 @@ freeze content =
 If you use `elm-css` with `Html.Styled`, update the conversion functions:
 
 ```elm
-module View exposing (View, map, freeze, Freezable, freezableToHtml, htmlToFreezable)
+module View exposing (View, map, freeze, freezableToHtml, htmlToFreezable)
 
 import Html
 import Html.Styled exposing (Html)
