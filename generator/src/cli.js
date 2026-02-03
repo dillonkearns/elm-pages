@@ -29,6 +29,14 @@ const __dirname = path.dirname(__filename);
 async function main() {
   const program = new commander.Command();
 
+  // Make Commander exit with proper exit code on errors
+  program.exitOverride((err) => {
+    if (err.exitCode !== 0) {
+      process.exitCode = err.exitCode;
+    }
+    throw err;
+  });
+
   program.version(packageVersion);
 
   program
@@ -471,4 +479,12 @@ async function lamderaOrElmFallback() {
   }
 }
 
-main();
+// Ensure proper exit code on unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled rejection:', reason);
+  process.exit(1);
+});
+
+main().catch((err) => {
+  process.exit(1);
+});

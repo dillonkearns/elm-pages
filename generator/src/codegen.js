@@ -93,6 +93,11 @@ async function newCopyBoth(modulePath) {
   );
 }
 
+/**
+ * Generate the client folder with client-specific codemods.
+ * @param {string} basePath
+ * @returns {Promise<{ephemeralFields: Map<string, Set<string>>}>}
+ */
 export async function generateClientFolder(basePath) {
   const browserCode = await generateTemplateModuleConnector(
     basePath,
@@ -122,9 +127,15 @@ export async function generateClientFolder(basePath) {
     "./elm-stuff/elm-pages/client/.elm-pages/Pages.elm",
     uiFileContent
   );
-  await runElmReviewCodemod("./elm-stuff/elm-pages/client/");
+  const result = await runElmReviewCodemod("./elm-stuff/elm-pages/client/");
+  return { ephemeralFields: result.ephemeralFields };
 }
 
+/**
+ * Generate the server folder with server-specific codemods.
+ * @param {string} basePath
+ * @returns {Promise<{ephemeralFields: Map<string, Set<string>>}>}
+ */
 export async function generateServerFolder(basePath) {
   ensureDirSync("./elm-stuff/elm-pages/server/app");
   ensureDirSync("./elm-stuff/elm-pages/server/.elm-pages");
@@ -160,7 +171,7 @@ export async function generateServerFolder(basePath) {
   // Run server-specific elm-review codemod FIRST
   // This creates the Ephemeral type alias in Route files
   // Must run before generateTemplateModuleConnector so Main.elm can reference Ephemeral
-  await runElmReviewCodemod("./elm-stuff/elm-pages/server/", "server");
+  const serverResult = await runElmReviewCodemod("./elm-stuff/elm-pages/server/", "server");
 
   // Now generate Main.elm which can reference Route.Index.Ephemeral etc.
   const cliCode = await generateTemplateModuleConnector(basePath, "cli");
@@ -187,13 +198,16 @@ export async function generateServerFolder(basePath) {
     "./elm-stuff/elm-pages/server/.elm-pages",
     browserCode.fetcherModules
   );
+
+  return { ephemeralFields: serverResult.ephemeralFields };
 }
 
 /**
  * @param {string} [ cwd ]
  * @param {"client" | "server"} [ target ] - which codemod config to use (default: client)
+ * @returns {Promise<{ephemeralFields: Map<string, Set<string>>}>}
  */
-async function runElmReviewCodemod(cwd, target = "client") {
+export async function runElmReviewCodemod(cwd, target = "client") {
   // Use different elm-review configs for client vs server transformations
   const configPath =
     target === "server"
@@ -203,17 +217,14 @@ async function runElmReviewCodemod(cwd, target = "client") {
   const cwdPath = path.join(process.cwd(), cwd || ".");
   const lamderaPath = await which("lamdera");
 
-  // For client target, first run elm-review without fixes to capture EPHEMERAL_FIELDS_JSON
-  let fixInfo = null;
-  if (target === "client") {
-    const analysisOutput = await runElmReviewCommand(cwdPath, configPath, lamderaPath, false);
-    fixInfo = parseEphemeralFieldsJson(analysisOutput);
-  }
+  // Run elm-review without fixes first to capture EPHEMERAL_FIELDS_JSON for analysis
+  const analysisOutput = await runElmReviewCommand(cwdPath, configPath, lamderaPath, false);
+  const ephemeralFields = parseEphemeralFieldsWithFields(analysisOutput);
 
   // Now run elm-review with fixes
-  const scriptOutput = await runElmReviewCommand(cwdPath, configPath, lamderaPath, true);
+  await runElmReviewCommand(cwdPath, configPath, lamderaPath, true);
 
-  return scriptOutput;
+  return { ephemeralFields };
 }
 
 /**
@@ -317,6 +328,101 @@ function parseEphemeralFieldsJson(elmReviewOutput) {
   }
 
   return fixes;
+}
+
+/**
+ * Parse EPHEMERAL_FIELDS_JSON messages and extract module → Set of ephemeral field names.
+ * This is used for comparing server and client ephemeral field analysis.
+ * @param {string} elmReviewOutput
+ * @returns {Map<string, Set<string>>} Map from module name to set of ephemeral field names
+ */
+function parseEphemeralFieldsWithFields(elmReviewOutput) {
+  /** @type {Map<string, Set<string>>} */
+  const result = new Map();
+
+  let jsonOutput;
+  try {
+    jsonOutput = JSON.parse(elmReviewOutput);
+  } catch (e) {
+    return result;
+  }
+
+  if (!jsonOutput.errors) {
+    return result;
+  }
+
+  for (const fileErrors of jsonOutput.errors) {
+    for (const error of fileErrors.errors) {
+      if (error.message && error.message.startsWith("EPHEMERAL_FIELDS_JSON:")) {
+        try {
+          const jsonStr = error.message.slice("EPHEMERAL_FIELDS_JSON:".length);
+          const data = JSON.parse(jsonStr);
+          if (data.module && data.ephemeralFields && Array.isArray(data.ephemeralFields)) {
+            const existingFields = result.get(data.module) || new Set();
+            for (const field of data.ephemeralFields) {
+              existingFields.add(field);
+            }
+            result.set(data.module, existingFields);
+          }
+        } catch (e) {
+          // Skip malformed JSON
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Compare ephemeral fields from server and client transforms.
+ * Returns null if they agree, or a list of disagreements if they differ.
+ * @param {Map<string, Set<string>>} serverFields
+ * @param {Map<string, Set<string>>} clientFields
+ * @returns {{disagreements: Array<{module: string, serverOnly: string[], clientOnly: string[]}>} | null}
+ */
+export function compareEphemeralFields(serverFields, clientFields) {
+  const disagreements = [];
+  const allModules = new Set([...serverFields.keys(), ...clientFields.keys()]);
+
+  for (const module of allModules) {
+    const serverSet = serverFields.get(module) || new Set();
+    const clientSet = clientFields.get(module) || new Set();
+
+    const serverOnly = [...serverSet].filter(f => !clientSet.has(f));
+    const clientOnly = [...clientSet].filter(f => !serverSet.has(f));
+
+    if (serverOnly.length > 0 || clientOnly.length > 0) {
+      disagreements.push({ module, serverOnly, clientOnly });
+    }
+  }
+
+  return disagreements.length > 0 ? { disagreements } : null;
+}
+
+/**
+ * Format a disagreement error for display.
+ * @param {{disagreements: Array<{module: string, serverOnly: string[], clientOnly: string[]}>}} comparison
+ * @returns {string}
+ */
+export function formatDisagreementError(comparison) {
+  const lines = [
+    "\n=== EPHEMERAL FIELD DISAGREEMENT ===\n",
+    "Server and client transforms disagree on which Data fields are ephemeral.",
+    "This is likely a bug. Please report at https://github.com/dillonkearns/elm-pages/issues\n"
+  ];
+
+  for (const { module, serverOnly, clientOnly } of comparison.disagreements) {
+    lines.push(`Module: ${module}`);
+    for (const field of serverOnly) {
+      lines.push(`  Field "${field}": server says ephemeral, client says persistent`);
+    }
+    for (const field of clientOnly) {
+      lines.push(`  Field "${field}": client says ephemeral, server says persistent`);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 /**

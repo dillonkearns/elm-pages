@@ -11,7 +11,7 @@ import * as terser from "terser";
 import * as os from "os";
 import { Worker, SHARE_ENV } from "worker_threads";
 import { ensureDirSync } from "./file-helpers.js";
-import { generateClientFolder, generateServerFolder } from "./codegen.js";
+import { generateClientFolder, generateServerFolder, compareEphemeralFields, formatDisagreementError } from "./codegen.js";
 import { default as which } from "which";
 import { build } from "vite";
 import * as preRenderHtml from "./pre-render-html.js";
@@ -121,9 +121,9 @@ export async function run(options) {
     );
 
     const buildComplete = build(viteConfig);
-    const compileClientDone = compileElm(options, config);
+    const compileClientPromise = compileElm(options, config);
     await buildComplete;
-    await compileClientDone;
+    const clientResult = await compileClientPromise;
     const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);
     const withoutExtension = path.join(process.cwd(), `./dist/elm`);
     const browserElmHash = await fingerprintElmAsset(
@@ -196,11 +196,21 @@ export async function run(options) {
       });
 
     global.XMLHttpRequest = {};
-    const compileCli = compileCliApp(options);
+    const compileCliPromise = compileCliApp(options);
     try {
-      await compileCli;
-      await compileClientDone;
+      const serverResult = await compileCliPromise;
       await portBackendTaskCompiled;
+
+      // Validate ephemeral field agreement between server and client transforms
+      if (serverResult.ephemeralFields && clientResult.ephemeralFields) {
+        const disagreement = compareEphemeralFields(
+          serverResult.ephemeralFields,
+          clientResult.ephemeralFields
+        );
+        if (disagreement) {
+          throw new Error(formatDisagreementError(disagreement));
+        }
+      }
       const inlineRenderCode = `
 import * as renderer from "./render.js";
 import * as elmModule from "${path.resolve("./elm-stuff/elm-pages/elm.cjs")}";
@@ -304,6 +314,12 @@ export async function render(request) {
         // banner: { js: `#!/usr/bin/env node\n\n${ESM_REQUIRE_SHIM}` },
       });
     } catch (cliError) {
+      // Check if this is an ephemeral field disagreement error - already formatted, just exit
+      if (cliError.message && cliError.message.includes("EPHEMERAL FIELD DISAGREEMENT")) {
+        console.error(cliError);
+        throw cliError;  // Re-throw to outer catch
+      }
+
       // TODO make sure not to print duplicate error output if cleaner review output is printed
       console.error(cliError);
       const reviewOutput = JSON.parse(await runElmReview());
@@ -442,10 +458,14 @@ function runCli(options) {
   });
 }
 
+/**
+ * Compile the client-side Elm code.
+ * @returns {Promise<{ephemeralFields: Map<string, Set<string>>}>}
+ */
 async function compileElm(options, config) {
   ensureDirSync("dist");
   const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);
-  await generateClientFolder(options.base);
+  const clientResult = await generateClientFolder(options.base);
 
   // NOTE: DCE transform is applied in generateClientFolder via runElmReviewCodemod.
   // It transforms the COPIED source in elm-stuff/elm-pages/client/app/, not the original.
@@ -471,6 +491,8 @@ async function compileElm(options, config) {
   if (!options.debug) {
     await runTerser(fullOutputPath);
   }
+
+  return { ephemeralFields: clientResult.ephemeralFields };
 }
 
 async function fingerprintElmAsset(fullOutputPath, withoutExtension) {
@@ -674,12 +696,17 @@ export async function runTerser(filePath) {
   }
 }
 
+/**
+ * Compile the server-side CLI app.
+ * @returns {Promise<{ephemeralFields: Map<string, Set<string>>}>}
+ */
 export async function compileCliApp(options) {
   // Generate server folder with server-specific codemods
   // This transforms Data -> Ephemeral, creates reduced Data, generates ephemeralToData
   // Skip for scripts (elm-pages run) that don't have routes/app folder
+  let serverResult = { ephemeralFields: new Map() };
   if (!options.isScript) {
-    await generateServerFolder(options.base);
+    serverResult = await generateServerFolder(options.base);
   }
 
   // Scripts use the original path (elm-stuff/elm-pages/.elm-pages/)
@@ -759,6 +786,8 @@ function _HtmlAsJson_toJson(html) {
         .replace(`console.log('App dying')`, "")
     )
   );
+
+  return { ephemeralFields: serverResult.ephemeralFields };
 }
 
 function applyScriptPatches(options, input) {
