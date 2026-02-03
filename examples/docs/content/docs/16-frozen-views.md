@@ -87,7 +87,7 @@ The frozen part renders to HTML at build time (or server-render time for server-
 <h1>Today's date: 2025-01-27</h1>
 ```
 
-## Server-Only Regions
+## Mental Model: Server-Only vs Client Regions
 
 `elm-pages` treats certain sections of your Route Modules as **Server-Only**. Using static analysis, `elm-pages` keeps track of which fields in a Route Module's `Data` record are used in **Client Regions**. Any `Data` record fields that are unused in Client Regions *will never be sent to the client*.
 
@@ -316,3 +316,7 @@ View.freeze (text app.data.title)
 -- This doesn't work (won't compile in a frozen context)
 View.freeze (text model.searchQuery)
 ```
+
+### Frozen views must be in Route Modules
+
+Currently, `View.freeze` can only be called within Route Module `view` functions—not in `Shared.elm` or other helper modules. This is a temporary limitation for the initial release that will likely be removed in the future.
