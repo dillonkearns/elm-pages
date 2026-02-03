@@ -687,6 +687,13 @@ trackFieldAccess node context =
                             -- They can also define local helper functions that should be analyzed
                             Expression.LetExpression letBlock ->
                                 let
+                                    -- Extract let-bound helper functions using shared logic
+                                    newHelpers =
+                                        PersistentFieldTracking.extractLetBoundHelperFunctions
+                                            letBlock.declarations
+                                            context.helperFunctions
+
+                                    -- Client-specific: track app.data bindings and field bindings
                                     letBindingResult =
                                         letBlock.declarations
                                             |> List.foldl
@@ -724,17 +731,8 @@ trackFieldAccess node context =
                                                                                 acc
 
                                                                 _ ->
-                                                                    -- Has arguments - analyze as a helper function
-                                                                    -- This allows tracking when app.data is passed to let-bound helpers
-                                                                    let
-                                                                        helperAnalysis =
-                                                                            PersistentFieldTracking.analyzeHelperFunction letFn
-                                                                    in
-                                                                    if List.isEmpty helperAnalysis then
-                                                                        acc
-
-                                                                    else
-                                                                        { acc | helpers = Dict.insert varName helperAnalysis acc.helpers }
+                                                                    -- Has arguments - handled by extractLetBoundHelperFunctions
+                                                                    acc
 
                                                         Expression.LetDestructuring pattern expr ->
                                                             -- Handle: let { field1, field2 } = app.data in ...
@@ -765,14 +763,13 @@ trackFieldAccess node context =
                                                 { appBindings = context.appDataBindings
                                                 , fieldBinds = context.fieldBindings
                                                 , bindingRanges = context.fieldBindingRanges
-                                                , helpers = context.helperFunctions
                                                 }
                                 in
                                 { context
                                     | appDataBindings = letBindingResult.appBindings
                                     , fieldBindings = letBindingResult.fieldBinds
                                     , fieldBindingRanges = letBindingResult.bindingRanges
-                                    , helperFunctions = letBindingResult.helpers
+                                    , helperFunctions = newHelpers
                                 }
 
                             _ ->

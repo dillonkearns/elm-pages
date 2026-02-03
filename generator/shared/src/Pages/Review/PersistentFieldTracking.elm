@@ -24,6 +24,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , extractDataTypeRanges
     , extractFieldAccess
     , extractFieldNames
+    , extractLetBoundHelperFunctions
     , extractPatternName
     , extractPatternNames
     , extractRecordPatternFields
@@ -1371,6 +1372,56 @@ extractAppDataBindingsFromLet declarations appParamName existingBindings isAppDa
                             acc
             )
             existingBindings
+
+
+{-| Extract helper functions from let declarations.
+
+This identifies let-bound functions with parameters that can be analyzed
+for field usage when app.data is passed to them. The returned dictionary
+maps function names to their helper analysis.
+
+Both StaticViewTransform and ServerDataTransform need this exact same logic
+when processing LetExpression nodes.
+
+-}
+extractLetBoundHelperFunctions :
+    List (Node Expression.LetDeclaration)
+    -> Dict String (List HelperAnalysis)
+    -> Dict String (List HelperAnalysis)
+extractLetBoundHelperFunctions declarations existingHelpers =
+    declarations
+        |> List.foldl
+            (\declNode helpers ->
+                case Node.value declNode of
+                    Expression.LetFunction letFn ->
+                        let
+                            fnDecl =
+                                Node.value letFn.declaration
+
+                            fnName =
+                                Node.value fnDecl.name
+                        in
+                        case fnDecl.arguments of
+                            [] ->
+                                -- No arguments, not a helper function
+                                helpers
+
+                            _ ->
+                                -- Has arguments - analyze as a helper function
+                                let
+                                    helperAnalysis =
+                                        analyzeHelperFunction letFn
+                                in
+                                if List.isEmpty helperAnalysis then
+                                    helpers
+
+                                else
+                                    Dict.insert fnName helperAnalysis helpers
+
+                    Expression.LetDestructuring _ _ ->
+                        helpers
+            )
+            existingHelpers
 
 
 {-| Extract the field name being accessed from app.data.

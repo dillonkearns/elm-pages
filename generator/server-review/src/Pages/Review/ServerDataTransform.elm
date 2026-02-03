@@ -710,42 +710,11 @@ trackFieldAccess node context =
                                 context.appDataBindings
                                 (\expr -> isAppDataAccess expr context)
 
-                        -- Analyze let-bound helper functions with parameters
-                        -- This allows tracking when app.data is passed to let-bound helpers
+                        -- Extract let-bound helper functions using shared logic
                         newHelperFunctions =
-                            letBlock.declarations
-                                |> List.foldl
-                                    (\declNode helpers ->
-                                        case Node.value declNode of
-                                            Expression.LetFunction letFn ->
-                                                let
-                                                    fnDecl =
-                                                        Node.value letFn.declaration
-
-                                                    fnName =
-                                                        Node.value fnDecl.name
-                                                in
-                                                case fnDecl.arguments of
-                                                    [] ->
-                                                        -- No arguments, not a helper function
-                                                        helpers
-
-                                                    _ ->
-                                                        -- Has arguments - analyze as a helper function
-                                                        let
-                                                            helperAnalysis =
-                                                                PersistentFieldTracking.analyzeHelperFunction letFn
-                                                        in
-                                                        if List.isEmpty helperAnalysis then
-                                                            helpers
-
-                                                        else
-                                                            Dict.insert fnName helperAnalysis helpers
-
-                                            Expression.LetDestructuring _ _ ->
-                                                helpers
-                                    )
-                                    context.helperFunctions
+                            PersistentFieldTracking.extractLetBoundHelperFunctions
+                                letBlock.declarations
+                                context.helperFunctions
                     in
                     { context
                         | appDataBindings = newBindings
