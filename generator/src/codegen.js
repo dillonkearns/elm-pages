@@ -165,6 +165,9 @@ export async function generateServerFolder(basePath) {
   // Now generate Main.elm which can reference Route.Index.Ephemeral etc.
   const cliCode = await generateTemplateModuleConnector(basePath, "cli");
 
+  // Generate browser code to get Fetcher modules (needed for route modules that import Fetchers)
+  const browserCode = await generateTemplateModuleConnector(basePath, "browser");
+
   // Write generated Main.elm, Route.elm, Pages.elm
   await fs.promises.writeFile(
     "./elm-stuff/elm-pages/server/.elm-pages/Main.elm",
@@ -177,6 +180,12 @@ export async function generateServerFolder(basePath) {
   await fs.promises.writeFile(
     "./elm-stuff/elm-pages/server/.elm-pages/Pages.elm",
     elmPagesCliFile()
+  );
+
+  // Write Fetcher modules to server folder (needed for route modules that import Fetchers)
+  await writeFetcherModules(
+    "./elm-stuff/elm-pages/server/.elm-pages",
+    browserCode.fetcherModules
   );
 }
 

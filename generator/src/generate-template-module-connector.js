@@ -17,6 +17,9 @@ async function analyzeEphemeralFields() {
   const __dirname = path.dirname(__filename);
 
   const lamderaPath = await which("lamdera");
+  // Use server-review config which uses ServerDataTransform rule
+  // This rule detects ephemeral fields by tracking which Data fields are used
+  // in client-facing contexts (view function) vs server-only contexts (head function)
   const result = spawnSync(
     "elm-review",
     [
@@ -25,7 +28,7 @@ async function analyzeEphemeralFields() {
       "--namespace",
       "elm-pages",
       "--config",
-      path.join(__dirname, "../../generator/dead-code-review"),
+      path.join(__dirname, "../../generator/server-review"),
       "--elmjson",
       "elm.json",
       "--compiler",
