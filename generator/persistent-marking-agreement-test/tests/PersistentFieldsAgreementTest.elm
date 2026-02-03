@@ -1198,6 +1198,236 @@ view app =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "Helper function case patterns - both agree"
+            [ test "AGREEMENT: helper with case record pattern - server tracks specific fields" <|
+                \() ->
+                    -- Helper function uses case data of { title } -> title
+                    -- Both transforms should track only 'title' as used
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+extractTitle data =
+    case data of
+        { title } -> title
+
+view app =
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                    in
+                    -- Server should mark body as ephemeral (title is client-used via helper)
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+extractTitle data =
+    case data of
+        { title } -> title
+
+view app =
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+extractTitle data =
+    case data of
+        { title } -> title
+
+view app =
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                            ]
+            , test "AGREEMENT: helper with case record pattern - client also tracks specific fields" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+extractTitle data =
+    case data of
+        { title } -> title
+
+view app =
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                    in
+                    -- Client should also track title as client-used via helper, body is ephemeral
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+extractTitle data =
+    case data of
+        { title } -> title
+
+view app =
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "AGREEMENT: helper with case variable pattern - server bails out" <|
+                \() ->
+                    -- Helper function uses case data of d -> d.title
+                    -- Both transforms should bail out (variable pattern is untrackable)
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+extractTitle data =
+    case data of
+        d -> d.title
+
+view app =
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                    in
+                    -- Server bails out: helper has untrackable case pattern
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectNoErrors
+            , test "AGREEMENT: helper with case variable pattern - client also bails out" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+extractTitle data =
+    case data of
+        d -> d.title
+
+view app =
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                    in
+                    -- Client bails out: helper has untrackable case pattern
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)\"}"
+                                , details = [ "No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)" ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         , describe "Uncalled helper functions - both agree"
             [ test "AGREEMENT: uncalled helper with app.data - server marks body as ephemeral" <|
                 \() ->

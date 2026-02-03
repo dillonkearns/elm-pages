@@ -322,7 +322,15 @@ analyzeFieldAccessesWithAliases paramAliases node ( fields, trackable ) =
 
                     ( exprFields, exprTrackable ) =
                         if caseOnParamOrAlias then
-                            ( fields, False )
+                            -- Case is on the parameter - check if all patterns are record patterns
+                            case extractCasePatternFields caseBlock.cases of
+                                TrackableFields patternFields ->
+                                    -- All patterns are record patterns, we can track the specific fields
+                                    ( Set.union fields patternFields, trackable )
+
+                                UntrackablePattern ->
+                                    -- At least one pattern captures the whole record - can't track
+                                    ( fields, False )
 
                         else
                             analyzeFieldAccessesWithAliases paramAliases caseBlock.expression ( fields, trackable )

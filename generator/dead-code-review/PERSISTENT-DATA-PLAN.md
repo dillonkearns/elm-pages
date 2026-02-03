@@ -61,6 +61,7 @@ The system is conservative by design. If field tracking is uncertain for any rea
 | Function aliases: `myRender = renderContent` | ✅ Working | `extractSimpleFunctionReference` + `resolveHelperWithAliases` |
 | Chained function aliases: `a = b`, `b = actualHelper` | ✅ Working | Recursive alias chain resolution |
 | Multi-parameter helpers: `formatTitle prefix data = ...` | ✅ Working | `analyzeParameter` + `appDataArgIndex` tracking |
+| Case with record pattern: `case data of { title } -> title` | ✅ Working | `extractCasePatternFields` in `analyzeFieldAccessesWithAliases` |
 
 ### RouteBuilder Integration
 
@@ -122,6 +123,13 @@ view app = aliasC app.data  -- resolves entire chain
 -- Multi-parameter helpers (data in any position)
 formatTitle prefix data = prefix ++ data.title  -- data is second param
 view app = formatTitle "Hello: " app.data  -- tracks title on second arg
+
+-- Helper functions with case and record pattern (precise tracking)
+-- The record pattern in case explicitly declares which fields are needed
+extractTitle data =
+    case data of
+        { title } -> title
+view app = extractTitle app.data  -- tracks only title as used
 
 -- Let bindings
 let title = app.data.title in ...

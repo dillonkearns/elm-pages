@@ -3141,4 +3141,202 @@ myHelper =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "Helper function with case expression on parameter"
+            [ test "helper using case data of { title } -> ... is trackable" <|
+                \() ->
+                    -- When a helper function uses case on its parameter with record patterns,
+                    -- we should be able to track which fields are accessed.
+                    -- This is a common pattern for functions that pattern match on their input.
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = extractTitle app.data
+    , body = []
+    }
+
+-- Helper uses case expression with record pattern
+extractTitle data =
+    case data of
+        { title } -> title
+"""
+                        |> Review.Test.run rule
+                        -- extractTitle only destructures 'title' via case, so only 'title' is client-used
+                        -- body is ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = extractTitle app.data
+    , body = []
+    }
+
+-- Helper uses case expression with record pattern
+extractTitle data =
+    case data of
+        { title } -> title
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "helper using case with multiple record patterns tracks all fields from all branches" <|
+                \() ->
+                    -- When case has multiple branches, we should track fields from ALL branches
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , subtitle : String
+    , body : String
+    }
+
+view app =
+    { title = extractHeading app.data
+    , body = []
+    }
+
+-- Helper uses multiple fields across case branches
+extractHeading data =
+    case data of
+        { title, subtitle } -> title ++ subtitle
+"""
+                        |> Review.Test.run rule
+                        -- title and subtitle are used in case pattern, body is ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , subtitle : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String, subtitle : String }
+
+view app =
+    { title = extractHeading app.data
+    , body = []
+    }
+
+-- Helper uses multiple fields across case branches
+extractHeading data =
+    case data of
+        { title, subtitle } -> title ++ subtitle
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String, subtitle : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "helper using case with variable pattern still bails out" <|
+                \() ->
+                    -- When case has a variable pattern (d -> d.title), we can't track, so bail out
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = extractTitle app.data
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+-- Helper uses case with variable pattern - can't track
+extractTitle data =
+    case data of
+        d -> d.title
+"""
+                        |> Review.Test.run rule
+                        -- Can't analyze case with variable pattern, so bail out
+                        -- Only View.freeze transformation, no Data narrowing
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = extractTitle app.data
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+
+-- Helper uses case with variable pattern - can't track
+extractTitle data =
+    case data of
+        d -> d.title
+"""
+                            , Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)\"}"
+                                , details = [ "No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)" ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         ]
