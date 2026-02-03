@@ -76,7 +76,7 @@ view app model =
     }
 ```
 
-The frozen part renders to HTML at build time (or server-render time for server-rendered routes—and yes, this optimization works for those too!). On the client, that HTML is **adopted** without re-rendering:
+The frozen part renders to HTML at build time (or server-render time for server-rendered routes—and yes, this optimization works for those too!). On the client, that HTML is **adopted** without re-rendering using a mechanism similar to `Html.Lazy`—Elm's virtual DOM simply leaves those sections of the view alone:
 
 ```html
 <!-- Initial page load: this HTML is already in the page.
@@ -309,11 +309,13 @@ View.freeze (button [ onClick MyMsg ] [ text "Click" ])
 
 Frozen content is rendered at build time (or server-render time), before any client-side state exists. You can use `app.data` (build-time data) but not `model` (runtime state).
 
+If you reference `model` inside a `View.freeze`, `elm-pages build` will show an elm-review warning. You wouldn't want to ship with this because it would freeze your `model` to its initial values within that Frozen View—updates to `model` would never be reflected.
+
 ```elm
 -- This works
 View.freeze (text app.data.title)
 
--- This doesn't work (won't compile in a frozen context)
+-- elm-review warning: model used in frozen content
 View.freeze (text model.searchQuery)
 ```
 
