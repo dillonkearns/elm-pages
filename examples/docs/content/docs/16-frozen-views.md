@@ -309,15 +309,35 @@ View.freeze (button [ onClick MyMsg ] [ text "Click" ])
 
 Frozen content is rendered at build time (or server-render time), before any client-side state exists. You can use `app.data` (build-time data) but not `model` (runtime state).
 
-If you reference `model` inside a `View.freeze`, `elm-pages build` will show an elm-review warning. You wouldn't want to ship with this because it would freeze your `model` to its initial values within that Frozen View—updates to `model` would never be reflected.
+**The simple rule: Keep `model` out of `View.freeze` for optimal bundle size.**
+
+If you reference `model` inside a `View.freeze`, elm-pages will gracefully **de-optimize** that freeze call—the code will still work correctly, but the rendering code won't be eliminated from the client bundle. This prevents a subtle bug where frozen content would show stale model values.
 
 ```elm
--- This works
+-- This works AND is optimized (DCE applied)
 View.freeze (text app.data.title)
 
--- elm-review warning: model used in frozen content
+-- This works but is NOT optimized (no DCE, dependencies stay in bundle)
 View.freeze (text model.searchQuery)
 ```
+
+This includes values derived from `model` through let bindings or case expressions:
+
+```elm
+-- Also de-optimized: `userName` is derived from `model`
+let
+    userName = model.user.name
+in
+View.freeze (text userName)
+
+-- Also de-optimized: `user` comes from case on `model`
+case model.maybeUser of
+    Just user ->
+        View.freeze (text user.name)
+    ...
+```
+
+To verify your freeze calls are being optimized, you can inspect your bundle with `elmjs-inspect dist/elm.js.opt` and check whether the dependencies you expect to be eliminated are present.
 
 ### Frozen views must be in Route Modules
 
