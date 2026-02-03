@@ -63,6 +63,15 @@ The system is conservative by design. If field tracking is uncertain for any rea
 | Multi-parameter helpers: `formatTitle prefix data = ...` | ✅ Working | `analyzeParameter` + `appDataArgIndex` tracking |
 | Case with record pattern: `case data of { title } -> title` | ✅ Working | `extractCasePatternFields` in `analyzeFieldAccessesWithAliases` |
 
+### Inline Lambda Analysis
+
+| Pattern | Status | Implementation |
+|---------|--------|----------------|
+| `(\d -> d.title) app.data` | ✅ Working | `analyzeInlineLambda` in checkAppDataPassedToHelper |
+| `app.data \|> (\d -> d.title)` | ✅ Working | `checkAppDataPassedToHelperViaPipe` |
+| `(\d -> d.title) <\| app.data` | ✅ Working | Same as pipe handling |
+| Record destructuring: `(\{ title } -> title) app.data` | ✅ Working | Pattern analysis in `analyzeInlineLambda` |
+
 ### RouteBuilder Integration
 
 | Pattern | Status | Implementation |
@@ -130,6 +139,15 @@ extractTitle data =
     case data of
         { title } -> title
 view app = extractTitle app.data  -- tracks only title as used
+
+-- Inline lambdas (analyzed in place, no helper function needed)
+view app = { title = (\d -> d.title) app.data, body = [] }
+
+-- Inline lambdas with pipe operator
+view app = { title = app.data |> (\d -> d.title), body = [] }
+
+-- Inline lambdas with record destructuring
+view app = { title = (\{ title } -> title) app.data, body = [] }
 
 -- Let bindings
 let title = app.data.title in ...

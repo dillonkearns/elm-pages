@@ -423,6 +423,31 @@ expressionEnterVisitor node context =
                             -- Check for app.data passed as whole in CLIENT context
                             ( [], checkAppDataPassedToHelper contextWithDataConstructorCheck functionNode args )
 
+                -- Handle pipe operators: app.data |> fn or fn <| app.data
+                -- But NOT accessor patterns like app.data |> .field (handled by trackFieldAccess)
+                Expression.OperatorApplication op _ leftExpr rightExpr ->
+                    case op of
+                        "|>" ->
+                            -- app.data |> fn  =>  fn(app.data), so fn is on the right
+                            -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
+                            if isRecordAccessFunction rightExpr then
+                                ( [], contextWithDataConstructorCheck )
+
+                            else
+                                ( [], checkAppDataPassedToHelperViaPipe contextWithDataConstructorCheck rightExpr leftExpr )
+
+                        "<|" ->
+                            -- fn <| app.data  =>  fn(app.data), so fn is on the left
+                            -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
+                            if isRecordAccessFunction leftExpr then
+                                ( [], contextWithDataConstructorCheck )
+
+                            else
+                                ( [], checkAppDataPassedToHelperViaPipe contextWithDataConstructorCheck leftExpr rightExpr )
+
+                        _ ->
+                            ( [], contextWithDataConstructorCheck )
+
                 _ ->
                     ( [], contextWithDataConstructorCheck )
 
@@ -734,6 +759,9 @@ In FREEZE context: we don't care (it's ephemeral).
 
 Uses shared classifyAppDataArguments and determinePendingHelperAction from PersistentFieldTracking.
 
+Also handles inline lambdas like `(\d -> d.title) app.data` by analyzing
+the lambda body directly.
+
 -}
 checkAppDataPassedToHelper : Context -> Node Expression -> List (Node Expression) -> Context
 checkAppDataPassedToHelper context functionNode args =
@@ -758,10 +786,95 @@ checkAppDataPassedToHelper context functionNode args =
                 { context | pendingHelperCalls = Just helperCall :: context.pendingHelperCalls }
 
             PersistentFieldTracking.AddUnknownHelper ->
-                { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+                -- Before giving up, check if this is an inline lambda we can analyze
+                case classification.appDataArgIndex of
+                    Just argIndex ->
+                        case PersistentFieldTracking.analyzeInlineLambda functionNode argIndex of
+                            PersistentFieldTracking.LambdaTrackable accessedFields ->
+                                -- Lambda is trackable - mark the specific fields as client-used
+                                Set.foldl addFieldAccess context accessedFields
+
+                            PersistentFieldTracking.LambdaUntrackable ->
+                                -- Lambda uses parameter in untrackable ways - bail out
+                                { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+
+                            PersistentFieldTracking.NotALambda ->
+                                -- Not a lambda - original behavior (unknown helper)
+                                { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+
+                    Nothing ->
+                        -- No arg index - can't analyze
+                        { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
 
             PersistentFieldTracking.NoHelperAction ->
                 context
+
+
+{-| Check if app.data is passed to a function via pipe operator.
+
+Handles `app.data |> fn` and `fn <| app.data` where fn can be:
+
+  - A named function (tracked as pending helper)
+  - An inline lambda (analyzed inline)
+
+-}
+checkAppDataPassedToHelperViaPipe : Context -> Node Expression -> Node Expression -> Context
+checkAppDataPassedToHelperViaPipe context functionNode argNode =
+    -- Check if the argument is app.data (or an alias)
+    if not (isAppDataAccess argNode context) then
+        context
+
+    else if context.inFreezeCall || context.inHeadFunction then
+        -- In ephemeral context (freeze/head) - we don't care about tracking
+        context
+
+    else
+        -- In client context - check if it's a named function or inline lambda
+        case Node.value functionNode of
+            Expression.FunctionOrValue [] funcName ->
+                -- Local named function - track as pending helper call (arg index is 0 for pipe)
+                { context
+                    | pendingHelperCalls =
+                        Just { funcName = funcName, argIndex = 0 } :: context.pendingHelperCalls
+                }
+
+            Expression.FunctionOrValue _ _ ->
+                -- Qualified function (e.g., Module.fn) - can't analyze, bail out
+                { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+
+            _ ->
+                -- Could be an inline lambda - try to analyze it
+                case PersistentFieldTracking.analyzeInlineLambda functionNode 0 of
+                    PersistentFieldTracking.LambdaTrackable accessedFields ->
+                        -- Lambda is trackable - mark the specific fields as client-used
+                        Set.foldl addFieldAccess context accessedFields
+
+                    PersistentFieldTracking.LambdaUntrackable ->
+                        -- Lambda uses parameter in untrackable ways - bail out
+                        { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+
+                    PersistentFieldTracking.NotALambda ->
+                        -- Not a lambda and not a simple function - bail out
+                        { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+
+
+{-| Check if an expression is a record access function like `.field`.
+
+These are handled separately by trackFieldAccess and shouldn't be treated
+as function calls in the pipe operator handler.
+
+-}
+isRecordAccessFunction : Node Expression -> Bool
+isRecordAccessFunction node =
+    case Node.value node of
+        Expression.RecordAccessFunction _ ->
+            True
+
+        Expression.ParenthesizedExpression inner ->
+            isRecordAccessFunction inner
+
+        _ ->
+            False
 
 
 {-| Mark all fields as persistent (safe fallback when we can't track field usage).

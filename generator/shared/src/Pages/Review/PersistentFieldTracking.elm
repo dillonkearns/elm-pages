@@ -3,9 +3,12 @@ module Pages.Review.PersistentFieldTracking exposing
     , CasePatternResult(..)
     , FieldAccessResult(..)
     , HelperAnalysis
+    , InlineLambdaResult(..)
     , PendingHelperAction(..)
     , PendingHelperCall
+    , analyzeFieldAccessesOnParam
     , analyzeHelperFunction
+    , analyzeInlineLambda
     , classifyAppDataArguments
     , computeEphemeralFields
     , containsAppDataExpression
@@ -188,6 +191,65 @@ extractSimpleFunctionReference node =
 
         _ ->
             Nothing
+
+
+{-| Result of analyzing an inline lambda for field accesses.
+-}
+type InlineLambdaResult
+    = LambdaTrackable (Set String) -- Lambda is trackable, here are the fields accessed
+    | LambdaUntrackable -- Lambda uses parameter in untrackable ways
+    | NotALambda -- Expression is not a lambda
+
+
+{-| Analyze an inline lambda expression for field accesses on a specific parameter.
+
+When app.data is passed to an inline lambda like `(\d -> d.title) app.data`,
+this function analyzes the lambda to determine which fields are accessed.
+
+The argIndex indicates which argument of the lambda receives app.data (0-indexed).
+
+-}
+analyzeInlineLambda : Node Expression -> Int -> InlineLambdaResult
+analyzeInlineLambda funcExpr argIndex =
+    case Node.value funcExpr of
+        Expression.LambdaExpression lambda ->
+            case List.drop argIndex lambda.args of
+                paramPattern :: _ ->
+                    -- Found the parameter at the given index
+                    case extractPatternName paramPattern of
+                        Just paramName ->
+                            -- Regular variable pattern: analyze body for field accesses
+                            let
+                                ( accessedFields, isTrackable ) =
+                                    analyzeFieldAccessesOnParam paramName lambda.expression
+                            in
+                            if isTrackable then
+                                LambdaTrackable accessedFields
+
+                            else
+                                LambdaUntrackable
+
+                        Nothing ->
+                            -- Check for record pattern like { title, body }
+                            case extractRecordPatternFields paramPattern of
+                                Just fields ->
+                                    -- Record pattern - we know exactly which fields are used
+                                    LambdaTrackable fields
+
+                                Nothing ->
+                                    -- Other pattern (tuple, constructor, etc.) - can't track
+                                    LambdaUntrackable
+
+                [] ->
+                    -- Lambda doesn't have enough parameters for the given index
+                    LambdaUntrackable
+
+        Expression.ParenthesizedExpression inner ->
+            -- Handle parenthesized lambdas: ((\d -> d.title))
+            analyzeInlineLambda inner argIndex
+
+        _ ->
+            NotALambda
 
 
 {-| Analyze an expression to find all field accesses on a given parameter name.
