@@ -318,9 +318,17 @@ declarationEnterVisitor node context =
                 -- The data function never runs on client, only at build time
                 ( [], { contextWithAppDataRanges | dataFunctionBodyRange = Just bodyRange } )
 
-            else if functionName == "view" then
-                -- Extract the App parameter name from the view function
+            else if functionName == "view" || functionName == "init" || functionName == "update" then
+                -- Extract the App parameter name from client-side functions
                 -- The first parameter is typically named "app" or "static"
+                -- We need to track field usage in ALL client-side functions, not just view
+                -- because fields accessed in init/update also need to be in the client Data type
+                --
+                -- IMPORTANT: We always update appParamName for each client function because
+                -- different functions might use different parameter names (e.g., init might
+                -- use "shared" while view uses "app" due to unconventional naming).
+                -- Since field tracking happens INSIDE each function, we need the correct
+                -- param name for each function at the time we're visiting it.
                 let
                     maybeAppParam =
                         function.declaration
@@ -1059,6 +1067,7 @@ checkAppDataPassedToHelper context functionNode args =
 Handles `app.data |> fn` and `fn <| app.data` where fn can be:
 
   - A named function (tracked as pending helper)
+  - A partially applied function (e.g., `formatHelper "prefix"`)
   - An inline lambda (analyzed inline)
 
 -}
@@ -1071,15 +1080,15 @@ checkAppDataPassedToHelperViaPipe context functionNode argNode =
     else if context.inFreezeCall || context.inHeadFunction then
         -- In ephemeral context (freeze/head)
         -- Track local functions called with app.data for potential stubbing
-        case Node.value functionNode of
-            Expression.FunctionOrValue [] funcName ->
+        case extractBaseFunctionName functionNode of
+            Just funcName ->
                 { context | helpersCalledInFreeze = Set.insert funcName context.helpersCalledInFreeze }
 
-            _ ->
+            Nothing ->
                 context
 
     else
-        -- In client context - check if it's a named function or inline lambda
+        -- In client context - check if it's a named function, partial application, or inline lambda
         case Node.value functionNode of
             Expression.FunctionOrValue [] funcName ->
                 -- Local named function - track as pending helper call (arg index is 0 for pipe)
@@ -1092,20 +1101,72 @@ checkAppDataPassedToHelperViaPipe context functionNode argNode =
                 -- Qualified function (e.g., Module.fn) - can't analyze, bail out
                 { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
 
+            Expression.Application (firstExpr :: appliedArgs) ->
+                -- Partial application: `formatHelper "prefix"` where app.data will be the next arg
+                -- The piped value goes to position = number of already-applied args
+                case Node.value firstExpr of
+                    Expression.FunctionOrValue [] funcName ->
+                        -- Local function with some args already applied
+                        -- app.data becomes the next argument position
+                        { context
+                            | pendingHelperCalls =
+                                Just { funcName = funcName, argIndex = List.length appliedArgs } :: context.pendingHelperCalls
+                        }
+
+                    Expression.FunctionOrValue _ _ ->
+                        -- Qualified function - can't analyze
+                        { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+
+                    _ ->
+                        -- Complex expression (e.g., (fn) arg) - try lambda analysis
+                        tryLambdaAnalysis context functionNode
+
             _ ->
                 -- Could be an inline lambda - try to analyze it
-                case PersistentFieldTracking.analyzeInlineLambda functionNode 0 of
-                    PersistentFieldTracking.LambdaTrackable accessedFields ->
-                        -- Lambda is trackable - mark the specific fields as client-used
-                        Set.foldl addFieldAccess context accessedFields
+                tryLambdaAnalysis context functionNode
 
-                    PersistentFieldTracking.LambdaUntrackable ->
-                        -- Lambda uses parameter in untrackable ways - bail out
-                        { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
 
-                    PersistentFieldTracking.NotALambda ->
-                        -- Not a lambda and not a simple function - bail out
-                        { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+{-| Try to analyze a function node as an inline lambda.
+Returns updated context with field tracking or bail-out marker.
+-}
+tryLambdaAnalysis : Context -> Node Expression -> Context
+tryLambdaAnalysis context functionNode =
+    case PersistentFieldTracking.analyzeInlineLambda functionNode 0 of
+        PersistentFieldTracking.LambdaTrackable accessedFields ->
+            -- Lambda is trackable - mark the specific fields as client-used
+            Set.foldl addFieldAccess context accessedFields
+
+        PersistentFieldTracking.LambdaUntrackable ->
+            -- Lambda uses parameter in untrackable ways - bail out
+            { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+
+        PersistentFieldTracking.NotALambda ->
+            -- Not a lambda and not a simple function - bail out
+            { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+
+
+{-| Extract the base function name from a function expression.
+Handles both simple function references and partial applications.
+-}
+extractBaseFunctionName : Node Expression -> Maybe String
+extractBaseFunctionName node =
+    case Node.value node of
+        Expression.FunctionOrValue [] funcName ->
+            Just funcName
+
+        Expression.Application (firstExpr :: _) ->
+            case Node.value firstExpr of
+                Expression.FunctionOrValue [] funcName ->
+                    Just funcName
+
+                _ ->
+                    Nothing
+
+        Expression.ParenthesizedExpression inner ->
+            extractBaseFunctionName inner
+
+        _ ->
+            Nothing
 
 
 handleViewFreezeCall : Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )

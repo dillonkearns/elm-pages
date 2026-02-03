@@ -72,6 +72,15 @@ The system is conservative by design. If field tracking is uncertain for any rea
 | `(\d -> d.title) <\| app.data` | ✅ Working | Same as pipe handling |
 | Record destructuring: `(\{ title } -> title) app.data` | ✅ Working | Pattern analysis in `analyzeInlineLambda` |
 
+### Pipe with Partial Application
+
+| Pattern | Status | Implementation |
+|---------|--------|----------------|
+| `app.data \|> helperFn` | ✅ Working | `checkAppDataPassedToHelperViaPipe` with argIndex 0 |
+| `app.data \|> formatHelper "prefix"` | ✅ Working | Partial application detection, argIndex = number of applied args |
+| `helperFn <\| app.data` | ✅ Working | Same as forward pipe, argIndex 0 |
+| `formatHelper "prefix" <\| app.data` | ✅ Working | Same as forward pipe with partial application |
+
 ### RouteBuilder Integration
 
 | Pattern | Status | Implementation |
@@ -132,6 +141,10 @@ view app = aliasC app.data  -- resolves entire chain
 -- Multi-parameter helpers (data in any position)
 formatTitle prefix data = prefix ++ data.title  -- data is second param
 view app = formatTitle "Hello: " app.data  -- tracks title on second arg
+
+-- Pipe with partial application (data piped to partially applied helper)
+formatTitle prefix data = prefix ++ data.title  -- data is second param
+view app = app.data |> formatTitle "Hello: "  -- same as above, via pipe
 
 -- Helper functions with case and record pattern (precise tracking)
 -- The record pattern in case explicitly declares which fields are needed

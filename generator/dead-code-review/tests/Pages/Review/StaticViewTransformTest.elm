@@ -3497,4 +3497,134 @@ view app =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "Partial application with pipe operators"
+            [ test "app.data |> helperFn (simple pipe to helper) is trackable" <|
+                \() ->
+                    -- When app.data is piped to a simple helper function,
+                    -- we should track which fields the helper uses.
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data |> extractTitle
+    , body = []
+    }
+
+-- Helper function that uses only title field
+extractTitle data =
+    data.title
+"""
+                        |> Review.Test.run rule
+                        -- extractTitle only uses 'title', so 'body' should be ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = app.data |> extractTitle
+    , body = []
+    }
+
+-- Helper function that uses only title field
+extractTitle data =
+    data.title
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "app.data |> formatHelper prefix (partial application with pipe) is trackable" <|
+                \() ->
+                    -- When app.data is piped to a partially applied helper,
+                    -- we should be able to track field usage at the correct argument position.
+                    -- formatHelper prefix data = ... means data is at position 1 (0-indexed)
+                    -- app.data |> formatHelper "Hello: " means app.data goes to position 1
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data |> formatHelper "Hello: "
+    , body = []
+    }
+
+-- Helper function with two parameters, data at position 1
+formatHelper prefix data =
+    prefix ++ data.title
+"""
+                        |> Review.Test.run rule
+                        -- formatHelper only uses 'title' field (at position 1), so 'body' should be ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = app.data |> formatHelper "Hello: "
+    , body = []
+    }
+
+-- Helper function with two parameters, data at position 1
+formatHelper prefix data =
+    prefix ++ data.title
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         ]

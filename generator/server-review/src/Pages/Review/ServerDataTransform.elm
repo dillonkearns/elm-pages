@@ -4,14 +4,15 @@ module Pages.Review.ServerDataTransform exposing (rule)
 
 It performs the following transformations:
 
-1. Renames `type alias Data = {...}` to `type alias Ephemeral = {...}`
-2. Creates new `type alias Data = {...}` with only persistent fields
-3. Generates `ephemeralToData : Ephemeral -> Data` conversion function
+1.  Renames `type alias Data = {...}` to `type alias Ephemeral = {...}`
+2.  Creates new `type alias Data = {...}` with only persistent fields
+3.  Generates `ephemeralToData : Ephemeral -> Data` conversion function
 
 This enables the server to:
-- Render views using the full `Ephemeral` type (all fields available)
-- Encode only `Data` for wire transmission (reduced payload)
-- Use standard Wire3 encoders/decoders for `Data` on both server and client
+
+  - Render views using the full `Ephemeral` type (all fields available)
+  - Encode only `Data` for wire transmission (reduced payload)
+  - Use standard Wire3 encoders/decoders for `Data` on both server and client
 
 -}
 
@@ -287,9 +288,17 @@ declarationEnterVisitor node context =
                     Nothing ->
                         ( [], contextWithDataRefs )
 
-            else if functionName == "view" then
-                -- Extract the App parameter name from the view function
+            else if functionName == "view" || functionName == "init" || functionName == "update" then
+                -- Extract the App parameter name from client-side functions
                 -- The first parameter is typically named "app" or "static"
+                -- We need to track field usage in ALL client-side functions, not just view
+                -- because fields accessed in init/update also need to be in the client Data type
+                --
+                -- IMPORTANT: We always update appParamName for each client function because
+                -- different functions might use different parameter names (e.g., init might
+                -- use "shared" while view uses "app" due to unconventional naming).
+                -- Since field tracking happens INSIDE each function, we need the correct
+                -- param name for each function at the time we're visiting it.
                 let
                     maybeAppParam =
                         function.declaration
@@ -601,7 +610,7 @@ unwrapParenthesizedExpression node =
 This is the base case to prevent infinite loops.
 
 Looks for pattern:
-Html.div [ Html.Attributes.attribute "data-static" "..." ] [ ... ]
+Html.div [ Html.Attributes.attribute "data-static" "..." ][ ... ]
 
 -}
 isAlreadyWrappedWithDataStatic : Node Expression -> Bool
@@ -738,8 +747,6 @@ isAppDataAccess node context =
     PersistentFieldTracking.isAppDataAccess node context.appParamName context.appDataBindings
 
 
-
-
 {-| Check if an expression contains `app.data` being passed as a WHOLE to a function.
 Delegates to shared implementation in PersistentFieldTracking.
 -}
@@ -815,6 +822,7 @@ checkAppDataPassedToHelper context functionNode args =
 Handles `app.data |> fn` and `fn <| app.data` where fn can be:
 
   - A named function (tracked as pending helper)
+  - A partially applied function (e.g., `formatHelper "prefix"`)
   - An inline lambda (analyzed inline)
 
 -}
@@ -829,7 +837,7 @@ checkAppDataPassedToHelperViaPipe context functionNode argNode =
         context
 
     else
-        -- In client context - check if it's a named function or inline lambda
+        -- In client context - check if it's a named function, partial application, or inline lambda
         case Node.value functionNode of
             Expression.FunctionOrValue [] funcName ->
                 -- Local named function - track as pending helper call (arg index is 0 for pipe)
@@ -842,20 +850,48 @@ checkAppDataPassedToHelperViaPipe context functionNode argNode =
                 -- Qualified function (e.g., Module.fn) - can't analyze, bail out
                 { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
 
+            Expression.Application (firstExpr :: appliedArgs) ->
+                -- Partial application: `formatHelper "prefix"` where app.data will be the next arg
+                -- The piped value goes to position = number of already-applied args
+                case Node.value firstExpr of
+                    Expression.FunctionOrValue [] funcName ->
+                        -- Local function with some args already applied
+                        -- app.data becomes the next argument position
+                        { context
+                            | pendingHelperCalls =
+                                Just { funcName = funcName, argIndex = List.length appliedArgs } :: context.pendingHelperCalls
+                        }
+
+                    Expression.FunctionOrValue _ _ ->
+                        -- Qualified function - can't analyze
+                        { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+
+                    _ ->
+                        -- Complex expression (e.g., (fn) arg) - try lambda analysis
+                        tryLambdaAnalysis context functionNode
+
             _ ->
                 -- Could be an inline lambda - try to analyze it
-                case PersistentFieldTracking.analyzeInlineLambda functionNode 0 of
-                    PersistentFieldTracking.LambdaTrackable accessedFields ->
-                        -- Lambda is trackable - mark the specific fields as client-used
-                        Set.foldl addFieldAccess context accessedFields
+                tryLambdaAnalysis context functionNode
 
-                    PersistentFieldTracking.LambdaUntrackable ->
-                        -- Lambda uses parameter in untrackable ways - bail out
-                        { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
 
-                    PersistentFieldTracking.NotALambda ->
-                        -- Not a lambda and not a simple function - bail out
-                        { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+{-| Try to analyze a function node as an inline lambda.
+Returns updated context with field tracking or bail-out marker.
+-}
+tryLambdaAnalysis : Context -> Node Expression -> Context
+tryLambdaAnalysis context functionNode =
+    case PersistentFieldTracking.analyzeInlineLambda functionNode 0 of
+        PersistentFieldTracking.LambdaTrackable accessedFields ->
+            -- Lambda is trackable - mark the specific fields as client-used
+            Set.foldl addFieldAccess context accessedFields
+
+        PersistentFieldTracking.LambdaUntrackable ->
+            -- Lambda uses parameter in untrackable ways - bail out
+            { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+
+        PersistentFieldTracking.NotALambda ->
+            -- Not a lambda and not a simple function - bail out
+            { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
 
 
 {-| Check if an expression is a record access function like `.field`.
@@ -917,6 +953,7 @@ This is the aggressive approach that aligns with the client-side transform.
 Pending helper calls are resolved here against the now-complete helperFunctions dict.
 If any helper call can't be resolved (unknown function or untrackable helper), we
 mark all fields as persistent (safe fallback).
+
 -}
 finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
@@ -1085,18 +1122,34 @@ finalEvaluation context =
 
                                 Nothing ->
                                     []
+
+                        -- Emit EPHEMERAL_FIELDS_JSON for the codegen to pick up
+                        ephemeralFieldsJson =
+                            "EPHEMERAL_FIELDS_JSON:{\"module\":\""
+                                ++ String.join "." context.moduleName
+                                ++ "\",\"ephemeralFields\":["
+                                ++ (ephemeralFields |> Set.toList |> List.map (\f -> "\"" ++ f ++ "\"") |> String.join ",")
+                                ++ "]}"
+
+                        ephemeralFieldsError =
+                            Rule.error
+                                { message = ephemeralFieldsJson
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                }
+                                range
                     in
-                    Rule.errorWithFix
-                        { message = "Server codemod: split Data into Ephemeral and Data"
-                        , details =
-                            [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
-                            , "Ephemeral fields: " ++ String.join ", " (Set.toList ephemeralFields)
-                            , "Generating ephemeralToData conversion function for wire encoding."
+                    ephemeralFieldsError
+                        :: Rule.errorWithFix
+                            { message = "Server codemod: split Data into Ephemeral and Data"
+                            , details =
+                                [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                , "Ephemeral fields: " ++ String.join ", " (Set.toList ephemeralFields)
+                                , "Generating ephemeralToData conversion function for wire encoding."
+                                ]
+                            }
+                            range
+                            [ Review.Fix.replaceRangeBy range fullReplacement
                             ]
-                        }
-                        range
-                        [ Review.Fix.replaceRangeBy range fullReplacement
-                        ]
                         :: dataSignatureFix
                         ++ dataConstructorFixes
                         ++ dataTypeReferenceFixes
