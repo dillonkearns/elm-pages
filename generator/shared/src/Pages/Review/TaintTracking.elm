@@ -1,6 +1,7 @@
 module Pages.Review.TaintTracking exposing
     ( TaintStatus(..)
     , Nonempty(..)
+    , Bindings
     , TaintContext
     , combineTaint
     , nonemptyFromElement
@@ -296,19 +297,69 @@ analyzeExpressionTaint context node =
         Expression.LambdaExpression lambda ->
             analyzeExpressionTaint context lambda.expression
 
-        -- Let expression - analyze the body
-        -- (bindings should be tracked externally via visitors)
+        -- Let expression - analyze the body with bindings tracked
         Expression.LetExpression letBlock ->
-            analyzeExpressionTaint context letBlock.expression
+            let
+                -- Process each let declaration to extract tainted bindings
+                contextWithBindings =
+                    List.foldl
+                        (\declNode ctx ->
+                            case Node.value declNode of
+                                Expression.LetFunction letFn ->
+                                    let
+                                        fnDecl =
+                                            Node.value letFn.declaration
 
-        -- Case expression - analyze expression and all branches
+                                        fnName =
+                                            Node.value fnDecl.name
+
+                                        -- For functions with no arguments, track as binding
+                                        -- Functions with arguments are treated as pure (they're definitions)
+                                        taint =
+                                            case fnDecl.arguments of
+                                                [] ->
+                                                    analyzeExpressionTaint ctx fnDecl.expression
+
+                                                _ ->
+                                                    Pure
+                                    in
+                                    { ctx | bindings = addBindingsToScope [ ( fnName, taint ) ] ctx.bindings }
+
+                                Expression.LetDestructuring pattern expr ->
+                                    let
+                                        exprTaint =
+                                            analyzeExpressionTaint ctx expr
+
+                                        newBindings =
+                                            extractBindingsFromPattern exprTaint pattern
+                                    in
+                                    { ctx | bindings = addBindingsToScope newBindings ctx.bindings }
+                        )
+                        context
+                        letBlock.declarations
+            in
+            analyzeExpressionTaint contextWithBindings letBlock.expression
+
+        -- Case expression - analyze expression and all branches with pattern bindings
         Expression.CaseExpression caseBlock ->
             let
                 exprTaint =
                     analyzeExpressionTaint context caseBlock.expression
 
                 branchTaints =
-                    List.map (\( _, branchExpr ) -> analyzeExpressionTaint context branchExpr) caseBlock.cases
+                    List.map
+                        (\( pattern, branchExpr ) ->
+                            let
+                                -- Pattern bindings inherit taint from the case expression
+                                patternBindings =
+                                    extractBindingsFromPattern exprTaint pattern
+
+                                branchContext =
+                                    { context | bindings = addBindingsToScope patternBindings context.bindings }
+                            in
+                            analyzeExpressionTaint branchContext branchExpr
+                        )
+                        caseBlock.cases
                         |> List.foldl combineTaint Pure
             in
             combineTaint exprTaint branchTaints

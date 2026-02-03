@@ -42,6 +42,7 @@ import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Pages.Review.PersistentFieldTracking as PersistentFieldTracking
+import Pages.Review.TaintTracking as Taint
 import Review.Fix
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -129,6 +130,12 @@ type alias Context =
     -- App parameter name from view function (could be "app", "static", etc.)
     , appParamName : Maybe String
 
+    -- Model parameter name from view function (third parameter, typically "model")
+    , modelParamName : Maybe String
+
+    -- Taint tracking for model-derived bindings (used to de-optimize freeze calls)
+    , taintBindings : Taint.Bindings
+
     -- Track if NarrowedData type alias already exists (to prevent infinite fix loop)
     , narrowedDataExists : Bool
 
@@ -165,6 +172,8 @@ rule =
         |> Rule.withDeclarationExitVisitor declarationExitVisitor
         |> Rule.withExpressionEnterVisitor expressionEnterVisitor
         |> Rule.withExpressionExitVisitor expressionExitVisitor
+        |> Rule.withCaseBranchEnterVisitor caseBranchEnterVisitor
+        |> Rule.withCaseBranchExitVisitor caseBranchExitVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
 
@@ -200,6 +209,8 @@ initialContext =
             , routeBuilderDataFn = Nothing
             , routeBuilderFound = False
             , appParamName = Nothing
+            , modelParamName = Nothing
+            , taintBindings = Taint.emptyBindings
             , narrowedDataExists = False
             , helperFunctions = Dict.empty
             , pendingHelperCalls = []
@@ -355,8 +366,25 @@ declarationEnterVisitor node context =
                                         |> List.head
                                 )
                             |> Maybe.andThen PersistentFieldTracking.extractPatternName
+
+                    -- Extract model parameter name only for view function
+                    -- Model is the third parameter: view app shared model = ...
+                    maybeModelParam =
+                        if functionName == "view" then
+                            arguments
+                                |> List.drop 2
+                                |> List.head
+                                |> Maybe.andThen PersistentFieldTracking.extractPatternName
+
+                        else
+                            Nothing
                 in
-                ( [], { contextWithAppDataRanges | appParamName = maybeAppParam } )
+                ( []
+                , { contextWithAppDataRanges
+                    | appParamName = maybeAppParam
+                    , modelParamName = maybeModelParam
+                  }
+                )
 
             else
                 -- Analyze non-special functions as potential helpers
@@ -565,6 +593,67 @@ expressionEnterVisitor node context =
         -- Track field access patterns
         contextWithFieldTracking =
             trackFieldAccess node contextWithFreezeTracking
+
+        -- Track tainted bindings for let expressions
+        -- When entering a let, push a new scope and add bindings from declarations
+        contextWithTaintBindings =
+            case Node.value node of
+                Expression.LetExpression letBlock ->
+                    let
+                        -- Push a new scope first
+                        initialScope =
+                            Taint.nonemptyCons Dict.empty contextWithFieldTracking.taintBindings
+
+                        -- Process each let declaration, accumulating bindings
+                        -- Later declarations can depend on earlier ones, so we update context as we go
+                        finalScope =
+                            List.foldl
+                                (\declNode currentBindings ->
+                                    let
+                                        -- Create a TaintContext with current accumulated bindings
+                                        taintContext =
+                                            { modelParamName = contextWithFieldTracking.modelParamName
+                                            , bindings = currentBindings
+                                            }
+
+                                        newBindings =
+                                            case Node.value declNode of
+                                                Expression.LetFunction letFn ->
+                                                    let
+                                                        fnDecl =
+                                                            Node.value letFn.declaration
+
+                                                        fnName =
+                                                            Node.value fnDecl.name
+
+                                                        -- For functions with no arguments, track as binding
+                                                        -- Functions with arguments are treated as pure (they're definitions)
+                                                        taint =
+                                                            case fnDecl.arguments of
+                                                                [] ->
+                                                                    Taint.analyzeExpressionTaint taintContext fnDecl.expression
+
+                                                                _ ->
+                                                                    Taint.Pure
+                                                    in
+                                                    [ ( fnName, taint ) ]
+
+                                                Expression.LetDestructuring pattern expr ->
+                                                    let
+                                                        exprTaint =
+                                                            Taint.analyzeExpressionTaint taintContext expr
+                                                    in
+                                                    Taint.extractBindingsFromPattern exprTaint pattern
+                                    in
+                                    Taint.addBindingsToScope newBindings currentBindings
+                                )
+                                initialScope
+                                letBlock.declarations
+                    in
+                    { contextWithFieldTracking | taintBindings = finalScope }
+
+                _ ->
+                    contextWithFieldTracking
     in
     -- Handle the transformations
     case Node.value node of
@@ -572,27 +661,86 @@ expressionEnterVisitor node context =
             case applicationExpressions of
                 -- Single-argument application: View.freeze expr
                 functionNode :: _ :: [] ->
-                    case ModuleNameLookupTable.moduleNameFor contextWithFieldTracking.lookupTable functionNode of
+                    case ModuleNameLookupTable.moduleNameFor contextWithTaintBindings.lookupTable functionNode of
                         Just [ "View" ] ->
-                            handleViewFreezeCall functionNode node contextWithFieldTracking
+                            handleViewFreezeCall functionNode node contextWithTaintBindings
 
                         _ ->
-                            ( [], contextWithFieldTracking )
+                            ( [], contextWithTaintBindings )
 
                 _ ->
-                    ( [], contextWithFieldTracking )
+                    ( [], contextWithTaintBindings )
 
         _ ->
-            ( [], contextWithFieldTracking )
+            ( [], contextWithTaintBindings )
 
 
 expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionExitVisitor node context =
-    if PersistentFieldTracking.isExitingFreezeCall node context.lookupTable then
-        ( [], { context | inFreezeCall = False } )
+    let
+        -- Pop taint binding scope when exiting let expressions
+        contextWithPoppedScope =
+            case Node.value node of
+                Expression.LetExpression _ ->
+                    case Taint.nonemptyPop context.taintBindings of
+                        Just popped ->
+                            { context | taintBindings = popped }
+
+                        Nothing ->
+                            -- Should never happen - we always push before pop
+                            context
+
+                _ ->
+                    context
+    in
+    if PersistentFieldTracking.isExitingFreezeCall node contextWithPoppedScope.lookupTable then
+        ( [], { contextWithPoppedScope | inFreezeCall = False } )
 
     else
-        ( [], context )
+        ( [], contextWithPoppedScope )
+
+
+{-| Visitor for entering a case branch. Pushes a new scope and adds pattern bindings.
+Pattern bindings inherit taint from the case expression.
+-}
+caseBranchEnterVisitor : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> Context -> ( List (Error {}), Context )
+caseBranchEnterVisitor caseBlockNode ( patternNode, _ ) context =
+    let
+        caseBlock =
+            Node.value caseBlockNode
+
+        -- Analyze the case expression for taint
+        taintContext =
+            { modelParamName = context.modelParamName
+            , bindings = context.taintBindings
+            }
+
+        caseTaint =
+            Taint.analyzeExpressionTaint taintContext caseBlock.expression
+
+        -- Extract pattern bindings with the case expression's taint
+        patternBindings =
+            Taint.extractBindingsFromPattern caseTaint patternNode
+
+        -- Push a new scope and add bindings
+        newScope =
+            Taint.nonemptyCons Dict.empty context.taintBindings
+                |> Taint.addBindingsToScope patternBindings
+    in
+    ( [], { context | taintBindings = newScope } )
+
+
+{-| Visitor for exiting a case branch. Pops the scope.
+-}
+caseBranchExitVisitor : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> Context -> ( List (Error {}), Context )
+caseBranchExitVisitor _ _ context =
+    case Taint.nonemptyPop context.taintBindings of
+        Just popped ->
+            ( [], { context | taintBindings = popped } )
+
+        Nothing ->
+            -- Should never happen - we always push before pop
+            ( [], context )
 
 
 {-| Track field access on app.data and variables bound to app.data.
@@ -1203,18 +1351,42 @@ handleViewFreezeCall : Node Expression -> Node Expression -> Context -> ( List (
 handleViewFreezeCall functionNode node context =
     case Node.value functionNode of
         Expression.FunctionOrValue _ "freeze" ->
-            let
-                -- Generate inlined lazy thunk with View.htmlToFreezable wrapper
-                replacement =
-                    inlinedLazyThunk context
+            -- Extract the freeze argument from the application
+            case Node.value node of
+                Expression.Application (_ :: freezeArg :: []) ->
+                    -- Check if the freeze argument is tainted (depends on model)
+                    let
+                        taintContext =
+                            { modelParamName = context.modelParamName
+                            , bindings = context.taintBindings
+                            }
 
-                fixes =
-                    [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
-                        ++ htmlLazyImportFix context
-            in
-            ( [ createTransformErrorWithFixes "View.freeze" "inlined lazy thunk" node fixes ]
-            , { context | staticIndex = context.staticIndex + 1 }
-            )
+                        argTaint =
+                            Taint.analyzeExpressionTaint taintContext freezeArg
+                    in
+                    case argTaint of
+                        Taint.Tainted ->
+                            -- Skip transformation - model is used, de-optimize gracefully
+                            ( [], context )
+
+                        Taint.Pure ->
+                            -- Safe to transform - no model dependency
+                            let
+                                -- Generate inlined lazy thunk with View.htmlToFreezable wrapper
+                                replacement =
+                                    inlinedLazyThunk context
+
+                                fixes =
+                                    [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
+                                        ++ htmlLazyImportFix context
+                            in
+                            ( [ createTransformErrorWithFixes "View.freeze" "inlined lazy thunk" node fixes ]
+                            , { context | staticIndex = context.staticIndex + 1 }
+                            )
+
+                _ ->
+                    -- Unexpected structure, skip
+                    ( [], context )
 
         _ ->
             ( [], context )

@@ -5091,4 +5091,159 @@ view app =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "Model taint de-optimization"
+            [ test "skips transform when model.field used directly in freeze" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view app shared model =
+    { body = [ View.freeze (Html.text model.name) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "skips transform when model passed to helper in freeze" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view app shared model =
+    { body = [ View.freeze (renderName model) ] }
+
+renderName m =
+    Html.text m.name
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "skips transform when let binding from model used in freeze" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view app shared model =
+    let
+        name = model.name
+    in
+    { body = [ View.freeze (Html.text name) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "skips transform when case on model used in freeze" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view app shared model =
+    { body = [ View.freeze (case model.status of
+        Active -> Html.text "Active"
+        Inactive -> Html.text "Inactive") ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "transforms normally when only app.data used in freeze" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+view app shared model =
+    { body = [ View.freeze (Html.text app.data.title) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.title)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+view app shared model =
+    { body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+"""
+                            ]
+            , test "transforms when model exists but freeze only uses app.data" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+view app shared model =
+    { title = model.name
+    , body = [ View.freeze (Html.text app.data.content) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.content)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+view app shared model =
+    { title = model.name
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            ]
+            , test "skips transform with nested let binding from model" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view app shared model =
+    let
+        user = model.user
+        userName = user.name
+    in
+    { body = [ View.freeze (Html.text userName) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "skips transform when case branch binding from model used" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view app shared model =
+    case model.maybeUser of
+        Just user ->
+            { body = [ View.freeze (Html.text user.name) ] }
+
+        Nothing ->
+            { body = [] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            ]
         ]
