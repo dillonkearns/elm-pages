@@ -535,14 +535,18 @@ handleViewFreezeWrapping applicationNode functionNode args context =
                         Node.range innerNode
 
                     -- We'll wrap it with: Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ <arg> ]
+                    -- Shared module uses "shared:" prefix to distinguish from Route frozen views
                     -- Need to add outer parentheses if not already parenthesized
+                    staticPrefix =
+                        getStaticPrefix context.moduleName
+
                     ( wrapperPrefix, wrapperSuffix ) =
                         if isParenthesized then
                             -- Original had parentheses, we use the inner range and add just the wrapper
                             ( htmlPrefix
                                 ++ ".div [ "
                                 ++ attrPrefix
-                                ++ ".attribute \"data-static\" \"__STATIC__\" ] [ "
+                                ++ ".attribute \"data-static\" \"" ++ staticPrefix ++ "__STATIC__\" ] [ "
                             , " ]"
                             )
 
@@ -552,7 +556,7 @@ handleViewFreezeWrapping applicationNode functionNode args context =
                                 ++ htmlPrefix
                                 ++ ".div [ "
                                 ++ attrPrefix
-                                ++ ".attribute \"data-static\" \"__STATIC__\" ] [ "
+                                ++ ".attribute \"data-static\" \"" ++ staticPrefix ++ "__STATIC__\" ] [ "
                             , " ])"
                             )
 
@@ -664,6 +668,18 @@ isDataStaticAttribute node =
 
         _ ->
             False
+
+
+{-| Get the static prefix for data-static attribute based on module name.
+Shared module uses "shared:" prefix to distinguish from Route frozen views.
+-}
+getStaticPrefix : ModuleName -> String
+getStaticPrefix moduleName =
+    if moduleName == [ "Shared" ] then
+        "shared:"
+
+    else
+        ""
 
 
 expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )

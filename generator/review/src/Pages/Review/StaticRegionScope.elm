@@ -290,7 +290,7 @@ that are ultimately called from Route modules).
 -}
 isAllowedModule : ModuleName -> Bool
 isAllowedModule moduleName =
-    isRouteModule moduleName || moduleName == [ "View" ]
+    isRouteModule moduleName || moduleName == [ "View" ] || moduleName == [ "Shared" ]
 
 
 {-| Frozen view functions that should only be called from Route modules.

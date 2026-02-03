@@ -11,19 +11,22 @@
 /**
  * Extract all frozen views from HTML string.
  *
- * Handles two types of frozen view markers:
+ * Handles three types of frozen view markers:
  * - Explicit IDs: data-static="my-id" → regions["my-id"]
- * - Auto-indexed: data-static="__STATIC__" → regions["0"], regions["1"], etc.
+ * - Route auto-indexed: data-static="__STATIC__" → regions["0"], regions["1"], etc.
+ * - Shared auto-indexed: data-static="shared:__STATIC__" → regions["shared:0"], regions["shared:1"], etc.
  *
  * The __STATIC__ placeholder is replaced with sequential indices (0, 1, 2, ...)
  * in DOM order, matching the order that elm-review assigns to View.freeze calls.
+ * Route and Shared frozen views have separate counters.
  *
  * @param {string} html - The rendered HTML containing data-static elements
  * @returns {Record<string, string>} Map of frozen view IDs to their outerHTML
  */
 export function extractFrozenViews(html) {
   const regions = {};
-  let autoIndex = 0;
+  let sharedIndex = 0;
+  let routeIndex = 0;
 
   // Find all data-static attributes and their values
   // Pattern: <tagname ... data-static="id" ...>
@@ -34,11 +37,15 @@ export function extractFrozenViews(html) {
     const tagName = match[1];
     let id = match[3];
     const startIndex = match.index;
+    const placeholder = match[3];
 
     // Handle auto-indexed placeholders
-    if (id === "__STATIC__") {
-      id = String(autoIndex);
-      autoIndex++;
+    if (id === "shared:__STATIC__") {
+      id = "shared:" + sharedIndex;
+      sharedIndex++;
+    } else if (id === "__STATIC__") {
+      id = String(routeIndex);
+      routeIndex++;
     }
 
     // Find the matching closing tag, handling nesting
@@ -46,8 +53,8 @@ export function extractFrozenViews(html) {
 
     if (outerHTML) {
       // If this was a placeholder, update the data-static attribute in the extracted HTML
-      if (match[3] === "__STATIC__") {
-        regions[id] = outerHTML.replace('data-static="__STATIC__"', `data-static="${id}"`);
+      if (placeholder.includes("__STATIC__")) {
+        regions[id] = outerHTML.replace(`data-static="${placeholder}"`, `data-static="${id}"`);
       } else {
         regions[id] = outerHTML;
       }
@@ -129,17 +136,22 @@ function extractElement(html, startIndex, tagName) {
 
 /**
  * Replace all __STATIC__ placeholders in HTML with sequential indices.
+ * Route and Shared frozen views have separate counters.
  *
  * @param {string} html - The HTML string containing __STATIC__ placeholders
  * @returns {string} The HTML with placeholders replaced by indices
  */
 export function replaceFrozenViewPlaceholders(html) {
-  let index = 0;
-  return html.replace(/data-static="__STATIC__"/g, () => {
-    const result = `data-static="${index}"`;
-    index++;
-    return result;
-  });
+  let sharedIndex = 0;
+  let routeIndex = 0;
+
+  return html
+    .replace(/data-static="shared:__STATIC__"/g, () => {
+      return `data-static="shared:${sharedIndex++}"`;
+    })
+    .replace(/data-static="__STATIC__"/g, () => {
+      return `data-static="${routeIndex++}"`;
+    });
 }
 
 /**

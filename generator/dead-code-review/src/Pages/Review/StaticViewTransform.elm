@@ -1486,8 +1486,17 @@ inlinedLazyThunk context =
                     "Html"
 
         -- Magic prefix that vdom codemod detects
+        -- Shared module uses "shared:" prefix to distinguish from Route frozen views
         staticId =
-            "\"__ELM_PAGES_STATIC__" ++ String.fromInt context.staticIndex ++ "\""
+            let
+                prefix =
+                    if context.moduleName == [ "Shared" ] then
+                        "shared:"
+
+                    else
+                        ""
+            in
+            "\"__ELM_PAGES_STATIC__" ++ prefix ++ String.fromInt context.staticIndex ++ "\""
     in
     -- Generate: Html.Lazy.lazy (\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never
     "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> VirtualDom.text \"\") " ++ staticId ++ " |> View.htmlToFreezable |> " ++ mapPrefix ++ ".map never)"
