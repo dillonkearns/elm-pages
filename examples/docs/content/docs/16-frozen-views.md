@@ -6,7 +6,7 @@ description: Frozen Views let you render content at build or server-render time 
 
 Frozen Views are an optimization feature in elm-pages. You can think of it like **[`Html.Lazy`](https://package.elm-lang.org/packages/elm/html/latest/Html-Lazy) on steroids**.
 
-> Since all Elm functions are pure we have a guarantee that the same input will always result in the same output. [`Html.Lazy`](https://package.elm-lang.org/packages/elm/html/latest/Html-Lazy)] gives us tools to be lazy about building Html that utilize this fact.
+> Since all Elm functions are pure we have a guarantee that the same input will always result in the same output. [`Html.Lazy`](https://package.elm-lang.org/packages/elm/html/latest/Html-Lazy) gives us tools to be lazy about building Html that utilize this fact.
 
 -- [`Html.Lazy` docs](https://package.elm-lang.org/packages/elm/html/latest/Html-Lazy)
 
@@ -173,7 +173,7 @@ Use `View.freeze` for content that:
 - **Uses heavy dependencies** - Markdown parsers, syntax highlighters, complex formatting
 - **Comes from build-time data** - Content from `app.data` that won't change at runtime
 
-## Is It Ineffecient to Send a Lot of HTML?
+## Is It Inefficient to Send a Lot of HTML?
 
 You may be wondering whether it's inefficient to send all this HTML over pre-rendered for your Frozen Views. Intuitively, it seems efficient to have JavaScript rendering logic that we can re-use. A couple things to consider:
 
