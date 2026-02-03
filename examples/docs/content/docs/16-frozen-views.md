@@ -1,44 +1,169 @@
 ---
-description: Frozen Views let you render content at build time and eliminate rendering code from your client bundle, giving you smaller bundles and faster page loads.
+description: Frozen Views let you render content at build or server-render time and eliminate rendering code from your client bundle, giving you smaller bundles and faster page loads.
 ---
 
 # Frozen Views
 
-Frozen Views are a powerful optimization in elm-pages that lets you:
+Frozen Views are an optimization feature in elm-pages. You can think of it like **[`Html.Lazy`](https://package.elm-lang.org/packages/elm/html/latest/Html-Lazy) on steroids**.
 
-1. **Render content at build time** - Heavy rendering (markdown parsing, syntax highlighting) happens once during build
-2. **Eliminate rendering code from client bundles** - The code used to render frozen content is dead-code eliminated
-3. **Adopt pre-rendered HTML seamlessly** - The client "adopts" the pre-rendered DOM without re-rendering
+> Since all Elm functions are pure we have a guarantee that the same input will always result in the same output. [`Html.Lazy`](https://package.elm-lang.org/packages/elm/html/latest/Html-Lazy)] gives us tools to be lazy about building Html that utilize this fact.
 
-## The Mental Model
+-- [`Html.Lazy` docs](https://package.elm-lang.org/packages/elm/html/latest/Html-Lazy)
 
-Think of `View.freeze` as putting content in ice. Once frozen:
 
-- It's rendered once and preserved exactly as-is
-- The client displays it without doing any work
-- The freezer (rendering code) can be thrown away after use
-
+```elm
+Html.Lazy.lazy todaysDateView model.today
+-- only re-render when input has changed
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     BUILD TIME                               │
-│  Your Elm view code renders frozen content to HTML          │
-│  Heavy dependencies (markdown, syntax highlighting) run     │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     CLIENT BUNDLE                            │
-│  Rendering code for frozen content is ELIMINATED            │
-│  Only interactive code remains                              │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     BROWSER                                  │
-│  Pre-rendered HTML is adopted without re-rendering          │
-│  Interactive parts hydrate normally                         │
-└─────────────────────────────────────────────────────────────┘
+
+So Elm's `Html.Lazy` avoids unnecessary re-renders.
+
+`elm-pages`' `View.freeze` takes it a step further - it *never* renders your code on the client-side. In fact, it doesn't even bundle the rendering code or the `Data` fields it depends on! Instead, it does the work to render the HTML for Frozen Views before it ever hits the client-side (at build-time, or at server-render time for server-rendered routes).
+
+## Usage
+
+To use Frozen Views, you wrap part of your view code (must be within a Route Module file) that doesn't depend on dynamic parameters like your `model` with a call to `View.freeze`:
+
+```elm
+type alias Data =
+    { today : Date
+    -- ^ Used ONLY in frozen content, so it's rendered at build time
+    --   then eliminated from `content.dat`—never sent to the client!
+
+    , initialCount : Int
+    -- ^ Used in `init`, so it IS sent to the client in `content.dat`.
+    }
+
+
+type alias Model =
+    { counter : Int }
+
+
+init : App Data ActionData RouteParams -> ( Model, Effect Msg )
+init app =
+    ( { counter = app.data.initialCount }
+    -- dynamic usage, so this is in the client bundle
+    , Effect.none
+    )
+
+
+view :
+    App Data ActionData RouteParams
+    -> Model
+    -> View (PagesMsg Msg)
+view app model =
+    { title = "My Page"
+    , body =
+        [ -- FROZEN: This render code will never run on the client!
+          View.freeze
+            (h1 []
+                [ text
+                    ("Today's date: "
+                        ++ Date.toIsoString app.data.today
+                        -- ^ This function and all its dependencies
+                        --   are dead-code eliminated from the client!
+                    )
+                ]
+            )
+
+        -- DYNAMIC: Uses `model`
+        , div []
+            [ button [ onClick (PagesMsg.fromMsg Decrement) ] [ text "-" ]
+            , text (String.fromInt model.counter)
+            , button [ onClick (PagesMsg.fromMsg Increment) ] [ text "+" ]
+            ]
+        ]
+    }
 ```
+
+The frozen part renders to HTML at build time (or server-render time for server-rendered routes—and yes, this optimization works for those too!). On the client, that HTML is **adopted** without re-rendering:
+
+```html
+<!-- Initial page load: this HTML is already in the page.
+     The Elm virtual DOM adopts it—no re-rendering needed!
+
+     For SPA navigations, the frozen HTML is included
+     in the content.dat response. -->
+<h1>Today's date: 2025-01-27</h1>
+```
+
+## Server-Only Regions
+
+`elm-pages` treats certain sections of your Route Modules as **Server-Only**. Using static analysis, `elm-pages` keeps track of which fields in a Route Module's `Data` record are used in **Client Regions**. Any `Data` record fields that are unused in Client Regions *will never be sent to the client*.
+
+That means for example if you have a large markdown `String`, you can have that in your `Data` but you don't need to pay the penalty of sending two different representations of that to the client (the markdown `String` and the HTML).
+
+In addition to that, `elm-pages` erases Server-Only Regions of code when building your client-side JS bundle so that the Elm compiler can perform dead code elimination to drop all of the code and dependencies that become unused.
+
+
+```elm
+type alias Data =
+    { title : String
+    -- ^ Used in BOTH frozen and client regions → sent to client
+
+    , rawMarkdown : String
+    -- ^ Used ONLY in frozen region → never sent to client!
+
+    , comments : List Comment
+    -- ^ Used in client region → sent to client
+    }
+
+-- SERVER-ONLY REGION: `head` only runs at build/server-render time
+-- and this code is not in the client-side JS bundle
+head : App Data ActionData RouteParams -> List Head.Tag
+head app =
+    Seo.summaryLarge
+        { title = app.data.title
+        , description = app.data.rawMarkdown |> markdownToDescription
+        --               ^^^^^^^^^^^^^^^^^^^^
+        -- This usage doesn't count as "client usage"—
+        -- rawMarkdown is still excluded from `content.dat`!
+        }
+
+
+view :
+    App Data ActionData RouteParams
+    -> Model
+    -> View (PagesMsg Msg)
+view app model =
+    { title = app.data.title
+    , body =
+        [ -- SERVER-ONLY REGION: This code only
+          -- runs at build/server-render time
+          View.freeze
+            (div [] [ h1 [] [ text app.data.title ]
+            , app.data.rawMarkdown
+                |> markdownRenderView
+                -- ^ The Markdown code and all its dependencies
+                --   are dead-code eliminated from the client bundle!
+                ]
+            )
+
+        -- CLIENT REGION: This code runs on both server
+        -- (to pre-render the initial HTML response) and client
+        -- It is therefore included in the client bundle
+        , commentsView app.data.comments
+        ]
+    }
+```
+
+🛜 = sent to client | 🗑️ = eliminated
+
+| What the client receives | Without Frozen Views | With Frozen Views |
+|--------------------------|:--------------------:|:-----------------:|
+| Pre-rendered HTML        | 🛜                   | 🛜                |
+| Re-executes render code  | 🛜                   | 🗑️    (Eliminated, similar to what Html.Lazy does)            |
+| `app.rawMarkdown` in `content.dat` | 🛜          | 🗑️      (No duplicate data representation, just HTML)          |
+| Markdown dependency in JS bundle | 🛜               | 🗑️ (Dead code eliminated!)               |
+
+## Real-World Results
+
+On the elm-pages.com docs site, frozen views cut the bundle size roughly in half:
+
+| Metric  | Before       | With Frozen Views | Savings         |
+|---------|--------------|-------------------|-----------------|
+| Raw     | 163.3 KB     | 77.7 KB           | -85.5 KB (-52%) |
+| Gzipped | 49.8 KB      | 26.4 KB           | -23.3 KB (-47%) |
 
 ## When to Use Frozen Views
 
@@ -48,37 +173,15 @@ Use `View.freeze` for content that:
 - **Uses heavy dependencies** - Markdown parsers, syntax highlighters, complex formatting
 - **Comes from build-time data** - Content from `app.data` that won't change at runtime
 
-**Don't use** `View.freeze` for content that:
+## Is It Ineffecient to Send a Lot of HTML?
 
-- Needs event handlers (`onClick`, `onInput`, etc.)
-- Depends on `model` (client-side state)
-- Updates dynamically based on user interaction
+You may be wondering whether it's inefficient to send all this HTML over pre-rendered for your Frozen Views. Intuitively, it seems efficient to have JavaScript rendering logic that we can re-use. A couple things to consider:
 
-## Basic Example
+1. JavaScript is more expensive per byte on your browser's CPU cycles ([JavaScript costs 3x more in processing power according to Alex Russell](https://infrequently.org/page/9/#:~:text=Not%20only%20does%20JavaScript%20cost%203x%20more%20in%20processing%20power))
+2. Gzip is remarkably good at handling repetitive HTML syntax
+3. For a first page load, your `elm-pages` site is sending over pre-rendered HTML anyway. When you use a frozen view, the page just accepts those frozen sections of the view and doesn't need extra rendering, JS code, or `Data` record fields. For subsequent SPA navigations, you will need to send over the HTML for the next page's Frozen Views. However, note that **we have now avoided sending view code for the entire application just to render a single page**!
 
-```elm
-view : App Data ActionData RouteParams -> Shared.Model -> View (PagesMsg Msg)
-view app shared =
-    { title = "My Page"
-    , body =
-        [ -- Frozen: rendered at build time, HTML adopted by client
-          View.freeze
-            (div []
-                [ h1 [] [ text app.data.title ]
-                , renderMarkdown app.data.content  -- Heavy markdown parsing
-                ]
-            )
 
-        -- Interactive: normal Elm view, hydrates on client
-        , button [ onClick (PagesMsg.fromMsg Subscribe) ]
-            [ text "Subscribe" ]
-        ]
-    }
-```
-
-In this example:
-- The title and markdown content are frozen - the markdown parser is eliminated from the client bundle
-- The subscribe button is interactive - it works normally with click handlers
 
 ## Setting Up Frozen Views
 
@@ -126,9 +229,9 @@ htmlToFreezable =
 {-| Freeze content so it's rendered at build time and adopted on the client.
 
 Frozen content:
-- Is rendered at build time and included in the HTML
+- Is rendered at build time (or server-render time) and included in the HTML
 - Is adopted by the client without re-rendering
-- Has its rendering code eliminated from the client bundle (DCE)
+- Has its rendering code and dependencies eliminated from the client bundle (DCE)
 
 The content must be `Html Never` (no event handlers allowed).
 -}
@@ -186,111 +289,11 @@ freeze content =
         |> Html.Styled.map never
 ```
 
-## Real-World Example: Blog Post
-
-Here's a more complete example showing a blog post with frozen content and interactive features:
-
-```elm
-module Route.Blog.Slug_ exposing (Model, Msg, RouteParams, route, Data, ActionData)
-
-import View
-
-
-type alias Data =
-    { title : String
-    , author : String
-    , content : String        -- Raw markdown
-    , publishedAt : Time.Posix
-    , commentCount : Int      -- Used in interactive section
-    }
-
-
-type alias Model =
-    { showComments : Bool
-    }
-
-
-type Msg
-    = ToggleComments
-
-
-view : App Data ActionData RouteParams -> Shared.Model -> Model -> View (PagesMsg Msg)
-view app shared model =
-    { title = app.data.title
-    , body =
-        [ article []
-            [ -- Frozen: metadata and content
-              View.freeze
-                (header []
-                    [ h1 [] [ text app.data.title ]
-                    , p [ class "meta" ]
-                        [ text ("By " ++ app.data.author)
-                        , text " · "
-                        , text (formatDate app.data.publishedAt)
-                        ]
-                    ]
-                )
-
-            -- Frozen: heavy markdown rendering
-            , View.freeze
-                (div [ class "content" ]
-                    [ Markdown.toHtml app.data.content ]
-                )
-
-            -- Interactive: comment toggle
-            , div [ class "comments-section" ]
-                [ button [ onClick (PagesMsg.fromMsg ToggleComments) ]
-                    [ text
-                        (if model.showComments then
-                            "Hide Comments"
-                         else
-                            "Show " ++ String.fromInt app.data.commentCount ++ " Comments"
-                        )
-                    ]
-                , if model.showComments then
-                    commentsView app.data.comments
-                  else
-                    text ""
-                ]
-            ]
-        ]
-    }
-```
-
-In this example:
-- The blog post metadata (title, author, date) is frozen
-- The markdown content is frozen - the `Markdown` module is eliminated from the client bundle
-- The comments toggle is interactive - it uses `model.showComments` and has a click handler
-- `app.data.commentCount` is used in both frozen and interactive contexts, so it's kept in the client data
-
-## How It Works Under the Hood
-
-When you use `View.freeze`, elm-pages:
-
-1. **At build time**: Runs your view code and extracts the HTML from frozen regions
-2. **Transforms client code**: Replaces `View.freeze` calls with placeholders that adopt pre-rendered HTML
-3. **Dead-code eliminates**: The Elm compiler removes unreferenced rendering code
-4. **At runtime**: The client adopts the pre-rendered DOM nodes without re-rendering
-
-### Data Optimization
-
-elm-pages also analyzes which `app.data` fields are used only in frozen contexts:
-
-```elm
-type alias Data =
-    { title : String           -- Used in frozen AND interactive → kept
-    , rawMarkdown : String     -- Used ONLY in frozen → eliminated from client
-    , commentCount : Int       -- Used in interactive → kept
-    }
-```
-
-Fields used only in `View.freeze` or the `head` function are automatically excluded from the client bundle.
-
-## Key Constraints
+## Constraints
 
 ### Frozen content must be `Html Never`
 
-This is enforced by the type system. `Html Never` means "HTML that can never produce a message" - no event handlers allowed.
+This is enforced by the type system. `Html Never` means "HTML that can never produce a message"—no event handlers allowed.
 
 ```elm
 -- This works
@@ -304,7 +307,7 @@ View.freeze (button [ onClick MyMsg ] [ text "Click" ])
 
 ### Frozen content cannot use `model`
 
-Frozen content is rendered at build time, before any client-side state exists. You can use `app.data` (build-time data) but not `model` (runtime state).
+Frozen content is rendered at build time (or server-render time), before any client-side state exists. You can use `app.data` (build-time data) but not `model` (runtime state).
 
 ```elm
 -- This works
@@ -313,23 +316,3 @@ View.freeze (text app.data.title)
 -- This doesn't work (won't compile in a frozen context)
 View.freeze (text model.searchQuery)
 ```
-
-### SPA navigation
-
-When navigating between pages client-side, frozen content is sent as HTML strings and parsed. This means:
-
-- Frozen content works seamlessly with SPA navigation
-- Large frozen sections may increase navigation payload size
-- The tradeoff is usually worthwhile for the bundle size savings
-
-## Tips for Best Results
-
-1. **Freeze heavy rendering** - Markdown, syntax highlighting, complex formatting
-2. **Keep interactivity outside** - Buttons, forms, dynamic content
-3. **Group frozen content** - Multiple frozen regions work, but fewer is simpler
-4. **Check your bundle size** - Use Elm's `--optimize` flag and check the output size
-
-## See Also
-
-- [Route Modules](/docs/route-modules) - Where view functions are defined
-- [File Structure](/docs/file-structure) - Setting up your `View.elm`
