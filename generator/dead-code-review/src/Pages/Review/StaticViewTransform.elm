@@ -684,12 +684,13 @@ trackFieldAccess node context =
                                     context
 
                             -- Let expressions can bind app.data to a variable, or bind specific fields
+                            -- They can also define local helper functions that should be analyzed
                             Expression.LetExpression letBlock ->
                                 let
-                                    ( newAppDataBindings, newFieldBindings, newFieldBindingRanges ) =
+                                    letBindingResult =
                                         letBlock.declarations
                                             |> List.foldl
-                                                (\declNode ( appBindings, fieldBinds, bindingRanges ) ->
+                                                (\declNode acc ->
                                                     case Node.value declNode of
                                                         Expression.LetFunction letFn ->
                                                             let
@@ -709,21 +710,31 @@ trackFieldAccess node context =
                                                                         Just fieldName ->
                                                                             -- let title = app.data.title
                                                                             -- Track the range to skip in normal field tracking
-                                                                            ( appBindings
-                                                                            , Dict.insert varName fieldName fieldBinds
-                                                                            , Set.insert (rangeToComparable exprRange) bindingRanges
-                                                                            )
+                                                                            { acc
+                                                                                | fieldBinds = Dict.insert varName fieldName acc.fieldBinds
+                                                                                , bindingRanges = Set.insert (rangeToComparable exprRange) acc.bindingRanges
+                                                                            }
 
                                                                         Nothing ->
                                                                             if isAppDataAccess fnDecl.expression context then
                                                                                 -- let d = app.data
-                                                                                ( Set.insert varName appBindings, fieldBinds, bindingRanges )
+                                                                                { acc | appBindings = Set.insert varName acc.appBindings }
 
                                                                             else
-                                                                                ( appBindings, fieldBinds, bindingRanges )
+                                                                                acc
 
                                                                 _ ->
-                                                                    ( appBindings, fieldBinds, bindingRanges )
+                                                                    -- Has arguments - analyze as a helper function
+                                                                    -- This allows tracking when app.data is passed to let-bound helpers
+                                                                    let
+                                                                        helperAnalysis =
+                                                                            PersistentFieldTracking.analyzeHelperFunction letFn
+                                                                    in
+                                                                    if List.isEmpty helperAnalysis then
+                                                                        acc
+
+                                                                    else
+                                                                        { acc | helpers = Dict.insert varName helperAnalysis acc.helpers }
 
                                                         Expression.LetDestructuring pattern expr ->
                                                             -- Handle: let { field1, field2 } = app.data in ...
@@ -736,26 +747,32 @@ trackFieldAccess node context =
                                                                     -- For record destructuring of app.data, variable name = field name
                                                                     newFieldBinds =
                                                                         destructuredNames
-                                                                            |> Set.foldl (\name acc -> Dict.insert name name acc) fieldBinds
+                                                                            |> Set.foldl (\name dict -> Dict.insert name name dict) acc.fieldBinds
 
                                                                     -- Track the range to skip
-                                                                    exprRange =
+                                                                    letExprRange =
                                                                         Node.range expr
                                                                 in
-                                                                ( Set.union destructuredNames appBindings
-                                                                , newFieldBinds
-                                                                , Set.insert (rangeToComparable exprRange) bindingRanges
-                                                                )
+                                                                { acc
+                                                                    | appBindings = Set.union destructuredNames acc.appBindings
+                                                                    , fieldBinds = newFieldBinds
+                                                                    , bindingRanges = Set.insert (rangeToComparable letExprRange) acc.bindingRanges
+                                                                }
 
                                                             else
-                                                                ( appBindings, fieldBinds, bindingRanges )
+                                                                acc
                                                 )
-                                                ( context.appDataBindings, context.fieldBindings, context.fieldBindingRanges )
+                                                { appBindings = context.appDataBindings
+                                                , fieldBinds = context.fieldBindings
+                                                , bindingRanges = context.fieldBindingRanges
+                                                , helpers = context.helperFunctions
+                                                }
                                 in
                                 { context
-                                    | appDataBindings = newAppDataBindings
-                                    , fieldBindings = newFieldBindings
-                                    , fieldBindingRanges = newFieldBindingRanges
+                                    | appDataBindings = letBindingResult.appBindings
+                                    , fieldBindings = letBindingResult.fieldBinds
+                                    , fieldBindingRanges = letBindingResult.bindingRanges
+                                    , helperFunctions = letBindingResult.helpers
                                 }
 
                             _ ->

@@ -64,6 +64,7 @@ The system is conservative by design. If field tracking is uncertain for any rea
 | Multi-parameter helpers: `formatTitle prefix data = ...` | ✅ Working | `analyzeParameter` + `appDataArgIndex` tracking |
 | Case with record pattern: `case data of { title } -> title` | ✅ Working | `extractCasePatternFields` in `analyzeFieldAccessesWithAliases` |
 | Case with variable pattern: `case data of d -> d.title` | ✅ Working | `extractCaseVariablePatternBindings` + `appDataBindings` tracking |
+| Let-bound helpers: `let fn data = data.field in fn app.data` | ✅ Working | `analyzeHelperFunction` on LetFunction declarations |
 
 ### Inline Lambda Analysis
 
@@ -191,6 +192,20 @@ view app = { title = app.data |> (\d -> d.title), body = [] }
 
 -- Inline lambdas with record destructuring
 view app = { title = (\{ title } -> title) app.data, body = [] }
+
+-- Let-bound helper functions (analyzed just like top-level helpers)
+view app =
+    let
+        extractTitle data = data.title
+    in
+    { title = extractTitle app.data, body = [] }
+
+-- Let-bound helpers with record destructuring
+view app =
+    let
+        extractTitle { title } = title
+    in
+    { title = extractTitle app.data, body = [] }
 
 -- Let bindings
 let title = app.data.title in ...

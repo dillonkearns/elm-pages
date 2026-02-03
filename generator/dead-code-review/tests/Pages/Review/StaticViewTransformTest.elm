@@ -4419,4 +4419,132 @@ view maybeUrl sharedModel model static =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "Let-bound helper functions"
+            [ test "let-bound helper function with data parameter is trackable" <|
+                \() ->
+                    -- When a helper function is defined in a let expression
+                    -- and app.data is passed to it, we should track field usage.
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    let
+        extractTitle data =
+            data.title
+    in
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                        |> Review.Test.run rule
+                        -- extractTitle only uses 'title', so 'body' should be ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view app =
+    let
+        extractTitle data =
+            data.title
+    in
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "let-bound helper with record destructuring pattern is trackable" <|
+                \() ->
+                    -- When a let-bound helper uses record destructuring,
+                    -- we should track exactly those fields.
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    let
+        extractTitle { title } =
+            title
+    in
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                        |> Review.Test.run rule
+                        -- extractTitle only uses 'title' via pattern, so 'body' should be ephemeral
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view app =
+    let
+        extractTitle { title } =
+            title
+    in
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         ]

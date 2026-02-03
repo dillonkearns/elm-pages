@@ -702,14 +702,55 @@ trackFieldAccess node context =
             case Node.value node of
                 Expression.LetExpression letBlock ->
                     let
+                        -- Extract app.data bindings (let d = app.data)
                         newBindings =
                             PersistentFieldTracking.extractAppDataBindingsFromLet
                                 letBlock.declarations
                                 context.appParamName
                                 context.appDataBindings
                                 (\expr -> isAppDataAccess expr context)
+
+                        -- Analyze let-bound helper functions with parameters
+                        -- This allows tracking when app.data is passed to let-bound helpers
+                        newHelperFunctions =
+                            letBlock.declarations
+                                |> List.foldl
+                                    (\declNode helpers ->
+                                        case Node.value declNode of
+                                            Expression.LetFunction letFn ->
+                                                let
+                                                    fnDecl =
+                                                        Node.value letFn.declaration
+
+                                                    fnName =
+                                                        Node.value fnDecl.name
+                                                in
+                                                case fnDecl.arguments of
+                                                    [] ->
+                                                        -- No arguments, not a helper function
+                                                        helpers
+
+                                                    _ ->
+                                                        -- Has arguments - analyze as a helper function
+                                                        let
+                                                            helperAnalysis =
+                                                                PersistentFieldTracking.analyzeHelperFunction letFn
+                                                        in
+                                                        if List.isEmpty helperAnalysis then
+                                                            helpers
+
+                                                        else
+                                                            Dict.insert fnName helperAnalysis helpers
+
+                                            Expression.LetDestructuring _ _ ->
+                                                helpers
+                                    )
+                                    context.helperFunctions
                     in
-                    { context | appDataBindings = newBindings }
+                    { context
+                        | appDataBindings = newBindings
+                        , helperFunctions = newHelperFunctions
+                    }
 
                 -- Case expression on app.data: case app.data of {...}
                 -- Track record patterns, and for variable patterns add to appDataBindings

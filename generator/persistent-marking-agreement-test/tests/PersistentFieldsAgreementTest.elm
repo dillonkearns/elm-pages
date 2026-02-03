@@ -4318,4 +4318,228 @@ view app =
                                 }
                             ]
             ]
+        , describe "Let-bound helper functions - both agree"
+            [ test "AGREEMENT: let-bound helper with data parameter - server optimizes" <|
+                \() ->
+                    -- Helper function defined in let expression: let extractTitle data = data.title
+                    -- Both transforms should track that the helper uses 'title'
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    let
+        extractTitle data =
+            data.title
+    in
+    { title = extractTitle app.data
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+"""
+                    in
+                    -- Server marks body as ephemeral (extractTitle uses only title)
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view app =
+    let
+        extractTitle data =
+            data.title
+    in
+    { title = extractTitle app.data
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    let
+        extractTitle data =
+            data.title
+    in
+    { title = extractTitle app.data
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                            ]
+            , test "AGREEMENT: let-bound helper with record destructuring - server optimizes" <|
+                \() ->
+                    -- Helper with record destructuring: let extractTitle { title } = title
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    let
+        extractTitle { title } =
+            title
+    in
+    { title = extractTitle app.data
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+"""
+                    in
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view app =
+    let
+        extractTitle { title } =
+            title
+    in
+    { title = extractTitle app.data
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    let
+        extractTitle { title } =
+            title
+    in
+    { title = extractTitle app.data
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                            ]
+            ]
         ]
