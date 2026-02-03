@@ -1,5 +1,5 @@
 ---
-description: Frozen Views let you render content at build or server-render time and eliminate rendering code from your client bundle, giving you smaller bundles and faster page loads.
+description: Frozen Views let you mark parts of your view to be rendered at build time to eliminate rendering code bundling and execution on the client-side.
 ---
 
 # Frozen Views
