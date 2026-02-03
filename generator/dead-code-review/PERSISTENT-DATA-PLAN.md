@@ -91,6 +91,16 @@ The system is conservative by design. If field tracking is uncertain for any rea
 | `app.data \|> .title \|> String.toUpper` | ✅ Working | Field access tracked before subsequent transforms |
 | `app.data.title \|> String.toUpper` | ✅ Working | Direct field access tracked regardless of pipe target |
 
+### Function Composition Patterns
+
+| Pattern | Status | Implementation |
+|---------|--------|----------------|
+| `app.data \|> (.title >> String.toUpper)` | ✅ Working | `extractAccessorFromExpr` extracts field from first operand of `>>` |
+| `app.data \|> (String.toUpper << .title)` | ✅ Working | `extractAccessorFromExpr` extracts field from second operand of `<<` |
+| `(.title >> fn) <\| app.data` | ✅ Working | Same as forward pipe with composition |
+
+**Note**: Function composition with record accessors is tracked by recognizing that `.field >> transform` or `transform << .field` effectively extracts a field first. The `isRecordAccessFunction` helper identifies these patterns so they're handled as field accesses rather than unknown function calls.
+
 ### Nested Local Function Applications
 
 | Pattern | Status | Implementation |
@@ -267,6 +277,20 @@ update pageUrl sharedModel app msg model =
 -- Field access is tracked before subsequent transforms
 view app =
     { title = app.data |> .title |> String.toUpper
+    , body = []
+    }
+
+-- Function composition with accessor (forward composition)
+-- The accessor .title extracts the field, then String.toUpper transforms it
+view app =
+    { title = app.data |> (.title >> String.toUpper)
+    , body = []
+    }
+
+-- Function composition with accessor (backward composition)
+-- Same result, just written in the opposite direction
+view app =
+    { title = app.data |> (String.toUpper << .title)
     , body = []
     }
 

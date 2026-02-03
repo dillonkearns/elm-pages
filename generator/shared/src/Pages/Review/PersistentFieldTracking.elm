@@ -671,6 +671,9 @@ extractAccessorFieldFromApplicationWithAliases exprs paramAliases =
 
 
 {-| Extract field name from pipe operator with accessor pattern, with alias support.
+Also handles function composition patterns:
+  - `param |> (.field >> transform)` - extracts field from first operand of >>
+  - `param |> (transform << .field)` - extracts field from second operand of <<
 -}
 extractPipeAccessorFieldWithAliases : String -> Set String -> Node Expression -> Node Expression -> Maybe String
 extractPipeAccessorFieldWithAliases op paramAliases leftExpr rightExpr =
@@ -686,10 +689,10 @@ extractPipeAccessorFieldWithAliases op paramAliases leftExpr rightExpr =
                 _ ->
                     ( leftExpr, rightExpr )
     in
-    case ( Node.value varExpr, Node.value accessorExpr ) of
-        ( Expression.FunctionOrValue [] varName, Expression.RecordAccessFunction accessorName ) ->
+    case Node.value varExpr of
+        Expression.FunctionOrValue [] varName ->
             if isParamOrAlias paramAliases varName then
-                Just (String.dropLeft 1 accessorName)
+                extractAccessorFromExpr accessorExpr
 
             else
                 Nothing
@@ -898,6 +901,9 @@ extractPatternName node =
 
 {-| Extract field name from pipe operator with accessor pattern.
 Handles both `param |> .field` and `.field <| param`.
+Also handles function composition patterns:
+  - `param |> (.field >> transform)` - extracts field from first operand of >>
+  - `param |> (transform << .field)` - extracts field from second operand of <<
 Returns Just fieldName if the pattern matches with the given paramName.
 -}
 extractPipeAccessorField : String -> String -> Node Expression -> Node Expression -> Maybe String
@@ -914,10 +920,10 @@ extractPipeAccessorField op paramName leftExpr rightExpr =
                 _ ->
                     ( leftExpr, rightExpr )
     in
-    case ( Node.value varExpr, Node.value accessorExpr ) of
-        ( Expression.FunctionOrValue [] varName, Expression.RecordAccessFunction accessorName ) ->
+    case Node.value varExpr of
+        Expression.FunctionOrValue [] varName ->
             if varName == paramName then
-                Just (String.dropLeft 1 accessorName)
+                extractAccessorFromExpr accessorExpr
 
             else
                 Nothing
@@ -1459,6 +1465,9 @@ isAppDataPassedDirectlyToInnerCall innerArgs appParamName appDataBindings =
 
 {-| Extract field name from pipe operator with accessor pattern on app.data.
 Handles `app.data |> .field` and `.field <| app.data`.
+Also handles function composition patterns:
+  - `app.data |> (.field >> transform)` - extracts field from first operand of >>
+  - `app.data |> (transform << .field)` - extracts field from second operand of <<
 Returns Just fieldName if the pattern matches.
 -}
 extractAppDataPipeAccessorField : String -> Node Expression -> Node Expression -> Maybe String -> Set String -> Maybe String
@@ -1476,15 +1485,44 @@ extractAppDataPipeAccessorField op leftExpr rightExpr appParamName appDataBindin
                     ( leftExpr, rightExpr )
     in
     if isAppDataAccess dataExpr appParamName appDataBindings then
-        case Node.value accessorExpr of
-            Expression.RecordAccessFunction accessorName ->
-                Just (String.dropLeft 1 accessorName)
-
-            _ ->
-                Nothing
+        extractAccessorFromExpr accessorExpr
 
     else
         Nothing
+
+
+{-| Extract field name from an expression that should be an accessor.
+Handles:
+  - Direct accessor: `.field`
+  - Function composition: `.field >> transform` or `transform << .field`
+  - Parenthesized forms of the above
+-}
+extractAccessorFromExpr : Node Expression -> Maybe String
+extractAccessorFromExpr accessorExpr =
+    case Node.value accessorExpr of
+        Expression.RecordAccessFunction accessorName ->
+            Just (String.dropLeft 1 accessorName)
+
+        -- Handle parenthesized expressions like (.title >> String.toUpper)
+        Expression.ParenthesizedExpression inner ->
+            extractAccessorFromExpr inner
+
+        -- Handle function composition: .field >> transform or transform << .field
+        Expression.OperatorApplication composeOp _ composeLeft composeRight ->
+            case composeOp of
+                ">>" ->
+                    -- .field >> transform: accessor is on the left
+                    extractAccessorFromExpr composeLeft
+
+                "<<" ->
+                    -- transform << .field: accessor is on the right
+                    extractAccessorFromExpr composeRight
+
+                _ ->
+                    Nothing
+
+        _ ->
+            Nothing
 
 
 {-| Extract field name from accessor function application pattern: `.field app.data`

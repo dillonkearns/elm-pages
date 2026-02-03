@@ -826,6 +826,16 @@ isRecordAccessFunction node =
         Expression.ParenthesizedExpression inner ->
             isRecordAccessFunction inner
 
+        -- Handle function composition: .field >> transform or transform << .field
+        -- These should be treated as field accessors because they extract a field first
+        Expression.OperatorApplication ">>" _ leftExpr _ ->
+            -- .field >> transform: accessor is on the left
+            isRecordAccessFunction leftExpr
+
+        Expression.OperatorApplication "<<" _ _ rightExpr ->
+            -- transform << .field: accessor is on the right
+            isRecordAccessFunction rightExpr
+
         _ ->
             False
 
