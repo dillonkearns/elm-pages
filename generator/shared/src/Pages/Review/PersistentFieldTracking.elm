@@ -17,6 +17,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , extractAppDataFieldName
     , extractAppDataBindingsFromLet
     , extractCasePatternFields
+    , extractCaseVariablePatternBindings
     , extractDataTypeRanges
     , extractFieldAccess
     , extractFieldNames
@@ -28,6 +29,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , extractAppDataPipeAccessorField
     , isAppDataAccess
     , isExitingFreezeCall
+    , isRecordAccessFunction
     , isViewFreezeCall
     , resolvePendingHelperCalls
     , typeAnnotationToString
@@ -1840,6 +1842,58 @@ type alias PendingHelperCall =
     { funcName : String
     , argIndex : Int
     }
+
+
+{-| Check if an expression is a record access function like `.field`.
+
+These are handled separately by trackFieldAccess and shouldn't be treated
+as function calls in the pipe operator handler.
+
+Also handles function composition patterns:
+
+  - `.field >> transform` - accessor is on the left of >>
+  - `transform << .field` - accessor is on the right of <<
+
+-}
+isRecordAccessFunction : Node Expression -> Bool
+isRecordAccessFunction node =
+    case Node.value node of
+        Expression.RecordAccessFunction _ ->
+            True
+
+        Expression.ParenthesizedExpression inner ->
+            isRecordAccessFunction inner
+
+        -- Handle function composition: .field >> transform or transform << .field
+        -- These should be treated as field accessors because they extract a field first
+        Expression.OperatorApplication ">>" _ leftExpr _ ->
+            -- .field >> transform: accessor is on the left
+            isRecordAccessFunction leftExpr
+
+        Expression.OperatorApplication "<<" _ _ rightExpr ->
+            -- transform << .field: accessor is on the right
+            isRecordAccessFunction rightExpr
+
+        _ ->
+            False
+
+
+{-| Extract variable names from case expression patterns.
+
+For patterns like `case app.data of d -> ...`, extracts "d" so it can be
+added to appDataBindings and field accesses like `d.title` can be tracked.
+
+Returns empty set for non-variable patterns (constructor patterns, etc.).
+
+-}
+extractCaseVariablePatternBindings : List ( Node Pattern, Node expression ) -> Set String
+extractCaseVariablePatternBindings cases =
+    cases
+        |> List.filterMap
+            (\( patternNode, _ ) ->
+                extractPatternName patternNode
+            )
+        |> Set.fromList
 
 
 {-| Actions to take for pending helper call tracking.

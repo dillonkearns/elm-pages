@@ -793,51 +793,18 @@ isAppDataAccess node context =
     PersistentFieldTracking.isAppDataAccess node context.appParamName context.appDataBindings
 
 
-{-| Extract variable names from case expression patterns.
-
-For patterns like `case app.data of d -> ...`, extracts "d" so it can be
-added to appDataBindings and field accesses like `d.title` can be tracked.
-
-Returns empty set for non-variable patterns (constructor patterns, etc.).
-
+{-| Delegate to shared extractCaseVariablePatternBindings function.
 -}
 extractCaseVariablePatternBindings : List ( Node Pattern, Node expression ) -> Set String
-extractCaseVariablePatternBindings cases =
-    cases
-        |> List.filterMap
-            (\( patternNode, _ ) ->
-                PersistentFieldTracking.extractPatternName patternNode
-            )
-        |> Set.fromList
+extractCaseVariablePatternBindings =
+    PersistentFieldTracking.extractCaseVariablePatternBindings
 
 
-{-| Check if an expression is a record access function like `.field`.
-
-These are handled separately by trackFieldAccess and shouldn't be treated
-as function calls in the pipe operator handler.
-
+{-| Delegate to shared isRecordAccessFunction function.
 -}
 isRecordAccessFunction : Node Expression -> Bool
-isRecordAccessFunction node =
-    case Node.value node of
-        Expression.RecordAccessFunction _ ->
-            True
-
-        Expression.ParenthesizedExpression inner ->
-            isRecordAccessFunction inner
-
-        -- Handle function composition: .field >> transform or transform << .field
-        -- These should be treated as field accessors because they extract a field first
-        Expression.OperatorApplication ">>" _ leftExpr _ ->
-            -- .field >> transform: accessor is on the left
-            isRecordAccessFunction leftExpr
-
-        Expression.OperatorApplication "<<" _ _ rightExpr ->
-            -- transform << .field: accessor is on the right
-            isRecordAccessFunction rightExpr
-
-        _ ->
-            False
+isRecordAccessFunction =
+    PersistentFieldTracking.isRecordAccessFunction
 
 
 
