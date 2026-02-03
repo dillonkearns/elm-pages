@@ -3,12 +3,15 @@ module Pages.Review.PersistentFieldTracking exposing
     , CasePatternResult(..)
     , FieldAccessResult(..)
     , HelperAnalysis
+    , HelperCallResult(..)
     , InlineLambdaResult(..)
     , PendingHelperAction(..)
     , PendingHelperCall
     , analyzeFieldAccessesOnParam
+    , analyzeHelperCallInClientContext
     , analyzeHelperFunction
     , analyzeInlineLambda
+    , analyzePipedHelperCall
     , classifyAppDataArguments
     , computeEphemeralFields
     , containsAppDataExpression
@@ -1908,6 +1911,20 @@ type PendingHelperAction
     | NoHelperAction -- Skip (accessor application or no app.data involved)
 
 
+{-| Result of analyzing an app.data helper call in client context.
+
+This type consolidates both the pending helper action determination AND the
+inline lambda fallback analysis into a single result. Both client and server
+transforms can use this to update their context appropriately.
+
+-}
+type HelperCallResult
+    = HelperCallKnown PendingHelperCall -- Local function to track for later resolution
+    | HelperCallLambdaFields (Set String) -- Inline lambda with specific fields to mark as client-used
+    | HelperCallUntrackable -- Untrackable (wrapped, unknown function, or untrackable lambda)
+    | HelperCallNoAction -- No app.data involvement, nothing to do
+
+
 {-| Determine what action to take for pending helper calls based on classification.
 
 This extracts the common client-context logic from checkAppDataPassedToHelper
@@ -1940,3 +1957,110 @@ determinePendingHelperAction classification =
 
     else
         NoHelperAction
+
+
+{-| Analyze an app.data helper call for client context, including inline lambda fallback.
+
+This consolidates the common logic from checkAppDataPassedToHelper in both
+StaticViewTransform and ServerDataTransform. It combines:
+
+1. Classification of arguments via classifyAppDataArguments
+2. Initial action determination via determinePendingHelperAction
+3. Inline lambda fallback analysis when the initial action is AddUnknownHelper
+
+Both transforms can use this single function and just interpret the result.
+
+-}
+analyzeHelperCallInClientContext :
+    Node Expression
+    -> AppDataClassification
+    -> HelperCallResult
+analyzeHelperCallInClientContext functionNode classification =
+    case determinePendingHelperAction classification of
+        AddKnownHelper helperCall ->
+            HelperCallKnown helperCall
+
+        AddUnknownHelper ->
+            -- Before giving up, check if this is an inline lambda we can analyze
+            case classification.appDataArgIndex of
+                Just argIndex ->
+                    case analyzeInlineLambda functionNode argIndex of
+                        LambdaTrackable accessedFields ->
+                            -- Lambda is trackable - return specific fields
+                            HelperCallLambdaFields accessedFields
+
+                        LambdaUntrackable ->
+                            -- Lambda uses parameter in untrackable ways - bail out
+                            HelperCallUntrackable
+
+                        NotALambda ->
+                            -- Not a lambda - original behavior (unknown helper)
+                            HelperCallUntrackable
+
+                Nothing ->
+                    -- No arg index - can't analyze
+                    HelperCallUntrackable
+
+        NoHelperAction ->
+            HelperCallNoAction
+
+
+{-| Analyze a piped app.data call for client context.
+
+This handles `app.data |> fn` and `fn <| app.data` patterns.
+Consolidates the common logic from checkAppDataPassedToHelperViaPipe in both
+StaticViewTransform and ServerDataTransform.
+
+Returns a HelperCallResult that both transforms can interpret.
+
+-}
+analyzePipedHelperCall : Node Expression -> HelperCallResult
+analyzePipedHelperCall functionNode =
+    case Node.value functionNode of
+        Expression.FunctionOrValue [] funcName ->
+            -- Local named function - track as pending helper call (arg index is 0 for pipe)
+            HelperCallKnown { funcName = funcName, argIndex = 0 }
+
+        Expression.FunctionOrValue _ _ ->
+            -- Qualified function (e.g., Module.fn) - can't analyze, bail out
+            HelperCallUntrackable
+
+        Expression.Application (firstExpr :: appliedArgs) ->
+            -- Partial application: `formatHelper "prefix"` where app.data will be the next arg
+            -- The piped value goes to position = number of already-applied args
+            case Node.value firstExpr of
+                Expression.FunctionOrValue [] funcName ->
+                    -- Local function with some args already applied
+                    -- app.data becomes the next argument position
+                    HelperCallKnown { funcName = funcName, argIndex = List.length appliedArgs }
+
+                Expression.FunctionOrValue _ _ ->
+                    -- Qualified function - can't analyze
+                    HelperCallUntrackable
+
+                _ ->
+                    -- Complex expression (e.g., (fn) arg) - try lambda analysis
+                    analyzeLambdaForPipe functionNode
+
+        _ ->
+            -- Could be an inline lambda - try to analyze it
+            analyzeLambdaForPipe functionNode
+
+
+{-| Try to analyze a function node as an inline lambda for pipe patterns.
+Returns a HelperCallResult.
+-}
+analyzeLambdaForPipe : Node Expression -> HelperCallResult
+analyzeLambdaForPipe functionNode =
+    case analyzeInlineLambda functionNode 0 of
+        LambdaTrackable accessedFields ->
+            -- Lambda is trackable - return specific fields
+            HelperCallLambdaFields accessedFields
+
+        LambdaUntrackable ->
+            -- Lambda uses parameter in untrackable ways - bail out
+            HelperCallUntrackable
+
+        NotALambda ->
+            -- Not a lambda and not a simple function - bail out
+            HelperCallUntrackable

@@ -826,10 +826,7 @@ containsAppDataExpression node context =
 In CLIENT context: track as pending helper call for field usage analysis.
 In FREEZE context: we don't care (it's ephemeral).
 
-Uses shared classifyAppDataArguments and determinePendingHelperAction from PersistentFieldTracking.
-
-Also handles inline lambdas like `(\d -> d.title) app.data` by analyzing
-the lambda body directly.
+Uses shared analyzeHelperCallInClientContext from PersistentFieldTracking.
 
 -}
 checkAppDataPassedToHelper : Context -> Node Expression -> List (Node Expression) -> Context
@@ -849,43 +846,14 @@ checkAppDataPassedToHelper context functionNode args =
                     (\fn -> isViewFreezeCall fn context)
                     (\expr -> containsAppDataExpression expr context)
         in
-        -- Use shared logic to determine what action to take
-        case PersistentFieldTracking.determinePendingHelperAction classification of
-            PersistentFieldTracking.AddKnownHelper helperCall ->
-                { context | pendingHelperCalls = Just helperCall :: context.pendingHelperCalls }
-
-            PersistentFieldTracking.AddUnknownHelper ->
-                -- Before giving up, check if this is an inline lambda we can analyze
-                case classification.appDataArgIndex of
-                    Just argIndex ->
-                        case PersistentFieldTracking.analyzeInlineLambda functionNode argIndex of
-                            PersistentFieldTracking.LambdaTrackable accessedFields ->
-                                -- Lambda is trackable - mark the specific fields as client-used
-                                Set.foldl addFieldAccess context accessedFields
-
-                            PersistentFieldTracking.LambdaUntrackable ->
-                                -- Lambda uses parameter in untrackable ways - bail out
-                                { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
-
-                            PersistentFieldTracking.NotALambda ->
-                                -- Not a lambda - original behavior (unknown helper)
-                                { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
-
-                    Nothing ->
-                        -- No arg index - can't analyze
-                        { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
-
-            PersistentFieldTracking.NoHelperAction ->
-                context
+        -- Use shared analysis with inline lambda fallback
+        applyHelperCallResult context (PersistentFieldTracking.analyzeHelperCallInClientContext functionNode classification)
 
 
 {-| Check if app.data is passed to a function via pipe operator.
 
-Handles `app.data |> fn` and `fn <| app.data` where fn can be:
-
-  - A named function (tracked as pending helper)
-  - A partially applied function (e.g., `formatHelper "prefix"`)
-  - An inline lambda (analyzed inline)
+Handles `app.data |> fn` and `fn <| app.data` patterns.
+Uses shared analyzePipedHelperCall from PersistentFieldTracking.
 
 -}
 checkAppDataPassedToHelperViaPipe : Context -> Node Expression -> Node Expression -> Context
@@ -899,61 +867,30 @@ checkAppDataPassedToHelperViaPipe context functionNode argNode =
         context
 
     else
-        -- In client context - check if it's a named function, partial application, or inline lambda
-        case Node.value functionNode of
-            Expression.FunctionOrValue [] funcName ->
-                -- Local named function - track as pending helper call (arg index is 0 for pipe)
-                { context
-                    | pendingHelperCalls =
-                        Just { funcName = funcName, argIndex = 0 } :: context.pendingHelperCalls
-                }
-
-            Expression.FunctionOrValue _ _ ->
-                -- Qualified function (e.g., Module.fn) - can't analyze, bail out
-                { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
-
-            Expression.Application (firstExpr :: appliedArgs) ->
-                -- Partial application: `formatHelper "prefix"` where app.data will be the next arg
-                -- The piped value goes to position = number of already-applied args
-                case Node.value firstExpr of
-                    Expression.FunctionOrValue [] funcName ->
-                        -- Local function with some args already applied
-                        -- app.data becomes the next argument position
-                        { context
-                            | pendingHelperCalls =
-                                Just { funcName = funcName, argIndex = List.length appliedArgs } :: context.pendingHelperCalls
-                        }
-
-                    Expression.FunctionOrValue _ _ ->
-                        -- Qualified function - can't analyze
-                        { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
-
-                    _ ->
-                        -- Complex expression (e.g., (fn) arg) - try lambda analysis
-                        tryLambdaAnalysis context functionNode
-
-            _ ->
-                -- Could be an inline lambda - try to analyze it
-                tryLambdaAnalysis context functionNode
+        -- In client context - use shared pipe analysis
+        applyHelperCallResult context (PersistentFieldTracking.analyzePipedHelperCall functionNode)
 
 
-{-| Try to analyze a function node as an inline lambda.
-Returns updated context with field tracking or bail-out marker.
+{-| Apply a HelperCallResult to the context.
+
+This interprets the shared analysis result and updates the context accordingly.
+Both checkAppDataPassedToHelper and checkAppDataPassedToHelperViaPipe use this.
+
 -}
-tryLambdaAnalysis : Context -> Node Expression -> Context
-tryLambdaAnalysis context functionNode =
-    case PersistentFieldTracking.analyzeInlineLambda functionNode 0 of
-        PersistentFieldTracking.LambdaTrackable accessedFields ->
-            -- Lambda is trackable - mark the specific fields as client-used
+applyHelperCallResult : Context -> PersistentFieldTracking.HelperCallResult -> Context
+applyHelperCallResult context result =
+    case result of
+        PersistentFieldTracking.HelperCallKnown helperCall ->
+            { context | pendingHelperCalls = Just helperCall :: context.pendingHelperCalls }
+
+        PersistentFieldTracking.HelperCallLambdaFields accessedFields ->
             Set.foldl addFieldAccess context accessedFields
 
-        PersistentFieldTracking.LambdaUntrackable ->
-            -- Lambda uses parameter in untrackable ways - bail out
+        PersistentFieldTracking.HelperCallUntrackable ->
             { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
 
-        PersistentFieldTracking.NotALambda ->
-            -- Not a lambda and not a simple function - bail out
-            { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+        PersistentFieldTracking.HelperCallNoAction ->
+            context
 
 
 {-| Delegate to shared isRecordAccessFunction function.
