@@ -84,6 +84,32 @@ The system is conservative by design. If field tracking is uncertain for any rea
 | `helperFn <\| app.data` | ✅ Working | Same as forward pipe, argIndex 0 |
 | `formatHelper "prefix" <\| app.data` | ✅ Working | Same as forward pipe with partial application |
 
+### Pipe Chains with Further Transformations
+
+| Pattern | Status | Implementation |
+|---------|--------|----------------|
+| `app.data \|> .title \|> String.toUpper` | ✅ Working | Field access tracked before subsequent transforms |
+| `app.data.title \|> String.toUpper` | ✅ Working | Direct field access tracked regardless of pipe target |
+
+### Control Flow Patterns
+
+| Pattern | Status | Implementation |
+|---------|--------|----------------|
+| `if app.data.isPublished then app.data.title else "Draft"` | ✅ Working | All field accesses in condition and branches tracked |
+| `case app.data.status of Published -> app.data.title` | ✅ Working | Field access on case subject + branches tracked |
+
+**Note**: `case app.data of ...` (matching on app.data itself with constructor patterns) bails out safely - see Safe Fallback Patterns. But `case app.data.field of ...` (matching on a field value) works correctly.
+
+### Field Accesses in Data Structures
+
+| Pattern | Status | Implementation |
+|---------|--------|----------------|
+| `[ app.data.title, app.data.subtitle ]` | ✅ Working | Individual field accesses tracked, even in list literals |
+| `( app.data.title, app.data.body )` | ✅ Working | Individual field accesses tracked in tuples |
+| `String.join ", " [ app.data.title, app.data.subtitle ]` | ✅ Working | Fields tracked before being passed to function |
+
+**Note**: This is different from `[ app.data ]` (putting the entire app.data in a list), which bails out - see Safe Fallback Patterns. Individual field accesses are tracked; wrapping app.data itself is not.
+
 ### RouteBuilder Integration
 
 | Pattern | Status | Implementation |
@@ -226,6 +252,40 @@ init maybePageUrl sharedModel app =
 update : PageUrl -> Shared.Model -> App Data ActionData RouteParams -> Msg -> Model -> ( Model, Effect Msg )
 update pageUrl sharedModel app msg model =
     ( { model | title = app.data.title }, Effect.none )
+
+-- Pipe chain with further transformations
+-- Field access is tracked before subsequent transforms
+view app =
+    { title = app.data |> .title |> String.toUpper
+    , body = []
+    }
+
+-- If expressions track all field accesses
+view app =
+    { title =
+        if app.data.isPublished then
+            app.data.title
+        else
+            app.data.draftTitle
+    , body = []
+    }
+
+-- Case on a FIELD of app.data (not app.data itself)
+-- Tracks status field access + title/draftTitle in branches
+view app =
+    { title =
+        case app.data.status of
+            Published -> app.data.title
+            Draft -> app.data.draftTitle
+    , body = []
+    }
+
+-- Individual field accesses in list literals are tracked
+-- (different from [app.data] which bails out)
+view app =
+    { title = String.join ", " [ app.data.title, app.data.subtitle ]
+    , body = []
+    }
 ```
 
 ## Safe Fallback Patterns

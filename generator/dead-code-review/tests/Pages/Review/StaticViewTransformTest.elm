@@ -4547,4 +4547,378 @@ view app =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "Case expressions on app.data fields"
+            [ test "case on app.data field tracks the field plus any fields in branches" <|
+                \() ->
+                    -- When we have `case app.data.someField of ...`,
+                    -- we should track someField plus any fields accessed in branches.
+                    -- This is different from `case app.data of ...` which bails out.
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type Status = Published | Draft
+
+type alias Data =
+    { status : Status
+    , title : String
+    , draftTitle : String
+    , body : String
+    }
+
+view app =
+    { title =
+        case app.data.status of
+            Published ->
+                app.data.title
+            Draft ->
+                app.data.draftTitle
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- status, title, draftTitle used in client context
+                        -- body only used in freeze
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type Status = Published | Draft
+
+type alias Data =
+    { status : Status
+    , title : String
+    , draftTitle : String
+    , body : String
+    }
+
+view app =
+    { title =
+        case app.data.status of
+            Published ->
+                app.data.title
+            Draft ->
+                app.data.draftTitle
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ status : Status
+    , title : String
+    , draftTitle : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type Status = Published | Draft
+
+type alias Data =
+    { status : Status, title : String, draftTitle : String }
+
+view app =
+    { title =
+        case app.data.status of
+            Published ->
+                app.data.title
+            Draft ->
+                app.data.draftTitle
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ status : Status, title : String, draftTitle : String }\",\"range\":{\"start\":{\"row\":10,\"column\":5},\"end\":{\"row\":14,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
+        , describe "Field accesses in if expressions"
+            [ test "field accesses in if condition and branches are tracked" <|
+                \() ->
+                    -- When app.data fields are accessed in if expressions,
+                    -- all accessed fields should be tracked.
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { isPublished : Bool
+    , title : String
+    , draftTitle : String
+    , body : String
+    }
+
+view app =
+    { title =
+        if app.data.isPublished then
+            app.data.title
+        else
+            app.data.draftTitle
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- isPublished, title, draftTitle used in client context
+                        -- body only used in freeze
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type alias Data =
+    { isPublished : Bool
+    , title : String
+    , draftTitle : String
+    , body : String
+    }
+
+view app =
+    { title =
+        if app.data.isPublished then
+            app.data.title
+        else
+            app.data.draftTitle
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ isPublished : Bool
+    , title : String
+    , draftTitle : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { isPublished : Bool, title : String, draftTitle : String }
+
+view app =
+    { title =
+        if app.data.isPublished then
+            app.data.title
+        else
+            app.data.draftTitle
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ isPublished : Bool, title : String, draftTitle : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":12,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
+        , describe "Pipe chain field access"
+            [ test "pipe with accessor then further transformation tracks field" <|
+                \() ->
+                    -- When app.data |> .field is followed by more pipe operations,
+                    -- the field should still be tracked.
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data |> .title |> String.toUpper
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- title used in client context (piped through String.toUpper)
+                        -- body only used in freeze
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data |> .title |> String.toUpper
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = app.data |> .title |> String.toUpper
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
+        , describe "Field accesses in list literals"
+            [ test "individual field accesses in list are tracked correctly" <|
+                \() ->
+                    -- When individual fields like app.data.title are put in a list,
+                    -- each field access should be tracked separately.
+                    -- This is different from putting app.data itself in a list.
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , subtitle : String
+    , body : String
+    }
+
+view app =
+    { title = String.join ", " [ app.data.title, app.data.subtitle ]
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- title and subtitle used in client context (in list)
+                        -- body only used in freeze
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type alias Data =
+    { title : String
+    , subtitle : String
+    , body : String
+    }
+
+view app =
+    { title = String.join ", " [ app.data.title, app.data.subtitle ]
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , subtitle : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String, subtitle : String }
+
+view app =
+    { title = String.join ", " [ app.data.title, app.data.subtitle ]
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String, subtitle : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         ]
