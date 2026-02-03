@@ -16,7 +16,7 @@ Html.Lazy.lazy todaysDateView model.today
 -- only re-render when input has changed
 ```
 
-So Elm's `Html.Lazy` avoids unnecessary re-renders.
+Elm's `Html.Lazy` avoids unnecessary re-renders.
 
 `elm-pages`' `View.freeze` takes it a step further - it *never* renders your code on the client-side. In fact, it doesn't even bundle the rendering code or the `Data` fields it depends on! Instead, it does the work to render the HTML for Frozen Views before it ever hits the client-side (at build-time, or at server-render time for server-rendered routes).
 
