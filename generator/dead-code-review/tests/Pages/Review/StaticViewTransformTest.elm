@@ -3819,4 +3819,604 @@ wrapperHelper data =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "init function field tracking"
+            [ test "field used in init should be client-used (not removed)" <|
+                \() ->
+                    -- The init function has App as its third parameter (after Maybe PageUrl, Shared.Model)
+                    -- Fields accessed in init run on the client and must be kept
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel app =
+    ( { cachedTitle = app.data.title }, Effect.none )
+
+view app =
+    { title = "Page"
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- body should be removed (only used in freeze)
+                        -- title should be KEPT (used in init)
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel app =
+    ( { cachedTitle = app.data.title }, Effect.none )
+
+view app =
+    { title = "Page"
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel app =
+    ( { cachedTitle = app.data.title }, Effect.none )
+
+view app =
+    { title = "Page"
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "field used ONLY in view and freeze should be removable when not used in init" <|
+                \() ->
+                    -- If a field is only used in view (client) and freeze (ephemeral), but NOT in init,
+                    -- the field used in freeze can still be removed
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel app =
+    ( {}, Effect.none )
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- body should be removed (only used in freeze)
+                        -- title should be KEPT (used in view outside freeze)
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel app =
+    ( {}, Effect.none )
+
+view app =
+    { title = app.data.title
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel app =
+    ( {}, Effect.none )
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "field used in init with different param name (static)" <|
+                \() ->
+                    -- Common pattern: using "static" instead of "app" for the App parameter
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel static =
+    ( { cachedTitle = static.data.title }, Effect.none )
+
+view app =
+    { title = "Page"
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- body should be removed (only used in freeze)
+                        -- title should be KEPT (used in init via static.data.title)
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel static =
+    ( { cachedTitle = static.data.title }, Effect.none )
+
+view app =
+    { title = "Page"
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel static =
+    ( { cachedTitle = static.data.title }, Effect.none )
+
+view app =
+    { title = "Page"
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "update function field tracking" <|
+                \() ->
+                    -- The update function also has App as its third parameter
+                    -- Fields accessed in update run on the client and must be kept
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+update : PageUrl -> Shared.Model -> App Data ActionData RouteParams -> Msg -> Model -> ( Model, Effect Msg )
+update pageUrl sharedModel app msg model =
+    ( { model | title = app.data.title }, Effect.none )
+
+view appArg =
+    { title = "Page"
+    , body = [ View.freeze (Html.text appArg.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- body should be removed (only used in freeze)
+                        -- title should be KEPT (used in update)
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text appArg.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+update : PageUrl -> Shared.Model -> App Data ActionData RouteParams -> Msg -> Model -> ( Model, Effect Msg )
+update pageUrl sharedModel app msg model =
+    ( { model | title = app.data.title }, Effect.none )
+
+view appArg =
+    { title = "Page"
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+update : PageUrl -> Shared.Model -> App Data ActionData RouteParams -> Msg -> Model -> ( Model, Effect Msg )
+update pageUrl sharedModel app msg model =
+    ( { model | title = app.data.title }, Effect.none )
+
+view appArg =
+    { title = "Page"
+    , body = [ View.freeze (Html.text appArg.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "both fields used in init - no fields can be removed" <|
+                \() ->
+                    -- When both fields are used in init, none can be removed
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel app =
+    ( { title = app.data.title, body = app.data.body }, Effect.none )
+
+view viewApp =
+    { title = "Page"
+    , body = [ View.freeze (Html.text viewApp.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- Both fields used in init, so neither can be removed
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text viewApp.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel app =
+    ( { title = app.data.title, body = app.data.body }, Effect.none )
+
+view viewApp =
+    { title = "Page"
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            ]
+            , test "helper function called from init tracks fields correctly" <|
+                \() ->
+                    -- When init calls a helper with app.data, the helper's fields should be tracked
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel app =
+    ( { cachedTitle = extractTitle app.data }, Effect.none )
+
+extractTitle data =
+    data.title
+
+view viewApp =
+    { title = "Page"
+    , body = [ View.freeze (Html.text viewApp.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- body should be removed (only used in freeze)
+                        -- title should be KEPT (used in init via helper)
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text viewApp.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel app =
+    ( { cachedTitle = extractTitle app.data }, Effect.none )
+
+extractTitle data =
+    data.title
+
+view viewApp =
+    { title = "Page"
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel app =
+    ( { cachedTitle = extractTitle app.data }, Effect.none )
+
+extractTitle data =
+    data.title
+
+view viewApp =
+    { title = "Page"
+    , body = [ View.freeze (Html.text viewApp.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "view with buildWithLocalState signature (App as 4th parameter)" <|
+                \() ->
+                    -- With buildWithLocalState, view has: Maybe PageUrl -> Shared.Model -> Model -> App Data ... -> View
+                    -- The App parameter is in position 4 (index 3)
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view : Maybe PageUrl -> Shared.Model -> Model -> App Data ActionData RouteParams -> View (PagesMsg Msg)
+view maybeUrl sharedModel model static =
+    { title = static.data.title
+    , body = [ View.freeze (Html.text static.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- body should be removed (only used in freeze)
+                        -- title should be KEPT (used in view outside freeze)
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text static.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view : Maybe PageUrl -> Shared.Model -> Model -> App Data ActionData RouteParams -> View (PagesMsg Msg)
+view maybeUrl sharedModel model static =
+    { title = static.data.title
+    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view : Maybe PageUrl -> Shared.Model -> Model -> App Data ActionData RouteParams -> View (PagesMsg Msg)
+view maybeUrl sharedModel model static =
+    { title = static.data.title
+    , body = [ View.freeze (Html.text static.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         ]

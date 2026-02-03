@@ -91,6 +91,21 @@ The system is conservative by design. If field tracking is uncertain for any rea
 | Non-conventional names: `{ head = seoTags }` | ✅ Working | `routeBuilderHeadFn` extraction |
 | Data function stubbing | ✅ Working | `dataFunctionBodyRange` tracking |
 
+### Client Function Tracking (init/update)
+
+| Pattern | Status | Implementation |
+|---------|--------|----------------|
+| `init` function field access | ✅ Working | `findAppParamIndex` finds App parameter position |
+| `update` function field access | ✅ Working | Same as init - App param found via type signature |
+| Different App param names: `static`, `app` | ✅ Working | Extracted from correct parameter position |
+
+**Note**: The `init` and `update` functions have different signatures than `view`:
+- `view`: App is typically the first parameter
+- `init`: App is typically the third parameter (after `Maybe PageUrl`, `Shared.Model`)
+- `update`: App is typically the third parameter (after `PageUrl`, `Shared.Model`)
+
+The system finds the App parameter by analyzing the type signature to locate `App Data ActionData RouteParams`.
+
 ### Code Examples
 
 ```elm
@@ -185,6 +200,17 @@ let { title, body } = app.data in ...
 
 -- RouteBuilder lambdas
 head = \app -> [ title app.data.title ]
+
+-- init function field access (App is 3rd parameter)
+-- Fields accessed here are client-used (must be kept in Data type)
+init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init maybePageUrl sharedModel app =
+    ( { cachedTitle = app.data.title }, Effect.none )
+
+-- update function field access (App is also 3rd parameter)
+update : PageUrl -> Shared.Model -> App Data ActionData RouteParams -> Msg -> Model -> ( Model, Effect Msg )
+update pageUrl sharedModel app msg model =
+    ( { model | title = app.data.title }, Effect.none )
 ```
 
 ## Safe Fallback Patterns

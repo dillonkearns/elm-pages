@@ -320,21 +320,40 @@ declarationEnterVisitor node context =
 
             else if functionName == "view" || functionName == "init" || functionName == "update" then
                 -- Extract the App parameter name from client-side functions
-                -- The first parameter is typically named "app" or "static"
                 -- We need to track field usage in ALL client-side functions, not just view
                 -- because fields accessed in init/update also need to be in the client Data type
                 --
-                -- IMPORTANT: We always update appParamName for each client function because
-                -- different functions might use different parameter names (e.g., init might
-                -- use "shared" while view uses "app" due to unconventional naming).
-                -- Since field tracking happens INSIDE each function, we need the correct
-                -- param name for each function at the time we're visiting it.
+                -- IMPORTANT: The App parameter position varies by function:
+                -- - view: typically first parameter, but can vary with buildWithLocalState
+                -- - init: typically third parameter (after Maybe PageUrl, Shared.Model)
+                -- - update: typically third parameter (after PageUrl, Shared.Model)
+                --
+                -- We find the correct position by looking at the type signature for the
+                -- parameter with type `App Data ActionData RouteParams`.
                 let
-                    maybeAppParam =
+                    arguments =
                         function.declaration
                             |> Node.value
                             |> .arguments
-                            |> List.head
+
+                    -- Try to find App parameter index from type signature
+                    maybeAppParamIndex =
+                        case function.signature of
+                            Just (Node _ signature) ->
+                                findAppParamIndex signature.typeAnnotation
+
+                            Nothing ->
+                                -- No type signature - fall back to first parameter
+                                Just 0
+
+                    maybeAppParam =
+                        maybeAppParamIndex
+                            |> Maybe.andThen
+                                (\index ->
+                                    arguments
+                                        |> List.drop index
+                                        |> List.head
+                                )
                             |> Maybe.andThen PersistentFieldTracking.extractPatternName
                 in
                 ( [], { contextWithAppDataRanges | appParamName = maybeAppParam } )
@@ -891,6 +910,57 @@ findAppDataRanges node =
 
         _ ->
             []
+
+
+{-| Find the index (0-based) of the parameter that has the `App` type.
+
+This is used for functions like `init` and `update` where the App parameter
+is not the first parameter. For example:
+
+    init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+
+The App parameter is at index 2 (third parameter).
+
+Returns Nothing if no App parameter is found.
+
+-}
+findAppParamIndex : Node TypeAnnotation -> Maybe Int
+findAppParamIndex typeAnnotation =
+    findAppParamIndexHelper 0 typeAnnotation
+
+
+findAppParamIndexHelper : Int -> Node TypeAnnotation -> Maybe Int
+findAppParamIndexHelper index node =
+    case Node.value node of
+        TypeAnnotation.FunctionTypeAnnotation left right ->
+            -- Check if the left side is an App type
+            if isAppTypeAnnotation left then
+                Just index
+
+            else
+                -- Recurse to the next parameter
+                findAppParamIndexHelper (index + 1) right
+
+        _ ->
+            -- Not a function type - check if it's an App type (last parameter or simple type)
+            if isAppTypeAnnotation node then
+                Just index
+
+            else
+                Nothing
+
+
+{-| Check if a type annotation is an App type (App Data ActionData RouteParams).
+-}
+isAppTypeAnnotation : Node TypeAnnotation -> Bool
+isAppTypeAnnotation node =
+    case Node.value node of
+        TypeAnnotation.Typed (Node _ ( moduleName, typeName )) _ ->
+            (moduleName == [] && typeName == "App")
+                || (moduleName == [ "RouteBuilder" ] && typeName == "App")
+
+        _ ->
+            False
 
 
 {-| Find all ranges where "Data" appears as a type in a type annotation.
