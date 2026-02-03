@@ -930,4 +930,55 @@ renderContent data =
                                 }
                             ]
             ]
+        , describe "Non-Route modules should be skipped"
+            [ test "Site module with Data type should not be transformed" <|
+                \() ->
+                    -- Site.elm is not a Route module, so it should be skipped
+                    -- even if it has a Data type with unused fields.
+                    -- This prevents server/client ephemeral field disagreements.
+                    """module Site exposing (config)
+
+import BackendTask exposing (BackendTask)
+import FatalError exposing (FatalError)
+
+type alias Data =
+    { siteName : String
+    }
+
+data : BackendTask FatalError Data
+data =
+    BackendTask.succeed { siteName = "test" }
+
+config =
+    { canonicalUrl = "https://example.com"
+    , head = BackendTask.succeed []
+    }
+"""
+                        |> Review.Test.run rule
+                        -- Site.elm is not a Route module, so no transformation should occur
+                        -- even though siteName is never used in client context
+                        |> Review.Test.expectNoErrors
+            , test "Shared module with Data type should not be transformed" <|
+                \() ->
+                    -- Shared.elm is not a Route module, so it should be skipped
+                    """module Shared exposing (Data, template)
+
+import BackendTask exposing (BackendTask)
+import FatalError exposing (FatalError)
+
+type alias Data =
+    { userName : String
+    }
+
+data : BackendTask FatalError Data
+data =
+    BackendTask.succeed { userName = "guest" }
+
+template =
+    {}
+"""
+                        |> Review.Test.run rule
+                        -- Shared.elm is not a Route module, so no transformation should occur
+                        |> Review.Test.expectNoErrors
+            ]
         ]

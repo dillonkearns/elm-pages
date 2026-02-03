@@ -929,8 +929,23 @@ mark all fields as persistent (safe fallback).
 -}
 finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
-    -- Skip if transformation was already applied (Ephemeral type exists)
-    if context.hasEphemeralType then
+    let
+        -- Only apply transformations to Route modules (Route.Index, Route.Blog.Slug_, etc.)
+        -- This matches the check in StaticViewTransform to ensure server/client agreement
+        isRouteModule =
+            case context.moduleName of
+                "Route" :: _ :: _ ->
+                    True
+
+                _ ->
+                    False
+    in
+    -- Skip non-Route modules (Site.elm, Shared.elm, etc.) to avoid disagreement with client transform
+    if not isRouteModule then
+        []
+
+    else if context.hasEphemeralType then
+        -- Skip if transformation was already applied (Ephemeral type exists)
         []
 
     else
