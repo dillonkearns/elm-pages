@@ -94,6 +94,10 @@ type alias ModuleContext =
     , projectFunctions : Dict ( ModuleName, String ) FunctionTaintInfo
     , collectedFunctions : Dict String FunctionTaintInfo
     , reportedRanges : Set ( ( Int, Int ), ( Int, Int ) )
+
+    -- Tainted context depth: tracks when we're inside a conditional (if/case) that
+    -- depends on model. When > 0, we're in a tainted context and should report error.
+    , taintedContextDepth : Int
     }
 
 
@@ -139,6 +143,7 @@ fromProjectToModule =
             , projectFunctions = projectContext.functionTaintInfo
             , collectedFunctions = Dict.empty
             , reportedRanges = Set.empty
+            , taintedContextDepth = 0
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -409,46 +414,88 @@ extractPatternName node =
 
 expressionEnterVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
 expressionEnterVisitor node context =
+    -- First, track entering tainted conditionals (if/case)
+    let
+        contextWithTaintedContext =
+            case Node.value node of
+                Expression.IfBlock cond _ _ ->
+                    let
+                        condTaint =
+                            analyzeExpressionTaint context cond
+                    in
+                    if condTaint == Tainted then
+                        { context | taintedContextDepth = context.taintedContextDepth + 1 }
+
+                    else
+                        context
+
+                Expression.CaseExpression caseBlock ->
+                    let
+                        scrutineeTaint =
+                            analyzeExpressionTaint context caseBlock.expression
+                    in
+                    if scrutineeTaint == Tainted then
+                        { context | taintedContextDepth = context.taintedContextDepth + 1 }
+
+                    else
+                        context
+
+                _ ->
+                    context
+    in
     case Node.value node of
         Expression.Application (functionNode :: _) ->
             -- Check if this is a call to a frozen view function
-            case checkFrozenViewFunctionCall functionNode context of
+            case checkFrozenViewFunctionCall functionNode contextWithTaintedContext of
                 Just scopeError ->
                     -- Report scope error and don't enter freeze mode (no point checking taint)
-                    ( [ scopeError ], context )
+                    ( [ scopeError ], contextWithTaintedContext )
 
                 Nothing ->
                     -- No scope error - check if entering freeze and track taint
                     let
                         newInFreezeCall =
-                            case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
+                            case ModuleNameLookupTable.moduleNameFor contextWithTaintedContext.lookupTable functionNode of
                                 Just [ "View" ] ->
                                     case Node.value functionNode of
                                         Expression.FunctionOrValue _ "freeze" ->
                                             True
 
                                         _ ->
-                                            context.inFreezeCall
+                                            contextWithTaintedContext.inFreezeCall
 
                                 _ ->
-                                    context.inFreezeCall
+                                    contextWithTaintedContext.inFreezeCall
 
                         contextWithFreeze =
-                            { context | inFreezeCall = newInFreezeCall }
+                            { contextWithTaintedContext | inFreezeCall = newInFreezeCall }
+
+                        -- Check if we're entering a View.freeze while inside a tainted conditional
+                        taintedConditionalError =
+                            if newInFreezeCall && not contextWithTaintedContext.inFreezeCall && contextWithTaintedContext.taintedContextDepth > 0 then
+                                -- Just entered freeze while inside tainted conditional
+                                [ freezeInTaintedContextError (Node.range functionNode) ]
+
+                            else
+                                []
                     in
                     if contextWithFreeze.inFreezeCall then
-                        checkTaintedReference node contextWithFreeze
+                        let
+                            ( taintErrors, finalContext ) =
+                                checkTaintedReference node contextWithFreeze
+                        in
+                        ( taintedConditionalError ++ taintErrors, finalContext )
 
                     else
-                        ( [], contextWithFreeze )
+                        ( taintedConditionalError, contextWithFreeze )
 
         _ ->
             -- Not a function application - check taint if in freeze
-            if context.inFreezeCall then
-                checkTaintedReference node context
+            if contextWithTaintedContext.inFreezeCall then
+                checkTaintedReference node contextWithTaintedContext
 
             else
-                ( [], context )
+                ( [], contextWithTaintedContext )
 
 
 {-| Check if a function call is to a frozen view function and if the current module is allowed.
@@ -475,22 +522,51 @@ checkFrozenViewFunctionCall functionNode context =
 
 expressionExitVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
 expressionExitVisitor node context =
+    -- Track exiting tainted conditionals (if/case)
+    let
+        contextWithTaintedContextUpdate =
+            case Node.value node of
+                Expression.IfBlock cond _ _ ->
+                    let
+                        condTaint =
+                            analyzeExpressionTaint context cond
+                    in
+                    if condTaint == Tainted && context.taintedContextDepth > 0 then
+                        { context | taintedContextDepth = context.taintedContextDepth - 1 }
+
+                    else
+                        context
+
+                Expression.CaseExpression caseBlock ->
+                    let
+                        scrutineeTaint =
+                            analyzeExpressionTaint context caseBlock.expression
+                    in
+                    if scrutineeTaint == Tainted && context.taintedContextDepth > 0 then
+                        { context | taintedContextDepth = context.taintedContextDepth - 1 }
+
+                    else
+                        context
+
+                _ ->
+                    context
+    in
     case Node.value node of
         Expression.Application (functionNode :: _) ->
-            case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
+            case ModuleNameLookupTable.moduleNameFor contextWithTaintedContextUpdate.lookupTable functionNode of
                 Just [ "View" ] ->
                     case Node.value functionNode of
                         Expression.FunctionOrValue _ "freeze" ->
-                            ( [], { context | inFreezeCall = False } )
+                            ( [], { contextWithTaintedContextUpdate | inFreezeCall = False } )
 
                         _ ->
-                            ( [], context )
+                            ( [], contextWithTaintedContextUpdate )
 
                 _ ->
-                    ( [], context )
+                    ( [], contextWithTaintedContextUpdate )
 
         _ ->
-            ( [], context )
+            ( [], contextWithTaintedContextUpdate )
 
 
 letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Error {}), ModuleContext )
@@ -867,6 +943,20 @@ frozenViewScopeError range functionName =
             , "To fix this, either:"
             , "1. Move the `" ++ functionName ++ "` call into a Route module, or"
             , "2. Create a helper function that returns data/Html and call `" ++ functionName ++ "` in the Route module"
+            ]
+        }
+        range
+
+
+freezeInTaintedContextError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+freezeInTaintedContextError range =
+    Rule.error
+        { message = "View.freeze inside conditionally-executed code path"
+        , details =
+            [ "This View.freeze is inside an if/case that depends on `model`."
+            , "The server renders at build time with initial model state, but the client may have different state."
+            , "This can cause server/client mismatch where different freeze indices are rendered."
+            , "Move the conditional logic outside of View.freeze, or ensure the condition only depends on build-time data."
             ]
         }
         range

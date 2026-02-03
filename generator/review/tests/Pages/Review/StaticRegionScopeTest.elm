@@ -34,7 +34,7 @@ helper =
                     ]
                         |> Review.Test.runOnModules rule
                         |> Review.Test.expectNoErrors
-            , test "reports View.freeze in non-Route module" <|
+            , test "allows View.freeze in Shared module" <|
                 \() ->
                     [ """module Shared exposing (view)
 
@@ -46,22 +46,7 @@ view app shared model =
 """
                     ]
                         |> Review.Test.runOnModules rule
-                        |> Review.Test.expectErrorsForModules
-                            [ ( "Shared"
-                              , [ Review.Test.error
-                                    { message = "`View.freeze` can only be called from Route modules"
-                                    , details =
-                                        [ "Frozen view functions like `View.freeze` are transformed by elm-review during the client-side build to enable dead code elimination (DCE)."
-                                        , "This transformation only works for Route modules (Route.Index, Route.Blog.Slug_, etc.). Calling these functions from other modules like Shared.elm or helper modules will NOT enable DCE - the heavy dependencies will still be included in the client bundle."
-                                        , "To fix this, either:"
-                                        , "1. Move the `View.freeze` call into a Route module, or"
-                                        , "2. Create a helper function that returns data/Html and call `View.freeze` in the Route module"
-                                        ]
-                                    , under = "View.freeze"
-                                    }
-                                ]
-                              )
-                            ]
+                        |> Review.Test.expectNoErrors
             , test "reports View.freeze in helper module" <|
                 \() ->
                     [ """module Helpers exposing (frozenContent)
@@ -774,6 +759,179 @@ view app shared model =
                                     , under = "user"
                                     }
                                     |> Review.Test.atExactly { start = { row = 10, column = 24 }, end = { row = 10, column = 28 } }
+                                ]
+                              )
+                            ]
+            ]
+        , describe "View.freeze inside tainted conditionals"
+            [ test "reports error when View.freeze is inside tainted if" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    if model.isVisible then
+        View.freeze (text "visible")
+    else
+        text "hidden"
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "View.freeze inside conditionally-executed code path"
+                                    , details =
+                                        [ "This View.freeze is inside an if/case that depends on `model`."
+                                        , "The server renders at build time with initial model state, but the client may have different state."
+                                        , "This can cause server/client mismatch where different freeze indices are rendered."
+                                        , "Move the conditional logic outside of View.freeze, or ensure the condition only depends on build-time data."
+                                        ]
+                                    , under = "View.freeze"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "reports error when View.freeze is inside tainted case" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    case model.status of
+        Active -> View.freeze (text "active")
+        Inactive -> text "inactive"
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "View.freeze inside conditionally-executed code path"
+                                    , details =
+                                        [ "This View.freeze is inside an if/case that depends on `model`."
+                                        , "The server renders at build time with initial model state, but the client may have different state."
+                                        , "This can cause server/client mismatch where different freeze indices are rendered."
+                                        , "Move the conditional logic outside of View.freeze, or ensure the condition only depends on build-time data."
+                                        ]
+                                    , under = "View.freeze"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "reports error in nested tainted conditionals" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    if model.a then
+        if True then
+            View.freeze (text "nested")
+        else
+            text "other"
+    else
+        text "outer"
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "View.freeze inside conditionally-executed code path"
+                                    , details =
+                                        [ "This View.freeze is inside an if/case that depends on `model`."
+                                        , "The server renders at build time with initial model state, but the client may have different state."
+                                        , "This can cause server/client mismatch where different freeze indices are rendered."
+                                        , "Move the conditional logic outside of View.freeze, or ensure the condition only depends on build-time data."
+                                        ]
+                                    , under = "View.freeze"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "allows freeze when conditional uses pure data" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    if app.data.showContent then
+        View.freeze (text "content")
+    else
+        text "hidden"
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectNoErrors
+            , test "reports error when let-bound tainted value in condition" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    let
+        x = model.y
+    in
+    if x then
+        View.freeze (text "tainted")
+    else
+        text "other"
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "View.freeze inside conditionally-executed code path"
+                                    , details =
+                                        [ "This View.freeze is inside an if/case that depends on `model`."
+                                        , "The server renders at build time with initial model state, but the client may have different state."
+                                        , "This can cause server/client mismatch where different freeze indices are rendered."
+                                        , "Move the conditional logic outside of View.freeze, or ensure the condition only depends on build-time data."
+                                        ]
+                                    , under = "View.freeze"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "reports error when freeze argument is pure but conditional is tainted" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    if model.flag then
+        View.freeze (text app.data.title)
+    else
+        text ""
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "View.freeze inside conditionally-executed code path"
+                                    , details =
+                                        [ "This View.freeze is inside an if/case that depends on `model`."
+                                        , "The server renders at build time with initial model state, but the client may have different state."
+                                        , "This can cause server/client mismatch where different freeze indices are rendered."
+                                        , "Move the conditional logic outside of View.freeze, or ensure the condition only depends on build-time data."
+                                        ]
+                                    , under = "View.freeze"
+                                    }
                                 ]
                               )
                             ]

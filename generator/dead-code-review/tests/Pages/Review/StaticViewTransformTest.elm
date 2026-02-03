@@ -5246,4 +5246,143 @@ view app shared model =
                         |> Review.Test.run rule
                         |> Review.Test.expectNoErrors
             ]
+        , describe "View.freeze inside tainted conditionals"
+            [ test "skips transform when View.freeze is inside tainted if" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view app shared model =
+    { body =
+        [ if model.isVisible then
+            View.freeze (Html.text "visible")
+          else
+            Html.text "hidden"
+        ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "skips transform when View.freeze is inside tainted case" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view app shared model =
+    { body =
+        [ case model.status of
+            Active -> View.freeze (Html.text "active")
+            Inactive -> Html.text "inactive"
+        ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "skips transform in nested tainted conditionals" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view app shared model =
+    { body =
+        [ if model.a then
+            if True then
+                View.freeze (Html.text "nested")
+            else
+                Html.text "other"
+          else
+            Html.text "outer"
+        ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "transforms when conditional uses pure data" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+view app shared model =
+    { body =
+        [ if app.data.showContent then
+            View.freeze (Html.text "content")
+          else
+            Html.text "hidden"
+        ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text \"content\")"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import VirtualDom
+
+view app shared model =
+    { body =
+        [ if app.data.showContent then
+            (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
+          else
+            Html.text "hidden"
+        ]
+    }
+"""
+                            ]
+            , test "skips when let-bound tainted value in condition" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view app shared model =
+    let
+        x = model.y
+    in
+    { body =
+        [ if x then
+            View.freeze (Html.text "tainted")
+          else
+            Html.text "other"
+        ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "skips transform when freeze argument is pure but conditional is tainted" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view app shared model =
+    { body =
+        [ if model.flag then
+            View.freeze (Html.text app.data.title)
+          else
+            Html.text ""
+        ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            ]
         ]
