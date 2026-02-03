@@ -115,6 +115,14 @@ view app =
     , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: field only in freeze - client also marks body as ephemeral" <|
                 \() ->
@@ -548,6 +556,14 @@ view app =
     , body = []
     }
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: accessor pattern - client also tracks specific field" <|
                 \() ->
@@ -708,6 +724,14 @@ view app =
 renderContent data =
     Html.text data.body
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: helper inside freeze - client still marks body as ephemeral" <|
                 \() ->
@@ -896,6 +920,15 @@ view app =
     , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text (app.data.body ++ app.data.metadata) ]) ]
     }
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"metadata\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    , metadata : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: multiple fields - client marks body and metadata as ephemeral" <|
                 \() ->
@@ -1076,6 +1109,14 @@ view app =
             , body = []
             }
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: case with record pattern - client also tracks specific fields" <|
                 \() ->
@@ -1137,9 +1178,10 @@ view app =
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
-            , test "AGREEMENT: case with variable pattern - server bails out" <|
+            , test "AGREEMENT: case with variable pattern - server tracks field accesses on binding" <|
                 \() ->
-                    -- case app.data of d -> d.title uses variable pattern, must bail out
+                    -- case app.data of d -> d.title uses variable pattern
+                    -- Server tracks field accesses on `d` (the binding) in the case body
                     let
                         testModule =
                             """module Route.Test exposing (Data, route)
@@ -1159,11 +1201,84 @@ view app =
             }
 """
                     in
-                    -- Server bails out: variable pattern is not trackable
+                    -- Server tracks d.title access, body is ephemeral
                     testModule
                         |> Review.Test.run ServerDataTransform.rule
-                        |> Review.Test.expectNoErrors
-            , test "AGREEMENT: case with variable pattern - client also bails out" <|
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view app =
+    case app.data of
+        d ->
+            { title = d.title
+            , body = []
+            }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    case app.data of
+        d ->
+            { title = d.title
+            , body = []
+            }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                            ]
+            , test "AGREEMENT: case with variable pattern - client also tracks field accesses on binding" <|
                 \() ->
                     let
                         testModule =
@@ -1186,13 +1301,39 @@ view app =
             }
 """
                     in
-                    -- Client bails out: variable pattern is not trackable
+                    -- Client tracks d.title access, body is ephemeral
                     testModule
                         |> Review.Test.run StaticViewTransform.rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)\"}"
-                                , details = [ "No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)" ]
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view app =
+    case app.data of
+        d ->
+            { title = d.title
+            , body = []
+            }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
@@ -1296,6 +1437,14 @@ view app =
     , body = []
     }
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: helper with case record pattern - client also tracks specific fields" <|
                 \() ->
@@ -1362,10 +1511,10 @@ view app =
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
-            , test "AGREEMENT: helper with case variable pattern - server bails out" <|
+            , test "AGREEMENT: helper with case variable pattern - server tracks field accesses on binding" <|
                 \() ->
                     -- Helper function uses case data of d -> d.title
-                    -- Both transforms should bail out (variable pattern is untrackable)
+                    -- Server tracks field accesses on `d` in the case body
                     let
                         testModule =
                             """module Route.Test exposing (Data, route)
@@ -1387,11 +1536,88 @@ view app =
     }
 """
                     in
-                    -- Server bails out: helper has untrackable case pattern
+                    -- Server tracks d.title access in helper, body is ephemeral
                     testModule
                         |> Review.Test.run ServerDataTransform.rule
-                        |> Review.Test.expectNoErrors
-            , test "AGREEMENT: helper with case variable pattern - client also bails out" <|
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+extractTitle data =
+    case data of
+        d -> d.title
+
+view app =
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+extractTitle data =
+    case data of
+        d -> d.title
+
+view app =
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                            ]
+            , test "AGREEMENT: helper with case variable pattern - client also tracks field accesses on binding" <|
                 \() ->
                     let
                         testModule =
@@ -1416,13 +1642,41 @@ view app =
     }
 """
                     in
-                    -- Client bails out: helper has untrackable case pattern
+                    -- Client tracks d.title access in helper, body is ephemeral
                     testModule
                         |> Review.Test.run StaticViewTransform.rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)\"}"
-                                , details = [ "No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)" ]
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+extractTitle data =
+    case data of
+        d -> d.title
+
+view app =
+    { title = extractTitle app.data
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
@@ -1524,6 +1778,14 @@ view app =
     , body = []
     }
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: uncalled helper with app.data - client also marks body as ephemeral" <|
                 \() ->
@@ -1694,6 +1956,15 @@ view app =
 extractTitle { title } =
     title
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"unused\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    , unused : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: helper with record pattern in client context - client optimizes" <|
                 \() ->
@@ -1877,6 +2148,14 @@ view app =
     , body = []
     }
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: accessor function .field app.data - client also tracks specific field" <|
                 \() ->
@@ -2021,6 +2300,14 @@ view app =
     , body = []
     }
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: backward pipe .field <| app.data - client also tracks specific field" <|
                 \() ->
@@ -2175,6 +2462,14 @@ view app =
 extractTitle data =
     data |> .title
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: helper using data |> .field - client also optimizes" <|
                 \() ->
@@ -2331,6 +2626,14 @@ view app =
 extractTitle data =
     .title data
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: helper using .field data - client also optimizes" <|
                 \() ->
@@ -2498,6 +2801,14 @@ extractTitle data =
     in
     d.title
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: helper using let alias of parameter - client also optimizes" <|
                 \() ->
@@ -2677,6 +2988,14 @@ extractTitle data =
     in
     e.title
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: helper using chained let aliases - client also optimizes" <|
                 \() ->
@@ -2853,6 +3172,14 @@ extractTitle data =
     in
     d |> .title
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: helper using let alias with pipe accessor - client also optimizes" <|
                 \() ->
@@ -3032,6 +3359,14 @@ extractBody data =
 myExtract =
     extractBody
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: aliased helper function - client also optimizes" <|
                 \() ->
@@ -3266,6 +3601,14 @@ extractTitle data =
 myExtract =
     extractTitle
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: aliased helper in client context - client also optimizes body" <|
                 \() ->
@@ -3467,6 +3810,14 @@ view app =
 formatTitle prefix data =
     prefix ++ data.title
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: helper with data in second position - client optimizes" <|
                 \() ->
@@ -3661,6 +4012,14 @@ view app =
     , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "AGREEMENT: inline lambda via pipe app.data |> (\\d -> d.title) tracks title field" <|
                 \() ->
@@ -3759,6 +4118,14 @@ view app =
     , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
     }
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             ]
         ]

@@ -137,6 +137,14 @@ view app =
 extractTitle data =
     data.title
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             , test "app.data in list passed to function marks all fields persistent" <|
                 \() ->
@@ -337,6 +345,14 @@ view static =
     , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text static.data.body ]) ]
     }
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             ]
         , describe "View.freeze wrapping with data-static"
@@ -797,6 +813,14 @@ view app =
 renderContent data =
     Html.text data.body
 """
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
                             ]
             ]
         ]

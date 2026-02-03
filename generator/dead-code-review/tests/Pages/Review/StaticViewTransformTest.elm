@@ -1108,10 +1108,10 @@ view app =
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
-            , test "case expression on app.data causes bail-out in client context" <|
+            , test "case expression on app.data with variable pattern tracks field accesses" <|
                 \() ->
-                    -- When case app.data of {...} is used outside freeze/head,
-                    -- we can't track which fields are destructured, so bail out entirely
+                    -- When case app.data of data -> data.title is used,
+                    -- we track field accesses on the binding variable `data`
                     """module Route.Test exposing (Data, route)
 
 import Html.Styled as Html
@@ -1131,13 +1131,38 @@ view app =
             }
 """
                         |> Review.Test.run rule
-                        -- Should NOT produce any Data type transformation errors
-                        -- because we bail out when case expression on app.data is detected
-                        -- But we DO emit a diagnostic explaining why
+                        -- Should produce Data type transformation because we can track
+                        -- field accesses on the case binding variable
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)\"}"
-                                , details = [ "No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)" ]
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view app =
+    case app.data of
+        data ->
+            { title = data.title
+            , body = []
+            }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
@@ -3275,9 +3300,9 @@ extractHeading data =
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
-            , test "helper using case with variable pattern still bails out" <|
+            , test "helper using case with variable pattern tracks field accesses on binding" <|
                 \() ->
-                    -- When case has a variable pattern (d -> d.title), we can't track, so bail out
+                    -- When case has a variable pattern (d -> d.title), we now track field accesses on d
                     """module Route.Test exposing (Data, route)
 
 import Html.Styled as Html
@@ -3294,14 +3319,14 @@ view app =
     , body = [ View.freeze (Html.text app.data.body) ]
     }
 
--- Helper uses case with variable pattern - can't track
+-- Helper uses case with variable pattern - now trackable!
 extractTitle data =
     case data of
         d -> d.title
 """
                         |> Review.Test.run rule
-                        -- Can't analyze case with variable pattern, so bail out
-                        -- Only View.freeze transformation, no Data narrowing
+                        -- Now we CAN analyze case with variable pattern by tracking d.title
+                        -- View.freeze transformation AND Data narrowing
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
@@ -3326,14 +3351,43 @@ view app =
     , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
--- Helper uses case with variable pattern - can't track
+-- Helper uses case with variable pattern - now trackable!
 extractTitle data =
     case data of
         d -> d.title
 """
                             , Review.Test.error
-                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)\"}"
-                                , details = [ "No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)" ]
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = extractTitle app.data
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+-- Helper uses case with variable pattern - now trackable!
+extractTitle data =
+    case data of
+        d -> d.title
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }

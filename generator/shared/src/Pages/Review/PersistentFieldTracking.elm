@@ -391,14 +391,36 @@ analyzeFieldAccessesWithAliases paramAliases node ( fields, trackable ) =
                                     ( Set.union fields patternFields, trackable )
 
                                 UntrackablePattern ->
-                                    -- At least one pattern captures the whole record - can't track
-                                    ( fields, False )
+                                    -- At least one pattern captures the whole record
+                                    -- But we can still track field accesses on variable bindings!
+                                    -- Will be handled in case body analysis below
+                                    ( fields, trackable )
 
                         else
                             analyzeFieldAccessesWithAliases paramAliases caseBlock.expression ( fields, trackable )
                 in
                 List.foldl
-                    (\( _, caseExpr ) acc -> analyzeFieldAccessesWithAliases paramAliases caseExpr acc)
+                    (\( patternNode, caseExpr ) acc ->
+                        -- If the case is on a param/alias and the pattern is a variable,
+                        -- add that variable as an alias for analyzing the case body
+                        let
+                            branchAliases =
+                                if caseOnParamOrAlias then
+                                    case extractPatternName patternNode of
+                                        Just varName ->
+                                            -- Variable pattern like `d` - treat as alias for the param
+                                            Set.insert varName paramAliases
+
+                                        Nothing ->
+                                            -- Record pattern or other - no new alias, but that's fine
+                                            -- (record patterns are already handled by extractCasePatternFields)
+                                            paramAliases
+
+                                else
+                                    paramAliases
+                        in
+                        analyzeFieldAccessesWithAliases branchAliases caseExpr acc
+                    )
                     ( exprFields, exprTrackable )
                     caseBlock.cases
 

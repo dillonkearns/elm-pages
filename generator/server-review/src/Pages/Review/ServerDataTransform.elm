@@ -712,7 +712,8 @@ trackFieldAccess node context =
                     { context | appDataBindings = newBindings }
 
                 -- Case expression on app.data: case app.data of {...}
-                -- Track record patterns, bail out on variable patterns
+                -- Track record patterns, and for variable patterns add to appDataBindings
+                -- so field accesses in the case body can be tracked
                 Expression.CaseExpression caseBlock ->
                     if isAppDataAccess caseBlock.expression context then
                         if context.inFreezeCall || context.inHeadFunction then
@@ -720,13 +721,26 @@ trackFieldAccess node context =
                             context
 
                         else
-                            -- In client context, extract fields from patterns
+                            -- In client context, extract fields from patterns or track bindings
                             case PersistentFieldTracking.extractCasePatternFields caseBlock.cases of
                                 PersistentFieldTracking.TrackableFields allFields ->
                                     Set.foldl addFieldAccess context allFields
 
                                 PersistentFieldTracking.UntrackablePattern ->
-                                    markAllFieldsAsPersistent context
+                                    -- Check if we have variable patterns we can track
+                                    -- Add variable names from patterns to appDataBindings
+                                    -- so subsequent field accesses like d.title are tracked
+                                    let
+                                        caseBindings =
+                                            extractCaseVariablePatternBindings caseBlock.cases
+                                    in
+                                    if Set.isEmpty caseBindings then
+                                        -- No variable patterns found (constructor patterns, etc.)
+                                        markAllFieldsAsPersistent context
+
+                                    else
+                                        -- Add variable bindings so field accesses can be tracked
+                                        { context | appDataBindings = Set.union context.appDataBindings caseBindings }
 
                     else
                         context
@@ -745,6 +759,24 @@ isViewFreezeCall functionNode context =
 isAppDataAccess : Node Expression -> Context -> Bool
 isAppDataAccess node context =
     PersistentFieldTracking.isAppDataAccess node context.appParamName context.appDataBindings
+
+
+{-| Extract variable names from case expression patterns.
+
+For patterns like `case app.data of d -> ...`, extracts "d" so it can be
+added to appDataBindings and field accesses like `d.title` can be tracked.
+
+Returns empty set for non-variable patterns (constructor patterns, etc.).
+
+-}
+extractCaseVariablePatternBindings : List ( Node Pattern, Node expression ) -> Set String
+extractCaseVariablePatternBindings cases =
+    cases
+        |> List.filterMap
+            (\( patternNode, _ ) ->
+                PersistentFieldTracking.extractPatternName patternNode
+            )
+        |> Set.fromList
 
 
 {-| Check if an expression contains `app.data` being passed as a WHOLE to a function.

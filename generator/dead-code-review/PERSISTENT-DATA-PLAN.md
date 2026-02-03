@@ -62,6 +62,7 @@ The system is conservative by design. If field tracking is uncertain for any rea
 | Chained function aliases: `a = b`, `b = actualHelper` | ✅ Working | Recursive alias chain resolution |
 | Multi-parameter helpers: `formatTitle prefix data = ...` | ✅ Working | `analyzeParameter` + `appDataArgIndex` tracking |
 | Case with record pattern: `case data of { title } -> title` | ✅ Working | `extractCasePatternFields` in `analyzeFieldAccessesWithAliases` |
+| Case with variable pattern: `case data of d -> d.title` | ✅ Working | `extractCaseVariablePatternBindings` + `appDataBindings` tracking |
 
 ### Inline Lambda Analysis
 
@@ -153,6 +154,13 @@ extractTitle data =
         { title } -> title
 view app = extractTitle app.data  -- tracks only title as used
 
+-- Case with variable pattern (field accesses on binding are tracked)
+-- This works in both view functions and helper functions
+extractTitle data =
+    case data of
+        d -> d.title  -- tracks title via field access on d
+view app = extractTitle app.data  -- or: case app.data of d -> d.title
+
 -- Inline lambdas (analyzed in place, no helper function needed)
 view app = { title = (\d -> d.title) app.data, body = [] }
 
@@ -178,13 +186,14 @@ These patterns cause ALL fields to remain persistent (no optimization, but safe)
 
 | Pattern | Behavior | Implementation |
 |---------|----------|----------------|
-| `case app.data of d -> ...` (variable) | Marks ALL persistent | `extractCasePatternFields` → `UntrackablePattern` |
-| `case app.data of { title } -> ...` (record) | Tracks fields ✅ | `TrackableFields` |
+| `case app.data of MyConstructor x -> ...` (constructor) | Marks ALL persistent | Non-trackable pattern in `extractCasePatternFields` |
 | `[app.data]` or `(app.data, x)` | Marks ALL persistent | `hasWrappedAppData` classification |
 | `{ rec \| field = app.data }` | Marks ALL persistent | `MarkAllFieldsUsed` in extractFieldAccess |
 | `Data` as constructor (`map4 Data`) | Skips transformation | `dataUsedAsConstructor` flag |
 | Unknown helper: `someFunction app.data` | Marks ALL persistent | `AddUnknownHelper` action |
 | Qualified helper: `Module.fn app.data` | Marks ALL persistent | `maybeFuncName = Nothing` |
+
+Note: Case expressions with variable patterns (`case app.data of d -> d.title`) are now trackable - see Helper Function Analysis.
 
 ## Known Limitations
 
