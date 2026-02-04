@@ -1648,13 +1648,9 @@ finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
     let
         -- Only apply transformations to Route modules (Route.Index, Route.Blog.Slug_, etc.)
+        -- Uses shared function to ensure agreement with ServerDataTransform
         isRouteModule =
-            case context.moduleName of
-                "Route" :: _ :: _ ->
-                    True
-
-                _ ->
-                    False
+            PersistentFieldTracking.isRouteModule context.moduleName
 
         -- Determine the actual head function name from RouteBuilder
         -- This handles non-conventional naming like { head = seoTags }
@@ -1706,51 +1702,30 @@ finalEvaluation context =
                     allFieldNames =
                         PersistentFieldTracking.extractFieldNames context.sharedState.dataTypeFields
 
-                    -- Resolve pending helper calls against the now-complete helperFunctions dict
-                    -- Returns (additionalClientUsedFields, shouldMarkAllFieldsAsClientUsed)
-                    ( resolvedHelperFields, unresolvedHelperCalls ) =
-                        PersistentFieldTracking.resolvePendingHelperCalls
-                            context.sharedState.pendingHelperCalls
-                            context.sharedState.helperFunctions
+                    -- Compute ephemeral fields using shared logic
+                    -- This ensures agreement with ServerDataTransform's field computation
+                    ephemeralResult =
+                        PersistentFieldTracking.computeEphemeralFieldsWithCorrection
+                            { allFieldNames = allFieldNames
+                            , clientUsedFields = context.sharedState.clientUsedFields
+                            , pendingHelperCalls = context.sharedState.pendingHelperCalls
+                            , helperFunctions = context.sharedState.helperFunctions
+                            , headFunctionFields = headFunctionFields
+                            , markAllFieldsAsUsed = context.sharedState.markAllFieldsAsUsed
+                            }
 
-                    -- Combine direct field accesses with helper-resolved fields
-                    combinedClientUsedFields =
-                        Set.union context.sharedState.clientUsedFields resolvedHelperFields
-
-                    -- Subtract fields accessed by the head function (for non-conventional naming)
-                    -- When head = seoTags and seoTags is defined before RouteBuilder,
-                    -- its field accesses were initially tracked as client-used. Now we correct that.
-                    correctedClientUsedFields =
-                        Set.diff combinedClientUsedFields headFunctionFields
-
-                    -- Apply safe fallback: if we can't track field usage, mark ALL as client-used
-                    effectiveClientUsedFields =
-                        if context.sharedState.markAllFieldsAsUsed || unresolvedHelperCalls then
-                            -- Can't track, so assume ALL fields are client-used (safe fallback)
-                            allFieldNames
-
-                        else
-                            correctedClientUsedFields
-
-                    -- Removable fields: all fields that are NOT used in client context
+                    -- Removable fields: fields that are NOT used in client context (ephemeral)
                     removableFields =
-                        allFieldNames
-                            |> Set.filter (\f -> not (Set.member f effectiveClientUsedFields))
+                        ephemeralResult.ephemeralFields
 
-                    -- Client-used fields: these MUST be kept in the Data type
+                    -- Client-used fields: these MUST be kept in the Data type (persistent)
                     clientUsedFieldDefs =
                         context.sharedState.dataTypeFields
-                            |> List.filter (\( name, _ ) -> Set.member name effectiveClientUsedFields)
-                    -- Track WHY all fields might be client-used (for diagnostics)
+                            |> List.filter (\( name, _ ) -> not (Set.member name removableFields))
+
+                    -- Skip reason for diagnostics
                     skipReason =
-                        if context.sharedState.markAllFieldsAsUsed then
-                            Just "app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)"
-
-                        else if unresolvedHelperCalls then
-                            Just "app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)"
-
-                        else
-                            Nothing
+                        ephemeralResult.skipReason
                 in
                 if Set.isEmpty removableFields then
                     -- No removable fields - emit diagnostic if there was a specific reason

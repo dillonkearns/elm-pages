@@ -18,6 +18,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , applyHelperCallResult
     , classifyAppDataArguments
     , computeEphemeralFields
+    , computeEphemeralFieldsWithCorrection
     , containsAppDataExpression
     , determinePendingHelperAction
     , emptySharedState
@@ -39,6 +40,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , isAppDataAccess
     , isExitingFreezeCall
     , isRecordAccessFunction
+    , isRouteModule
     , isViewFreezeCall
     , markAllFieldsAsPersistent
     , resolvePendingHelperCalls
@@ -76,6 +78,7 @@ to ensure consistency.
 
 import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
@@ -1573,6 +1576,107 @@ computeEphemeralFields allFieldNames clientUsedFields pendingHelperCalls helperF
                 |> Set.filter (\f -> not (Set.member f effectiveClientUsedFields))
     in
     ( ephemeralFields, unresolvedHelperCalls )
+
+
+{-| Compute ephemeral fields with optional head-function correction.
+
+This is the same as `computeEphemeralFields` but allows subtracting fields that
+were accessed in the head function. This handles the case in StaticViewTransform
+where non-conventional head function naming (e.g., `{ head = seoTags }`) causes
+field accesses to be initially tracked as client-used.
+
+The `headFunctionFields` are subtracted from the combined client-used fields
+before computing ephemeral fields.
+
+Returns (ephemeralFields, hasUnresolvedCalls, skipReason) where:
+
+  - ephemeralFields: Fields that can be removed from the client Data type
+  - hasUnresolvedCalls: True if we had to bail out due to unresolved helper calls
+  - skipReason: A string explaining why optimization was skipped, or Nothing
+
+-}
+computeEphemeralFieldsWithCorrection :
+    { allFieldNames : Set String
+    , clientUsedFields : Set String
+    , pendingHelperCalls : List (Maybe PendingHelperCall)
+    , helperFunctions : Dict String (List HelperAnalysis)
+    , headFunctionFields : Set String
+    , markAllFieldsAsUsed : Bool
+    }
+    -> { ephemeralFields : Set String, hasUnresolvedCalls : Bool, skipReason : Maybe String }
+computeEphemeralFieldsWithCorrection config =
+    let
+        -- Resolve pending helper calls against the helper functions dict
+        ( resolvedHelperFields, unresolvedHelperCalls ) =
+            resolvePendingHelperCalls config.pendingHelperCalls config.helperFunctions
+
+        -- Combine direct field accesses with helper-resolved fields
+        combinedClientUsedFields =
+            Set.union config.clientUsedFields resolvedHelperFields
+
+        -- Subtract fields accessed by the head function (for non-conventional naming)
+        -- When head = seoTags and seoTags is defined before RouteBuilder,
+        -- its field accesses were initially tracked as client-used. Now we correct that.
+        correctedClientUsedFields =
+            Set.diff combinedClientUsedFields config.headFunctionFields
+
+        -- Determine skip reason (for diagnostics)
+        skipReason =
+            if config.markAllFieldsAsUsed then
+                Just "app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)"
+
+            else if unresolvedHelperCalls then
+                Just "app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)"
+
+            else
+                Nothing
+
+        -- Apply safe fallback: if we can't track field usage, mark ALL as client-used
+        effectiveClientUsedFields =
+            if config.markAllFieldsAsUsed || unresolvedHelperCalls then
+                -- Can't track, so assume ALL fields are client-used (safe fallback)
+                config.allFieldNames
+
+            else
+                correctedClientUsedFields
+
+        -- Ephemeral fields: all fields that are NOT used in client contexts
+        ephemeralFields =
+            config.allFieldNames
+                |> Set.filter (\f -> not (Set.member f effectiveClientUsedFields))
+    in
+    { ephemeralFields = ephemeralFields
+    , hasUnresolvedCalls = unresolvedHelperCalls
+    , skipReason = skipReason
+    }
+
+
+{-| Check if a module is a Route module (e.g., Route.Index, Route.Blog.Slug\_).
+
+Both StaticViewTransform and ServerDataTransform must agree on this check to
+ensure server/client agreement. Only Route modules get their Data types transformed.
+
+This returns True for modules like:
+
+  - Route.Index
+  - Route.Blog
+  - Route.Blog.Slug\_
+
+This returns False for:
+
+  - Site
+  - Shared
+  - Route (the Route module itself, not a route)
+
+-}
+isRouteModule : ModuleName -> Bool
+isRouteModule moduleName =
+    case moduleName of
+        "Route" :: _ :: _ ->
+            True
+
+        _ ->
+            False
 
 
 {-| Check if a function node is a call to View.freeze.

@@ -830,14 +830,9 @@ finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
     let
         -- Only apply transformations to Route modules (Route.Index, Route.Blog.Slug_, etc.)
-        -- This matches the check in StaticViewTransform to ensure server/client agreement
+        -- Uses shared function to ensure agreement with StaticViewTransform
         isRouteModule =
-            case context.moduleName of
-                "Route" :: _ :: _ ->
-                    True
-
-                _ ->
-                    False
+            PersistentFieldTracking.isRouteModule context.moduleName
     in
     -- Skip non-Route modules (Site.elm, Shared.elm, etc.) to avoid disagreement with client transform
     if not isRouteModule then
