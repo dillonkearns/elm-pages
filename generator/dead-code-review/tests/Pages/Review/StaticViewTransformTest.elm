@@ -5586,4 +5586,60 @@ view app shared model =
                                 }
                             ]
             ]
+        , describe "Data constructor detection"
+            [ test "when Data constructor is used at top level (not in data function), Data type is NOT narrowed" <|
+                \() ->
+                    -- Data used at top level (not in a function called "data") should prevent Data type narrowing
+                    -- This is a simpler test to verify the basic detection logic
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (div, text)
+import View
+
+type alias Data =
+    { greeting : String
+    , now : String
+    }
+
+myDefault = Data "default" "time"
+
+view app =
+    { title = "Test"
+    , body =
+        [ View.freeze (div [] [ text app.data.greeting ])
+        , div [] [ text app.data.now ]
+        ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (div [] [ text app.data.greeting ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (div, text)
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+type alias Data =
+    { greeting : String
+    , now : String
+    }
+
+myDefault = Data "default" "time"
+
+view app =
+    { title = "Test"
+    , body =
+        [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text \"\") \"__ELM_PAGES_STATIC__0\" |> View.htmlToFreezable |> Html.Styled.map never)
+        , div [] [ text app.data.now ]
+        ]
+    }
+"""
+                            ]
+            ]
         ]

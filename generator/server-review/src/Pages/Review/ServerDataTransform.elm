@@ -945,12 +945,6 @@ finalEvaluation context =
         -- Skip if transformation was already applied (Ephemeral type exists)
         []
 
-    else if not (List.isEmpty context.dataConstructorRanges) then
-        -- Skip if Data is used as a record constructor function (e.g., map4 Data)
-        -- Client transform also skips this case because it can't change the constructor call.
-        -- We must agree to ensure the wire format matches what the client expects.
-        []
-
     else
         case context.dataTypeRange of
             Nothing ->

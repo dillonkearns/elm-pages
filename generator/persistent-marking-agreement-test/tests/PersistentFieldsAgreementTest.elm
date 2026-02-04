@@ -7655,13 +7655,14 @@ view app =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
-        , describe "Data used as constructor - must skip optimization on BOTH sides"
-            [ test "AGREEMENT: when Data is used as constructor (map4 Data), BOTH transforms skip optimization" <|
+        , describe "Data used as constructor - optimization still works"
+            [ test "AGREEMENT: when Data is used as constructor (map3 Data), BOTH transforms optimize" <|
                 \() ->
-                    -- When Data is used as a record constructor function (e.g., map4 Data),
-                    -- BOTH server and client must skip the ephemeral field optimization.
-                    -- Client can't narrow Data type without breaking the constructor call.
-                    -- Server must agree to ensure the wire format matches what client expects.
+                    -- When Data is used as a record constructor function (e.g., map3 Data),
+                    -- optimization STILL works because:
+                    -- 1. Client's `data` function is DCE'd - client never runs map3 Data
+                    -- 2. Server renames Data -> Ephemeral in constructor usage
+                    -- 3. Wire format uses narrowed Data type via ephemeralToData
                     let
                         testModule =
                             """module Route.Index exposing (Data, route)
@@ -7695,8 +7696,7 @@ view app =
     }
 """
                     in
-                    -- SERVER should skip optimization because Data is used as constructor
-                    -- This ensures agreement with client which also skips
+                    -- Server SHOULD optimize - renames Data constructor to Ephemeral
                     testModule
                         |> Review.Test.run ServerDataTransform.rule
                         |> Review.Test.expectErrors
@@ -7778,8 +7778,231 @@ view app =
         ]
     }
 """
-                            -- NO ephemeral field errors should appear because Data is used as constructor!
-                            -- Server must skip optimization to agree with client
+                            , Review.Test.error
+                                { message = "Server codemod: update Data constructor to Ephemeral"
+                                , details =
+                                    [ "Changing Data to Ephemeral in record constructor usage."
+                                    , "The full record type is now called Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 16, column = 22 }, end = { row = 16, column = 26 } }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+import BackendTask
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+data =
+    BackendTask.map3 Ephemeral
+        (BackendTask.succeed "hello")
+        (BackendTask.succeed "world")
+        (BackendTask.succeed "now")
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: greeting, portGreeting"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+import BackendTask
+
+type alias Ephemeral =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+
+type alias Data =
+    { now : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { now = ephemeral.now
+    }
+
+data =
+    BackendTask.map3 Data
+        (BackendTask.succeed "hello")
+        (BackendTask.succeed "world")
+        (BackendTask.succeed "now")
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 30 }, end = { row = 1, column = 34 } }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+import BackendTask
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+data =
+    BackendTask.map3 Data
+        (BackendTask.succeed "hello")
+        (BackendTask.succeed "world")
+        (BackendTask.succeed "now")
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Index\",\"ephemeralFields\":[\"greeting\",\"portGreeting\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }"""
+                                }
+                            ]
+            , test "DE-OPTIMIZATION: when Data is used as constructor in CLIENT code (view function), optimization is SKIPPED" <|
+                \() ->
+                    -- When Data is used as a record constructor in CLIENT code (e.g., view function),
+                    -- optimization MUST be skipped because the narrowed Data type would break the constructor call.
+                    --
+                    -- Example: `let defaultData = Data "a" "b" "c" in ...` in view
+                    -- If we narrow Data to { now : String }, this constructor call would fail at compile time.
+                    --
+                    -- This is different from the `data` function case where the code is DCE'd on client.
+                    --
+                    -- NOTE: This test does NOT have Data in the data function to isolate the test.
+                    let
+                        testModule =
+                            """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import View
+import BackendTask
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+data =
+    BackendTask.succeed { greeting = "hello", portGreeting = "world", now = "now" }
+
+view app =
+    let
+        -- Using Data constructor in CLIENT code - this should prevent optimization
+        defaultData = Data "default1" "default2" "default3"
+    in
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        , div [] [ text <| "Default: " ++ defaultData.greeting ]
+        ]
+    }
+"""
+                    in
+                    -- Client should NOT optimize because Data is used as constructor in view
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (div [] [ text <| \"Greeting: \" ++ app.data.greeting ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import View
+import BackendTask
+import Html.Lazy
+import Html as ElmPages__Html
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+data =
+    BackendTask.succeed { greeting = "hello", portGreeting = "world", now = "now" }
+
+view app =
+    let
+        -- Using Data constructor in CLIENT code - this should prevent optimization
+        defaultData = Data "default1" "default2" "default3"
+    in
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text \"\") \"__ELM_PAGES_STATIC__0\" |> View.htmlToFreezable |> Html.Styled.map never)
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        , div [] [ text <| "Default: " ++ defaultData.greeting ]
+        ]
+    }
+"""
                             ]
             ]
         ]

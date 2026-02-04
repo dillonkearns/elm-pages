@@ -104,6 +104,10 @@ type alias Context =
     -- Data function body range for stubbing (never runs on client)
     , dataFunctionBodyRange : Maybe Range
 
+    -- Track if we're currently inside the data function body
+    -- Used to distinguish Data constructor usage in data (safe, DCE'd) vs client code (not safe)
+    , inDataFunction : Bool
+
     -- RouteBuilder convention verification
     -- We track what function names are passed to RouteBuilder.preRender/single/serverRender
     -- If the names don't match conventions, we bail out of optimization
@@ -174,6 +178,7 @@ initialContext =
             , appDataTypeRanges = []
             , headFunctionBodyRange = Nothing
             , dataFunctionBodyRange = Nothing
+            , inDataFunction = False
             , routeBuilderDataFn = Nothing
             , routeBuilderFound = False
             , modelParamName = Nothing
@@ -301,7 +306,8 @@ declarationEnterVisitor node context =
             else if functionName == actualDataFn then
                 -- Capture the data function body for potential stubbing
                 -- The data function never runs on client, only at build time
-                ( [], { contextWithAppDataRanges | dataFunctionBodyRange = Just bodyRange } )
+                -- Also track that we're inside the data function for safe Data constructor detection
+                ( [], { contextWithAppDataRanges | dataFunctionBodyRange = Just bodyRange, inDataFunction = True } )
 
             else if functionName == "view" || functionName == "init" || functionName == "update" then
                 -- Extract the App parameter name from client-side functions
@@ -483,12 +489,21 @@ declarationExitVisitor node context =
                     context.sharedState.routeBuilderHeadFn
                         |> Maybe.withDefault "head"
 
+                -- Determine the actual data function name
+                actualDataFn =
+                    context.routeBuilderDataFn
+                        |> Maybe.withDefault "data"
+
                 -- Track that we're exiting this function (for per-function field tracking)
                 sharedStateWithFunctionExit =
                     PersistentFieldTracking.updateOnFunctionExit context.sharedState
             in
             if functionName == actualHeadFn then
                 ( [], { context | sharedState = PersistentFieldTracking.updateOnHeadExit sharedStateWithFunctionExit } )
+
+            else if functionName == actualDataFn then
+                -- Exiting the data function - reset inDataFunction flag
+                ( [], { context | sharedState = sharedStateWithFunctionExit, inDataFunction = False } )
 
             else
                 ( [], { context | sharedState = sharedStateWithFunctionExit } )
@@ -500,17 +515,32 @@ declarationExitVisitor node context =
 expressionEnterVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionEnterVisitor node context =
     let
-        -- Detect if Data is used as a record constructor function
+        -- Detect if Data is used as a record constructor function in CLIENT code
         -- (e.g., `map4 Data`, `succeed Data`, `Data field1 field2`)
+        --
+        -- IMPORTANT: We only flag this when the constructor is used OUTSIDE the `data` function.
+        -- Usage inside the `data` function is safe because that function is DCE'd on the client.
+        -- The server transform handles the constructor by renaming Data -> Ephemeral.
+        --
+        -- Example that IS safe (in data function, DCE'd on client):
+        --   data = BackendTask.map4 Data arg1 arg2 arg3 arg4
+        --
+        -- Example that is NOT safe (in view function, runs on client):
+        --   view app = ... let defaultData = Data "a" "b" in ...
         contextWithDataConstructorCheck =
             if context.dataUsedAsConstructor then
                 -- Already detected, no need to check again
                 context
 
+            else if context.inDataFunction then
+                -- Inside the data function - usage is safe (DCE'd on client)
+                context
+
             else
                 case Node.value node of
                     -- Direct use: Data as function argument (e.g., `map4 Data`)
-                    Expression.FunctionOrValue [] "Data" ->
+                    -- Note: Match any module prefix since elm-syntax may qualify local names
+                    Expression.FunctionOrValue _ "Data" ->
                         { context | dataUsedAsConstructor = True }
 
                     _ ->
@@ -1554,7 +1584,8 @@ finalEvaluation context =
     in
     -- Conservative: skip transformation in these cases:
     -- 1. Not a Route module (Site.elm, Shared.elm, etc.)
-    -- 2. Data is used as a constructor function (changing type would break it)
+    -- 2. Data is used as a constructor in CLIENT code (changing type would break it)
+    --    Note: usage in the `data` function is SAFE (DCE'd on client, server renames to Ephemeral)
     -- 3. NarrowedData type alias already exists (fix was already applied)
     -- Note: markAllFieldsAsClientUsed is handled via effectiveClientUsedFields fallback below
     if not isRouteModule then
@@ -1566,11 +1597,14 @@ finalEvaluation context =
         []
 
     else if context.dataUsedAsConstructor then
-        -- Emit diagnostic: Data used as constructor prevents optimization
-        [ emitDiagnostic context.moduleName
-            "data_used_as_constructor"
-            "Data type is used as a record constructor function (e.g., `map4 Data`). Cannot narrow the type without breaking the constructor call."
-        ]
+        -- Data is used as a constructor in CLIENT code (outside the data function)
+        -- We can't narrow the type without breaking the constructor call
+        --
+        -- NOTE: Data constructor usage INSIDE the `data` function is safe because:
+        -- 1. The `data` function is DCE'd on the client
+        -- 2. The server transform renames Data -> Ephemeral in constructor usage
+        -- We only skip when the constructor is used in CLIENT code (view, init, update, etc.)
+        []
 
     else
         case context.dataTypeRange of
