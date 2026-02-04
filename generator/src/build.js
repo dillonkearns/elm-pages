@@ -10,9 +10,13 @@ import * as codegen from "./codegen.js";
 import * as terser from "terser";
 import * as os from "os";
 import { Worker, SHARE_ENV } from "worker_threads";
-import { ensureDirSync } from "./file-helpers.js";
+import { ensureDirSync, writeFileIfChanged } from "./file-helpers.js";
+import { needsPortsRecompilation } from "./script-cache.js";
 import { generateClientFolder, generateServerFolder, compareEphemeralFields, formatDisagreementError } from "./codegen.js";
 import { default as which } from "which";
+
+// Cache for which() results to avoid repeated PATH lookups
+let whichCache = {};
 import { build } from "vite";
 import * as preRenderHtml from "./pre-render-html.js";
 import * as esbuild from "esbuild";
@@ -80,19 +84,36 @@ async function ensureRequiredDirs() {
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
 }
 
+async function cachedWhich(executable) {
+  if (whichCache[executable] !== undefined) {
+    if (whichCache[executable] === false) {
+      throw new Error(`${executable} not found`);
+    }
+    return whichCache[executable];
+  }
+  try {
+    const result = await which(executable);
+    whichCache[executable] = result;
+    return result;
+  } catch (error) {
+    whichCache[executable] = false;
+    throw error;
+  }
+}
+
 async function ensureRequiredExecutables() {
   try {
-    await which("lamdera");
+    await cachedWhich("lamdera");
   } catch (error) {
     throw "I couldn't find lamdera on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
   try {
-    await which("elm-optimize-level-2");
+    await cachedWhich("elm-optimize-level-2");
   } catch (error) {
     throw "I couldn't find elm-optimize-level-2 on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
   try {
-    await which("elm-review");
+    await cachedWhich("elm-review");
   } catch (error) {
     throw "I couldn't find elm-review on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
@@ -124,7 +145,7 @@ export async function run(options) {
     await generateCode;
 
     const config = await resolveConfig();
-    await fsPromises.writeFile(
+    await writeFileIfChanged(
       "elm-stuff/elm-pages/index.html",
       preRenderHtml.templateHtml(false, config.headTagsTemplate)
     );
@@ -223,34 +244,44 @@ export async function run(options) {
       );
     await fsPromises.writeFile("dist/template.html", processedIndexTemplate);
     // await fsPromises.unlink(assetManifestPath);
-    const portBackendTaskCompiled = esbuild
-      .build({
-        entryPoints: ["./custom-backend-task"],
-        platform: "node",
-        outfile: ".elm-pages/compiled-ports/custom-backend-task.mjs",
-        assetNames: "[name]-[hash]",
-        chunkNames: "chunks/[name]-[hash]",
-        outExtension: { ".js": ".js" },
-        metafile: true,
-        bundle: true,
-        format: "esm",
-        packages: "external",
-        logLevel: "silent",
-      })
-      .then((result) => {
-        try {
-          global.portsFilePath = Object.keys(result.metafile.outputs)[0];
-        } catch (e) {}
-      })
-      .catch((error) => {
-        const portBackendTaskFileFound =
-          globby.globbySync("./custom-backend-task.*").length > 0;
-        if (portBackendTaskFileFound) {
-          // don't present error if there are no files matching custom-backend-task
-          // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
-          console.error("Failed to start custom-backend-task watcher", error);
-        }
-      });
+
+    // Check if custom-backend-task needs recompilation
+    const portsCheck = await needsPortsRecompilation(process.cwd());
+    let portBackendTaskCompiled = Promise.resolve();
+
+    if (portsCheck.needed) {
+      portBackendTaskCompiled = esbuild
+        .build({
+          entryPoints: ["./custom-backend-task"],
+          platform: "node",
+          outfile: ".elm-pages/compiled-ports/custom-backend-task.mjs",
+          assetNames: "[name]-[hash]",
+          chunkNames: "chunks/[name]-[hash]",
+          outExtension: { ".js": ".js" },
+          metafile: true,
+          bundle: true,
+          format: "esm",
+          packages: "external",
+          logLevel: "silent",
+        })
+        .then((result) => {
+          try {
+            global.portsFilePath = Object.keys(result.metafile.outputs)[0];
+          } catch (e) {}
+        })
+        .catch((error) => {
+          const portBackendTaskFileFound =
+            globby.globbySync("./custom-backend-task.*").length > 0;
+          if (portBackendTaskFileFound) {
+            // don't present error if there are no files matching custom-backend-task
+            // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
+            console.error("Failed to start custom-backend-task watcher", error);
+          }
+        });
+    } else if (portsCheck.outputPath) {
+      // Use cached output path
+      global.portsFilePath = portsCheck.outputPath;
+    }
 
     global.XMLHttpRequest = {};
     const compileCliPromise = compileCliApp(options);

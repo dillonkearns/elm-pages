@@ -8,7 +8,7 @@ import { default as which } from "which";
 import { generateTemplateModuleConnector } from "./generate-template-module-connector.js";
 
 import * as path from "path";
-import { ensureDirSync, deleteIfExists } from "./file-helpers.js";
+import { ensureDirSync, deleteIfExists, writeFileIfChanged, copyDirIfNewer, copyFileIfNewer } from "./file-helpers.js";
 import { fileURLToPath } from "url";
 global.builtAt = new Date();
 
@@ -41,26 +41,26 @@ export async function generate(basePath) {
     copyToBoth("SharedTemplate.elm"),
     copyToBoth("SiteConfig.elm"),
 
-    fs.promises.writeFile("./.elm-pages/Pages.elm", uiFileContent),
-    fs.promises.copyFile(
+    writeFileIfChanged("./.elm-pages/Pages.elm", uiFileContent),
+    copyFileIfNewer(
       path.join(__dirname, `./elm-application.json`),
       `./elm-stuff/elm-pages/elm-application.json`
     ),
     // write `Pages.elm` with cli interface
-    fs.promises.writeFile(
+    writeFileIfChanged(
       "./elm-stuff/elm-pages/.elm-pages/Pages.elm",
       elmPagesCliFile()
     ),
-    fs.promises.writeFile(
+    writeFileIfChanged(
       "./elm-stuff/elm-pages/.elm-pages/Main.elm",
       cliCode.mainModule
     ),
-    fs.promises.writeFile(
+    writeFileIfChanged(
       "./elm-stuff/elm-pages/.elm-pages/Route.elm",
       cliCode.routesModule
     ),
-    fs.promises.writeFile("./.elm-pages/Main.elm", browserCode.mainModule),
-    fs.promises.writeFile("./.elm-pages/Route.elm", browserCode.routesModule),
+    writeFileIfChanged("./.elm-pages/Main.elm", browserCode.mainModule),
+    writeFileIfChanged("./.elm-pages/Route.elm", browserCode.routesModule),
     writeFetcherModules("./.elm-pages", browserCode.fetcherModules),
     writeFetcherModules(
       "./elm-stuff/elm-pages/client/.elm-pages",
@@ -81,13 +81,13 @@ function writeFetcherModules(basePath, fetcherData) {
     fetcherData.map(([name, fileContent]) => {
       let filePath = path.join(basePath, `/Fetcher/${name.join("/")}.elm`);
       ensureDirSync(path.dirname(filePath));
-      return fs.promises.writeFile(filePath, fileContent);
+      return writeFileIfChanged(filePath, fileContent);
     })
   );
 }
 
 async function newCopyBoth(modulePath) {
-  await fs.promises.copyFile(
+  await copyFileIfNewer(
     path.join(__dirname, modulePath),
     path.join(`./elm-stuff/elm-pages/client/.elm-pages/`, modulePath)
   );
@@ -111,19 +111,17 @@ export async function generateClientFolder(basePath) {
   await newCopyBoth("SiteConfig.elm");
 
   await rewriteClientElmJson();
-  await fsExtra.copy("./app", "./elm-stuff/elm-pages/client/app", {
-    recursive: true,
-  });
+  await copyDirIfNewer("./app", "./elm-stuff/elm-pages/client/app");
 
-  await fs.promises.writeFile(
+  await writeFileIfChanged(
     "./elm-stuff/elm-pages/client/.elm-pages/Main.elm",
     browserCode.mainModule
   );
-  await fs.promises.writeFile(
+  await writeFileIfChanged(
     "./elm-stuff/elm-pages/client/.elm-pages/Route.elm",
     browserCode.routesModule
   );
-  await fs.promises.writeFile(
+  await writeFileIfChanged(
     "./elm-stuff/elm-pages/client/.elm-pages/Pages.elm",
     uiFileContent
   );
@@ -164,9 +162,7 @@ export async function generateServerFolder(basePath) {
   });
 
   // Copy app files to server folder
-  await fsExtra.copy("./app", "./elm-stuff/elm-pages/server/app", {
-    recursive: true,
-  });
+  await copyDirIfNewer("./app", "./elm-stuff/elm-pages/server/app");
 
   // Run server-specific elm-review codemod FIRST
   // This creates the Ephemeral type alias in Route files
@@ -180,15 +176,15 @@ export async function generateServerFolder(basePath) {
   const browserCode = await generateTemplateModuleConnector(basePath, "browser");
 
   // Write generated Main.elm, Route.elm, Pages.elm
-  await fs.promises.writeFile(
+  await writeFileIfChanged(
     "./elm-stuff/elm-pages/server/.elm-pages/Main.elm",
     cliCode.mainModule
   );
-  await fs.promises.writeFile(
+  await writeFileIfChanged(
     "./elm-stuff/elm-pages/server/.elm-pages/Route.elm",
     cliCode.routesModule
   );
-  await fs.promises.writeFile(
+  await writeFileIfChanged(
     "./elm-stuff/elm-pages/server/.elm-pages/Pages.elm",
     elmPagesCliFile()
   );
@@ -557,7 +553,7 @@ async function copyFileEnsureDir(from, to) {
   await fs.promises.mkdir(path.dirname(to), {
     recursive: true,
   });
-  await fs.promises.copyFile(from, to);
+  await copyFileIfNewer(from, to);
 }
 
 /**

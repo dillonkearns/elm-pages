@@ -109,3 +109,59 @@ export async function syncFilesToDirectory(sourceFiles, destDir, getDestName) {
 
   return stats;
 }
+
+import * as path from "node:path";
+
+/**
+ * Recursively copy a directory, only copying files that are newer than the destination.
+ * Also removes files in destination that no longer exist in source.
+ * @param {string} srcDir - Source directory path
+ * @param {string} destDir - Destination directory path
+ * @returns {Promise<{copied: number, skipped: number, removed: number}>}
+ */
+export async function copyDirIfNewer(srcDir, destDir) {
+  ensureDirSync(destDir);
+  const stats = { copied: 0, skipped: 0, removed: 0 };
+
+  const entries = await fs.promises.readdir(srcDir, { withFileTypes: true });
+  const sourceNames = new Set(entries.map((e) => e.name));
+
+  for (const entry of entries) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+
+    if (entry.isDirectory()) {
+      const subStats = await copyDirIfNewer(srcPath, destPath);
+      stats.copied += subStats.copied;
+      stats.skipped += subStats.skipped;
+      stats.removed += subStats.removed;
+    } else {
+      const wasCopied = await copyFileIfNewer(srcPath, destPath);
+      if (wasCopied) {
+        stats.copied++;
+      } else {
+        stats.skipped++;
+      }
+    }
+  }
+
+  // Remove files/dirs in dest that no longer exist in source
+  try {
+    const destEntries = await fs.promises.readdir(destDir, { withFileTypes: true });
+    for (const entry of destEntries) {
+      if (!sourceNames.has(entry.name)) {
+        const destPath = path.join(destDir, entry.name);
+        if (entry.isDirectory()) {
+          await fs.promises.rm(destPath, { recursive: true });
+        } else {
+          await fs.promises.unlink(destPath);
+        }
+        stats.removed++;
+      }
+    }
+  } catch (e) {
+    // Directory might not exist
+  }
+
+  return stats;
+}
