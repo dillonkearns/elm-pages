@@ -930,6 +930,264 @@ renderContent data =
                                 }
                             ]
             ]
+        , describe "Non-conventional head function naming"
+            [ test "head = seoTags correctly identifies seoTags as head function" <|
+                \() ->
+                    -- When RouteBuilder uses { head = seoTags }, the server should correctly
+                    -- identify seoTags as the head function and treat fields accessed there as ephemeral.
+                    -- This tests that we use routeBuilderHeadFn from shared state, not hardcoded "head".
+                    """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.single
+        { head = seoTags
+        , data = data
+        }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                        |> Review.Test.run rule
+                        -- description is only accessed in seoTags (head function), so it's ephemeral
+                        -- title is accessed in view, so it's persistent
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: description"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , description : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Ephemeral =
+    { title : String
+    , description : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+
+route =
+    RouteBuilder.single
+        { head = seoTags
+        , data = data
+        }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.single
+        { head = seoTags
+        , data = data
+        }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , description : String
+    }"""
+                                }
+                            ]
+            , test "head = seoTags with seoTags defined BEFORE RouteBuilder" <|
+                \() ->
+                    -- Same scenario but seoTags is defined BEFORE the RouteBuilder call.
+                    -- This verifies the correction mechanism works when we haven't seen RouteBuilder yet.
+                    """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+route =
+    RouteBuilder.single
+        { head = seoTags
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                        |> Review.Test.run rule
+                        -- Same result: description is ephemeral, title is persistent
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: description"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , description : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Ephemeral =
+    { title : String
+    , description : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+route =
+    RouteBuilder.single
+        { head = seoTags
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+route =
+    RouteBuilder.single
+        { head = seoTags
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , description : String
+    }"""
+                                }
+                            ]
+            ]
         , describe "Non-Route modules should be skipped"
             [ test "Site module with Data type should not be transformed" <|
                 \() ->

@@ -243,8 +243,14 @@ declarationEnterVisitor node context =
                     { contextWithDataRefs
                         | sharedState = PersistentFieldTracking.updateOnFunctionEnter functionName contextWithDataRefs.sharedState
                     }
+
+                -- Determine the actual head function name from RouteBuilder
+                -- Uses shared state to ensure agreement with StaticViewTransform
+                actualHeadFn =
+                    contextWithFunctionEnter.sharedState.routeBuilderHeadFn
+                        |> Maybe.withDefault "head"
             in
-            if functionName == "head" then
+            if functionName == actualHeadFn then
                 ( [], { contextWithFunctionEnter | sharedState = PersistentFieldTracking.updateOnHeadEnter contextWithFunctionEnter.sharedState } )
 
             else if functionName == "data" then
@@ -400,8 +406,14 @@ declarationExitVisitor node context =
                 -- Always call updateOnFunctionExit for all functions
                 contextWithFunctionExit =
                     { context | sharedState = PersistentFieldTracking.updateOnFunctionExit context.sharedState }
+
+                -- Determine the actual head function name from RouteBuilder
+                -- Uses shared state to ensure agreement with StaticViewTransform
+                actualHeadFn =
+                    context.sharedState.routeBuilderHeadFn
+                        |> Maybe.withDefault "head"
             in
-            if functionName == "head" then
+            if functionName == actualHeadFn then
                 ( [], { contextWithFunctionExit | sharedState = PersistentFieldTracking.updateOnHeadExit contextWithFunctionExit.sharedState } )
 
             else
