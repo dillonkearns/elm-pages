@@ -45,6 +45,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , isAppDataAccess
     , isExitingFreezeCall
     , isRecordAccessFunction
+    , isRouteBuilderCall
     , isRouteModule
     , isViewFreezeCall
     , markAllFieldsAsPersistent
@@ -2650,6 +2651,49 @@ analyzeLambdaForPipe functionNode =
 
 
 -- ROUTEBUILDER EXTRACTION
+
+
+{-| Check if an expression is a RouteBuilder.preRender, single, or serverRender call.
+
+Returns `Just args` if the expression is a RouteBuilder call with one of the
+recognized function names, otherwise `Nothing`.
+
+This shared function ensures both transforms use identical detection logic
+for RouteBuilder calls, eliminating potential divergence.
+
+Usage in transforms:
+
+    contextWithRouteBuilder =
+        case PersistentFieldTracking.isRouteBuilderCall context.lookupTable node of
+            Just args ->
+                extractRouteBuilderFunctions context args
+
+            Nothing ->
+                context
+
+-}
+isRouteBuilderCall : ModuleNameLookupTable -> Node Expression -> Maybe (List (Node Expression))
+isRouteBuilderCall lookupTable node =
+    case Node.value node of
+        Expression.Application (functionNode :: args) ->
+            case ModuleNameLookupTable.moduleNameFor lookupTable functionNode of
+                Just [ "RouteBuilder" ] ->
+                    case Node.value functionNode of
+                        Expression.FunctionOrValue _ fnName ->
+                            if fnName == "preRender" || fnName == "single" || fnName == "serverRender" then
+                                Just args
+
+                            else
+                                Nothing
+
+                        _ ->
+                            Nothing
+
+                _ ->
+                    Nothing
+
+        _ ->
+            Nothing
 
 
 {-| Result of extracting function names from a RouteBuilder record argument.

@@ -527,27 +527,13 @@ expressionEnterVisitor node context =
 
         -- Detect RouteBuilder calls and extract function names
         -- This ensures we only treat the actual head/data functions as ephemeral
+        -- Uses shared detection logic from PersistentFieldTracking
         contextWithRouteBuilder =
-            case Node.value node of
-                Expression.Application (functionNode :: args) ->
-                    case ModuleNameLookupTable.moduleNameFor contextWithDataConstructorCheck.lookupTable functionNode of
-                        Just [ "RouteBuilder" ] ->
-                            case Node.value functionNode of
-                                Expression.FunctionOrValue _ fnName ->
-                                    if fnName == "preRender" || fnName == "single" || fnName == "serverRender" then
-                                        -- Extract head and data function names from the record argument
-                                        extractRouteBuilderFunctions contextWithDataConstructorCheck args
+            case PersistentFieldTracking.isRouteBuilderCall contextWithDataConstructorCheck.lookupTable node of
+                Just args ->
+                    extractRouteBuilderFunctions contextWithDataConstructorCheck args
 
-                                    else
-                                        contextWithDataConstructorCheck
-
-                                _ ->
-                                    contextWithDataConstructorCheck
-
-                        _ ->
-                            contextWithDataConstructorCheck
-
-                _ ->
+                Nothing ->
                     contextWithDataConstructorCheck
 
         -- Track entering freeze calls
