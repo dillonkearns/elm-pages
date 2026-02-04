@@ -3635,6 +3635,8 @@ myExtract =
 import Html.Styled as Html
 import View
 import Html.Lazy
+import Html as CoreHtml
+
 type alias Data =
     { title : String
     , body : String
@@ -3642,7 +3644,7 @@ type alias Data =
 
 view app =
     { title = myExtract app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> CoreHtml.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 extractTitle data =
