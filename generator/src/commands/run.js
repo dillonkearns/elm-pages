@@ -6,14 +6,13 @@ import * as path from "node:path";
 import * as url from "node:url";
 import * as esbuild from "esbuild";
 import * as globby from "globby";
-import * as build from "../build.js";
 import * as renderer from "../render.js";
+import { compileCliApp } from "../compile-elm.js";
 import { resolveInputPathOrModuleName } from "../resolve-elm-module.js";
 import { restoreColorSafe } from "../error-formatter.js";
 import { needsRecompilation, needsPortsRecompilation, updateVersionMarker } from "../script-cache.js";
 import {
   compileElmForScript,
-  lamderaOrElmFallback,
   requireElm,
   printCaughtError,
 } from "./shared.js";
@@ -80,13 +79,15 @@ export async function run(elmModulePath, options, options2) {
     const shouldRecompile = await needsRecompilation(projectDirectory, outputPath);
 
     if (shouldRecompile) {
-      let executableName = await lamderaOrElmFallback();
-      await build.compileCliApp({
-        debug: "debug",
-        executableName,
-        mainModule: "ScriptMain",
-        isScript: true,
-      });
+      const elmEntrypointPath = path.join(projectDirectory, "elm-stuff/elm-pages/.elm-pages/ScriptMain.elm");
+      const elmOutputPath = path.join(projectDirectory, "elm-stuff/elm-pages/elm.js");
+      await compileCliApp(
+        { debug: true },
+        elmEntrypointPath,
+        elmOutputPath,
+        path.join(projectDirectory, "elm-stuff/elm-pages"),
+        elmOutputPath
+      );
       await updateVersionMarker(projectDirectory);
     }
     process.chdir(cwd);

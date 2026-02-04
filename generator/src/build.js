@@ -6,7 +6,7 @@ import { restoreColorSafe } from "./error-formatter.js";
 import * as path from "path";
 import { spawn as spawnCallback } from "cross-spawn";
 import * as codegen from "./codegen.js";
-import * as terser from "terser";
+// Note: terser is lazy-loaded in runTerser() to improve startup time
 import * as os from "os";
 import { Worker, SHARE_ENV } from "worker_threads";
 import { ensureDirSync, writeFileIfChanged } from "./file-helpers.js";
@@ -16,7 +16,7 @@ import { default as which } from "which";
 
 // Cache for which() results to avoid repeated PATH lookups
 let whichCache = {};
-import { build } from "vite";
+// Note: vite is lazy-loaded in run() to improve startup time for other commands
 import * as preRenderHtml from "./pre-render-html.js";
 import * as esbuild from "esbuild";
 import { createHash } from "crypto";
@@ -170,7 +170,8 @@ export async function run(options) {
       config.vite || {}
     );
 
-    const buildComplete = build(viteConfig);
+    const { build: viteBuild } = await import("vite");
+    const buildComplete = viteBuild(viteConfig);
     const compileClientPromise = compileElm(options, config);
     await buildComplete;
     const clientResult = await compileClientPromise;
@@ -744,6 +745,7 @@ function runElmMake(mode, options, elmEntrypointPath, outputPath, cwd) {
  */
 export async function runTerser(filePath) {
   console.log("Running terser");
+  const terser = await import("terser");
   const minifiedElm = await terser.minify(
     (await fsPromises.readFile(filePath)).toString(),
     {

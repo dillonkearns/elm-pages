@@ -7,12 +7,11 @@ import * as path from "node:path";
 import * as url from "node:url";
 import * as esbuild from "esbuild";
 import * as globby from "globby";
-import * as build from "../build.js";
+import { compileCliApp } from "../compile-elm.js";
 import { resolveInputPathOrModuleName } from "../resolve-elm-module.js";
 import { restoreColorSafe } from "../error-formatter.js";
 import {
   compileElmForScript,
-  lamderaOrElmFallback,
   printCaughtError,
 } from "./shared.js";
 
@@ -28,14 +27,15 @@ export async function run(elmModulePath, options) {
   process.chdir(projectDirectory);
   // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
 
-  let executableName = await lamderaOrElmFallback();
-  await build.compileCliApp({
-    debug: options.debug,
-    executableName,
-    mainModule: "ScriptMain",
-    isScript: true,
-  });
-  // await runTerser(`${projectDirectory}/elm-stuff/elm-pages/elm.js`);
+  const elmEntrypointPath = path.join(projectDirectory, "elm-stuff/elm-pages/.elm-pages/ScriptMain.elm");
+  const elmOutputPath = path.join(projectDirectory, "elm-stuff/elm-pages/elm.js");
+  await compileCliApp(
+    { debug: options.debug },
+    elmEntrypointPath,
+    elmOutputPath,
+    path.join(projectDirectory, "elm-stuff/elm-pages"),
+    elmOutputPath
+  );
   fs.renameSync(
     `${projectDirectory}/elm-stuff/elm-pages/elm.js`,
     `${projectDirectory}/elm-stuff/elm-pages/elm.cjs`
