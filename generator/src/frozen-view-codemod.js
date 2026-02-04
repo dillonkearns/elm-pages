@@ -17,6 +17,8 @@
  * debug/optimized modes).
  */
 
+import { patchFrozenViewsESVD } from "./frozen-view-codemod-esvd.js";
+
 // Magic prefix for frozen view identification
 const FROZEN_VIEW_PREFIX = '__ELM_PAGES_STATIC__';
 const FROZEN_VIEW_PREFIX_LENGTH = FROZEN_VIEW_PREFIX.length; // 21
@@ -92,7 +94,32 @@ const FROZEN_VIEW_DIFF_CHECK = `
     } else `;
 
 /**
- * Patches the thunk rendering code in the compiled Elm output.
+ * Auto-detecting frozen view patcher.
+ *
+ * Detects whether the compiled Elm code uses standard virtual-dom or elm-safe-virtual-dom
+ * and applies the appropriate patches.
+ *
+ * Detection: elm-safe-virtual-dom uses a tNode parameter for DOM tracking, which appears
+ * in patterns like `_VirtualDom_diffHelp(..., eventNode, tNode)`. Standard virtual-dom
+ * does not have this parameter.
+ *
+ * @param {string} elmCode - The compiled Elm JavaScript code
+ * @returns {string} - The patched code
+ */
+export function patchFrozenViews(elmCode) {
+  // Detect elm-safe-virtual-dom by looking for the tNode parameter pattern
+  const isESVD = /eventNode\s*,\s*tNode\s*\)/.test(elmCode);
+
+  if (isESVD) {
+    console.log("Detected elm-safe-virtual-dom, applying ESVD frozen view patches.");
+    return patchFrozenViewsESVD(elmCode);
+  }
+
+  return patchFrozenViewsStandard(elmCode);
+}
+
+/**
+ * Patches the thunk rendering code in the compiled Elm output for standard virtual-dom.
  *
  * Original thunk rendering (from kernel code):
  *   if (tag === __2_THUNK) {
@@ -116,7 +143,7 @@ const FROZEN_VIEW_DIFF_CHECK = `
  * - vNode.k = cached node (__node)
  * - vNode.m = thunk function (__thunk)
  */
-export function patchFrozenViews(elmCode) {
+export function patchFrozenViewsStandard(elmCode) {
   let patchedCode = elmCode;
   let patched = false;
 

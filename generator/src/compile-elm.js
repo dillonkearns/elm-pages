@@ -9,7 +9,6 @@ import { fileURLToPath } from "url";
 import { rewriteElmJson } from "./rewrite-elm-json-help.js";
 import { ensureDirSync } from "./file-helpers.js";
 import { patchFrozenViews } from "./frozen-view-codemod.js";
-import { patchFrozenViewsESVD } from "./frozen-view-codemod-esvd.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -59,11 +58,8 @@ export async function compileElmForBrowser(options, config = {}) {
         : "[...(new FormData(event.target))")
   );
 
-  // Apply frozen view adoption codemod
-  // Use elm-safe-virtual-dom specific patches if configured
-  transformedCode = config.elmSafeVirtualDom
-    ? patchFrozenViewsESVD(transformedCode)
-    : patchFrozenViews(transformedCode);
+  // Apply frozen view adoption codemod (auto-detects standard vs elm-safe-virtual-dom)
+  transformedCode = patchFrozenViews(transformedCode);
 
   return fs.promises.writeFile("./.elm-pages/cache/elm.js", transformedCode);
 }

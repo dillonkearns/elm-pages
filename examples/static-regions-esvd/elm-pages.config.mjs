@@ -1,3 +1,1 @@
-export default {
-  elmSafeVirtualDom: true,
-};
+export default {};

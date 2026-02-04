@@ -2,7 +2,6 @@ import * as fs from "./dir-helpers.js";
 import * as fsPromises from "fs/promises";
 import { runElmReview } from "./compile-elm.js";
 import { patchFrozenViews } from "./frozen-view-codemod.js";
-import { patchFrozenViewsESVD } from "./frozen-view-codemod-esvd.js";
 import { restoreColorSafe } from "./error-formatter.js";
 import * as path from "path";
 import { spawn as spawnCallback } from "cross-spawn";
@@ -573,12 +572,9 @@ async function compileElm(options, config) {
     path.join(process.cwd(), "./elm-stuff/elm-pages/client")
   );
 
-  // Apply frozen view adoption codemod to patch virtual-dom
-  // Use elm-safe-virtual-dom specific patches if configured
+  // Apply frozen view adoption codemod (auto-detects standard vs elm-safe-virtual-dom)
   const elmCode = await fsPromises.readFile(fullOutputPath, "utf-8");
-  const patchedCode = config.elmSafeVirtualDom
-    ? patchFrozenViewsESVD(elmCode)
-    : patchFrozenViews(elmCode);
+  const patchedCode = patchFrozenViews(elmCode);
   await fsPromises.writeFile(fullOutputPath, patchedCode);
 
   if (!options.debug) {
