@@ -337,7 +337,7 @@ declarationEnterVisitor node context =
                                 -- No type signature - fall back to first parameter
                                 Just 0
 
-                    maybeAppParam =
+                    maybeAppParamPattern =
                         maybeAppParamIndex
                             |> Maybe.andThen
                                 (\index ->
@@ -345,7 +345,16 @@ declarationEnterVisitor node context =
                                         |> List.drop index
                                         |> List.head
                                 )
+
+                    maybeAppParam =
+                        maybeAppParamPattern
                             |> Maybe.andThen PersistentFieldTracking.extractPatternName
+
+                    -- Extract app.data bindings from patterns like ({ data } as app)
+                    appDataBindingsFromPattern =
+                        maybeAppParamPattern
+                            |> Maybe.map PersistentFieldTracking.extractAppDataBindingsFromPattern
+                            |> Maybe.withDefault Set.empty
 
                     -- Extract model parameter name only for view function
                     -- Model is the third parameter: view app shared model = ...
@@ -364,7 +373,10 @@ declarationEnterVisitor node context =
                         contextWithAppDataRanges.sharedState
 
                     updatedSharedState =
-                        { currentSharedState | appParamName = maybeAppParam }
+                        { currentSharedState
+                            | appParamName = maybeAppParam
+                            , appDataBindings = Set.union currentSharedState.appDataBindings appDataBindingsFromPattern
+                        }
                 in
                 ( []
                 , { contextWithAppDataRanges

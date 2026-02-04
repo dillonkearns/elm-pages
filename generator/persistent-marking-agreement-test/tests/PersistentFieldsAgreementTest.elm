@@ -5997,4 +5997,932 @@ view app =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "View module alias import - both agree"
+            [ test "AGREEMENT: import View as V with V.freeze - server marks body as ephemeral" <|
+                \() ->
+                    -- When View is imported with an alias (import View as V),
+                    -- both transforms should correctly identify V.freeze as View.freeze
+                    -- and mark body as ephemeral (only accessed inside freeze)
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View as V
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ V.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+"""
+                    in
+                    -- Server marks body as ephemeral
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View as V
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ V.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View as V
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ V.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                            ]
+            , test "AGREEMENT: import View as V with V.freeze - client also marks body as ephemeral" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View as V
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ V.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+"""
+                    in
+                    -- Client marks body as ephemeral
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "V.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text app.data.body ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View as V
+import Html.Lazy
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View as V
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = app.data.title
+    , body = [ V.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":10,\"column\":5},\"end\":{\"row\":12,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
+        , describe "Non-conventional parameter names - both agree"
+            [ test "AGREEMENT: view function with props parameter - server marks body as ephemeral" <|
+                \() ->
+                    -- When the view function uses a non-conventional name like 'props'
+                    -- instead of 'app' or 'static', both transforms should identify it
+                    -- and track field access correctly
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view props =
+    { title = props.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text props.data.body ]) ]
+    }
+"""
+                    in
+                    -- Server marks body as ephemeral
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view props =
+    { title = props.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text props.data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view props =
+    { title = props.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text props.data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                            ]
+            , test "AGREEMENT: view function with props parameter - client also marks body as ephemeral" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view props =
+    { title = props.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text props.data.body ]) ]
+    }
+"""
+                    in
+                    -- Client marks body as ephemeral
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text props.data.body ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view props =
+    { title = props.data.title
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view props =
+    { title = props.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text props.data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":10,\"column\":5},\"end\":{\"row\":12,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "AGREEMENT: view function with context parameter - server marks body as ephemeral" <|
+                \() ->
+                    -- Similar test with 'context' as parameter name
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view context =
+    { title = context.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text context.data.body ]) ]
+    }
+"""
+                    in
+                    -- Server marks body as ephemeral
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view context =
+    { title = context.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text context.data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view context =
+    { title = context.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text context.data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                            ]
+            , test "AGREEMENT: view function with context parameter - client also marks body as ephemeral" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view context =
+    { title = context.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text context.data.body ]) ]
+    }
+"""
+                    in
+                    -- Client marks body as ephemeral
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text context.data.body ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view context =
+    { title = context.data.title
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view context =
+    { title = context.data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text context.data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":10,\"column\":5},\"end\":{\"row\":12,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
+        , describe "Record pattern with alias in app parameter - both agree"
+            [ test "AGREEMENT: view ({ data } as app) pattern - server marks body as ephemeral" <|
+                \() ->
+                    -- When the view function uses a record pattern with alias like
+                    -- ({ data } as app), both transforms correctly track field access
+                    -- through the destructured 'data' binding as app.data access.
+                    -- data.title in client context → title is persistent
+                    -- data.body in freeze → body is ephemeral
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view ({ data } as app) =
+    { title = data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text data.body ]) ]
+    }
+"""
+                    in
+                    -- Server marks only body as ephemeral (title is used in client context)
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view ({ data } as app) =
+    { title = data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view ({ data } as app) =
+    { title = data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                            ]
+            , test "AGREEMENT: view ({ data } as app) pattern - client also marks body as ephemeral" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view ({ data } as app) =
+    { title = data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text data.body ]) ]
+    }
+"""
+                    in
+                    -- Client also marks only body as ephemeral
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text data.body ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view ({ data } as app) =
+    { title = data.title
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view ({ data } as app) =
+    { title = data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text data.body ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":10,\"column\":5},\"end\":{\"row\":12,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "AGREEMENT: view ({ data } as app) with mixed access - server optimizes" <|
+                \() ->
+                    -- Test using both data.field and app.data.field in same function
+                    -- Both should be tracked correctly
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    , extra : String
+    }
+
+view ({ data } as app) =
+    { title = data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text (data.body ++ app.data.extra) ]) ]
+    }
+"""
+                    in
+                    -- Server marks body and extra as ephemeral (title is client-used)
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body, extra"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    , extra : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    , extra : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view ({ data } as app) =
+    { title = data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text (data.body ++ app.data.extra) ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    , extra : String
+    }
+
+view ({ data } as app) =
+    { title = data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text (data.body ++ app.data.extra) ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"extra\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    , extra : String
+    }"""
+                                }
+                            ]
+            , test "AGREEMENT: view ({ data } as app) with mixed access - client also optimizes" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , body : String
+    , extra : String
+    }
+
+view ({ data } as app) =
+    { title = data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text (data.body ++ app.data.extra) ]) ]
+    }
+"""
+                    in
+                    -- Client marks body and extra as ephemeral (title is client-used)
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text (data.body ++ app.data.extra) ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+type alias Data =
+    { title : String
+    , body : String
+    , extra : String
+    }
+
+view ({ data } as app) =
+    { title = data.title
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body, extra"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    , extra : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String }
+
+view ({ data } as app) =
+    { title = data.title
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text (data.body ++ app.data.extra) ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"extra\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":10,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         ]

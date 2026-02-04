@@ -27,6 +27,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , extractAccessorFieldFromApplication
     , extractAppDataAccessorApplicationField
     , extractAppDataBindingsFromLet
+    , extractAppDataBindingsFromPattern
     , extractAppDataFieldName
     , extractAppDataPipeAccessorField
     , extractCasePatternFields
@@ -1284,6 +1285,54 @@ extractPatternName node =
 
         _ ->
             Nothing
+
+
+{-| Extract app.data bindings from a function parameter pattern.
+
+When a function parameter uses record destructuring like `({ data } as app)`,
+the `data` field is bound to `app.data`. This function extracts such bindings
+so that field accesses like `data.title` can be tracked as `app.data.title`.
+
+Examples:
+
+  - `view app = ...` → returns empty set (no destructuring)
+  - `view ({ data } as app) = ...` → returns Set.singleton "data"
+  - `view ({ data, routeParams } as app) = ...` → returns Set.singleton "data"
+    (only "data" is relevant for tracking app.data access)
+
+-}
+extractAppDataBindingsFromPattern : Node Pattern -> Set String
+extractAppDataBindingsFromPattern node =
+    case Node.value node of
+        Pattern.AsPattern inner _ ->
+            -- ({ data } as app) or ({ data, routeParams } as app)
+            extractDataFieldFromRecordPattern inner
+
+        Pattern.ParenthesizedPattern inner ->
+            extractAppDataBindingsFromPattern inner
+
+        _ ->
+            Set.empty
+
+
+{-| Helper to extract "data" from a record pattern if present.
+-}
+extractDataFieldFromRecordPattern : Node Pattern -> Set String
+extractDataFieldFromRecordPattern node =
+    case Node.value node of
+        Pattern.RecordPattern fields ->
+            -- Check if "data" is one of the destructured fields
+            if List.any (\(Node _ fieldName) -> fieldName == "data") fields then
+                Set.singleton "data"
+
+            else
+                Set.empty
+
+        Pattern.ParenthesizedPattern inner ->
+            extractDataFieldFromRecordPattern inner
+
+        _ ->
+            Set.empty
 
 
 {-| Extract field name from pipe operator with accessor pattern.

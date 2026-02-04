@@ -283,18 +283,30 @@ declarationEnterVisitor node context =
                 -- Since field tracking happens INSIDE each function, we need the correct
                 -- param name for each function at the time we're visiting it.
                 let
-                    maybeAppParam =
+                    maybeAppParamPattern =
                         function.declaration
                             |> Node.value
                             |> .arguments
                             |> List.head
+
+                    maybeAppParam =
+                        maybeAppParamPattern
                             |> Maybe.andThen PersistentFieldTracking.extractPatternName
+
+                    -- Extract app.data bindings from patterns like ({ data } as app)
+                    appDataBindingsFromPattern =
+                        maybeAppParamPattern
+                            |> Maybe.map PersistentFieldTracking.extractAppDataBindingsFromPattern
+                            |> Maybe.withDefault Set.empty
 
                     currentSharedState =
                         contextWithFunctionEnter.sharedState
 
                     updatedSharedState =
-                        { currentSharedState | appParamName = maybeAppParam }
+                        { currentSharedState
+                            | appParamName = maybeAppParam
+                            , appDataBindings = Set.union currentSharedState.appDataBindings appDataBindingsFromPattern
+                        }
                 in
                 ( [], { contextWithFunctionEnter | sharedState = updatedSharedState } )
 
