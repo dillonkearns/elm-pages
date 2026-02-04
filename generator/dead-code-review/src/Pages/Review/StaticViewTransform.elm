@@ -361,8 +361,7 @@ declarationEnterVisitor node context =
 
                         else
                             Nothing
-                in
-                let
+
                     currentSharedState =
                         contextWithAppDataRanges.sharedState
 

@@ -289,10 +289,13 @@ declarationEnterVisitor node context =
                 -- Since field tracking happens INSIDE each function, we need the correct
                 -- param name for each function at the time we're visiting it.
                 let
-                    maybeAppParamPattern =
+                    arguments =
                         function.declaration
                             |> Node.value
                             |> .arguments
+
+                    maybeAppParamPattern =
+                        arguments
                             |> List.head
 
                     maybeAppParam =

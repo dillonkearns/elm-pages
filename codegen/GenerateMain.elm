@@ -72,6 +72,10 @@ otherFile routes phaseString routesWithEphemeral =
                 _ ->
                     Cli
 
+        sharedDataType : Type.Annotation
+        sharedDataType =
+            Type.named [ "Shared" ] "Data"
+
         --config :
         --    { declaration : Elm.Declaration
         --    , reference : Elm.Expression
@@ -195,7 +199,7 @@ otherFile routes phaseString routesWithEphemeral =
         --        (Type.maybe (Type.named [ "Route" ] "Route"))
         --        (pageDataType.annotation)
         --        (actionDataType.annotation)
-        --        (Type.named [ "Shared" ] "Data")
+        --        (sharedDataType)
         --        (Type.namedWith [ "Effect" ] "Effect" [ msgType.annotation ])
         --        (Type.var "mappedMsg")
         --        (Type.named [ "ErrorPage" ] "ErrorPage")
@@ -227,7 +231,7 @@ otherFile routes phaseString routesWithEphemeral =
                         |> Just
                   )
                 , ( "maybePageUrl", Type.maybe (Type.named [ "Pages", "PageUrl" ] "PageUrl") |> Just )
-                , ( "globalData", Type.named [ "Shared" ] "Data" |> Just )
+                , ( "globalData", sharedDataType |> Just )
                 , ( "pageData", pageDataType.annotation |> Just )
                 , ( "actionData", Type.maybe actionDataType.annotation |> Just )
                 ]
@@ -653,7 +657,7 @@ otherFile routes phaseString routesWithEphemeral =
             Elm.Declare.fn6 "init"
                 (Elm.Arg.varWith "currentGlobalModel" (Type.maybe (Type.named [ "Shared" ] "Model")))
                 (Elm.Arg.varWith "userFlags" (Type.named [ "Pages", "Flags" ] "Flags"))
-                (Elm.Arg.varWith "sharedData" (Type.named [ "Shared" ] "Data"))
+                (Elm.Arg.varWith "sharedData" (sharedDataType))
                 (Elm.Arg.varWith "pageData" pageDataType.annotation)
                 (Elm.Arg.varWith "actionData" (actionDataType.annotation |> Type.maybe))
                 (Elm.Arg.varWith "maybePagePath"
@@ -822,7 +826,7 @@ otherFile routes phaseString routesWithEphemeral =
                         |> Just
                   )
                 , ( "navigation", Type.named [ "Pages", "Navigation" ] "Navigation" |> Type.maybe |> Just )
-                , ( "sharedData", Type.named [ "Shared" ] "Data" |> Just )
+                , ( "sharedData", sharedDataType |> Just )
                 , ( "pageData", pageDataType.annotation |> Just )
                 , ( "navigationKey", Type.named [ "Browser", "Navigation" ] "Key" |> Type.maybe |> Just )
                 , ( "msg", msgType.annotation |> Just )
@@ -1930,7 +1934,7 @@ otherFile routes phaseString routesWithEphemeral =
                                 "ResponseSketch"
                                 [ pageDataType.annotation
                                 , actionDataType.annotation
-                                , Type.named [ "Shared" ] "Data"
+                                , sharedDataType
                                 ]
                             ]
                             Gen.Bytes.Encode.annotation_.encoder
@@ -1981,7 +1985,7 @@ otherFile routes phaseString routesWithEphemeral =
                             "ResponseSketch"
                             [ pageDataType.annotation
                             , actionDataType.annotation
-                            , Type.named [ "Shared" ] "Data"
+                            , sharedDataType
                             ]
                             |> Gen.Bytes.Decode.annotation_.decoder
                         )
@@ -2193,12 +2197,12 @@ otherFile routes phaseString routesWithEphemeral =
                             , Gen.Pages.Internal.Platform.annotation_.model modelType.annotation
                                 pageDataType.annotation
                                 actionDataType.annotation
-                                (Type.named [ "Shared" ] "Data")
+                                (sharedDataType)
                             , Gen.Pages.Internal.Platform.annotation_.msg
                                 msgType.annotation
                                 pageDataType.annotation
                                 actionDataType.annotation
-                                (Type.named [ "Shared" ] "Data")
+                                (sharedDataType)
                                 (Type.named [ "ErrorPage" ] "ErrorPage")
                             ]
                         )

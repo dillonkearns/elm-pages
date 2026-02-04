@@ -48,6 +48,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , isRecordAccessFunction
     , isRouteBuilderCall
     , isRouteModule
+    , isSharedModule
     , isViewFreezeCall
     , markAllFieldsAsPersistent
     , resolvePendingHelperCalls
@@ -1839,6 +1840,17 @@ isRouteModule moduleName =
 
         _ ->
             False
+
+
+{-| Check if the module is Shared.elm.
+
+This is used for module-specific logic where Shared needs different
+handling than Route modules (e.g., parameter tracking).
+
+-}
+isSharedModule : ModuleName -> Bool
+isSharedModule moduleName =
+    moduleName == [ "Shared" ]
 
 
 {-| Check if a function node is a call to View.freeze.

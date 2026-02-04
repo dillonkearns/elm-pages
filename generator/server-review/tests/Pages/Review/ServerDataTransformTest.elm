@@ -1216,27 +1216,79 @@ config =
                         -- Site.elm is not a Route module, so no transformation should occur
                         -- even though siteName is never used in client context
                         |> Review.Test.expectNoErrors
-            , test "Shared module with Data type should not be transformed" <|
+            , test "Shared module Data type should not be transformed (but View.freeze still works)" <|
                 \() ->
-                    -- Shared.elm is not a Route module, so it should be skipped
+                    -- Shared.elm is NOT transformed for ephemeral data tracking
+                    -- because Shared.Data fields are accessed from Route modules via app.sharedData
+                    -- and we can't track cross-module field usage.
+                    -- View.freeze in Shared.elm still works for HTML transformation, but
+                    -- data fields are not eliminated.
                     """module Shared exposing (Data, template)
 
 import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
+import Html
+import View
 
 type alias Data =
     { userName : String
+    , heavyFooterContent : String
     }
 
 data : BackendTask FatalError Data
 data =
-    BackendTask.succeed { userName = "guest" }
+    BackendTask.succeed { userName = "guest", heavyFooterContent = "markdown" }
+
+view sharedData page model toMsg pageView =
+    { title = pageView.title
+    , body =
+        [ Html.text sharedData.userName
+        , View.freeze (Html.text sharedData.heavyFooterContent)
+        ]
+    }
 
 template =
     {}
 """
                         |> Review.Test.run rule
-                        -- Shared.elm is not a Route module, so no transformation should occur
-                        |> Review.Test.expectNoErrors
+                        -- View.freeze transformation still happens (wrapping with data-static)
+                        -- but NO data type splitting should occur
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                    ]
+                                , under = "View.freeze (Html.text sharedData.heavyFooterContent)"
+                                }
+                                |> Review.Test.whenFixed """module Shared exposing (Data, template)
+
+import BackendTask exposing (BackendTask)
+import FatalError exposing (FatalError)
+import Html
+import View
+import Html.Attributes
+
+type alias Data =
+    { userName : String
+    , heavyFooterContent : String
+    }
+
+data : BackendTask FatalError Data
+data =
+    BackendTask.succeed { userName = "guest", heavyFooterContent = "markdown" }
+
+view sharedData page model toMsg pageView =
+    { title = pageView.title
+    , body =
+        [ Html.text sharedData.userName
+        , View.freeze (Html.div [ Html.Attributes.attribute "data-static" "shared:__STATIC__" ] [ Html.text sharedData.heavyFooterContent ])
+        ]
+    }
+
+template =
+    {}
+"""
+                            ]
             ]
         ]
