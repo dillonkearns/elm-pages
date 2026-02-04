@@ -1,8 +1,7 @@
 set -ex;
-yes | lamdera reset || true
 npm run build:generator
 npx elm-test --compiler lamdera
-(cd examples/routing && yes | lamdera reset || true && npm i && npm run build && npx elm-test --compiler lamdera)
+(cd examples/routing && npm i && npm run build && npx elm-test --compiler lamdera)
 (cd generator/dead-code-review && npx elm-test --compiler lamdera)
 (cd generator/server-review && npx elm-test --compiler lamdera)
 (cd generator/persistent-marking-agreement-test && npx elm-test --compiler lamdera)
