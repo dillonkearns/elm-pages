@@ -48,11 +48,15 @@ export async function updateVersionMarker(projectDirectory) {
  */
 export async function needsRecompilation(projectDirectory, outputPath) {
   try {
-    // Check if elm-pages version has changed
-    const versionMatch = await checkVersionMatch(projectDirectory);
-    if (!versionMatch) {
-      return true;
-    }
+    // TODO: Re-enable version checking once we have a reliable way to detect
+    // local elm-pages development vs installed packages. Currently disabled
+    // because during elm-pages development, the version string doesn't change
+    // but the code does, which would cause stale cached builds.
+    //
+    // const versionMatch = await checkVersionMatch(projectDirectory);
+    // if (!versionMatch) {
+    //   return true;
+    // }
 
     const outputStat = await fs.promises.stat(outputPath);
     const outputMtime = outputStat.mtimeMs;
