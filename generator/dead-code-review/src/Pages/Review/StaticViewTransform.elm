@@ -73,16 +73,9 @@ type alias Context =
 
     -- Shared field tracking state (embedded from PersistentFieldTracking)
     -- This contains: clientUsedFields, inFreezeCall, inHeadFunction, appDataBindings,
-    -- appParamName, helperFunctions, pendingHelperCalls, dataTypeFields, markAllFieldsAsUsed
+    -- appParamName, helperFunctions, pendingHelperCalls, dataTypeFields, markAllFieldsAsUsed,
+    -- currentFunctionName, perFunctionClientFields, routeBuilderHeadFn
     , sharedState : PersistentFieldTracking.SharedFieldTrackingState
-
-    -- Client-specific tracking for current function name
-    , currentFunctionName : Maybe String
-
-    -- Per-function field tracking (for non-conventional head function names)
-    -- Maps function name -> fields accessed outside freeze in that function
-    -- Used in finalEvaluation to exclude fields accessed by the actual head function
-    , perFunctionClientFields : Dict String (Set String)
 
     -- Field-specific binding tracking (for let bindings like `let title = app.data.title`)
     -- Maps variable name -> field name from app.data
@@ -114,7 +107,7 @@ type alias Context =
     -- RouteBuilder convention verification
     -- We track what function names are passed to RouteBuilder.preRender/single/serverRender
     -- If the names don't match conventions, we bail out of optimization
-    , routeBuilderHeadFn : Maybe String -- What's passed to `head = X` in RouteBuilder
+    -- Note: routeBuilderHeadFn is tracked in sharedState for agreement with ServerDataTransform
     , routeBuilderDataFn : Maybe String -- What's passed to `data = X` in RouteBuilder
     , routeBuilderFound : Bool -- Did we find a RouteBuilder call?
 
@@ -173,8 +166,6 @@ initialContext =
             , lastImportRow = 2
             , staticIndex = 0
             , sharedState = PersistentFieldTracking.emptySharedState
-            , currentFunctionName = Nothing
-            , perFunctionClientFields = Dict.empty
             , fieldBindings = Dict.empty
             , fieldBindingRanges = Set.empty
             , dataUsedAsConstructor = False
@@ -183,7 +174,6 @@ initialContext =
             , appDataTypeRanges = []
             , headFunctionBodyRange = Nothing
             , dataFunctionBodyRange = Nothing
-            , routeBuilderHeadFn = Nothing
             , routeBuilderDataFn = Nothing
             , routeBuilderFound = False
             , modelParamName = Nothing
@@ -273,7 +263,7 @@ declarationEnterVisitor node context =
                 -- If we've seen RouteBuilder, use the extracted name
                 -- Otherwise fall back to "head" (the convention)
                 actualHeadFn =
-                    context.routeBuilderHeadFn
+                    context.sharedState.routeBuilderHeadFn
                         |> Maybe.withDefault "head"
 
                 -- Determine the actual data function name
@@ -290,10 +280,14 @@ declarationEnterVisitor node context =
                         Nothing ->
                             []
 
+                -- Track that we're entering this function (for per-function field tracking)
+                sharedStateWithFunctionEnter =
+                    PersistentFieldTracking.updateOnFunctionEnter functionName context.sharedState
+
                 contextWithAppDataRanges =
                     { context
                         | appDataTypeRanges = context.appDataTypeRanges ++ appDataRanges
-                        , currentFunctionName = Just functionName
+                        , sharedState = sharedStateWithFunctionEnter
                     }
             in
             if functionName == actualHeadFn then
@@ -495,14 +489,18 @@ declarationExitVisitor node context =
 
                 -- Use the same logic as enter visitor for consistency
                 actualHeadFn =
-                    context.routeBuilderHeadFn
+                    context.sharedState.routeBuilderHeadFn
                         |> Maybe.withDefault "head"
+
+                -- Track that we're exiting this function (for per-function field tracking)
+                sharedStateWithFunctionExit =
+                    PersistentFieldTracking.updateOnFunctionExit context.sharedState
             in
             if functionName == actualHeadFn then
-                ( [], { context | sharedState = PersistentFieldTracking.updateOnHeadExit context.sharedState, currentFunctionName = Nothing } )
+                ( [], { context | sharedState = PersistentFieldTracking.updateOnHeadExit sharedStateWithFunctionExit } )
 
             else
-                ( [], { context | currentFunctionName = Nothing } )
+                ( [], { context | sharedState = sharedStateWithFunctionExit } )
 
         _ ->
             ( [], context )
@@ -1207,50 +1205,16 @@ findDataTypeRanges =
 
 
 {-| Add a field access to clientUsedFields if we're in a CLIENT context.
-Fields accessed in ephemeral contexts (freeze, head) are NOT tracked.
+Fields accessed in ephemeral contexts (freeze, head) are NOT tracked as client-used,
+but are still tracked per-function for head function correction.
 
-Also tracks per-function field accesses for non-conventional head function names.
-If the head function is defined before RouteBuilder, we initially track its field
-accesses as client-used. In finalEvaluation, we subtract these fields when we
-discover the actual head function name.
+Delegates to the shared updateOnFieldAccess to ensure agreement with ServerDataTransform.
 -}
 addFieldAccess : String -> Context -> Context
 addFieldAccess fieldName context =
-    if context.sharedState.inFreezeCall || context.sharedState.inHeadFunction then
-        -- In ephemeral context - don't track (field can potentially be removed)
-        context
-
-    else
-        -- In client context - field MUST be kept
-        -- Also track per-function for non-conventional head function handling
-        let
-            updatedPerFunction =
-                case context.currentFunctionName of
-                    Just fnName ->
-                        Dict.update fnName
-                            (\maybeFields ->
-                                case maybeFields of
-                                    Just fields ->
-                                        Just (Set.insert fieldName fields)
-
-                                    Nothing ->
-                                        Just (Set.singleton fieldName)
-                            )
-                            context.perFunctionClientFields
-
-                    Nothing ->
-                        context.perFunctionClientFields
-
-            currentSharedState =
-                context.sharedState
-
-            updatedSharedState =
-                { currentSharedState | clientUsedFields = Set.insert fieldName currentSharedState.clientUsedFields }
-        in
-        { context
-            | sharedState = updatedSharedState
-            , perFunctionClientFields = updatedPerFunction
-        }
+    { context
+        | sharedState = PersistentFieldTracking.updateOnFieldAccess fieldName context.sharedState
+    }
 
 
 {-| Extract function names from RouteBuilder.preRender/single/serverRender record argument.
@@ -1274,10 +1238,14 @@ extractRouteBuilderFunctions context args =
                         -- Use shared extraction logic
                         extracted =
                             PersistentFieldTracking.extractRouteBuilderFunctions fields
+
+                        -- Store head function name in shared state for agreement with ServerDataTransform
+                        updatedSharedState =
+                            PersistentFieldTracking.setRouteBuilderHeadFn extracted.headFn context.sharedState
                     in
                     { context
                         | routeBuilderFound = True
-                        , routeBuilderHeadFn = extracted.headFn
+                        , sharedState = updatedSharedState
                         , routeBuilderDataFn = extracted.dataFn
                     }
 
@@ -1637,23 +1605,12 @@ finalEvaluation context =
         isRouteModule =
             PersistentFieldTracking.isRouteModule context.moduleName
 
-        -- Determine the actual head function name from RouteBuilder
-        -- This handles non-conventional naming like { head = seoTags }
-        actualHeadFn =
-            context.routeBuilderHeadFn |> Maybe.withDefault "head"
-
         -- Fields to subtract from clientUsedFields because they were accessed in the head function
         -- This handles the case where the head function is defined BEFORE RouteBuilder is seen,
         -- so we initially tracked its field accesses as client-used. Now we correct that.
+        -- Uses shared computation to ensure agreement with ServerDataTransform.
         headFunctionFields =
-            if actualHeadFn /= "head" then
-                -- Non-conventional head function name - look up fields accessed in that function
-                Dict.get actualHeadFn context.perFunctionClientFields
-                    |> Maybe.withDefault Set.empty
-
-            else
-                -- Conventional naming - inHeadFunction was set correctly during traversal
-                Set.empty
+            PersistentFieldTracking.computeHeadFunctionFields context.sharedState
     in
     -- Conservative: skip transformation in these cases:
     -- 1. Not a Route module (Site.elm, Shared.elm, etc.)
