@@ -112,6 +112,7 @@ describe("Frozen View Codemod", () => {
 
   it("patches elm-safe-virtual-dom code with tNode parameter", () => {
     // elm-safe-virtual-dom (lydell/virtual-dom) has an extra tNode parameter
+    // and different patterns for thunk handling in diffHelp
     const SAFE_VDOM_CODE = `
 function _VirtualDom_render(vNode, eventNode, tNode) {
     var tag = vNode.$;
@@ -127,11 +128,12 @@ function _VirtualDom_render(vNode, eventNode, tNode) {
     return _VirtualDom_doc.createElement('div');
 }
 
-function _VirtualDom_diffHelp(x, y, patches, index) {
+function _VirtualDom_diffHelp(x, y, patches, index, eventNode, tNode) {
     if (x === y) { return; }
     var xType = x.$;
     var yType = y.$;
     if (xType !== yType) {
+        if (y.$ === 5) { return _VirtualDom_diffHelp(x, y.k || (y.k = y.m()), eventNode, tNode); }
         _VirtualDom_pushPatch(patches, 0, index, y);
         return;
     }
@@ -145,6 +147,7 @@ function _VirtualDom_diffHelp(x, y, patches, index) {
                 same = xRefs[i] === yRefs[i];
             }
             if (same) { y.k = x.k; return; }
+            y.k = y.m();
             _VirtualDom_pushPatch(patches, 0, index, y);
             return;
     }
