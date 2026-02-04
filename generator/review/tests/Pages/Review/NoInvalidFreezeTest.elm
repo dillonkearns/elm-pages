@@ -1,13 +1,13 @@
-module Pages.Review.StaticRegionScopeTest exposing (all)
+module Pages.Review.NoInvalidFreezeTest exposing (all)
 
-import Pages.Review.StaticRegionScope exposing (rule)
+import Pages.Review.NoInvalidFreeze exposing (rule)
 import Review.Test
 import Test exposing (Test, describe, test)
 
 
 all : Test
 all =
-    describe "Pages.Review.StaticRegionScope"
+    describe "Pages.Review.NoInvalidFreeze"
         [ describe "Module scope restrictions"
             [ test "allows View.freeze in Route modules" <|
                 \() ->

@@ -1,4 +1,4 @@
-module Pages.Review.StaticRegionScope exposing (rule)
+module Pages.Review.NoInvalidFreeze exposing (rule)
 
 {-| This rule ensures that frozen view functions are only called from Route modules
 and that model (or values derived from model) is not referenced inside freeze calls.
@@ -106,7 +106,7 @@ flow through helper functions from other modules.
 -}
 rule : Rule
 rule =
-    Rule.newProjectRuleSchema "Pages.Review.StaticRegionScope" initialProjectContext
+    Rule.newProjectRuleSchema "Pages.Review.NoInvalidFreeze" initialProjectContext
         |> Rule.withContextFromImportedModules
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
