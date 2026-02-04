@@ -573,7 +573,8 @@ handleViewFreezeWrapping applicationNode functionNode args context =
                     innerRange =
                         Node.range innerNode
 
-                    -- We'll wrap it with: Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ <arg> ]
+                    -- We'll wrap it with: View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml <arg> ])
+                    -- This handles type conversion for elm-css and other view libraries where Freezable != Html.Html Never
                     -- Shared module uses "shared:" prefix to distinguish from Route frozen views
                     -- Need to add outer parentheses if not already parenthesized
                     staticPrefix =
@@ -582,21 +583,22 @@ handleViewFreezeWrapping applicationNode functionNode args context =
                     ( wrapperPrefix, wrapperSuffix ) =
                         if isParenthesized then
                             -- Original had parentheses, we use the inner range and add just the wrapper
-                            ( htmlPrefix
+                            ( "View.htmlToFreezable ("
+                                ++ htmlPrefix
                                 ++ ".div [ "
                                 ++ attrPrefix
-                                ++ ".attribute \"data-static\" \"" ++ staticPrefix ++ "__STATIC__\" ] [ "
-                            , " ]"
+                                ++ ".attribute \"data-static\" \"" ++ staticPrefix ++ "__STATIC__\" ] [ View.freezableToHtml ("
+                            , ") ])"
                             )
 
                         else
                             -- Original didn't have parentheses, we need to add them
-                            ( "("
+                            ( "(View.htmlToFreezable ("
                                 ++ htmlPrefix
                                 ++ ".div [ "
                                 ++ attrPrefix
-                                ++ ".attribute \"data-static\" \"" ++ staticPrefix ++ "__STATIC__\" ] [ "
-                            , " ])"
+                                ++ ".attribute \"data-static\" \"" ++ staticPrefix ++ "__STATIC__\" ] [ View.freezableToHtml ("
+                            , ") ]))"
                             )
 
                     wrapperFixes =
@@ -652,19 +654,58 @@ unwrapParenthesizedExpression node =
 {-| Check if an expression is already wrapped with Html.div with data-static attribute.
 This is the base case to prevent infinite loops.
 
-Looks for pattern:
-Html.div [ Html.Attributes.attribute "data-static" "..." ][ ... ]
+Looks for patterns:
+1. View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "..." ] [ ... ])
+2. Html.div [ Html.Attributes.attribute "data-static" "..." ] [ ... ] (legacy)
 
 -}
 isAlreadyWrappedWithDataStatic : Node Expression -> Bool
 isAlreadyWrappedWithDataStatic node =
     case Node.value node of
-        Expression.Application (functionNode :: attrListNode :: _) ->
-            -- Check if function is Html.div (or aliased)
+        Expression.Application (functionNode :: args) ->
             case Node.value functionNode of
-                Expression.FunctionOrValue moduleName "div" ->
-                    -- Could be Html.div, H.div, etc.
-                    -- Check if the attribute list contains data-static
+                Expression.FunctionOrValue [ "View" ] "htmlToFreezable" ->
+                    -- New pattern: View.htmlToFreezable (Html.div [...] [...])
+                    case args of
+                        innerArg :: [] ->
+                            isHtmlDivWithDataStatic (unwrapParenthesizedExpression innerArg)
+
+                        _ ->
+                            False
+
+                Expression.FunctionOrValue _ "htmlToFreezable" ->
+                    -- Also handle unqualified or aliased View module
+                    case args of
+                        innerArg :: [] ->
+                            isHtmlDivWithDataStatic (unwrapParenthesizedExpression innerArg)
+
+                        _ ->
+                            False
+
+                Expression.FunctionOrValue _ "div" ->
+                    -- Legacy pattern: Html.div [...] [...] directly
+                    case args of
+                        attrListNode :: _ ->
+                            containsDataStaticAttribute attrListNode
+
+                        _ ->
+                            False
+
+                _ ->
+                    False
+
+        _ ->
+            False
+
+
+{-| Check if an expression is Html.div with data-static attribute.
+-}
+isHtmlDivWithDataStatic : Node Expression -> Bool
+isHtmlDivWithDataStatic node =
+    case Node.value node of
+        Expression.Application (functionNode :: attrListNode :: _) ->
+            case Node.value functionNode of
+                Expression.FunctionOrValue _ "div" ->
                     containsDataStaticAttribute attrListNode
 
                 _ ->

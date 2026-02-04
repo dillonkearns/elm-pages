@@ -3576,7 +3576,7 @@ type alias Data =
 
 view app =
     { title = myExtract app.data
-    , body = [ View.freeze (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text "static" ]) ]
+    , body = [ View.freeze (View.htmlToFreezable (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.text "static") ])) ]
     }
 
 extractTitle data =

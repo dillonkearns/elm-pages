@@ -503,7 +503,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text "hello" ]) ]
+    , body = [ View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.text "hello") ])) ]
     }
 """
                             ]
@@ -523,7 +523,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text "hello" ]) ]
+    , body = [ View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.text "hello") ])) ]
     }
 """
                         |> Review.Test.run rule
@@ -572,7 +572,7 @@ type alias Data =
 view app =
     { title = app.data.title
     , body =
-        [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text "first" ])
+        [ View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.text "first") ]))
         , View.freeze (Html.text "second")
         ]
     }
@@ -598,7 +598,7 @@ view app =
     { title = app.data.title
     , body =
         [ View.freeze (Html.text "first")
-        , View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text "second" ])
+        , View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.text "second") ]))
         ]
     }
 """
@@ -641,7 +641,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (H.div [ Attr.attribute "data-static" "__STATIC__" ] [ H.text "hello" ]) ]
+    , body = [ View.freeze (View.htmlToFreezable (H.div [ Attr.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (H.text "hello") ])) ]
     }
 """
                             ]
@@ -684,7 +684,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ content ]) ]
+    , body = [ View.freeze (View.htmlToFreezable (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (content) ])) ]
     }
 
 content = Html.Attributes.attribute "foo" "bar"
@@ -727,7 +727,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text "hello" ]) ]
+    , body = [ View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.text "hello") ])) ]
     }
 """
                             ]
@@ -769,7 +769,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ content ]) ]
+    , body = [ View.freeze (View.htmlToFreezable (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (content) ])) ]
     }
 
 content = someHelper "test"
@@ -816,7 +816,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.Styled.text "hello" ]) ]
+    , body = [ View.freeze (View.htmlToFreezable (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.Styled.text "hello") ])) ]
     }
 """
                             ]
@@ -1282,7 +1282,7 @@ view sharedData page model toMsg pageView =
     { title = pageView.title
     , body =
         [ Html.text sharedData.userName
-        , View.freeze (Html.div [ Html.Attributes.attribute "data-static" "shared:__STATIC__" ] [ Html.text sharedData.heavyFooterContent ])
+        , View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "shared:__STATIC__" ] [ View.freezableToHtml (Html.text sharedData.heavyFooterContent) ]))
         ]
     }
 
