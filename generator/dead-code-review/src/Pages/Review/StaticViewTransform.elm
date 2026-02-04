@@ -66,6 +66,7 @@ type alias Context =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
     , htmlLazyImport : HtmlLazyImport
+    , htmlImport : HtmlLazyImport -- tracks elm/html's Html module import and alias
     , htmlStyledAlias : Maybe ModuleName
     , lastImportRow : Int
     , staticIndex : Int
@@ -167,6 +168,7 @@ initialContext =
             { lookupTable = lookupTable
             , moduleName = moduleName
             , htmlLazyImport = NotImported
+            , htmlImport = NotImported
             , htmlStyledAlias = Nothing
             , lastImportRow = 2
             , staticIndex = 0
@@ -228,6 +230,18 @@ importVisitor node context =
                     |> Maybe.map Node.value
                     |> Maybe.withDefault [ "Html", "Styled" ]
                     |> Just
+            , lastImportRow = max context.lastImportRow importEndRow
+          }
+        )
+
+    else if moduleName == [ "Html" ] then
+        ( []
+        , { context
+            | htmlImport =
+                import_.moduleAlias
+                    |> Maybe.map Node.value
+                    |> Maybe.withDefault [ "Html" ]
+                    |> ImportedAs
             , lastImportRow = max context.lastImportRow importEndRow
           }
         )
@@ -1453,8 +1467,10 @@ createTransformErrorWithFixes fromFn toFn node fixes =
         fixes
 
 
-{-| Generate fixes to add `import Html.Lazy` if not already imported.
-The generated code uses `Html.Lazy.lazy` for the lazy thunk.
+{-| Generate fixes to add `import Html.Lazy` and `import Html` if not already imported.
+The generated code uses:
+- `Html.Lazy.lazy` for the lazy thunk
+- `Html.text ""` as the placeholder (must be from elm/html, not Html.Styled)
 -}
 htmlLazyImportFix : Context -> List Review.Fix.Fix
 htmlLazyImportFix context =
@@ -1466,15 +1482,47 @@ htmlLazyImportFix context =
 
                 NotImported ->
                     True
+
+        needsHtml =
+            case context.htmlImport of
+                ImportedAs _ ->
+                    False
+
+                NotImported ->
+                    True
+
+        -- Check if Html.Styled is aliased as "Html" - if so, we need a different name
+        -- to avoid ambiguity between Html.Styled.text and Html.text
+        htmlStyledUsesHtmlAlias =
+            context.htmlStyledAlias == Just [ "Html" ]
+
+        importsToAdd =
+            (if needsHtmlLazy then
+                "import Html.Lazy\n"
+
+             else
+                ""
+            )
+                ++ (if needsHtml then
+                        if htmlStyledUsesHtmlAlias then
+                            -- Import with alias to avoid conflict with Html.Styled as Html
+                            "import Html as CoreHtml\n"
+
+                        else
+                            "import Html\n"
+
+                    else
+                        ""
+                   )
     in
-    if needsHtmlLazy then
-        [ Review.Fix.insertAt
-            { row = context.lastImportRow + 1, column = 1 }
-            "import Html.Lazy\n"
-        ]
+    if String.isEmpty importsToAdd then
+        []
 
     else
-        []
+        [ Review.Fix.insertAt
+            { row = context.lastImportRow + 1, column = 1 }
+            importsToAdd
+        ]
 
 
 {-| Generate inlined lazy thunk with View.htmlToFreezable wrapper and map never.
@@ -1490,9 +1538,9 @@ detects at runtime to adopt pre-rendered HTML. The View.htmlToFreezable wrapper
 converts the Html.Html Never back to the user's Freezable type, and map never converts
 from `Freezable` (Html Never) to `Html msg`.
 
-We use `Html.text ""` (or `Html.Styled.text ""` when elm-css is used) because elm/html
-is guaranteed to be a direct dependency. We avoid `VirtualDom.text` because elm/virtual-dom
-is typically only an indirect dependency, and Elm only allows importing from direct dependencies.
+IMPORTANT: The thunk must use `Html.text ""` from elm/html (not Html.Styled.text)
+because Html.Lazy.lazy expects Html.Html, not Html.Styled.Html. The View.htmlToFreezable
+function handles the conversion to the user's Freezable type.
 
 -}
 inlinedLazyThunk : Context -> String
@@ -1505,6 +1553,21 @@ inlinedLazyThunk context =
 
                 NotImported ->
                     "Html.Lazy"
+
+        -- Determine the Html prefix (from elm/html) for Html.text ""
+        -- Must use elm/html's Html module, not Html.Styled
+        -- If Html.Styled is aliased as "Html" and Html isn't imported, we use "CoreHtml"
+        htmlPrefix =
+            case context.htmlImport of
+                ImportedAs alias ->
+                    String.join "." alias
+
+                NotImported ->
+                    if context.htmlStyledAlias == Just [ "Html" ] then
+                        "CoreHtml"
+
+                    else
+                        "Html"
 
         -- Determine the map function prefix based on whether Html.Styled is used
         -- If Html.Styled is imported, use it for map never; otherwise use plain Html
@@ -1530,7 +1593,8 @@ inlinedLazyThunk context =
             "\"__ELM_PAGES_STATIC__" ++ prefix ++ String.fromInt context.staticIndex ++ "\""
     in
     -- Generate: Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never
-    "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> " ++ mapPrefix ++ ".text \"\") " ++ staticId ++ " |> View.htmlToFreezable |> " ++ mapPrefix ++ ".map never)"
+    -- Note: Html.text must be from elm/html (not Html.Styled) because Html.Lazy.lazy expects Html.Html
+    "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> " ++ htmlPrefix ++ ".text \"\") " ++ staticId ++ " |> View.htmlToFreezable |> " ++ mapPrefix ++ ".map never)"
 
 
 {-| Final evaluation - emit Data type transformation if there are removable fields.
