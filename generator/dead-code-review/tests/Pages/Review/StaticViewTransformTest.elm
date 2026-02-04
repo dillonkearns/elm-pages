@@ -33,10 +33,9 @@ view =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 view =
-    { body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
 """
                             ]
             , test "uses Html.Styled alias when imported as Html.Styled" <|
@@ -63,10 +62,9 @@ view =
 import Html.Styled
 import View
 import Html.Lazy
-import VirtualDom
 
 view =
-    { body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> Html.Styled.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never) ] }
 """
                             ]
             ]
@@ -95,10 +93,9 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 view app =
-    { body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
 """
                             ]
             ]
@@ -127,10 +124,9 @@ view =
 import Html.Styled as Html
 import View
 import Html.Lazy as Lazy
-import VirtualDom
 
 view =
-    { body = [ (Lazy.lazy (\\_ -> VirtualDom.text \"\") \"__ELM_PAGES_STATIC__0\" |> View.htmlToFreezable |> Html.map never) ] }
+    { body = [ (Lazy.lazy (\\_ -> Html.text \"\") \"__ELM_PAGES_STATIC__0\" |> View.htmlToFreezable |> Html.map never) ] }
 """
                             ]
             ]
@@ -163,11 +159,10 @@ view =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 view =
     { body =
-        [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
+        [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
         , View.freeze content2
         ]
     }
@@ -183,12 +178,11 @@ view =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 view =
     { body =
         [ View.freeze content1
-        , (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__1" |> View.htmlToFreezable |> Html.map never)
+        , (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__1" |> View.htmlToFreezable |> Html.map never)
         ]
     }
 """
@@ -218,10 +212,9 @@ view =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 view =
-    { body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
 """
                             ]
             ]
@@ -257,7 +250,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -266,7 +258,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -331,7 +323,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -339,7 +330,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             ]
@@ -1064,7 +1055,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -1073,7 +1063,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1210,7 +1200,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -1220,7 +1209,7 @@ type alias Data =
 view app =
     { title = app.data.title
     , body =
-        [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
+        [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
         ]
     }
 """
@@ -1298,7 +1287,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -1309,7 +1297,7 @@ view app =
     case app.data of
         { title } ->
             { title = title
-            , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+            , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
             }
 """
                             , Review.Test.error
@@ -1384,7 +1372,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -1396,7 +1383,7 @@ view app =
     case app.data of
         { title } ->
             { title = title
-            , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+            , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
             }
 """
                             , Review.Test.error
@@ -1470,7 +1457,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -1481,7 +1467,7 @@ view app =
     case app.data of
         _ ->
             { title = "constant"
-            , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+            , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
             }
 """
                             , Review.Test.error
@@ -1558,7 +1544,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -1570,7 +1555,7 @@ view app =
         title = app.data.title
     in
     { title = title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1645,7 +1630,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -1657,7 +1641,7 @@ view app =
         body = app.data.body
     in
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1733,7 +1717,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -1745,7 +1728,7 @@ view app =
         { title, body } = app.data
     in
     { title = title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1826,7 +1809,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -1839,7 +1821,7 @@ view app =
         modifiedData = { d | title = "new" }
     in
     { title = modifiedData.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1888,7 +1870,6 @@ someHelper items = ""
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -1897,7 +1878,7 @@ type alias Data =
 
 view app =
     { title = someHelper [ app.data ]
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 someHelper items = ""
@@ -1948,7 +1929,6 @@ someHelper pair = ""
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -1957,7 +1937,7 @@ type alias Data =
 
 view app =
     { title = someHelper ( app.data, "extra" )
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 someHelper pair = ""
@@ -2016,7 +1996,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -2026,7 +2005,7 @@ type alias Data =
 view app =
     { title = app.data.title
     , body =
-        [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
+        [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
         ]
     }
 """
@@ -2110,7 +2089,6 @@ renderContent data =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -2119,7 +2097,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 renderContent data =
@@ -2198,7 +2176,6 @@ renderContent pageData =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -2207,7 +2184,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 renderContent : Data -> Html.Html msg
@@ -2295,7 +2272,6 @@ extractTitle data =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -2304,7 +2280,7 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 extractTitle data =
@@ -2385,7 +2361,6 @@ renderBody body meta =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -2395,7 +2370,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 renderBody body meta =
@@ -2480,7 +2455,6 @@ extractTitle { title } =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -2490,7 +2464,7 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 -- This helper uses record destructuring - we know it only needs 'title'
@@ -2573,7 +2547,6 @@ renderHeader { title, author } =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -2583,7 +2556,7 @@ type alias Data =
 
 view app =
     { title = renderHeader app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 -- This helper destructures both title and author
@@ -2715,7 +2688,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -2724,7 +2696,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -2800,7 +2772,6 @@ extractTitle data =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -2809,7 +2780,7 @@ type alias Data =
 
 view app =
     { title = String.toUpper (extractTitle app.data)
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 extractTitle data =
@@ -3233,7 +3204,6 @@ import Html.Styled as Html
 import View
 import Html.Lazy
 import SomeModule
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -3242,7 +3212,7 @@ type alias Data =
 
 view app =
     { title = myHelper app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 -- Alias to an imported (unknown) function
@@ -3430,7 +3400,6 @@ extractTitle data =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -3439,7 +3408,7 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 -- Helper uses case with variable pattern - now trackable!
@@ -3521,7 +3490,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -3530,7 +3498,7 @@ type alias Data =
 
 view app =
     { title = (\\d -> d.title) app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -3597,7 +3565,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -3606,7 +3573,7 @@ type alias Data =
 
 view app =
     { title = app.data |> (\\d -> d.title)
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -3886,7 +3853,6 @@ import Html.Styled as Html
 import View
 import Html.Lazy
 import SomeModule
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -3895,7 +3861,7 @@ type alias Data =
 
 view app =
     { title = wrapperHelper app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 -- Wrapper that delegates to imported function
@@ -3950,7 +3916,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -3963,7 +3928,7 @@ init maybePageUrl sharedModel app =
 
 view app =
     { title = "Page"
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4041,7 +4006,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -4054,7 +4018,7 @@ init maybePageUrl sharedModel app =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4131,7 +4095,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -4144,7 +4107,7 @@ init maybePageUrl sharedModel static =
 
 view app =
     { title = "Page"
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4222,7 +4185,6 @@ view appArg =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -4235,7 +4197,7 @@ update pageUrl sharedModel app msg model =
 
 view appArg =
     { title = "Page"
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4311,7 +4273,6 @@ view viewApp =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -4324,7 +4285,7 @@ init maybePageUrl sharedModel app =
 
 view viewApp =
     { title = "Page"
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             ]
@@ -4369,7 +4330,6 @@ view viewApp =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -4385,7 +4345,7 @@ extractTitle data =
 
 view viewApp =
     { title = "Page"
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4463,7 +4423,6 @@ view maybeUrl sharedModel model static =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -4473,7 +4432,7 @@ type alias Data =
 view : Maybe PageUrl -> Shared.Model -> Model -> App Data ActionData RouteParams -> View (PagesMsg Msg)
 view maybeUrl sharedModel model static =
     { title = static.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4684,7 +4643,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type Status = Published | Draft
 
@@ -4702,7 +4660,7 @@ view app =
                 app.data.title
             Draft ->
                 app.data.draftTitle
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4789,7 +4747,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { isPublished : Bool
@@ -4804,7 +4761,7 @@ view app =
             app.data.title
         else
             app.data.draftTitle
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4882,7 +4839,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -4891,7 +4847,7 @@ type alias Data =
 
 view app =
     { title = app.data |> .title |> String.toUpper
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4961,7 +4917,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -4970,7 +4925,7 @@ type alias Data =
 
 view app =
     { title = app.data |> (.title >> String.toUpper)
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -5044,7 +4999,6 @@ view app =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 type alias Data =
     { title : String
@@ -5054,7 +5008,7 @@ type alias Data =
 
 view app =
     { title = String.join ", " [ app.data.title, app.data.subtitle ]
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -5198,10 +5152,9 @@ view app shared model =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 view app shared model =
-    { body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
 """
                             ]
             , test "transforms when model exists but freeze only uses app.data" <|
@@ -5230,11 +5183,10 @@ view app shared model =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 view app shared model =
     { title = model.name
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             ]
@@ -5389,12 +5341,11 @@ view app shared model =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
 
 view app shared model =
     { body =
         [ if app.data.showContent then
-            (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
+            (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
           else
             Html.text "hidden"
         ]

@@ -66,7 +66,6 @@ type alias Context =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
     , htmlLazyImport : HtmlLazyImport
-    , virtualDomImported : Bool
     , htmlStyledAlias : Maybe ModuleName
     , lastImportRow : Int
     , staticIndex : Int
@@ -168,7 +167,6 @@ initialContext =
             { lookupTable = lookupTable
             , moduleName = moduleName
             , htmlLazyImport = NotImported
-            , virtualDomImported = False
             , htmlStyledAlias = Nothing
             , lastImportRow = 2
             , staticIndex = 0
@@ -218,14 +216,6 @@ importVisitor node context =
                     |> Maybe.map Node.value
                     |> Maybe.withDefault [ "Html", "Lazy" ]
                     |> ImportedAs
-            , lastImportRow = max context.lastImportRow importEndRow
-          }
-        )
-
-    else if moduleName == [ "VirtualDom" ] then
-        ( []
-        , { context
-            | virtualDomImported = True
             , lastImportRow = max context.lastImportRow importEndRow
           }
         )
@@ -1255,42 +1245,14 @@ extractRouteBuilderFunctions context args =
             case Node.value recordArg of
                 Expression.RecordExpr fields ->
                     let
-                        extractedHead =
-                            fields
-                                |> List.filterMap
-                                    (\fieldNode ->
-                                        let
-                                            ( Node _ fieldName, valueNode ) =
-                                                Node.value fieldNode
-                                        in
-                                        if fieldName == "head" then
-                                            extractSimpleFunctionName valueNode
-
-                                        else
-                                            Nothing
-                                    )
-                                |> List.head
-
-                        extractedData =
-                            fields
-                                |> List.filterMap
-                                    (\fieldNode ->
-                                        let
-                                            ( Node _ fieldName, valueNode ) =
-                                                Node.value fieldNode
-                                        in
-                                        if fieldName == "data" then
-                                            extractSimpleFunctionName valueNode
-
-                                        else
-                                            Nothing
-                                    )
-                                |> List.head
+                        -- Use shared extraction logic
+                        extracted =
+                            PersistentFieldTracking.extractRouteBuilderFunctions fields
                     in
                     { context
                         | routeBuilderFound = True
-                        , routeBuilderHeadFn = extractedHead
-                        , routeBuilderDataFn = extractedData
+                        , routeBuilderHeadFn = extracted.headFn
+                        , routeBuilderDataFn = extracted.dataFn
                     }
 
                 _ ->
@@ -1299,23 +1261,6 @@ extractRouteBuilderFunctions context args =
 
         _ ->
             context
-
-
-{-| Extract a simple function name from an expression.
-Returns Just "functionName" for simple references like `head`, `myHeadFn`.
-Returns Nothing for lambdas, complex expressions, or qualified names.
--}
-extractSimpleFunctionName : Node Expression -> Maybe String
-extractSimpleFunctionName node =
-    case Node.value node of
-        Expression.FunctionOrValue [] name ->
-            -- Simple unqualified function reference
-            Just name
-
-        _ ->
-            -- Lambda, qualified name, or complex expression
-            -- We can't safely track these
-            Nothing
 
 
 {-| Check if app.data is passed as a whole to a function.
@@ -1508,10 +1453,8 @@ createTransformErrorWithFixes fromFn toFn node fixes =
         fixes
 
 
-{-| Generate fixes to add `import Html.Lazy` and `import VirtualDom` if not already imported.
-The generated code uses:
-- `Html.Lazy.lazy` for the lazy thunk
-- `VirtualDom.text ""` as the placeholder (avoids conflicts with Html.Styled aliased as Html)
+{-| Generate fixes to add `import Html.Lazy` if not already imported.
+The generated code uses `Html.Lazy.lazy` for the lazy thunk.
 -}
 htmlLazyImportFix : Context -> List Review.Fix.Fix
 htmlLazyImportFix context =
@@ -1523,39 +1466,22 @@ htmlLazyImportFix context =
 
                 NotImported ->
                     True
-
-        needsVirtualDom =
-            not context.virtualDomImported
-
-        importsToAdd =
-            (if needsHtmlLazy then
-                "import Html.Lazy\n"
-
-             else
-                ""
-            )
-                ++ (if needsVirtualDom then
-                        "import VirtualDom\n"
-
-                    else
-                        ""
-                   )
     in
-    if String.isEmpty importsToAdd then
-        []
-
-    else
+    if needsHtmlLazy then
         [ Review.Fix.insertAt
             { row = context.lastImportRow + 1, column = 1 }
-            importsToAdd
+            "import Html.Lazy\n"
         ]
+
+    else
+        []
 
 
 {-| Generate inlined lazy thunk with View.htmlToFreezable wrapper and map never.
 
 The generated code:
 
-    Html.Lazy.lazy (\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0"
+    Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0"
         |> View.htmlToFreezable
         |> Html.Styled.map never
 
@@ -1564,10 +1490,9 @@ detects at runtime to adopt pre-rendered HTML. The View.htmlToFreezable wrapper
 converts the Html.Html Never back to the user's Freezable type, and map never converts
 from `Freezable` (Html Never) to `Html msg`.
 
-We use `VirtualDom.text ""` instead of `Html.text ""` because:
-1. VirtualDom is always available (it's a dependency of elm/html)
-2. VirtualDom.Node is the same type as Html.Html
-3. It avoids conflicts when Html.Styled is aliased as "Html"
+We use `Html.text ""` (or `Html.Styled.text ""` when elm-css is used) because elm/html
+is guaranteed to be a direct dependency. We avoid `VirtualDom.text` because elm/virtual-dom
+is typically only an indirect dependency, and Elm only allows importing from direct dependencies.
 
 -}
 inlinedLazyThunk : Context -> String
@@ -1604,8 +1529,8 @@ inlinedLazyThunk context =
             in
             "\"__ELM_PAGES_STATIC__" ++ prefix ++ String.fromInt context.staticIndex ++ "\""
     in
-    -- Generate: Html.Lazy.lazy (\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never
-    "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> VirtualDom.text \"\") " ++ staticId ++ " |> View.htmlToFreezable |> " ++ mapPrefix ++ ".map never)"
+    -- Generate: Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never
+    "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> " ++ mapPrefix ++ ".text \"\") " ++ staticId ++ " |> View.htmlToFreezable |> " ++ mapPrefix ++ ".map never)"
 
 
 {-| Final evaluation - emit Data type transformation if there are removable fields.

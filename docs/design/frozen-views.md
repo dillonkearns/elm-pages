@@ -105,7 +105,7 @@ View.freeze
     )
 
 -- AFTER (client bundle)
-Html.Lazy.lazy (\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0"
+Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0"
     |> View.htmlToFreezable
     |> Html.map never
 ```

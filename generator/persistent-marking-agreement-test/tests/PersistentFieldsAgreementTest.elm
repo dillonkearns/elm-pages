@@ -163,8 +163,6 @@ import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
-
 type alias Data =
     { title : String
     , body : String
@@ -172,7 +170,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -272,15 +270,13 @@ import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
-
 type alias Data =
     { title : String
     }
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             ]
@@ -355,8 +351,6 @@ import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
-
 type alias Data =
     { title : String
     , body : String
@@ -364,7 +358,7 @@ type alias Data =
 
 view app =
     { title = someHelper [ app.data ]
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 someHelper items = ""
@@ -449,8 +443,6 @@ import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
-
 type alias Data =
     { title : String
     , body : String
@@ -461,7 +453,7 @@ view app =
         d = app.data
     in
     { title = ({ d | title = "modified" }).title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -775,8 +767,6 @@ import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
-
 type alias Data =
     { title : String
     , body : String
@@ -784,7 +774,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 renderContent data =
@@ -969,8 +959,6 @@ import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
-
 type alias Data =
     { title : String
     , body : String
@@ -979,7 +967,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -2009,8 +1997,6 @@ import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
-
 type alias Data =
     { title : String
     , body : String
@@ -2019,7 +2005,7 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 extractTitle { title } =
@@ -3412,8 +3398,6 @@ import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
-
 type alias Data =
     { title : String
     , body : String
@@ -3421,7 +3405,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 extractBody data =
@@ -3651,8 +3635,6 @@ myExtract =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
-
 type alias Data =
     { title : String
     , body : String
@@ -3660,7 +3642,7 @@ type alias Data =
 
 view app =
     { title = myExtract app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 extractTitle data =
@@ -4052,8 +4034,6 @@ import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
-
 type alias Data =
     { title : String
     , body : String
@@ -4061,7 +4041,7 @@ type alias Data =
 
 view app =
     { title = formatTitle "Hello: " app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 formatTitle prefix data =
@@ -4694,8 +4674,6 @@ import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
-
 type alias Data =
     { title : String
     , body : String
@@ -4703,7 +4681,7 @@ type alias Data =
 
 view app =
     { title = String.toUpper (extractTitle app.data)
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 extractTitle data =
@@ -4885,8 +4863,6 @@ import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
-
 type alias Data =
     { title : String
     , body : String
@@ -4894,7 +4870,7 @@ type alias Data =
 
 view app =
     { title = app.data |> (.title >> String.toUpper)
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -5068,8 +5044,6 @@ import Html.Attributes
 import Html.Styled as Html
 import View
 import Html.Lazy
-import VirtualDom
-
 type alias Data =
     { title : String
     , body : String
@@ -5077,7 +5051,7 @@ type alias Data =
 
 view app =
     { title = app.data |> (String.toUpper << .title)
-    , body = [ (Html.Lazy.lazy (\\_ -> VirtualDom.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -5108,6 +5082,913 @@ view app =
 """
                             , Review.Test.error
                                 { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":10,\"column\":5},\"end\":{\"row\":12,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
+        , describe "Non-conventional head function naming - both agree"
+            [ test "AGREEMENT: head = seoTags (defined BEFORE RouteBuilder) - server marks description as ephemeral" <|
+                \() ->
+                    -- When RouteBuilder uses { head = seoTags } instead of { head = head }
+                    -- and seoTags is defined BEFORE the RouteBuilder call,
+                    -- both transforms should identify seoTags as the head function
+                    -- and mark description as ephemeral (only accessed in head context)
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                    in
+                    -- Server marks description as ephemeral
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: description"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , description : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Ephemeral =
+    { title : String
+    , description : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , description : String
+    }"""
+                                }
+                            ]
+            , test "AGREEMENT: head = seoTags (defined BEFORE RouteBuilder) - client also marks description as ephemeral" <|
+                \() ->
+                    -- The key agreement check: client's EPHEMERAL_FIELDS_JSON matches server's ["description"]
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                    in
+                    -- Client marks description as ephemeral (same as server)
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: description"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , description : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+import RouteBuilder
+
+type alias Data =
+    { title : String }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "AGREEMENT: head = seoTags (defined AFTER RouteBuilder) - server marks description as ephemeral" <|
+                \() ->
+                    -- Same as above but seoTags is defined AFTER the RouteBuilder call
+                    -- Both transforms should still correctly identify seoTags as the head function
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                    in
+                    -- Server marks description as ephemeral
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: description"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , description : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Ephemeral =
+    { title : String
+    , description : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , description : String
+    }"""
+                                }
+                            ]
+            , test "AGREEMENT: head = seoTags (defined AFTER RouteBuilder) - client also marks description as ephemeral" <|
+                \() ->
+                    -- The key agreement check: client's EPHEMERAL_FIELDS_JSON matches server's ["description"]
+                    -- When seoTags is defined AFTER RouteBuilder, the client can stub out the head function
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                    in
+                    -- Client marks description as ephemeral (same as server)
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Head function codemod: stub out for client bundle"
+                                , details =
+                                    [ "Replacing head function body with [] because Data fields are being removed."
+                                    , "The head function never runs on the client (it's for SEO at build time), so stubbing it out allows DCE."
+                                    ]
+                                , under = "[ Html.text app.data.description ]"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+seoTags app =
+    []
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: description"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , description : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+import RouteBuilder
+
+type alias Data =
+    { title : String }
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "AGREEMENT: head = seoTags accessing multiple fields - server marks all as ephemeral" <|
+                \() ->
+                    -- When the non-conventionally named head function accesses multiple fields,
+                    -- both transforms should mark ALL of those fields as ephemeral
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    , ogImage : String
+    }
+
+seoTags app =
+    [ Html.text app.data.description
+    , Html.text app.data.ogImage
+    ]
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                    in
+                    -- Server marks description AND ogImage as ephemeral
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: description, ogImage"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , description : String
+    , ogImage : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Ephemeral =
+    { title : String
+    , description : String
+    , ogImage : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+seoTags app =
+    [ Html.text app.data.description
+    , Html.text app.data.ogImage
+    ]
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    , ogImage : String
+    }
+
+seoTags app =
+    [ Html.text app.data.description
+    , Html.text app.data.ogImage
+    ]
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\",\"ogImage\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , description : String
+    , ogImage : String
+    }"""
+                                }
+                            ]
+            , test "AGREEMENT: head = seoTags accessing multiple fields - client also marks all as ephemeral" <|
+                \() ->
+                    -- The key agreement check: client's EPHEMERAL_FIELDS_JSON matches server's ["description", "ogImage"]
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    , ogImage : String
+    }
+
+seoTags app =
+    [ Html.text app.data.description
+    , Html.text app.data.ogImage
+    ]
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                    in
+                    -- Client marks description AND ogImage as ephemeral (same as server)
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: description, ogImage"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , description : String
+    , ogImage : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+import RouteBuilder
+
+type alias Data =
+    { title : String }
+
+seoTags app =
+    [ Html.text app.data.description
+    , Html.text app.data.ogImage
+    ]
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\",\"ogImage\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":14,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "AGREEMENT: head = lambda function - server marks description as ephemeral" <|
+                \() ->
+                    -- When RouteBuilder uses { head = \app -> [...] } with an inline lambda,
+                    -- both transforms should handle it correctly
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = \\app -> [ Html.text app.data.description ]
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                    in
+                    -- Server marks description as ephemeral
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: description"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , description : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Ephemeral =
+    { title : String
+    , description : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = \\app -> [ Html.text app.data.description ]
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = \\app -> [ Html.text app.data.description ]
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { title : String
+    , description : String
+    }"""
+                                }
+                            ]
+            , test "AGREEMENT: head = lambda function - client also marks description as ephemeral" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = \\app -> [ Html.text app.data.description ]
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                    in
+                    -- Client marks description as ephemeral
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: description"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , description : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+import RouteBuilder
+
+type alias Data =
+    { title : String }
+
+route =
+    RouteBuilder.preRender
+        { head = \\app -> [ Html.text app.data.description ]
+        , pages = pages
+        , data = data
+        }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }

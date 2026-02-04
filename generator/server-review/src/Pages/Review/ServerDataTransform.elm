@@ -739,27 +739,11 @@ extractRouteBuilderHeadFn context args =
             case Node.value recordArg of
                 Expression.RecordExpr fields ->
                     let
-                        extractedHead =
-                            fields
-                                |> List.filterMap
-                                    (\fieldNode ->
-                                        let
-                                            ( Node.Node _ fieldName, valueNode ) =
-                                                Node.value fieldNode
-                                        in
-                                        if fieldName == "head" then
-                                            extractSimpleFunctionName valueNode
-
-                                        else
-                                            Nothing
-                                    )
-                                |> List.head
-
-                        currentSharedState =
-                            context.sharedState
+                        extracted =
+                            PersistentFieldTracking.extractRouteBuilderFunctions fields
 
                         updatedSharedState =
-                            PersistentFieldTracking.setRouteBuilderHeadFn extractedHead currentSharedState
+                            PersistentFieldTracking.setRouteBuilderHeadFn extracted.headFn context.sharedState
                     in
                     { context | sharedState = updatedSharedState }
 
@@ -769,23 +753,6 @@ extractRouteBuilderHeadFn context args =
 
         _ ->
             context
-
-
-{-| Extract a simple function name from an expression.
-Returns Just "functionName" for simple references like `head`, `myHeadFn`.
-Returns Nothing for lambdas, complex expressions, or qualified names.
--}
-extractSimpleFunctionName : Node Expression -> Maybe String
-extractSimpleFunctionName node =
-    case Node.value node of
-        Expression.FunctionOrValue [] name ->
-            -- Simple unqualified function reference
-            Just name
-
-        _ ->
-            -- Lambda, qualified name, or complex expression
-            -- We can't safely track these
-            Nothing
 
 
 {-| Track field access on app.data

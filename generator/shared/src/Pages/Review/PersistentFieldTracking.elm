@@ -8,6 +8,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , InlineLambdaResult(..)
     , PendingHelperAction(..)
     , PendingHelperCall
+    , RouteBuilderFunctions
     , SharedFieldTrackingState
     , analyzeCaseOnAppData
     , analyzeFieldAccessesOnParam
@@ -19,12 +20,15 @@ module Pages.Review.PersistentFieldTracking exposing
     , classifyAppDataArguments
     , computeEphemeralFields
     , computeEphemeralFieldsWithCorrection
+    , computeHeadFunctionFields
     , containsAppDataExpression
     , determinePendingHelperAction
     , emptySharedState
+    , extractAccessorFieldFromApplication
     , extractAppDataAccessorApplicationField
-    , extractAppDataFieldName
     , extractAppDataBindingsFromLet
+    , extractAppDataFieldName
+    , extractAppDataPipeAccessorField
     , extractCasePatternFields
     , extractCaseVariablePatternBindings
     , extractDataTypeRanges
@@ -33,10 +37,10 @@ module Pages.Review.PersistentFieldTracking exposing
     , extractLetBoundHelperFunctions
     , extractPatternName
     , extractPatternNames
-    , extractRecordPatternFields
     , extractPipeAccessorField
-    , extractAccessorFieldFromApplication
-    , extractAppDataPipeAccessorField
+    , extractRecordPatternFields
+    , extractRouteBuilderFunctions
+    , extractSimpleFunctionName
     , isAppDataAccess
     , isExitingFreezeCall
     , isRecordAccessFunction
@@ -44,6 +48,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , isViewFreezeCall
     , markAllFieldsAsPersistent
     , resolvePendingHelperCalls
+    , setRouteBuilderHeadFn
     , trackFieldAccessShared
     , typeAnnotationToString
     , updateOnFieldAccess
@@ -54,8 +59,6 @@ module Pages.Review.PersistentFieldTracking exposing
     , updateOnHeadEnter
     , updateOnHeadExit
     , updateOnHelperCall
-    , setRouteBuilderHeadFn
-    , computeHeadFunctionFields
     )
 
 {-| Shared utilities for persistent field tracking in elm-review rules.
@@ -2594,3 +2597,86 @@ analyzeLambdaForPipe functionNode =
         NotALambda ->
             -- Not a lambda and not a simple function - bail out
             HelperCallUntrackable
+
+
+
+-- ROUTEBUILDER EXTRACTION
+
+
+{-| Result of extracting function names from a RouteBuilder record argument.
+-}
+type alias RouteBuilderFunctions =
+    { headFn : Maybe String
+    , dataFn : Maybe String
+    }
+
+
+{-| Extract head and data function names from RouteBuilder.preRender/single/serverRender record argument.
+
+This ensures both transforms correctly identify which functions are ephemeral (head, data)
+based on what's ACTUALLY passed to RouteBuilder, not just by function name.
+
+If the record uses simple function references like `{ head = head, data = data }`,
+we extract those names. If it uses lambdas or complex expressions, we return Nothing
+for those fields (since we can't safely track them).
+
+Usage in transforms:
+
+    case args of
+        recordArg :: _ ->
+            case Node.value recordArg of
+                Expression.RecordExpr fields ->
+                    let
+                        extracted = PersistentFieldTracking.extractRouteBuilderFunctions fields
+                    in
+                    -- Use extracted.headFn and extracted.dataFn
+
+-}
+extractRouteBuilderFunctions : List (Node Expression.RecordSetter) -> RouteBuilderFunctions
+extractRouteBuilderFunctions fields =
+    let
+        extractField : String -> Maybe String
+        extractField fieldName =
+            fields
+                |> List.filterMap
+                    (\fieldNode ->
+                        let
+                            ( Node _ name, valueNode ) =
+                                Node.value fieldNode
+                        in
+                        if name == fieldName then
+                            extractSimpleFunctionName valueNode
+
+                        else
+                            Nothing
+                    )
+                |> List.head
+    in
+    { headFn = extractField "head"
+    , dataFn = extractField "data"
+    }
+
+
+{-| Extract a simple function name from an expression.
+
+Returns Just "functionName" for simple unqualified references like `head`, `myHeadFn`.
+Returns Nothing for lambdas, qualified names (Module.fn), or complex expressions.
+
+We only track simple function references because:
+
+  - `head = seoTags` → "seoTags" (trackable)
+  - `head = Module.fn` → Nothing (would need import tracking)
+  - `head = \app -> [...]` → Nothing (inline lambda)
+
+-}
+extractSimpleFunctionName : Node Expression -> Maybe String
+extractSimpleFunctionName node =
+    case Node.value node of
+        Expression.FunctionOrValue [] name ->
+            -- Simple unqualified function reference
+            Just name
+
+        _ ->
+            -- Lambda, qualified name, or complex expression
+            -- We can't safely track these
+            Nothing
