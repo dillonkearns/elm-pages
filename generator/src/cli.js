@@ -178,8 +178,7 @@ async function main() {
             mainModule: "ScriptMain",
             isScript: true,
           });
-          // TODO: Re-enable once version checking is re-enabled in script-cache.js
-          // await updateVersionMarker(projectDirectory);
+          await updateVersionMarker(projectDirectory);
         }
         process.chdir(cwd);
         await renderer.runGenerator(
