@@ -7333,4 +7333,453 @@ view ({ data } as app) =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "Static-regions pattern - elm-css with exposing"
+            [ test "AGREEMENT: elm-css with multiple freeze calls and exposed functions" <|
+                \() ->
+                    -- This matches the static-regions Route/Index.elm pattern:
+                    -- - Html.Styled exposing (div, text)
+                    -- - Multiple View.freeze calls
+                    -- - Fields only used inside freeze should be ephemeral
+                    let
+                        testModule =
+                            """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                    in
+                    -- Server should mark greeting and portGreeting as ephemeral
+                    -- because they're only used inside View.freeze
+                    -- now should be persistent (used outside freeze)
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                    ]
+                                , under = "View.freeze (div [] [ text <| \"Greeting: \" ++ app.data.greeting ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+import Html.Attributes
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (View.htmlToFreezable (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (div [] [ text <| "Greeting: " ++ app.data.greeting ]) ]))
+        , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                    ]
+                                , under = "View.freeze (div [] [ text <| \"Port Greeting: \" ++ app.data.portGreeting ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+import Html.Attributes
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , View.freeze (View.htmlToFreezable (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ]) ]))
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: greeting, portGreeting"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+
+type alias Ephemeral =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+
+type alias Data =
+    { now : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { now = ephemeral.now
+    }
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 30 }, end = { row = 1, column = 34 } }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Index\",\"ephemeralFields\":[\"greeting\",\"portGreeting\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }"""
+                                }
+                            ]
+            , test "AGREEMENT: client also marks greeting/portGreeting as ephemeral" <|
+                \() ->
+                    -- Same module as above - client should ALSO mark greeting/portGreeting as ephemeral
+                    let
+                        testModule =
+                            """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                    in
+                    -- Client should also mark greeting and portGreeting as ephemeral
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (div [] [ text <| \"Greeting: \" ++ app.data.greeting ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never)
+        , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (div [] [ text <| \"Port Greeting: \" ++ app.data.portGreeting ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__1" |> View.htmlToFreezable |> Html.Styled.map never)
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: greeting, portGreeting"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ greeting : String
+    , portGreeting : String
+    , now : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+
+type alias Data =
+    { now : String }
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Index\",\"ephemeralFields\":[\"greeting\",\"portGreeting\"],\"newDataType\":\"{ now : String }\",\"range\":{\"start\":{\"row\":9,\"column\":5},\"end\":{\"row\":12,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
+        , describe "Data used as constructor - must skip optimization on BOTH sides"
+            [ test "AGREEMENT: when Data is used as constructor (map4 Data), BOTH transforms skip optimization" <|
+                \() ->
+                    -- When Data is used as a record constructor function (e.g., map4 Data),
+                    -- BOTH server and client must skip the ephemeral field optimization.
+                    -- Client can't narrow Data type without breaking the constructor call.
+                    -- Server must agree to ensure the wire format matches what client expects.
+                    let
+                        testModule =
+                            """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+import BackendTask
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+data =
+    BackendTask.map3 Data
+        (BackendTask.succeed "hello")
+        (BackendTask.succeed "world")
+        (BackendTask.succeed "now")
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                    in
+                    -- SERVER should skip optimization because Data is used as constructor
+                    -- This ensures agreement with client which also skips
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                    ]
+                                , under = "View.freeze (div [] [ text <| \"Greeting: \" ++ app.data.greeting ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+import BackendTask
+import Html as ElmPages__Html
+import Html.Attributes
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+data =
+    BackendTask.map3 Data
+        (BackendTask.succeed "hello")
+        (BackendTask.succeed "world")
+        (BackendTask.succeed "now")
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (View.htmlToFreezable (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (div [] [ text <| "Greeting: " ++ app.data.greeting ]) ]))
+        , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                    ]
+                                , under = "View.freeze (div [] [ text <| \"Port Greeting: \" ++ app.data.portGreeting ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Index exposing (Data, route)
+
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes exposing (href)
+import View
+import Html.Lazy
+import BackendTask
+import Html as ElmPages__Html
+import Html.Attributes
+
+type alias Data =
+    { greeting : String
+    , portGreeting : String
+    , now : String
+    }
+
+data =
+    BackendTask.map3 Data
+        (BackendTask.succeed "hello")
+        (BackendTask.succeed "world")
+        (BackendTask.succeed "now")
+
+view app =
+    { title = "Index page"
+    , body =
+        [ text "This is the index page."
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , View.freeze (View.htmlToFreezable (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ]) ]))
+        , div [] [ text <| "Now: " ++ app.data.now ]
+        ]
+    }
+"""
+                            -- NO ephemeral field errors should appear because Data is used as constructor!
+                            -- Server must skip optimization to agree with client
+                            ]
+            ]
         ]
