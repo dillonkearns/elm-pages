@@ -114,10 +114,9 @@ async function main() {
         options2.args.length
       );
       try {
-        await compileElmForScript(elmModulePath);
-
         const { moduleName, projectDirectory, sourceDirectory } =
           await resolveInputPathOrModuleName(elmModulePath);
+        await compileElmForScript(elmModulePath, { moduleName, projectDirectory, sourceDirectory });
 
         // Check if custom-backend-task needs recompilation
         const portsCheck = await needsPortsRecompilation(projectDirectory);
@@ -218,9 +217,9 @@ async function main() {
       []
     )
     .action(async (elmModulePath, options, options2) => {
-      const { moduleName, projectDirectory, sourceDirectory } =
-        await resolveInputPathOrModuleName(elmModulePath);
-      await compileElmForScript(elmModulePath);
+      const resolved = await resolveInputPathOrModuleName(elmModulePath);
+      const { moduleName, projectDirectory, sourceDirectory } = resolved;
+      await compileElmForScript(elmModulePath, resolved);
 
       const cwd = process.cwd();
       process.chdir(projectDirectory);
@@ -241,8 +240,7 @@ async function main() {
       process.chdir(cwd);
 
       try {
-        const { moduleName, projectDirectory, sourceDirectory } =
-          await resolveInputPathOrModuleName(elmModulePath);
+        // moduleName, projectDirectory, sourceDirectory already resolved above
 
         const portBackendTaskFileFound =
           globby.globbySync(
@@ -428,9 +426,8 @@ function collect(value, previous) {
   return previous.concat([value]);
 }
 
-async function compileElmForScript(elmModulePath) {
-  const { moduleName, projectDirectory, sourceDirectory } =
-    await resolveInputPathOrModuleName(elmModulePath);
+async function compileElmForScript(elmModulePath, resolved) {
+  const { moduleName, projectDirectory, sourceDirectory } = resolved;
   const splitModuleName = moduleName.split(".");
   const expectedFilePath = path.join(
     sourceDirectory,

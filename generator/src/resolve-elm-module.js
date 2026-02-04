@@ -84,17 +84,34 @@ async function downloadRemoteScript({ remote, owner, repo, branch }) {
     const repoExists = fs.existsSync(cloneToPath);
 
     if (repoExists) {
-      await exec("git", ["pull"], {
-        cwd: cloneToPath,
-      });
-      const defaultBranch = (
-        await exec("git", ["remote", "show", "origin"], {
+      if (branch) {
+        // Branch is specified in URL - just fetch and checkout that branch
+        // No need for `git remote show origin` to get default branch
+        await exec("git", ["fetch", "origin", branch], {
           cwd: cloneToPath,
-        })
-      ).match(/HEAD branch: (?<defaultBranch>.*)/).groups.defaultBranch;
-      await exec("git", ["checkout", branch || defaultBranch], {
-        cwd: cloneToPath,
-      });
+        });
+        // Use reset --hard to handle shallow clone and ensure we're at origin's state
+        await exec("git", ["checkout", branch], {
+          cwd: cloneToPath,
+        }).catch(async () => {
+          // Branch doesn't exist locally yet, create it tracking origin
+          await exec("git", ["checkout", "-b", branch, `origin/${branch}`], {
+            cwd: cloneToPath,
+          });
+        });
+        await exec("git", ["reset", "--hard", `origin/${branch}`], {
+          cwd: cloneToPath,
+        });
+      } else {
+        // No branch specified - use current branch and just pull latest
+        const currentBranch = (await exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+          cwd: cloneToPath,
+        })).trim();
+        await exec("git", ["fetch", "origin", currentBranch], { cwd: cloneToPath });
+        await exec("git", ["reset", "--hard", `origin/${currentBranch}`], {
+          cwd: cloneToPath,
+        });
+      }
     } else {
       if (branch) {
         await exec("git", [
