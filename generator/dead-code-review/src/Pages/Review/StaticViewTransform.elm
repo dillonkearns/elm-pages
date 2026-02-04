@@ -72,7 +72,7 @@ type alias Context =
     , staticIndex : Int
 
     -- Shared field tracking state (embedded from PersistentFieldTracking)
-    -- This contains: clientUsedFields, inFreezeCall, inHeadFunction, appDataBindings,
+    -- This contains: clientUsedFields, freezeCallDepth, inHeadFunction, appDataBindings,
     -- appParamName, helperFunctions, pendingHelperCalls, dataTypeFields, markAllFieldsAsUsed,
     -- currentFunctionName, perFunctionClientFields, routeBuilderHeadFn
     , sharedState : PersistentFieldTracking.SharedFieldTrackingState
@@ -882,7 +882,7 @@ trackFieldAccess node context =
                         addFieldAccess fieldName context
 
                     PersistentFieldTracking.MarkAllFieldsUsed ->
-                        if context.sharedState.inFreezeCall || context.sharedState.inHeadFunction then
+                        if (context.sharedState.freezeCallDepth > 0) || context.sharedState.inHeadFunction then
                             -- In ephemeral context, we don't care
                             context
 
@@ -898,7 +898,7 @@ trackFieldAccess node context =
                         case Node.value node of
                             -- Case expression on app.data: use shared analysis
                             Expression.CaseExpression _ ->
-                                if context.sharedState.inFreezeCall || context.sharedState.inHeadFunction then
+                                if (context.sharedState.freezeCallDepth > 0) || context.sharedState.inHeadFunction then
                                     -- In ephemeral context, we don't care
                                     context
 
@@ -1284,7 +1284,7 @@ checkAppDataPassedToHelper context functionNode args =
                 (\fn -> isViewFreezeCall fn context)
                 (\expr -> containsAppDataExpression expr context)
     in
-    if context.sharedState.inFreezeCall || context.sharedState.inHeadFunction then
+    if (context.sharedState.freezeCallDepth > 0) || context.sharedState.inHeadFunction then
         -- In ephemeral context (freeze/head)
         -- Track local functions called with app.data for potential stubbing (client-specific)
         case classification.maybeFuncName of
@@ -1315,7 +1315,7 @@ checkAppDataPassedToHelperViaPipe context functionNode argNode =
     if not (isAppDataAccess argNode context) then
         context
 
-    else if context.sharedState.inFreezeCall || context.sharedState.inHeadFunction then
+    else if (context.sharedState.freezeCallDepth > 0) || context.sharedState.inHeadFunction then
         -- In ephemeral context (freeze/head)
         -- Track local functions called with app.data for potential stubbing
         case extractBaseFunctionName functionNode of
@@ -1369,9 +1369,14 @@ handleViewFreezeCall : Node Expression -> Node Expression -> Context -> ( List (
 handleViewFreezeCall functionNode node context =
     case Node.value functionNode of
         Expression.FunctionOrValue _ "freeze" ->
-            -- First check: are we inside a tainted conditional (if/case that depends on model)?
+            -- First check: are we inside a nested freeze call?
+            -- Nested freeze should be a no-op - only transform the outermost freeze
+            if context.sharedState.freezeCallDepth > 1 then
+                -- Inside nested freeze - skip transformation (no-op)
+                ( [], context )
+            -- Second check: are we inside a tainted conditional (if/case that depends on model)?
             -- If so, skip transformation to avoid server/client mismatch
-            if context.taintedContextDepth > 0 then
+            else if context.taintedContextDepth > 0 then
                 -- Inside tainted conditional - de-optimize (skip transformation)
                 -- Emit count so build system can run validation pass
                 ( [ emitDeOptimizationCount (Node.range node) "tainted_conditional" ], context )

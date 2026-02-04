@@ -125,7 +125,7 @@ This type contains the common fields needed for persistent field tracking:
 
   - `clientUsedFields`: Fields accessed in CLIENT contexts (outside freeze/head).
     These MUST be kept in the Data type for wire transmission.
-  - `inFreezeCall`: True when inside a View.freeze call (ephemeral context)
+  - `freezeCallDepth`: Depth counter for nested View.freeze calls (> 0 means ephemeral context)
   - `inHeadFunction`: True when inside the head function (ephemeral context)
   - `appDataBindings`: Variables bound to app.data (e.g., via `let d = app.data`)
   - `appParamName`: The parameter name from view/init/update function (e.g., "app")
@@ -140,7 +140,7 @@ shared update functions to ensure identical ephemeral field computation.
 -}
 type alias SharedFieldTrackingState =
     { clientUsedFields : Set String
-    , inFreezeCall : Bool
+    , freezeCallDepth : Int
     , inHeadFunction : Bool
     , appDataBindings : Set String
     , appParamName : Maybe String
@@ -159,7 +159,7 @@ type alias SharedFieldTrackingState =
 emptySharedState : SharedFieldTrackingState
 emptySharedState =
     { clientUsedFields = Set.empty
-    , inFreezeCall = False
+    , freezeCallDepth = 0
     , inHeadFunction = False
     , appDataBindings = Set.empty
     , appParamName = Nothing
@@ -204,7 +204,7 @@ updateOnFieldAccess fieldName state =
                 Nothing ->
                     state.perFunctionClientFields
     in
-    if state.inFreezeCall || state.inHeadFunction then
+    if state.freezeCallDepth > 0 || state.inHeadFunction then
         -- In ephemeral context - don't track as client-used (field can potentially be removed)
         -- But still track per-function for head function correction
         { state | perFunctionClientFields = updatedPerFunctionFields }
@@ -218,17 +218,19 @@ updateOnFieldAccess fieldName state =
 
 
 {-| Update state when entering a View.freeze call.
+Increments depth counter to handle nested freeze calls correctly.
 -}
 updateOnFreezeEnter : SharedFieldTrackingState -> SharedFieldTrackingState
 updateOnFreezeEnter state =
-    { state | inFreezeCall = True }
+    { state | freezeCallDepth = state.freezeCallDepth + 1 }
 
 
 {-| Update state when exiting a View.freeze call.
+Decrements depth counter to handle nested freeze calls correctly.
 -}
 updateOnFreezeExit : SharedFieldTrackingState -> SharedFieldTrackingState
 updateOnFreezeExit state =
-    { state | inFreezeCall = False }
+    { state | freezeCallDepth = max 0 (state.freezeCallDepth - 1) }
 
 
 {-| Update state when entering the head function.
@@ -353,7 +355,7 @@ trackFieldAccessShared node state lookupTable =
             updateOnFieldAccess fieldName state
 
         MarkAllFieldsUsed ->
-            if state.inFreezeCall || state.inHeadFunction then
+            if state.freezeCallDepth > 0 || state.inHeadFunction then
                 -- In ephemeral context, we don't care
                 state
 
@@ -365,7 +367,7 @@ trackFieldAccessShared node state lookupTable =
             case Node.value node of
                 -- Case expression on app.data: use shared analysis
                 Expression.CaseExpression _ ->
-                    if state.inFreezeCall || state.inHeadFunction then
+                    if state.freezeCallDepth > 0 || state.inHeadFunction then
                         -- In ephemeral context, we don't care
                         state
 
@@ -1874,7 +1876,7 @@ isViewFreezeCall functionNode lookupTable =
 {-| Check if an expression node represents exiting a View.freeze call.
 
 This is used by expressionExitVisitor in both StaticViewTransform and
-ServerDataTransform to reset the inFreezeCall flag when exiting a freeze call.
+ServerDataTransform to decrement the freezeCallDepth when exiting a freeze call.
 
 Returns True if the expression is `View.freeze <arg>` (an Application with freeze).
 

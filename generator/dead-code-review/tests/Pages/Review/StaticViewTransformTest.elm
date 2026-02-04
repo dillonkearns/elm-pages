@@ -5642,4 +5642,124 @@ view app =
 """
                             ]
             ]
+        , describe "Nested freeze calls"
+            [ test "only transforms outermost View.freeze - inner freeze is no-op" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+view =
+    { body = [ View.freeze (View.freeze (Html.text "nested")) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (View.freeze (Html.text \"nested\"))"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view =
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+"""
+                            ]
+            , test "deeply nested View.freeze - only outermost is transformed" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+view =
+    { body = [ View.freeze (View.freeze (View.freeze (Html.text "deep"))) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (View.freeze (View.freeze (Html.text \"deep\")))"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view =
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+"""
+                            ]
+            , test "multiple freeze calls at same level get separate indices" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+view =
+    { body =
+        [ View.freeze (Html.text "first")
+        , View.freeze (Html.text "second")
+        ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text \"first\")"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view =
+    { body =
+        [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
+        , View.freeze (Html.text "second")
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text \"second\")"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view =
+    { body =
+        [ View.freeze (Html.text "first")
+        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__1" |> View.htmlToFreezable |> Html.map never)
+        ]
+    }
+"""
+                            ]
+            ]
         ]

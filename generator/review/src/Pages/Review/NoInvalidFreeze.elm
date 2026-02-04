@@ -87,7 +87,7 @@ initialProjectContext =
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
-    , inFreezeCall : Bool
+    , freezeCallDepth : Int
     , appParamName : Maybe String
     , modelParamName : Maybe String
     , bindings : Nonempty (Dict String TaintStatus)
@@ -136,7 +136,7 @@ fromProjectToModule =
         (\lookupTable moduleName projectContext ->
             { lookupTable = lookupTable
             , moduleName = moduleName
-            , inFreezeCall = False
+            , freezeCallDepth = 0
             , appParamName = Nothing
             , modelParamName = Nothing
             , bindings = emptyBindings
@@ -454,7 +454,7 @@ expressionEnterVisitor node context =
                 Nothing ->
                     -- No scope error - check if entering freeze and track taint
                     let
-                        newInFreezeCall =
+                        isEnteringFreeze =
                             case ModuleNameLookupTable.moduleNameFor contextWithTaintedContext.lookupTable functionNode of
                                 Just [ "View" ] ->
                                     case Node.value functionNode of
@@ -462,24 +462,29 @@ expressionEnterVisitor node context =
                                             True
 
                                         _ ->
-                                            contextWithTaintedContext.inFreezeCall
+                                            False
 
                                 _ ->
-                                    contextWithTaintedContext.inFreezeCall
+                                    False
 
                         contextWithFreeze =
-                            { contextWithTaintedContext | inFreezeCall = newInFreezeCall }
+                            if isEnteringFreeze then
+                                { contextWithTaintedContext | freezeCallDepth = contextWithTaintedContext.freezeCallDepth + 1 }
+
+                            else
+                                contextWithTaintedContext
 
                         -- Check if we're entering a View.freeze while inside a tainted conditional
+                        -- (only report on first entry to freeze, not on nested freezes)
                         taintedConditionalError =
-                            if newInFreezeCall && not contextWithTaintedContext.inFreezeCall && contextWithTaintedContext.taintedContextDepth > 0 then
+                            if isEnteringFreeze && contextWithTaintedContext.freezeCallDepth == 0 && contextWithTaintedContext.taintedContextDepth > 0 then
                                 -- Just entered freeze while inside tainted conditional
                                 [ freezeInTaintedContextError (Node.range functionNode) ]
 
                             else
                                 []
                     in
-                    if contextWithFreeze.inFreezeCall then
+                    if contextWithFreeze.freezeCallDepth > 0 then
                         let
                             ( taintErrors, finalContext ) =
                                 checkTaintedReference node contextWithFreeze
@@ -491,7 +496,7 @@ expressionEnterVisitor node context =
 
         _ ->
             -- Not a function application - check taint if in freeze
-            if contextWithTaintedContext.inFreezeCall then
+            if contextWithTaintedContext.freezeCallDepth > 0 then
                 checkTaintedReference node contextWithTaintedContext
 
             else
@@ -557,7 +562,7 @@ expressionExitVisitor node context =
                 Just [ "View" ] ->
                     case Node.value functionNode of
                         Expression.FunctionOrValue _ "freeze" ->
-                            ( [], { contextWithTaintedContextUpdate | inFreezeCall = False } )
+                            ( [], { contextWithTaintedContextUpdate | freezeCallDepth = max 0 (contextWithTaintedContextUpdate.freezeCallDepth - 1) } )
 
                         _ ->
                             ( [], contextWithTaintedContextUpdate )

@@ -45,7 +45,7 @@ type alias Context =
     , moduleName : ModuleName
 
     -- Shared field tracking state (embedded from PersistentFieldTracking)
-    -- This contains: clientUsedFields, inFreezeCall, inHeadFunction, appDataBindings,
+    -- This contains: clientUsedFields, freezeCallDepth, inHeadFunction, appDataBindings,
     -- appParamName, helperFunctions, pendingHelperCalls, dataTypeFields, markAllFieldsAsUsed
     , sharedState : PersistentFieldTracking.SharedFieldTrackingState
 
@@ -504,127 +504,135 @@ expressionEnterVisitor node context =
 
 
 {-| Handle View.freeze calls - wrap the argument with data-static if not already wrapped.
+Nested freeze calls are a no-op - only the outermost freeze gets transformed.
 -}
 handleViewFreezeWrapping : Node Expression -> Node Expression -> List (Node Expression) -> Context -> ( List (Error {}), Context )
 handleViewFreezeWrapping applicationNode functionNode args context =
-    case args of
-        argNode :: [] ->
-            -- Unwrap ParenthesizedExpression if present to get the inner expression
-            let
-                innerNode =
-                    unwrapParenthesizedExpression argNode
+    -- Check if we're inside a nested freeze call
+    -- Nested freeze should be a no-op - only transform the outermost freeze
+    if context.sharedState.freezeCallDepth > 0 then
+        -- Inside nested freeze - skip transformation (no-op)
+        ( [], context )
 
-                -- Check if the original argument is already parenthesized
-                isParenthesized =
-                    isParenthesizedExpression argNode
-            in
-            -- Check if the argument is already wrapped with data-static
-            if isAlreadyWrappedWithDataStatic innerNode then
-                -- Already wrapped, no transformation needed (base case)
-                ( [], context )
-
-            else
-                -- Generate the wrapping fix
+    else
+        case args of
+            argNode :: [] ->
+                -- Unwrap ParenthesizedExpression if present to get the inner expression
                 let
-                    -- Use ElmPages__ prefix when we're adding the import to avoid conflicts
-                    -- with user imports (e.g., `import Accessibility as Html`)
-                    htmlPrefix =
-                        context.htmlAlias
-                            |> Maybe.map (String.join ".")
-                            |> Maybe.withDefault "ElmPages__Html"
+                    innerNode =
+                        unwrapParenthesizedExpression argNode
 
-                    attrPrefix =
-                        context.htmlAttributesAlias
-                            |> Maybe.map (String.join ".")
-                            |> Maybe.withDefault "Html.Attributes"
-
-                    -- Check if we need to add imports
-                    needsHtmlImport =
-                        context.htmlAlias == Nothing
-
-                    needsHtmlAttributesImport =
-                        context.htmlAttributesAlias == Nothing
-
-                    -- Build import string with unique ElmPages__ prefix to avoid conflicts
-                    -- with user imports (e.g., `import Accessibility as Html`)
-                    importsToAdd =
-                        (if needsHtmlImport then
-                            "import Html as ElmPages__Html\n"
-
-                         else
-                            ""
-                        )
-                            ++ (if needsHtmlAttributesImport then
-                                    "import Html.Attributes\n"
-
-                                else
-                                    ""
-                               )
-
-                    -- Import fixes - insert after the last import
-                    importFixes =
-                        if String.isEmpty importsToAdd then
-                            []
-
-                        else
-                            [ Review.Fix.insertAt { row = context.lastImportRow + 1, column = 1 } importsToAdd ]
-
-                    -- Use the inner expression's range, not the parenthesized wrapper
-                    innerRange =
-                        Node.range innerNode
-
-                    -- We'll wrap it with: View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml <arg> ])
-                    -- This handles type conversion for elm-css and other view libraries where Freezable != Html.Html Never
-                    -- Shared module uses "shared:" prefix to distinguish from Route frozen views
-                    -- Need to add outer parentheses if not already parenthesized
-                    staticPrefix =
-                        getStaticPrefix context.moduleName
-
-                    ( wrapperPrefix, wrapperSuffix ) =
-                        if isParenthesized then
-                            -- Original had parentheses, we use the inner range and add just the wrapper
-                            ( "View.htmlToFreezable ("
-                                ++ htmlPrefix
-                                ++ ".div [ "
-                                ++ attrPrefix
-                                ++ ".attribute \"data-static\" \"" ++ staticPrefix ++ "__STATIC__\" ] [ View.freezableToHtml ("
-                            , ") ])"
-                            )
-
-                        else
-                            -- Original didn't have parentheses, we need to add them
-                            ( "(View.htmlToFreezable ("
-                                ++ htmlPrefix
-                                ++ ".div [ "
-                                ++ attrPrefix
-                                ++ ".attribute \"data-static\" \"" ++ staticPrefix ++ "__STATIC__\" ] [ View.freezableToHtml ("
-                            , ") ]))"
-                            )
-
-                    wrapperFixes =
-                        [ Review.Fix.insertAt innerRange.start wrapperPrefix
-                        , Review.Fix.insertAt innerRange.end wrapperSuffix
-                        ]
-
-                    -- Combine import fixes with wrapper fixes
-                    fix =
-                        importFixes ++ wrapperFixes
+                    -- Check if the original argument is already parenthesized
+                    isParenthesized =
+                        isParenthesizedExpression argNode
                 in
-                ( [ Rule.errorWithFix
-                        { message = "Server codemod: wrap freeze argument with data-static"
-                        , details =
-                            [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
-                            ]
-                        }
-                        (Node.range applicationNode)
-                        fix
-                  ]
-                , context
-                )
+                -- Check if the argument is already wrapped with data-static
+                if isAlreadyWrappedWithDataStatic innerNode then
+                    -- Already wrapped, no transformation needed (base case)
+                    ( [], context )
 
-        _ ->
-            -- Not a single-argument application, ignore
-            ( [], context )
+                else
+                    -- Generate the wrapping fix
+                    let
+                        -- Use ElmPages__ prefix when we're adding the import to avoid conflicts
+                        -- with user imports (e.g., `import Accessibility as Html`)
+                        htmlPrefix =
+                            context.htmlAlias
+                                |> Maybe.map (String.join ".")
+                                |> Maybe.withDefault "ElmPages__Html"
+
+                        attrPrefix =
+                            context.htmlAttributesAlias
+                                |> Maybe.map (String.join ".")
+                                |> Maybe.withDefault "Html.Attributes"
+
+                        -- Check if we need to add imports
+                        needsHtmlImport =
+                            context.htmlAlias == Nothing
+
+                        needsHtmlAttributesImport =
+                            context.htmlAttributesAlias == Nothing
+
+                        -- Build import string with unique ElmPages__ prefix to avoid conflicts
+                        -- with user imports (e.g., `import Accessibility as Html`)
+                        importsToAdd =
+                            (if needsHtmlImport then
+                                "import Html as ElmPages__Html\n"
+
+                             else
+                                ""
+                            )
+                                ++ (if needsHtmlAttributesImport then
+                                        "import Html.Attributes\n"
+
+                                    else
+                                        ""
+                                   )
+
+                        -- Import fixes - insert after the last import
+                        importFixes =
+                            if String.isEmpty importsToAdd then
+                                []
+
+                            else
+                                [ Review.Fix.insertAt { row = context.lastImportRow + 1, column = 1 } importsToAdd ]
+
+                        -- Use the inner expression's range, not the parenthesized wrapper
+                        innerRange =
+                            Node.range innerNode
+
+                        -- We'll wrap it with: View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml <arg> ])
+                        -- This handles type conversion for elm-css and other view libraries where Freezable != Html.Html Never
+                        -- Shared module uses "shared:" prefix to distinguish from Route frozen views
+                        -- Need to add outer parentheses if not already parenthesized
+                        staticPrefix =
+                            getStaticPrefix context.moduleName
+
+                        ( wrapperPrefix, wrapperSuffix ) =
+                            if isParenthesized then
+                                -- Original had parentheses, we use the inner range and add just the wrapper
+                                ( "View.htmlToFreezable ("
+                                    ++ htmlPrefix
+                                    ++ ".div [ "
+                                    ++ attrPrefix
+                                    ++ ".attribute \"data-static\" \"" ++ staticPrefix ++ "__STATIC__\" ] [ View.freezableToHtml ("
+                                , ") ])"
+                                )
+
+                            else
+                                -- Original didn't have parentheses, we need to add them
+                                ( "(View.htmlToFreezable ("
+                                    ++ htmlPrefix
+                                    ++ ".div [ "
+                                    ++ attrPrefix
+                                    ++ ".attribute \"data-static\" \"" ++ staticPrefix ++ "__STATIC__\" ] [ View.freezableToHtml ("
+                                , ") ]))"
+                                )
+
+                        wrapperFixes =
+                            [ Review.Fix.insertAt innerRange.start wrapperPrefix
+                            , Review.Fix.insertAt innerRange.end wrapperSuffix
+                            ]
+
+                        -- Combine import fixes with wrapper fixes
+                        fix =
+                            importFixes ++ wrapperFixes
+                    in
+                    ( [ Rule.errorWithFix
+                            { message = "Server codemod: wrap freeze argument with data-static"
+                            , details =
+                                [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                ]
+                            }
+                            (Node.range applicationNode)
+                            fix
+                      ]
+                    , context
+                    )
+
+            _ ->
+                -- Not a single-argument application, ignore
+                ( [], context )
 
 
 {-| Check if an expression is a ParenthesizedExpression.
@@ -854,7 +862,7 @@ Uses shared analyzeHelperCallInClientContext from PersistentFieldTracking.
 checkAppDataPassedToHelper : Context -> Node Expression -> List (Node Expression) -> Context
 checkAppDataPassedToHelper context functionNode args =
     -- In ephemeral context (freeze/head) - we don't care about tracking
-    if context.sharedState.inFreezeCall || context.sharedState.inHeadFunction then
+    if (context.sharedState.freezeCallDepth > 0) || context.sharedState.inHeadFunction then
         context
 
     else
@@ -889,7 +897,7 @@ checkAppDataPassedToHelperViaPipe context functionNode argNode =
     if not (isAppDataAccess argNode context) then
         context
 
-    else if context.sharedState.inFreezeCall || context.sharedState.inHeadFunction then
+    else if (context.sharedState.freezeCallDepth > 0) || context.sharedState.inHeadFunction then
         -- In ephemeral context (freeze/head) - we don't care about tracking
         context
 

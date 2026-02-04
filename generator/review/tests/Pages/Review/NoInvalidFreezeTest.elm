@@ -936,4 +936,73 @@ view app shared model =
                               )
                             ]
             ]
+        , describe "Nested freeze calls"
+            [ test "allows nested View.freeze calls" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    View.freeze (View.freeze (text "nested"))
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectNoErrors
+            , test "allows deeply nested View.freeze calls" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    View.freeze (View.freeze (View.freeze (text "deeply nested")))
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectNoErrors
+            , test "detects tainted value in nested freeze" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    View.freeze (View.freeze (text model.name))
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Model referenced inside View.freeze"
+                                    , details =
+                                        [ "Frozen content is rendered at build time when no model state exists."
+                                        , "Referencing `model` inside a `View.freeze` call would result in stale content that doesn't update when the model changes."
+                                        , "To fix this, either:"
+                                        , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                        , "2. Only use `app.data` fields inside `View.freeze` (data that is available at build time)"
+                                        ]
+                                    , under = "model.name"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "allows app.data inside nested freeze" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    View.freeze (View.freeze (text app.data.name))
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectNoErrors
+            ]
         ]
