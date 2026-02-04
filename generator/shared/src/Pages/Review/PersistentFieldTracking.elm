@@ -49,9 +49,13 @@ module Pages.Review.PersistentFieldTracking exposing
     , updateOnFieldAccess
     , updateOnFreezeEnter
     , updateOnFreezeExit
+    , updateOnFunctionEnter
+    , updateOnFunctionExit
     , updateOnHeadEnter
     , updateOnHeadExit
     , updateOnHelperCall
+    , setRouteBuilderHeadFn
+    , computeHeadFunctionFields
     )
 
 {-| Shared utilities for persistent field tracking in elm-review rules.
@@ -137,6 +141,9 @@ type alias SharedFieldTrackingState =
     , pendingHelperCalls : List (Maybe PendingHelperCall)
     , dataTypeFields : List ( String, Node TypeAnnotation )
     , markAllFieldsAsUsed : Bool
+    , currentFunctionName : Maybe String -- Track which function we're inside for per-function field tracking
+    , perFunctionClientFields : Dict String (Set String) -- Fields accessed in each function
+    , routeBuilderHeadFn : Maybe String -- The actual head function name from RouteBuilder (for non-conventional naming)
     }
 
 
@@ -153,6 +160,9 @@ emptySharedState =
     , pendingHelperCalls = []
     , dataTypeFields = []
     , markAllFieldsAsUsed = False
+    , currentFunctionName = Nothing
+    , perFunctionClientFields = Dict.empty
+    , routeBuilderHeadFn = Nothing
     }
 
 
@@ -161,16 +171,43 @@ emptySharedState =
 In CLIENT context (not in freeze or head): adds field to clientUsedFields.
 In EPHEMERAL context (in freeze or head): no change (field can be removed).
 
+Also tracks per-function field accesses when we're inside a named function.
+This enables correction for non-conventional head function naming (e.g., `head = seoTags`).
+
 -}
 updateOnFieldAccess : String -> SharedFieldTrackingState -> SharedFieldTrackingState
 updateOnFieldAccess fieldName state =
+    let
+        -- Track per-function field accesses regardless of context
+        -- This is needed to correct for non-conventional head function naming
+        updatedPerFunctionFields =
+            case state.currentFunctionName of
+                Just fnName ->
+                    Dict.update fnName
+                        (\maybeFields ->
+                            case maybeFields of
+                                Just fields ->
+                                    Just (Set.insert fieldName fields)
+
+                                Nothing ->
+                                    Just (Set.singleton fieldName)
+                        )
+                        state.perFunctionClientFields
+
+                Nothing ->
+                    state.perFunctionClientFields
+    in
     if state.inFreezeCall || state.inHeadFunction then
-        -- In ephemeral context - don't track (field can potentially be removed)
-        state
+        -- In ephemeral context - don't track as client-used (field can potentially be removed)
+        -- But still track per-function for head function correction
+        { state | perFunctionClientFields = updatedPerFunctionFields }
 
     else
         -- In client context - field MUST be kept
-        { state | clientUsedFields = Set.insert fieldName state.clientUsedFields }
+        { state
+            | clientUsedFields = Set.insert fieldName state.clientUsedFields
+            , perFunctionClientFields = updatedPerFunctionFields
+        }
 
 
 {-| Update state when entering a View.freeze call.
@@ -199,6 +236,58 @@ updateOnHeadEnter state =
 updateOnHeadExit : SharedFieldTrackingState -> SharedFieldTrackingState
 updateOnHeadExit state =
     { state | inHeadFunction = False }
+
+
+{-| Update state when entering a function declaration.
+
+This sets the current function name for per-function field tracking.
+Used to handle non-conventional head function naming (e.g., `head = seoTags`).
+
+-}
+updateOnFunctionEnter : String -> SharedFieldTrackingState -> SharedFieldTrackingState
+updateOnFunctionEnter functionName state =
+    { state | currentFunctionName = Just functionName }
+
+
+{-| Update state when exiting a function declaration.
+-}
+updateOnFunctionExit : SharedFieldTrackingState -> SharedFieldTrackingState
+updateOnFunctionExit state =
+    { state | currentFunctionName = Nothing }
+
+
+{-| Set the RouteBuilder head function name.
+
+Called when we find `RouteBuilder.buildWith*State { head = X, ... }`.
+If X is a simple function reference like `seoTags`, we store it.
+
+-}
+setRouteBuilderHeadFn : Maybe String -> SharedFieldTrackingState -> SharedFieldTrackingState
+setRouteBuilderHeadFn maybeName state =
+    { state | routeBuilderHeadFn = maybeName }
+
+
+{-| Compute the head function fields for non-conventional naming correction.
+
+When `head = seoTags` is used (non-conventional), fields accessed in `seoTags`
+were tracked as client-used before we knew it was the head function. This
+returns those fields so they can be subtracted from clientUsedFields.
+
+-}
+computeHeadFunctionFields : SharedFieldTrackingState -> Set String
+computeHeadFunctionFields state =
+    let
+        actualHeadFn =
+            state.routeBuilderHeadFn |> Maybe.withDefault "head"
+    in
+    if actualHeadFn /= "head" then
+        -- Non-conventional head function name - look up fields accessed in that function
+        Dict.get actualHeadFn state.perFunctionClientFields
+            |> Maybe.withDefault Set.empty
+
+    else
+        -- Conventional naming - inHeadFunction was set correctly during traversal
+        Set.empty
 
 
 {-| Update state when a helper is called with app.data.

@@ -356,17 +356,11 @@ declarationEnterVisitor node context =
                             Nothing
                 in
                 let
+                    currentSharedState =
+                        contextWithAppDataRanges.sharedState
+
                     updatedSharedState =
-                        { clientUsedFields = contextWithAppDataRanges.sharedState.clientUsedFields
-                        , inFreezeCall = contextWithAppDataRanges.sharedState.inFreezeCall
-                        , inHeadFunction = contextWithAppDataRanges.sharedState.inHeadFunction
-                        , appDataBindings = contextWithAppDataRanges.sharedState.appDataBindings
-                        , appParamName = maybeAppParam
-                        , helperFunctions = contextWithAppDataRanges.sharedState.helperFunctions
-                        , pendingHelperCalls = contextWithAppDataRanges.sharedState.pendingHelperCalls
-                        , dataTypeFields = contextWithAppDataRanges.sharedState.dataTypeFields
-                        , markAllFieldsAsUsed = contextWithAppDataRanges.sharedState.markAllFieldsAsUsed
-                        }
+                        { currentSharedState | appParamName = maybeAppParam }
                 in
                 ( []
                 , { contextWithAppDataRanges
@@ -408,16 +402,12 @@ declarationEnterVisitor node context =
 
                         else
                             let
+                                currentSharedState =
+                                    contextWithDataRanges.sharedState
+
                                 updatedSharedState =
-                                    { clientUsedFields = contextWithDataRanges.sharedState.clientUsedFields
-                                    , inFreezeCall = contextWithDataRanges.sharedState.inFreezeCall
-                                    , inHeadFunction = contextWithDataRanges.sharedState.inHeadFunction
-                                    , appDataBindings = contextWithDataRanges.sharedState.appDataBindings
-                                    , appParamName = contextWithDataRanges.sharedState.appParamName
-                                    , helperFunctions = Dict.insert functionName helperAnalysis contextWithDataRanges.sharedState.helperFunctions
-                                    , pendingHelperCalls = contextWithDataRanges.sharedState.pendingHelperCalls
-                                    , dataTypeFields = contextWithDataRanges.sharedState.dataTypeFields
-                                    , markAllFieldsAsUsed = contextWithDataRanges.sharedState.markAllFieldsAsUsed
+                                    { currentSharedState
+                                        | helperFunctions = Dict.insert functionName helperAnalysis currentSharedState.helperFunctions
                                     }
                             in
                             { contextWithDataRanges | sharedState = updatedSharedState }
@@ -448,17 +438,11 @@ declarationEnterVisitor node context =
                                             ( Node.value nameNode, typeNode )
                                         )
 
+                            currentSharedState =
+                                context.sharedState
+
                             updatedSharedState =
-                                { clientUsedFields = context.sharedState.clientUsedFields
-                                , inFreezeCall = context.sharedState.inFreezeCall
-                                , inHeadFunction = context.sharedState.inHeadFunction
-                                , appDataBindings = context.sharedState.appDataBindings
-                                , appParamName = context.sharedState.appParamName
-                                , helperFunctions = context.sharedState.helperFunctions
-                                , pendingHelperCalls = context.sharedState.pendingHelperCalls
-                                , dataTypeFields = fields
-                                , markAllFieldsAsUsed = context.sharedState.markAllFieldsAsUsed
-                                }
+                                { currentSharedState | dataTypeFields = fields }
                         in
                         ( []
                         , { context

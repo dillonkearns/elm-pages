@@ -236,9 +236,16 @@ declarationEnterVisitor node context =
 
                 contextWithDataRefs =
                     { context | dataTypeReferenceRanges = context.dataTypeReferenceRanges ++ dataRefs }
+
+                -- Track current function for per-function field tracking
+                -- This enables correction for non-conventional head function naming
+                contextWithFunctionEnter =
+                    { contextWithDataRefs
+                        | sharedState = PersistentFieldTracking.updateOnFunctionEnter functionName contextWithDataRefs.sharedState
+                    }
             in
             if functionName == "head" then
-                ( [], { contextWithDataRefs | sharedState = PersistentFieldTracking.updateOnHeadEnter contextWithDataRefs.sharedState } )
+                ( [], { contextWithFunctionEnter | sharedState = PersistentFieldTracking.updateOnHeadEnter contextWithFunctionEnter.sharedState } )
 
             else if functionName == "data" then
                 -- Track the data function's type signature for updating Data -> Ephemeral
@@ -255,14 +262,14 @@ declarationEnterVisitor node context =
                                 PersistentFieldTracking.typeAnnotationToString (Node.value typeAnnotation)
                         in
                         ( []
-                        , { contextWithDataRefs
+                        , { contextWithFunctionEnter
                             | dataFunctionSignatureRange = Just (Node.range typeAnnotation)
                             , dataFunctionSignature = Just signatureStr
                           }
                         )
 
                     Nothing ->
-                        ( [], contextWithDataRefs )
+                        ( [], contextWithFunctionEnter )
 
             else if functionName == "view" || functionName == "init" || functionName == "update" then
                 -- Extract the App parameter name from client-side functions
@@ -283,19 +290,13 @@ declarationEnterVisitor node context =
                             |> List.head
                             |> Maybe.andThen PersistentFieldTracking.extractPatternName
 
+                    currentSharedState =
+                        contextWithFunctionEnter.sharedState
+
                     updatedSharedState =
-                        { clientUsedFields = contextWithDataRefs.sharedState.clientUsedFields
-                        , inFreezeCall = contextWithDataRefs.sharedState.inFreezeCall
-                        , inHeadFunction = contextWithDataRefs.sharedState.inHeadFunction
-                        , appDataBindings = contextWithDataRefs.sharedState.appDataBindings
-                        , appParamName = maybeAppParam
-                        , helperFunctions = contextWithDataRefs.sharedState.helperFunctions
-                        , pendingHelperCalls = contextWithDataRefs.sharedState.pendingHelperCalls
-                        , dataTypeFields = contextWithDataRefs.sharedState.dataTypeFields
-                        , markAllFieldsAsUsed = contextWithDataRefs.sharedState.markAllFieldsAsUsed
-                        }
+                        { currentSharedState | appParamName = maybeAppParam }
                 in
-                ( [], { contextWithDataRefs | sharedState = updatedSharedState } )
+                ( [], { contextWithFunctionEnter | sharedState = updatedSharedState } )
 
             else
                 -- Analyze non-special functions as potential helpers
@@ -306,23 +307,19 @@ declarationEnterVisitor node context =
 
                     contextWithHelper =
                         if List.isEmpty helperAnalysis then
-                            contextWithDataRefs
+                            contextWithFunctionEnter
 
                         else
                             let
+                                currentSharedState =
+                                    contextWithFunctionEnter.sharedState
+
                                 updatedSharedState =
-                                    { clientUsedFields = contextWithDataRefs.sharedState.clientUsedFields
-                                    , inFreezeCall = contextWithDataRefs.sharedState.inFreezeCall
-                                    , inHeadFunction = contextWithDataRefs.sharedState.inHeadFunction
-                                    , appDataBindings = contextWithDataRefs.sharedState.appDataBindings
-                                    , appParamName = contextWithDataRefs.sharedState.appParamName
-                                    , helperFunctions = Dict.insert functionName helperAnalysis contextWithDataRefs.sharedState.helperFunctions
-                                    , pendingHelperCalls = contextWithDataRefs.sharedState.pendingHelperCalls
-                                    , dataTypeFields = contextWithDataRefs.sharedState.dataTypeFields
-                                    , markAllFieldsAsUsed = contextWithDataRefs.sharedState.markAllFieldsAsUsed
+                                    { currentSharedState
+                                        | helperFunctions = Dict.insert functionName helperAnalysis currentSharedState.helperFunctions
                                     }
                             in
-                            { contextWithDataRefs | sharedState = updatedSharedState }
+                            { contextWithFunctionEnter | sharedState = updatedSharedState }
                 in
                 ( [], contextWithHelper )
 
@@ -353,17 +350,11 @@ declarationEnterVisitor node context =
                             endRow =
                                 (Node.range node).end.row
 
+                            currentSharedState =
+                                context.sharedState
+
                             updatedSharedState =
-                                { clientUsedFields = context.sharedState.clientUsedFields
-                                , inFreezeCall = context.sharedState.inFreezeCall
-                                , inHeadFunction = context.sharedState.inHeadFunction
-                                , appDataBindings = context.sharedState.appDataBindings
-                                , appParamName = context.sharedState.appParamName
-                                , helperFunctions = context.sharedState.helperFunctions
-                                , pendingHelperCalls = context.sharedState.pendingHelperCalls
-                                , dataTypeFields = fields
-                                , markAllFieldsAsUsed = context.sharedState.markAllFieldsAsUsed
-                                }
+                                { currentSharedState | dataTypeFields = fields }
                         in
                         ( []
                         , { context
@@ -393,12 +384,16 @@ declarationExitVisitor node context =
                         |> Node.value
                         |> .name
                         |> Node.value
+
+                -- Always call updateOnFunctionExit for all functions
+                contextWithFunctionExit =
+                    { context | sharedState = PersistentFieldTracking.updateOnFunctionExit context.sharedState }
             in
             if functionName == "head" then
-                ( [], { context | sharedState = PersistentFieldTracking.updateOnHeadExit context.sharedState } )
+                ( [], { contextWithFunctionExit | sharedState = PersistentFieldTracking.updateOnHeadExit contextWithFunctionExit.sharedState } )
 
             else
-                ( [], context )
+                ( [], contextWithFunctionExit )
 
         _ ->
             ( [], context )
@@ -416,19 +411,45 @@ expressionEnterVisitor node context =
                 _ ->
                     context
 
+        -- Detect RouteBuilder calls and extract function names
+        -- This ensures we correctly identify which functions are ephemeral (head, data)
+        -- based on what's ACTUALLY passed to RouteBuilder, not just by function name
+        contextWithRouteBuilder =
+            case Node.value node of
+                Expression.Application (functionNode :: args) ->
+                    case ModuleNameLookupTable.moduleNameFor contextWithDataConstructorCheck.lookupTable functionNode of
+                        Just [ "RouteBuilder" ] ->
+                            case Node.value functionNode of
+                                Expression.FunctionOrValue _ fnName ->
+                                    if fnName == "preRender" || fnName == "single" || fnName == "serverRender" then
+                                        -- Extract head function name from the record argument
+                                        extractRouteBuilderHeadFn contextWithDataConstructorCheck args
+
+                                    else
+                                        contextWithDataConstructorCheck
+
+                                _ ->
+                                    contextWithDataConstructorCheck
+
+                        _ ->
+                            contextWithDataConstructorCheck
+
+                _ ->
+                    contextWithDataConstructorCheck
+
         -- Track entering freeze calls, check for app.data passed in client context,
         -- and handle freeze wrapping
         ( freezeErrors, contextWithFreezeTracking ) =
             case Node.value node of
                 Expression.Application (functionNode :: args) ->
-                    case ModuleNameLookupTable.moduleNameFor contextWithDataConstructorCheck.lookupTable functionNode of
+                    case ModuleNameLookupTable.moduleNameFor contextWithRouteBuilder.lookupTable functionNode of
                         Just [ "View" ] ->
                             case Node.value functionNode of
                                 Expression.FunctionOrValue _ "freeze" ->
                                     -- Handle View.freeze call - wrap argument if not already wrapped
                                     let
                                         ( errors, newContext ) =
-                                            handleViewFreezeWrapping node functionNode args contextWithDataConstructorCheck
+                                            handleViewFreezeWrapping node functionNode args contextWithRouteBuilder
                                     in
                                     ( errors
                                     , { newContext | sharedState = PersistentFieldTracking.updateOnFreezeEnter newContext.sharedState }
@@ -436,11 +457,11 @@ expressionEnterVisitor node context =
 
                                 _ ->
                                     -- Check for app.data passed as whole in CLIENT context
-                                    ( [], checkAppDataPassedToHelper contextWithDataConstructorCheck functionNode args )
+                                    ( [], checkAppDataPassedToHelper contextWithRouteBuilder functionNode args )
 
                         _ ->
                             -- Check for app.data passed as whole in CLIENT context
-                            ( [], checkAppDataPassedToHelper contextWithDataConstructorCheck functionNode args )
+                            ( [], checkAppDataPassedToHelper contextWithRouteBuilder functionNode args )
 
                 -- Handle pipe operators: app.data |> fn or fn <| app.data
                 -- But NOT accessor patterns like app.data |> .field (handled by trackFieldAccess)
@@ -450,25 +471,25 @@ expressionEnterVisitor node context =
                             -- app.data |> fn  =>  fn(app.data), so fn is on the right
                             -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
                             if isRecordAccessFunction rightExpr then
-                                ( [], contextWithDataConstructorCheck )
+                                ( [], contextWithRouteBuilder )
 
                             else
-                                ( [], checkAppDataPassedToHelperViaPipe contextWithDataConstructorCheck rightExpr leftExpr )
+                                ( [], checkAppDataPassedToHelperViaPipe contextWithRouteBuilder rightExpr leftExpr )
 
                         "<|" ->
                             -- fn <| app.data  =>  fn(app.data), so fn is on the left
                             -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
                             if isRecordAccessFunction leftExpr then
-                                ( [], contextWithDataConstructorCheck )
+                                ( [], contextWithRouteBuilder )
 
                             else
-                                ( [], checkAppDataPassedToHelperViaPipe contextWithDataConstructorCheck leftExpr rightExpr )
+                                ( [], checkAppDataPassedToHelperViaPipe contextWithRouteBuilder leftExpr rightExpr )
 
                         _ ->
-                            ( [], contextWithDataConstructorCheck )
+                            ( [], contextWithRouteBuilder )
 
                 _ ->
-                    ( [], contextWithDataConstructorCheck )
+                    ( [], contextWithRouteBuilder )
 
         -- Track field access patterns
         contextWithFieldTracking =
@@ -701,6 +722,72 @@ expressionExitVisitor node context =
         ( [], context )
 
 
+{-| Extract head function name from RouteBuilder.preRender/single/serverRender record argument.
+
+This ensures we correctly identify which function is the head function
+based on what's ACTUALLY passed to RouteBuilder, not just by function name.
+
+If the record uses a simple function reference like `{ head = seoTags }`,
+we extract "seoTags". If it uses lambdas or complex expressions, we can't
+safely track these.
+
+-}
+extractRouteBuilderHeadFn : Context -> List (Node Expression) -> Context
+extractRouteBuilderHeadFn context args =
+    case args of
+        recordArg :: _ ->
+            case Node.value recordArg of
+                Expression.RecordExpr fields ->
+                    let
+                        extractedHead =
+                            fields
+                                |> List.filterMap
+                                    (\fieldNode ->
+                                        let
+                                            ( Node.Node _ fieldName, valueNode ) =
+                                                Node.value fieldNode
+                                        in
+                                        if fieldName == "head" then
+                                            extractSimpleFunctionName valueNode
+
+                                        else
+                                            Nothing
+                                    )
+                                |> List.head
+
+                        currentSharedState =
+                            context.sharedState
+
+                        updatedSharedState =
+                            PersistentFieldTracking.setRouteBuilderHeadFn extractedHead currentSharedState
+                    in
+                    { context | sharedState = updatedSharedState }
+
+                _ ->
+                    -- Not a record literal - can't extract function names
+                    context
+
+        _ ->
+            context
+
+
+{-| Extract a simple function name from an expression.
+Returns Just "functionName" for simple references like `head`, `myHeadFn`.
+Returns Nothing for lambdas, complex expressions, or qualified names.
+-}
+extractSimpleFunctionName : Node Expression -> Maybe String
+extractSimpleFunctionName node =
+    case Node.value node of
+        Expression.FunctionOrValue [] name ->
+            -- Simple unqualified function reference
+            Just name
+
+        _ ->
+            -- Lambda, qualified name, or complex expression
+            -- We can't safely track these
+            Nothing
+
+
 {-| Track field access on app.data
 
 Uses the shared trackFieldAccessShared function from PersistentFieldTracking.
@@ -842,11 +929,6 @@ finalEvaluation context =
         -- Skip if transformation was already applied (Ephemeral type exists)
         []
 
-    else if context.sharedState.markAllFieldsAsUsed then
-        -- Bail out: can't track field usage (record update on app.data, etc.)
-        -- This must match StaticViewTransform's behavior to ensure agreement
-        []
-
     else
         case context.dataTypeRange of
             Nothing ->
@@ -858,13 +940,25 @@ finalEvaluation context =
                     allFieldNames =
                         PersistentFieldTracking.extractFieldNames context.sharedState.dataTypeFields
 
-                    -- Compute ephemeral fields using shared logic
-                    ( ephemeralFields, _ ) =
-                        PersistentFieldTracking.computeEphemeralFields
-                            allFieldNames
-                            context.sharedState.clientUsedFields
-                            context.sharedState.pendingHelperCalls
-                            context.sharedState.helperFunctions
+                    -- Compute head function fields for non-conventional naming correction
+                    -- This uses the same logic as StaticViewTransform to ensure agreement
+                    headFunctionFields =
+                        PersistentFieldTracking.computeHeadFunctionFields context.sharedState
+
+                    -- Compute ephemeral fields using shared logic with correction
+                    -- This ensures agreement with StaticViewTransform's field computation
+                    ephemeralResult =
+                        PersistentFieldTracking.computeEphemeralFieldsWithCorrection
+                            { allFieldNames = allFieldNames
+                            , clientUsedFields = context.sharedState.clientUsedFields
+                            , pendingHelperCalls = context.sharedState.pendingHelperCalls
+                            , helperFunctions = context.sharedState.helperFunctions
+                            , headFunctionFields = headFunctionFields
+                            , markAllFieldsAsUsed = context.sharedState.markAllFieldsAsUsed
+                            }
+
+                    ephemeralFields =
+                        ephemeralResult.ephemeralFields
 
                     -- Persistent fields for the new Data type
                     persistentFieldDefs =
