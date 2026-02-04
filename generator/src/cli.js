@@ -12,7 +12,8 @@ import * as renderer from "./render.js";
 import * as globby from "globby";
 import * as esbuild from "esbuild";
 import { rewriteElmJson } from "./rewrite-elm-json.js";
-import { ensureDirSync } from "./file-helpers.js";
+import { ensureDirSync, writeFileIfChanged, syncFilesToDirectory } from "./file-helpers.js";
+import { needsRecompilation, needsCodegenInstall, updateCodegenMarker, updateVersionMarker } from "./script-cache.js";
 import * as url from "url";
 import { default as which } from "which";
 import * as commander from "commander";
@@ -157,13 +158,19 @@ async function main() {
         process.chdir(projectDirectory);
         // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
 
-        let executableName = await lamderaOrElmFallback();
-        await build.compileCliApp({
-          debug: "debug",
-          executableName,
-          mainModule: "ScriptMain",
-          isScript: true,
-        });
+        const outputPath = path.join(projectDirectory, "elm-stuff/elm-pages/elm.cjs");
+        const shouldRecompile = await needsRecompilation(projectDirectory, outputPath);
+
+        if (shouldRecompile) {
+          let executableName = await lamderaOrElmFallback();
+          await build.compileCliApp({
+            debug: "debug",
+            executableName,
+            mainModule: "ScriptMain",
+            isScript: true,
+          });
+          await updateVersionMarker(projectDirectory);
+        }
         process.chdir(cwd);
         await renderer.runGenerator(
           unprocessedCliOptions,
@@ -426,18 +433,23 @@ async function compileElmForScript(elmModulePath) {
   // await codegen.generate("");
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
   if (fs.existsSync("./codegen/") && process.env.SKIP_ELM_CODEGEN !== "true") {
-    const result = await runElmCodegenInstall();
-    if (!result.success) {
-      console.error(`Warning: ${result.message}. This may cause stale generated code or missing module errors.\n`);
-      if (result.error) {
-        console.error(result.error);
+    const shouldRunCodegen = await needsCodegenInstall(projectDirectory);
+    if (shouldRunCodegen) {
+      const result = await runElmCodegenInstall();
+      if (!result.success) {
+        console.error(`Warning: ${result.message}. This may cause stale generated code or missing module errors.\n`);
+        if (result.error) {
+          console.error(result.error);
+        }
+      } else {
+        await updateCodegenMarker(projectDirectory);
       }
     }
   }
 
   ensureDirSync(`${projectDirectory}/elm-stuff`);
   ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages`);
-  await fs.promises.writeFile(
+  await writeFileIfChanged(
     path.join(
       `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/ScriptMain.elm`
     ),
@@ -450,21 +462,13 @@ async function compileElmForScript(elmModulePath) {
     await which("elm");
     executableName = "elm";
   }
-  fs.rmSync(`${projectDirectory}/elm-stuff/elm-pages/parentDirectory`, {
-    recursive: true,
-    force: true,
-  });
-  fs.mkdirSync(`${projectDirectory}/elm-stuff/elm-pages/parentDirectory`);
-  // copy every file ending with '.elm' from `projectDirectory` to `elm-stuff/elm-pages/parentDirectory`
+  // Copy .elm files from project root to parentDirectory, preserving mtimes
   const elmFiles = globby.globbySync(`${projectDirectory}/*.elm`);
-  elmFiles.forEach((elmFile) => {
-    fs.copyFileSync(
-      elmFile,
-      `${projectDirectory}/elm-stuff/elm-pages/parentDirectory/${path.basename(
-        elmFile
-      )}`
-    );
-  });
+  await syncFilesToDirectory(
+    elmFiles,
+    `${projectDirectory}/elm-stuff/elm-pages/parentDirectory`,
+    (file) => path.basename(file)
+  );
 
   await rewriteElmJson(
     `${projectDirectory}/elm.json`,
