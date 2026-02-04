@@ -1,3 +1,3 @@
-import { defineConfig } from "vite";
-
-export default {};
+export default {
+  elmSafeVirtualDom: true,
+};
