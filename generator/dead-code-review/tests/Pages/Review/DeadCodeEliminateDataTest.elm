@@ -250,7 +250,7 @@ placeholder moduleName =
                                 """module View exposing (View, map, placeholder)
 
 
-import FatalError
+import FatalError as ElmPages__FatalError
 import Html.Styled as Html exposing (Html)
 
 

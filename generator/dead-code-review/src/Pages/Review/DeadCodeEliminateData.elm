@@ -86,7 +86,9 @@ finalEvaluation context =
                 , details = [ "" ]
                 }
                 importAddRange
-                [ Review.Fix.insertAt importAddRange.start "\nimport FatalError\n"
+                -- Use ElmPages__ prefix to avoid conflicts with user imports
+                -- (e.g., if user has `import SomeModule as FatalError`)
+                [ Review.Fix.insertAt importAddRange.start "\nimport FatalError as ElmPages__FatalError\n"
                 ]
             ]
 
@@ -317,7 +319,13 @@ referenceFunction dict ( rawModuleName, rawFunctionName ) =
                     )
 
                 Nothing ->
-                    ( rawModuleName, rawFunctionName )
+                    -- When module isn't imported, we add it with ElmPages__ prefix
+                    -- to avoid conflicts with user imports
+                    if rawModuleName == [ "FatalError" ] then
+                        ( [ "ElmPages__FatalError" ], rawFunctionName )
+
+                    else
+                        ( rawModuleName, rawFunctionName )
     in
     moduleName ++ [ functionName ] |> String.join "."
 
