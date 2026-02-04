@@ -3,6 +3,19 @@ import * as path from "node:path";
 import { spawn } from "cross-spawn";
 import { parse } from "../src/parse-remote.js";
 
+/**
+ * Convert a relative file path to an Elm module name.
+ * e.g., "Examples/Nested/Script.elm" -> "Examples.Nested.Script"
+ * @param {string} relativePath - Path relative to source directory
+ * @returns {string} Elm module name with dots
+ */
+export function filePathToModuleName(relativePath) {
+  return relativePath
+    .replace(path.extname(relativePath), "")
+    .split("/")
+    .join(".");
+}
+
 function findNearestElmJson(filePath) {
   function searchForElmJson(directory) {
     if (directory === "/") {
@@ -43,9 +56,7 @@ function getElmModuleName(inputPath) {
   }
 
   const relativePath = path.relative(matchingSourceDir, filePath);
-  const moduleName = relativePath
-    .replace(path.extname(relativePath), "")
-    .replace("/", ".");
+  const moduleName = filePathToModuleName(relativePath);
 
   return { projectDirectory, moduleName, sourceDirectory: matchingSourceDir };
 }
