@@ -8,16 +8,19 @@ module Pages.Review.PersistentFieldTracking exposing
     , InlineLambdaResult(..)
     , PendingHelperAction(..)
     , PendingHelperCall
+    , SharedFieldTrackingState
     , analyzeCaseOnAppData
     , analyzeFieldAccessesOnParam
     , analyzeHelperCallInClientContext
     , analyzeHelperFunction
     , analyzeInlineLambda
     , analyzePipedHelperCall
+    , applyHelperCallResult
     , classifyAppDataArguments
     , computeEphemeralFields
     , containsAppDataExpression
     , determinePendingHelperAction
+    , emptySharedState
     , extractAppDataAccessorApplicationField
     , extractAppDataFieldName
     , extractAppDataBindingsFromLet
@@ -37,8 +40,16 @@ module Pages.Review.PersistentFieldTracking exposing
     , isExitingFreezeCall
     , isRecordAccessFunction
     , isViewFreezeCall
+    , markAllFieldsAsPersistent
     , resolvePendingHelperCalls
+    , trackFieldAccessShared
     , typeAnnotationToString
+    , updateOnFieldAccess
+    , updateOnFreezeEnter
+    , updateOnFreezeExit
+    , updateOnHeadEnter
+    , updateOnHeadExit
+    , updateOnHelperCall
     )
 
 {-| Shared utilities for persistent field tracking in elm-review rules.
@@ -92,6 +103,220 @@ type alias HelperDelegation =
     { funcName : String
     , argIndex : Int
     }
+
+
+{-| Shared state for field tracking that both transforms embed.
+
+This type contains the common fields needed for persistent field tracking:
+
+  - `clientUsedFields`: Fields accessed in CLIENT contexts (outside freeze/head).
+    These MUST be kept in the Data type for wire transmission.
+  - `inFreezeCall`: True when inside a View.freeze call (ephemeral context)
+  - `inHeadFunction`: True when inside the head function (ephemeral context)
+  - `appDataBindings`: Variables bound to app.data (e.g., via `let d = app.data`)
+  - `appParamName`: The parameter name from view/init/update function (e.g., "app")
+  - `helperFunctions`: Analyzed helper functions and their field usage
+  - `pendingHelperCalls`: Helper calls to resolve in finalEvaluation
+  - `dataTypeFields`: Fields from the Data type definition
+  - `markAllFieldsAsUsed`: Safe fallback flag when tracking is impossible
+
+Both StaticViewTransform and ServerDataTransform embed this state and use the
+shared update functions to ensure identical ephemeral field computation.
+
+-}
+type alias SharedFieldTrackingState =
+    { clientUsedFields : Set String
+    , inFreezeCall : Bool
+    , inHeadFunction : Bool
+    , appDataBindings : Set String
+    , appParamName : Maybe String
+    , helperFunctions : Dict String (List HelperAnalysis)
+    , pendingHelperCalls : List (Maybe PendingHelperCall)
+    , dataTypeFields : List ( String, Node TypeAnnotation )
+    , markAllFieldsAsUsed : Bool
+    }
+
+
+{-| Create an empty SharedFieldTrackingState with default values.
+-}
+emptySharedState : SharedFieldTrackingState
+emptySharedState =
+    { clientUsedFields = Set.empty
+    , inFreezeCall = False
+    , inHeadFunction = False
+    , appDataBindings = Set.empty
+    , appParamName = Nothing
+    , helperFunctions = Dict.empty
+    , pendingHelperCalls = []
+    , dataTypeFields = []
+    , markAllFieldsAsUsed = False
+    }
+
+
+{-| Update state when a field is accessed on app.data.
+
+In CLIENT context (not in freeze or head): adds field to clientUsedFields.
+In EPHEMERAL context (in freeze or head): no change (field can be removed).
+
+-}
+updateOnFieldAccess : String -> SharedFieldTrackingState -> SharedFieldTrackingState
+updateOnFieldAccess fieldName state =
+    if state.inFreezeCall || state.inHeadFunction then
+        -- In ephemeral context - don't track (field can potentially be removed)
+        state
+
+    else
+        -- In client context - field MUST be kept
+        { state | clientUsedFields = Set.insert fieldName state.clientUsedFields }
+
+
+{-| Update state when entering a View.freeze call.
+-}
+updateOnFreezeEnter : SharedFieldTrackingState -> SharedFieldTrackingState
+updateOnFreezeEnter state =
+    { state | inFreezeCall = True }
+
+
+{-| Update state when exiting a View.freeze call.
+-}
+updateOnFreezeExit : SharedFieldTrackingState -> SharedFieldTrackingState
+updateOnFreezeExit state =
+    { state | inFreezeCall = False }
+
+
+{-| Update state when entering the head function.
+-}
+updateOnHeadEnter : SharedFieldTrackingState -> SharedFieldTrackingState
+updateOnHeadEnter state =
+    { state | inHeadFunction = True }
+
+
+{-| Update state when exiting the head function.
+-}
+updateOnHeadExit : SharedFieldTrackingState -> SharedFieldTrackingState
+updateOnHeadExit state =
+    { state | inHeadFunction = False }
+
+
+{-| Update state when a helper is called with app.data.
+
+Takes a HelperCallResult and applies it to the shared state.
+Both checkAppDataPassedToHelper and checkAppDataPassedToHelperViaPipe use this.
+
+-}
+updateOnHelperCall : HelperCallResult -> SharedFieldTrackingState -> SharedFieldTrackingState
+updateOnHelperCall result state =
+    case result of
+        HelperCallKnown helperCall ->
+            { state | pendingHelperCalls = Just helperCall :: state.pendingHelperCalls }
+
+        HelperCallLambdaFields accessedFields ->
+            Set.foldl updateOnFieldAccess state accessedFields
+
+        HelperCallUntrackable ->
+            { state | pendingHelperCalls = Nothing :: state.pendingHelperCalls }
+
+        HelperCallNoAction ->
+            state
+
+
+{-| Apply a HelperCallResult to the shared state.
+
+This is an alias for updateOnHelperCall for clearer API.
+Interprets the shared analysis result and updates the state accordingly.
+
+-}
+applyHelperCallResult : HelperCallResult -> SharedFieldTrackingState -> SharedFieldTrackingState
+applyHelperCallResult =
+    updateOnHelperCall
+
+
+{-| Track field access on app.data using shared state.
+
+This function consolidates the common field tracking logic from both
+StaticViewTransform and ServerDataTransform. It handles:
+
+  - RecordAccess: `app.data.field`
+  - OperatorApplication: `app.data |> .field` or `.field <| app.data`
+  - Application: `.field app.data`
+  - RecordUpdateExpression: `{ d | field = value }` where `d = app.data`
+  - LetExpression: extracts app.data bindings and let-bound helper functions
+  - CaseExpression: handles `case app.data of ...` patterns
+
+Returns an updated SharedFieldTrackingState.
+
+-}
+trackFieldAccessShared : Node Expression -> SharedFieldTrackingState -> ModuleNameLookupTable -> SharedFieldTrackingState
+trackFieldAccessShared node state lookupTable =
+    -- Use shared extractFieldAccess for common patterns
+    case extractFieldAccess node state.appParamName state.appDataBindings of
+        FieldAccessed fieldName ->
+            updateOnFieldAccess fieldName state
+
+        MarkAllFieldsUsed ->
+            if state.inFreezeCall || state.inHeadFunction then
+                -- In ephemeral context, we don't care
+                state
+
+            else
+                markAllFieldsAsPersistent state
+
+        NoFieldAccess ->
+            -- Handle patterns that need context-specific logic
+            case Node.value node of
+                -- Case expression on app.data: use shared analysis
+                Expression.CaseExpression _ ->
+                    if state.inFreezeCall || state.inHeadFunction then
+                        -- In ephemeral context, we don't care
+                        state
+
+                    else
+                        -- Use unified case analysis from shared module
+                        case analyzeCaseOnAppData node state.appParamName state.appDataBindings of
+                            CaseTrackedFields fields ->
+                                Set.foldl updateOnFieldAccess state fields
+
+                            CaseAddBindings bindings ->
+                                { state | appDataBindings = Set.union state.appDataBindings bindings }
+
+                            CaseMarkAllFieldsUsed ->
+                                markAllFieldsAsPersistent state
+
+                            CaseNotOnAppData ->
+                                state
+
+                -- Let expressions can bind app.data to a variable
+                -- They can also define local helper functions that should be analyzed
+                Expression.LetExpression letBlock ->
+                    let
+                        -- Extract app.data bindings (let d = app.data)
+                        newBindings =
+                            extractAppDataBindingsFromLet
+                                letBlock.declarations
+                                state.appParamName
+                                state.appDataBindings
+                                (\expr -> isAppDataAccess expr state.appParamName state.appDataBindings)
+
+                        -- Extract let-bound helper functions using shared logic
+                        newHelperFunctions =
+                            extractLetBoundHelperFunctions
+                                letBlock.declarations
+                                state.helperFunctions
+                    in
+                    { state
+                        | appDataBindings = newBindings
+                        , helperFunctions = newHelperFunctions
+                    }
+
+                _ ->
+                    state
+
+
+{-| Mark all fields as persistent (safe fallback when we can't track field usage).
+-}
+markAllFieldsAsPersistent : SharedFieldTrackingState -> SharedFieldTrackingState
+markAllFieldsAsPersistent state =
+    { state | markAllFieldsAsUsed = True }
 
 
 {-| Analyze a helper function to determine which fields it accesses on each parameter.

@@ -44,24 +44,16 @@ type alias Context =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
 
-    -- Field tracking: fields accessed in CLIENT contexts (outside freeze/head)
-    -- These are the fields that MUST be kept in the Data type for wire transmission
-    , clientUsedFields : Set String
-    , inFreezeCall : Bool
-    , inHeadFunction : Bool
-
-    -- app.data binding tracking
-    , appDataBindings : Set String
-
-    -- App parameter name from view function (could be "app", "static", etc.)
-    , appParamName : Maybe String
+    -- Shared field tracking state (embedded from PersistentFieldTracking)
+    -- This contains: clientUsedFields, inFreezeCall, inHeadFunction, appDataBindings,
+    -- appParamName, helperFunctions, pendingHelperCalls, dataTypeFields, markAllFieldsAsUsed
+    , sharedState : PersistentFieldTracking.SharedFieldTrackingState
 
     -- Track where Data is used as a record constructor (needs to become Ephemeral)
     , dataConstructorRanges : List Range
 
-    -- Data type location and fields
+    -- Data type location
     , dataTypeRange : Maybe Range
-    , dataTypeFields : List ( String, Node TypeAnnotation )
 
     -- End of Data type declaration for inserting new types
     , dataTypeEndRow : Int
@@ -78,15 +70,6 @@ type alias Context =
 
     -- Track range after "Data" in exposing list for inserting ", Ephemeral"
     , dataExportRange : Maybe Range
-
-    -- Helper function analysis: maps function name -> list of analyses (one per trackable parameter)
-    -- Used to determine which fields a helper uses when app.data is passed to it
-    , helperFunctions : Dict String (List PersistentFieldTracking.HelperAnalysis)
-
-    -- Pending helper calls: function calls with app.data in client context
-    -- These need to be resolved in finalEvaluation after all helpers are analyzed
-    -- Nothing = unknown function (mark all fields), Just call = lookup in helperFunctions
-    , pendingHelperCalls : List (Maybe PersistentFieldTracking.PendingHelperCall)
 
     -- Import aliases for Html and Html.Attributes (for freeze wrapping)
     , htmlAlias : Maybe ModuleName
@@ -169,22 +152,15 @@ initialContext =
         (\lookupTable moduleName () ->
             { lookupTable = lookupTable
             , moduleName = moduleName
-            , clientUsedFields = Set.empty
-            , inFreezeCall = False
-            , inHeadFunction = False
-            , appDataBindings = Set.empty
-            , appParamName = Nothing
+            , sharedState = PersistentFieldTracking.emptySharedState
             , dataConstructorRanges = []
             , dataTypeRange = Nothing
-            , dataTypeFields = []
             , dataTypeEndRow = 0
             , dataFunctionSignatureRange = Nothing
             , dataFunctionSignature = Nothing
             , hasEphemeralType = False
             , dataTypeReferenceRanges = []
             , dataExportRange = Nothing
-            , helperFunctions = Dict.empty
-            , pendingHelperCalls = []
             , htmlAlias = Nothing
             , htmlAttributesAlias = Nothing
             , lastImportRow = 0
@@ -262,7 +238,7 @@ declarationEnterVisitor node context =
                     { context | dataTypeReferenceRanges = context.dataTypeReferenceRanges ++ dataRefs }
             in
             if functionName == "head" then
-                ( [], { contextWithDataRefs | inHeadFunction = True } )
+                ( [], { contextWithDataRefs | sharedState = PersistentFieldTracking.updateOnHeadEnter contextWithDataRefs.sharedState } )
 
             else if functionName == "data" then
                 -- Track the data function's type signature for updating Data -> Ephemeral
@@ -306,8 +282,20 @@ declarationEnterVisitor node context =
                             |> .arguments
                             |> List.head
                             |> Maybe.andThen PersistentFieldTracking.extractPatternName
+
+                    updatedSharedState =
+                        { clientUsedFields = contextWithDataRefs.sharedState.clientUsedFields
+                        , inFreezeCall = contextWithDataRefs.sharedState.inFreezeCall
+                        , inHeadFunction = contextWithDataRefs.sharedState.inHeadFunction
+                        , appDataBindings = contextWithDataRefs.sharedState.appDataBindings
+                        , appParamName = maybeAppParam
+                        , helperFunctions = contextWithDataRefs.sharedState.helperFunctions
+                        , pendingHelperCalls = contextWithDataRefs.sharedState.pendingHelperCalls
+                        , dataTypeFields = contextWithDataRefs.sharedState.dataTypeFields
+                        , markAllFieldsAsUsed = contextWithDataRefs.sharedState.markAllFieldsAsUsed
+                        }
                 in
-                ( [], { contextWithDataRefs | appParamName = maybeAppParam } )
+                ( [], { contextWithDataRefs | sharedState = updatedSharedState } )
 
             else
                 -- Analyze non-special functions as potential helpers
@@ -321,10 +309,20 @@ declarationEnterVisitor node context =
                             contextWithDataRefs
 
                         else
-                            { contextWithDataRefs
-                                | helperFunctions =
-                                    Dict.insert functionName helperAnalysis contextWithDataRefs.helperFunctions
-                            }
+                            let
+                                updatedSharedState =
+                                    { clientUsedFields = contextWithDataRefs.sharedState.clientUsedFields
+                                    , inFreezeCall = contextWithDataRefs.sharedState.inFreezeCall
+                                    , inHeadFunction = contextWithDataRefs.sharedState.inHeadFunction
+                                    , appDataBindings = contextWithDataRefs.sharedState.appDataBindings
+                                    , appParamName = contextWithDataRefs.sharedState.appParamName
+                                    , helperFunctions = Dict.insert functionName helperAnalysis contextWithDataRefs.sharedState.helperFunctions
+                                    , pendingHelperCalls = contextWithDataRefs.sharedState.pendingHelperCalls
+                                    , dataTypeFields = contextWithDataRefs.sharedState.dataTypeFields
+                                    , markAllFieldsAsUsed = contextWithDataRefs.sharedState.markAllFieldsAsUsed
+                                    }
+                            in
+                            { contextWithDataRefs | sharedState = updatedSharedState }
                 in
                 ( [], contextWithHelper )
 
@@ -354,11 +352,23 @@ declarationEnterVisitor node context =
 
                             endRow =
                                 (Node.range node).end.row
+
+                            updatedSharedState =
+                                { clientUsedFields = context.sharedState.clientUsedFields
+                                , inFreezeCall = context.sharedState.inFreezeCall
+                                , inHeadFunction = context.sharedState.inHeadFunction
+                                , appDataBindings = context.sharedState.appDataBindings
+                                , appParamName = context.sharedState.appParamName
+                                , helperFunctions = context.sharedState.helperFunctions
+                                , pendingHelperCalls = context.sharedState.pendingHelperCalls
+                                , dataTypeFields = fields
+                                , markAllFieldsAsUsed = context.sharedState.markAllFieldsAsUsed
+                                }
                         in
                         ( []
                         , { context
                             | dataTypeRange = Just (Node.range node)
-                            , dataTypeFields = fields
+                            , sharedState = updatedSharedState
                             , dataTypeEndRow = endRow
                           }
                         )
@@ -385,7 +395,7 @@ declarationExitVisitor node context =
                         |> Node.value
             in
             if functionName == "head" then
-                ( [], { context | inHeadFunction = False } )
+                ( [], { context | sharedState = PersistentFieldTracking.updateOnHeadExit context.sharedState } )
 
             else
                 ( [], context )
@@ -421,7 +431,7 @@ expressionEnterVisitor node context =
                                             handleViewFreezeWrapping node functionNode args contextWithDataConstructorCheck
                                     in
                                     ( errors
-                                    , { newContext | inFreezeCall = True }
+                                    , { newContext | sharedState = PersistentFieldTracking.updateOnFreezeEnter newContext.sharedState }
                                     )
 
                                 _ ->
@@ -685,7 +695,7 @@ getStaticPrefix moduleName =
 expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionExitVisitor node context =
     if PersistentFieldTracking.isExitingFreezeCall node context.lookupTable then
-        ( [], { context | inFreezeCall = False } )
+        ( [], { context | sharedState = PersistentFieldTracking.updateOnFreezeExit context.sharedState } )
 
     else
         ( [], context )
@@ -693,73 +703,17 @@ expressionExitVisitor node context =
 
 {-| Track field access on app.data
 
-Uses the shared extractFieldAccess function for common patterns (RecordAccess,
-OperatorApplication, Application, RecordUpdateExpression). Handles LetExpression
-and CaseExpression separately as they need context-specific logic.
+Uses the shared trackFieldAccessShared function from PersistentFieldTracking.
+This ensures both client and server transforms use identical tracking logic.
 
 -}
 trackFieldAccess : Node Expression -> Context -> Context
 trackFieldAccess node context =
-    -- First, try the unified field extraction for common patterns
-    case PersistentFieldTracking.extractFieldAccess node context.appParamName context.appDataBindings of
-        PersistentFieldTracking.FieldAccessed fieldName ->
-            addFieldAccess fieldName context
-
-        PersistentFieldTracking.MarkAllFieldsUsed ->
-            if context.inFreezeCall || context.inHeadFunction then
-                -- In ephemeral context, we don't care about record updates
-                context
-
-            else
-                markAllFieldsAsPersistent context
-
-        PersistentFieldTracking.NoFieldAccess ->
-            -- Handle patterns that need context-specific logic
-            case Node.value node of
-                Expression.LetExpression letBlock ->
-                    let
-                        -- Extract app.data bindings (let d = app.data)
-                        newBindings =
-                            PersistentFieldTracking.extractAppDataBindingsFromLet
-                                letBlock.declarations
-                                context.appParamName
-                                context.appDataBindings
-                                (\expr -> isAppDataAccess expr context)
-
-                        -- Extract let-bound helper functions using shared logic
-                        newHelperFunctions =
-                            PersistentFieldTracking.extractLetBoundHelperFunctions
-                                letBlock.declarations
-                                context.helperFunctions
-                    in
-                    { context
-                        | appDataBindings = newBindings
-                        , helperFunctions = newHelperFunctions
-                    }
-
-                -- Case expression on app.data: use shared analysis
-                Expression.CaseExpression _ ->
-                    if context.inFreezeCall || context.inHeadFunction then
-                        -- In ephemeral context, we don't care
-                        context
-
-                    else
-                        -- Use unified case analysis from shared module
-                        case PersistentFieldTracking.analyzeCaseOnAppData node context.appParamName context.appDataBindings of
-                            PersistentFieldTracking.CaseTrackedFields fields ->
-                                Set.foldl addFieldAccess context fields
-
-                            PersistentFieldTracking.CaseAddBindings bindings ->
-                                { context | appDataBindings = Set.union context.appDataBindings bindings }
-
-                            PersistentFieldTracking.CaseMarkAllFieldsUsed ->
-                                markAllFieldsAsPersistent context
-
-                            PersistentFieldTracking.CaseNotOnAppData ->
-                                context
-
-                _ ->
-                    context
+    let
+        updatedSharedState =
+            PersistentFieldTracking.trackFieldAccessShared node context.sharedState context.lookupTable
+    in
+    { context | sharedState = updatedSharedState }
 
 
 {-| Check if a function node is a call to View.freeze.
@@ -771,7 +725,7 @@ isViewFreezeCall functionNode context =
 
 isAppDataAccess : Node Expression -> Context -> Bool
 isAppDataAccess node context =
-    PersistentFieldTracking.isAppDataAccess node context.appParamName context.appDataBindings
+    PersistentFieldTracking.isAppDataAccess node context.sharedState.appParamName context.sharedState.appDataBindings
 
 
 {-| Check if an expression contains `app.data` being passed as a WHOLE to a function.
@@ -781,8 +735,8 @@ containsAppDataExpression : Node Expression -> Context -> Bool
 containsAppDataExpression node context =
     PersistentFieldTracking.containsAppDataExpression
         node
-        context.appParamName
-        context.appDataBindings
+        context.sharedState.appParamName
+        context.sharedState.appDataBindings
         (\fn -> isViewFreezeCall fn context)
 
 
@@ -797,7 +751,7 @@ Uses shared analyzeHelperCallInClientContext from PersistentFieldTracking.
 checkAppDataPassedToHelper : Context -> Node Expression -> List (Node Expression) -> Context
 checkAppDataPassedToHelper context functionNode args =
     -- In ephemeral context (freeze/head) - we don't care about tracking
-    if context.inFreezeCall || context.inHeadFunction then
+    if context.sharedState.inFreezeCall || context.sharedState.inHeadFunction then
         context
 
     else
@@ -806,13 +760,18 @@ checkAppDataPassedToHelper context functionNode args =
                 PersistentFieldTracking.classifyAppDataArguments
                     functionNode
                     args
-                    context.appParamName
-                    context.appDataBindings
+                    context.sharedState.appParamName
+                    context.sharedState.appDataBindings
                     (\fn -> isViewFreezeCall fn context)
                     (\expr -> containsAppDataExpression expr context)
+
+            result =
+                PersistentFieldTracking.analyzeHelperCallInClientContext functionNode classification
+
+            updatedSharedState =
+                PersistentFieldTracking.applyHelperCallResult result context.sharedState
         in
-        -- Use shared analysis with inline lambda fallback
-        applyHelperCallResult context (PersistentFieldTracking.analyzeHelperCallInClientContext functionNode classification)
+        { context | sharedState = updatedSharedState }
 
 
 {-| Check if app.data is passed to a function via pipe operator.
@@ -827,35 +786,20 @@ checkAppDataPassedToHelperViaPipe context functionNode argNode =
     if not (isAppDataAccess argNode context) then
         context
 
-    else if context.inFreezeCall || context.inHeadFunction then
+    else if context.sharedState.inFreezeCall || context.sharedState.inHeadFunction then
         -- In ephemeral context (freeze/head) - we don't care about tracking
         context
 
     else
         -- In client context - use shared pipe analysis
-        applyHelperCallResult context (PersistentFieldTracking.analyzePipedHelperCall functionNode)
+        let
+            result =
+                PersistentFieldTracking.analyzePipedHelperCall functionNode
 
-
-{-| Apply a HelperCallResult to the context.
-
-This interprets the shared analysis result and updates the context accordingly.
-Both checkAppDataPassedToHelper and checkAppDataPassedToHelperViaPipe use this.
-
--}
-applyHelperCallResult : Context -> PersistentFieldTracking.HelperCallResult -> Context
-applyHelperCallResult context result =
-    case result of
-        PersistentFieldTracking.HelperCallKnown helperCall ->
-            { context | pendingHelperCalls = Just helperCall :: context.pendingHelperCalls }
-
-        PersistentFieldTracking.HelperCallLambdaFields accessedFields ->
-            Set.foldl addFieldAccess context accessedFields
-
-        PersistentFieldTracking.HelperCallUntrackable ->
-            { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
-
-        PersistentFieldTracking.HelperCallNoAction ->
-            context
+            updatedSharedState =
+                PersistentFieldTracking.applyHelperCallResult result context.sharedState
+        in
+        { context | sharedState = updatedSharedState }
 
 
 {-| Delegate to shared isRecordAccessFunction function.
@@ -865,36 +809,11 @@ isRecordAccessFunction =
     PersistentFieldTracking.isRecordAccessFunction
 
 
-{-| Mark all fields as persistent (safe fallback when we can't track field usage).
-This adds all field names to clientUsedFields, which means nothing will be ephemeral.
--}
-markAllFieldsAsPersistent : Context -> Context
-markAllFieldsAsPersistent context =
-    let
-        allFieldNames =
-            context.dataTypeFields
-                |> List.map Tuple.first
-                |> Set.fromList
-    in
-    { context | clientUsedFields = Set.union context.clientUsedFields allFieldNames }
-
-
 {-| Extract all ranges where "Data" appears as a type reference in a type annotation.
 -}
 extractDataTypeReferences : Node TypeAnnotation -> List Range
 extractDataTypeReferences =
     PersistentFieldTracking.extractDataTypeRanges
-
-
-addFieldAccess : String -> Context -> Context
-addFieldAccess fieldName context =
-    if context.inFreezeCall || context.inHeadFunction then
-        -- In ephemeral context - don't track (field can potentially be removed)
-        context
-
-    else
-        -- In client context - field MUST be kept
-        { context | clientUsedFields = Set.insert fieldName context.clientUsedFields }
 
 
 {-| Final evaluation - generate Ephemeral/Data split and ephemeralToData function.
@@ -928,6 +847,11 @@ finalEvaluation context =
         -- Skip if transformation was already applied (Ephemeral type exists)
         []
 
+    else if context.sharedState.markAllFieldsAsUsed then
+        -- Bail out: can't track field usage (record update on app.data, etc.)
+        -- This must match StaticViewTransform's behavior to ensure agreement
+        []
+
     else
         case context.dataTypeRange of
             Nothing ->
@@ -937,19 +861,19 @@ finalEvaluation context =
                 let
                     -- All field names from the Data type
                     allFieldNames =
-                        PersistentFieldTracking.extractFieldNames context.dataTypeFields
+                        PersistentFieldTracking.extractFieldNames context.sharedState.dataTypeFields
 
                     -- Compute ephemeral fields using shared logic
                     ( ephemeralFields, _ ) =
                         PersistentFieldTracking.computeEphemeralFields
                             allFieldNames
-                            context.clientUsedFields
-                            context.pendingHelperCalls
-                            context.helperFunctions
+                            context.sharedState.clientUsedFields
+                            context.sharedState.pendingHelperCalls
+                            context.sharedState.helperFunctions
 
                     -- Persistent fields for the new Data type
                     persistentFieldDefs =
-                        context.dataTypeFields
+                        context.sharedState.dataTypeFields
                             |> List.filter (\( name, _ ) -> not (Set.member name ephemeralFields))
                 in
                 if Set.isEmpty ephemeralFields then
@@ -965,7 +889,7 @@ finalEvaluation context =
                         -- Generate Ephemeral type alias (same as original Data)
                         ephemeralTypeAlias =
                             "type alias Ephemeral =\n    { "
-                                ++ (context.dataTypeFields
+                                ++ (context.sharedState.dataTypeFields
                                         |> List.map
                                             (\( name, typeNode ) ->
                                                 name ++ " : " ++ PersistentFieldTracking.typeAnnotationToString (Node.value typeNode)
