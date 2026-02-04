@@ -523,10 +523,12 @@ handleViewFreezeWrapping applicationNode functionNode args context =
             else
                 -- Generate the wrapping fix
                 let
+                    -- Use ElmPages__ prefix when we're adding the import to avoid conflicts
+                    -- with user imports (e.g., `import Accessibility as Html`)
                     htmlPrefix =
                         context.htmlAlias
                             |> Maybe.map (String.join ".")
-                            |> Maybe.withDefault "Html"
+                            |> Maybe.withDefault "ElmPages__Html"
 
                     attrPrefix =
                         context.htmlAttributesAlias
@@ -540,10 +542,11 @@ handleViewFreezeWrapping applicationNode functionNode args context =
                     needsHtmlAttributesImport =
                         context.htmlAttributesAlias == Nothing
 
-                    -- Build import string (Html first, then Html.Attributes for alphabetical order)
+                    -- Build import string with unique ElmPages__ prefix to avoid conflicts
+                    -- with user imports (e.g., `import Accessibility as Html`)
                     importsToAdd =
                         (if needsHtmlImport then
-                            "import Html\n"
+                            "import Html as ElmPages__Html\n"
 
                          else
                             ""

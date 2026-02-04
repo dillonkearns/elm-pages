@@ -3566,7 +3566,7 @@ myExtract =
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
 import View
-import Html
+import Html as ElmPages__Html
 import Html.Attributes
 
 type alias Data =
@@ -3576,7 +3576,7 @@ type alias Data =
 
 view app =
     { title = myExtract app.data
-    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text "static" ]) ]
+    , body = [ View.freeze (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text "static" ]) ]
     }
 
 extractTitle data =
@@ -3635,7 +3635,7 @@ myExtract =
 import Html.Styled as Html
 import View
 import Html.Lazy
-import Html as CoreHtml
+import Html as ElmPages__Html
 
 type alias Data =
     { title : String
@@ -3644,7 +3644,7 @@ type alias Data =
 
 view app =
     { title = myExtract app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> CoreHtml.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
     }
 
 extractTitle data =

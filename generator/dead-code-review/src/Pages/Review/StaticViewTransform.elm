@@ -1424,11 +1424,6 @@ htmlLazyImportFix context =
                 NotImported ->
                     True
 
-        -- Check if Html.Styled is aliased as "Html" - if so, we need a different name
-        -- to avoid ambiguity between Html.Styled.text and Html.text
-        htmlStyledUsesHtmlAlias =
-            context.htmlStyledAlias == Just [ "Html" ]
-
         importsToAdd =
             (if needsHtmlLazy then
                 "import Html.Lazy\n"
@@ -1437,12 +1432,9 @@ htmlLazyImportFix context =
                 ""
             )
                 ++ (if needsHtml then
-                        if htmlStyledUsesHtmlAlias then
-                            -- Import with alias to avoid conflict with Html.Styled as Html
-                            "import Html as CoreHtml\n"
-
-                        else
-                            "import Html\n"
+                        -- Use unique ElmPages__ prefix to avoid conflicts with user imports
+                        -- (e.g., `import Accessibility as Html` or `import Html.Styled as Html`)
+                        "import Html as ElmPages__Html\n"
 
                     else
                         ""
@@ -1489,18 +1481,14 @@ inlinedLazyThunk context =
 
         -- Determine the Html prefix (from elm/html) for Html.text ""
         -- Must use elm/html's Html module, not Html.Styled
-        -- If Html.Styled is aliased as "Html" and Html isn't imported, we use "CoreHtml"
+        -- Use ElmPages__ prefix when we're adding the import to avoid conflicts
         htmlPrefix =
             case context.htmlImport of
                 ImportedAs alias ->
                     String.join "." alias
 
                 NotImported ->
-                    if context.htmlStyledAlias == Just [ "Html" ] then
-                        "CoreHtml"
-
-                    else
-                        "Html"
+                    "ElmPages__Html"
 
         -- Determine the map function prefix based on whether Html.Styled is used
         -- If Html.Styled is imported, use it for map never; otherwise use plain Html

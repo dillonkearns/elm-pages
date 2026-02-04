@@ -676,7 +676,7 @@ content = Html.Attributes.attribute "foo" "bar"
 
 import Html.Attributes
 import View
-import Html
+import Html as ElmPages__Html
 
 type alias Data =
     { title : String
@@ -684,7 +684,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ content ]) ]
+    , body = [ View.freeze (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ content ]) ]
     }
 
 content = Html.Attributes.attribute "foo" "bar"
@@ -760,7 +760,7 @@ content = someHelper "test"
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
 import View
-import Html
+import Html as ElmPages__Html
 import Html.Attributes
 
 type alias Data =
@@ -769,7 +769,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ content ]) ]
+    , body = [ View.freeze (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ content ]) ]
     }
 
 content = someHelper "test"
@@ -807,7 +807,7 @@ view app =
 import Html.Styled
 import Html.Styled.Attributes
 import View
-import Html
+import Html as ElmPages__Html
 import Html.Attributes
 
 type alias Data =
@@ -816,7 +816,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.Styled.text "hello" ]) ]
+    , body = [ View.freeze (ElmPages__Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.Styled.text "hello" ]) ]
     }
 """
                             ]
