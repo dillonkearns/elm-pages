@@ -111,14 +111,19 @@ export async function start(options) {
     ignoreInitial: true,
   });
 
-  await codegen.generate(options.base);
+  // Run independent startup tasks in parallel
+  let config;
   try {
-    await ensureRequiredExecutables();
+    const results = await Promise.all([
+      codegen.generate(options.base),
+      ensureRequiredExecutables(),
+      resolveConfig(),
+    ]);
+    config = results[2];
   } catch (error) {
     console.error(error);
     process.exit(1);
   }
-  const config = await resolveConfig();
   let clientElmMakeProcess = compileElmForBrowser(options, config);
   let pendingCliCompile = compileCliApp(
     options,
@@ -797,14 +802,15 @@ function errorHtml() {
 }
 
 async function ensureRequiredExecutables() {
-  try {
-    await which("lamdera");
-  } catch (error) {
+  const checks = await Promise.allSettled([
+    which("lamdera"),
+    which("elm-review"),
+  ]);
+
+  if (checks[0].status === "rejected") {
     throw "I couldn't find lamdera on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
-  try {
-    await which("elm-review");
-  } catch (error) {
+  if (checks[1].status === "rejected") {
     throw "I couldn't find elm-review on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
 }

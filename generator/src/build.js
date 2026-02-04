@@ -101,19 +101,19 @@ async function cachedWhich(executable) {
 }
 
 async function ensureRequiredExecutables() {
-  try {
-    await cachedWhich("lamdera");
-  } catch (error) {
+  const checks = await Promise.allSettled([
+    cachedWhich("lamdera"),
+    cachedWhich("elm-optimize-level-2"),
+    cachedWhich("elm-review"),
+  ]);
+
+  if (checks[0].status === "rejected") {
     throw "I couldn't find lamdera on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
-  try {
-    await cachedWhich("elm-optimize-level-2");
-  } catch (error) {
+  if (checks[1].status === "rejected") {
     throw "I couldn't find elm-optimize-level-2 on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
-  try {
-    await cachedWhich("elm-review");
-  } catch (error) {
+  if (checks[2].status === "rejected") {
     throw "I couldn't find elm-review on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
 }
@@ -134,16 +134,13 @@ export async function run(options) {
     }
   };
   try {
-    await ensureRequiredDirs();
-    await ensureRequiredExecutables();
-    // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
-    // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
-
-    const generateCode = codegen.generate(options.base);
-
-    await generateCode;
-
-    const config = await resolveConfig();
+    // Run independent startup tasks in parallel
+    const [, , , config] = await Promise.all([
+      ensureRequiredDirs(),
+      ensureRequiredExecutables(),
+      codegen.generate(options.base),
+      resolveConfig(),
+    ]);
     await writeFileIfChanged(
       "elm-stuff/elm-pages/index.html",
       preRenderHtml.templateHtml(false, config.headTagsTemplate)
