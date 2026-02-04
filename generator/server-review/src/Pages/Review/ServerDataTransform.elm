@@ -355,15 +355,7 @@ declarationEnterVisitor node context =
                     TypeAnnotation.Record recordFields ->
                         let
                             fields =
-                                recordFields
-                                    |> List.map
-                                        (\fieldNode ->
-                                            let
-                                                ( nameNode, typeNode ) =
-                                                    Node.value fieldNode
-                                            in
-                                            ( Node.value nameNode, typeNode )
-                                        )
+                                PersistentFieldTracking.extractDataTypeFields recordFields
 
                             endRow =
                                 (Node.range node).end.row

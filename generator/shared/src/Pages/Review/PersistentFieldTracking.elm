@@ -32,6 +32,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , extractAppDataPipeAccessorField
     , extractCasePatternFields
     , extractCaseVariablePatternBindings
+    , extractDataTypeFields
     , extractDataTypeRanges
     , extractFieldAccess
     , extractFieldNames
@@ -1389,6 +1390,25 @@ extractAccessorFieldFromApplication exprs paramName =
 
         _ ->
             Nothing
+
+
+{-| Extract field names and type annotations from a record type definition.
+
+Both client and server transforms need to extract the same fields from the
+Data type alias. This shared function ensures identical extraction logic.
+
+-}
+extractDataTypeFields : List (Node TypeAnnotation.RecordField) -> List ( String, Node TypeAnnotation )
+extractDataTypeFields recordFields =
+    recordFields
+        |> List.map
+            (\fieldNode ->
+                let
+                    ( nameNode, typeNode ) =
+                        Node.value fieldNode
+                in
+                ( Node.value nameNode, typeNode )
+            )
 
 
 {-| Convert a TypeAnnotation back to string representation.

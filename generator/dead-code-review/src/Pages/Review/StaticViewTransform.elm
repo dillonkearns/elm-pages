@@ -438,15 +438,7 @@ declarationEnterVisitor node context =
                     TypeAnnotation.Record recordFields ->
                         let
                             fields =
-                                recordFields
-                                    |> List.map
-                                        (\fieldNode ->
-                                            let
-                                                ( nameNode, typeNode ) =
-                                                    Node.value fieldNode
-                                            in
-                                            ( Node.value nameNode, typeNode )
-                                        )
+                                PersistentFieldTracking.extractDataTypeFields recordFields
 
                             currentSharedState =
                                 context.sharedState
@@ -1311,38 +1303,13 @@ checkAppDataPassedToHelperViaPipe context functionNode argNode =
 
 {-| Apply a HelperCallResult to the context.
 
-This interprets the shared analysis result and updates the context accordingly.
+Delegates to shared applyHelperCallResult to ensure identical logic with server.
 Both checkAppDataPassedToHelper and checkAppDataPassedToHelperViaPipe use this.
 
 -}
 applyHelperCallResult : Context -> PersistentFieldTracking.HelperCallResult -> Context
 applyHelperCallResult context result =
-    case result of
-        PersistentFieldTracking.HelperCallKnown helperCall ->
-            let
-                currentSharedState =
-                    context.sharedState
-
-                updatedSharedState =
-                    { currentSharedState | pendingHelperCalls = Just helperCall :: currentSharedState.pendingHelperCalls }
-            in
-            { context | sharedState = updatedSharedState }
-
-        PersistentFieldTracking.HelperCallLambdaFields accessedFields ->
-            Set.foldl addFieldAccess context accessedFields
-
-        PersistentFieldTracking.HelperCallUntrackable ->
-            let
-                currentSharedState =
-                    context.sharedState
-
-                updatedSharedState =
-                    { currentSharedState | pendingHelperCalls = Nothing :: currentSharedState.pendingHelperCalls }
-            in
-            { context | sharedState = updatedSharedState }
-
-        PersistentFieldTracking.HelperCallNoAction ->
-            context
+    { context | sharedState = PersistentFieldTracking.applyHelperCallResult result context.sharedState }
 
 
 {-| Extract the base function name from a function expression.
