@@ -71,6 +71,62 @@ export async function resolveInputPathOrModuleName(inputPathOrModuleName) {
   }
 }
 
+/**
+ * Parse the remote script TTL from environment variables.
+ * Returns TTL in seconds, or Infinity for offline mode, or 0 for always fetch.
+ */
+function getRemoteScriptTTL() {
+  const ttlValue = process.env.ELM_PAGES_REMOTE_SCRIPT_TTL;
+
+  if (ttlValue === undefined) {
+    return 0; // Default: always fetch
+  }
+
+  // Check for "infinity" variants (offline mode)
+  const lowerValue = ttlValue.toLowerCase();
+  if (lowerValue === "infinity" || lowerValue === "inf" || lowerValue === "offline" || lowerValue === "never") {
+    return Infinity;
+  }
+
+  const parsed = parseInt(ttlValue, 10);
+  if (isNaN(parsed)) {
+    return 0; // Invalid value, default to always fetch
+  }
+
+  // -1 also means infinity (common convention)
+  if (parsed < 0) {
+    return Infinity;
+  }
+
+  return parsed;
+}
+
+/**
+ * Check if we need to fetch based on TTL and last fetch time.
+ * Uses git's FETCH_HEAD mtime as the last fetch timestamp.
+ */
+function shouldFetch(cloneToPath, ttlSeconds) {
+  if (ttlSeconds === 0) {
+    return true; // Always fetch
+  }
+
+  if (ttlSeconds === Infinity) {
+    return false; // Never fetch (offline mode)
+  }
+
+  const fetchHeadPath = path.join(cloneToPath, ".git", "FETCH_HEAD");
+  try {
+    const stats = fs.statSync(fetchHeadPath);
+    const lastFetchMs = stats.mtimeMs;
+    const nowMs = Date.now();
+    const ageSeconds = (nowMs - lastFetchMs) / 1000;
+    return ageSeconds > ttlSeconds;
+  } catch (e) {
+    // FETCH_HEAD doesn't exist (never fetched), so we should fetch
+    return true;
+  }
+}
+
 async function downloadRemoteScript({ remote, owner, repo, branch }) {
   try {
     const cloneToPath = path.join(
@@ -82,6 +138,29 @@ async function downloadRemoteScript({ remote, owner, repo, branch }) {
     );
 
     const repoExists = fs.existsSync(cloneToPath);
+    const ttlSeconds = getRemoteScriptTTL();
+    const needsFetch = repoExists ? shouldFetch(cloneToPath, ttlSeconds) : true;
+
+    if (!needsFetch && repoExists) {
+      // Within TTL: skip git fetch, use cached repo as-is
+      // Just ensure we're on the right branch if specified
+      if (branch) {
+        const currentBranch = (await exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+          cwd: cloneToPath,
+        })).trim();
+        if (currentBranch !== branch) {
+          // Try to checkout the branch (must already exist locally)
+          await exec("git", ["checkout", branch], {
+            cwd: cloneToPath,
+          });
+        }
+      }
+      return cloneToPath;
+    }
+
+    if (ttlSeconds === Infinity && !repoExists) {
+      throw `Offline mode is enabled (ELM_PAGES_REMOTE_SCRIPT_TTL=infinity) but the remote script has not been cached yet.\nRun once without the TTL setting to cache the script first.`;
+    }
 
     if (repoExists) {
       if (branch) {
