@@ -215,3 +215,44 @@ export async function updateCodegenMarker(projectDirectory) {
     await fs.promises.writeFile(markerPath, "");
   }
 }
+
+/**
+ * Check if custom-backend-task needs recompilation.
+ * @param {string} projectDirectory - The project directory
+ * @returns {Promise<{needed: boolean, outputPath: string | null}>}
+ */
+export async function needsPortsRecompilation(projectDirectory) {
+  const outputPath = path.join(
+    projectDirectory,
+    ".elm-pages/compiled-ports/custom-backend-task.mjs"
+  );
+
+  // Find custom-backend-task source files
+  const sourceFiles = globby.globbySync(
+    path.join(projectDirectory, "custom-backend-task.*")
+  );
+
+  // No source files means no compilation needed
+  if (sourceFiles.length === 0) {
+    return { needed: false, outputPath: null };
+  }
+
+  try {
+    const outputStat = await fs.promises.stat(outputPath);
+    const outputMtime = outputStat.mtimeMs;
+
+    // Check if any source file is newer than output
+    for (const sourceFile of sourceFiles) {
+      const sourceStat = await fs.promises.stat(sourceFile);
+      if (sourceStat.mtimeMs > outputMtime) {
+        return { needed: true, outputPath };
+      }
+    }
+
+    // Output is up-to-date
+    return { needed: false, outputPath };
+  } catch (e) {
+    // Output doesn't exist, needs compilation
+    return { needed: true, outputPath };
+  }
+}

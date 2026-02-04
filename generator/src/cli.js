@@ -13,7 +13,10 @@ import * as globby from "globby";
 import * as esbuild from "esbuild";
 import { rewriteElmJson } from "./rewrite-elm-json.js";
 import { ensureDirSync, writeFileIfChanged, syncFilesToDirectory } from "./file-helpers.js";
-import { needsRecompilation, needsCodegenInstall, updateCodegenMarker, updateVersionMarker } from "./script-cache.js";
+import { needsRecompilation, needsCodegenInstall, updateCodegenMarker, updateVersionMarker, needsPortsRecompilation } from "./script-cache.js";
+
+// Cache for lamdera/elm executable name to avoid repeated which() calls
+let cachedExecutableName = null;
 import * as url from "url";
 import { default as which } from "which";
 import * as commander from "commander";
@@ -116,43 +119,49 @@ async function main() {
         const { moduleName, projectDirectory, sourceDirectory } =
           await resolveInputPathOrModuleName(elmModulePath);
 
-        const portBackendTaskCompiled = esbuild
-          .build({
-            entryPoints: [
-              path.resolve(projectDirectory, "./custom-backend-task"),
-            ],
-            platform: "node",
-            outfile: path.resolve(
-              projectDirectory,
-              ".elm-pages/compiled-ports/custom-backend-task.mjs"
-            ),
-            assetNames: "[name]-[hash]",
-            chunkNames: "chunks/[name]-[hash]",
-            metafile: true,
-            bundle: true,
-            format: "esm",
-            packages: "external",
-            logLevel: "silent",
-          })
-          .then((result) => {
-            try {
-              return Object.keys(result.metafile.outputs)[0];
-            } catch (e) {
-              return null;
-            }
-          })
-          .catch((error) => {
-            const portBackendTaskFileFound =
-              globby.globbySync(
-                path.resolve(projectDirectory, "./custom-backend-task.*")
-              ).length > 0;
-            if (portBackendTaskFileFound) {
-              // don't present error if there are no files matching custom-backend-task
-              // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
-              console.error("Failed to load custom-backend-task file.", error);
-            }
-          });
-        const portsPath = await portBackendTaskCompiled;
+        // Check if custom-backend-task needs recompilation
+        const portsCheck = await needsPortsRecompilation(projectDirectory);
+        let portsPath = portsCheck.outputPath;
+
+        if (portsCheck.needed) {
+          const portBackendTaskCompiled = esbuild
+            .build({
+              entryPoints: [
+                path.resolve(projectDirectory, "./custom-backend-task"),
+              ],
+              platform: "node",
+              outfile: path.resolve(
+                projectDirectory,
+                ".elm-pages/compiled-ports/custom-backend-task.mjs"
+              ),
+              assetNames: "[name]-[hash]",
+              chunkNames: "chunks/[name]-[hash]",
+              metafile: true,
+              bundle: true,
+              format: "esm",
+              packages: "external",
+              logLevel: "silent",
+            })
+            .then((result) => {
+              try {
+                return Object.keys(result.metafile.outputs)[0];
+              } catch (e) {
+                return null;
+              }
+            })
+            .catch((error) => {
+              const portBackendTaskFileFound =
+                globby.globbySync(
+                  path.resolve(projectDirectory, "./custom-backend-task.*")
+                ).length > 0;
+              if (portBackendTaskFileFound) {
+                // don't present error if there are no files matching custom-backend-task
+                // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
+                console.error("Failed to load custom-backend-task file.", error);
+              }
+            });
+          portsPath = await portBackendTaskCompiled;
+        }
 
         const cwd = process.cwd();
         process.chdir(projectDirectory);
@@ -455,13 +464,7 @@ async function compileElmForScript(elmModulePath) {
     ),
     generatorWrapperFile(moduleName)
   );
-  let executableName = await lamderaOrElmFallback();
-  try {
-    await which("lamdera");
-  } catch (error) {
-    await which("elm");
-    executableName = "elm";
-  }
+  const executableName = await lamderaOrElmFallback();
   // Copy .elm files from project root to parentDirectory, preserving mtimes
   const elmFiles = globby.globbySync(`${projectDirectory}/*.elm`);
   await syncFilesToDirectory(
@@ -478,13 +481,18 @@ async function compileElmForScript(elmModulePath) {
 }
 
 async function lamderaOrElmFallback() {
+  // Return cached result if available
+  if (cachedExecutableName) {
+    return cachedExecutableName;
+  }
   try {
     await which("lamdera");
-    return "lamdera";
+    cachedExecutableName = "lamdera";
   } catch (error) {
     await which("elm");
-    return "elm";
+    cachedExecutableName = "elm";
   }
+  return cachedExecutableName;
 }
 
 // Ensure proper exit code on unhandled promise rejections
