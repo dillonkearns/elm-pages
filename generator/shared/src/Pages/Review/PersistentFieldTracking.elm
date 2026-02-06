@@ -1039,24 +1039,32 @@ extractPipeAccessorFieldWithAliases op paramAliases leftExpr rightExpr =
 -}
 extractPatternNames : Node Pattern -> Set String
 extractPatternNames node =
+    -- Collect names into a list first, then convert to Set once at the end
+    -- More efficient than repeated Set.union
+    extractPatternNamesHelp node []
+        |> Set.fromList
+
+
+extractPatternNamesHelp : Node Pattern -> List String -> List String
+extractPatternNamesHelp node acc =
     case Node.value node of
         Pattern.VarPattern name ->
-            Set.singleton name
+            name :: acc
 
         Pattern.RecordPattern fields ->
-            fields |> List.map Node.value |> Set.fromList
+            List.foldl (\(Node _ name) a -> name :: a) acc fields
 
         Pattern.TuplePattern patterns ->
-            patterns |> List.foldl (\p acc -> Set.union (extractPatternNames p) acc) Set.empty
+            List.foldl extractPatternNamesHelp acc patterns
 
         Pattern.ParenthesizedPattern inner ->
-            extractPatternNames inner
+            extractPatternNamesHelp inner acc
 
         Pattern.AsPattern inner (Node _ name) ->
-            Set.insert name (extractPatternNames inner)
+            extractPatternNamesHelp inner (name :: acc)
 
         _ ->
-            Set.empty
+            acc
 
 
 {-| Try to extract field names from a record pattern.
@@ -1182,20 +1190,25 @@ Returns:
 extractCasePatternFields : List ( Node Pattern, Node expression ) -> CasePatternResult
 extractCasePatternFields cases =
     let
-        maybeFieldSets =
-            cases
-                |> List.map (\( pattern, _ ) -> extractRecordPatternFields pattern)
+        -- Single-pass: collect fields and check trackability simultaneously
+        ( allTrackable, allFields ) =
+            List.foldl
+                (\( pattern, _ ) ( trackable, fields ) ->
+                    if not trackable then
+                        ( False, fields )
 
-        allTrackable =
-            List.all (\m -> m /= Nothing) maybeFieldSets
+                    else
+                        case extractRecordPatternFields pattern of
+                            Just fieldSet ->
+                                ( True, Set.union fields fieldSet )
+
+                            Nothing ->
+                                ( False, fields )
+                )
+                ( True, Set.empty )
+                cases
     in
     if allTrackable then
-        let
-            allFields =
-                maybeFieldSets
-                    |> List.filterMap identity
-                    |> List.foldl Set.union Set.empty
-        in
         TrackableFields allFields
 
     else

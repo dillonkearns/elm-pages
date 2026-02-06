@@ -155,10 +155,11 @@ fromModuleToProject =
     Rule.initContextCreator
         (\moduleName moduleContext ->
             { functionTaintInfo =
-                moduleContext.collectedFunctions
-                    |> Dict.toList
-                    |> List.map (\( name, info ) -> ( ( moduleName, name ), info ))
-                    |> Dict.fromList
+                -- Use Dict.foldl for O(n) instead of toList |> map |> fromList which is O(n log n)
+                Dict.foldl
+                    (\name info acc -> Dict.insert ( moduleName, name ) info acc)
+                    Dict.empty
+                    moduleContext.collectedFunctions
             }
         )
         |> Rule.withModuleName

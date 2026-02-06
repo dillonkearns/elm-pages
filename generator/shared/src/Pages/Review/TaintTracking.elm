@@ -103,12 +103,31 @@ type TaintStatus
 -}
 combineTaint : TaintStatus -> TaintStatus -> TaintStatus
 combineTaint a b =
-    case ( a, b ) of
-        ( Pure, Pure ) ->
+    case a of
+        Tainted ->
+            Tainted
+
+        Pure ->
+            b
+
+
+{-| Short-circuit fold for taint analysis. Stops as soon as Tainted is found.
+More efficient than `List.map f exprs |> List.foldl combineTaint Pure` because
+it doesn't evaluate remaining expressions after finding Tainted.
+-}
+foldTaint : (a -> TaintStatus) -> List a -> TaintStatus
+foldTaint f list =
+    case list of
+        [] ->
             Pure
 
-        _ ->
-            Tainted
+        x :: xs ->
+            case f x of
+                Tainted ->
+                    Tainted
+
+                Pure ->
+                    foldTaint f xs
 
 
 
@@ -239,58 +258,59 @@ analyzeExpressionTaint context node =
 
         -- Application - taint propagates from function and arguments
         Expression.Application exprs ->
-            List.map (analyzeExpressionTaint context) exprs
-                |> List.foldl combineTaint Pure
+            foldTaint (analyzeExpressionTaint context) exprs
 
-        -- Operators - taint propagates from operands
+        -- Operators - taint propagates from operands (short-circuit)
         Expression.OperatorApplication _ _ left right ->
-            combineTaint
-                (analyzeExpressionTaint context left)
-                (analyzeExpressionTaint context right)
+            case analyzeExpressionTaint context left of
+                Tainted ->
+                    Tainted
 
-        -- If-then-else - taint propagates from all branches and condition
+                Pure ->
+                    analyzeExpressionTaint context right
+
+        -- If-then-else - taint propagates from all branches and condition (short-circuit)
         Expression.IfBlock cond thenBranch elseBranch ->
-            combineTaint (analyzeExpressionTaint context cond)
-                (combineTaint
-                    (analyzeExpressionTaint context thenBranch)
-                    (analyzeExpressionTaint context elseBranch)
-                )
+            case analyzeExpressionTaint context cond of
+                Tainted ->
+                    Tainted
 
-        -- Tuple - taint propagates from all elements
+                Pure ->
+                    case analyzeExpressionTaint context thenBranch of
+                        Tainted ->
+                            Tainted
+
+                        Pure ->
+                            analyzeExpressionTaint context elseBranch
+
+        -- Tuple - taint propagates from all elements (short-circuit)
         Expression.TupledExpression exprs ->
-            List.map (analyzeExpressionTaint context) exprs
-                |> List.foldl combineTaint Pure
+            foldTaint (analyzeExpressionTaint context) exprs
 
-        -- List - taint propagates from all elements
+        -- List - taint propagates from all elements (short-circuit)
         Expression.ListExpr exprs ->
-            List.map (analyzeExpressionTaint context) exprs
-                |> List.foldl combineTaint Pure
+            foldTaint (analyzeExpressionTaint context) exprs
 
         -- Parenthesized - just unwrap
         Expression.ParenthesizedExpression expr ->
             analyzeExpressionTaint context expr
 
-        -- Record - taint propagates from all field values
+        -- Record - taint propagates from all field values (short-circuit)
         Expression.RecordExpr fields ->
-            List.map (\(Node _ ( _, fieldExpr )) -> analyzeExpressionTaint context fieldExpr) fields
-                |> List.foldl combineTaint Pure
+            foldTaint (\(Node _ ( _, fieldExpr )) -> analyzeExpressionTaint context fieldExpr) fields
 
-        -- Record update - taint from base record and updated fields
+        -- Record update - taint from base record and updated fields (short-circuit)
         Expression.RecordUpdateExpression (Node _ recordName) fields ->
-            let
-                baseTaint =
-                    if context.modelParamName == Just recordName then
+            if context.modelParamName == Just recordName then
+                Tainted
+
+            else
+                case lookupBinding recordName context.bindings of
+                    Just Tainted ->
                         Tainted
 
-                    else
-                        lookupBinding recordName context.bindings
-                            |> Maybe.withDefault Pure
-
-                fieldsTaint =
-                    List.map (\(Node _ ( _, fieldExpr )) -> analyzeExpressionTaint context fieldExpr) fields
-                        |> List.foldl combineTaint Pure
-            in
-            combineTaint baseTaint fieldsTaint
+                    _ ->
+                        foldTaint (\(Node _ ( _, fieldExpr )) -> analyzeExpressionTaint context fieldExpr) fields
 
         -- Lambda - analyze the body with current context
         -- Since Elm disallows shadowing, lambda params can't hide tainted values
@@ -340,19 +360,23 @@ analyzeExpressionTaint context node =
             in
             analyzeExpressionTaint contextWithBindings letBlock.expression
 
-        -- Case expression - analyze expression and all branches with pattern bindings
+        -- Case expression - analyze expression and all branches with pattern bindings (short-circuit)
         Expression.CaseExpression caseBlock ->
             let
                 exprTaint =
                     analyzeExpressionTaint context caseBlock.expression
+            in
+            case exprTaint of
+                Tainted ->
+                    Tainted
 
-                branchTaints =
-                    List.map
+                Pure ->
+                    foldTaint
                         (\( pattern, branchExpr ) ->
                             let
-                                -- Pattern bindings inherit taint from the case expression
+                                -- Pattern bindings inherit taint from the case expression (Pure in this case)
                                 patternBindings =
-                                    extractBindingsFromPattern exprTaint pattern
+                                    extractBindingsFromPattern Pure pattern
 
                                 branchContext =
                                     { context | bindings = addBindingsToScope patternBindings context.bindings }
@@ -360,9 +384,6 @@ analyzeExpressionTaint context node =
                             analyzeExpressionTaint branchContext branchExpr
                         )
                         caseBlock.cases
-                        |> List.foldl combineTaint Pure
-            in
-            combineTaint exprTaint branchTaints
 
         -- Negation - propagate from inner expression
         Expression.Negation expr ->

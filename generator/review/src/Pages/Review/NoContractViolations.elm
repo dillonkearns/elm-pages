@@ -87,8 +87,7 @@ rule =
                 let
                     missingCoreModules : Set (List String)
                     missingCoreModules =
-                        context.visitedCoreModules
-                            |> Set.diff coreModules
+                        Set.diff coreModules context.visitedCoreModules
                 in
                 if missingCoreModules |> Set.isEmpty then
                     []
