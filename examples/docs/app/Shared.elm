@@ -1,11 +1,11 @@
-module Shared exposing (Data, Model, Msg, template)
+module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
 import BackendTask exposing (BackendTask)
 import DocsSection
 import Effect exposing (Effect)
 import FatalError exposing (FatalError)
 import Html exposing (Html)
-import Html.Styled
+import Html.Attributes as Attr
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Route exposing (Route)
@@ -23,27 +23,25 @@ template =
     , view = view
     , data = data
     , subscriptions = subscriptions
-    , onPageChange = Just OnPageChange
+    , onPageChange = Nothing
     }
 
 
 type Msg
-    = OnPageChange
-        { path : UrlPath
-        , query : Maybe String
-        , fragment : Maybe String
-        }
+    = SharedMsg SharedMsg
     | ToggleMobileMenu
-    | IncrementFromChild
 
 
 type alias Data =
     TableOfContents.TableOfContents TableOfContents.Data
 
 
+type SharedMsg
+    = NoOp
+
+
 type alias Model =
     { showMobileMenu : Bool
-    , counter : Int
     }
 
 
@@ -61,9 +59,7 @@ init :
             }
     -> ( Model, Effect Msg )
 init flags maybePagePath =
-    ( { showMobileMenu = False
-      , counter = 0
-      }
+    ( { showMobileMenu = False }
     , Effect.none
     )
 
@@ -71,14 +67,11 @@ init flags maybePagePath =
 update : Msg -> Model -> ( Model, Effect Msg )
 update msg model =
     case msg of
-        OnPageChange _ ->
-            ( { model | showMobileMenu = False }, Effect.none )
+        SharedMsg globalMsg ->
+            ( model, Effect.none )
 
         ToggleMobileMenu ->
             ( { model | showMobileMenu = not model.showMobileMenu }, Effect.none )
-
-        IncrementFromChild ->
-            ( { model | counter = model.counter + 1 }, Effect.none )
 
 
 subscriptions : UrlPath -> Model -> Sub Msg
@@ -101,16 +94,17 @@ view :
     -> (Msg -> msg)
     -> View msg
     -> { body : List (Html msg), title : String }
-view tableOfContents page model toMsg pageView =
+view sharedData page model toMsg pageView =
     { body =
-        [ ((View.Header.view ToggleMobileMenu 123 page.path
-                |> Html.Styled.map toMsg
-           )
-            :: TableOfContents.view model.showMobileMenu False Nothing tableOfContents
-            :: pageView.body
-          )
-            |> Html.Styled.div []
-            |> Html.Styled.toUnstyled
+        [ Html.div
+            [ Attr.class "flex flex-col"
+            ]
+            [ View.Header.view (toMsg ToggleMobileMenu) 0 page.path
+            , Html.div
+                [ Attr.class "flex-grow flex flex-col"
+                ]
+                pageView.body
+            ]
         ]
     , title = pageView.title
     }

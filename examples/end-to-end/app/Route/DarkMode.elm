@@ -1,4 +1,4 @@
-module Route.DarkMode exposing (ActionData, Data, Model, Msg, RouteParams, route)
+module Route.DarkMode exposing (ActionData, Data, Model, Msg, RouteParams, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import Css
@@ -48,6 +48,10 @@ type alias Data =
 
 type alias ActionData =
     { formResponse : Form.ServerResponse String }
+
+
+type alias StaticData =
+    ()
 
 
 sessionOptions =

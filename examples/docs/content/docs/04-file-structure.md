@@ -154,7 +154,6 @@ Right now, this is the only user CSS file that is loaded. You can use CSS import
 - `headTagsTemplate` - A function that returns a string of HTML that will be included in the `<head>` of every page. This is useful for including additional CSS or JS assets on the page. It is pre-processed by Vite.
 - `preloadTagForFile` - Given a file name, return a boolen to indicate whether or not to include a preload tag for that asset.
 - `adapter` - an adapter function to prepare your built application for deployment with a given framework or hosting provider. See the [full adapter docs page](/docs/adapters).
-
 ```js
 import { defineConfig } from "vite";
 import adapter from "elm-pages/adapter/netlify.js";
@@ -177,3 +176,7 @@ export default {
   },
 };
 ```
+
+### elm-safe-virtual-dom Support
+
+If you're using [elm-safe-virtual-dom](https://github.com/nicklydell/elm-safe-virtual-dom) to protect your app from browser extensions like Google Translate or Grammarly interfering with your DOM, static regions will work automatically. elm-pages detects elm-safe-virtual-dom in the compiled output and applies the appropriate patching strategy that works with its "tNode" tracking system.

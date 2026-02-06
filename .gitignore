@@ -14,3 +14,4 @@ generated/
 .elm-pages
 
 elm-review-report.gz.json
+examples/docs/functions

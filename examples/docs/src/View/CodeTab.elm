@@ -1,23 +1,14 @@
 module View.CodeTab exposing (view)
 
-import Css
-import Html.Styled as Html exposing (..)
-import Html.Styled.Attributes as Attr exposing (..)
+import Html exposing (..)
+import Html.Attributes as Attr
 import SyntaxHighlight
-import Tailwind.Theme as Theme
-import Tailwind.Utilities as Tw
 
 
 view : ( String, String ) -> Html msg
 view tab =
     div
-        [ css
-            [ Tw.rounded_xl
-            , Tw.shadow_2xl
-            , Tw.bg_color Theme.black
-            , Tw.rounded_lg
-            , Tw.shadow_lg
-            ]
+        [ Attr.class "rounded-xl shadow-2xl bg-black rounded-lg shadow-lg"
         ]
         [ iconArea
         , codeTabs tab
@@ -28,46 +19,20 @@ view tab =
 iconArea : Html msg
 iconArea =
     div
-        [ css
-            [ Tw.flex_none
-            , Tw.items_center
-            , Tw.flex
-            , Tw.h_11
-            , Tw.px_4
-            ]
+        [ Attr.class "flex-none items-center flex h-11 px-4"
         ]
-        [ div [ css [ Tw.flex, Tw.space_x_1_dot_5 ] ]
+        [ div
+            [ Attr.class "flex space-x-1.5" ]
             [ div
-                [ css
-                    [ Tw.w_3
-                    , Tw.h_3
-                    , Tw.border_2
-                    , Tw.rounded_full
-                    , Tw.border_color Theme.red_500
-                    , Tw.bg_color Theme.red_500
-                    ]
+                [ Attr.class "w-3 h-3 border-2 rounded-full border-red-500 bg-red-500"
                 ]
                 []
             , div
-                [ css
-                    [ Tw.w_3
-                    , Tw.h_3
-                    , Tw.border_2
-                    , Tw.rounded_full
-                    , Tw.border_color Theme.yellow_400
-                    , Tw.bg_color Theme.yellow_400
-                    ]
+                [ Attr.class "w-3 h-3 border-2 rounded-full border-yellow-400 bg-yellow-400"
                 ]
                 []
             , div
-                [ css
-                    [ Tw.w_3
-                    , Tw.h_3
-                    , Tw.border_2
-                    , Tw.rounded_full
-                    , Tw.border_color Theme.green_400
-                    , Tw.bg_color Theme.green_400
-                    ]
+                [ Attr.class "w-3 h-3 border-2 rounded-full border-green-400 bg-green-400"
                 ]
                 []
             ]
@@ -78,39 +43,35 @@ elmCodeBlock : String -> Html msg
 elmCodeBlock elmCode =
     SyntaxHighlight.elm elmCode
         |> Result.map (SyntaxHighlight.toBlockHtml (Just 1))
-        |> Result.map Html.fromUnstyled
         |> Result.withDefault
             (Html.pre [] [ Html.code [] [ Html.text elmCode ] ])
 
 
 codeTabs : ( String, String ) -> Html msg
 codeTabs fileName =
-    ul [ css [ Tw.flex, Tw.text_sm, Tw.text_color Theme.blue_200 ], Attr.style "transform" "translateY(0%) translateZ(0px);" ]
+    ul
+        [ Attr.class "flex text-sm text-blue-200"
+        , Attr.style "transform" "translateY(0%) translateZ(0px);"
+        ]
         [ codeTab 0 True fileName ]
 
 
 codeTab : Int -> Bool -> ( String, String ) -> Html msg
 codeTab index isCurrent ( fileName, fileContents ) =
     li
-        [ css [ Tw.flex_none ]
+        [ Attr.class "flex-none"
         ]
         [ button
             [ Attr.type_ "button"
-            , css
-                [ Tw.border
-                , Tw.border_color Theme.transparent
-                , Tw.py_2
-                , Tw.px_4
-                , Tw.font_medium
-                , Tw.text_color Theme.blue_200
-                , if isCurrent then
-                    Tw.bg_color Theme.blue_800
+            , Attr.class
+                ("border border-transparent py-2 px-4 font-medium text-blue-200 focus:outline-none hover:text-blue-100 "
+                    ++ (if isCurrent then
+                            "bg-blue-800"
 
-                  else
-                    Tw.bg_color Theme.transparent
-                , Css.focus [ Tw.outline_none ]
-                , Css.hover [ Tw.text_color Theme.blue_100 ]
-                ]
+                        else
+                            "bg-transparent"
+                       )
+                )
             ]
             [ text fileName ]
         ]

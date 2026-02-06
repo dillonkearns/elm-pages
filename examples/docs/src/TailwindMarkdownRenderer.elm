@@ -1,46 +1,35 @@
 module TailwindMarkdownRenderer exposing (renderer)
 
-import Css
 import Ellie
-import Html.Styled as Html
-import Html.Styled.Attributes as Attr exposing (css)
+import Html exposing (Html)
+import Html.Attributes as Attr
 import Markdown.Block as Block
 import Markdown.Html
 import Markdown.Renderer
 import Oembed
 import SyntaxHighlight
-import Tailwind.Theme as Theme
-import Tailwind.Utilities as Tw
 
 
-renderer : Markdown.Renderer.Renderer (Html.Html msg)
+renderer : Markdown.Renderer.Renderer (Html msg)
 renderer =
     { heading = heading
     , paragraph = Html.p []
     , thematicBreak = Html.hr [] []
     , text = Html.text
-    , strong = \content -> Html.strong [ css [ Tw.font_bold ] ] content
-    , emphasis = \content -> Html.em [ css [ Tw.italic ] ] content
+    , strong = \content -> Html.strong [ Attr.class "font-bold" ] content
+    , emphasis = \content -> Html.em [ Attr.class "italic" ] content
     , blockQuote = Html.blockquote []
     , codeSpan =
         \content ->
             Html.code
-                [ css
-                    [ Tw.font_semibold
-                    , Tw.font_medium
-                    , Css.color (Css.rgb 226 0 124) |> Css.important
-                    ]
+                [ Attr.class "font-semibold font-medium text-code-highlight"
                 ]
                 [ Html.text content ]
-
-    --, codeSpan = code
     , link =
         \{ destination } body ->
             Html.a
                 [ Attr.href destination
-                , css
-                    [ Tw.underline
-                    ]
+                , Attr.class "underline"
                 ]
                 body
     , hardLineBreak = Html.br [] []
@@ -107,50 +96,17 @@ renderer =
             [ Markdown.Html.tag "oembed"
                 (\url _ ->
                     Oembed.view [] Nothing url
-                        |> Maybe.map Html.fromUnstyled
                         |> Maybe.withDefault (Html.div [] [])
                 )
                 |> Markdown.Html.withAttribute "url"
             , Markdown.Html.tag "ellie-output"
                 (\ellieId _ ->
-                    Ellie.outputTabElmCss ellieId
+                    Ellie.outputTab ellieId
                 )
                 |> Markdown.Html.withAttribute "id"
             ]
     , codeBlock = codeBlock
-
-    --\{ body, language } ->
-    --    let
-    --        classes =
-    --            -- Only the first word is used in the class
-    --            case Maybe.map String.words language of
-    --                Just (actualLanguage :: _) ->
-    --                    [ Attr.class <| "language-" ++ actualLanguage ]
-    --
-    --                _ ->
-    --                    []
-    --    in
-    --    Html.pre []
-    --        [ Html.code classes
-    --            [ Html.text body
-    --            ]
-    --        ]
-    , table =
-        Html.table
-            [ {-
-                 table-layout: auto;
-                     text-align: left;
-                     width: 100%;
-                     margin-top: 2em;
-                     margin-bottom: 2em;
-              -}
-              css
-                [--Tw.table_auto
-                 --, Tw.w_full
-                 --, Tw.mt_4
-                 --, Tw.mb_4
-                ]
-            ]
+    , table = Html.table []
     , tableHeader = Html.thead []
     , tableBody = Html.tbody []
     , tableRow = Html.tr []
@@ -211,18 +167,12 @@ rawTextToId rawText =
         |> String.toLower
 
 
-heading : { level : Block.HeadingLevel, rawText : String, children : List (Html.Html msg) } -> Html.Html msg
+heading : { level : Block.HeadingLevel, rawText : String, children : List (Html msg) } -> Html msg
 heading { level, rawText, children } =
     case level of
         Block.H1 ->
             Html.h1
-                [ css
-                    [ Tw.text_4xl
-                    , Tw.font_bold
-                    , Tw.tracking_tight
-                    , Tw.mt_2
-                    , Tw.mb_4
-                    ]
+                [ Attr.class "text-4xl font-bold tracking-tight mt-2 mb-4"
                 ]
                 children
 
@@ -230,29 +180,15 @@ heading { level, rawText, children } =
             Html.h2
                 [ Attr.id (rawTextToId rawText)
                 , Attr.attribute "name" (rawTextToId rawText)
-                , css
-                    [ Tw.text_3xl
-                    , Tw.font_semibold
-                    , Tw.tracking_tight
-                    , Tw.mt_10
-                    , Tw.pb_1
-                    , Tw.border_b
-                    ]
+                , Attr.class "text-3xl font-semibold tracking-tight mt-10 pb-1 border-b border-gray-200"
                 ]
                 [ Html.a
                     [ Attr.href <| "#" ++ rawTextToId rawText
-                    , css
-                        [ Tw.no_underline |> Css.important
-                        ]
+                    , Attr.class "!no-underline"
                     ]
                     (children
                         ++ [ Html.span
-                                [ Attr.class "anchor-icon"
-                                , css
-                                    [ Tw.ml_2
-                                    , Tw.text_color Theme.gray_500
-                                    , Tw.select_none
-                                    ]
+                                [ Attr.class "anchor-icon ml-2 text-gray-500 select-none"
                                 ]
                                 [ Html.text "#" ]
                            ]
@@ -279,34 +215,13 @@ heading { level, rawText, children } =
                 Block.H6 ->
                     Html.h6
             )
-                [ css
-                    [ Tw.font_bold
-                    , Tw.text_lg
-                    , Tw.mt_8
-                    , Tw.mb_4
-                    ]
+                [ Attr.class "font-bold text-lg mt-8 mb-4"
                 ]
                 children
 
 
-
---code : String -> Element msg
---code snippet =
---    Element.el
---        [ Element.Background.color
---            (Element.rgba255 50 50 50 0.07)
---        , Element.Border.rounded 2
---        , Element.paddingXY 5 3
---        , Font.family [ Font.typeface "Roboto Mono", Font.monospace ]
---        ]
---        (Element.text snippet)
---
---
-
-
-codeBlock : { body : String, language : Maybe String } -> Html.Html msg
+codeBlock : { body : String, language : Maybe String } -> Html msg
 codeBlock details =
     SyntaxHighlight.elm details.body
         |> Result.map (SyntaxHighlight.toBlockHtml (Just 1))
-        |> Result.map Html.fromUnstyled
         |> Result.withDefault (Html.pre [] [ Html.code [] [ Html.text details.body ] ])

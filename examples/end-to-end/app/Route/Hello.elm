@@ -1,4 +1,4 @@
-module Route.Hello exposing (ActionData, Data, Model, Msg, route)
+module Route.Hello exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import ErrorPage exposing (ErrorPage)
@@ -29,6 +29,10 @@ type alias RouteParams =
 
 type alias ActionData =
     {}
+
+
+type alias StaticData =
+    ()
 
 
 route : StatelessRoute RouteParams Data ActionData

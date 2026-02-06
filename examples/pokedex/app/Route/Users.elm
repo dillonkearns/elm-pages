@@ -118,7 +118,9 @@ view app shared model =
     { title = "Users"
     , body =
         [ Html.h2 [] [ Html.text "Users" ]
-        , Html.text (app.data.users |> String.join ", ")
+        , Html.div []
+            [ Html.text (app.data.users |> String.join ", ")
+            ]
         ]
     }
 

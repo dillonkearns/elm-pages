@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Static Region Adoption Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-result {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .pass { background: #d4edda; border: 1px solid #28a745; }
+        .fail { background: #f8d7da; border: 1px solid #dc3545; }
+        .pending { background: #fff3cd; border: 1px solid #ffc107; }
+        code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
+        pre { background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Static Region Adoption Test</h1>
+    <p>This page tests whether the virtual-dom codemod can successfully adopt pre-rendered DOM.</p>
+
+    <!-- This simulates the pre-rendered content that would come from the server -->
+    <div id="mount-point">
+        <div data-static="test-content" id="original-static-content">
+            <h2>Pre-rendered Static Content</h2>
+            <p>This content was "pre-rendered" (hardcoded in HTML for this test).</p>
+            <p>Element ID: <code>original-static-content</code></p>
+            <p>If adoption works, this exact DOM node should be reused, not recreated.</p>
+        </div>
+        <div id="placeholder">Elm will render here...</div>
+    </div>
+
+    <div id="test-results">
+        <h2>Test Results</h2>
+        <div id="result-container"></div>
+    </div>
+
+    <h2>Debug Log</h2>
+    <pre id="debug-log"></pre>
+
+    <script>
+        // Store reference to original element
+        const originalElement = document.getElementById('original-static-content');
+        const log = [];
+
+        function addLog(message) {
+            log.push(`[${new Date().toISOString().split('T')[1].slice(0, -1)}] ${message}`);
+            document.getElementById('debug-log').textContent = log.join('\n');
+        }
+
+        function addTestResult(name, passed, details) {
+            const container = document.getElementById('result-container');
+            const div = document.createElement('div');
+            div.className = `test-result ${passed ? 'pass' : 'fail'}`;
+            div.innerHTML = `<strong>${passed ? '✓' : '✗'} ${name}</strong><br>${details}`;
+            container.appendChild(div);
+        }
+
+        addLog('Test page loaded');
+        addLog(`Original element reference: ${originalElement ? 'found' : 'NOT FOUND'}`);
+
+        // Simulate the static region handler from our codemod
+        function _VirtualDom_handleStaticRegion(vNode, refs, eventNode) {
+            addLog('_VirtualDom_handleStaticRegion called');
+            addLog(`refs: ${JSON.stringify(refs.map(r => typeof r === 'object' ? r.$ : r))}`);
+
+            var staticId = refs[1];
+            var htmlFallback = refs[2] || '';
+            var id = staticId.a;
+
+            addLog(`Looking for [data-static="${id}"]`);
+
+            // Case 1: Try to adopt existing DOM
+            var existingDom = document.querySelector('[data-static="' + id + '"]');
+            if (existingDom) {
+                addLog(`Found existing DOM: ${existingDom.id}`);
+
+                // Check if it's the same reference as our original
+                const isSameReference = existingDom === originalElement;
+                addLog(`Same reference as original: ${isSameReference}`);
+
+                // Detach from old tree
+                if (existingDom.parentNode) {
+                    existingDom.parentNode.removeChild(existingDom);
+                    addLog('Detached from parent');
+                }
+
+                // In real implementation, we'd also virtualize it
+                // vNode.k = _VirtualDom_virtualize(existingDom);
+
+                return existingDom;
+            }
+
+            // Case 2: Parse HTML string
+            if (htmlFallback && htmlFallback.length > 0) {
+                addLog(`Parsing HTML fallback (length: ${htmlFallback.length})`);
+                var template = document.createElement('template');
+                template.innerHTML = htmlFallback;
+                var newDom = template.content.firstElementChild;
+                if (newDom) {
+                    addLog('Created DOM from HTML string');
+                    return newDom;
+                }
+            }
+
+            addLog('Warning: No existing DOM and no HTML fallback');
+            return document.createTextNode('');
+        }
+
+        // Test 1: Initial adoption
+        addLog('--- Test 1: Initial Adoption ---');
+
+        const mockVNode = { l: null, k: null };
+        const mockRefs = [
+            function() {}, // thunk function
+            { $: 'StaticId', a: 'test-content' }, // StaticId
+            '' // empty fallback for initial load
+        ];
+
+        const adoptedNode = _VirtualDom_handleStaticRegion(mockVNode, mockRefs, null);
+
+        addTestResult(
+            'Initial Adoption - Same DOM Reference',
+            adoptedNode === originalElement,
+            adoptedNode === originalElement
+                ? 'The adopted node is the exact same DOM element (not a copy)'
+                : `Expected same reference, but got different element. Original: ${originalElement?.id}, Adopted: ${adoptedNode?.id}`
+        );
+
+        // Put the adopted node in a new container to simulate what Elm would do
+        const newContainer = document.createElement('div');
+        newContainer.id = 'elm-container';
+        newContainer.appendChild(adoptedNode);
+        document.getElementById('mount-point').innerHTML = '';
+        document.getElementById('mount-point').appendChild(newContainer);
+
+        addTestResult(
+            'Initial Adoption - Node Moved to New Container',
+            document.getElementById('original-static-content') !== null,
+            document.getElementById('original-static-content')
+                ? 'The original element ID is still in the DOM (moved, not recreated)'
+                : 'Element not found in DOM after adoption'
+        );
+
+        // Test 2: SPA Navigation (HTML string parsing)
+        addLog('--- Test 2: SPA Navigation ---');
+
+        const spaHtml = `<div data-static="spa-content" id="spa-generated-content">
+            <h2>SPA Generated Content</h2>
+            <p>This content was parsed from an HTML string.</p>
+        </div>`;
+
+        const mockVNode2 = { l: null, k: null };
+        const mockRefs2 = [
+            function() {},
+            { $: 'StaticId', a: 'spa-content' },
+            spaHtml
+        ];
+
+        const spaNode = _VirtualDom_handleStaticRegion(mockVNode2, mockRefs2, null);
+
+        addTestResult(
+            'SPA Navigation - HTML Parsing',
+            spaNode instanceof HTMLElement && spaNode.id === 'spa-generated-content',
+            spaNode instanceof HTMLElement
+                ? `Created element with id: ${spaNode.id}`
+                : 'Failed to create element from HTML string'
+        );
+
+        // Add the SPA content to the page
+        document.getElementById('mount-point').appendChild(spaNode);
+
+        addTestResult(
+            'SPA Navigation - Content Added to DOM',
+            document.getElementById('spa-generated-content') !== null,
+            document.getElementById('spa-generated-content')
+                ? 'SPA content successfully added to DOM'
+                : 'SPA content not found in DOM'
+        );
+
+        addLog('--- Tests Complete ---');
+    </script>
+</body>
+</html>

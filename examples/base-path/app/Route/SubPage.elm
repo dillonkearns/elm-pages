@@ -1,4 +1,4 @@
-module Route.SubPage exposing (ActionData, Data, Model, Msg, route)
+module Route.SubPage exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import Css exposing (..)
@@ -30,6 +30,10 @@ type alias RouteParams =
 
 type alias ActionData =
     {}
+
+
+type alias StaticData =
+    ()
 
 
 route : StatelessRoute RouteParams Data ActionData

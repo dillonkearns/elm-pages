@@ -1,4 +1,4 @@
-module Route.Login exposing (ActionData, Data, Model, Msg, route)
+module Route.Login exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import ErrorPage exposing (ErrorPage)
@@ -38,6 +38,10 @@ type alias RouteParams =
 type alias ActionData =
     { errors : Form.ServerResponse String
     }
+
+
+type alias StaticData =
+    ()
 
 
 route : StatelessRoute RouteParams Data ActionData

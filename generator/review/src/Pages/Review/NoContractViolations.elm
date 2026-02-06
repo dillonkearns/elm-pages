@@ -12,6 +12,7 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.ToString
 import Pages.Internal.RoutePattern as RoutePattern exposing (Param(..))
@@ -86,8 +87,7 @@ rule =
                 let
                     missingCoreModules : Set (List String)
                     missingCoreModules =
-                        context.visitedCoreModules
-                            |> Set.diff coreModules
+                        Set.diff coreModules context.visitedCoreModules
                 in
                 if missingCoreModules |> Set.isEmpty then
                     []
@@ -108,6 +108,7 @@ rule =
 type SpecialModule
     = RouteModule
     | CoreModule { requiredExposes : List String }
+    | ViewModule
 
 
 coreModules : Set (List String)
@@ -130,8 +131,63 @@ coreModulesAndExports =
         , ( [ "ErrorPage" ], [ "ErrorPage", "notFound", "internalError", "view", "statusCode", "head" ] )
         , ( [ "Shared" ], [ "Data", "Model", "Msg", "template" ] )
         , ( [ "Site" ], [ "config" ] )
+
+        -- View has special handling for optional freeze contract
         , ( [ "View" ], [ "View", "map" ] )
         ]
+
+
+{-| The freeze contract exports. If ANY of these are present, ALL must be present.
+This enables the frozen view feature.
+
+Note: `Freezable` is intentionally not required here. The framework never references
+`View.Freezable` directly - it only calls `View.htmlToFreezable`. If `htmlToFreezable`
+is exposed but `Freezable` isn't, Elm's compiler will error since `Freezable` appears
+in `htmlToFreezable`'s type signature. So Elm enforces that constraint for us.
+-}
+freezeContractExports : List String
+freezeContractExports =
+    [ "freezableToHtml", "htmlToFreezable", "freeze" ]
+
+
+{-| Check the freeze contract for View module.
+
+If ANY of the freeze-related exports are present, ALL must be present.
+This ensures the frozen view feature is correctly configured.
+
+-}
+checkFreezeContract : Set String -> Range -> List (Error {})
+checkFreezeContract exposed range =
+    let
+        freezeExportsSet =
+            Set.fromList freezeContractExports
+
+        presentFreezeExports =
+            Set.intersect exposed freezeExportsSet
+
+        missingFreezeExports =
+            Set.diff freezeExportsSet presentFreezeExports
+    in
+    -- If some freeze exports are present but not all, error
+    if not (Set.isEmpty presentFreezeExports) && not (Set.isEmpty missingFreezeExports) then
+        [ Rule.error
+            { message = "Incomplete freeze contract in View module"
+            , details =
+                [ "The View module has some freeze-related exports but is missing others."
+                , "Present: " ++ (Set.toList presentFreezeExports |> String.join ", ")
+                , "Missing: " ++ (Set.toList missingFreezeExports |> String.join ", ")
+                , ""
+                , "To enable frozen views, you must expose all of: "
+                    ++ (freezeContractExports |> String.join ", ")
+                , ""
+                , "If you don't want to use frozen views, remove all freeze-related exports."
+                ]
+            }
+            range
+        ]
+
+    else
+        []
 
 
 type alias Context =
@@ -175,9 +231,24 @@ But it is not exposing: """
                             )
 
                 Just (CoreModule { requiredExposes }) ->
-                    case Set.diff (Set.fromList requiredExposes) (exposedNames exposedValues) |> Set.toList of
+                    let
+                        exposed =
+                            exposedNames exposedValues
+
+                        missingRequired =
+                            Set.diff (Set.fromList requiredExposes) exposed |> Set.toList
+
+                        -- For View module, also check the freeze contract
+                        freezeContractErrors =
+                            if context.moduleName == [ "View" ] then
+                                checkFreezeContract exposed (Node.range (exposingListNode (Node.value node)))
+
+                            else
+                                []
+                    in
+                    case missingRequired of
                         [] ->
-                            ( [], context )
+                            ( freezeContractErrors, context )
 
                         nonEmpty ->
                             ( [ Rule.error
@@ -194,8 +265,13 @@ But it is not exposing: """
                                     }
                                     (Node.range (exposingListNode (Node.value node)))
                               ]
+                                ++ freezeContractErrors
                             , context
                             )
+
+                Just ViewModule ->
+                    -- This case is unused since View goes through CoreModule
+                    ( [], context )
 
                 _ ->
                     ( [], context )
