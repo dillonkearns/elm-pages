@@ -40,7 +40,10 @@ export async function start(options) {
     if (
       messages &&
       messages[0] &&
-      !messages[0].startsWith("Failed to load url")
+      !(
+        typeof messages[0] === "string" &&
+        messages[0].startsWith("Failed to load url")
+      )
     ) {
       console.info(...messages);
     }
