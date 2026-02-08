@@ -582,7 +582,7 @@ function getContext(requestToPerform) {
 }
 
 async function readFileJobNew(req, patternsToWatch) {
-  const { cwd } = getContext(req);
+  const cwd = path.resolve(...req.dir);
   // TODO use cwd
   const filePath = path.resolve(cwd, req.body.args[1]);
   try {
@@ -1309,7 +1309,7 @@ export async function readKey() {
 }
 
 async function runWriteFileJob(req) {
-  const { cwd } = getContext(req);
+  const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
   const filePath = path.resolve(cwd, data.path);
   try {
