@@ -510,6 +510,7 @@ config apiRoutes pages =
     , update = \_ _ _ _ _ _ _ _ -> ( (), Effect.NoEffect )
     , basePath = []
     , onActionData = \() -> Nothing
+    , onFormChange = \_ _ -> Nothing
     , data =
         \_ (Route pageRoute) ->
             let
