@@ -42,7 +42,11 @@ function getElmModuleName(inputPath) {
   }
 
   const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
-  const sourceDirectories = elmJson["source-directories"];
+  /** @type {string[]} */
+  const sourceDirectories = elmJson["source-directories"] ||
+    // The elm.json is for a package
+    ["src"];
+
   const projectDirectory = path.dirname(elmJsonPath);
 
   const matchingSourceDir = sourceDirectories
