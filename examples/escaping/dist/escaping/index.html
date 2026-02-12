@@ -58,4 +58,10 @@
 <p>0 &lt; 1 &amp;&amp; alert(0)</p>
 
 # style tags are allowed, and contain raw text
-<style>body > * { html & { display: none; } }</style></div></body></html>
+<style>body > * { html & { display: none; } }</style>
+
+# outerHTML property must be rewritten to prevent DOM replacement
+<div data-outerHTML="&lt;img src=x onerror=alert(&#039;xss&#039;)&gt;"></div>
+
+# closing style tag in content must not break out of raw text context
+<style><\/style><img src=x onerror=alert('xss')></style></div></body></html>
