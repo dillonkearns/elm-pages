@@ -158,24 +158,6 @@ view static sharedModel =
             , Attr.attribute "after" "2"
             ]
             []
-        , snapshotComment "on* and formAction attributes are rewritten"
-        , Html.div
-            [ Attr.attribute "onclick" "alert(0)"
-            , Attr.attribute "formAction" "submit"
-            ]
-            []
-        , snapshotComment "innerHTML, outerHTML, and formAction properties are rewritten"
-        , Html.div
-            [ Attr.property "innerHTML" (Json.Encode.string "<script>alert(0)</script>")
-            , Attr.property "outerHTML" (Json.Encode.string "<script>alert(1)</script>")
-            , Attr.property "formAction" (Json.Encode.string "/submit")
-            ]
-            []
-        , snapshotComment "javascript: and data:text/html URLs are stripped"
-        , Html.div []
-            [ Html.a [ Attr.href "javascript:alert(0)" ] [ Html.text "Bad link" ]
-            , Html.img [ Attr.src "data:text/html,<script>alert(0)</script>" ] []
-            ]
         , snapshotComment "attribute values are escaped"
         , Html.div [ Attr.title "\"'><script>true && alert(0)</script>" ] []
         , snapshotComment "class attribute values are escaped (it is special cased)"
@@ -192,7 +174,5 @@ view static sharedModel =
         , Html.node "script" [] [ Html.text "0 < 1 && alert(0)" ]
         , snapshotComment "style tags are allowed, and contain raw text"
         , Html.node "style" [] [ Html.text "body > * { html & { display: none; } }" ]
-        , snapshotComment "closing style tag in style content cannot break out"
-        , Html.node "style" [] [ Html.text "</style><img src=x onerror=alert(1)>" ]
         ]
     }

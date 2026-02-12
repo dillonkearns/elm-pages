@@ -102,8 +102,8 @@ type alias EventHandler =
 
   - styles are a mapping of rules
   - events may be a json object containing event handlers
-  - attributes are pulled out into stringAttributes
-  - properties are pulled out into stringProperties and boolProperties
+  - attributes are pulled out into stringAttributes and boolAttributes - things with string values go into
+    stringAttributes, things with bool values go into boolAttributes
 
 -}
 type alias Facts msg =
@@ -111,8 +111,7 @@ type alias Facts msg =
     , events : Dict String (VirtualDom.Handler msg)
     , attributeNamespace : Maybe Json.Decode.Value
     , stringAttributes : Dict String String
-    , stringProperties : Dict String String
-    , boolProperties : Dict String Bool
+    , boolAttributes : Dict String Bool
     }
 
 
@@ -322,6 +321,19 @@ decodeStyles =
         ]
 
 
+{-| grab things from attributes via a decoder, then anything that isn't filtered on
+the object
+-}
+decodeOthers : Json.Decode.Decoder a -> Json.Decode.Decoder (Dict String a)
+decodeOthers otherDecoder =
+    decodeAttributes otherDecoder
+        |> Json.Decode.andThen
+            (\attributes ->
+                decodeDictFilterMap otherDecoder
+                    |> Json.Decode.map (filterKnownKeys >> Dict.union attributes)
+            )
+
+
 {-| For a given decoder, keep the values from a dict that pass the decoder
 -}
 decodeDictFilterMap : Json.Decode.Decoder a -> Json.Decode.Decoder (Dict String a)
@@ -350,12 +362,6 @@ decodeAttributes decoder =
         ]
 
 
-decodeProperties : Json.Decode.Decoder a -> Json.Decode.Decoder (Dict String a)
-decodeProperties decoder =
-    decodeDictFilterMap decoder
-        |> Json.Decode.map filterKnownKeys
-
-
 decodeEvents : (EventHandler -> VirtualDom.Handler msg) -> Json.Decode.Decoder (Dict String (VirtualDom.Handler msg))
 decodeEvents taggedEventDecoder =
     Json.Decode.oneOf
@@ -368,13 +374,12 @@ decodeEvents taggedEventDecoder =
 -}
 decodeFacts : HtmlContext msg -> Json.Decode.Decoder (Facts msg)
 decodeFacts (HtmlContext taggers eventDecoder) =
-    Json.Decode.map6 Facts
+    Json.Decode.map5 Facts
         decodeStyles
         (decodeEvents (eventDecoder taggers))
         (Json.Decode.maybe (Json.Decode.field attributeNamespaceKey Json.Decode.value))
-        (decodeAttributes Json.Decode.string)
-        (decodeProperties Json.Decode.string)
-        (decodeProperties Json.Decode.bool)
+        (decodeOthers Json.Decode.string)
+        (decodeOthers Json.Decode.bool)
 
 
 {-| Just empty facts
@@ -385,8 +390,7 @@ emptyFacts =
     , events = Dict.empty
     , attributeNamespace = Nothing
     , stringAttributes = Dict.empty
-    , stringProperties = Dict.empty
-    , boolProperties = Dict.empty
+    , boolAttributes = Dict.empty
     }
 
 

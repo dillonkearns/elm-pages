@@ -36,15 +36,6 @@
 # invalid attributes are skipped, both string and boolean
 <div after="2" before="1"></div>
 
-# on* and formAction attributes are rewritten
-<div data-formAction="submit" data-onclick="alert(0)"></div>
-
-# innerHTML, outerHTML, and formAction properties are rewritten
-<div data-formAction="/submit" data-innerHTML="&lt;script&gt;alert(0)&lt;/script&gt;" data-outerHTML="&lt;script&gt;alert(1)&lt;/script&gt;"></div>
-
-# javascript: and data:text/html URLs are stripped
-<div><a href="">Bad link</a><img src=""></div>
-
 # attribute values are escaped
 <div title="&quot;&#039;&gt;&lt;script&gt;true &amp;&amp; alert(0)&lt;/script&gt;"></div>
 
@@ -67,7 +58,4 @@
 <p>0 &lt; 1 &amp;&amp; alert(0)</p>
 
 # style tags are allowed, and contain raw text
-<style>body > * { html & { display: none; } }</style>
-
-# closing style tag in style content cannot break out
-<style><\/style><img src=x onerror=alert(1)></style></div></body></html>
+<style>body > * { html & { display: none; } }</style></div></body></html>
