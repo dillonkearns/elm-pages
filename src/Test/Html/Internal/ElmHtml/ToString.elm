@@ -12,6 +12,7 @@ module Test.Html.Internal.ElmHtml.ToString exposing
 -}
 
 import Dict
+import Regex exposing (Regex)
 import String
 import Test.Html.Internal.ElmHtml.InternalTypes exposing (..)
 
@@ -80,6 +81,12 @@ nests them under this one
 nodeRecordToString : FormatOptions -> NodeRecord msg -> List String
 nodeRecordToString options { tag, children, facts } =
     let
+        safeTag =
+            noScript tag
+
+        elementKind =
+            toElementKind safeTag
+
         openTag : List (Maybe String) -> String
         openTag extras =
             let
@@ -96,13 +103,13 @@ nodeRecordToString options { tag, children, facts } =
                         more ->
                             " " ++ String.join " " more
             in
-            "<" ++ tag ++ filling ++ ">"
+            "<" ++ safeTag ++ filling ++ ">"
 
         closeTag =
-            "</" ++ tag ++ ">"
+            "</" ++ safeTag ++ ">"
 
         childrenStrings =
-            List.map (nodeToLines (toElementKind tag) options) children
+            List.map (nodeToLines elementKind options) children
                 |> List.concat
                 |> List.map ((++) (String.repeat options.indent " "))
 
@@ -119,20 +126,32 @@ nodeRecordToString options { tag, children, facts } =
                         |> Just
 
         classes =
-            Dict.get "className" facts.stringAttributes
-                |> Maybe.map (\name -> "class=\"" ++ escapeHtml name ++ "\"")
+            Dict.get "className" facts.stringProperties
+                |> Maybe.map (noJavaScriptOrHtmlUri >> escapeHtml >> (\name -> "class=\"" ++ name ++ "\""))
 
         stringAttributes =
-            Dict.filter (\k v -> k /= "className") facts.stringAttributes
+            facts.stringAttributes
                 |> Dict.toList
+                |> List.map (\( k, v ) -> ( noOnOrFormAction k, noJavaScriptOrHtmlUri v ))
                 |> List.filter (\( k, _ ) -> not (isUnsafeName k))
-                |> List.map (Tuple.mapFirst propertyToAttributeName)
                 |> List.map (\( k, v ) -> k ++ "=\"" ++ escapeHtml v ++ "\"")
                 |> String.join " "
                 |> Just
 
-        boolAttributes =
-            Dict.toList facts.boolAttributes
+        stringProperties =
+            Dict.filter (\k _ -> k /= "className") facts.stringProperties
+                |> Dict.toList
+                |> List.map (\( k, v ) -> ( noInnerHtmlOrFormAction k, noJavaScriptOrHtmlUri v ))
+                |> List.map (\( k, v ) -> ( propertyToAttributeName k, v ))
+                |> List.filter (\( k, _ ) -> not (isUnsafeName k))
+                |> List.map (\( k, v ) -> k ++ "=\"" ++ escapeHtml v ++ "\"")
+                |> String.join " "
+                |> Just
+
+        boolProperties =
+            Dict.toList facts.boolProperties
+                |> List.map (\( k, v ) -> ( noInnerHtmlOrFormAction k, v ))
+                |> List.map (\( k, v ) -> ( propertyToAttributeName k, v ))
                 |> List.filter (\( k, _ ) -> not (isUnsafeName k))
                 |> List.filterMap
                     (\( k, v ) ->
@@ -145,7 +164,7 @@ nodeRecordToString options { tag, children, facts } =
                 |> String.join " "
                 |> Just
     in
-    case toElementKind tag of
+    case elementKind of
         InvalidElements ->
             [ "<!-- invalid element -->" ]
 
@@ -153,10 +172,10 @@ nodeRecordToString options { tag, children, facts } =
            specified for void elements.
         -}
         VoidElements ->
-            [ openTag [ classes, styles, stringAttributes, boolAttributes ] ]
+            [ openTag [ classes, styles, stringAttributes, stringProperties, boolProperties ] ]
 
         _ ->
-            [ openTag [ classes, styles, stringAttributes, boolAttributes ] ]
+            [ openTag [ classes, styles, stringAttributes, stringProperties, boolProperties ] ]
                 ++ childrenStrings
                 ++ [ closeTag ]
 
@@ -182,6 +201,57 @@ propertyToAttributeName propertyName =
             propertyName
 
 
+noScript : String -> String
+noScript tag =
+    if String.toLower tag == "script" then
+        "p"
+
+    else
+        tag
+
+
+noOnOrFormAction : String -> String
+noOnOrFormAction key =
+    let
+        lowerKey =
+            String.toLower key
+    in
+    if String.startsWith "on" lowerKey || lowerKey == "formaction" then
+        "data-" ++ key
+
+    else
+        key
+
+
+noInnerHtmlOrFormAction : String -> String
+noInnerHtmlOrFormAction key =
+    if key == "innerHTML" || key == "outerHTML" || key == "formAction" then
+        "data-" ++ key
+
+    else
+        key
+
+
+noJavaScriptOrHtmlUri : String -> String
+noJavaScriptOrHtmlUri value =
+    if isJavaScriptOrHtmlUri value then
+        ""
+
+    else
+        value
+
+
+isJavaScriptOrHtmlUri : String -> Bool
+isJavaScriptOrHtmlUri value =
+    Regex.contains javaScriptOrHtmlUriRegex (String.toLower value)
+
+
+javaScriptOrHtmlUriRegex : Regex
+javaScriptOrHtmlUriRegex =
+    Regex.fromString "^\\s*(j\\s*a\\s*v\\s*a\\s*s\\s*c\\s*r\\s*i\\s*p\\s*t\\s*:|d\\s*a\\s*t\\s*a\\s*:\\s*t\\s*e\\s*x\\s*t\\s*\\/\\s*h\\s*t\\s*m\\s*l\\s*(,|;))"
+        |> Maybe.withDefault Regex.never
+
+
 escapeRawText : ElementKind -> String.String -> String.String
 escapeRawText kind rawText =
     case kind of
@@ -189,7 +259,14 @@ escapeRawText kind rawText =
             rawText
 
         RawTextElements ->
-            rawText
+            {- Prevent closing tag injection in raw text elements (e.g. <style>).
+               In pre-rendered HTML, </style> in the text content would cause the
+               browser to close the tag early. Inserting a backslash between < and /
+               prevents the HTML parser from recognizing it as a closing tag, since
+               the parser requires </ (not <\) to start an end tag. This doesn't
+               affect CSS validity since </ is already invalid CSS.
+            -}
+            String.replace "</" "<\\/" rawText
 
         _ ->
             escapeHtml rawText
