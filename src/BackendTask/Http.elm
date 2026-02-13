@@ -107,7 +107,6 @@ import BackendTask exposing (BackendTask)
 import Base64
 import Bytes exposing (Bytes)
 import Bytes.Decode
-import Bytes.Encode
 import Dict exposing (Dict)
 import FatalError exposing (FatalError)
 import Json.Decode
@@ -187,83 +186,50 @@ bytesPartWithFilename name mimeType filename bytes =
         )
         (BackendTask.Http.expectJson decoder)
 
-The multipart encoding follows RFC 2046 and is built entirely in Elm,
-passing through the existing `bytesBody` code path. No JS-side changes are needed.
+The multipart encoding is handled on the Node.js side, which generates
+a cryptographically random boundary via `crypto.randomUUID()`. This
+avoids any possibility of boundary collisions with part content.
 
 -}
 multipartBody : List Part -> Body
 multipartBody parts =
-    let
-        boundary : String
-        boundary =
-            "----ElmPagesMultipartBoundary7ma4ywxkTrZu0gW"
-
-        encodedParts : List Bytes.Encode.Encoder
-        encodedParts =
-            parts
-                |> List.map (encodePart boundary)
-
-        closingBoundary : Bytes.Encode.Encoder
-        closingBoundary =
-            encodeStringAsBytes ("--" ++ boundary ++ "--\r\n")
-
-        allBytes : Bytes
-        allBytes =
-            Bytes.Encode.sequence (encodedParts ++ [ closingBoundary ])
-                |> Bytes.Encode.encode
-    in
-    bytesBody ("multipart/form-data; boundary=" ++ boundary) allBytes
+    Body.MultipartBody (List.map encodePart parts)
 
 
-encodePart : String -> Part -> Bytes.Encode.Encoder
-encodePart boundary part =
-    let
-        boundaryLine : String
-        boundaryLine =
-            "--" ++ boundary ++ "\r\n"
-    in
+encodePart : Part -> Encode.Value
+encodePart part =
     case part of
         StringPart name value ->
-            Bytes.Encode.sequence
-                [ encodeStringAsBytes boundaryLine
-                , encodeStringAsBytes ("Content-Disposition: form-data; name=\"" ++ sanitizeHeaderValue name ++ "\"\r\n")
-                , encodeStringAsBytes "\r\n"
-                , encodeStringAsBytes value
-                , encodeStringAsBytes "\r\n"
+            Encode.object
+                [ ( "type", Encode.string "string" )
+                , ( "name", Encode.string name )
+                , ( "value", Encode.string value )
                 ]
 
         BytesPart name mimeType bytes ->
-            Bytes.Encode.sequence
-                [ encodeStringAsBytes boundaryLine
-                , encodeStringAsBytes ("Content-Disposition: form-data; name=\"" ++ sanitizeHeaderValue name ++ "\"\r\n")
-                , encodeStringAsBytes ("Content-Type: " ++ sanitizeHeaderValue mimeType ++ "\r\n")
-                , encodeStringAsBytes "\r\n"
-                , Bytes.Encode.bytes bytes
-                , encodeStringAsBytes "\r\n"
+            Encode.object
+                [ ( "type", Encode.string "bytes" )
+                , ( "name", Encode.string name )
+                , ( "mimeType", Encode.string mimeType )
+                , ( "content"
+                  , Base64.fromBytes bytes
+                        |> Maybe.withDefault ""
+                        |> Encode.string
+                  )
                 ]
 
         BytesPartWithFilename name mimeType filename bytes ->
-            Bytes.Encode.sequence
-                [ encodeStringAsBytes boundaryLine
-                , encodeStringAsBytes ("Content-Disposition: form-data; name=\"" ++ sanitizeHeaderValue name ++ "\"; filename=\"" ++ sanitizeHeaderValue filename ++ "\"\r\n")
-                , encodeStringAsBytes ("Content-Type: " ++ sanitizeHeaderValue mimeType ++ "\r\n")
-                , encodeStringAsBytes "\r\n"
-                , Bytes.Encode.bytes bytes
-                , encodeStringAsBytes "\r\n"
+            Encode.object
+                [ ( "type", Encode.string "bytesWithFilename" )
+                , ( "name", Encode.string name )
+                , ( "mimeType", Encode.string mimeType )
+                , ( "filename", Encode.string filename )
+                , ( "content"
+                  , Base64.fromBytes bytes
+                        |> Maybe.withDefault ""
+                        |> Encode.string
+                  )
                 ]
-
-
-{-| Strip characters that would break or inject into a Content-Disposition header value.
-Removes double quotes, carriage returns, and newlines.
--}
-sanitizeHeaderValue : String -> String
-sanitizeHeaderValue str =
-    String.filter (\c -> c /= '"' && c /= '\r' && c /= '\n') str
-
-
-encodeStringAsBytes : String -> Bytes.Encode.Encoder
-encodeStringAsBytes str =
-    Bytes.Encode.string str
 
 
 {-| Builds a string body for a BackendTask.Http request. See [elm/http's `Http.stringBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#stringBody).

@@ -151,54 +151,39 @@ export function lookupOrPerform(
     } else {
       try {
         timeStart(`fetch ${request.url}`);
-        const response = await safeFetch(makeFetchHappen, request.url, {
-          method: request.method,
-          body: request.body,
-          headers: {
-            "User-Agent": "request",
-            ...request.headers,
-          },
-          ...rawRequest.cacheOptions,
-        });
+
+        let response;
+        if (rawRequest.body.tag === "MultipartBody") {
+          // Use built-in fetch with FormData for streaming multipart
+          // bodies — no intermediate Buffer, and the boundary is
+          // generated automatically by undici.
+          const formData = partsToFormData(rawRequest.body.args[0]);
+          const elmHeaders = Object.fromEntries(rawRequest.headers);
+          response = await fetch(request.url, {
+            method: request.method,
+            body: formData,
+            headers: {
+              "User-Agent": "request",
+              ...elmHeaders,
+            },
+          });
+        } else {
+          response = await safeFetch(makeFetchHappen, request.url, {
+            method: request.method,
+            body: request.body,
+            headers: {
+              "User-Agent": "request",
+              ...request.headers,
+            },
+            ...rawRequest.cacheOptions,
+          });
+        }
 
         timeEnd(`fetch ${request.url}`);
-        const expectString = request.headers["elm-pages-internal"];
-
-        let body;
-        let bodyKind;
-        if (expectString === "ExpectJson") {
-          try {
-            body = await response.buffer();
-            body = JSON.parse(body.toString("utf-8"));
-            bodyKind = "json";
-          } catch (error) {
-            body = body.toString("utf8");
-            bodyKind = "string";
-          }
-        } else if (
-          expectString === "ExpectBytes" ||
-          expectString === "ExpectBytesResponse"
-        ) {
-          body = await response.buffer();
-          try {
-            body = body.toString("base64");
-            bodyKind = "bytes";
-          } catch (e) {
-            body = body.toString("utf8");
-            bodyKind = "string";
-          }
-        } else if (expectString === "ExpectWhatever") {
-          bodyKind = "whatever";
-          body = null;
-        } else if (
-          expectString === "ExpectResponse" ||
-          expectString === "ExpectString"
-        ) {
-          bodyKind = "string";
-          body = await response.text();
-        } else {
-          throw `Unexpected expectString ${expectString}`;
-        }
+        const { body, bodyKind } = await readResponseBody(
+          response,
+          request.headers["elm-pages-internal"]
+        );
 
         resolve({
           kind: "response-json",
@@ -319,7 +304,73 @@ function toContentType(body) {
   }
 }
 
-/** @typedef { { tag: 'EmptyBody'} |{ tag: 'BytesBody'; args: [string, string] } |  { tag: 'StringBody'; args: [string, string] } | {tag: 'JsonBody'; args: [ Object ] } } Body  */
+/**
+ * Convert structured parts from Elm into a FormData instance.
+ * @param {Array<{type: string, name: string, value?: string, mimeType?: string, filename?: string, content?: string}>} parts
+ * @returns {FormData}
+ */
+function partsToFormData(parts) {
+  const formData = new FormData();
+  for (const part of parts) {
+    switch (part.type) {
+      case "string":
+        formData.append(part.name, part.value);
+        break;
+      case "bytes":
+        formData.append(
+          part.name,
+          new Blob([Buffer.from(part.content, "base64")], { type: part.mimeType })
+        );
+        break;
+      case "bytesWithFilename":
+        formData.append(
+          part.name,
+          new Blob([Buffer.from(part.content, "base64")], { type: part.mimeType }),
+          part.filename
+        );
+        break;
+    }
+  }
+  return formData;
+}
+
+/**
+ * Read the response body in the format expected by the Elm side.
+ * Works with both make-fetch-happen responses (which have .buffer())
+ * and standard fetch responses (which have .arrayBuffer()).
+ */
+async function readResponseBody(response, expectString) {
+  if (expectString === "ExpectJson") {
+    const buf = await responseBuffer(response);
+    try {
+      return { body: JSON.parse(buf.toString("utf-8")), bodyKind: "json" };
+    } catch (error) {
+      return { body: buf.toString("utf8"), bodyKind: "string" };
+    }
+  } else if (expectString === "ExpectBytes" || expectString === "ExpectBytesResponse") {
+    const buf = await responseBuffer(response);
+    return { body: buf.toString("base64"), bodyKind: "bytes" };
+  } else if (expectString === "ExpectWhatever") {
+    return { body: null, bodyKind: "whatever" };
+  } else if (expectString === "ExpectResponse" || expectString === "ExpectString") {
+    return { body: await response.text(), bodyKind: "string" };
+  } else {
+    throw `Unexpected expectString ${expectString}`;
+  }
+}
+
+/**
+ * Get a Buffer from a response, supporting both make-fetch-happen
+ * (.buffer()) and standard fetch (.arrayBuffer()) responses.
+ */
+async function responseBuffer(response) {
+  if (typeof response.buffer === "function") {
+    return response.buffer();
+  }
+  return Buffer.from(await response.arrayBuffer());
+}
+
+/** @typedef { { tag: 'EmptyBody'} |{ tag: 'BytesBody'; args: [string, string] } |  { tag: 'StringBody'; args: [string, string] } | {tag: 'JsonBody'; args: [ Object ] } | {tag: 'MultipartBody'; args: [ Array ] } } Body  */
 function requireUncached(mode, filePath) {
   if (mode === "dev-server") {
     // for the build command, we can skip clearing the cache because it won't change while the build is running

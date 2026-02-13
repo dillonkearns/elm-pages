@@ -4,7 +4,6 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import BackendTask.Http
 import BackendTaskTest exposing (testScript)
-import Base64
 import Bytes.Encode
 import Expect
 import FatalError exposing (FatalError)
@@ -70,23 +69,25 @@ run =
                     fields
                         |> Expect.equal [ ( "emoji", "\u{1F600}\u{1F389} héllo wörld" ) ]
                 )
-        , parseWith "quotes in field name are sanitized"
+        , parseWith "quotes in field name are percent-encoded"
             [ BackendTask.Http.stringPart "field\"name" "value"
             ]
             |> test "quotes in field name"
                 (\{ fields } ->
+                    -- FormData percent-encodes special characters
                     fields
-                        |> Expect.equal [ ( "fieldname", "value" ) ]
+                        |> Expect.equal [ ( "field%22name", "value" ) ]
                 )
-        , parseWith "CRLF in field name are sanitized"
+        , parseWith "CRLF in field name are percent-encoded"
             [ BackendTask.Http.stringPart "field\r\nname" "value"
             ]
             |> test "CRLF in field name"
                 (\{ fields } ->
+                    -- FormData percent-encodes \r\n
                     fields
-                        |> Expect.equal [ ( "fieldname", "value" ) ]
+                        |> Expect.equal [ ( "field%0D%0Aname", "value" ) ]
                 )
-        , parseWith "dangerous chars in filename are sanitized"
+        , parseWith "dangerous chars in filename are percent-encoded"
             [ BackendTask.Http.bytesPartWithFilename "file" "text/plain" "evil\"\r\nname.txt"
                 (Bytes.Encode.string "content"
                     |> Bytes.Encode.encode
@@ -94,9 +95,10 @@ run =
             ]
             |> test "quotes and CRLF in filename"
                 (\{ files } ->
+                    -- FormData percent-encodes special chars in filenames
                     files
                         |> List.map (\( name, info ) -> ( name, info.filename ))
-                        |> Expect.equal [ ( "file", "evilname.txt" ) ]
+                        |> Expect.equal [ ( "file", "evil%22%0D%0Aname.txt" ) ]
                 )
         , checkRawBytes "CRLF in MIME type are sanitized"
             [ BackendTask.Http.bytesPartWithFilename "file" "text/plain\r\nEvil-Header: injected" "test.txt"
@@ -135,8 +137,9 @@ run =
 -- Helpers
 
 
-{-| Build a multipart body from parts, extract the raw bytes via the internal
-Body type, then round-trip through busboy (Node.js) to verify the encoding.
+{-| Build a multipart body from parts, send the parts JSON to Node.js
+where the multipart body is built (with a random boundary) and parsed
+via busboy to verify the encoding round-trips correctly.
 -}
 parseWith :
     String
@@ -149,17 +152,9 @@ parseWith label parts =
             BackendTask.Http.multipartBody parts
     in
     case multipartResult of
-        BytesBody contentType bytes ->
-            BackendTask.Custom.run "parseMultipart"
-                (Encode.object
-                    [ ( "base64"
-                      , Base64.fromBytes bytes
-                            |> Maybe.withDefault ""
-                            |> Encode.string
-                      )
-                    , ( "contentType", Encode.string contentType )
-                    ]
-                )
+        MultipartBody partsJson ->
+            BackendTask.Custom.run "buildAndParseMultipart"
+                (Encode.list identity partsJson)
                 parsedMultipartDecoder
                 |> try
 
@@ -167,14 +162,14 @@ parseWith label parts =
             BackendTask.fail
                 (FatalError.build
                     { title = "Unexpected Body variant"
-                    , body = label ++ ": multipartBody did not produce BytesBody"
+                    , body = label ++ ": multipartBody did not produce MultipartBody"
                     }
                 )
 
 
-{-| Build a multipart body from parts, extract the raw bytes, and check
-whether they contain a specific string. Used to verify header injection
-is prevented at the byte level (where busboy normalization can't hide it).
+{-| Build a multipart body from parts, then check whether the raw bytes
+contain a specific string. Used to verify header injection is prevented
+at the byte level (where busboy normalization can't hide it).
 -}
 checkRawBytes :
     String
@@ -187,14 +182,10 @@ checkRawBytes label parts =
             BackendTask.Http.multipartBody parts
     in
     case multipartResult of
-        BytesBody _ bytes ->
-            BackendTask.Custom.run "rawBytesContain"
+        MultipartBody partsJson ->
+            BackendTask.Custom.run "buildAndCheckRawBytes"
                 (Encode.object
-                    [ ( "base64"
-                      , Base64.fromBytes bytes
-                            |> Maybe.withDefault ""
-                            |> Encode.string
-                      )
+                    [ ( "parts", Encode.list identity partsJson )
                     , ( "searchFor", Encode.string "\r\nEvil-Header:" )
                     ]
                 )
@@ -205,7 +196,7 @@ checkRawBytes label parts =
             BackendTask.fail
                 (FatalError.build
                     { title = "Unexpected Body variant"
-                    , body = label ++ ": multipartBody did not produce BytesBody"
+                    , body = label ++ ": multipartBody did not produce MultipartBody"
                     }
                 )
 
