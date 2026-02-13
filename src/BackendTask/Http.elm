@@ -5,6 +5,7 @@ module BackendTask.Http exposing
     , Error(..)
     , request
     , Body, emptyBody, stringBody, jsonBody, bytesBody
+    , multipartBody, Part, stringPart, bytesPart, bytesPartWithFilename
     , getWithOptions
     , CacheStrategy(..)
     , withMetadata, Metadata
@@ -62,11 +63,14 @@ in [this article introducing BackendTask.Http requests and some concepts around 
 
 ## Building a BackendTask.Http Request Body
 
-The way you build a body is analogous to the `elm/http` package. Currently, only `emptyBody` and
-`stringBody` are supported. If you have a use case that calls for a different body type, please open a Github issue
-and describe your use case!
+The way you build a body is analogous to the `elm/http` package.
 
 @docs Body, emptyBody, stringBody, jsonBody, bytesBody
+
+
+## Multipart Request Bodies
+
+@docs multipartBody, Part, stringPart, bytesPart, bytesPartWithFilename
 
 
 ## Caching Options
@@ -103,6 +107,7 @@ import BackendTask exposing (BackendTask)
 import Base64
 import Bytes exposing (Bytes)
 import Bytes.Decode
+import Bytes.Encode
 import Dict exposing (Dict)
 import FatalError exposing (FatalError)
 import Json.Decode
@@ -126,6 +131,139 @@ emptyBody =
 bytesBody : String -> Bytes -> Body
 bytesBody =
     Body.BytesBody
+
+
+{-| A single part of a multipart body. -}
+type Part
+    = StringPart String String
+    | BytesPart String String Bytes
+    | BytesPartWithFilename String String String Bytes
+
+
+{-| A string part for a multipart body. The first argument is the field name,
+the second is the string value.
+
+    BackendTask.Http.stringPart "title" "My Photo"
+
+-}
+stringPart : String -> String -> Part
+stringPart name value =
+    StringPart name value
+
+
+{-| A bytes part for a multipart body. Provide a field name, MIME type, and
+bytes content. Useful for file uploads where the file data comes from
+`BackendTask.File` or similar.
+
+    BackendTask.Http.bytesPart "file" "image/png" imageBytes
+
+-}
+bytesPart : String -> String -> Bytes -> Part
+bytesPart name mimeType bytes =
+    BytesPart name mimeType bytes
+
+
+{-| Like `bytesPart`, but includes a filename in the Content-Disposition header.
+Many file upload APIs require or use this.
+
+    BackendTask.Http.bytesPartWithFilename "file" "image/png" "photo.png" imageBytes
+
+-}
+bytesPartWithFilename : String -> String -> String -> Bytes -> Part
+bytesPartWithFilename name mimeType filename bytes =
+    BytesPartWithFilename name mimeType filename bytes
+
+
+{-| Create a multipart/form-data body from a list of parts.
+
+    import BackendTask.Http
+    import Bytes.Encode
+
+    BackendTask.Http.post "https://example.com/upload"
+        (BackendTask.Http.multipartBody
+            [ BackendTask.Http.stringPart "title" "My Photo"
+            , BackendTask.Http.bytesPart "file" "image/png" imageBytes
+            ]
+        )
+        (BackendTask.Http.expectJson decoder)
+
+The multipart encoding follows RFC 2046 and is built entirely in Elm,
+passing through the existing `bytesBody` code path. No JS-side changes are needed.
+
+-}
+multipartBody : List Part -> Body
+multipartBody parts =
+    let
+        boundary : String
+        boundary =
+            "----ElmPagesMultipartBoundary7ma4ywxkTrZu0gW"
+
+        encodedParts : List Bytes.Encode.Encoder
+        encodedParts =
+            parts
+                |> List.map (encodePart boundary)
+
+        closingBoundary : Bytes.Encode.Encoder
+        closingBoundary =
+            encodeStringAsBytes ("--" ++ boundary ++ "--\r\n")
+
+        allBytes : Bytes
+        allBytes =
+            Bytes.Encode.sequence (encodedParts ++ [ closingBoundary ])
+                |> Bytes.Encode.encode
+    in
+    bytesBody ("multipart/form-data; boundary=" ++ boundary) allBytes
+
+
+encodePart : String -> Part -> Bytes.Encode.Encoder
+encodePart boundary part =
+    let
+        boundaryLine : String
+        boundaryLine =
+            "--" ++ boundary ++ "\r\n"
+    in
+    case part of
+        StringPart name value ->
+            Bytes.Encode.sequence
+                [ encodeStringAsBytes boundaryLine
+                , encodeStringAsBytes ("Content-Disposition: form-data; name=\"" ++ sanitizeHeaderValue name ++ "\"\r\n")
+                , encodeStringAsBytes "\r\n"
+                , encodeStringAsBytes value
+                , encodeStringAsBytes "\r\n"
+                ]
+
+        BytesPart name mimeType bytes ->
+            Bytes.Encode.sequence
+                [ encodeStringAsBytes boundaryLine
+                , encodeStringAsBytes ("Content-Disposition: form-data; name=\"" ++ sanitizeHeaderValue name ++ "\"\r\n")
+                , encodeStringAsBytes ("Content-Type: " ++ sanitizeHeaderValue mimeType ++ "\r\n")
+                , encodeStringAsBytes "\r\n"
+                , Bytes.Encode.bytes bytes
+                , encodeStringAsBytes "\r\n"
+                ]
+
+        BytesPartWithFilename name mimeType filename bytes ->
+            Bytes.Encode.sequence
+                [ encodeStringAsBytes boundaryLine
+                , encodeStringAsBytes ("Content-Disposition: form-data; name=\"" ++ sanitizeHeaderValue name ++ "\"; filename=\"" ++ sanitizeHeaderValue filename ++ "\"\r\n")
+                , encodeStringAsBytes ("Content-Type: " ++ sanitizeHeaderValue mimeType ++ "\r\n")
+                , encodeStringAsBytes "\r\n"
+                , Bytes.Encode.bytes bytes
+                , encodeStringAsBytes "\r\n"
+                ]
+
+
+{-| Strip characters that would break or inject into a Content-Disposition header value.
+Removes double quotes, carriage returns, and newlines.
+-}
+sanitizeHeaderValue : String -> String
+sanitizeHeaderValue str =
+    String.filter (\c -> c /= '"' && c /= '\r' && c /= '\n') str
+
+
+encodeStringAsBytes : String -> Bytes.Encode.Encoder
+encodeStringAsBytes str =
+    Bytes.Encode.string str
 
 
 {-| Builds a string body for a BackendTask.Http request. See [elm/http's `Http.stringBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#stringBody).

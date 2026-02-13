@@ -17,3 +17,6 @@ elm-verify-examples --run-tests --elm-test-args '--compiler=lamdera'
 
 # Stream tests - tests gzip, unzip, command stdin handling, etc.
 (cd examples/end-to-end && npm i && npx elm-pages run script/src/StreamTests.elm)
+
+# Multipart tests - tests multipartBody encoding via busboy round-trip
+(cd examples/end-to-end && npx elm-pages run script/src/MultipartTests.elm)
