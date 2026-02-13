@@ -5,6 +5,7 @@ module BackendTask.Http exposing
     , Error(..)
     , request
     , Body, emptyBody, stringBody, jsonBody, bytesBody
+    , multipartBody, Part, stringPart, bytesPart, bytesPartWithFilename
     , getWithOptions
     , CacheStrategy(..)
     , withMetadata, Metadata
@@ -62,11 +63,14 @@ in [this article introducing BackendTask.Http requests and some concepts around 
 
 ## Building a BackendTask.Http Request Body
 
-The way you build a body is analogous to the `elm/http` package. Currently, only `emptyBody` and
-`stringBody` are supported. If you have a use case that calls for a different body type, please open a Github issue
-and describe your use case!
+The way you build a body is analogous to the `elm/http` package.
 
 @docs Body, emptyBody, stringBody, jsonBody, bytesBody
+
+
+## Multipart Request Bodies
+
+@docs multipartBody, Part, stringPart, bytesPart, bytesPartWithFilename
 
 
 ## Caching Options
@@ -126,6 +130,106 @@ emptyBody =
 bytesBody : String -> Bytes -> Body
 bytesBody =
     Body.BytesBody
+
+
+{-| A single part of a multipart body. -}
+type Part
+    = StringPart String String
+    | BytesPart String String Bytes
+    | BytesPartWithFilename String String String Bytes
+
+
+{-| A string part for a multipart body. The first argument is the field name,
+the second is the string value.
+
+    BackendTask.Http.stringPart "title" "My Photo"
+
+-}
+stringPart : String -> String -> Part
+stringPart name value =
+    StringPart name value
+
+
+{-| A bytes part for a multipart body. Provide a field name, MIME type, and
+bytes content. Useful for file uploads where the file data comes from
+`BackendTask.File` or similar.
+
+    BackendTask.Http.bytesPart "file" "image/png" imageBytes
+
+-}
+bytesPart : String -> String -> Bytes -> Part
+bytesPart name mimeType bytes =
+    BytesPart name mimeType bytes
+
+
+{-| Like `bytesPart`, but includes a filename in the Content-Disposition header.
+Many file upload APIs require or use this.
+
+    BackendTask.Http.bytesPartWithFilename "file" "image/png" "photo.png" imageBytes
+
+-}
+bytesPartWithFilename : String -> String -> String -> Bytes -> Part
+bytesPartWithFilename name mimeType filename bytes =
+    BytesPartWithFilename name mimeType filename bytes
+
+
+{-| Create a multipart/form-data body from a list of parts.
+
+    import BackendTask.Http
+    import Bytes.Encode
+
+    BackendTask.Http.post "https://example.com/upload"
+        (BackendTask.Http.multipartBody
+            [ BackendTask.Http.stringPart "title" "My Photo"
+            , BackendTask.Http.bytesPart "file" "image/png" imageBytes
+            ]
+        )
+        (BackendTask.Http.expectJson decoder)
+
+The multipart encoding is handled on the Node.js side, which generates
+a cryptographically random boundary via `crypto.randomUUID()`. This
+avoids any possibility of boundary collisions with part content.
+
+-}
+multipartBody : List Part -> Body
+multipartBody parts =
+    Body.MultipartBody (List.map encodePart parts)
+
+
+encodePart : Part -> Encode.Value
+encodePart part =
+    case part of
+        StringPart name value ->
+            Encode.object
+                [ ( "type", Encode.string "string" )
+                , ( "name", Encode.string name )
+                , ( "value", Encode.string value )
+                ]
+
+        BytesPart name mimeType bytes ->
+            Encode.object
+                [ ( "type", Encode.string "bytes" )
+                , ( "name", Encode.string name )
+                , ( "mimeType", Encode.string mimeType )
+                , ( "content"
+                  , Base64.fromBytes bytes
+                        |> Maybe.withDefault ""
+                        |> Encode.string
+                  )
+                ]
+
+        BytesPartWithFilename name mimeType filename bytes ->
+            Encode.object
+                [ ( "type", Encode.string "bytesWithFilename" )
+                , ( "name", Encode.string name )
+                , ( "mimeType", Encode.string mimeType )
+                , ( "filename", Encode.string filename )
+                , ( "content"
+                  , Base64.fromBytes bytes
+                        |> Maybe.withDefault ""
+                        |> Encode.string
+                  )
+                ]
 
 
 {-| Builds a string body for a BackendTask.Http request. See [elm/http's `Http.stringBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#stringBody).
