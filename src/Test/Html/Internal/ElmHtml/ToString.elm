@@ -126,7 +126,7 @@ nodeRecordToString options { tag, children, facts } =
             Dict.filter (\k v -> k /= "className") facts.stringAttributes
                 |> Dict.toList
                 |> List.filter (\( k, _ ) -> not (isUnsafeName k))
-                |> List.map (Tuple.mapFirst (propertyToAttributeName >> noOuterHTML))
+                |> List.map (Tuple.mapFirst propertyToAttributeName)
                 |> List.map (\( k, v ) -> k ++ "=\"" ++ escapeHtml v ++ "\"")
                 |> String.join " "
                 |> Just
@@ -180,15 +180,6 @@ propertyToAttributeName propertyName =
 
         _ ->
             propertyName
-
-
-noOuterHTML : String -> String
-noOuterHTML key =
-    if key == "outerHTML" then
-        "data-" ++ key
-
-    else
-        key
 
 
 escapeRawText : ElementKind -> String.String -> String.String

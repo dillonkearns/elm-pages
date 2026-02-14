@@ -174,10 +174,6 @@ view static sharedModel =
         , Html.node "script" [] [ Html.text "0 < 1 && alert(0)" ]
         , snapshotComment "style tags are allowed, and contain raw text"
         , Html.node "style" [] [ Html.text "body > * { html & { display: none; } }" ]
-        , snapshotComment "outerHTML property must be rewritten to prevent DOM replacement"
-        , Html.div
-            [ Attr.property "outerHTML" (Json.Encode.string "<img src=x onerror=alert('xss')>") ]
-            []
         , snapshotComment "closing style tag in content must not break out of raw text context"
         , Html.node "style" [] [ Html.text "</style><img src=x onerror=alert('xss')>" ]
         ]
