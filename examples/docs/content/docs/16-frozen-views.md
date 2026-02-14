@@ -339,6 +339,18 @@ case model.maybeUser of
 
 To verify your freeze calls are being optimized, you can inspect your bundle with `elmjs-inspect dist/elm.js.opt` and check whether the dependencies you expect to be eliminated are present.
 
+## The `--strict` Flag
+
+By default, if a `View.freeze` call is de-optimized (e.g. because it references `model`), elm-pages will show a warning but continue the build. You can use the `--strict` flag to make de-optimized freeze calls fail the build instead:
+
+```shell
+elm-pages build --strict
+```
+
+This is especially useful in CI pipelines to enforce that all `View.freeze` calls are fully optimized. If any freeze call can't be optimized, the build will fail with an error showing which call(s) are affected and why.
+
+Without `--strict`, de-optimized freeze calls still work correctly — the rendering code just won't be eliminated from the client bundle for those specific calls.
+
 ### Frozen views must be in Route Modules
 
 Currently, `View.freeze` can only be called within Route Module `view` functions—not in `Shared.elm` or other helper modules. This is a temporary limitation for the initial release that will likely be removed in the future.
