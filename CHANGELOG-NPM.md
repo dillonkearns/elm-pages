@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Support for `BackendTask.Http.multipartBody` from the Elm package. Multipart bodies are encoded using the built-in `FormData` API and streamed via Node's native `fetch`. See [#558](https://github.com/dillonkearns/elm-pages/pull/558).
+
 ## [3.0.28] - 2026-01-31
 
 ### Added

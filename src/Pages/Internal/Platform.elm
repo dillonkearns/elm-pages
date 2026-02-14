@@ -271,6 +271,7 @@ init config flags url key =
                     , pageFormState = Dict.empty
                     , pendingRedirect = False
                     , pendingData = Nothing
+                    , pendingFrozenViewsUrl = Nothing
                     }
             in
             ( { initialModel
@@ -293,6 +294,7 @@ init config flags url key =
               , pageFormState = Dict.empty
               , pendingRedirect = False
               , pendingData = Nothing
+              , pendingFrozenViewsUrl = Nothing
               }
             , NoEffect
             )
@@ -314,6 +316,7 @@ init config flags url key =
               , pageFormState = Dict.empty
               , pendingRedirect = False
               , pendingData = Nothing
+              , pendingFrozenViewsUrl = Nothing
               }
             , NoEffect
             )
@@ -333,6 +336,8 @@ type Msg userMsg pageData actionData sharedData errorPage
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ProcessFetchResponse Int (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
+    | FrozenViewsReady (Maybe String)
+    | NoOp
 
 
 type ActionDataOrRedirect action
@@ -362,6 +367,7 @@ type alias Model userModel pageData actionData sharedData =
     , pageFormState : Form.Model
     , pendingRedirect : Bool
     , pendingData : Maybe ( pageData, sharedData, Maybe actionData )
+    , pendingFrozenViewsUrl : Maybe Url
     }
 
 
@@ -372,13 +378,13 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | BrowserLoadUrl String
     | BrowserPushUrl String
     | BrowserReplaceUrl String
-    | FetchPageData Int (Maybe FormData) Url (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     | Submit FormData
     | SubmitFetcher String Int FormData
     | Batch (List (Effect userMsg pageData actionData sharedData userEffect errorPage))
     | UserCmd userEffect
     | CancelRequest Int
     | RunCmd (Cmd (Msg userMsg pageData actionData sharedData errorPage))
+    | FetchFrozenViews { path : String, query : Maybe String }
 
 
 {-| -}
@@ -462,7 +468,7 @@ update config appMsg model =
                         )
                             -- TODO is it reasonable to always re-fetch route data if you re-navigate to the current route? Might be a good
                             -- parallel to the browser behavior
-                            |> startNewGetLoad url (UpdateCacheAndUrlNew True url Nothing)
+                            |> startNewGetLoad url
 
         FetcherComplete _ fetcherKey _ userMsgResult ->
             case userMsgResult of
@@ -496,7 +502,7 @@ update config appMsg model =
                                         Nothing ->
                                             identity
                                    )
-                                |> startNewGetLoad (currentUrlWithPath model.url.path model) (UpdateCacheAndUrlNew False model.url Nothing)
+                                |> startNewGetLoad (currentUrlWithPath model.url.path model)
 
                         RedirectResponse redirectTo ->
                             ( { model
@@ -507,12 +513,12 @@ update config appMsg model =
                               }
                             , NoEffect
                             )
-                                |> startNewGetLoad (currentUrlWithPath redirectTo model) (UpdateCacheAndUrlNew False model.url Nothing)
+                                |> startNewGetLoad (currentUrlWithPath redirectTo model)
 
                 Err _ ->
                     -- TODO how to handle error?
                     ( model, NoEffect )
-                        |> startNewGetLoad (currentUrlWithPath model.url.path model) (UpdateCacheAndUrlNew False model.url Nothing)
+                        |> startNewGetLoad (currentUrlWithPath model.url.path model)
 
         ProcessFetchResponse transitionId response toMsg ->
             case response of
@@ -527,7 +533,7 @@ update config appMsg model =
 
                     else
                         ( model, NoEffect )
-                            |> startNewGetLoad (currentUrlWithPath redirectTo model) toMsg
+                            |> startNewGetLoad (currentUrlWithPath redirectTo model)
 
                 _ ->
                     update config (toMsg response) (clearLoadingFetchersAfterDataLoad transitionId model)
@@ -905,6 +911,61 @@ update config appMsg model =
             , NoEffect
             )
 
+        FrozenViewsReady maybePageDataBase64 ->
+            case ( maybePageDataBase64, model.pendingFrozenViewsUrl, model.pageData ) of
+                ( Just pageDataBase64, Just pendingUrl, Ok previousPageData ) ->
+                    -- Static regions and page data received from JS
+                    case Base64.toBytes pageDataBase64 of
+                        Just pageDataBytes ->
+                            case Bytes.Decode.decode config.decodeResponse pageDataBytes of
+                                Just decodedResponse ->
+                                    let
+                                        newUrl : Url
+                                        newUrl =
+                                            pendingUrl
+
+                                        ( newPageData, newSharedData, newActionData ) =
+                                            case decodedResponse of
+                                                ResponseSketch.RenderPage pageData actionData ->
+                                                    ( pageData, previousPageData.sharedData, actionData )
+
+                                                ResponseSketch.HotUpdate pageData sharedData actionData ->
+                                                    ( pageData, sharedData, actionData )
+
+                                                _ ->
+                                                    ( previousPageData.pageData, previousPageData.sharedData, previousPageData.actionData )
+
+                                        clearedModel : Model userModel pageData actionData sharedData
+                                        clearedModel =
+                                            { model
+                                                | pendingData = Nothing
+                                                , pendingFrozenViewsUrl = Nothing
+                                            }
+                                    in
+                                    loadDataAndUpdateUrl
+                                        ( newPageData, newSharedData, newActionData )
+                                        Nothing
+                                        newUrl
+                                        newUrl
+                                        False
+                                        config
+                                        clearedModel
+
+                                Nothing ->
+                                    -- Decode failed
+                                    ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
+
+                        Nothing ->
+                            -- Base64 decode failed
+                            ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
+
+                _ ->
+                    -- No page data, no pending path, or page not loaded - just clear the pending flag
+                    ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
+
+        NoOp ->
+            ( model, NoEffect )
+
 
 toFetcherState : Dict String ( Int, Pages.ConcurrentSubmission.ConcurrentSubmission actionData ) -> Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission actionData)
 toFetcherState inFlightFetchers =
@@ -973,9 +1034,6 @@ perform config model effect =
                     )
                 |> Maybe.withDefault Cmd.none
 
-        FetchPageData transitionKey maybeRequestInfo url toMsg ->
-            fetchRouteData transitionKey toMsg config url maybeRequestInfo
-
         Submit fields ->
             if fields.method == Form.Get then
                 model.key
@@ -1039,6 +1097,22 @@ perform config model effect =
 
         CancelRequest transitionKey ->
             Http.cancel (String.fromInt transitionKey)
+
+        FetchFrozenViews { path, query } ->
+            Json.Encode.object
+                [ ( "tag", Json.Encode.string "FetchFrozenViews" )
+                , ( "path", Json.Encode.string path )
+                , ( "query"
+                  , case query of
+                        Just q ->
+                            Json.Encode.string q
+
+                        Nothing ->
+                            Json.Encode.null
+                  )
+                ]
+                |> config.toJsPort
+                |> Cmd.map never
 
 
 startFetcher : String -> Int -> { fields : List ( String, String ), url : Maybe String, decoder : Result error Bytes -> value, headers : List ( String, String ) } -> Model userModel pageData actionData sharedData -> Cmd (Msg value pageData actionData sharedData errorPage)
@@ -1238,6 +1312,29 @@ application config =
                 update config msg model |> Tuple.mapSecond (perform config model)
         , subscriptions =
             \model ->
+                let
+                    fromJsSub : Sub (Msg userMsg pageData actionData sharedData errorPage)
+                    fromJsSub =
+                        config.fromJsPort
+                            |> Sub.map
+                                (\json ->
+                                    case Decode.decodeValue (Decode.field "tag" Decode.string) json of
+                                        Ok "FrozenViewsReady" ->
+                                            let
+                                                pageDataBase64 : Maybe String
+                                                pageDataBase64 =
+                                                    Decode.decodeValue
+                                                        (Decode.field "pageDataBase64" (Decode.nullable Decode.string))
+                                                        json
+                                                        |> Result.withDefault Nothing
+                                            in
+                                            FrozenViewsReady pageDataBase64
+
+                                        _ ->
+                                            -- Ignore unknown messages
+                                            NoOp
+                                )
+                in
                 case model.pageData of
                     Ok pageData ->
                         let
@@ -1252,11 +1349,15 @@ application config =
                                 |> Sub.map (Pages.Internal.Msg.UserMsg >> UserMsg)
                             , config.hotReloadData
                                 |> Sub.map HotReloadCompleteNew
+                            , fromJsSub
                             ]
 
                     Err _ ->
-                        config.hotReloadData
-                            |> Sub.map HotReloadCompleteNew
+                        Sub.batch
+                            [ config.hotReloadData
+                                |> Sub.map HotReloadCompleteNew
+                            , fromJsSub
+                            ]
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }
@@ -1439,10 +1540,9 @@ chopEnd needle string =
 
 startNewGetLoad :
     Url
-    -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
-startNewGetLoad urlToGet toMsg ( model, effect ) =
+startNewGetLoad urlToGet ( model, effect ) =
     let
         cancelIfStale : Effect userMsg pageData actionData sharedData userEffect errorPage
         cancelIfStale =
@@ -1452,9 +1552,14 @@ startNewGetLoad urlToGet toMsg ( model, effect ) =
 
                 _ ->
                     NoEffect
+
+        fetchEffect : Effect userMsg pageData actionData sharedData userEffect errorPage
+        fetchEffect =
+            FetchFrozenViews { path = urlToGet.path, query = urlToGet.query }
     in
     ( { model
         | nextTransitionKey = model.nextTransitionKey + 1
+        , pendingFrozenViewsUrl = Just urlToGet
         , transition =
             ( model.nextTransitionKey
             , case model.transition of
@@ -1478,11 +1583,7 @@ startNewGetLoad urlToGet toMsg ( model, effect ) =
                 |> Just
       }
     , Batch
-        [ FetchPageData
-            model.nextTransitionKey
-            Nothing
-            urlToGet
-            toMsg
+        [ fetchEffect
         , cancelIfStale
         , effect
         ]

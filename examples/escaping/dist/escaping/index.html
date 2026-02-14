@@ -9,7 +9,7 @@
     
     
         <link rel="canonical" href="https://elm-pages.com/escaping" />    <meta name="description" content="These quotes should be escaped &quot;ESCAPE THIS&quot;, and so should &lt;CARETS&gt;" />    <meta property="og:image" content="TODO" />    <meta property="og:image:secure_url" content="TODO" />    <meta property="og:image:alt" content="elm-pages logo" />    <meta property="og:title" content="TODO title" />    <meta property="og:url" content="https://elm-pages.com/escaping" />    <meta property="og:description" content="These quotes should be escaped &quot;ESCAPE THIS&quot;, and so should &lt;CARETS&gt;" />    <meta property="og:site_name" content="elm-pages" />    <meta property="twitter:card" content="summary" />    <meta property="twitter:title" content="TODO title" />    <meta property="twitter:description" content="These quotes should be escaped &quot;ESCAPE THIS&quot;, and so should &lt;CARETS&gt;" />    <meta property="twitter:image" content="TODO" />    <meta property="twitter:image:alt" content="elm-pages logo" />    <meta property="og:type" content="website" />    <meta name="viewport" content="width=device-width,initial-scale=1" />    <meta name="mobile-web-app-capable" content="yes" />    <meta name="theme-color" content="#ffffff" />    <meta name="apple-mobile-web-app-capable" content="yes" />    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />    <link rel="icon" sizes="32x32" type="image/png" href="https://res.cloudinary.com/dillonkearns/image/upload/c_pad,w_32,h_32,q_auto,f_png/v1603234028/elm-pages/elm-pages-icon" />    <link rel="icon" sizes="16x16" type="image/png" href="https://res.cloudinary.com/dillonkearns/image/upload/c_pad,w_16,h_16,q_auto,f_png/v1603234028/elm-pages/elm-pages-icon" />    <link rel="apple-touch-icon" sizes="180x180" href="https://res.cloudinary.com/dillonkearns/image/upload/c_pad,w_180,h_180,q_auto,f_png/v1603234028/elm-pages/elm-pages-icon" />    <link rel="apple-touch-icon" sizes="192x192" href="https://res.cloudinary.com/dillonkearns/image/upload/c_pad,w_192,h_192,q_auto,f_png/v1603234028/elm-pages/elm-pages-icon" />    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
-                  <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">AQKEPHNjcmlwdD48L3NjcmlwdD4gaXMgdW5zYWZlIGluIEpTT04gdW5sZXNzIGl0IGlzIGVzY2FwZWQgcHJvcGVybHkuAA==</script>
+                  <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">AAAAAnt9AQKEPHNjcmlwdD48L3NjcmlwdD4gaXMgdW5zYWZlIGluIEpTT04gdW5sZXNzIGl0IGlzIGVzY2FwZWQgcHJvcGVybHkuAA==</script>
     <script type="module" crossorigin src="/assets/index.HASH.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index.HASH.css">
   </head>
@@ -58,4 +58,7 @@
 <p>0 &lt; 1 &amp;&amp; alert(0)</p>
 
 # style tags are allowed, and contain raw text
-<style>body > * { html & { display: none; } }</style></div></body></html>
+<style>body > * { html & { display: none; } }</style>
+
+# closing style tag in content must not break out of raw text context
+<style><\/style><img src=x onerror=alert('xss')></style></div></body></html>

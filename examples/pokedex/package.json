@@ -6,13 +6,11 @@
     "start": "elm-pages dev",
     "serve": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
     "build": "elm-pages build --debug --keep-cache",
-    "generate:tailwind": "elm-tailwind-modules --dir ./gen --tailwind-config tailwind.config.js",
-    "generate:graphql": "elm-graphql https://graphql.us.fauna.com/graphql --header 'authorization: Basic Zm5BRW16MGV5WUFBUjVkT1kyMEdMYTBQU2R0UlpLQ1RBcGxrQkprazpFbG1QYWdlc1RvZG86YWRtaW4=' --output gen"
+    "generate:tailwind": "elm-tailwind-modules --dir ./gen --tailwind-config tailwind.config.js"
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
   "devDependencies": {
-    "@dillonkearns/elm-graphql": "^4.3.1",
     "@netlify/functions": "^2.8.2",
     "@tailwindcss/forms": "^0.5.9",
     "busboy": "^1.6.0",

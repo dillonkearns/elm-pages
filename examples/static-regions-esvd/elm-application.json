@@ -1,0 +1,9 @@
+{
+    "name": "dmy/elm-doc-preview",
+    "summary": "Offline documentation previewer",
+    "version": "5.0.0",
+    "exposed-modules": [
+        "Page",
+        "Effect"
+    ]
+}

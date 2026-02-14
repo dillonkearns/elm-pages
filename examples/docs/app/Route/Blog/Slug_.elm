@@ -9,8 +9,8 @@ import DateOrDateTime
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
-import Html.Styled exposing (..)
-import Html.Styled.Attributes as Attr exposing (css)
+import Html exposing (..)
+import Html.Attributes as Attr
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra
 import Markdown.Block
@@ -22,9 +22,6 @@ import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import SiteOld
 import StructuredData
-import Tailwind.Breakpoints as Bp
-import Tailwind.Theme as Theme
-import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
 import UnsplashImage
 import UrlPath
@@ -41,6 +38,16 @@ type alias Msg =
 
 type alias RouteParams =
     { slug : String }
+
+
+type alias Data =
+    { metadata : ArticleMetadata
+    , body : List Markdown.Block.Block
+    }
+
+
+type alias ActionData =
+    {}
 
 
 route : StatelessRoute RouteParams Data ActionData
@@ -70,112 +77,71 @@ view :
     -> View (PagesMsg Msg)
 view app shared =
     { title = app.data.metadata.title
-    , body =
-        let
-            author =
-                Author.dillon
-        in
-        [ div
-            [ css
-                [ Tw.min_h_screen
-                , Tw.w_full
-                , Tw.relative
-                ]
-            ]
-            [ div
-                [ css
-                    [ Tw.pt_16
-                    , Tw.pb_16
-                    , Tw.px_8
-                    , Tw.flex
-                    , Tw.flex_col
-                    ]
-                ]
-                [ div
-                    [ css
-                        [ Bp.md [ Tw.mx_auto ]
-                        ]
-                    ]
-                    [ h1
-                        [ css
-                            [ Tw.text_center
-                            , Tw.text_4xl
-                            , Tw.font_bold
-                            , Tw.tracking_tight
-                            , Tw.mt_2
-                            , Tw.mb_8
-                            ]
-                        ]
-                        [ text app.data.metadata.title
-                        ]
-                    , authorView author app.data
-                    , div
-                        [ css
-                            [ Tw.prose
-                            ]
-                        ]
-                        (app.data.body
-                            |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
-                            |> Result.withDefault []
-                        )
-                    ]
-                ]
-            ]
-        ]
+    , body = [ View.freeze (renderFullPage app.data) ]
     }
 
 
-authorView : Author -> Data -> Html msg
-authorView author app =
+{-| Render the blog post content. This is static/frozen content that gets
+pre-rendered at build time and hydrated on the client.
+-}
+renderFullPage : Data -> Html Never
+renderFullPage pageData =
+    let
+        author =
+            Author.dillon
+    in
     div
-        [ css
-            [ Tw.flex
-            , Tw.mb_16
-
-            --, Tw.flex_shrink_0
-            ]
+        [ Attr.class "min-h-screen w-full relative"
         ]
-        [ img
-            [ Attr.src (author.avatar |> Pages.Url.toString)
-            , css
-                [ Tw.rounded_full
-                , Tw.h_10
-                , Tw.w_10
-                ]
-            ]
-            []
-        , div
-            [ css [ Tw.ml_3 ]
+        [ div
+            [ Attr.class "pt-16 pb-16 px-8 flex flex-col"
             ]
             [ div
-                [ css
-                    []
+                [ Attr.class "md:mx-auto"
                 ]
-                [ p
-                    [ css
-                        [ Tw.text_sm
-                        , Tw.font_medium
-                        , Tw.text_color Theme.gray_900
+                [ -- Title
+                  Html.h1
+                    [ Attr.class "text-center text-4xl font-bold tracking-tight mt-2 mb-8"
+                    ]
+                    [ Html.text pageData.metadata.title ]
+
+                -- Author info
+                , div
+                    [ Attr.class "flex mb-16"
+                    ]
+                    [ img
+                        [ Attr.src (author.avatar |> Pages.Url.toString)
+                        , Attr.class "rounded-full h-10 w-10"
+                        ]
+                        []
+                    , div
+                        [ Attr.class "ml-3"
+                        ]
+                        [ div []
+                            [ p
+                                [ Attr.class "text-sm font-medium text-gray-900"
+                                ]
+                                [ span [] [ text author.name ]
+                                ]
+                            ]
+                        , div
+                            [ Attr.class "flex space-x-1 text-sm text-gray-500"
+                            ]
+                            [ time
+                                [ Attr.datetime "2020-03-16"
+                                ]
+                                [ text (pageData.metadata.published |> Date.format "MMMM ddd, yyyy") ]
+                            ]
                         ]
                     ]
-                    [ span
-                        []
-                        [ text author.name ]
-                    ]
-                ]
-            , div
-                [ css
-                    [ Tw.flex
-                    , Tw.space_x_1
-                    , Tw.text_sm
-                    , Tw.text_color Theme.gray_500
-                    , Tw.text_color Theme.gray_400
-                    ]
-                ]
-                [ time
-                    [ Attr.datetime "2020-03-16"
-                    ]
-                    [ text (app.metadata.published |> Date.format "MMMM ddd, yyyy") ]
+
+                -- Markdown body
+                , div
+                    [ Attr.class "prose" ]
+                    (pageData.body
+                        |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+                        |> Result.withDefault []
+                    )
                 ]
             ]
         ]
@@ -230,19 +196,14 @@ head app =
            )
 
 
-type alias Data =
-    { metadata : ArticleMetadata
-    , body : List Markdown.Block.Block
-    }
-
-
-type alias ActionData =
-    {}
-
-
 data : RouteParams -> BackendTask FatalError Data
 data routeParams =
-    MarkdownCodec.withFrontmatter Data
+    MarkdownCodec.withFrontmatter
+        (\metadata body ->
+            { metadata = metadata
+            , body = body
+            }
+        )
         frontmatterDecoder
         TailwindMarkdownRenderer.renderer
         ("content/blog/" ++ routeParams.slug ++ ".md")

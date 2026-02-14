@@ -2,6 +2,8 @@ port module Generate exposing (main)
 
 {-| -}
 
+import Dict exposing (Dict)
+import Set
 import Elm exposing (File)
 import Elm.Annotation
 import Elm.Arg
@@ -20,6 +22,7 @@ import Gen.String
 import Gen.Tuple
 import Gen.UrlPath
 import GenerateMain
+import Json.Decode as Decode
 import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
 import Pretty
 import Regex exposing (Regex)
@@ -29,24 +32,47 @@ type alias Flags =
     { templates : List (List String)
     , basePath : String
     , phase : String
+    , ephemeralFields : Decode.Value
     }
+
+
+{-| Set of module names that have ephemeral fields.
+Simple: just check if the module name is in the set.
+-}
+type alias RoutesWithEphemeral =
+    Set.Set String
+
+
+{-| Decoder for the set of routes with ephemeral fields.
+Expects a simple list of module names like ["Route.Blog", "Route.Docs.Section__"]
+-}
+routesWithEphemeralDecoder : Decode.Decoder RoutesWithEphemeral
+routesWithEphemeralDecoder =
+    Decode.list Decode.string
+        |> Decode.map Set.fromList
 
 
 main : Program Flags () ()
 main =
     Platform.worker
         { init =
-            \{ templates, basePath, phase } ->
+            \{ templates, basePath, phase, ephemeralFields } ->
                 let
                     routes : List RoutePattern.RoutePattern
                     routes =
                         templates
                             |> List.filterMap RoutePattern.fromModuleName
+
+                    routesWithEphemeral : RoutesWithEphemeral
+                    routesWithEphemeral =
+                        ephemeralFields
+                            |> Decode.decodeValue routesWithEphemeralDecoder
+                            |> Result.withDefault Set.empty
                 in
                 ( ()
                 , onSuccessSend
                     [ file templates basePath
-                    , GenerateMain.otherFile routes phase
+                    , GenerateMain.otherFile routes phase routesWithEphemeral
                     ]
                 )
         , update =

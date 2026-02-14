@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Add `BackendTask.Http.multipartBody` for sending `multipart/form-data` requests, with `stringPart`, `bytesPart`, and `bytesPartWithFilename` helpers. See [#558](https://github.com/dillonkearns/elm-pages/pull/558).
+
 ## [10.3.0] - 2026-01-31
 
 ### Added

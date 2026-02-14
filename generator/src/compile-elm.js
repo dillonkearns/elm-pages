@@ -8,10 +8,11 @@ import { inject } from "elm-hot";
 import { fileURLToPath } from "url";
 import { rewriteElmJson } from "./rewrite-elm-json-help.js";
 import { ensureDirSync } from "./file-helpers.js";
+import { patchFrozenViews } from "./frozen-view-codemod.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export async function compileElmForBrowser(options) {
+export async function compileElmForBrowser(options, config = {}) {
   // TODO do I need to make sure this is run from the right cwd? Before it was run outside of this function in the global scope, need to make sure that doesn't change semantics.
   const pathToClientElm = path.join(
     process.cwd(),
@@ -20,6 +21,12 @@ export async function compileElmForBrowser(options) {
   );
   const secretDir = path.join(process.cwd(), "elm-stuff/elm-pages/browser-elm");
   await fsHelpers.tryMkdir(secretDir);
+
+  // For production builds, apply DCE transform via elm-review
+  if (options.optimize) {
+    await runElmReviewForDCE();
+  }
+
   rewriteElmJson(process.cwd(), secretDir, function (elmJson) {
     elmJson["source-directories"] = elmJson["source-directories"].map(
       (item) => {
@@ -34,17 +41,27 @@ export async function compileElmForBrowser(options) {
     pathToClientElm,
     secretDir
   );
-  return fs.promises.writeFile(
-    "./.elm-pages/cache/elm.js",
-    inject(await fs.promises.readFile(pathToClientElm, "utf-8")).replace(
-      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_FORM_TO_STRING.\)/g,
-      "let appendSubmitter = (myFormData, event) => { event.submitter && event.submitter.name && event.submitter.name.length > 0 ? myFormData.append(event.submitter.name, event.submitter.value) : myFormData;  return myFormData }; return " +
-        (true
-          ? // TODO remove hardcoding
-            "_Json_wrap([...(appendSubmitter(new FormData(_Json_unwrap(event).target), _Json_unwrap(event)))])"
-          : "[...(new FormData(event.target))")
-    )
+  const rawElmCode = await fs.promises.readFile(pathToClientElm, "utf-8");
+
+  // Apply transforms in sequence:
+  // 1. elm-hot injection for development
+  // 2. Form data stringify replacement
+  // 3. Frozen view adoption patch
+  let transformedCode = inject(rawElmCode);
+
+  transformedCode = transformedCode.replace(
+    /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_FORM_TO_STRING.\)/g,
+    "let appendSubmitter = (myFormData, event) => { event.submitter && event.submitter.name && event.submitter.name.length > 0 ? myFormData.append(event.submitter.name, event.submitter.value) : myFormData;  return myFormData }; return " +
+      (true
+        ? // TODO remove hardcoding
+          "_Json_wrap([...(appendSubmitter(new FormData(_Json_unwrap(event).target), _Json_unwrap(event)))])"
+        : "[...(new FormData(event.target))")
   );
+
+  // Apply frozen view adoption codemod (auto-detects standard vs elm-safe-virtual-dom)
+  transformedCode = patchFrozenViews(transformedCode);
+
+  return fs.promises.writeFile("./.elm-pages/cache/elm.js", transformedCode);
 }
 
 export async function compileCliApp(
@@ -267,6 +284,61 @@ export async function runElmReview(cwd) {
         resolve(scriptOutput);
       } else {
         resolve(scriptOutput);
+      }
+    });
+  });
+}
+
+/**
+ * Run elm-review with the dead-code-review config to apply DCE transforms.
+ * This transforms View.renderStatic calls to View.embedStatic (View.Static.adopt ...)
+ * enabling dead-code elimination of frozen view dependencies.
+ *
+ * @param {string} [ cwd ]
+ */
+export async function runElmReviewForDCE(cwd) {
+  const startTime = Date.now();
+  console.log("Applying frozen view DCE transforms via elm-review...");
+
+  return new Promise((resolve, reject) => {
+    const child = spawnCallback(
+      `elm-review`,
+      [
+        "--fix-all-without-prompt",
+        "--namespace",
+        "elm-pages-dce",
+        "--config",
+        path.join(__dirname, "../../generator/dead-code-review"),
+      ],
+      { cwd: cwd }
+    );
+
+    let scriptOutput = "";
+
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", function (/** @type {string} */ data) {
+      scriptOutput += data.toString();
+    });
+
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", function (/** @type {string} */ data) {
+      scriptOutput += data.toString();
+    });
+
+    child.on("close", function (code) {
+      console.log(`Ran elm-review DCE transform in ${timeFrom(startTime)}`);
+      if (code === 0) {
+        console.log("DCE transforms applied successfully");
+        resolve(scriptOutput);
+      } else {
+        // elm-review returns non-zero if it made fixes, which is expected
+        // We only reject on actual errors
+        if (scriptOutput.includes("error")) {
+          reject(scriptOutput);
+        } else {
+          console.log("DCE transforms applied (with fixes)");
+          resolve(scriptOutput);
+        }
       }
     });
   });
