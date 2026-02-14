@@ -14,11 +14,17 @@ import BackendTask exposing (BackendTask)
 import Dict
 import Effect exposing (Effect)
 import FatalError exposing (FatalError)
+import Form
+import Form.Field as Field
+import Form.FieldView
+import Form.Handler
+import Form.Validation as Validation
 import Head
 import Head.Seo as Seo
 import Html exposing (..)
 import Html.Attributes as Attr
 import Html.Events exposing (onClick)
+import Pages.Form
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute)
@@ -54,7 +60,7 @@ type alias RouteParams =
 
 
 type alias ActionData =
-    {}
+    { greeting : String }
 
 
 type alias Data =
@@ -64,6 +70,7 @@ type alias Data =
     , host : String
     , path : String
     , queryParams : List ( String, String )
+    , lastGreetedName : Maybe String
     }
 
 
@@ -72,7 +79,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ _ -> BackendTask.fail (FatalError.fromString "No actions")
+        , action = action
         }
         |> RouteBuilder.buildWithLocalState
             { init = init
@@ -116,6 +123,17 @@ data _ request =
                     (\( key, values ) ->
                         List.map (\v -> ( key, v )) values
                     )
+
+        lastGreetedName =
+            request
+                |> Request.rawFormData
+                |> Maybe.andThen
+                    (\fields ->
+                        fields
+                            |> List.filter (\( k, _ ) -> k == "name")
+                            |> List.head
+                            |> Maybe.map Tuple.second
+                    )
     in
     BackendTask.succeed
         (Response.render
@@ -125,8 +143,30 @@ data _ request =
             , host = host
             , path = path
             , queryParams = queryParams
+            , lastGreetedName = lastGreetedName
             }
         )
+
+
+action : RouteParams -> Request -> BackendTask FatalError (Response.Response ActionData errorPage)
+action _ request =
+    case request |> Request.formData (greetingForm |> Form.Handler.init identity) of
+        Just ( _, parsedForm ) ->
+            case parsedForm of
+                Form.Valid name ->
+                    BackendTask.succeed
+                        (Response.render
+                            { greeting = "Hello, " ++ name ++ "!" }
+                        )
+
+                Form.Invalid _ _ ->
+                    BackendTask.succeed
+                        (Response.render
+                            { greeting = "Please enter a name." }
+                        )
+
+        Nothing ->
+            BackendTask.fail (FatalError.fromString "Expected form submission.")
 
 
 init : App Data ActionData RouteParams -> Shared.Model -> ( Model, Effect Msg )
@@ -191,6 +231,13 @@ view app _ model =
             -- Frozen syntax-highlighted code example (tests DCE of SyntaxHighlight)
             , View.freeze syntaxHighlightedCodeExample
 
+            -- Frozen greeting (uses app.data, rendered as HTML over the wire)
+            , View.freeze (frozenGreetingSection app.data)
+
+            -- Form + action result (dynamic, not frozen)
+            , greetingFormSection app
+            , actionResultSection app.action
+
             -- Interactive tabbed content (island)
             , tabbedSection model
 
@@ -199,6 +246,84 @@ view app _ model =
             ]
         ]
     }
+
+
+greetingForm : Form.HtmlForm String String () (PagesMsg Msg)
+greetingForm =
+    (\name ->
+        { combine =
+            Validation.succeed identity
+                |> Validation.andMap name
+        , view =
+            \formState ->
+                [ div [ Attr.class "flex gap-3 items-end" ]
+                    [ div [ Attr.class "flex-1" ]
+                        [ Html.label [ Attr.class "block text-sm font-medium text-purple-700 mb-1" ]
+                            [ text "Your name" ]
+                        , name |> Form.FieldView.input [ Attr.class "w-full px-3 py-2 border border-purple-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500", Attr.placeholder "Enter your name" ]
+                        ]
+                    , Html.button
+                        [ Attr.class "px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 transition-colors" ]
+                        [ text
+                            (if formState.submitting then
+                                "Sending..."
+
+                             else
+                                "Greet"
+                            )
+                        ]
+                    ]
+                ]
+        }
+    )
+        |> Form.form
+        |> Form.field "name" (Field.text |> Field.required "Please enter a name")
+
+
+greetingFormSection : App Data ActionData RouteParams -> Html (PagesMsg Msg)
+greetingFormSection app =
+    div [ Attr.class "bg-purple-50 border border-purple-200 rounded-lg p-6 mb-8" ]
+        [ h3 [ Attr.class "font-semibold text-purple-800 mb-2" ]
+            [ text "Greeting Form (Dynamic)" ]
+        , p [ Attr.class "text-purple-700 text-sm mb-4" ]
+            [ text "This form submits via the elm-pages Form framework (no full page refresh). "
+            , text "Check the network inspector to see the frozen view HTML in the content.dat response!"
+            ]
+        , greetingForm
+            |> Pages.Form.renderHtml []
+                (Form.options "greeting-form")
+                app
+        ]
+
+
+frozenGreetingSection : Data -> Html Never
+frozenGreetingSection pageData =
+    case pageData.lastGreetedName of
+        Just name ->
+            div [ Attr.class "bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-8" ]
+                [ h3 [ Attr.class "font-semibold text-indigo-800 mb-1" ]
+                    [ text "Frozen Greeting (from app.data)" ]
+                , p [ Attr.class "text-indigo-700" ]
+                    [ text ("The server greeted: " ++ name) ]
+                , p [ Attr.class "text-indigo-500 text-xs mt-2" ]
+                    [ text "This section is inside View.freeze. Its HTML was sent over the wire in content.dat!" ]
+                ]
+
+        Nothing ->
+            text ""
+
+
+actionResultSection : Maybe ActionData -> Html (PagesMsg Msg)
+actionResultSection maybeAction =
+    case maybeAction of
+        Just actionData ->
+            div [ Attr.class "bg-green-50 border border-green-200 rounded-lg p-4 mb-8" ]
+                [ p [ Attr.class "text-green-800 font-medium" ]
+                    [ text actionData.greeting ]
+                ]
+
+        Nothing ->
+            text ""
 
 
 heroSection : Html Never
