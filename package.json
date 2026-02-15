@@ -12,7 +12,8 @@
     "cypress": "npm start & cypress run",
     "build:generator": "elm-codegen install && (cd codegen && lamdera make Generate.elm --output elm-pages-codegen.js && mv elm-pages-codegen.js elm-pages-codegen.cjs)",
     "review": "elm-review",
-    "format": "prettier . --write --cache --cache-location='node_modules/.cache/.prettiercache' --log-level=warn"
+    "format": "prettier . --write --cache --cache-location='node_modules/.cache/.prettiercache' --log-level=warn",
+    "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
@@ -65,7 +66,7 @@
     "@types/jsesc": "~3.0.3",
     "@types/make-fetch-happen": "^10.0.4",
     "@types/micromatch": "^4.0.10",
-    "@types/node": "^25.0.3",
+    "@types/node": "^25.2.3",
     "@types/serve-static": "^2.2.0",
     "@types/which": "~3.0.4",
     "cypress": "^15.10.0",
@@ -92,5 +93,13 @@
   ],
   "bin": {
     "elm-pages": "generator/src/cli.js"
+  },
+  "devEngines": {
+    "packageManager": [
+      {
+        "name": "npm",
+        "version": "11.8.0"
+      }
+    ]
   }
 }
