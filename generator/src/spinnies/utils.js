@@ -1,7 +1,7 @@
 "use strict";
 
 // source: https://github.com/jbcarpanelli/spinnies/blob/master/utils.js
-// Code  vemodified to ESM syntax from original repo
+// Code modified to ESM syntax from original repo
 
 import * as readline from "readline";
 // original code depended on this for `getLinesLength`. Is this necessary?
@@ -56,9 +56,8 @@ export function purgeSpinnerOptions(options) {
 }
 
 /**
- *
  * @param {Partial<import("./index.js").SpinnerOptions>} options
- * @returns
+ * @return {Partial<import("./index.js").SpinnerOptions>}
  */
 export function purgeSpinnersOptions({ spinner, disableSpins, ...others }) {
   const colors = colorOptions(others);
@@ -71,7 +70,8 @@ export function purgeSpinnersOptions({ spinner, disableSpins, ...others }) {
 }
 
 /**
- * @param {any} spinner
+ * @param {Partial<import("./index.js").Spinner>} spinner
+ * @return {import("./index.js").Spinner}
  */
 function turnToValidSpinner(spinner = {}) {
   const platformSpinner = terminalSupportsUnicode() ? dots : dashes;
@@ -99,6 +99,7 @@ export function colorOptions({ color, succeedColor, failColor, spinnerColor }) {
 
 /**
  * @param {Partial<{ succeedPrefix: string, failPrefix: string }>} options
+ * @returns {{ succeedPrefix: string, failPrefix: string }}
  */
 function prefixOptions({ succeedPrefix, failPrefix }) {
   if (terminalSupportsUnicode()) {

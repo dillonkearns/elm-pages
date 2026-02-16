@@ -640,7 +640,9 @@ async function listFiles(dir) {
 }
 
 /**
- * @param {any[]} arrays
+ * @template T
+ * @param {T[][]} arrays
+ * @return {T[]}
  */
 function merge(arrays) {
   return [].concat.apply([], arrays);

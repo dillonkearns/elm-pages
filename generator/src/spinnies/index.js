@@ -15,8 +15,12 @@ import {
 import { dots, dashes, writeStream, cleanStream } from "./utils.js";
 
 /**
+ * @typedef {{ interval: number, frames: string[] }} Spinner
+ */
+
+/**
  * @typedef {{
- *   spinner: any,
+ *   spinner: Partial<Spinner>,
  *   disableSpins: boolean,
  *   color: string,
  *   succeedColor: string,
