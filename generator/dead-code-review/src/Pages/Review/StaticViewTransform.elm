@@ -67,7 +67,6 @@ type alias Context =
     , moduleName : ModuleName
     , htmlLazyImport : HtmlLazyImport
     , htmlImport : HtmlLazyImport -- tracks elm/html's Html module import and alias
-    , htmlStyledAlias : Maybe ModuleName
     , lastImportRow : Int
     , staticIndex : Int
 
@@ -114,6 +113,9 @@ type alias Context =
     -- Note: routeBuilderHeadFn is tracked in sharedState for agreement with ServerDataTransform
     , routeBuilderDataFn : Maybe String -- What's passed to `data = X` in RouteBuilder
     , routeBuilderFound : Bool -- Did we find a RouteBuilder call?
+
+    -- Shared model parameter name from view function (second parameter)
+    , sharedModelParamName : Maybe String
 
     -- Model parameter name from view function (third parameter, typically "model")
     , modelParamName : Maybe String
@@ -166,7 +168,6 @@ initialContext =
             , moduleName = moduleName
             , htmlLazyImport = NotImported
             , htmlImport = NotImported
-            , htmlStyledAlias = Nothing
             , lastImportRow = 2
             , staticIndex = 0
             , sharedState = PersistentFieldTracking.emptySharedState
@@ -181,6 +182,7 @@ initialContext =
             , inDataFunction = False
             , routeBuilderDataFn = Nothing
             , routeBuilderFound = False
+            , sharedModelParamName = Nothing
             , modelParamName = Nothing
             , taintBindings = Taint.emptyBindings
             , taintedContextDepth = 0
@@ -213,18 +215,6 @@ importVisitor node context =
                     |> Maybe.map Node.value
                     |> Maybe.withDefault [ "Html", "Lazy" ]
                     |> ImportedAs
-            , lastImportRow = max context.lastImportRow importEndRow
-          }
-        )
-
-    else if moduleName == [ "Html", "Styled" ] then
-        ( []
-        , { context
-            | htmlStyledAlias =
-                import_.moduleAlias
-                    |> Maybe.map Node.value
-                    |> Maybe.withDefault [ "Html", "Styled" ]
-                    |> Just
             , lastImportRow = max context.lastImportRow importEndRow
           }
         )
@@ -356,6 +346,17 @@ declarationEnterVisitor node context =
                             |> Maybe.map PersistentFieldTracking.extractAppDataBindingsFromPattern
                             |> Maybe.withDefault Set.empty
 
+                    -- Extract shared model parameter name (second parameter: view app shared ...)
+                    maybeSharedModelParam =
+                        if functionName == "view" then
+                            arguments
+                                |> List.drop 1
+                                |> List.head
+                                |> Maybe.andThen PersistentFieldTracking.extractPatternName
+
+                        else
+                            Nothing
+
                     -- Extract model parameter name only for view function
                     -- Model is the third parameter: view app shared model = ...
                     maybeModelParam =
@@ -380,6 +381,7 @@ declarationEnterVisitor node context =
                 ( []
                 , { contextWithAppDataRanges
                     | sharedState = updatedSharedState
+                    , sharedModelParamName = maybeSharedModelParam
                     , modelParamName = maybeModelParam
                   }
                 )
@@ -619,6 +621,7 @@ expressionEnterVisitor node context =
                     let
                         taintContext =
                             { modelParamName = contextWithFieldTracking.modelParamName
+                            , sharedModelParamName = contextWithFieldTracking.sharedModelParamName
                             , bindings = contextWithFieldTracking.taintBindings
                             }
 
@@ -635,6 +638,7 @@ expressionEnterVisitor node context =
                     let
                         taintContext =
                             { modelParamName = contextWithFieldTracking.modelParamName
+                            , sharedModelParamName = contextWithFieldTracking.sharedModelParamName
                             , bindings = contextWithFieldTracking.taintBindings
                             }
 
@@ -669,6 +673,7 @@ expressionEnterVisitor node context =
                                         -- Create a TaintContext with current accumulated bindings
                                         taintContext =
                                             { modelParamName = contextWithTaintedContext.modelParamName
+                                            , sharedModelParamName = contextWithTaintedContext.sharedModelParamName
                                             , bindings = currentBindings
                                             }
 
@@ -757,6 +762,7 @@ expressionExitVisitor node context =
                     let
                         taintContext =
                             { modelParamName = contextWithPoppedScope.modelParamName
+                            , sharedModelParamName = contextWithPoppedScope.sharedModelParamName
                             , bindings = contextWithPoppedScope.taintBindings
                             }
 
@@ -773,6 +779,7 @@ expressionExitVisitor node context =
                     let
                         taintContext =
                             { modelParamName = contextWithPoppedScope.modelParamName
+                            , sharedModelParamName = contextWithPoppedScope.sharedModelParamName
                             , bindings = contextWithPoppedScope.taintBindings
                             }
 
@@ -807,6 +814,7 @@ caseBranchEnterVisitor caseBlockNode ( patternNode, _ ) context =
         -- Analyze the case expression for taint
         taintContext =
             { modelParamName = context.modelParamName
+            , sharedModelParamName = context.sharedModelParamName
             , bindings = context.taintBindings
             }
 
@@ -1389,6 +1397,7 @@ handleViewFreezeCall functionNode node context =
                         let
                             taintContext =
                                 { modelParamName = context.modelParamName
+                                , sharedModelParamName = context.sharedModelParamName
                                 , bindings = context.taintBindings
                                 }
 
@@ -1435,9 +1444,7 @@ createTransformErrorWithFixes fromFn toFn node fixes =
 
 
 {-| Generate fixes to add `import Html.Lazy` and `import Html` if not already imported.
-The generated code uses:
-- `Html.Lazy.lazy` for the lazy thunk
-- `Html.text ""` as the placeholder (must be from elm/html, not Html.Styled)
+The generated code uses elm/html for `Html.Lazy.lazy`, `Html.text ""`, and `Html.map never`.
 -}
 htmlLazyImportFix : Context -> List Review.Fix.Fix
 htmlLazyImportFix context =
@@ -1486,20 +1493,19 @@ htmlLazyImportFix context =
 
 {-| Generate inlined lazy thunk with View.htmlToFreezable wrapper and map never.
 
-The generated code:
+The generated code (using elm/html's Html module throughout):
 
     Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0"
         |> View.htmlToFreezable
-        |> Html.Styled.map never
+        |> Html.map never
 
 This creates a lazy thunk with a magic string prefix that the virtual-dom codemod
 detects at runtime to adopt pre-rendered HTML. The View.htmlToFreezable wrapper
-converts the Html.Html Never back to the user's Freezable type, and map never converts
-from `Freezable` (Html Never) to `Html msg`.
+converts the Html.Html Never back to the user's Freezable type, and Html.map never
+converts from `Freezable` (Html Never) to `Html msg`.
 
-IMPORTANT: The thunk must use `Html.text ""` from elm/html (not Html.Styled.text)
-because Html.Lazy.lazy expects Html.Html, not Html.Styled.Html. The View.htmlToFreezable
-function handles the conversion to the user's Freezable type.
+When Html is not already imported, we add `import Html as ElmPages__Html` to avoid
+conflicts with user imports (e.g., `import Accessibility as Html`).
 
 -}
 inlinedLazyThunk : Context -> String
@@ -1513,8 +1519,7 @@ inlinedLazyThunk context =
                 NotImported ->
                     "Html.Lazy"
 
-        -- Determine the Html prefix (from elm/html) for Html.text ""
-        -- Must use elm/html's Html module, not Html.Styled
+        -- Determine the elm/html prefix for text, map, etc.
         -- Use ElmPages__ prefix when we're adding the import to avoid conflicts
         htmlPrefix =
             case context.htmlImport of
@@ -1524,15 +1529,9 @@ inlinedLazyThunk context =
                 NotImported ->
                     "ElmPages__Html"
 
-        -- Determine the map function prefix based on whether Html.Styled is used
-        -- If Html.Styled is imported, use it for map never; otherwise use plain Html
+        -- Always use elm/html for map never, same prefix as for text
         mapPrefix =
-            case context.htmlStyledAlias of
-                Just alias ->
-                    String.join "." alias
-
-                Nothing ->
-                    "Html"
+            htmlPrefix
 
         -- Magic prefix that vdom codemod detects
         -- Shared module uses "shared:" prefix to distinguish from Route frozen views
@@ -1547,8 +1546,6 @@ inlinedLazyThunk context =
             in
             "\"__ELM_PAGES_STATIC__" ++ prefix ++ String.fromInt context.staticIndex ++ "\""
     in
-    -- Generate: Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never
-    -- Note: Html.text must be from elm/html (not Html.Styled) because Html.Lazy.lazy expects Html.Html
     "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> " ++ htmlPrefix ++ ".text \"\") " ++ staticId ++ " |> View.htmlToFreezable |> " ++ mapPrefix ++ ".map never)"
 
 

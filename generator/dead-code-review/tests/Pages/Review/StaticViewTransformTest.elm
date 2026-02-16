@@ -36,7 +36,7 @@ import Html.Lazy
 import Html as ElmPages__Html
 
 view =
-    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
 """
                             ]
             , test "uses Html.Styled alias when imported as Html.Styled" <|
@@ -67,7 +67,7 @@ import Html.Lazy
 import Html
 
 view =
-    { body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
 """
                             ]
             ]
@@ -99,7 +99,7 @@ import Html.Lazy
 import Html as ElmPages__Html
 
 view app =
-    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
 """
                             ]
             ]
@@ -169,7 +169,7 @@ import Html as ElmPages__Html
 
 view =
     { body =
-        [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
+        [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never)
         , View.freeze content2
         ]
     }
@@ -190,7 +190,7 @@ import Html as ElmPages__Html
 view =
     { body =
         [ View.freeze content1
-        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__1" |> View.htmlToFreezable |> Html.map never)
+        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__1" |> View.htmlToFreezable |> ElmPages__Html.map never)
         ]
     }
 """
@@ -223,7 +223,7 @@ import Html.Lazy
 import Html as ElmPages__Html
 
 view =
-    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
 """
                             ]
             ]
@@ -256,7 +256,7 @@ import View
 import Html.Lazy
 
 view =
-    { body = [ (Html.Lazy.lazy (\\_ -> H.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Styled.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> H.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> H.map never) ] }
 """
                             ]
             , test "uses Html.Lazy alias when imported with alias" <|
@@ -287,7 +287,7 @@ import View
 import Html.Lazy as Lazy
 
 view =
-    { body = [ (Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+    { body = [ (Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
 """
                             ]
             , test "adds Html as ElmPages__Html when Html.Styled is aliased as Html" <|
@@ -317,7 +317,7 @@ import Html.Lazy
 import Html as ElmPages__Html
 
 view =
-    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
 """
                             ]
             , test "uses ElmPages__Html alias to avoid conflicts with user imports" <|
@@ -347,7 +347,34 @@ import Html.Lazy
 import Html as ElmPages__Html
 
 view =
-    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
+"""
+                            ]
+            , test "uses ElmPages__Html for map when neither Html nor Html.Styled is imported" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import View
+
+view =
+    { body = [ View.freeze content ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze content"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view =
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
 """
                             ]
             ]
@@ -392,7 +419,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -465,7 +492,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             ]
@@ -1199,7 +1226,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1346,7 +1373,7 @@ type alias Data =
 view app =
     { title = app.data.title
     , body =
-        [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
+        [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never)
         ]
     }
 """
@@ -1435,7 +1462,7 @@ view app =
     case app.data of
         { title } ->
             { title = title
-            , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+            , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
             }
 """
                             , Review.Test.error
@@ -1522,7 +1549,7 @@ view app =
     case app.data of
         { title } ->
             { title = title
-            , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+            , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
             }
 """
                             , Review.Test.error
@@ -1607,7 +1634,7 @@ view app =
     case app.data of
         _ ->
             { title = "constant"
-            , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+            , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
             }
 """
                             , Review.Test.error
@@ -1696,7 +1723,7 @@ view app =
         title = app.data.title
     in
     { title = title
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1783,7 +1810,7 @@ view app =
         body = app.data.body
     in
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1871,7 +1898,7 @@ view app =
         { title, body } = app.data
     in
     { title = title
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -1965,7 +1992,7 @@ view app =
         modifiedData = { d | title = "new" }
     in
     { title = modifiedData.title
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -2023,7 +2050,7 @@ type alias Data =
 
 view app =
     { title = someHelper [ app.data ]
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 
 someHelper items = ""
@@ -2083,7 +2110,7 @@ type alias Data =
 
 view app =
     { title = someHelper ( app.data, "extra" )
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 
 someHelper pair = ""
@@ -2152,7 +2179,7 @@ type alias Data =
 view app =
     { title = app.data.title
     , body =
-        [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
+        [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never)
         ]
     }
 """
@@ -2245,7 +2272,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 
 renderContent data =
@@ -2333,7 +2360,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 
 renderContent : Data -> Html.Html msg
@@ -2430,7 +2457,7 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 
 extractTitle data =
@@ -2521,7 +2548,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 
 renderBody body meta =
@@ -2616,7 +2643,7 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 
 -- This helper uses record destructuring - we know it only needs 'title'
@@ -2709,7 +2736,7 @@ type alias Data =
 
 view app =
     { title = renderHeader app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 
 -- This helper destructures both title and author
@@ -2850,7 +2877,7 @@ type alias Data =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -2935,7 +2962,7 @@ type alias Data =
 
 view app =
     { title = String.toUpper (extractTitle app.data)
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 
 extractTitle data =
@@ -3566,7 +3593,7 @@ type alias Data =
 
 view app =
     { title = extractTitle app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 
 -- Helper uses case with variable pattern - now trackable!
@@ -3657,7 +3684,7 @@ type alias Data =
 
 view app =
     { title = (\\d -> d.title) app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -3733,7 +3760,7 @@ type alias Data =
 
 view app =
     { title = app.data |> (\\d -> d.title)
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4091,7 +4118,7 @@ init maybePageUrl sharedModel app =
 
 view app =
     { title = "Page"
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4182,7 +4209,7 @@ init maybePageUrl sharedModel app =
 
 view app =
     { title = app.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4272,7 +4299,7 @@ init maybePageUrl sharedModel static =
 
 view app =
     { title = "Page"
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4363,7 +4390,7 @@ update pageUrl sharedModel app msg model =
 
 view appArg =
     { title = "Page"
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4452,7 +4479,7 @@ init maybePageUrl sharedModel app =
 
 view viewApp =
     { title = "Page"
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             ]
@@ -4513,7 +4540,7 @@ extractTitle data =
 
 view viewApp =
     { title = "Page"
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4601,7 +4628,7 @@ type alias Data =
 view : Maybe PageUrl -> Shared.Model -> Model -> App Data ActionData RouteParams -> View (PagesMsg Msg)
 view maybeUrl sharedModel model static =
     { title = static.data.title
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -4934,7 +4961,7 @@ view app =
             app.data.title
         else
             app.data.draftTitle
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -5021,7 +5048,7 @@ type alias Data =
 
 view app =
     { title = app.data |> .title |> String.toUpper
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -5100,7 +5127,7 @@ type alias Data =
 
 view app =
     { title = app.data |> (.title >> String.toUpper)
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -5184,7 +5211,7 @@ type alias Data =
 
 view app =
     { title = String.join ", " [ app.data.title, app.data.subtitle ]
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 """
                             , Review.Test.error
@@ -5635,7 +5662,7 @@ myDefault = Data "default" "time"
 view app =
     { title = "Test"
     , body =
-        [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text \"\") \"__ELM_PAGES_STATIC__0\" |> View.htmlToFreezable |> Html.Styled.map never)
+        [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text \"\") \"__ELM_PAGES_STATIC__0\" |> View.htmlToFreezable |> ElmPages__Html.map never)
         , div [] [ text app.data.now ]
         ]
     }
@@ -5670,7 +5697,7 @@ import Html.Lazy
 import Html as ElmPages__Html
 
 view =
-    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
 """
                             ]
             , test "deeply nested View.freeze - only outermost is transformed" <|
@@ -5700,7 +5727,7 @@ import Html.Lazy
 import Html as ElmPages__Html
 
 view =
-    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ] }
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
 """
                             ]
             , test "multiple freeze calls at same level get separate indices" <|
@@ -5735,7 +5762,7 @@ import Html as ElmPages__Html
 
 view =
     { body =
-        [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never)
+        [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never)
         , View.freeze (Html.text "second")
         ]
     }
@@ -5756,7 +5783,7 @@ import Html as ElmPages__Html
 view =
     { body =
         [ View.freeze (Html.text "first")
-        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__1" |> View.htmlToFreezable |> Html.map never)
+        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__1" |> View.htmlToFreezable |> ElmPages__Html.map never)
         ]
     }
 """

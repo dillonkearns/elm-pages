@@ -90,6 +90,7 @@ type alias ModuleContext =
     , moduleName : ModuleName
     , freezeCallDepth : Int
     , appParamName : Maybe String
+    , sharedModelParamName : Maybe String
     , modelParamName : Maybe String
     , bindings : Nonempty (Dict String TaintStatus)
     , projectFunctions : Dict ( ModuleName, String ) FunctionTaintInfo
@@ -139,6 +140,7 @@ fromProjectToModule =
             , moduleName = moduleName
             , freezeCallDepth = 0
             , appParamName = Nothing
+            , sharedModelParamName = Nothing
             , modelParamName = Nothing
             , bindings = emptyBindings
             , projectFunctions = projectContext.functionTaintInfo
@@ -255,6 +257,7 @@ popScope context =
 toTaintContext : ModuleContext -> Taint.TaintContext
 toTaintContext context =
     { modelParamName = context.modelParamName
+    , sharedModelParamName = context.sharedModelParamName
     , bindings = context.bindings
     }
 
@@ -333,6 +336,7 @@ declarationEnterVisitor node context =
                 -- We create a context where each param is marked as "tainted" to track flow
                 paramFlowContext =
                     { modelParamName = Nothing
+                    , sharedModelParamName = Nothing
                     , bindings =
                         paramNames
                             |> List.map (\name -> ( name, Tainted ))
@@ -376,6 +380,12 @@ declarationEnterVisitor node context =
                         List.head arguments
                             |> Maybe.andThen extractPatternName
 
+                    maybeSharedModelParam =
+                        arguments
+                            |> List.drop 1
+                            |> List.head
+                            |> Maybe.andThen extractPatternName
+
                     maybeModelParam =
                         arguments
                             |> List.drop 2
@@ -385,6 +395,7 @@ declarationEnterVisitor node context =
                 ( []
                 , { context
                     | appParamName = maybeAppParam
+                    , sharedModelParamName = maybeSharedModelParam
                     , modelParamName = maybeModelParam
                     , collectedFunctions = newCollected
                   }
@@ -636,7 +647,7 @@ checkTaintedReference node context =
     case Node.value node of
         -- Check for tainted local variable
         Expression.FunctionOrValue [] varName ->
-            if context.modelParamName == Just varName then
+            if context.modelParamName == Just varName || context.sharedModelParamName == Just varName then
                 -- model itself is handled by more specific checks (RecordAccess)
                 ( [], context )
 
@@ -664,7 +675,7 @@ checkTaintedReference node context =
                             ( [], context )
 
                         Nothing ->
-                            if context.modelParamName == Just varName then
+                            if context.modelParamName == Just varName || context.sharedModelParamName == Just varName then
                                 reportErrorIfNew (Node.range node)
                                     (modelInFreezeError (Node.range node))
                                     context
@@ -753,7 +764,7 @@ checkPipeExpression leftExpr rightExpr context =
         Expression.RecordAccessFunction fieldName ->
             case Node.value leftExpr of
                 Expression.FunctionOrValue [] varName ->
-                    if context.modelParamName == Just varName then
+                    if context.modelParamName == Just varName || context.sharedModelParamName == Just varName then
                         reportErrorIfNew (Node.range leftExpr)
                             (accessorOnModelError (Node.range leftExpr))
                             context
@@ -786,7 +797,7 @@ checkCaseExpression : Node Expression -> ModuleContext -> ( List (Error {}), Mod
 checkCaseExpression exprNode context =
     case Node.value exprNode of
         Expression.FunctionOrValue [] varName ->
-            if context.modelParamName == Just varName then
+            if context.modelParamName == Just varName || context.sharedModelParamName == Just varName then
                 reportErrorIfNew (Node.range exprNode)
                     (caseOnModelError (Node.range exprNode))
                     context

@@ -3644,7 +3644,7 @@ type alias Data =
 
 view app =
     { title = myExtract app.data
-    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.map never) ]
+    , body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ]
     }
 
 extractTitle data =
@@ -7581,7 +7581,7 @@ view app =
     { title = "Index page"
     , body =
         [ text "This is the index page."
-        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> Html.Styled.map never)
+        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never)
         , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
         , div [] [ text <| "Now: " ++ app.data.now ]
         ]
@@ -7611,7 +7611,7 @@ view app =
     , body =
         [ text "This is the index page."
         , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
-        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__1" |> View.htmlToFreezable |> Html.Styled.map never)
+        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__1" |> View.htmlToFreezable |> ElmPages__Html.map never)
         , div [] [ text <| "Now: " ++ app.data.now ]
         ]
     }
@@ -7997,7 +7997,7 @@ view app =
     { title = "Index page"
     , body =
         [ text "This is the index page."
-        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text \"\") \"__ELM_PAGES_STATIC__0\" |> View.htmlToFreezable |> Html.Styled.map never)
+        , (Html.Lazy.lazy (\\_ -> ElmPages__Html.text \"\") \"__ELM_PAGES_STATIC__0\" |> View.htmlToFreezable |> ElmPages__Html.map never)
         , div [] [ text <| "Now: " ++ app.data.now ]
         , div [] [ text <| "Default: " ++ defaultData.greeting ]
         ]

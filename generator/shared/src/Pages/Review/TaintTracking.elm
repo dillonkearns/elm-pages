@@ -220,6 +220,7 @@ extractBindingsFromPattern taint node =
 -}
 type alias TaintContext =
     { modelParamName : Maybe String
+    , sharedModelParamName : Maybe String
     , bindings : Bindings
     }
 
@@ -232,7 +233,7 @@ analyzeExpressionTaint context node =
     case Node.value node of
         -- Variable reference - check if it's model or a tainted binding
         Expression.FunctionOrValue [] name ->
-            if context.modelParamName == Just name then
+            if context.modelParamName == Just name || context.sharedModelParamName == Just name then
                 Tainted
 
             else
@@ -301,7 +302,7 @@ analyzeExpressionTaint context node =
 
         -- Record update - taint from base record and updated fields (short-circuit)
         Expression.RecordUpdateExpression (Node _ recordName) fields ->
-            if context.modelParamName == Just recordName then
+            if context.modelParamName == Just recordName || context.sharedModelParamName == Just recordName then
                 Tainted
 
             else
