@@ -48,7 +48,7 @@ import Set exposing (Set)
 
 {-| Convert a range to a comparable tuple for Set storage.
 -}
-rangeToComparable : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> ( ( Int, Int ), ( Int, Int ) )
+rangeToComparable : Range -> ( ( Int, Int ), ( Int, Int ) )
 rangeToComparable range =
     ( ( range.start.row, range.start.column ), ( range.end.row, range.end.column ) )
 
@@ -183,7 +183,7 @@ foldProjectContexts a b =
 Returns the error (if new) and the updated context with the range tracked.
 -}
 reportErrorIfNew :
-    { start : { row : Int, column : Int }, end : { row : Int, column : Int } }
+    Range
     -> Error {}
     -> ModuleContext
     -> ( List (Error {}), ModuleContext )
@@ -204,7 +204,7 @@ reportErrorIfNew range error context =
 {-| Collect errors from a list, deduplicating by range.
 -}
 collectErrors :
-    List ( { start : { row : Int, column : Int }, end : { row : Int, column : Int } }, Error {} )
+    List ( Range, Error {} )
     -> ModuleContext
     -> ( List (Error {}), ModuleContext )
 collectErrors errorPairs context =
@@ -840,19 +840,20 @@ checkCaseExpression exprNode context =
                         reportErrorIfNew (Node.range exprNode)
                             (caseOnTaintedValueError (Node.range exprNode) varName)
                             context
+                            accErrors
 
                     _ ->
-                        ( [], context )
+                        ( accErrors, context )
 
         _ ->
-            ( [], context )
+            ( accErrors, context )
 
 
 
 -- ERROR HELPERS
 
 
-taintedValueError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+taintedValueError : Range -> String -> Error {}
 taintedValueError range varName =
     Rule.error
         { message = "Tainted value `" ++ varName ++ "` used inside View.freeze"
@@ -867,7 +868,7 @@ taintedValueError range varName =
         range
 
 
-modelInFreezeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+modelInFreezeError : Range -> Error {}
 modelInFreezeError range =
     Rule.error
         { message = "Model referenced inside View.freeze"
@@ -882,7 +883,7 @@ modelInFreezeError range =
         range
 
 
-runtimeAppFieldError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+runtimeAppFieldError : Range -> String -> Error {}
 runtimeAppFieldError range fieldName =
     Rule.error
         { message = "Runtime field `" ++ fieldName ++ "` accessed inside View.freeze"
@@ -897,7 +898,7 @@ runtimeAppFieldError range fieldName =
         range
 
 
-accessorOnModelError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+accessorOnModelError : Range -> Error {}
 accessorOnModelError range =
     Rule.error
         { message = "Accessor on model inside View.freeze"
@@ -910,7 +911,7 @@ accessorOnModelError range =
         range
 
 
-accessorOnRuntimeAppFieldError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+accessorOnRuntimeAppFieldError : Range -> String -> Error {}
 accessorOnRuntimeAppFieldError range fieldName =
     Rule.error
         { message = "Accessor on runtime app field inside View.freeze"
@@ -923,7 +924,7 @@ accessorOnRuntimeAppFieldError range fieldName =
         range
 
 
-caseOnModelError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+caseOnModelError : Range -> Error {}
 caseOnModelError range =
     Rule.error
         { message = "Pattern match on model inside View.freeze"
@@ -936,7 +937,7 @@ caseOnModelError range =
         range
 
 
-caseOnAppError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+caseOnAppError : Range -> Error {}
 caseOnAppError range =
     Rule.error
         { message = "Pattern match on app inside View.freeze"
@@ -951,7 +952,7 @@ caseOnAppError range =
         range
 
 
-caseOnTaintedValueError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+caseOnTaintedValueError : Range -> String -> Error {}
 caseOnTaintedValueError range varName =
     Rule.error
         { message = "Pattern match on tainted value `" ++ varName ++ "` inside View.freeze"
@@ -964,7 +965,7 @@ caseOnTaintedValueError range varName =
         range
 
 
-crossModuleTaintError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+crossModuleTaintError : Range -> String -> Error {}
 crossModuleTaintError range functionName =
     Rule.error
         { message = "Tainted value passed to `" ++ functionName ++ "` inside View.freeze"
@@ -979,7 +980,7 @@ crossModuleTaintError range functionName =
         range
 
 
-frozenViewScopeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+frozenViewScopeError : Range -> String -> Error {}
 frozenViewScopeError range functionName =
     Rule.error
         { message = "`" ++ functionName ++ "` can only be called from Route modules and Shared.elm"
@@ -993,7 +994,7 @@ frozenViewScopeError range functionName =
         range
 
 
-freezeInTaintedContextError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+freezeInTaintedContextError : Range -> Error {}
 freezeInTaintedContextError range =
     Rule.error
         { message = "View.freeze inside conditionally-executed code path"
