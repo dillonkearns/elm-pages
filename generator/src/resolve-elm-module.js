@@ -45,6 +45,12 @@ function getElmModuleName(inputPath) {
   const sourceDirectories = elmJson["source-directories"];
   const projectDirectory = path.dirname(elmJsonPath);
 
+  if (!sourceDirectories) {
+    throw new Error(
+      `The elm.json at ${elmJsonPath} does not have source-directories (is it a package elm.json?)`
+    );
+  }
+
   const matchingSourceDir = sourceDirectories
     .map((sourceDir) => path.join(projectDirectory, sourceDir))
     .find((absoluteSourceDir) => filePath.startsWith(absoluteSourceDir));
