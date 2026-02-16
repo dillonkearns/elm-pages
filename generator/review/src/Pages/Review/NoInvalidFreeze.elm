@@ -489,22 +489,20 @@ expressionEnterVisitor ((Node range expr) as node) context =
                         condTaint =
                             analyzeExpressionTaint context cond
                     in
-                    if condTaint == Tainted then
-                        { context | taintedContext = range :: context.taintedContext }
+                    case analyzeExpressionTaint context cond of
+                        Tainted ->
+                            { context | taintedContext = range :: context.taintedContext }
 
-                    else
-                        context
+                        Pure ->
+                            context
 
-                Expression.CaseExpression caseBlock ->
-                    let
-                        scrutineeTaint =
-                            analyzeExpressionTaint context caseBlock.expression
-                    in
-                    if scrutineeTaint == Tainted then
-                        { context | taintedContext = range :: context.taintedContext }
+                Expression.CaseExpression { expression } ->
+                    case analyzeExpressionTaint context expression of
+                        Tainted ->
+                            { context | taintedContext = range :: context.taintedContext }
 
-                    else
-                        context
+                        Pure ->
+                            context
 
                 _ ->
                     context
