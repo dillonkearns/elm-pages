@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+- **Frozen Views**: `View.freeze` for build-time/server-render-time only content. Rendering code and dependencies are dead-code eliminated from the client bundle. ~50% bundle reduction on elm-pages.com docs.
+- `--strict` build flag: fails build if any `View.freeze` calls are de-optimized (e.g. due to `model` usage inside a freeze call).
 - Add `BackendTask.Http.multipartBody` for sending `multipart/form-data` requests, with `stringPart`, `bytesPart`, and `bytesPartWithFilename` helpers. See [#558](https://github.com/dillonkearns/elm-pages/pull/558).
 
 ## [10.3.0] - 2026-01-31

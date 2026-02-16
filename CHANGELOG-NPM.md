@@ -11,7 +11,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+- **Frozen Views** support: virtual-dom codemod, frozen view extraction, combined `content.dat` format, and client-side frozen view management for SPA navigations.
+- `--strict` and `--keep-cache` build flags. `--strict` fails the build if any `View.freeze` calls are de-optimized. `--keep-cache` preserves the HTTP and JS Port cache between builds.
+- CLI lazy loading for faster startup.
 - Support for `BackendTask.Http.multipartBody` from the Elm package. Multipart bodies are encoded using the built-in `FormData` API and streamed via Node's native `fetch`. See [#558](https://github.com/dillonkearns/elm-pages/pull/558).
+
+### Fixed
+
+- XSS fix for raw text closing tags in server-rendered HTML.
 
 ## [3.0.28] - 2026-01-31
 
