@@ -110,7 +110,7 @@ export const restoreColor = (error) => {
 };
 
 /**
- * @param {string|RootObject[]} error
+ * @param {unknown} error
  * @returns {string}
  */
 export function restoreColorSafe(error) {
@@ -121,7 +121,7 @@ export function restoreColorSafe(error) {
     } else if (Array.isArray(error)) {
       return error.map(restoreColor).join("\n\n\n");
     } else {
-      return restoreColor(error);
+      return restoreColor(/** @type {RootObject} */ (error));
     }
   } catch (e) {
     return /** @type {string} */ (error);

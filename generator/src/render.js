@@ -666,7 +666,7 @@ async function runInternalJob(
         )}`;
     }
   } catch (error) {
-    sendError(app, error);
+    sendError(app, /** @type {{message: string; title: string}} */ (error));
   }
 }
 
@@ -704,7 +704,7 @@ async function readFileJobNew(req, patternsToWatch) {
     });
   } catch (error) {
     return jsonResponse(req, {
-      errorCode: error.code,
+      errorCode: /** @type {NodeJS.ErrnoException} */ (error).code,
     });
   }
 }
@@ -1561,7 +1561,11 @@ async function runEncryptJob(req) {
   } catch (e) {
     throw {
       title: "BackendTask Encrypt Error",
-      message: e.toString() + e.stack + "\n\n" + JSON.stringify(req, null, 2),
+      message:
+        e.toString() +
+        /** @type {Error} */ (e).stack +
+        "\n\n" +
+        JSON.stringify(req, null, 2),
     };
   }
 }
@@ -1578,7 +1582,11 @@ async function runDecryptJob(req) {
   } catch (e) {
     throw {
       title: "BackendTask Decrypt Error",
-      message: e.toString() + e.stack + "\n\n" + JSON.stringify(req, null, 2),
+      message:
+        e.toString() +
+        /** @type {Error} */ (e).stack +
+        "\n\n" +
+        JSON.stringify(req, null, 2),
     };
   }
 }

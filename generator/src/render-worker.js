@@ -35,8 +35,11 @@ async function run({ mode, pathname, serverRequest, portsFilePath }) {
       throw `Unknown mode ${mode}`;
     }
   } catch (error) {
-    if (error.errorsJson) {
-      parentPort.postMessage({ tag: "error", data: error.errorsJson });
+    if (/** @type {{errorsJson?: unknown}} */ (error).errorsJson) {
+      parentPort.postMessage({
+        tag: "error",
+        data: /** @type {{errorsJson?: unknown}} */ (error).errorsJson,
+      });
     } else {
       parentPort.postMessage({ tag: "error", data: error });
     }
@@ -57,10 +60,12 @@ async function requireElm(mode) {
   return Elm;
 }
 
-async function outputString(
-  /** @type {Awaited<ReturnType<typeof renderer.render>> & {}} */ fromElm,
-  /** @type string */ pathname
-) {
+/**
+ *
+ * @param {Awaited<ReturnType<typeof renderer.render>>} fromElm
+ * @param {string} pathname
+ */
+async function outputString(fromElm, pathname) {
   switch (fromElm.kind) {
     case "html": {
       const args = fromElm;

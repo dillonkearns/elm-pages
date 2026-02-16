@@ -462,7 +462,7 @@ export async function start(options) {
     } catch (error) {
       let isImplicitContractError = false;
       try {
-        let jsonParsed = JSON.parse(error);
+        let jsonParsed = JSON.parse(/** @type {string} */ (error));
         isImplicitContractError =
           jsonParsed.errors &&
           jsonParsed.errors.some((errorItem) => errorItem.name === "Main");
@@ -485,7 +485,7 @@ export async function start(options) {
           res.end(errorHtml());
         }
       } else {
-        console.log(restoreColorSafe(error));
+        console.log(restoreColorSafe(/** @type {string} */ (error)));
         if (req.url.includes("content.dat")) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(error);
@@ -598,7 +598,7 @@ export async function start(options) {
                 });
                 res.end(renderedHtml);
               } catch (e) {
-                vite.ssrFixStacktrace(e);
+                vite.ssrFixStacktrace(/** @type {Error} */ (e));
                 next(e);
               }
               break;

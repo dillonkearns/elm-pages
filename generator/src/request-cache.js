@@ -40,7 +40,10 @@ export function lookupOrPerform(portsFile, mode, rawRequest) {
 
     if (request.url === "elm-pages-internal://port") {
       try {
-        const { input, portName } = /** @type {{input: unknown, portName: string}} */ (rawRequest.body.args[0]);
+        const { input, portName } =
+          /** @type {{input: unknown, portName: string}} */ (
+            rawRequest.body.args[0]
+          );
 
         if (portBackendTask === null) {
           resolve({
@@ -79,7 +82,7 @@ export function lookupOrPerform(portsFile, mode, rawRequest) {
                 "elm-pages-internal-error": "ErrorInCustomBackendTaskFile",
                 error:
                   (portBackendTaskImportError &&
-                    portBackendTaskImportError.stack) ||
+                    /** @type {Error} */ (portBackendTaskImportError).stack) ||
                   "",
               }),
             });
@@ -193,14 +196,17 @@ export function lookupOrPerform(portsFile, mode, rawRequest) {
           },
         });
       } catch (error) {
-        if (error.code === "ECONNREFUSED") {
+        if (
+          /** @type {NodeJS.ErrnoException} */ (error).code === "ECONNREFUSED"
+        ) {
           resolve({
             kind: "response-json",
             value: { "elm-pages-internal-error": "NetworkError" },
           });
         } else if (
-          error.code === "ETIMEDOUT" ||
-          error.code === "ERR_SOCKET_TIMEOUT"
+          /** @type {NodeJS.ErrnoException} */ (error).code === "ETIMEDOUT" ||
+          /** @type {NodeJS.ErrnoException} */ (error).code ===
+            "ERR_SOCKET_TIMEOUT"
         ) {
           resolve({
             kind: "response-json",

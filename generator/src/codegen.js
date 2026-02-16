@@ -645,5 +645,5 @@ async function listFiles(dir) {
  * @return {T[]}
  */
 function merge(arrays) {
-  return [].concat.apply([], arrays);
+  return /** @type {T[]} */ ([]).concat.apply([], arrays);
 }
