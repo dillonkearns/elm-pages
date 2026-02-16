@@ -62,13 +62,12 @@ frozenContent =
                         |> Review.Test.expectErrorsForModules
                             [ ( "Helpers"
                               , [ Review.Test.error
-                                    { message = "`View.freeze` can only be called from Route modules"
+                                    { message = "`View.freeze` can only be called from Route modules and Shared.elm"
                                     , details =
-                                        [ "Frozen view functions like `View.freeze` are transformed by elm-review during the client-side build to enable dead code elimination (DCE)."
-                                        , "This transformation only works for Route modules (Route.Index, Route.Blog.Slug_, etc.). Calling these functions from other modules like Shared.elm or helper modules will NOT enable DCE - the heavy dependencies will still be included in the client bundle."
+                                        [ "`View.freeze` currently has no effect outside of Shared.elm and your Route modules (files in your `app/Route/` directory)."
                                         , "To fix this, either:"
-                                        , "1. Move the `View.freeze` call into a Route module, or"
-                                        , "2. Create a helper function that returns data/Html and call `View.freeze` in the Route module"
+                                        , "1. Use `View.freeze` in a Route Module (it could simply be `View.freeze (myHelperFunction app.data.user)`)"
+                                        , "2. Remove this invalid use of `View.freeze`"
                                         ]
                                     , under = "View.freeze"
                                     }

@@ -61,12 +61,12 @@ function parseValidationOutput(elmReviewOutput) {
     return { errors: [] };
   }
 
-  // Filter to only StaticRegionScope errors
+  // Filter to only NoInvalidFreeze errors
   const filteredErrors = jsonOutput.errors
     .map((fileErrors) => ({
       path: fileErrors.path,
       errors: fileErrors.errors.filter(
-        (error) => error.rule === "Pages.Review.StaticRegionScope"
+        (error) => error.rule === "Pages.Review.NoInvalidFreeze"
       ),
     }))
     .filter((fileErrors) => fileErrors.errors.length > 0);
@@ -173,30 +173,30 @@ export async function run(options) {
     await buildComplete;
     const clientResult = await compileClientPromise;
 
-    // Check for View.freeze de-optimizations and run validation pass if needed
     const deOptCount = clientResult.deOptimizationCount || 0;
-    if (deOptCount > 0) {
-      // Run StaticRegionScope on ORIGINAL source for nice error messages
-      const validationOutput = await runElmReview();
-      const validationResult = parseValidationOutput(validationOutput);
 
-      if (validationResult.errors.length > 0) {
-        const formatted = restoreColorSafe(validationOutput);
+    // Always run validation on ORIGINAL source for scope and taint checks
+    const validationOutput = await runElmReview();
+    const validationResult = parseValidationOutput(validationOutput);
 
-        if (options.strict) {
-          console.error("\n" + formatted);
-          console.error(`\nBuild failed: ${deOptCount} View.freeze call(s) de-optimized.`);
-          console.error("Use without --strict to continue with warnings.\n");
-          process.exitCode = 1;
-          return;
-        } else {
-          // Show as warnings (build continues) - replace red with yellow for warning appearance
-          const warningFormatted = formatted.replace(/\x1b\[31m/g, '\x1b[33m').replace(/\x1b\[91m/g, '\x1b[93m');
-          console.warn("\n\x1b[33mView.freeze optimization warnings:\x1b[0m\n");
-          console.warn(warningFormatted);
-          console.warn(`\n\x1b[33m${deOptCount} View.freeze call(s) de-optimized (code still works, just without DCE).\x1b[0m\n`);
-        }
+    if (validationResult.errors.length > 0) {
+      const formatted = restoreColorSafe(validationOutput);
+
+      if (options.strict) {
+        console.error("\n" + formatted);
+        console.error("\nBuild failed: View.freeze validation errors detected.");
+        console.error("Use without --strict to continue with warnings.\n");
+        process.exitCode = 1;
+        return;
+      } else {
+        const warningFormatted = formatted.replace(/\x1b\[31m/g, '\x1b[33m').replace(/\x1b\[91m/g, '\x1b[93m');
+        console.warn("\n\x1b[33mView.freeze warnings:\x1b[0m\n");
+        console.warn(warningFormatted);
       }
+    }
+
+    if (deOptCount > 0 && validationResult.errors.length > 0) {
+      console.warn(`\n\x1b[33m${deOptCount} View.freeze call(s) de-optimized (code still works, just without DCE).\x1b[0m\n`);
     }
 
     const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);

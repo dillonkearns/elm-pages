@@ -1,12 +1,13 @@
 module Pages.Review.NoInvalidFreeze exposing (rule)
 
-{-| This rule ensures that frozen view functions are only called from Route modules
-and that model (or values derived from model) is not referenced inside freeze calls.
+{-| This rule ensures that frozen view functions are only called from allowed modules
+(Route modules, View.elm, and Shared.elm) and that model (or values derived from model)
+is not referenced inside freeze calls.
 
 Frozen views (View.freeze) are transformed by elm-review during the client-side build.
-This transformation only works for Route modules. Calling these functions from other
-modules (like Shared.elm or helper modules) will NOT enable DCE - the heavy dependencies
-will still be in the client bundle.
+This transformation only works for Route modules, View.elm, and Shared.elm. Calling
+these functions from helper modules will NOT enable DCE - the heavy dependencies will
+still be in the client bundle.
 
 This rule also tracks taint across module boundaries by collecting function taint
 signatures from each module. For example:
@@ -943,13 +944,12 @@ crossModuleTaintError range functionName =
 frozenViewScopeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
 frozenViewScopeError range functionName =
     Rule.error
-        { message = "`" ++ functionName ++ "` can only be called from Route modules"
+        { message = "`" ++ functionName ++ "` can only be called from Route modules and Shared.elm"
         , details =
-            [ "Frozen view functions like `" ++ functionName ++ "` are transformed by elm-review during the client-side build to enable dead code elimination (DCE)."
-            , "This transformation only works for Route modules (Route.Index, Route.Blog.Slug_, etc.). Calling these functions from other modules like Shared.elm or helper modules will NOT enable DCE - the heavy dependencies will still be included in the client bundle."
+            [ "`" ++ functionName ++ "` currently has no effect outside of Shared.elm and your Route modules (files in your `app/Route/` directory)."
             , "To fix this, either:"
-            , "1. Move the `" ++ functionName ++ "` call into a Route module, or"
-            , "2. Create a helper function that returns data/Html and call `" ++ functionName ++ "` in the Route module"
+            , "1. Use `" ++ functionName ++ "` in a Route Module (it could simply be `View.freeze (myHelperFunction app.data.user)`)"
+            , "2. Remove this invalid use of `" ++ functionName ++ "`"
             ]
         }
         range
