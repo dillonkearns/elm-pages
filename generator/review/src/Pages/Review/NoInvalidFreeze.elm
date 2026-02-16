@@ -341,18 +341,16 @@ declarationEnterVisitor node context =
                     }
 
                 -- Analyze body - if result is tainted, some param flowed through
-                bodyTaint =
-                    Taint.analyzeExpressionTaint paramFlowContext functionDecl.expression
-
                 -- If the body is tainted (with params as tainted), all params could flow through
                 -- A more sophisticated analysis would track exactly which params flow
                 paramsThatTaint =
-                    if bodyTaint == Tainted then
-                        List.range 0 (List.length functionDecl.arguments - 1)
-                            |> Set.fromList
+                    case Taint.analyzeExpressionTaint paramFlowContext functionDecl.expression of
+                        Tainted ->
+                            List.range 0 (List.length functionDecl.arguments - 1)
+                                |> Set.fromList
 
-                    else
-                        Set.empty
+                        Pure ->
+                            Set.empty
 
                 -- Also check if function captures tainted values from outer scope
                 -- (using the actual context with model param info)
@@ -754,18 +752,15 @@ checkCrossModuleCall functionNode args context accErrors =
                                 |> List.indexedMap
                                     (\idx argNode ->
                                         if Set.member idx functionInfo.paramsThatTaintResult then
-                                            let
-                                                argTaint =
-                                                    analyzeExpressionTaint context argNode
-                                            in
-                                            if argTaint == Tainted then
-                                                Just
-                                                    ( Node.range argNode
-                                                    , crossModuleTaintError (Node.range argNode) functionName
-                                                    )
+                                            case analyzeExpressionTaint context argNode of
+                                                Tainted ->
+                                                    Just
+                                                        ( Node.range argNode
+                                                        , crossModuleTaintError (Node.range argNode) functionName
+                                                        )
 
-                                            else
-                                                Nothing
+                                                Pure ->
+                                                    Nothing
 
                                         else
                                             Nothing
