@@ -6,7 +6,8 @@
     "allowJs": true,
     "strict": true,
     "resolveJsonModule": true,
-    "lib": ["es2015", "es2017.object", "esnext", "dom"]
+    "lib": ["es2015", "es2017.object", "esnext", "dom"],
+    "esModuleInterop": true
   },
   "exclude": ["node_modules", "generated"]
 }

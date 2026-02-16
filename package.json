@@ -65,6 +65,7 @@
     "@types/micromatch": "^4.0.10",
     "@types/node": "^25.0.3",
     "@types/serve-static": "^2.2.0",
+    "@types/which": "^3.0.4",
     "cypress": "^15.10.0",
     "elm-codegen": "^0.6.3",
     "elm-optimize-level-2": "^0.3.5",
