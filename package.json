@@ -15,7 +15,10 @@
     "review": "elm-review",
     "format": "prettier . --write --cache --cache-location='node_modules/.cache/.prettiercache' --log-level=warn"
   },
-  "repository": "https://github.com/dillonkearns/elm-pages",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dillonkearns/elm-pages.git"
+  },
   "keywords": [
     "elm",
     "JAMstack",
