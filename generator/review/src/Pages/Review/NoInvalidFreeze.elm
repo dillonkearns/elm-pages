@@ -88,7 +88,7 @@ initialProjectContext =
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
-    , moduleName : ModuleName
+    , isAllowedModule : Bool
     , freezeStack : List Range
     , appParamName : Maybe String
     , sharedModelParamName : Maybe String
@@ -138,7 +138,7 @@ fromProjectToModule =
     Rule.initContextCreator
         (\lookupTable moduleName projectContext ->
             { lookupTable = lookupTable
-            , moduleName = moduleName
+            , isAllowedModule = isAllowedModule moduleName
             , freezeStack = []
             , appParamName = Nothing
             , sharedModelParamName = Nothing
@@ -568,7 +568,7 @@ checkFrozenViewFunctionCall functionNode context =
         Expression.FunctionOrValue _ name ->
             case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
                 Just [ "View" ] ->
-                    if List.member name staticFunctionNames && not (isAllowedModule context.moduleName) then
+                    if List.member name staticFunctionNames && not context.isAllowedModule then
                         Just (frozenViewScopeError (Node.range functionNode) ("View." ++ name))
 
                     else
