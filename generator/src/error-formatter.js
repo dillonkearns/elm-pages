@@ -23,11 +23,12 @@ function parseHeader(rule, path) {
 }
 
 /**
- * parseMsg :: String|Object -> String
- *
  * This function takes in the error message and makes sure that it has the proper formatting
- **/
-/**
+ *
+ * ```elm ish
+ * parseMsg :: String | Object -> String
+ * ```
+ *
  * @param {Message} msg
  * */
 function parseMsg(msg) {
@@ -35,7 +36,7 @@ function parseMsg(msg) {
     return msg;
   } else {
     if (msg.underline && msg.color) {
-      return kleur[toKleurColor(msg.color)]().underline(msg.string);
+      return kleur[toKleurColor(msg.color)]().underline();
     } else if (msg.underline) {
       return kleur.underline(msg.string);
     } else if (msg.color) {

@@ -91,7 +91,7 @@ export async function render(
  * @param {PortsFile} portsFile
  * @param {ElmModule} elmModule
  * @param {string} scriptModuleName
- * @param {string} versionMessage
+ * @param {string} [versionMessage]
  */
 export async function runGenerator(
   cliOptions,

@@ -11,7 +11,12 @@ import * as os from "os";
 import { Worker, SHARE_ENV } from "worker_threads";
 import { ensureDirSync, writeFileIfChanged } from "./file-helpers.js";
 import { needsPortsRecompilation } from "./script-cache.js";
-import { generateClientFolder, generateServerFolder, compareEphemeralFields, formatDisagreementError } from "./codegen.js";
+import {
+  generateClientFolder,
+  generateServerFolder,
+  compareEphemeralFields,
+  formatDisagreementError,
+} from "./codegen.js";
 import { default as which } from "which";
 
 // Cache for which() results to avoid repeated PATH lookups
@@ -160,7 +165,6 @@ export async function run(options) {
         root: process.cwd(),
         base: options.base,
         assetsInclude: ["/elm-pages.js"],
-        ssr: false,
 
         build: {
           manifest: "___vite-manifest___.json",
@@ -193,19 +197,25 @@ export async function run(options) {
 
       if (options.strict) {
         console.error("\n" + formatted);
-        console.error("\nBuild failed: View.freeze validation errors detected.");
+        console.error(
+          "\nBuild failed: View.freeze validation errors detected."
+        );
         console.error("Use without --strict to continue with warnings.\n");
         process.exitCode = 1;
         return;
       } else {
-        const warningFormatted = formatted.replace(/\x1b\[31m/g, '\x1b[33m').replace(/\x1b\[91m/g, '\x1b[93m');
+        const warningFormatted = formatted
+          .replace(/\x1b\[31m/g, "\x1b[33m")
+          .replace(/\x1b\[91m/g, "\x1b[93m");
         console.warn("\n\x1b[33mView.freeze warnings:\x1b[0m\n");
         console.warn(warningFormatted);
       }
     }
 
     if (deOptCount > 0 && validationResult.errors.length > 0) {
-      console.warn(`\n\x1b[33m${deOptCount} View.freeze call(s) de-optimized (code still works, just without DCE).\x1b[0m\n`);
+      console.warn(
+        `\n\x1b[33m${deOptCount} View.freeze call(s) de-optimized (code still works, just without DCE).\x1b[0m\n`
+      );
     }
 
     const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);
@@ -289,7 +299,7 @@ export async function run(options) {
       global.portsFilePath = portsCheck.outputPath;
     }
 
-    global.XMLHttpRequest = {};
+    global.XMLHttpRequest = /** @type {typeof XMLHttpRequest} */ ({});
     const compileCliPromise = compileCliApp(options);
     try {
       const serverResult = await compileCliPromise;
@@ -410,7 +420,10 @@ export async function render(request) {
       });
     } catch (cliError) {
       // Check if this is an ephemeral field disagreement error - re-throw to outer catch
-      if (cliError.message && cliError.message.includes("EPHEMERAL FIELD DISAGREEMENT")) {
+      if (
+        cliError.message &&
+        cliError.message.includes("EPHEMERAL FIELD DISAGREEMENT")
+      ) {
         throw cliError;
       }
 
@@ -591,7 +604,10 @@ async function compileElm(options, config) {
     await runTerser(fullOutputPath);
   }
 
-  return { ephemeralFields: clientResult.ephemeralFields, deOptimizationCount: clientResult.deOptimizationCount || 0 };
+  return {
+    ephemeralFields: clientResult.ephemeralFields,
+    deOptimizationCount: clientResult.deOptimizationCount || 0,
+  };
 }
 
 async function fingerprintElmAsset(fullOutputPath, withoutExtension) {
@@ -713,9 +729,7 @@ function runElmMake(mode, options, elmEntrypointPath, outputPath, cwd) {
       }
     );
     if (await fs.fileExists(outputPath)) {
-      await fsPromises.unlink(outputPath, {
-        force: true /* ignore errors if file doesn't exist */,
-      });
+      await fsPromises.unlink(outputPath);
     }
     let commandOutput = "";
 

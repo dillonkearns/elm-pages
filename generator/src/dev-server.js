@@ -21,7 +21,7 @@ import * as os from "os";
 import { ensureDirSync } from "./file-helpers.js";
 import { baseMiddleware } from "./basepath-middleware.js";
 import * as devcert from "devcert";
-import * as busboy from "busboy";
+import busboy from "busboy";
 import { createServer as createViteServer } from "vite";
 import * as esbuild from "esbuild";
 import { merge_vite_configs } from "./vite-utils.js";
@@ -32,11 +32,13 @@ import { toExactBuffer } from "./binary-helpers.js";
 import * as globby from "globby";
 import { fileURLToPath } from "url";
 
+/** @import {IncomingMessage} from "connect" */
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
+ * @param {{ port: number; base: string; https: boolean; debug: boolean; }} options
  */
 export async function start(options) {
   console.error = function (...messages) {
@@ -279,7 +281,7 @@ export async function start(options) {
     http.createServer(app).listen(port);
   }
   /**
-   * @param {http.IncomingMessage} request
+   * @param {IncomingMessage} request
    * @param {http.ServerResponse} response
    * @param {connect.NextHandleFunction} next
    */
@@ -366,7 +368,7 @@ export async function start(options) {
   });
 
   /**
-   * @param {http.IncomingMessage} request
+   * @param {IncomingMessage} request
    * @param {http.ServerResponse} response
    */
   function handleStream(request, response) {
@@ -383,7 +385,7 @@ export async function start(options) {
 
   /**
    * @param {string} pathThatChanged
-   * @param {'add' | 'unlink' | 'addDir' | 'unlinkDir' | 'change'} eventName
+   * @param {import("chokidar/handler.js").EventName} eventName
    */
   function needToRerunCodegen(eventName, pathThatChanged) {
     return (
@@ -446,7 +448,7 @@ export async function start(options) {
   }
 
   /**
-   * @param {http.IncomingMessage} req
+   * @param {IncomingMessage} req
    * @param {http.ServerResponse} res
    * @param {connect.NextHandleFunction} next
    */
@@ -681,7 +683,7 @@ export async function start(options) {
   }
 
   /**
-   * @returns {Promise<{ ready:boolean; worker: Worker }>}
+   * @returns {Promise<{ ready:boolean; worker: Worker; used: boolean; stale: boolean; }>}
    * */
   function waitForThread() {
     return new Promise((resolve, reject) => {
@@ -820,7 +822,7 @@ async function ensureRequiredExecutables() {
 }
 
 /**
- * @param {http.IncomingMessage} req
+ * @param {IncomingMessage} req
  * @param {string | null} body
  * @param {Date} requestTime
  */
@@ -869,7 +871,7 @@ function reqToJson(req, body, requestTime) {
 }
 
 /**
- * @param {http.IncomingMessage} req
+ * @param {IncomingMessage} req
  * @param {string | null} body
  * @param {Date} requestTime
  * @param {Object | null} multiPartFormData

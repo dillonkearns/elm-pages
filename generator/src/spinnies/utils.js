@@ -55,6 +55,11 @@ export function purgeSpinnerOptions(options) {
   return { ...colors, ...opts };
 }
 
+/**
+ *
+ * @param {Partial<{spinner: any, disableSpins: boolean, color: string, succeedColor: string, failColor: string, spinnerColor: string, succeedPrefix: string, failPrefix: string}>} options
+ * @returns
+ */
 export function purgeSpinnersOptions({ spinner, disableSpins, ...others }) {
   const colors = colorOptions(others);
   const prefixes = prefixOptions(others);
@@ -65,9 +70,12 @@ export function purgeSpinnersOptions({ spinner, disableSpins, ...others }) {
   return { ...colors, ...prefixes, ...disableSpinsOption, spinner };
 }
 
+/**
+ * @param {any} spinner
+ */
 function turnToValidSpinner(spinner = {}) {
   const platformSpinner = terminalSupportsUnicode() ? dots : dashes;
-  if (!typeof spinner === "object") return platformSpinner;
+  if (!(typeof spinner === "object")) return platformSpinner;
   let { interval, frames } = spinner;
   if (!Array.isArray(frames) || frames.length < 1)
     frames = platformSpinner.frames;
@@ -76,6 +84,10 @@ function turnToValidSpinner(spinner = {}) {
   return { interval, frames };
 }
 
+/**
+ * @param {Partial<{ color: string, succeedColor: string, failColor: string, spinnerColor: string }>} options
+ * @returns {{ color: string, succeedColor: string, failColor: string, spinnerColor: string }}
+ */
 export function colorOptions({ color, succeedColor, failColor, spinnerColor }) {
   const colors = { color, succeedColor, failColor, spinnerColor };
   Object.keys(colors).forEach((key) => {

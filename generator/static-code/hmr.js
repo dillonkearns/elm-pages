@@ -499,7 +499,8 @@ function showError_(error) {
 
   setTimeout(function () {
     try {
-      document.getElementById("elm-live:elmErrorBackground").style.opacity = 1;
+      document.getElementById("elm-live:elmErrorBackground").style.opacity =
+        "1";
       document.getElementById("elm-live:elmError").style.transform =
         "rotateX(0deg)";
     } catch (error) {}
@@ -516,7 +517,7 @@ function hideError(velocity) {
     } else {
       try {
         document.getElementById("elm-live:elmErrorBackground").style.opacity =
-          0;
+          "0";
         document.getElementById("elm-live:elmError").style.transform =
           "rotateX(90deg)";
       } catch (error) {}
@@ -542,7 +543,7 @@ function showCompiling_(message) {
   if (!nodeContainer) {
     nodeContainer = document.createElement("div");
     nodeContainer.id = "__elm-pages-loading";
-    nodeContainer.class = "lds-default";
+    nodeContainer.className = "lds-default";
     nodeContainer.style = `
                               position: fixed;
                               bottom: 10px;
@@ -722,7 +723,7 @@ function hideCompiling(velocity) {
   }
 }
 
-/** @typedef { CompilerError | ReportError } RootObject */
+/** @typedef { CompilerError | ReportError | IElmReviewError } RootObject */
 
 /** @typedef { { type: "compile-errors"; errors: Error_[]; } } CompilerError */
 /** @typedef { { type: "error"; path: string; title: string; message: Message[]; } } ReportError */
