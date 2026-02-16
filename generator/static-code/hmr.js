@@ -25,6 +25,11 @@ function connect(sendContentJsonPort, initialErrorPage) {
     setTimeout(tryToSetupFunc, waitFunc());
   }
   function setupEventSource() {
+    // elm-hot re-evaluates the client bundle on every hot update, which calls
+    // connect() again. Ensure we don't leak multiple /stream connections.
+    if (eventSource) {
+      eventSource.close();
+    }
     eventSource = new EventSource("/stream");
     window.reloadOnOk = initialErrorPage;
 

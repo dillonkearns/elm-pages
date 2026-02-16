@@ -28,6 +28,7 @@ import { merge_vite_configs } from "./vite-utils.js";
 import { templateHtml } from "./pre-render-html.js";
 import { resolveConfig } from "./config.js";
 import { extractAndReplaceFrozenViews, replaceFrozenViewPlaceholders } from "./extract-frozen-views.js";
+import { toExactBuffer } from "./binary-helpers.js";
 import * as globby from "globby";
 import { fileURLToPath } from "url";
 
@@ -520,7 +521,7 @@ export async function start(options) {
               const combinedBuffer = Buffer.concat([
                 lengthBuffer,
                 frozenViewsBuffer,
-                Buffer.from(renderResult.contentDatPayload.buffer)
+                toExactBuffer(renderResult.contentDatPayload)
               ]);
               res.writeHead(is404 ? 404 : renderResult.statusCode, {
                 "Content-Type": "application/octet-stream",

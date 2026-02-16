@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { parentPort, threadId, workerData } from "node:worker_threads";
 import * as url from "node:url";
 import { extractAndReplaceFrozenViews, replaceFrozenViewPlaceholders } from "./extract-frozen-views.js";
+import { toExactBuffer } from "./binary-helpers.js";
 
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
@@ -88,7 +89,7 @@ async function outputString(
         const contentDatBuffer = Buffer.concat([
           lengthBuffer,
           frozenViewsBuffer,
-          Buffer.from(args.contentDatPayload.buffer)
+          toExactBuffer(args.contentDatPayload)
         ]);
 
         // Write the combined content.dat for SPA navigation
@@ -105,7 +106,7 @@ async function outputString(
         const htmlBytesBuffer = Buffer.concat([
           emptyLengthBuffer,
           emptyFrozenViewsBuffer,
-          Buffer.from(args.contentDatPayload.buffer)
+          toExactBuffer(args.contentDatPayload)
         ]);
 
         // Update the bytesData in htmlString with the prefixed format

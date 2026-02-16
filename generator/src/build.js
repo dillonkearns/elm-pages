@@ -310,6 +310,7 @@ ${
 
 import * as preRenderHtml from "./pre-render-html.js";
 import { extractAndReplaceFrozenViews } from "./extract-frozen-views.js";
+import { toExactBuffer } from "./binary-helpers.js";
 const basePath = \`${options.base || "/"}\`;
 const htmlTemplate = ${JSON.stringify(processedIndexTemplate)};
 const mode = "build";
@@ -337,7 +338,7 @@ export async function render(request) {
     const contentDatBuffer = Buffer.concat([
       lengthBuffer,
       frozenViewsBuffer,
-      Buffer.from(response.contentDatPayload.buffer)
+      toExactBuffer(response.contentDatPayload)
     ]);
     return {
         body: contentDatBuffer,
@@ -370,7 +371,7 @@ export async function render(request) {
       const htmlBytesBuffer = Buffer.concat([
         emptyLengthBuffer,
         emptyFrozenViewsBuffer,
-        Buffer.from(response.contentDatPayload.buffer)
+        toExactBuffer(response.contentDatPayload)
       ]);
       response.htmlString.bytesData = htmlBytesBuffer.toString("base64");
     }
