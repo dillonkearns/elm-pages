@@ -36,6 +36,8 @@ export function printCaughtError(error, restoreColorSafe) {
     } else {
       console.log(error);
     }
+  } else if (error instanceof Error) {
+    console.error(error.message);
   } else {
     console.trace(error);
   }

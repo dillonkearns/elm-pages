@@ -18,6 +18,10 @@ import {
 } from "./shared.js";
 
 export async function run(elmModulePath, options, options2) {
+  if (elmModulePath === "--help" || elmModulePath === "-h") {
+    options2.outputHelp();
+    return;
+  }
   const unprocessedCliOptions = options2.args.splice(
     options2.processedArgs.length,
     options2.args.length
