@@ -1000,26 +1000,26 @@ async function pipePartToStream(
       newStream = newProcess.stdout;
     }
 
-    // For the last process, we need to track metadata resolution
-    // so we can resolve it even if the process errors
-    let resolveMeta = null;
-    const metadataPromise = isLastProcess
-      ? new Promise((resolve) => {
-          resolveMeta = resolve;
-        })
-      : null;
-
-    newProcess.once("error", (error) => {
-      newStream && newStream.end();
-      newProcess.removeAllListeners();
-      // Resolve metadata Promise to prevent hanging awaits
-      if (resolveMeta) {
-        resolveMeta({ exitCode: null, error: error.toString() });
-      }
-      resolve({ error: error.toString() });
-    });
-
     if (isLastProcess) {
+      // For the last process, we need to track metadata resolution
+      // so we can resolve it even if the process errors
+      /** @type {((value: ({ exitCode: null; error: string} | { exitCode : number | null; })) => void)} */
+      let resolveMeta;
+
+      const metadataPromise = new Promise((resolve) => {
+        resolveMeta = resolve;
+      });
+
+      newProcess.once("error", (error) => {
+        newStream && newStream.end();
+        newProcess.removeAllListeners();
+        // Resolve metadata Promise to prevent hanging awaits
+        if (resolveMeta) {
+          resolveMeta({ exitCode: null, error: error.toString() });
+        }
+        resolve({ error: error.toString() });
+      });
+
       newProcess.once("exit", (code) => {
         if (code !== 0 && !allowNon0Status) {
           newStream && newStream.end();
@@ -1036,6 +1036,12 @@ async function pipePartToStream(
         metadata: metadataPromise,
       };
     } else {
+      newProcess.once("error", (error) => {
+        newStream && newStream.end();
+        newProcess.removeAllListeners();
+        resolve({ error: error.toString() });
+      });
+
       return { stream: newStream };
     }
   } else if (part.name === "fromString") {
