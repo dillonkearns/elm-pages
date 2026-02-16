@@ -1028,14 +1028,81 @@ update config appMsg model =
                                                    )
 
                                         ResponseSketch.HotUpdate pageData sharedData actionData ->
-                                            loadDataAndUpdateUrl
-                                                ( pageData, sharedData, actionData )
-                                                Nothing
-                                                pendingUrl
-                                                pendingUrl
-                                                False
-                                                config
-                                                clearedModel
+                                            let
+                                                stayingOnSamePath_ : Bool
+                                                stayingOnSamePath_ =
+                                                    pendingUrl.path == model.url.path
+
+                                                isSubmission_ : Bool
+                                                isSubmission_ =
+                                                    case model.transition of
+                                                        Just ( _, Pages.Navigation.Submitting _ ) ->
+                                                            True
+
+                                                        _ ->
+                                                            False
+
+                                                updatedPageData_ : { userModel : userModel, sharedData : sharedData, actionData : Maybe actionData, pageData : pageData }
+                                                updatedPageData_ =
+                                                    { userModel = userModel_
+                                                    , sharedData = sharedData
+                                                    , pageData = pageData
+                                                    , actionData = actionData
+                                                    }
+
+                                                ( userModel_, userEffect_ ) =
+                                                    if stayingOnSamePath_ then
+                                                        ( previousPageData.userModel, NoEffect )
+
+                                                    else
+                                                        config.update model.pageFormState
+                                                            (model.inFlightFetchers |> toFetcherState)
+                                                            (model.transition |> Maybe.map Tuple.second)
+                                                            sharedData
+                                                            pageData
+                                                            model.key
+                                                            (config.onPageChange
+                                                                { protocol = model.url.protocol
+                                                                , host = model.url.host
+                                                                , port_ = model.url.port_
+                                                                , path = urlPathToPath pendingUrl
+                                                                , query = pendingUrl.query
+                                                                , fragment = pendingUrl.fragment
+                                                                , metadata = config.urlToRoute pendingUrl
+                                                                }
+                                                            )
+                                                            previousPageData.userModel
+                                                            |> Tuple.mapSecond UserCmd
+
+                                                updatedModel_ : Model userModel pageData actionData sharedData
+                                                updatedModel_ =
+                                                    { clearedModel
+                                                        | url = pendingUrl
+                                                        , pageData = Ok updatedPageData_
+                                                        , transition = Nothing
+                                                    }
+
+                                                onActionMsg_ : Maybe userMsg
+                                                onActionMsg_ =
+                                                    actionData |> Maybe.andThen config.onActionData
+                                            in
+                                            ( { updatedModel_
+                                                | ariaNavigationAnnouncement = mainView config updatedModel_ |> .title
+                                                , currentPath = pendingUrl.path
+                                              }
+                                            , if not isSubmission_ && not stayingOnSamePath_ then
+                                                Batch [ ScrollToTop, userEffect_ ]
+
+                                              else
+                                                userEffect_
+                                            )
+                                                |> (case onActionMsg_ of
+                                                        Just actionMsg_ ->
+                                                            withUserMsg config actionMsg_
+
+                                                        Nothing ->
+                                                            identity
+                                                   )
 
                                         _ ->
                                             ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
