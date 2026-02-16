@@ -689,34 +689,29 @@ checkTaintedReference node context =
                         ( [], context )
 
         -- Check for model.field or taintedVar.field
-        Expression.RecordAccess innerExpr (Node _ fieldName) ->
-            case Node.value innerExpr of
-                Expression.FunctionOrValue [] varName ->
-                    case lookupBinding varName context of
-                        Just Tainted ->
-                            reportErrorIfNew (Node.range node)
-                                (taintedValueError (Node.range node) varName)
-                                context
+        Expression.RecordAccess (Node _ (Expression.FunctionOrValue [] varName)) (Node _ fieldName) ->
+            case lookupBinding varName context of
+                Just Tainted ->
+                    reportErrorIfNew (Node.range node)
+                        (taintedValueError (Node.range node) varName)
+                        context
 
-                        Just Pure ->
-                            ( [], context )
-
-                        Nothing ->
-                            if context.modelParamName == Just varName || context.sharedModelParamName == Just varName then
-                                reportErrorIfNew (Node.range node)
-                                    (modelInFreezeError (Node.range node))
-                                    context
-
-                            else if context.appParamName == Just varName && List.member fieldName runtimeAppFields then
-                                reportErrorIfNew (Node.range node)
-                                    (runtimeAppFieldError (Node.range node) fieldName)
-                                    context
-
-                            else
-                                ( [], context )
-
-                _ ->
+                Just Pure ->
                     ( [], context )
+
+                Nothing ->
+                    if context.modelParamName == Just varName || context.sharedModelParamName == Just varName then
+                        reportErrorIfNew (Node.range node)
+                            (modelInFreezeError (Node.range node))
+                            context
+
+                    else if context.appParamName == Just varName && List.member fieldName runtimeAppFields then
+                        reportErrorIfNew (Node.range node)
+                            (runtimeAppFieldError (Node.range node) fieldName)
+                            context
+
+                    else
+                        ( [], context )
 
         -- Check for cross-module function calls with tainted arguments
         Expression.Application (functionNode :: args) ->
