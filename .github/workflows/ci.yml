@@ -109,7 +109,7 @@ jobs:
           path-to-elm: ./node_modules/.bin/elm
       - id: npm-publish
         if: github.ref == 'refs/heads/master'
-        uses: JS-DevTools/npm-publish@v1
+        uses: JS-DevTools/npm-publish@v3
         with:
           token: ${{ secrets.NPM_TOKEN }}
   # windows-snapshots:
