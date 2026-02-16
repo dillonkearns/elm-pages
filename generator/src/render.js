@@ -46,14 +46,15 @@ process.on("unhandledRejection", (error) => {
 let foundErrors;
 
 /**
- *
  * @param {string} basePath
  * @param {Object} elmModule
  * @param {string} path
- * @param {{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }} request
+ * @param {{method: string;hostname: string;query: Record<string, string | undefined>;headers: Record<string, string>;host: string;pathname: string;port: number | null;protocol: string;rawUrl: string;}} request
  * @param {(pattern: string) => void} addBackendTaskWatcher
  * @param {boolean} hasFsAccess
  * @returns
+ * @param {any} portsFile
+ * @param {string} mode
  */
 export async function render(
   portsFile,
@@ -787,8 +788,8 @@ function runStream(req, portsFile) {
 /**
  * @param {?import('node:stream').Stream} lastStream
  * @param {StreamPart} part
- * @param {{ cwd: string; quiet: boolean; env: object; }} param2
- * @param {{ [x: string]: (arg0: any, arg1: { cwd: string; quiet: boolean; env: object; }) => any; }} portsFile
+ * @param {{ cwd: string; quiet: boolean; env: NodeJS.ProcessEnv; }} param2
+ * @param {{ [x: string]: (arg0: any, arg1: { cwd: string; quiet: boolean; env: NodeJS.ProcessEnv; }) => any; }} portsFile
  * @param {((value: any) => void) | ((arg0: { error: any; }) => void) } resolve
  * @param {boolean} isLastProcess
  * @param {string} kind
@@ -960,6 +961,7 @@ async function pipePartToStream(
     const { command, args, allowNon0Status, output } = part;
     /** @type {'ignore' | 'inherit'} } */
     let letPrint = quiet ? "ignore" : "inherit";
+    /** @type {'ignore' | 'inherit' | 'pipe'} } */
     let stderrKind = kind === "none" && isLastProcess ? letPrint : "pipe";
     if (output === "Ignore") {
       stderrKind = "ignore";
