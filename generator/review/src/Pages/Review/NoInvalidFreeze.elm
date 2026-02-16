@@ -186,17 +186,18 @@ reportErrorIfNew :
     Range
     -> Error {}
     -> ModuleContext
+    -> List (Error {})
     -> ( List (Error {}), ModuleContext )
-reportErrorIfNew range error context =
+reportErrorIfNew range error context accErrors =
     let
         rangeKey =
             rangeToComparable range
     in
     if Set.member rangeKey context.reportedRanges then
-        ( [], context )
+        ( accErrors, context )
 
     else
-        ( [ error ]
+        ( error :: accErrors
         , { context | reportedRanges = Set.insert rangeKey context.reportedRanges }
         )
 
@@ -206,17 +207,14 @@ reportErrorIfNew range error context =
 collectErrors :
     List ( Range, Error {} )
     -> ModuleContext
+    -> List (Error {})
     -> ( List (Error {}), ModuleContext )
-collectErrors errorPairs context =
+collectErrors errorPairs context accErrors =
     List.foldl
-        (\( range, error ) ( accErrors, accContext ) ->
-            let
-                ( newErrors, newContext ) =
-                    reportErrorIfNew range error accContext
-            in
-            ( accErrors ++ newErrors, newContext )
+        (\( range, error ) ( accErrors_, accContext ) ->
+            reportErrorIfNew range error accContext accErrors_
         )
-        ( [], context )
+        ( accErrors, context )
         errorPairs
 
 
@@ -547,11 +545,7 @@ checkFreezeCall node context =
                                 []
                     in
                     if contextWithFreeze.freezeCallDepth > 0 then
-                        let
-                            ( taintErrors, finalContext ) =
-                                checkTaintedReference node contextWithFreeze
-                        in
-                        ( taintedConditionalError ++ taintErrors, finalContext )
+                        checkTaintedReference node contextWithFreeze taintedConditionalError
 
                     else
                         ( taintedConditionalError, contextWithFreeze )
@@ -559,7 +553,7 @@ checkFreezeCall node context =
         Nothing ->
             -- Not a function call form - check taint if in freeze
             if context.freezeCallDepth > 0 then
-                checkTaintedReference node context
+                checkTaintedReference node context []
 
             else
                 ( [], context )
@@ -669,14 +663,14 @@ caseBranchExitVisitor _ _ context =
 {-| Check if an expression inside freeze is tainted, including cross-module function calls.
 Uses deduplication to avoid reporting multiple errors at the same location.
 -}
-checkTaintedReference : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
-checkTaintedReference node context =
+checkTaintedReference : Node Expression -> ModuleContext -> List (Error {}) -> ( List (Error {}), ModuleContext )
+checkTaintedReference node context accErrors =
     case Node.value node of
         -- Check for tainted local variable
         Expression.FunctionOrValue [] varName ->
             if context.modelParamName == Just varName || context.sharedModelParamName == Just varName then
                 -- model itself is handled by more specific checks (RecordAccess)
-                ( [], context )
+                ( accErrors, context )
 
             else
                 case lookupBinding varName context of
@@ -684,9 +678,10 @@ checkTaintedReference node context =
                         reportErrorIfNew (Node.range node)
                             (taintedValueError (Node.range node) varName)
                             context
+                            accErrors
 
                     _ ->
-                        ( [], context )
+                        ( accErrors, context )
 
         -- Check for model.field or taintedVar.field
         Expression.RecordAccess (Node _ (Expression.FunctionOrValue [] varName)) (Node _ fieldName) ->
@@ -695,44 +690,47 @@ checkTaintedReference node context =
                     reportErrorIfNew (Node.range node)
                         (taintedValueError (Node.range node) varName)
                         context
+                        accErrors
 
                 Just Pure ->
-                    ( [], context )
+                    ( accErrors, context )
 
                 Nothing ->
                     if context.modelParamName == Just varName || context.sharedModelParamName == Just varName then
                         reportErrorIfNew (Node.range node)
                             (modelInFreezeError (Node.range node))
                             context
+                            accErrors
 
                     else if context.appParamName == Just varName && List.member fieldName runtimeAppFields then
                         reportErrorIfNew (Node.range node)
                             (runtimeAppFieldError (Node.range node) fieldName)
                             context
+                            accErrors
 
                     else
-                        ( [], context )
+                        ( accErrors, context )
 
         -- Check for cross-module function calls with tainted arguments
         Expression.Application (functionNode :: args) ->
-            checkCrossModuleCall functionNode args context
+            checkCrossModuleCall functionNode args context accErrors
 
         -- Pipe operator
         Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
-            checkPipeExpression leftExpr rightExpr context
+            checkPipeExpression leftExpr rightExpr context accErrors
 
         -- Case expression
         Expression.CaseExpression caseBlock ->
-            checkCaseExpression caseBlock.expression context
+            checkCaseExpression caseBlock.expression context accErrors
 
         _ ->
-            ( [], context )
+            ( accErrors, context )
 
 
 {-| Check if a cross-module function call passes tainted values.
 -}
-checkCrossModuleCall : Node Expression -> List (Node Expression) -> ModuleContext -> ( List (Error {}), ModuleContext )
-checkCrossModuleCall functionNode args context =
+checkCrossModuleCall : Node Expression -> List (Node Expression) -> ModuleContext -> List (Error {}) -> ( List (Error {}), ModuleContext )
+checkCrossModuleCall functionNode args context accErrors =
     case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
         Just moduleName ->
             case Node.value functionNode of
@@ -765,23 +763,23 @@ checkCrossModuleCall functionNode args context =
                                             Nothing
                                     )
                                 |> List.filterMap identity
-                                |> (\errorPairs -> collectErrors errorPairs context)
+                                |> (\errorPairs -> collectErrors errorPairs context accErrors)
 
                         Nothing ->
                             -- Unknown function (external package) - no error
-                            ( [], context )
+                            ( accErrors, context )
 
                 _ ->
-                    ( [], context )
+                    ( accErrors, context )
 
         Nothing ->
-            ( [], context )
+            ( accErrors, context )
 
 
 {-| Check pipe expressions for tainted values.
 -}
-checkPipeExpression : Node Expression -> Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
-checkPipeExpression leftExpr rightExpr context =
+checkPipeExpression : Node Expression -> Node Expression -> ModuleContext -> List (Error {}) -> ( List (Error {}), ModuleContext )
+checkPipeExpression leftExpr rightExpr context accErrors =
     case Node.value rightExpr of
         Expression.RecordAccessFunction fieldName ->
             case Node.value leftExpr of
@@ -790,11 +788,13 @@ checkPipeExpression leftExpr rightExpr context =
                         reportErrorIfNew (Node.range leftExpr)
                             (accessorOnModelError (Node.range leftExpr))
                             context
+                            accErrors
 
                     else if context.appParamName == Just varName && List.member fieldName runtimeAppFields then
                         reportErrorIfNew (Node.range leftExpr)
                             (accessorOnRuntimeAppFieldError (Node.range leftExpr) fieldName)
                             context
+                            accErrors
 
                     else
                         case lookupBinding varName context of
@@ -802,32 +802,35 @@ checkPipeExpression leftExpr rightExpr context =
                                 reportErrorIfNew (Node.range leftExpr)
                                     (taintedValueError (Node.range leftExpr) varName)
                                     context
+                                    accErrors
 
                             _ ->
-                                ( [], context )
+                                ( accErrors, context )
 
                 _ ->
-                    ( [], context )
+                    ( accErrors, context )
 
         _ ->
-            ( [], context )
+            ( accErrors, context )
 
 
 {-| Check case expressions on tainted values.
 -}
-checkCaseExpression : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
-checkCaseExpression exprNode context =
+checkCaseExpression : Node Expression -> ModuleContext -> List (Error {}) -> ( List (Error {}), ModuleContext )
+checkCaseExpression exprNode context accErrors =
     case Node.value exprNode of
         Expression.FunctionOrValue [] varName ->
             if context.modelParamName == Just varName || context.sharedModelParamName == Just varName then
                 reportErrorIfNew (Node.range exprNode)
                     (caseOnModelError (Node.range exprNode))
                     context
+                    accErrors
 
             else if context.appParamName == Just varName then
                 reportErrorIfNew (Node.range exprNode)
                     (caseOnAppError (Node.range exprNode))
                     context
+                    accErrors
 
             else
                 case lookupBinding varName context of
@@ -1001,4 +1004,3 @@ freezeInTaintedContextError range =
             ]
         }
         range
-
