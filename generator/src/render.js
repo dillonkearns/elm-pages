@@ -1,5 +1,7 @@
 // @ts-check
 
+/** @import { PortToElm, PortFromElm } from "elm" */
+
 import * as path from "node:path";
 import { default as mm } from "micromatch";
 import { default as matter } from "gray-matter";
@@ -19,7 +21,7 @@ import * as readline from "readline";
 import { spawn as spawnCallback } from "cross-spawn";
 import * as consumers from "stream/consumers";
 import * as zlib from "node:zlib";
-import { Readable, Writable } from "node:stream";
+import Stream, { Readable, Writable } from "node:stream";
 import * as validateStream from "./validate-stream.js";
 import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 import mergeStreams from "@sindresorhus/merge-streams";
@@ -46,12 +48,13 @@ process.on("unhandledRejection", (error) => {
 let foundErrors;
 
 /**
- *
+ * @param {PortsFile} portsFile
  * @param {string} basePath
- * @param {Object} elmModule
+ * @param {ElmModule} elmModule
+ * @param {string} mode
  * @param {string} path
- * @param {{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }} request
- * @param {(pattern: string) => void} addBackendTaskWatcher
+ * @param {ParsedRequest} request
+ * @param {(pattern: Set<string>) => void} addBackendTaskWatcher
  * @param {boolean} hasFsAccess
  * @returns
  */
@@ -70,7 +73,7 @@ export async function render(
   foundErrors = false;
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
-  global.XMLHttpRequest = {};
+  global.XMLHttpRequest = /** @type {typeof XMLHttpRequest} */ ({});
   const result = await runElmApp(
     portsFile,
     basePath,
@@ -84,10 +87,9 @@ export async function render(
 }
 
 /**
- * @param {Object} elmModule
- * @returns
  * @param {string[]} cliOptions
- * @param {any} portsFile
+ * @param {PortsFile} portsFile
+ * @param {ElmModule} elmModule
  * @param {string} scriptModuleName
  * @param {string} versionMessage
  */
@@ -104,7 +106,7 @@ export async function runGenerator(
   foundErrors = false;
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
-  global.XMLHttpRequest = {};
+  global.XMLHttpRequest = /** @type {typeof XMLHttpRequest} */ ({});
   try {
     const result = await runGeneratorAppHelp(
       cliOptions,
@@ -123,16 +125,15 @@ export async function runGenerator(
   }
 }
 /**
- * @param {string} basePath
- * @param {Object} elmModule
- * @param {string} pagePath
- * @param {string} mode
- * @returns {Promise<({is404: boolean;} & ({kind: 'json';contentJson: string;} | {kind: 'html';htmlString: string;} | {kind: 'api-response';body: string;}))>}
  * @param {string[]} cliOptions
- * @param {any} portsFile
- * @param {typeof import("fs") | import("memfs").IFs} fs
+ * @param {PortsFile} portsFile
+ * @param {string} basePath
+ * @param {ElmModule} elmModule
  * @param {string} scriptModuleName
+ * @param {string} mode
+ * @param {string} pagePath
  * @param {string} versionMessage
+ * @returns {Promise<({is404: boolean;} & ({kind: 'json';contentJson: string;} | {kind: 'html';htmlString: string;} | {kind: 'api-response';body: string;}))|void>}
  */
 function runGeneratorAppHelp(
   cliOptions,
@@ -146,6 +147,7 @@ function runGeneratorAppHelp(
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
+  /** @type {ScriptApp | null} */
   let app = null;
   let killApp;
   // Handle version flag with early return
@@ -176,12 +178,12 @@ function runGeneratorAppHelp(
       // delete require.cache[require.resolve(compiledElmPath)];
     };
 
-    async function portHandler(/** @type { FromElm }  */ newThing) {
-      let fromElm;
+    async function portHandler(/** @type {FromElm} */ newThing) {
+      /** @type {FromElm} */
+      let fromElm = newThing;
       let contentDatPayload;
 
-      fromElm = newThing;
-      if (fromElm.command === "log") {
+      if ("command" in fromElm && fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
         // Finished successfully
@@ -213,10 +215,7 @@ function runGeneratorAppHelp(
           Object.fromEntries(
             await Promise.all(
               fromElm.args[0].map(([requestHash, requestToPerform]) => {
-                if (
-                  requestToPerform.url !== "elm-pages-internal://port" &&
-                  requestToPerform.url.startsWith("elm-pages-internal://")
-                ) {
+                if (isInternalRequest(requestToPerform)) {
                   return runInternalJob(
                     requestHash,
                     app,
@@ -254,12 +253,13 @@ function runGeneratorAppHelp(
 }
 
 /**
+ * @param {PortsFile} portsFile
  * @param {string} basePath
- * @param {Object} elmModule
- * @param {string} pagePath
+ * @param {ElmModule} elmModule
  * @param {string} mode
- * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} request
- * @param {(pattern: string) => void} addBackendTaskWatcher
+ * @param {string} pagePath
+ * @param {ParsedRequest} request
+ * @param {(pattern: Set<string>) => void} addBackendTaskWatcher
  * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
  */
 function runElmApp(
@@ -273,6 +273,7 @@ function runElmApp(
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
+  /** @type {MainApp | null} */
   let app = null;
   let killApp;
   return new Promise((resolve, reject) => {
@@ -302,16 +303,25 @@ function runElmApp(
       // delete require.cache[require.resolve(compiledElmPath)];
     };
 
-    async function portHandler(/** @type { FromElm }  */ newThing) {
+    async function portHandler(
+      /** @type { FromElm | { oldThing: FromElm; binaryPageData: unknown } }  */ newThing
+    ) {
+      /** @type { FromElm } */
       let fromElm;
       let contentDatPayload;
       if ("oldThing" in newThing) {
-        fromElm = newThing.oldThing;
-        contentDatPayload = newThing.binaryPageData;
+        fromElm =
+          /** @type {{ oldThing: FromElm; binaryPageData: unknown }} */ (
+            newThing
+          ).oldThing;
+        contentDatPayload =
+          /** @type {{ oldThing: FromElm; binaryPageData: unknown }} */ (
+            newThing
+          ).binaryPageData;
       } else {
         fromElm = newThing;
       }
-      if (fromElm.command === "log") {
+      if ("command" in fromElm && fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
         const args = fromElm.args[0];
@@ -348,10 +358,7 @@ function runElmApp(
           Object.fromEntries(
             await Promise.all(
               fromElm.args[0].map(([requestHash, requestToPerform]) => {
-                if (
-                  requestToPerform.url !== "elm-pages-internal://port" &&
-                  requestToPerform.url.startsWith("elm-pages-internal://")
-                ) {
+                if (isInternalRequest(requestToPerform)) {
                   return runInternalJob(
                     requestHash,
                     app,
@@ -393,13 +400,9 @@ function runElmApp(
  * @param {string} basePath
  * @param {PageProgress} fromElm
  * @param {boolean} isDevServer
+ * @param {unknown} contentDatPayload
  */
-async function outputString(
-  basePath,
-  /** @type { PageProgress } */ fromElm,
-  isDevServer,
-  contentDatPayload
-) {
+async function outputString(basePath, fromElm, isDevServer, contentDatPayload) {
   const args = fromElm.args[0];
   let contentJson = {};
   contentJson["staticData"] = args.contentJson;
@@ -421,15 +424,85 @@ async function outputString(
   };
 }
 
-/** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; } } FromElm */
+/** @typedef {{ cwd: string; quiet: boolean; env: Record<string, string | undefined>; captureOutput: boolean }} Context */
+/** @typedef {{ [x: string]: (arg0: any, arg1: Context) => Promise<{metadata: any; stream: Stream | null}> }} PortsFile */
+
+// Elm module & app types
+/** @typedef {{ mode: string; compatibilityKey: number; request: { payload: Payload; kind: string; jsonOnly: boolean } }} MainFlags */
+/** @typedef {{ path: string; method: string; hostname: string; query: Record<string, string | unknown>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string }} ParsedRequest */
+/** @typedef {ParsedRequest} Payload */
+/** @typedef {{ compatibilityKey: number; argv: string[]; versionMessage: string; colorMode: boolean }} ScriptFlags */
+
+// Port types
+/** @typedef {{ toJsPort: PortFromElm<FromElm>; fromJsPort: PortToElm<{ tag: string; data: { message: string; title: string } }>; gotBatchSub: PortToElm<unknown> }} Ports */
+/** @typedef {{ ports: Ports & { sendPageData: PortFromElm<FromElm> }; die(): void }} MainApp */
+/** @typedef {{ ports: Ports; die(): void }} ScriptApp */
+/** @typedef {{ Elm: { Main: { init(options?: { node?: Node; flags: MainFlags }): MainApp }; ScriptMain: { init(options?: { node?: Node; flags: ScriptFlags }): ScriptApp } } }} ElmModule */
+
+// Messages from Elm
+/**
+ * @typedef {{ tag: ""; command: "log"; value: unknown } | { tag: "ApiResponse"; args: [PageProgressArg] } | { tag: "PageProgress"; args: [PageProgressArg] } | { tag: "DoHttp"; args: [DoHttpArg] } | { tag: "Errors"; args: [{ errorsJson: unknown }] }} FromElm
+ */
+/** @typedef {{ tag: "PageProgress"; args: [PageProgressArg] }} PageProgress */
+/** @typedef {{ headers: unknown; statusCode: unknown; route: string; is404: unknown; contentJson: unknown; body?: unknown; html?: unknown }} PageProgressArg */
+/** @typedef {{ tag: "ApiResponse"; args: [PageProgressArg] }} ApiResponse */
+/** @typedef {{ tag: "DoHttp"; args: [DoHttpArg] }} DoHttp */
+/** @typedef {[string, Pages_StaticHttp_Request | InternalRequest][]} DoHttpArg */
+/** @typedef {{ tag: "Errors"; args: [{ errorsJson: unknown }] }} Errors */
+
+// SEO tags
 /** @typedef {HeadTag | JsonLdTag} SeoTag */
 /** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
-/** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */
+/** @typedef {{ contents: unknown; type: 'json-ld' }} JsonLdTag */
 
-/** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
+// HTTP request types
+/** @typedef {{ url: string; method: string; headers: [string, string][]; body: Pages_Internal_StaticHttpBody; cacheOptions: unknown | null; env: Record<string, string | undefined>; dir: string[]; quiet: boolean }} Pages_StaticHttp_Request */
+/** @typedef {Pages_Internal_EmptyBody | Pages_Internal_StringBody | Pages_Internal_JsonBody<unknown> | Pages_Internal_BytesBody} Pages_Internal_StaticHttpBody */
+/** @typedef {{ tag: "EmptyBody"; args: [] }} Pages_Internal_EmptyBody */
+/** @typedef {{ tag: "StringBody"; args: [string, string] }} Pages_Internal_StringBody */
+/**
+ * @template T
+ * @typedef {{ tag: "JsonBody"; args: [T] }} Pages_Internal_JsonBody
+ */
+/** @typedef {{ tag: "BytesBody"; args: [string, string] }} Pages_Internal_BytesBody */
 
-/** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
+// Internal request types
+/** @typedef {LogRequest | ReadFileRequest | ReadFileBinaryRequest | GlobRequest | RandomSeedRequest | NowRequest | EnvRequest | EncryptRequest | DecryptRequest | WriteFileRequest | SleepRequest | WhichRequest | QuestionRequest | ReadKeyRequest | ShellRequest | StreamRequest | StartSpinnerRequest | StopSpinnerRequest} InternalRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://log"; body: Pages_Internal_JsonBody<{ message: string }> }} LogRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://read-file"; body: Pages_Internal_StringBody }} ReadFileRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://read-file-binary"; body: Pages_Internal_StringBody }} ReadFileBinaryRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://glob"; body: Pages_Internal_JsonBody<{ pattern: string; options: object }> }} GlobRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://randomSeed" }} RandomSeedRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://now" }} NowRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://env"; body: Pages_Internal_JsonBody<string> }} EnvRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://encrypt"; body: Pages_Internal_JsonBody<{ values: unknown; secret: string }> }} EncryptRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://decrypt"; body: Pages_Internal_JsonBody<{ input: string; secrets: string[] }> }} DecryptRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://write-file"; body: Pages_Internal_JsonBody<{ path: string; body: string }> }} WriteFileRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://sleep"; body: Pages_Internal_JsonBody<{ milliseconds: number }> }} SleepRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://which"; body: Pages_Internal_JsonBody<string> }} WhichRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://question"; body: Pages_Internal_JsonBody<{ prompt: string }> }} QuestionRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://readKey" }} ReadKeyRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://shell"; body: Pages_Internal_JsonBody<{ captureOutput: boolean; commands: ElmCommand[] }> }} ShellRequest */
+/** @typedef {{ command: string; args: string[]; timeout: number | null }} ElmCommand */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://stream"; body: Pages_Internal_JsonBody<{ kind: "none" | "text" | "json"; parts: StreamPart[] }> }} StreamRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://start-spinner"; body: Pages_Internal_JsonBody<{ text: string; spinnerId?: string; immediateStart: boolean }> }} StartSpinnerRequest */
+/** @typedef {Pages_StaticHttp_Request & { url: "elm-pages-internal://stop-spinner"; body: Pages_Internal_JsonBody<{ spinnerId: string; completionFn: string; completionText: string | null }> }} StopSpinnerRequest */
 
+// Internal response types
+/** @typedef {[string, JsonResponse | BytesResponse]} InternalResponse */
+/** @typedef {{ request: InternalRequest; response: { bodyKind: "json"; body: unknown } }} JsonResponse */
+/** @typedef {{ request: InternalRequest; response: { bodyKind: "bytes"; body: string } }} BytesResponse */
+
+// Stream part types
+/** @typedef {{ name: "unzip" } | { name: "gzip" } | { name: "stdin" } | { name: "stdout" } | { name: "stderr" } | { name: "fromString"; string: string } | { name: "command"; command: string; args: string[]; allowNon0Status: boolean; output: "Ignore" | "Print" | "MergeWithStdout" | "InsteadOfStdout"; timeoutInMs?: number | null } | { name: "httpWrite"; url: string; method: string; headers: Record<string, string>; retries?: number | null; timeoutInMs?: number | null } | { name: "fileRead"; path: string } | { name: "fileWrite"; path: string } | { name: "customRead"; portName: string; input: unknown } | { name: "customWrite"; portName: string; input: unknown } | { name: "customDuplex"; portName: string; input: unknown }} StreamPart */
+
+/**
+ * @param {string} requestHash
+ * @param {PortsFile} portsFile
+ * @param {string} mode
+ * @param {Pages_StaticHttp_Request} requestToPerform
+ * @returns
+ */
 async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
   try {
     const lookupResponse = await lookupOrPerform(
@@ -466,12 +539,22 @@ async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
   }
 }
 
+/**
+ * @param {InternalRequest} request
+ * @param {string} string
+ * @returns {{ request: InternalRequest; response: { bodyKind: "string"; body: string } }}
+ */
 function stringResponse(request, string) {
   return {
     request,
     response: { bodyKind: "string", body: string },
   };
 }
+/**
+ * @param {InternalRequest} request
+ * @param {unknown} json
+ * @returns {JsonResponse}
+ */
 function jsonResponse(request, json) {
   return {
     request,
@@ -479,8 +562,9 @@ function jsonResponse(request, json) {
   };
 }
 /**
- * @param {any} request
- * @param {WithImplicitCoercion<ArrayBuffer | SharedArrayBuffer>} buffer
+ * @param {InternalRequest} request
+ * @param {Uint8Array | Int32Array} buffer
+ * @returns {BytesResponse}
  */
 function bytesResponse(request, buffer) {
   return {
@@ -493,7 +577,24 @@ function bytesResponse(request, buffer) {
 }
 
 /**
- * @param {{ url: string; body: { args: any[] } }} requestToPerform
+ * Type guard to check if a request is an internal request
+ * @param {Pages_StaticHttp_Request} request
+ * @returns {request is InternalRequest}
+ */
+function isInternalRequest(request) {
+  return (
+    request.url !== "elm-pages-internal://port" &&
+    request.url.startsWith("elm-pages-internal://")
+  );
+}
+
+/**
+ * @param {string} requestHash
+ * @param {MainApp | ScriptApp} app
+ * @param {InternalRequest} requestToPerform
+ * @param {Set<string>} patternsToWatch
+ * @param {PortsFile} portsFile
+ * @returns {Promise<InternalResponse | undefined>}
  */
 async function runInternalJob(
   requestHash,
@@ -532,20 +633,11 @@ async function runInternalJob(
       case "elm-pages-internal://now":
         return [requestHash, jsonResponse(requestToPerform, Date.now())];
       case "elm-pages-internal://env":
-        return [
-          requestHash,
-          await runEnvJob(requestToPerform, patternsToWatch),
-        ];
+        return [requestHash, await runEnvJob(requestToPerform)];
       case "elm-pages-internal://encrypt":
-        return [
-          requestHash,
-          await runEncryptJob(requestToPerform, patternsToWatch),
-        ];
+        return [requestHash, await runEncryptJob(requestToPerform)];
       case "elm-pages-internal://decrypt":
-        return [
-          requestHash,
-          await runDecryptJob(requestToPerform, patternsToWatch),
-        ];
+        return [requestHash, await runDecryptJob(requestToPerform)];
       case "elm-pages-internal://write-file":
         return [requestHash, await runWriteFileJob(requestToPerform)];
       case "elm-pages-internal://sleep":
@@ -575,7 +667,8 @@ async function runInternalJob(
 }
 
 /**
- * @param {{ dir: string[]; quiet: boolean; env: { [key:string]: string; }; }} requestToPerform
+ * @param {Pages_StaticHttp_Request} requestToPerform
+ * @returns {Context}
  */
 function getContext(requestToPerform) {
   const cwd = path.resolve(...requestToPerform.dir);
@@ -585,6 +678,10 @@ function getContext(requestToPerform) {
   return { cwd, quiet, env };
 }
 
+/**
+ * @param {ReadFileRequest} req
+ * @param {Set<string>} patternsToWatch
+ */
 async function readFileJobNew(req, patternsToWatch) {
   const cwd = path.resolve(...req.dir);
   // TODO use cwd
@@ -609,8 +706,8 @@ async function readFileJobNew(req, patternsToWatch) {
 }
 
 /**
- * @param {{ url: string; body: { args: any[] } }} req
- * @param {{ add: (arg0: string) => void; }} patternsToWatch
+ * @param {ReadFileBinaryRequest} req
+ * @param {Set<string>} patternsToWatch
  */
 async function readFileBinaryJobNew(req, patternsToWatch) {
   const filePath = req.body.args[1];
@@ -636,6 +733,7 @@ async function readFileBinaryJobNew(req, patternsToWatch) {
   }
 }
 
+/** @param {SleepRequest} req */
 function runSleep(req) {
   const { milliseconds } = req.body.args[0];
   return new Promise((resolve) => {
@@ -645,6 +743,7 @@ function runSleep(req) {
   });
 }
 
+/** @param {WhichRequest} req */
 async function runWhich(req) {
   const command = req.body.args[0];
   try {
@@ -654,6 +753,7 @@ async function runWhich(req) {
   }
 }
 
+/** @param {QuestionRequest} req */
 async function runQuestion(req) {
   return jsonResponse(req, await question(req.body.args[0]));
 }
@@ -662,10 +762,15 @@ async function runReadKey(req) {
   return jsonResponse(req, await readKey());
 }
 
+/**
+ * @param {StreamRequest} req
+ * @param {PortsFile} portsFile
+ */
 function runStream(req, portsFile) {
   return new Promise(async (resolve) => {
     const context = getContext(req);
     let metadataResponse = null;
+    /** @type {Stream | null} */
     let lastStream = null;
     try {
       const kind = req.body.args[0].kind;
@@ -692,7 +797,9 @@ function runStream(req, portsFile) {
       }
       if (kind === "json") {
         try {
-          const body = await consumers.json(lastStream);
+          const body = await consumers.json(
+            /** @type {import('node:stream').Readable} */ (lastStream)
+          );
           const metadata = await tryCallingFunction(metadataResponse);
           resolve(jsonResponse(req, { body, metadata }));
         } catch (error) {
@@ -700,7 +807,9 @@ function runStream(req, portsFile) {
         }
       } else if (kind === "text") {
         try {
-          const body = await consumers.text(lastStream);
+          const body = await consumers.text(
+            /** @type {import('node:stream').Readable} */ (lastStream)
+          );
           const metadata = await tryCallingFunction(metadataResponse);
           resolve(jsonResponse(req, { body, metadata }));
         } catch (error) {
@@ -743,14 +852,14 @@ function runStream(req, portsFile) {
 }
 
 /**
- * @param {?import('node:stream').Stream} lastStream
- * @param {{name: string; path?: string}} part
- * @param {{cwd: string;quiet: boolean;env: object;}} param2
- * @param {{ [x: string]: (arg0: any, arg1: { cwd: string; quiet: boolean; env: object; }) => any; }} portsFile
- * @param {{ (value: any): void; (arg0: { error: any; }): void; }} resolve
+ * @param {Stream} lastStream
+ * @param {{name: string; path?: string; portName?: string; input?: unknown}} part
+ * @param {Context} options
+ * @param {PortsFile} portsFile
+ * @param {{ (value: unknown): void; (arg0: { error: any; }): void; }} resolve
  * @param {boolean} isLastProcess
  * @param {string} kind
- * @returns {Promise<{stream: import('node:stream').Stream;metadata?: any;}>}
+ * @returns {Promise<{stream: Stream;metadata?: any;}>}
  */
 async function pipePartToStream(
   lastStream,
@@ -1048,7 +1157,7 @@ function endStreamIfNoInput(stream) {
   stream.once("error", (err) => {
     // EPIPE: "broken pipe" - the other end closed before we finished
     // This is expected if the child process exits quickly
-    if (err.code !== "EPIPE") {
+    if (/** @type {NodeJS.ErrnoException} */ (err).code !== "EPIPE") {
       // Log unexpected errors but don't crash - this is cleanup code
       console.error("Stream end error:", err.message);
     }
@@ -1087,6 +1196,7 @@ async function tryCallingFunction(func) {
   }
 }
 
+/** @param {ShellRequest} req */
 async function runShell(req) {
   const cwd = path.resolve(...req.dir);
   const quiet = req.quiet;
@@ -1175,10 +1285,7 @@ export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
 }
 
 /**
- * @typedef {{ command: string, args: string[], timeout: number? }} ElmCommand
- */
-
-/**
+ * @param {Context} context
  * @param {{ commands: ElmCommand[] }} commandsAndArgs
  */
 export function pipeShells(
@@ -1190,11 +1297,10 @@ export function pipeShells(
       console.log(commandAndArgsToString(cwd, commandsAndArgs));
     }
 
-    /**
-     * @type {null | import('node:child_process').ChildProcess}
-     */
+    /** @type {import('node:child_process').ChildProcess} */
     let previousProcess = null;
-    let currentProcess = null;
+    /** @type {import('node:child_process').ChildProcess} */
+    let currentProcess;
 
     commandsAndArgs.commands.forEach(({ command, args, timeout }, index) => {
       let isLastProcess = index === commandsAndArgs.commands.length - 1;
@@ -1322,6 +1428,7 @@ export async function readKey() {
   });
 }
 
+/** @param {WriteFileRequest} req */
 async function runWriteFileJob(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -1341,6 +1448,7 @@ async function runWriteFileJob(req) {
   }
 }
 
+/** @param {StartSpinnerRequest} req */
 function runStartSpinner(req) {
   const data = req.body.args[0];
   let spinnerId;
@@ -1358,6 +1466,7 @@ function runStartSpinner(req) {
   return jsonResponse(req, spinnerId);
 }
 
+/** @param {StopSpinnerRequest} req */
 function runStopSpinner(req) {
   const data = req.body.args[0];
   const { spinnerId, completionText, completionFn } = data;
@@ -1372,6 +1481,10 @@ function runStopSpinner(req) {
   return jsonResponse(req, null);
 }
 
+/**
+ * @param {GlobRequest} req
+ * @param {Set<string>} patternsToWatch
+ */
 async function runGlobNew(req, patternsToWatch) {
   try {
     const { pattern, options } = req.body.args[0];
@@ -1411,6 +1524,7 @@ async function runGlobNew(req, patternsToWatch) {
   }
 }
 
+/** @param {LogRequest} req */
 async function runLogJob(req) {
   try {
     console.log(req.body.args[0].message);
@@ -1420,7 +1534,8 @@ async function runLogJob(req) {
     throw e;
   }
 }
-async function runEnvJob(req, patternsToWatch) {
+/** @param {EnvRequest} req */
+async function runEnvJob(req) {
   try {
     const expectedEnv = req.body.args[0];
     return jsonResponse(req, process.env[expectedEnv] || null);
@@ -1429,7 +1544,8 @@ async function runEnvJob(req, patternsToWatch) {
     throw e;
   }
 }
-async function runEncryptJob(req, patternsToWatch) {
+/** @param {EncryptRequest} req */
+async function runEncryptJob(req) {
   try {
     return jsonResponse(
       req,
@@ -1441,12 +1557,12 @@ async function runEncryptJob(req, patternsToWatch) {
   } catch (e) {
     throw {
       title: "BackendTask Encrypt Error",
-      message:
-        e.toString() + e.stack + "\n\n" + JSON.stringify(rawRequest, null, 2),
+      message: e.toString() + e.stack + "\n\n" + JSON.stringify(req, null, 2),
     };
   }
 }
-async function runDecryptJob(req, patternsToWatch) {
+/** @param {DecryptRequest} req */
+async function runDecryptJob(req) {
   try {
     // TODO if unsign returns `false`, need to have an `Err` in Elm because decryption failed
     const signed = tryDecodeCookie(
@@ -1458,14 +1574,13 @@ async function runDecryptJob(req, patternsToWatch) {
   } catch (e) {
     throw {
       title: "BackendTask Decrypt Error",
-      message:
-        e.toString() + e.stack + "\n\n" + JSON.stringify(rawRequest, null, 2),
+      message: e.toString() + e.stack + "\n\n" + JSON.stringify(req, null, 2),
     };
   }
 }
 
 /**
- * @param {{ ports: { fromJsPort: { send: (arg0: { tag: string; data: any; }) => void; }; }; }} app
+ * @param {MainApp | ScriptApp} app
  * @param {{ message: string; title: string; }} error
  */
 function sendError(app, error) {

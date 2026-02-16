@@ -9,15 +9,11 @@ const defaultHttpCachePath = "./.elm-pages/http-cache";
 
 /**
  * @param {string} mode
- * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body; }} rawRequest
+ * @param {import("./render.js").Pages_StaticHttp_Request} rawRequest
  * @param {Record<string, unknown>} portsFile
  * @returns {Promise<Response>}
  */
-export function lookupOrPerform(
-  portsFile,
-  mode,
-  rawRequest
-) {
+export function lookupOrPerform(portsFile, mode, rawRequest) {
   const uniqueTimeId =
     Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const timeStart = (message) => {

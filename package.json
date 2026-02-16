@@ -62,6 +62,7 @@
     "@types/connect": "~3.4.38",
     "@types/cookie-signature": "~1.1.2",
     "@types/cross-spawn": "^6.0.6",
+    "@types/elm": "^0.19.6",
     "@types/fs-extra": "^11.0.4",
     "@types/jsesc": "~3.0.3",
     "@types/make-fetch-happen": "^10.0.4",
