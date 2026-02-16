@@ -482,10 +482,10 @@ function jsonResponse(request, json) {
 }
 
 /**
- * @template R
- * @param {R} request
- * @param {import("node:buffer").WithImplicitCoercion<ArrayBuffer | SharedArrayBuffer>} buffer
- * @returns {{ request: R; response: { bodyKind: "bytes"; body: string; }}}
+ * @template B
+ * @param {InternalJobWith<string, B>} request
+ * @param {Uint8Array | Int32Array} buffer
+ * @returns {{ request: InternalJobWith<string, B>; response: { bodyKind: "bytes"; body: string; }}}
  */
 function bytesResponse(request, buffer) {
   return {
@@ -498,11 +498,26 @@ function bytesResponse(request, buffer) {
 }
 
 /**
+ * @template U
+ * @template A
+ * @typedef {{ url: U; body: { args: A } }} InternalJobWith<U,A>
+ */
+
+/**
+ * @typedef {InternalJobWith<"elm-pages-internal://log", [{message: string}]>} InternalLogJob
+ * @typedef {InternalJobWith<"elm-pages-internal://env", [string]>} InternalEnvJob
+ * @typedef {InternalJobWith<"elm-pages-internal://read-file", [unknown, string]> & { dir: string[]; }} InternalReadFileJob
+ * @typedef {InternalJobWith<"elm-pages-internal://read-file-binary", [unknown, string]>} InternalReadFileBinaryJob
+ * @typedef {InternalLogJob | InternalEnvJob | InternalReadFileJob | InternalReadFileBinaryJob} InternalJob
+ *
+ */
+
+/**
  * @param {any} requestHash
  * @param {any} app
  * @param {any} patternsToWatch
  * @param {any} portsFile
- * @param {{ url: string; body: { args: any[] } }} requestToPerform
+ * @param {InternalJob} requestToPerform
  */
 async function runInternalJob(
   requestHash,
@@ -541,10 +556,7 @@ async function runInternalJob(
       case "elm-pages-internal://now":
         return [requestHash, jsonResponse(requestToPerform, Date.now())];
       case "elm-pages-internal://env":
-        return [
-          requestHash,
-          await runEnvJob(requestToPerform, patternsToWatch),
-        ];
+        return [requestHash, await runEnvJob(requestToPerform)];
       case "elm-pages-internal://encrypt":
         return [
           requestHash,
@@ -593,7 +605,12 @@ function getContext(requestToPerform) {
 
   return { cwd, quiet, env };
 }
-
+/**
+ *
+ * @param {InternalReadFileJob} req
+ * @param {{add(pattern: string): void}} patternsToWatch
+ * @returns
+ */
 async function readFileJobNew(req, patternsToWatch) {
   const cwd = path.resolve(...req.dir);
   // TODO use cwd
@@ -618,7 +635,7 @@ async function readFileJobNew(req, patternsToWatch) {
 }
 
 /**
- * @param {{ url: string; body: { args: any[] } }} req
+ * @param {InternalReadFileBinaryJob} req
  * @param {{ add: (arg0: string) => void; }} patternsToWatch
  */
 async function readFileBinaryJobNew(req, patternsToWatch) {
@@ -1482,23 +1499,22 @@ async function runGlobNew(req, patternsToWatch) {
 }
 
 /**
- * @param {{ url?: string; body: any; }} req
+ * @param {InternalLogJob} req
  */
 async function runLogJob(req) {
   try {
     console.log(req.body.args[0].message);
     return jsonResponse(req, null);
   } catch (e) {
-    console.log(`Error performing env '${JSON.stringify(req.body)}'`);
+    console.log(`Error performing log '${JSON.stringify(req.body)}'`);
     throw e;
   }
 }
 
 /**
- * @param {{ url?: string; body: any; }} req
- * @param {any} patternsToWatch
+ * @param {InternalEnvJob} req
  */
-async function runEnvJob(req, patternsToWatch) {
+async function runEnvJob(req) {
   try {
     const expectedEnv = req.body.args[0];
     return jsonResponse(req, process.env[expectedEnv] || null);
