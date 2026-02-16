@@ -27,7 +27,10 @@ import * as esbuild from "esbuild";
 import { merge_vite_configs } from "./vite-utils.js";
 import { templateHtml } from "./pre-render-html.js";
 import { resolveConfig } from "./config.js";
-import { extractAndReplaceFrozenViews, replaceFrozenViewPlaceholders } from "./extract-frozen-views.js";
+import {
+  extractAndReplaceFrozenViews,
+  replaceFrozenViewPlaceholders,
+} from "./extract-frozen-views.js";
 import { toExactBuffer } from "./binary-helpers.js";
 import * as globby from "globby";
 import { fileURLToPath } from "url";
@@ -189,7 +192,6 @@ export async function start(options) {
       {
         server: {
           middlewareMode: true,
-          base: options.base,
           port: options.port,
         },
         assetsInclude: ["/elm-pages.js"],
@@ -283,7 +285,7 @@ export async function start(options) {
   /**
    * @param {IncomingMessage} request
    * @param {http.ServerResponse} response
-   * @param {connect.NextHandleFunction} next
+   * @param {import("connect").NextFunction} next
    */
   function processRequest(request, response, next) {
     if (request.url && request.url.startsWith("/stream")) {
@@ -430,7 +432,7 @@ export async function start(options) {
         }
       });
       readyThread.worker.on("error", (error) => {
-        reject(error.context);
+        reject(/** @type {any} */ (error).context);
       });
     })
       .then(onOk)
@@ -450,7 +452,7 @@ export async function start(options) {
   /**
    * @param {IncomingMessage} req
    * @param {http.ServerResponse} res
-   * @param {connect.NextHandleFunction} next
+   * @param {import("connect").NextFunction} next
    */
   async function handleNavigationRequest(req, res, next) {
     const urlParts = new URL(req.url || "", `https://localhost:${port}`);
@@ -518,15 +520,16 @@ export async function start(options) {
               // Create combined format for content.dat
               // Format: [4 bytes: frozen views JSON length][N bytes: JSON][remaining: ResponseSketch]
               // Extract frozen views from the HTML (needed for SPA navigation)
-              const { regions: frozenViews, html: updatedHtml } = extractAndReplaceFrozenViews(renderResult.html || "");
+              const { regions: frozenViews, html: updatedHtml } =
+                extractAndReplaceFrozenViews(renderResult.html || "");
               const frozenViewsJson = JSON.stringify(frozenViews);
-              const frozenViewsBuffer = Buffer.from(frozenViewsJson, 'utf8');
+              const frozenViewsBuffer = Buffer.from(frozenViewsJson, "utf8");
               const lengthBuffer = Buffer.alloc(4);
               lengthBuffer.writeUInt32BE(frozenViewsBuffer.length, 0);
               const combinedBuffer = Buffer.concat([
                 lengthBuffer,
                 frozenViewsBuffer,
-                toExactBuffer(renderResult.contentDatPayload)
+                toExactBuffer(renderResult.contentDatPayload),
               ]);
               res.writeHead(is404 ? 404 : renderResult.statusCode, {
                 "Content-Type": "application/octet-stream",
@@ -556,24 +559,26 @@ export async function start(options) {
 
                 // Replace __STATIC__ placeholders in HTML with indices
                 // (but don't include frozen views in bytesData - they're already in the rendered DOM)
-                const updatedHtml = replaceFrozenViewPlaceholders(info.html || "");
+                const updatedHtml = replaceFrozenViewPlaceholders(
+                  info.html || ""
+                );
 
                 // Create combined format with empty frozen views for initial page load
                 // (frozen views are already in the DOM, so client adopts from there)
                 const emptyFrozenViews = {};
                 const frozenViewsJson = JSON.stringify(emptyFrozenViews);
-                const frozenViewsBuffer = Buffer.from(frozenViewsJson, 'utf8');
+                const frozenViewsBuffer = Buffer.from(frozenViewsJson, "utf8");
                 const lengthBuffer = Buffer.alloc(4);
                 lengthBuffer.writeUInt32BE(frozenViewsBuffer.length, 0);
 
                 // Decode original bytesData and prepend empty frozen views header
-                const originalBytes = Buffer.from(info.bytesData, 'base64');
+                const originalBytes = Buffer.from(info.bytesData, "base64");
                 const combinedBuffer = Buffer.concat([
                   lengthBuffer,
                   frozenViewsBuffer,
-                  originalBytes
+                  originalBytes,
                 ]);
-                const combinedBytesData = combinedBuffer.toString('base64');
+                const combinedBytesData = combinedBuffer.toString("base64");
 
                 const renderedHtml = processedTemplate
                   .replace(

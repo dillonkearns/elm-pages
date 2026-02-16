@@ -26,8 +26,11 @@ async function run({ pathname, serverRequest }) {
     );
     console.log("Compiling DONE");
 
-    const portsFilePath =
-      ".elm-pages/compiled-ports/custom-backend-task-FA2IJND6.js";
+    const portsFilePath = /** @type {import("./render.js").PortsFile} */ (
+      /** @type {unknown} */ (
+        ".elm-pages/compiled-ports/custom-backend-task-FA2IJND6.js"
+      )
+    );
     const mode = "dev-server";
 
     const renderResult = await renderer.render(

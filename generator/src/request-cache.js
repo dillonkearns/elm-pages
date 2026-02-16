@@ -40,7 +40,7 @@ export function lookupOrPerform(portsFile, mode, rawRequest) {
 
     if (request.url === "elm-pages-internal://port") {
       try {
-        const { input, portName } = rawRequest.body.args[0];
+        const { input, portName } = /** @type {{input: unknown, portName: string}} */ (rawRequest.body.args[0]);
 
         if (portBackendTask === null) {
           resolve({

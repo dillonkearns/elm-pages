@@ -36,7 +36,7 @@ function parseMsg(msg) {
     return msg;
   } else {
     if (msg.underline && msg.color) {
-      return kleur[toKleurColor(msg.color)]().underline();
+      return kleur.underline(kleur[toKleurColor(msg.color)](msg.string));
     } else if (msg.underline) {
       return kleur.underline(msg.string);
     } else if (msg.color) {
@@ -68,7 +68,7 @@ function toKleurColor(color) {
     }
     return "red";
   } else {
-    return color.toLowerCase();
+    return /** @type {keyof import("kleur").Kleur} */ (color.toLowerCase());
   }
 }
 
@@ -97,7 +97,9 @@ export const restoreColor = (error) => {
         )
         .join("\n\n\n\n\n");
     } else if (error.type === "error") {
-      return restoreProblem(error.path)(error);
+      return restoreProblem(error.path)(
+        /** @type {Problem} */ (/** @type {unknown} */ (error))
+      );
     } else {
       throw `Unexpected error ${JSON.stringify(error, null, 2)}`;
     }
@@ -122,7 +124,7 @@ export function restoreColorSafe(error) {
       return restoreColor(error);
     }
   } catch (e) {
-    return error;
+    return /** @type {string} */ (error);
   }
 }
 
@@ -133,18 +135,18 @@ export function restoreColorSafe(error) {
  **/
 const restoreProblem =
   (/** @type {string} */ path) => (/** @type {Problem | IError} */ info) => {
-    if (info.rule && info.formatted) {
+    if ("rule" in info && "formatted" in info) {
       return [
         parseHeader(info.rule, path),
-        ...info.formatted.map(parseMsg),
+        .../** @type {Message[]} */ (info.formatted).map(parseMsg),
       ].join("");
     } else if (typeof info.message === "string") {
       return info.message;
     } else {
       // console.log("info.message", info.message);
       return [
-        parseHeader(info.title, path),
-        ...info.message.map(parseMsg),
+        parseHeader(/** @type {Problem} */ (info).title, path),
+        .../** @type {Message[]} */ (info.message).map(parseMsg),
       ].join("");
     }
   };
