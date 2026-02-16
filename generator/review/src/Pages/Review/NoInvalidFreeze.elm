@@ -479,59 +479,67 @@ isFreezeNode context (Node range expr) =
 
 
 expressionEnterVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
-expressionEnterVisitor ((Node range expr) as node) context =
+expressionEnterVisitor node context =
     -- First, track entering tainted conditionals (if/case)
-    let
-        contextWithTaintedContext =
-            case expr of
-                Expression.IfBlock cond _ _ ->
-                    let
-                        condTaint =
-                            analyzeExpressionTaint context cond
-                    in
-                    case analyzeExpressionTaint context cond of
-                        Tainted ->
-                            { context | taintedContext = range :: context.taintedContext }
+    context
+        |> trackEnteringTaintedConditionals node
+        |> checkFreezeCall node
 
-                        Pure ->
-                            context
 
-                Expression.CaseExpression { expression } ->
-                    case analyzeExpressionTaint context expression of
-                        Tainted ->
-                            { context | taintedContext = range :: context.taintedContext }
+trackEnteringTaintedConditionals : Node Expression -> ModuleContext -> ModuleContext
+trackEnteringTaintedConditionals (Node range expr) context =
+    case expr of
+        Expression.IfBlock cond _ _ ->
+            let
+                condTaint =
+                    analyzeExpressionTaint context cond
+            in
+            case analyzeExpressionTaint context cond of
+                Tainted ->
+                    { context | taintedContext = range :: context.taintedContext }
 
-                        Pure ->
-                            context
-
-                _ ->
+                Pure ->
                     context
-    in
+
+        Expression.CaseExpression { expression } ->
+            case analyzeExpressionTaint context expression of
+                Tainted ->
+                    { context | taintedContext = range :: context.taintedContext }
+
+                Pure ->
+                    context
+
+        _ ->
+            context
+
+
+checkFreezeCall : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+checkFreezeCall node context =
     case extractFreezeCallNode node of
         Just functionNode ->
             -- Check if this is a call to a frozen view function
-            case checkFrozenViewFunctionCall functionNode contextWithTaintedContext of
+            case checkFrozenViewFunctionCall functionNode context of
                 Just scopeError ->
                     -- Report scope error and don't enter freeze mode (no point checking taint)
-                    ( [ scopeError ], contextWithTaintedContext )
+                    ( [ scopeError ], context )
 
                 Nothing ->
                     -- No scope error - check if entering freeze and track taint
                     let
                         isEnteringFreeze =
-                            isFreezeNode contextWithTaintedContext functionNode
+                            isFreezeNode context functionNode
 
                         contextWithFreeze =
                             if isEnteringFreeze then
-                                { contextWithTaintedContext | freezeCallDepth = contextWithTaintedContext.freezeCallDepth + 1 }
+                                { context | freezeCallDepth = context.freezeCallDepth + 1 }
 
                             else
-                                contextWithTaintedContext
+                                context
 
                         -- Check if we're entering a View.freeze while inside a tainted conditional
                         -- (only report on first entry to freeze, not on nested freezes)
                         taintedConditionalError =
-                            if isEnteringFreeze && contextWithTaintedContext.freezeCallDepth == 0 && not (List.isEmpty contextWithTaintedContext.taintedContext) then
+                            if isEnteringFreeze && context.freezeCallDepth == 0 && not (List.isEmpty context.taintedContext) then
                                 -- Just entered freeze while inside tainted conditional
                                 [ freezeInTaintedContextError (Node.range functionNode) ]
 
@@ -550,11 +558,11 @@ expressionEnterVisitor ((Node range expr) as node) context =
 
         Nothing ->
             -- Not a function call form - check taint if in freeze
-            if contextWithTaintedContext.freezeCallDepth > 0 then
-                checkTaintedReference node contextWithTaintedContext
+            if context.freezeCallDepth > 0 then
+                checkTaintedReference node context
 
             else
-                ( [], contextWithTaintedContext )
+                ( [], context )
 
 
 {-| Check if a function call is to a frozen view function and if the current module is allowed.
