@@ -3,15 +3,13 @@ module Route.Docs.Section__ exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import BackendTask.File
 import BackendTask.Glob as Glob exposing (Glob)
-import Css
-import Css.Global
 import DocsSection exposing (Section)
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Heroicon
-import Html.Styled as Html exposing (Html)
-import Html.Styled.Attributes as Attr exposing (css)
+import Html exposing (Html)
+import Html.Attributes as Attr
 import List.Extra
 import Markdown.Block as Block exposing (Block)
 import Markdown.Parser
@@ -23,9 +21,6 @@ import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import TableOfContents
-import Tailwind.Breakpoints as Bp
-import Tailwind.Theme as Theme
-import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
 import Url
 import View exposing (View)
@@ -41,6 +36,19 @@ type alias Msg =
 
 type alias RouteParams =
     { section : Maybe String }
+
+
+type alias Data =
+    { titles : { title : String }
+    , metadata : { title : String, description : String }
+    , body : List Block
+    , previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item )
+    , editUrl : String
+    }
+
+
+type alias ActionData =
+    {}
 
 
 route : StatelessRoute RouteParams Data ActionData
@@ -72,9 +80,18 @@ pages =
 
 data : RouteParams -> BackendTask FatalError Data
 data routeParams =
-    BackendTask.map4 Data
-        (pageBody routeParams)
+    BackendTask.map4
+        (\titles metadata body editUrl ->
+            { titles = { title = titles.title }
+            , metadata = metadata
+            , body = body
+            , previousAndNext = titles.previousAndNext
+            , editUrl = editUrl
+            }
+        )
         (previousAndNextData routeParams)
+        (routeParams |> filePathBackendTask |> BackendTask.andThen MarkdownCodec.titleAndDescription)
+        (pageBody routeParams)
         (routeParams.section
             |> Maybe.withDefault "what-is-elm-pages"
             |> findBySlug
@@ -82,7 +99,6 @@ data routeParams =
             |> BackendTask.map filePathToEditUrl
             |> BackendTask.allowFatal
         )
-        (routeParams |> filePathBackendTask |> BackendTask.andThen MarkdownCodec.titleAndDescription)
 
 
 filePathToEditUrl : String -> String
@@ -187,18 +203,6 @@ head app =
         |> Seo.website
 
 
-type alias Data =
-    { body : List Block
-    , titles : { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
-    , editUrl : String
-    , metadata : { title : String, description : String }
-    }
-
-
-type alias ActionData =
-    {}
-
-
 view :
     App Data ActionData RouteParams
     -> Shared.Model
@@ -206,82 +210,48 @@ view :
 view app sharedModel =
     { title = app.data.titles.title ++ " - elm-pages docs"
     , body =
-        [ Css.Global.global
-            [ Css.Global.selector ".anchor-icon"
-                [ Css.opacity Css.zero
-                ]
-            , Css.Global.selector "h2:hover .anchor-icon"
-                [ Css.opacity (Css.num 100)
-                ]
-            ]
-        , Html.div
-            [ css
-                [ Tw.flex
-                , Tw.flex_1
-                , Tw.h_full
-                ]
+        [ Html.div
+            [ Attr.class "flex flex-1 h-full"
             ]
             [ TableOfContents.view sharedModel.showMobileMenu True app.routeParams.section app.sharedData
             , Html.article
-                [ css
-                    [ Tw.prose
-                    , Tw.max_w_xl
-
-                    --, Tw.whitespace_normal
-                    --, Tw.mx_auto
-                    , Tw.relative
-                    , Tw.pt_20
-                    , Tw.pb_16
-                    , Tw.px_6
-                    , Tw.w_full
-                    , Tw.max_w_full
-                    , Tw.overflow_x_hidden
-                    , Bp.md
-                        [ Tw.px_8
-                        ]
-                    ]
+                [ Attr.class "prose relative pt-20 pb-16 px-6 w-full max-w-full overflow-x-hidden md:px-8"
                 ]
-                [ Html.div
-                    [ css
-                        [ Tw.max_w_screen_md
-                        , Tw.mx_auto
-                        , Bp.xl [ Tw.pr_36 ]
-                        ]
-                    ]
-                    ((app.data.body
-                        |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
-                        |> Result.withDefault []
-                     )
-                        ++ [ NextPrevious.view app.data.titles.previousAndNext
-                           , Html.hr [] []
-                           , Html.footer
-                                [ css [ Tw.text_right ]
-                                ]
-                                [ Html.a
-                                    [ Attr.href app.data.editUrl
-                                    , Attr.rel "noopener"
-                                    , Attr.target "_blank"
-                                    , css
-                                        [ Tw.text_sm
-                                        , Css.hover
-                                            [ Tw.text_color Theme.gray_800 |> Css.important
-                                            ]
-                                        , Tw.text_color Theme.gray_500 |> Css.important
-                                        , Tw.flex
-                                        , Tw.items_center
-                                        , Tw.float_right
-                                        ]
-                                    ]
-                                    [ Html.span [ css [ Tw.pr_1 ] ] [ Html.text "Suggest an edit on GitHub" ]
-                                    , Heroicon.edit
-                                    ]
-                                ]
-                           ]
-                    )
-                ]
+                [ View.freeze (renderStaticContent app.data) ]
             ]
         ]
     }
+
+
+{-| Render the docs article content. This is static/frozen content that gets
+pre-rendered at build time and hydrated on the client.
+-}
+renderStaticContent : Data -> Html Never
+renderStaticContent pageData =
+    Html.div
+        [ Attr.class "max-w-screen-md mx-auto xl:pr-36"
+        ]
+        ((pageData.body
+            |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+            |> Result.withDefault []
+         )
+            ++ [ NextPrevious.view pageData.previousAndNext
+               , Html.hr [] []
+               , Html.footer
+                    [ Attr.class "text-right"
+                    ]
+                    [ Html.a
+                        [ Attr.href pageData.editUrl
+                        , Attr.rel "noopener"
+                        , Attr.target "_blank"
+                        , Attr.class "text-sm hover:!text-gray-800 !text-gray-500 flex items-center float-right"
+                        ]
+                        [ Html.span [ Attr.class "pr-1" ] [ Html.text "Suggest an edit on GitHub" ]
+                        , Heroicon.edit
+                        ]
+                    ]
+               ]
+        )
 
 
 filePathBackendTask : RouteParams -> BackendTask FatalError String

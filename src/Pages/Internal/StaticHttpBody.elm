@@ -12,6 +12,7 @@ type Body
     | StringBody String String
     | JsonBody Encode.Value
     | BytesBody String Bytes
+    | MultipartBody (List Encode.Value)
 
 
 encode : Body -> Encode.Value
@@ -39,6 +40,11 @@ encode body =
                   )
                 ]
 
+        MultipartBody parts ->
+            encodeWithType "multipart"
+                [ ( "parts", Encode.list identity parts )
+                ]
+
 
 encodeWithType : String -> List ( String, Encode.Value ) -> Encode.Value
 encodeWithType typeName otherFields =
@@ -50,7 +56,7 @@ encodeWithType typeName otherFields =
 codec : Codec Body
 codec =
     Codec.custom
-        (\vEmpty vString vJson vBytes value ->
+        (\vEmpty vString vJson vBytes vMultipart value ->
             case value of
                 EmptyBody ->
                     vEmpty
@@ -63,11 +69,15 @@ codec =
 
                 BytesBody contentType body ->
                     vBytes contentType body
+
+                MultipartBody parts ->
+                    vMultipart parts
         )
         |> Codec.variant0 "EmptyBody" EmptyBody
         |> Codec.variant2 "StringBody" StringBody Codec.string Codec.string
         |> Codec.variant1 "JsonBody" JsonBody Codec.value
         |> Codec.variant2 "BytesBody" BytesBody Codec.string bytesCodec
+        |> Codec.variant1 "MultipartBody" MultipartBody (Codec.list Codec.value)
         |> Codec.buildCustom
 
 

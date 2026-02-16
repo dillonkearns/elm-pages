@@ -1,7 +1,7 @@
 module Link exposing (Link, external, internal, link)
 
-import Html.Styled exposing (Attribute, Html, a)
-import Html.Styled.Attributes as Attr
+import Html exposing (Attribute, Html, a)
+import Html.Attributes as Attr
 import Route exposing (Route)
 
 
@@ -27,7 +27,7 @@ link link_ attrs children =
             Route.toLink
                 (\anchorAttrs ->
                     a
-                        (List.map Attr.fromUnstyled anchorAttrs ++ attrs)
+                        (anchorAttrs ++ attrs)
                         children
                 )
                 route

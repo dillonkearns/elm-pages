@@ -11,7 +11,7 @@
 
 - [elm-pages Docs Site](https://elm-pages.com/docs)
 - [elm-pages site showcase](https://elm-pages.com/showcase/)
-- [elm-pages Elm API Docs](https://package.elm-lang.org/packages/dillonkearns/elm-pages/10.3.0/)
+- [elm-pages Elm API Docs](https://package.elm-lang.org/packages/dillonkearns/elm-pages/11.0.0/)
 - [Quick start repo](https://github.com/dillonkearns/elm-pages-starter) [(live site hosted here)](https://elm-pages-starter.netlify.com)
 - [Introducing `elm-pages` blog post](https://elm-pages.com/blog/introducing-elm-pages)
 - [`examples` folder](https://github.com/dillonkearns/elm-pages/blob/master/examples/) (includes https://elm-pages.com site source) Use `git clone --recurse-submodules https://github.com/dillonkearns/elm-pages.git` so that there aren't missing files when you try to build the examples.
@@ -21,4 +21,4 @@
 You will see an error if the NPM and Elm package do not have a matching Compatibility Key. Usually it's best to upgrade to the latest version of both the Elm and NPM
 packages when you upgrade. However, in case you want to install versions that are behind the latest, the Compatibility Key is included here for reference.
 
-Current Compatibility Key: 23.
+Current Compatibility Key: 24.

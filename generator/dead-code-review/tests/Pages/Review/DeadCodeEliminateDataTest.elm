@@ -8,7 +8,7 @@ import Test exposing (Test, describe, test)
 all : Test
 all =
     describe "dead code elimination"
-        [ test "replaces data record setter" <|
+        [ test "replaces head record setter" <|
             \() ->
                 """module Route.Index exposing (Data, Model, Msg, route)
 
@@ -45,6 +45,107 @@ route : StatelessRoute RouteParams Data ActionData
 route =
    single
        { head = head
+       , data = BackendTask.fail (FatalError.fromString "")
+       }
+       |> RouteBuilder.buildNoState { view = view }
+
+
+head : App Data ActionData RouteParams -> List Head.Tag
+head app =
+    []
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Codemod"
+                            , details =
+                                [ "" ]
+                            , under =
+                                """head = head"""
+                            }
+                            |> Review.Test.whenFixed
+                                """module Route.Index exposing (Data, Model, Msg, route)
+
+import Server.Request as Request
+
+import BackendTask exposing (BackendTask)
+import FatalError
+import RouteBuilder exposing (Page, App, single)
+import Pages.PageUrl exposing (PageUrl)
+import Pages.Url
+import UrlPath
+import Route exposing (Route)
+import Shared
+import View exposing (View)
+
+
+type alias Model =
+   {}
+
+
+type alias Msg =
+   ()
+
+
+type alias RouteParams =
+   {}
+
+
+type alias Data =
+   ()
+
+
+route : StatelessRoute RouteParams Data ActionData
+route =
+   single
+       { head = \\_ -> []
+       , data = BackendTask.fail (FatalError.fromString "")
+       }
+       |> RouteBuilder.buildNoState { view = view }
+
+
+head : App Data ActionData RouteParams -> List Head.Tag
+head app =
+    []
+"""
+                        ]
+        , test "replaces data record setter" <|
+            \() ->
+                """module Route.Index exposing (Data, Model, Msg, route)
+
+import Server.Request as Request
+
+import BackendTask exposing (BackendTask)
+import FatalError
+import RouteBuilder exposing (Page, App, single)
+import Pages.PageUrl exposing (PageUrl)
+import Pages.Url
+import UrlPath
+import Route exposing (Route)
+import Shared
+import View exposing (View)
+
+
+type alias Model =
+   {}
+
+
+type alias Msg =
+   ()
+
+
+type alias RouteParams =
+   {}
+
+
+type alias Data =
+   ()
+
+
+route : StatelessRoute RouteParams Data ActionData
+route =
+   single
+       { head = \\_ -> []
        , data = data
        }
        |> RouteBuilder.buildNoState { view = view }
@@ -99,7 +200,7 @@ type alias Data =
 route : StatelessRoute RouteParams Data ActionData
 route =
    single
-       { head = head
+       { head = \\_ -> []
        , data = BackendTask.fail (FatalError.fromString "")
        }
        |> RouteBuilder.buildNoState { view = view }
@@ -149,7 +250,7 @@ placeholder moduleName =
                                 """module View exposing (View, map, placeholder)
 
 
-import FatalError
+import FatalError as ElmPages__FatalError
 import Html.Styled as Html exposing (Html)
 
 
@@ -208,7 +309,7 @@ type alias Data =
 route : StatelessRoute RouteParams Data ActionData
 route =
    single
-       { head = head
+       { head = \\_ -> []
        , data = data
        }
        |> RouteBuilder.buildNoState { view = view }
@@ -262,7 +363,7 @@ type alias Data =
 route : StatelessRoute RouteParams Data ActionData
 route =
    single
-       { head = head
+       { head = \\_ -> []
        , data = DS.fail (FatalError.fromString "")
        }
        |> RouteBuilder.buildNoState { view = view }
@@ -310,7 +411,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
         { data = data
-        , head = head
+        , head = \\_ -> []
         , pages = BackendTask.fail (FatalError.fromString "")
         }
         |> RouteBuilder.buildNoState { view = view }
@@ -365,7 +466,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
         { data = \\_ -> BackendTask.fail (FatalError.fromString "")
-        , head = head
+        , head = \\_ -> []
         , pages = BackendTask.fail (FatalError.fromString "")
         }
         |> RouteBuilder.buildNoState { view = view }
@@ -413,7 +514,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
         { data = \\_ -> BackendTask.fail (FatalError.fromString "")
-        , head = head
+        , head = \\_ -> []
         , pages = pages
         }
         |> RouteBuilder.buildNoState { view = view }
@@ -469,7 +570,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
         { data = \\_ -> BackendTask.fail (FatalError.fromString "")
-        , head = head
+        , head = \\_ -> []
         , pages = BackendTask.fail (FatalError.fromString "")}
         |> RouteBuilder.buildNoState { view = view }
 
@@ -501,7 +602,7 @@ type alias RouteParams =
 route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
-        { head = head
+        { head = \\_ -> []
         , data = data
         , action = action
         }
@@ -538,7 +639,7 @@ type alias RouteParams =
 route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
-        { head = head
+        { head = \\_ -> []
         , data = \\_ _ -> BackendTask.fail (FatalError.fromString "")
         , action = action
         }
@@ -573,7 +674,7 @@ type alias RouteParams =
 route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
-        { head = head
+        { head = \\_ -> []
         , data = data
         , action = \\_ _ -> BackendTask.fail (FatalError.fromString "")
         }
@@ -602,7 +703,7 @@ type alias RouteParams =
 route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
-        { head = head
+        { head = \\_ -> []
         , data = data
         , action = action
         }
@@ -639,7 +740,7 @@ type alias RouteParams =
 route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
-        { head = head
+        { head = \\_ -> []
         , data = \\_ _ -> BackendTask.fail (FatalError.fromString "")
         , action = action
         }
@@ -674,7 +775,7 @@ type alias RouteParams =
 route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
-        { head = head
+        { head = \\_ -> []
         , data = data
         , action = \\_ _ -> BackendTask.fail (FatalError.fromString "")
         }
@@ -703,7 +804,7 @@ type alias RouteParams =
 route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
-        { head = head
+        { head = \\_ -> []
         , data = \\_ _ -> BackendTask.fail (FatalError.fromString "")
         }
         |> RouteBuilder.buildNoState { view = view }
@@ -746,7 +847,7 @@ type alias Data =
 route : StatelessRoute RouteParams Data ActionData
 route =
    RouteBuilder.single
-       { head = head
+       { head = \\_ -> []
        , data = BackendTask.fail (FatalError.fromString "")
        }
        |> RouteBuilder.buildNoState { view = view }

@@ -189,7 +189,7 @@ escapeRawText kind rawText =
             rawText
 
         RawTextElements ->
-            rawText
+            String.replace "</" "<\\/" rawText
 
         _ ->
             escapeHtml rawText

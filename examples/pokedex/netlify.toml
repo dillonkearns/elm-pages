@@ -1,7 +1,7 @@
 [build]
   functions = "functions/"
   publish = "dist/"
-  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install && npx --no-install elm-tooling install && npm run build:generator) && npm install && npm run generate:tailwind && npm run generate:graphql && npm run build && cp secret-note.txt functions/server-render/"
+  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install && npx --no-install elm-tooling install && npm run build:generator) && npm install && npm run generate:tailwind && npm run build && cp secret-note.txt functions/server-render/"
   ignore = "/bin/false"
 
 [dev]

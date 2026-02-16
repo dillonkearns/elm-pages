@@ -7,6 +7,7 @@ module RouteBuilder exposing
     , preRenderWithFallback, serverRender
     , Builder(..)
     , StatefulRoute
+    , StaticPayload
     )
 
 {-|
@@ -73,6 +74,27 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
 @docs preRender, single
 
 
+## Frozen Views
+
+Use `View.freeze` in your view function to wrap heavy content that should be:
+
+  - Rendered at build time
+  - Adopted by the client without re-rendering
+  - Eliminated from the client bundle via DCE
+
+Example:
+
+    view app shared =
+        { body =
+            [ h1 [] [ text app.data.title ]           -- Persistent, sent to client
+            , View.freeze (render app.data.content)   -- Ephemeral, DCE'd
+            ]
+        }
+
+Fields used only inside `View.freeze` calls are automatically detected and
+removed from the client-side Data type, enabling dead-code elimination.
+
+
 ## Rendering on the Server
 
 @docs preRenderWithFallback, serverRender
@@ -93,7 +115,6 @@ import FatalError exposing (FatalError)
 import Form
 import Head
 import Http
-import Json.Decode
 import Pages.ConcurrentSubmission
 import Pages.Fetcher
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
@@ -150,6 +171,12 @@ type alias App data action routeParams =
     , concurrentSubmissions : Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission (Maybe action))
     , pageFormState : Form.Model
     }
+
+
+{-| Convenience alias for pages.
+-}
+type alias StaticPayload data action routeParams =
+    App data action routeParams
 
 
 {-| -}

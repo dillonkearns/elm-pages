@@ -1,0 +1,19 @@
+{
+  "name": "elm-pages-example",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Example site built with elm-pages.",
+  "scripts": {
+    "start": "elm-pages dev",
+    "serve": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
+    "build": "elm-pages build"
+  },
+  "author": "Dillon Kearns",
+  "license": "BSD-3",
+  "devDependencies": {
+    "cypress": "^14.1.0",
+    "elm-pages": "file:../..",
+    "elm-tooling": "^1.15.1",
+    "http-server": "^14.1.1"
+  }
+}

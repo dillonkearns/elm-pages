@@ -1,5 +1,7 @@
 @import url("styles/elm-syntax.css");
-@import url("styles/normalize.css");
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
 code {
   font-family: "IBM Plex Mono", monospace !important;
 }
@@ -8,3 +10,18 @@ code::before,
 code::after {
   content: "" !important;
 }
+
+/* Global styles moved from Css.Global in Elm */
+.anchor-icon {
+  opacity: 0;
+}
+
+h2:hover .anchor-icon {
+  opacity: 1;
+}
+
+/* Custom color for inline code highlight */
+.text-code-highlight {
+  color: rgb(226, 0, 124);
+}
+

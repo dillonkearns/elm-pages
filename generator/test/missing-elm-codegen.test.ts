@@ -1,5 +1,5 @@
 import { dirname } from "node:path";
-import { existsSync, unlinkSync } from "node:fs";
+import { existsSync, unlinkSync, rmSync } from "node:fs";
 import * as process from "node:process";
 import { fileURLToPath } from "node:url";
 import { sync as spawnSync } from "cross-spawn";
@@ -18,10 +18,11 @@ import { runElmCodegenInstall } from "../src/elm-codegen.js";
 const originalWorkingDir = process.cwd();
 const testDir = dirname(fileURLToPath(import.meta.url));
 const originalPATH = process.env.PATH;
-const [nodeFolder, elmFolder, elmCodegenFolder] = await Promise.all([
+const [nodeFolder, elmFolder, elmCodegenFolder, lamderaFolder] = await Promise.all([
   which("node").then(dirname),
   which("elm").then(dirname),
   which("elm-codegen").then(dirname),
+  which("lamdera").then(dirname).catch(() => null), // lamdera is optional
 ]);
 
 // System paths needed for lamdera to spawn subprocesses
@@ -55,6 +56,9 @@ describe.sequential("runElmCodegenInstall", () => {
   beforeAll(() => {
     process.chdir(`${testDir}/missing-elm-codegen`);
 
+    // Clean up elm-stuff to avoid CORRUPT CACHE errors
+    tryAndIgnore(() => rmSync("elm-stuff", { recursive: true, force: true }));
+
     // Delete this file, if it exists, so we can make sure elm-codegen was
     // really run (because the file will get recreated).
     tryAndIgnore(() => unlinkSync("codegen/Gen/Basics.elm"));
@@ -77,13 +81,9 @@ describe.sequential("runElmCodegenInstall", () => {
   });
 
   describe("via elm-pages run", () => {
-    beforeEach(() => {
-      // Include system paths so lamdera can spawn subprocesses (sh, etc.)
-      process.env.PATH = [nodeFolder, elmFolder, elmCodegenFolder, ...systemPaths].join(":");
-    });
-    afterEach(() => {
-      process.env.PATH = originalPATH;
-    });
+    // Note: We don't restrict PATH here because lamdera may need additional
+    // system tools to function correctly. The "with elm-codegen missing" test
+    // below specifically tests the behavior when elm-codegen is not in PATH.
 
     it("succeeds", async () => {
       expect(existsSync("node_modules/.bin/elm-pages")).toBe(true);

@@ -13,6 +13,7 @@ import * as https from "https";
 import * as codegen from "./codegen.js";
 import * as kleur from "kleur/colors";
 import { default as serveStatic } from "serve-static";
+import { default as mimeTypes } from "mime-types";
 import { default as connect } from "connect";
 import { restoreColorSafe } from "./error-formatter.js";
 import { Worker, SHARE_ENV } from "worker_threads";
@@ -26,6 +27,8 @@ import * as esbuild from "esbuild";
 import { merge_vite_configs } from "./vite-utils.js";
 import { templateHtml } from "./pre-render-html.js";
 import { resolveConfig } from "./config.js";
+import { extractAndReplaceFrozenViews, replaceFrozenViewPlaceholders } from "./extract-frozen-views.js";
+import { toExactBuffer } from "./binary-helpers.js";
 import * as globby from "globby";
 import { fileURLToPath } from "url";
 
@@ -112,14 +115,20 @@ export async function start(options) {
     ignoreInitial: true,
   });
 
-  await codegen.generate(options.base);
+  // Run independent startup tasks in parallel
+  let config;
   try {
-    await ensureRequiredExecutables();
+    const results = await Promise.all([
+      codegen.generate(options.base),
+      ensureRequiredExecutables(),
+      resolveConfig(),
+    ]);
+    config = results[2];
   } catch (error) {
     console.error(error);
     process.exit(1);
   }
-  let clientElmMakeProcess = compileElmForBrowser(options);
+  let clientElmMakeProcess = compileElmForBrowser(options, config);
   let pendingCliCompile = compileCliApp(
     options,
     ".elm-pages/Main.elm",
@@ -173,7 +182,6 @@ export async function start(options) {
     watcher.add(sourceDirs);
   }
 
-  const config = await resolveConfig();
   const vite = await createViteServer(
     merge_vite_configs(
       {
@@ -312,7 +320,7 @@ export async function start(options) {
           clientElmMakeProcess = Promise.reject(errorJson);
           pendingCliCompile = Promise.reject(errorJson);
         } else {
-          clientElmMakeProcess = compileElmForBrowser(options);
+          clientElmMakeProcess = compileElmForBrowser(options, config);
           pendingCliCompile = compileCliApp(
             options,
             ".elm-pages/Main.elm",
@@ -505,11 +513,24 @@ export async function start(options) {
           const is404 = renderResult.is404;
           switch (renderResult.kind) {
             case "bytes": {
+              // Create combined format for content.dat
+              // Format: [4 bytes: frozen views JSON length][N bytes: JSON][remaining: ResponseSketch]
+              // Extract frozen views from the HTML (needed for SPA navigation)
+              const { regions: frozenViews, html: updatedHtml } = extractAndReplaceFrozenViews(renderResult.html || "");
+              const frozenViewsJson = JSON.stringify(frozenViews);
+              const frozenViewsBuffer = Buffer.from(frozenViewsJson, 'utf8');
+              const lengthBuffer = Buffer.alloc(4);
+              lengthBuffer.writeUInt32BE(frozenViewsBuffer.length, 0);
+              const combinedBuffer = Buffer.concat([
+                lengthBuffer,
+                frozenViewsBuffer,
+                toExactBuffer(renderResult.contentDatPayload)
+              ]);
               res.writeHead(is404 ? 404 : renderResult.statusCode, {
                 "Content-Type": "application/octet-stream",
                 ...renderResult.headers,
               });
-              res.end(Buffer.from(renderResult.contentDatPayload.buffer));
+              res.end(combinedBuffer);
               break;
             }
             case "json": {
@@ -530,14 +551,36 @@ export async function start(options) {
                   template
                 );
                 const info = renderResult.htmlString;
+
+                // Replace __STATIC__ placeholders in HTML with indices
+                // (but don't include frozen views in bytesData - they're already in the rendered DOM)
+                const updatedHtml = replaceFrozenViewPlaceholders(info.html || "");
+
+                // Create combined format with empty frozen views for initial page load
+                // (frozen views are already in the DOM, so client adopts from there)
+                const emptyFrozenViews = {};
+                const frozenViewsJson = JSON.stringify(emptyFrozenViews);
+                const frozenViewsBuffer = Buffer.from(frozenViewsJson, 'utf8');
+                const lengthBuffer = Buffer.alloc(4);
+                lengthBuffer.writeUInt32BE(frozenViewsBuffer.length, 0);
+
+                // Decode original bytesData and prepend empty frozen views header
+                const originalBytes = Buffer.from(info.bytesData, 'base64');
+                const combinedBuffer = Buffer.concat([
+                  lengthBuffer,
+                  frozenViewsBuffer,
+                  originalBytes
+                ]);
+                const combinedBytesData = combinedBuffer.toString('base64');
+
                 const renderedHtml = processedTemplate
                   .replace(
                     /<!--\s*PLACEHOLDER_HEAD_AND_DATA\s*-->/,
                     `${info.headTags}
-                  <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${info.bytesData}</script>`
+                  <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${combinedBytesData}</script>`
                   )
                   .replace(/<!--\s*PLACEHOLDER_TITLE\s*-->/, info.title)
-                  .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html)
+                  .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, updatedHtml)
                   .replace(
                     /<!-- ROOT -->\S*<html lang="en">/m,
                     info.rootElement
@@ -560,7 +603,7 @@ export async function start(options) {
                 res.writeHead(serverResponse.statusCode);
                 res.end(serverResponse.body);
               } else if (renderResult.body.kind === "static-file") {
-                let mimeType = serveStatic.mime.lookup(pathname || "text/html");
+                let mimeType = mimeTypes.lookup(pathname) || "text/html";
                 mimeType =
                   mimeType === "application/octet-stream"
                     ? "text/html"
@@ -763,14 +806,15 @@ function errorHtml() {
 }
 
 async function ensureRequiredExecutables() {
-  try {
-    await which("lamdera");
-  } catch (error) {
+  const checks = await Promise.allSettled([
+    which("lamdera"),
+    which("elm-review"),
+  ]);
+
+  if (checks[0].status === "rejected") {
     throw "I couldn't find lamdera on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
-  try {
-    await which("elm-review");
-  } catch (error) {
+  if (checks[1].status === "rejected") {
     throw "I couldn't find elm-review on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
 }

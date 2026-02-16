@@ -22,7 +22,7 @@ all =
                                     |> Expect.equal 500
 
                             _ ->
-                                Expect.fail ("Expected BadStatus, got :" ++ Debug.toString error)
+                                Expect.fail ("Expected BadStatus, got :" ++ "(error)")
 
                     Ok () ->
                         Expect.fail "Expected HTTP error, got Ok"
@@ -39,7 +39,7 @@ all =
                                     |> Expect.equal 404
 
                             _ ->
-                                Expect.fail ("Expected BadStatus, got: " ++ Debug.toString error)
+                                Expect.fail ("Expected BadStatus, got: " ++ "(error)")
 
                     Ok () ->
                         Expect.fail "Expected HTTP error, got Ok"
@@ -50,7 +50,7 @@ all =
             (\result ->
                 case result of
                     Err error ->
-                        Expect.fail ("Expected BadStatus, got: " ++ Debug.toString error)
+                        Expect.fail ("Expected BadStatus, got: " ++ "(error)")
 
                     Ok count ->
                         Expect.pass
@@ -65,7 +65,7 @@ all =
                             |> Expect.equal "Expecting an OBJECT with a field named `this-field-doesn't-exist`"
 
                     _ ->
-                        Expect.fail ("Expected BadStatus, got: " ++ Debug.toString result)
+                        Expect.fail ("Expected BadStatus, got: " ++ "(result)")
             )
     , BackendTask.Http.getWithOptions
         { url = "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -87,7 +87,7 @@ all =
                             |> Expect.equal "Expecting an OBJECT with a field named `this-field-doesn't-exist`"
 
                     _ ->
-                        Expect.fail ("Expected BadStatus, got: " ++ Debug.toString result)
+                        Expect.fail ("Expected BadStatus, got: " ++ "(result)")
             )
     , BackendTask.Http.getWithOptions
         { url = "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -110,7 +110,7 @@ all =
                             |> Expect.equal 200
 
                     _ ->
-                        Expect.fail ("Expected Ok, got: " ++ Debug.toString result)
+                        Expect.fail ("Expected Ok, got: " ++ "(result)")
             )
     ]
         |> BackendTask.combine

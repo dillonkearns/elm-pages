@@ -1,4 +1,4 @@
-module Route.Slide exposing (ActionData, Data, Model, Msg, route)
+module Route.Slide exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask
 import Head
@@ -24,6 +24,10 @@ type alias RouteParams =
 
 type alias ActionData =
     {}
+
+
+type alias StaticData =
+    ()
 
 
 route : StatelessRoute RouteParams Data ActionData

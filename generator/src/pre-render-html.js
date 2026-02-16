@@ -2,6 +2,7 @@ import * as seo from "./seo-renderer.js";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { packageVersion } from "./compatibility-key.js";
+import { toExactBuffer } from "./binary-helpers.js";
 
 /** @typedef { { head: any[]; errors: any[]; html: string; route: string; title: string; } } Arg */
 /** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
@@ -12,7 +13,7 @@ export function wrapHtml(basePath, fromElm, contentDatPayload) {
     kind: "html-template",
     title: fromElm.title,
     html: fromElm.html,
-    bytesData: Buffer.from(contentDatPayload.buffer).toString("base64"),
+    bytesData: toExactBuffer(contentDatPayload).toString("base64"),
     headTags: seoData.headTags,
     rootElement: seoData.rootElement,
   };

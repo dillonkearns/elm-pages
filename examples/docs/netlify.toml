@@ -1,0 +1,14 @@
+[build]
+  functions = "functions/"
+  publish = "dist/"
+  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install && npx --no-install elm-tooling install && npm run build:generator) && npm install && npm run build"
+  ignore = "/bin/false"
+
+[dev]
+  framework = "#static"
+  publish = "dist"
+  functions = "functions"
+  port = 8888
+
+[functions]
+  node_bundler = "esbuild"

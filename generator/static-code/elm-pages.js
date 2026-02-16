@@ -1,4 +1,5 @@
 import userInit from "/index";
+import { initFrozenViews, prefetchContentDat, fetchContentWithFrozenViews } from "./frozen-views-client.js";
 
 let prefetchedPages;
 let initialLocationHash;
@@ -6,6 +7,9 @@ let initialLocationHash;
  * @returns
  */
 function loadContentAndInitializeApp() {
+  // Initialize frozen views - on initial load, they're adopted from existing DOM
+  initFrozenViews();
+
   let path = window.location.pathname.replace(/(\w)$/, "$1/");
   if (!path.endsWith("/")) {
     path = path + "/";
@@ -23,8 +27,25 @@ function loadContentAndInitializeApp() {
     },
   });
 
-  app.ports.toJsPort.subscribe((fromElm) => {
-    loadNamedAnchor();
+  app.ports.toJsPort.subscribe(async (fromElm) => {
+    if (fromElm.tag === "FetchFrozenViews") {
+      // Fetch content.dat which contains both frozen views and page data
+      const options = fromElm.body ? { body: fromElm.body } : {};
+      const result = await fetchContentWithFrozenViews(fromElm.path, fromElm.query, options);
+      if (result && result.rawBytes) {
+        // Send the FULL content.dat bytes (with prefix) to Elm
+        // The Elm decoder (skipFrozenViewsPrefix) expects this format
+        const contentDatBase64 = uint8ArrayToBase64(result.rawBytes);
+        app.ports.fromJsPort.send({
+          tag: "FrozenViewsReady",
+          pageDataBase64: contentDatBase64
+        });
+      } else {
+        app.ports.fromJsPort.send({ tag: "FrozenViewsReady", pageDataBase64: null });
+      }
+    } else {
+      loadNamedAnchor();
+    }
   });
 
   return app;
@@ -49,6 +70,9 @@ function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
     link.setAttribute("rel", "prefetch");
     link.setAttribute("href", origin + target.pathname + "/content.dat");
     document.head.appendChild(link);
+
+    // Prefetch is handled by the content.dat link added above
+    // (content.dat now includes both page data and frozen views)
   }
 }
 
@@ -101,6 +125,19 @@ export function setup() {
 function find_anchor(node) {
   while (node && node.nodeName.toUpperCase() !== "A") node = node.parentNode; // SVG <a> elements have a lowercase name
   return /** @type {HTMLAnchorElement} */ (node);
+}
+
+/**
+ * Convert Uint8Array to base64 string for transmission to Elm
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
+function uint8ArrayToBase64(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 // only run in modern browsers to prevent exception: https://github.com/dillonkearns/elm-pages/issues/427

@@ -1,4 +1,4 @@
-module Route.Escaping exposing (ActionData, Data, Model, Msg, route)
+module Route.Escaping exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
@@ -34,6 +34,10 @@ type alias RouteParams =
 
 type alias ActionData =
     {}
+
+
+type alias StaticData =
+    ()
 
 
 route : StatelessRoute RouteParams Data ActionData
@@ -170,5 +174,7 @@ view static sharedModel =
         , Html.node "script" [] [ Html.text "0 < 1 && alert(0)" ]
         , snapshotComment "style tags are allowed, and contain raw text"
         , Html.node "style" [] [ Html.text "body > * { html & { display: none; } }" ]
+        , snapshotComment "closing style tag in content must not break out of raw text context"
+        , Html.node "style" [] [ Html.text "</style><img src=x onerror=alert('xss')>" ]
         ]
     }

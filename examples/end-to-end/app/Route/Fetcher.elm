@@ -1,4 +1,4 @@
-module Route.Fetcher exposing (ActionData, Data, Model, Msg, RouteParams, route)
+module Route.Fetcher exposing (ActionData, Data, Model, Msg, RouteParams, StaticData, route)
 
 {-| -}
 
@@ -103,6 +103,10 @@ type alias Data =
 
 type alias ActionData =
     {}
+
+
+type alias StaticData =
+    ()
 
 
 data :
@@ -292,7 +296,7 @@ view app sharedModel model =
             |> List.map
                 (\( key, item ) ->
                     Html.li []
-                        [ Html.text <| Debug.toString item
+                        [ Html.text <| "(submission)" -- Debug.toString item
                         ]
                 )
             |> Html.ul []

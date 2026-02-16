@@ -1,4 +1,4 @@
-module Route.Form exposing (ActionData, Data, Model, Msg, route)
+module Route.Form exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import Date exposing (Date)
@@ -39,6 +39,10 @@ type alias ActionData =
     { user : User
     , formResponse : Form.ServerResponse String
     }
+
+
+type alias StaticData =
+    ()
 
 
 type alias User =

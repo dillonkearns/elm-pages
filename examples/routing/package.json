@@ -14,7 +14,7 @@
     "elm-oembed": "0.0.6",
     "elm-pages": "file:../..",
     "elm-tooling": "^1.15.1",
-    "esbuild": "^0.27.0",
+    "esbuild": "^0.27.2",
     "http-server": "^14.1.1"
   }
 }

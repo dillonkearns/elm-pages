@@ -1,4 +1,4 @@
-module Route.Links exposing (ActionData, Data, Model, Msg, route)
+module Route.Links exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
@@ -28,6 +28,10 @@ type alias RouteParams =
 
 type alias ActionData =
     {}
+
+
+type alias StaticData =
+    ()
 
 
 route : StatelessRoute RouteParams Data ActionData

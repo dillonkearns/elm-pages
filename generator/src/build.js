@@ -1,17 +1,22 @@
 import * as fs from "./dir-helpers.js";
 import * as fsPromises from "fs/promises";
 import { runElmReview } from "./compile-elm.js";
+import { patchFrozenViews } from "./frozen-view-codemod.js";
 import { restoreColorSafe } from "./error-formatter.js";
 import * as path from "path";
 import { spawn as spawnCallback } from "cross-spawn";
 import * as codegen from "./codegen.js";
-import * as terser from "terser";
+// Note: terser is lazy-loaded in runTerser() to improve startup time
 import * as os from "os";
 import { Worker, SHARE_ENV } from "worker_threads";
-import { ensureDirSync } from "./file-helpers.js";
-import { generateClientFolder } from "./codegen.js";
+import { ensureDirSync, writeFileIfChanged } from "./file-helpers.js";
+import { needsPortsRecompilation } from "./script-cache.js";
+import { generateClientFolder, generateServerFolder, compareEphemeralFields, formatDisagreementError } from "./codegen.js";
 import { default as which } from "which";
-import { build } from "vite";
+
+// Cache for which() results to avoid repeated PATH lookups
+let whichCache = {};
+// Note: vite is lazy-loaded in run() to improve startup time for other commands
 import * as preRenderHtml from "./pre-render-html.js";
 import * as esbuild from "esbuild";
 import { createHash } from "crypto";
@@ -39,6 +44,36 @@ process.on("unhandledRejection", (error) => {
   process.exitCode = 1;
 });
 
+/**
+ * Parse elm-review validation output and filter to StaticRegionScope errors.
+ * @param {string} elmReviewOutput - JSON output from elm-review
+ * @returns {{errors: Array<{path: string, errors: Array}>}}
+ */
+function parseValidationOutput(elmReviewOutput) {
+  let jsonOutput;
+  try {
+    jsonOutput = JSON.parse(elmReviewOutput);
+  } catch (e) {
+    return { errors: [] };
+  }
+
+  if (!jsonOutput.errors) {
+    return { errors: [] };
+  }
+
+  // Filter to only NoInvalidFreeze errors
+  const filteredErrors = jsonOutput.errors
+    .map((fileErrors) => ({
+      path: fileErrors.path,
+      errors: fileErrors.errors.filter(
+        (error) => error.rule === "Pages.Review.NoInvalidFreeze"
+      ),
+    }))
+    .filter((fileErrors) => fileErrors.errors.length > 0);
+
+  return { errors: filteredErrors };
+}
+
 function ELM_FILE_PATH() {
   return path.join(process.cwd(), "./elm-stuff/elm-pages", OUTPUT_FILE_NAME);
 }
@@ -48,20 +83,37 @@ async function ensureRequiredDirs() {
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
 }
 
-async function ensureRequiredExecutables() {
+async function cachedWhich(executable) {
+  if (whichCache[executable] !== undefined) {
+    if (whichCache[executable] === false) {
+      throw new Error(`${executable} not found`);
+    }
+    return whichCache[executable];
+  }
   try {
-    await which("lamdera");
+    const result = await which(executable);
+    whichCache[executable] = result;
+    return result;
   } catch (error) {
+    whichCache[executable] = false;
+    throw error;
+  }
+}
+
+async function ensureRequiredExecutables() {
+  const checks = await Promise.allSettled([
+    cachedWhich("lamdera"),
+    cachedWhich("elm-optimize-level-2"),
+    cachedWhich("elm-review"),
+  ]);
+
+  if (checks[0].status === "rejected") {
     throw "I couldn't find lamdera on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
-  try {
-    await which("elm-optimize-level-2");
-  } catch (error) {
+  if (checks[1].status === "rejected") {
     throw "I couldn't find elm-optimize-level-2 on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
-  try {
-    await which("elm-review");
-  } catch (error) {
+  if (checks[2].status === "rejected") {
     throw "I couldn't find elm-review on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
 }
@@ -82,17 +134,14 @@ export async function run(options) {
     }
   };
   try {
-    await ensureRequiredDirs();
-    await ensureRequiredExecutables();
-    // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
-    // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
-
-    const generateCode = codegen.generate(options.base);
-
-    await generateCode;
-
-    const config = await resolveConfig();
-    await fsPromises.writeFile(
+    // Run independent startup tasks in parallel
+    const [, , , config] = await Promise.all([
+      ensureRequiredDirs(),
+      ensureRequiredExecutables(),
+      codegen.generate(options.base),
+      resolveConfig(),
+    ]);
+    await writeFileIfChanged(
       "elm-stuff/elm-pages/index.html",
       preRenderHtml.templateHtml(false, config.headTagsTemplate)
     );
@@ -118,10 +167,38 @@ export async function run(options) {
       config.vite || {}
     );
 
-    const buildComplete = build(viteConfig);
-    const compileClientDone = compileElm(options);
+    const { build: viteBuild } = await import("vite");
+    const buildComplete = viteBuild(viteConfig);
+    const compileClientPromise = compileElm(options, config);
     await buildComplete;
-    await compileClientDone;
+    const clientResult = await compileClientPromise;
+
+    const deOptCount = clientResult.deOptimizationCount || 0;
+
+    // Always run validation on ORIGINAL source for scope and taint checks
+    const validationOutput = await runElmReview();
+    const validationResult = parseValidationOutput(validationOutput);
+
+    if (validationResult.errors.length > 0) {
+      const formatted = restoreColorSafe(validationOutput);
+
+      if (options.strict) {
+        console.error("\n" + formatted);
+        console.error("\nBuild failed: View.freeze validation errors detected.");
+        console.error("Use without --strict to continue with warnings.\n");
+        process.exitCode = 1;
+        return;
+      } else {
+        const warningFormatted = formatted.replace(/\x1b\[31m/g, '\x1b[33m').replace(/\x1b\[91m/g, '\x1b[93m');
+        console.warn("\n\x1b[33mView.freeze warnings:\x1b[0m\n");
+        console.warn(warningFormatted);
+      }
+    }
+
+    if (deOptCount > 0 && validationResult.errors.length > 0) {
+      console.warn(`\n\x1b[33m${deOptCount} View.freeze call(s) de-optimized (code still works, just without DCE).\x1b[0m\n`);
+    }
+
     const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);
     const withoutExtension = path.join(process.cwd(), `./dist/elm`);
     const browserElmHash = await fingerprintElmAsset(
@@ -164,41 +241,61 @@ export async function run(options) {
       );
     await fsPromises.writeFile("dist/template.html", processedIndexTemplate);
     // await fsPromises.unlink(assetManifestPath);
-    const portBackendTaskCompiled = esbuild
-      .build({
-        entryPoints: ["./custom-backend-task"],
-        platform: "node",
-        outfile: ".elm-pages/compiled-ports/custom-backend-task.mjs",
-        assetNames: "[name]-[hash]",
-        chunkNames: "chunks/[name]-[hash]",
-        outExtension: { ".js": ".js" },
-        metafile: true,
-        bundle: true,
-        format: "esm",
-        packages: "external",
-        logLevel: "silent",
-      })
-      .then((result) => {
-        try {
-          global.portsFilePath = Object.keys(result.metafile.outputs)[0];
-        } catch (e) {}
-      })
-      .catch((error) => {
-        const portBackendTaskFileFound =
-          globby.globbySync("./custom-backend-task.*").length > 0;
-        if (portBackendTaskFileFound) {
-          // don't present error if there are no files matching custom-backend-task
-          // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
-          console.error("Failed to start custom-backend-task watcher", error);
-        }
-      });
+
+    // Check if custom-backend-task needs recompilation
+    const portsCheck = await needsPortsRecompilation(process.cwd());
+    let portBackendTaskCompiled = Promise.resolve();
+
+    if (portsCheck.needed) {
+      portBackendTaskCompiled = esbuild
+        .build({
+          entryPoints: ["./custom-backend-task"],
+          platform: "node",
+          outfile: ".elm-pages/compiled-ports/custom-backend-task.mjs",
+          assetNames: "[name]-[hash]",
+          chunkNames: "chunks/[name]-[hash]",
+          outExtension: { ".js": ".js" },
+          metafile: true,
+          bundle: true,
+          format: "esm",
+          packages: "external",
+          logLevel: "silent",
+        })
+        .then((result) => {
+          try {
+            global.portsFilePath = Object.keys(result.metafile.outputs)[0];
+          } catch (e) {}
+        })
+        .catch((error) => {
+          const portBackendTaskFileFound =
+            globby.globbySync("./custom-backend-task.*").length > 0;
+          if (portBackendTaskFileFound) {
+            // don't present error if there are no files matching custom-backend-task
+            // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
+            console.error("Failed to start custom-backend-task watcher", error);
+          }
+        });
+    } else if (portsCheck.outputPath) {
+      // Use cached output path
+      global.portsFilePath = portsCheck.outputPath;
+    }
 
     global.XMLHttpRequest = {};
-    const compileCli = compileCliApp(options);
+    const compileCliPromise = compileCliApp(options);
     try {
-      await compileCli;
-      await compileClientDone;
+      const serverResult = await compileCliPromise;
       await portBackendTaskCompiled;
+
+      // Validate ephemeral field agreement between server and client transforms
+      if (serverResult.ephemeralFields && clientResult.ephemeralFields) {
+        const disagreement = compareEphemeralFields(
+          serverResult.ephemeralFields,
+          clientResult.ephemeralFields
+        );
+        if (disagreement) {
+          throw new Error(formatDisagreementError(disagreement));
+        }
+      }
       const inlineRenderCode = `
 import * as renderer from "./render.js";
 import * as elmModule from "${path.resolve("./elm-stuff/elm-pages/elm.cjs")}";
@@ -212,6 +309,8 @@ ${
 }
 
 import * as preRenderHtml from "./pre-render-html.js";
+import { extractAndReplaceFrozenViews } from "./extract-frozen-views.js";
+import { toExactBuffer } from "./binary-helpers.js";
 const basePath = \`${options.base || "/"}\`;
 const htmlTemplate = ${JSON.stringify(processedIndexTemplate)};
 const mode = "build";
@@ -230,8 +329,19 @@ export async function render(request) {
     false
   );
   if (response.kind === "bytes") {
+    // Extract frozen views from HTML and prepend to content.dat
+    const { regions: frozenViews } = extractAndReplaceFrozenViews(response.html || "");
+    const frozenViewsJson = JSON.stringify(frozenViews);
+    const frozenViewsBuffer = Buffer.from(frozenViewsJson, 'utf8');
+    const lengthBuffer = Buffer.alloc(4);
+    lengthBuffer.writeUInt32BE(frozenViewsBuffer.length, 0);
+    const contentDatBuffer = Buffer.concat([
+      lengthBuffer,
+      frozenViewsBuffer,
+      toExactBuffer(response.contentDatPayload)
+    ]);
     return {
-        body: response.contentDatPayload.buffer,
+        body: contentDatBuffer,
         statusCode: response.statusCode,
         kind: response.kind,
         headers: response.headers,
@@ -246,6 +356,26 @@ export async function render(request) {
         isBase64Encoded: response.body.isBase64Encoded,
     }
   } else {
+    // Replace __STATIC__ placeholders with numeric IDs in the HTML
+    const { html: updatedHtml } = extractAndReplaceFrozenViews(response.htmlString?.html || "");
+    if (response.htmlString) {
+      response.htmlString.html = updatedHtml;
+    }
+
+    // Add empty frozen views prefix to bytesData (decoder expects this format)
+    if (response.contentDatPayload && response.htmlString) {
+      const emptyFrozenViewsJson = JSON.stringify({});
+      const emptyFrozenViewsBuffer = Buffer.from(emptyFrozenViewsJson, 'utf8');
+      const emptyLengthBuffer = Buffer.alloc(4);
+      emptyLengthBuffer.writeUInt32BE(emptyFrozenViewsBuffer.length, 0);
+      const htmlBytesBuffer = Buffer.concat([
+        emptyLengthBuffer,
+        emptyFrozenViewsBuffer,
+        toExactBuffer(response.contentDatPayload)
+      ]);
+      response.htmlString.bytesData = htmlBytesBuffer.toString("base64");
+    }
+
     return {
         body: preRenderHtml.replaceTemplate(htmlTemplate, response.htmlString),
         statusCode: response.statusCode,
@@ -270,6 +400,11 @@ export async function render(request) {
         // banner: { js: `#!/usr/bin/env node\n\n${ESM_REQUIRE_SHIM}` },
       });
     } catch (cliError) {
+      // Check if this is an ephemeral field disagreement error - re-throw to outer catch
+      if (cliError.message && cliError.message.includes("EPHEMERAL FIELD DISAGREEMENT")) {
+        throw cliError;
+      }
+
       // TODO make sure not to print duplicate error output if cleaner review output is printed
       console.error(cliError);
       const reviewOutput = JSON.parse(await runElmReview());
@@ -298,7 +433,13 @@ export async function render(request) {
     );
   } catch (error) {
     if (error) {
-      console.error(restoreColorSafe(error));
+      // Plain Error objects (like disagreement errors) should be printed directly
+      // Only use restoreColorSafe for elm-review formatted errors
+      if (error instanceof Error) {
+        console.error(error.message);
+      } else {
+        console.error(restoreColorSafe(error));
+      }
     }
     buildError = true;
     process.exitCode = 1;
@@ -394,8 +535,6 @@ function runCli(options) {
       }
     };
     const cpuCount = os.cpus().length;
-    // const cpuCount = 1;
-    console.log("Threads: ", cpuCount);
 
     const getPathsWorker = initWorker(options.base, whenDone);
     getPathsWorker.then(prepareStaticPathsNew);
@@ -410,10 +549,20 @@ function runCli(options) {
   });
 }
 
-async function compileElm(options) {
+/**
+ * Compile the client-side Elm code.
+ * @returns {Promise<{ephemeralFields: Map<string, Set<string>>, deOptimizationCount: number}>}
+ */
+async function compileElm(options, config) {
   ensureDirSync("dist");
   const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);
-  await generateClientFolder(options.base);
+  const clientResult = await generateClientFolder(options.base);
+
+  // NOTE: DCE transform is applied in generateClientFolder via runElmReviewCodemod.
+  // It transforms the COPIED source in elm-stuff/elm-pages/client/app/, not the original.
+  // This allows the CLI bundle (for extraction) to use original source while
+  // the client bundle uses transformed source for dead-code elimination.
+
   await spawnElmMake(
     options.debug ? "debug" : "optimize",
     options,
@@ -422,9 +571,16 @@ async function compileElm(options) {
     path.join(process.cwd(), "./elm-stuff/elm-pages/client")
   );
 
+  // Apply frozen view adoption codemod (auto-detects standard vs elm-safe-virtual-dom)
+  const elmCode = await fsPromises.readFile(fullOutputPath, "utf-8");
+  const patchedCode = patchFrozenViews(elmCode);
+  await fsPromises.writeFile(fullOutputPath, patchedCode);
+
   if (!options.debug) {
     await runTerser(fullOutputPath);
   }
+
+  return { ephemeralFields: clientResult.ephemeralFields, deOptimizationCount: clientResult.deOptimizationCount || 0 };
 }
 
 async function fingerprintElmAsset(fullOutputPath, withoutExtension) {
@@ -587,6 +743,7 @@ function runElmMake(mode, options, elmEntrypointPath, outputPath, cwd) {
  */
 export async function runTerser(filePath) {
   console.log("Running terser");
+  const terser = await import("terser");
   const minifiedElm = await terser.minify(
     (await fsPromises.readFile(filePath)).toString(),
     {
@@ -618,7 +775,7 @@ export async function runTerser(filePath) {
         unsafe: true,
         passes: 2,
       },
-      mangle: true,
+      mangle: {},
     }
   );
   if (minifiedElm.code) {
@@ -628,17 +785,35 @@ export async function runTerser(filePath) {
   }
 }
 
+/**
+ * Compile the server-side CLI app.
+ * @returns {Promise<{ephemeralFields: Map<string, Set<string>>}>}
+ */
 export async function compileCliApp(options) {
+  // Generate server folder with server-specific codemods
+  // This transforms Data -> Ephemeral, creates reduced Data, generates ephemeralToData
+  // Skip for scripts (elm-pages run) that don't have routes/app folder
+  let serverResult = { ephemeralFields: new Map() };
+  if (!options.isScript) {
+    serverResult = await generateServerFolder(options.base);
+  }
+
+  // Scripts use the original path (elm-stuff/elm-pages/.elm-pages/)
+  // Full builds use the server path (elm-stuff/elm-pages/server/.elm-pages/)
+  const elmPagesFolder = options.isScript
+    ? "elm-stuff/elm-pages"
+    : "elm-stuff/elm-pages/server";
+
   await spawnElmMake(
     // TODO should be --optimize, but there seems to be an issue with the html to JSON with --optimize
     options.debug ? "debug" : "optimize",
     options,
     path.join(
       process.cwd(),
-      `elm-stuff/elm-pages/.elm-pages/${options.mainModule || "Main"}.elm`
+      `${elmPagesFolder}/.elm-pages/${options.mainModule || "Main"}.elm`
     ),
     path.join(process.cwd(), "elm-stuff/elm-pages/elm.js"),
-    path.join(process.cwd(), "elm-stuff/elm-pages")
+    path.join(process.cwd(), elmPagesFolder)
   );
 
   const elmFileContent = await fsPromises.readFile(ELM_FILE_PATH(), "utf-8");
@@ -700,6 +875,8 @@ function _HtmlAsJson_toJson(html) {
         .replace(`console.log('App dying')`, "")
     )
   );
+
+  return { ephemeralFields: serverResult.ephemeralFields };
 }
 
 function applyScriptPatches(options, input) {

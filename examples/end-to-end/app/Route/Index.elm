@@ -1,4 +1,4 @@
-module Route.Index exposing (ActionData, Data, Model, Msg, route)
+module Route.Index exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
@@ -38,6 +38,10 @@ type alias RouteParams =
 
 type alias ActionData =
     {}
+
+
+type alias StaticData =
+    ()
 
 
 route : StatelessRoute RouteParams Data ActionData
@@ -106,8 +110,8 @@ view app shared =
         [ text "This is the index page."
         , div [] [ text <| "Greeting: " ++ app.data.greeting ]
         , div [] [ text <| "Greeting: " ++ app.data.portGreeting ]
-        , div [] [ text <| "Random Data: " ++ Debug.toString app.data.randomTuple ]
-        , div [] [ text <| "URL: " ++ Debug.toString app.url ]
+        --, div [] [ text <| "Random Data: " ++ Debug.toString app.data.randomTuple ]
+        --, div [] [ text <| "URL: " ++ Debug.toString app.url ]
         , div [] [ a [ href "/get-form?page=2" ] [ text "Page 2" ] ]
         , div []
             [ Route.Index |> link [] [ text "Link to Self" ] ]

@@ -2,16 +2,12 @@ module TableOfContents exposing (..)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
-import Css
 import FatalError exposing (FatalError)
-import Html.Styled exposing (..)
-import Html.Styled.Attributes as Attr exposing (css)
+import Html exposing (..)
+import Html.Attributes as Attr
 import List.Extra
 import Markdown.Block as Block exposing (Block, Inline)
 import Markdown.Parser
-import Tailwind.Breakpoints as Bp
-import Tailwind.Theme as Theme
-import Tailwind.Utilities as Tw
 
 
 backendTask :
@@ -157,10 +153,6 @@ buildToc blocks =
         |> List.reverse
 
 
-
---|> Tuple.second
-
-
 gatherHeadings : List Block -> List ( Block.HeadingLevel, List Inline )
 gatherHeadings blocks =
     List.filterMap
@@ -185,9 +177,6 @@ rawTextToId rawText =
 
 styledToString : List Inline -> String
 styledToString inlines =
-    --List.map .string list
-    --|> String.join "-"
-    -- TODO do I need to hyphenate?
     inlines
         |> Block.extractInlineText
 
@@ -195,52 +184,26 @@ styledToString inlines =
 surround : Bool -> Bool -> List (Html msg) -> Html msg
 surround showMobileMenu onDocsPage children =
     aside
-        [ css
-            [ Tw.h_screen
-            , Tw.bg_color Theme.white
-            , Tw.flex_shrink_0
-            , Tw.top_0
-            , Tw.pt_16
-            , Tw.w_full
-            , if showMobileMenu then
-                Tw.block
-
-              else
-                Tw.hidden
-            , Tw.fixed
-            , Tw.z_10
-
-            --, Bp.dark
-            --    [ Tw.bg_dark
-            --    ]
-            , Bp.md
-                [ Tw.w_64
-                , Tw.block
-                , if onDocsPage then
-                    Tw.sticky
+        [ Attr.class
+            (String.join " "
+                [ "h-screen bg-white shrink-0 top-0 left-0 pt-16 w-full z-10"
+                , "max-md:fixed" -- fixed on mobile only
+                , if showMobileMenu then
+                    "max-md:block"
 
                   else
-                    Tw.hidden
-                , Tw.flex_shrink_0
+                    "max-md:hidden"
+                , "md:w-64 md:shrink-0"
+                , if onDocsPage then
+                    "md:sticky md:block"
+
+                  else
+                    "md:hidden"
                 ]
-            ]
+            )
         ]
         [ div
-            [ css
-                [ Tw.border_color Theme.gray_200
-                , Tw.w_full
-                , Tw.p_4
-                , Tw.pb_40
-                , Tw.h_full
-                , Tw.overflow_y_auto
-
-                --, Bp.dark
-                --    [ Tw.border_gray_900
-                --    ]
-                , Bp.md
-                    [ Tw.pb_16
-                    ]
-                ]
+            [ Attr.class "border-gray-200 w-full p-4 pb-40 h-full overflow-y-auto md:pb-16"
             ]
             children
         ]
@@ -265,17 +228,11 @@ level1Entry current (Entry data children) =
             current == Just data.anchorId
     in
     li
-        [ css
-            [ Tw.space_y_3
-            , Tw.text_color Theme.gray_900
-            , Tw.rounded_lg
-            ]
+        [ Attr.class "space-y-3 text-gray-900 rounded-lg"
         ]
         [ item isCurrent ("/docs/" ++ data.anchorId) data.name
         , ul
-            [ css
-                [ Tw.space_y_3
-                ]
+            [ Attr.class "space-y-3"
             ]
             (children
                 |> List.map (level2Entry data.anchorId)
@@ -287,32 +244,15 @@ item : Bool -> String -> String -> Html msg
 item isCurrent href body =
     a
         [ Attr.href href
-        , css
-            [ Tw.block
-            , Tw.w_full
-            , Tw.text_left
-            , Tw.text_base
-            , Tw.no_underline
-            , Tw.mt_1
-            , Tw.p_2
-            , Tw.rounded
-            , Tw.select_none
-            , Tw.outline_none
-            , if isCurrent then
-                Css.batch
-                    [ Tw.bg_color Theme.gray_200
-                    , Tw.font_semibold
-                    ]
+        , Attr.class
+            ("block w-full text-left text-base no-underline mt-1 p-2 rounded select-none outline-none "
+                ++ (if isCurrent then
+                        "bg-gray-200 font-semibold"
 
-              else
-                Css.batch
-                    [ Css.hover
-                        [ Tw.text_color Theme.black
-                        , Tw.bg_color Theme.gray_100
-                        ]
-                    , Tw.text_color Theme.gray_500
-                    ]
-            ]
+                    else
+                        "hover:text-black hover:bg-gray-100 text-gray-500"
+                   )
+            )
         ]
         [ text body ]
 
@@ -320,9 +260,7 @@ item isCurrent href body =
 level2Entry : String -> Entry Data -> Html msg
 level2Entry parentPath (Entry data children) =
     li
-        [ css
-            [ Tw.ml_4
-            ]
+        [ Attr.class "ml-4"
         ]
         [ item False ("/docs/" ++ parentPath ++ "#" ++ data.anchorId) data.name
         ]

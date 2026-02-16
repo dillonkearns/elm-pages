@@ -6,21 +6,41 @@ import Date
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
-import Html.Styled exposing (..)
-import Html.Styled.Attributes as Attr exposing (css)
+import Html exposing (..)
+import Html.Attributes as Attr
 import Pages.Url
 import Route exposing (Route)
 import RouteBuilder exposing (App, StatelessRoute)
 import Shared
-import Tailwind.Breakpoints as Bp
-import Tailwind.Theme as Theme
-import Tailwind.Utilities as Tw
 import UrlPath
 import View exposing (View)
 
 
 type alias Msg =
     ()
+
+
+{-| Data type with both persistent fields and ephemeral fields.
+
+  - No persistent fields in this case (just unit)
+  - `articles`: Used only inside View.freeze (ephemeral, DCE'd)
+
+-}
+type alias Data =
+    { articles : List ( Route, Article.ArticleMetadata )
+    }
+
+
+type alias ActionData =
+    {}
+
+
+type alias RouteParams =
+    {}
+
+
+type alias Model =
+    {}
 
 
 route : StatelessRoute RouteParams Data ActionData
@@ -38,22 +58,7 @@ data : BackendTask FatalError Data
 data =
     Article.allMetadata
         |> BackendTask.allowFatal
-
-
-type alias Data =
-    List ( Route, Article.ArticleMetadata )
-
-
-type alias ActionData =
-    {}
-
-
-type alias RouteParams =
-    {}
-
-
-type alias Model =
-    {}
+        |> BackendTask.map (\articles -> { articles = articles })
 
 
 view :
@@ -64,100 +69,44 @@ view app shared =
     { title = "elm-pages blog"
     , body =
         [ div
-            [ css
-                [ Tw.relative
-                , Tw.bg_color Theme.gray_100
-                , Tw.min_h_screen
-                , Tw.pt_16
-                , Tw.pb_20
-                , Tw.px_4
-                , Bp.lg
-                    [ Tw.pt_16
-                    , Tw.pb_28
-                    , Tw.px_8
-                    ]
-                , Bp.sm
-                    [ Tw.px_6
-                    ]
-                ]
+            [ Attr.class "relative bg-gray-100 min-h-screen pt-16 pb-20 px-4 lg:pt-16 lg:pb-28 lg:px-8 sm:px-6"
             ]
             [ div
-                [ css
-                    [ Tw.absolute
-                    , Tw.inset_0
-                    ]
+                [ Attr.class "absolute inset-0"
                 ]
                 [ div
-                    [ css
-                        [ Tw.h_1over3
-                        , Bp.sm
-                            [ Tw.h_2over3
-                            ]
-                        ]
+                    [ Attr.class "h-1/3 sm:h-2/3"
                     ]
                     []
                 ]
             , div
-                [ css
-                    [ Tw.relative
-                    , Tw.max_w_7xl
-                    , Tw.mx_auto
-                    ]
+                [ Attr.class "relative max-w-7xl mx-auto"
                 ]
-                [ div
-                    [ css
-                        [ Tw.text_center
-                        ]
-                    ]
-                    [ h2
-                        [ css
-                            [ Tw.text_3xl
-                            , Tw.tracking_tight
-                            , Tw.font_extrabold
-                            , Tw.text_color Theme.gray_900
-                            , Bp.sm
-                                [ Tw.text_4xl
-                                ]
-                            ]
-                        ]
-                        [ text "Blog" ]
-                    , p
-                        [ css
-                            [ Tw.mt_3
-                            , Tw.max_w_2xl
-                            , Tw.mx_auto
-                            , Tw.text_xl
-                            , Tw.text_color Theme.gray_500
-                            , Bp.sm
-                                [ Tw.mt_4
-                                ]
-                            ]
-                        ]
-                        [ text blogDescription ]
-                    ]
-                , div
-                    [ css
-                        [ Tw.mt_12
-                        , Tw.max_w_lg
-                        , Tw.mx_auto
-                        , Tw.grid
-                        , Tw.gap_5
-                        , Bp.lg
-                            [ Tw.grid_cols_3
-                            , Tw.max_w_none
-                            ]
-                        ]
-                    ]
-                    (app.data
-                        |> List.map
-                            (\articleInfo ->
-                                blogCard articleInfo
-                            )
-                    )
+                [ -- Frozen header - no data needed
+                  View.freeze blogHeader
+
+                -- Frozen blog cards - uses app.data.articles (ephemeral field)
+                , View.freeze (renderBlogCards app.data.articles)
                 ]
             ]
         ]
     }
+
+
+{-| Render blog cards as a frozen view.
+This code is eliminated from the client bundle via DCE.
+-}
+renderBlogCards : List ( Route, Article.ArticleMetadata ) -> Html Never
+renderBlogCards articles =
+    div
+        [ Attr.class "mt-12 max-w-lg mx-auto grid gap-5 lg:grid-cols-3 lg:max-w-none"
+        ]
+        (articles
+            |> List.map
+                (\articleInfo ->
+                    blogCard articleInfo
+                )
+        )
 
 
 head : App Data ActionData RouteParams -> List Head.Tag
@@ -183,7 +132,7 @@ link route_ attrs children =
     Route.toLink
         (\anchorAttrs ->
             a
-                (List.map Attr.fromUnstyled anchorAttrs ++ attrs)
+                (anchorAttrs ++ attrs)
                 children
         )
         route_
@@ -192,69 +141,34 @@ link route_ attrs children =
 blogCard : ( Route, Article.ArticleMetadata ) -> Html msg
 blogCard ( route_, info ) =
     link route_
-        [ css
-            [ Tw.flex
-            , Tw.flex_col
-            , Tw.rounded_lg
-            , Tw.shadow_lg
-            , Tw.overflow_hidden
-            ]
+        [ Attr.class "flex flex-col rounded-lg shadow-lg overflow-hidden"
         ]
         [ div
-            [ css
-                [ Tw.flex_1
-                , Tw.bg_color Theme.white
-                , Tw.p_6
-                , Tw.flex
-                , Tw.flex_col
-                , Tw.justify_between
-                ]
+            [ Attr.class "flex-1 bg-white p-6 flex flex-col justify-between"
             ]
             [ div
-                [ css
-                    [ Tw.flex_1
-                    ]
+                [ Attr.class "flex-1"
                 ]
                 [ span
-                    [ css
-                        [ Tw.block
-                        , Tw.mt_2
-                        ]
+                    [ Attr.class "block mt-2"
                     ]
                     [ p
-                        [ css
-                            [ Tw.text_xl
-                            , Tw.font_semibold
-                            , Tw.text_color Theme.gray_900
-                            ]
+                        [ Attr.class "text-xl font-semibold text-gray-900"
                         ]
                         [ text info.title ]
                     , p
-                        [ css
-                            [ Tw.mt_3
-                            , Tw.text_base
-                            , Tw.text_color Theme.gray_500
-                            ]
+                        [ Attr.class "mt-3 text-base text-gray-500"
                         ]
                         [ text info.description ]
                     ]
                 ]
             , div
-                [ css
-                    [ Tw.mt_6
-                    , Tw.flex
-                    , Tw.items_center
-                    ]
+                [ Attr.class "mt-6 flex items-center"
                 ]
                 [ div
                     []
                     [ div
-                        [ css
-                            [ Tw.flex
-                            , Tw.space_x_1
-                            , Tw.text_sm
-                            , Tw.text_color Theme.gray_400
-                            ]
+                        [ Attr.class "flex space-x-1 text-sm text-gray-400"
                         ]
                         [ time
                             [ Attr.datetime "2020-03-16"
@@ -264,6 +178,22 @@ blogCard ( route_, info ) =
                     ]
                 ]
             ]
+        ]
+
+
+blogHeader : Html Never
+blogHeader =
+    div
+        [ Attr.class "text-center"
+        ]
+        [ h2
+            [ Attr.class "text-3xl tracking-tight font-extrabold text-gray-900 sm:text-4xl"
+            ]
+            [ text "Blog" ]
+        , p
+            [ Attr.class "mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4"
+            ]
+            [ text blogDescription ]
         ]
 
 
