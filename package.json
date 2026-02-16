@@ -78,6 +78,8 @@
     "generator/src/",
     "generator/review/",
     "generator/dead-code-review/",
+    "generator/server-review/",
+    "generator/shared/",
     "src/",
     "codegen/elm-pages-codegen.cjs",
     "generator/template/",
