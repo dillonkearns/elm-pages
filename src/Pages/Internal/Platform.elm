@@ -384,7 +384,7 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | UserCmd userEffect
     | CancelRequest Int
     | RunCmd (Cmd (Msg userMsg pageData actionData sharedData errorPage))
-    | FetchFrozenViews { path : String, query : Maybe String, body : Maybe String }
+    | FetchFrozenViews { path : String, query : Maybe String, method : Form.Method, body : Maybe String }
 
 
 {-| -}
@@ -574,6 +574,41 @@ update config appMsg model =
                                     fields.action
                                         |> Url.fromString
                                         |> Maybe.withDefault model.url
+
+                                encodedFields : String
+                                encodedFields =
+                                    encodeFormData fields.fields
+
+                                queryToFetch : Maybe String
+                                queryToFetch =
+                                    case fields.method of
+                                        Form.Get ->
+                                            if encodedFields == "" then
+                                                Nothing
+
+                                            else
+                                                Just encodedFields
+
+                                        Form.Post ->
+                                            Nothing
+
+                                bodyToFetch : Maybe String
+                                bodyToFetch =
+                                    case fields.method of
+                                        Form.Get ->
+                                            Nothing
+
+                                        Form.Post ->
+                                            Just encodedFields
+
+                                pendingUrl : Url
+                                pendingUrl =
+                                    case fields.method of
+                                        Form.Get ->
+                                            { urlToSubmitTo | query = queryToFetch }
+
+                                        Form.Post ->
+                                            urlToSubmitTo
                             in
                             ( { model
                                 -- TODO should I setSubmitAttempted here, too?
@@ -583,12 +618,13 @@ update config appMsg model =
                                           -1
                                         , Pages.Navigation.Submitting payload
                                         )
-                                , pendingFrozenViewsUrl = Just urlToSubmitTo
+                                , pendingFrozenViewsUrl = Just pendingUrl
                               }
                             , FetchFrozenViews
-                                { path = urlToSubmitTo.path
-                                , query = urlToSubmitTo.query
-                                , body = Just (encodeFormData fields.fields)
+                                { path = pendingUrl.path
+                                , query = queryToFetch
+                                , method = fields.method
+                                , body = bodyToFetch
                                 }
                             )
                                 |> (case fields.msg of
@@ -941,10 +977,21 @@ update config appMsg model =
                                     in
                                     case decodedResponse of
                                         ResponseSketch.Redirect redirectTo ->
-                                            ( { clearedModel | pendingRedirect = True }
-                                            , NoEffect
-                                            )
-                                                |> startNewGetLoad (currentUrlWithPath redirectTo model)
+                                            let
+                                                isAbsoluteUrl : Bool
+                                                isAbsoluteUrl =
+                                                    Url.fromString redirectTo /= Nothing
+                                            in
+                                            if isAbsoluteUrl then
+                                                ( { clearedModel | transition = Nothing }
+                                                , BrowserLoadUrl redirectTo
+                                                )
+
+                                            else
+                                                ( { clearedModel | pendingRedirect = True }
+                                                , NoEffect
+                                                )
+                                                    |> startNewGetLoad (currentUrlWithPath redirectTo model)
 
                                         ResponseSketch.RenderPage pageData actionData ->
                                             let
@@ -1013,11 +1060,14 @@ update config appMsg model =
                                                 | ariaNavigationAnnouncement = mainView config updatedModel |> .title
                                                 , currentPath = newUrl.path
                                               }
-                                            , if not isSubmission && not stayingOnSamePath then
-                                                Batch [ ScrollToTop, userEffect ]
+                                            , combineEffects
+                                                (submissionUrlUpdateEffect model newUrl)
+                                                (if not isSubmission && not stayingOnSamePath then
+                                                    Batch [ ScrollToTop, userEffect ]
 
-                                              else
-                                                userEffect
+                                                 else
+                                                    userEffect
+                                                )
                                             )
                                                 |> (case onActionMsg of
                                                         Just actionMsg ->
@@ -1090,11 +1140,14 @@ update config appMsg model =
                                                 | ariaNavigationAnnouncement = mainView config updatedModel_ |> .title
                                                 , currentPath = pendingUrl.path
                                               }
-                                            , if not isSubmission_ && not stayingOnSamePath_ then
-                                                Batch [ ScrollToTop, userEffect_ ]
+                                            , combineEffects
+                                                (submissionUrlUpdateEffect model pendingUrl)
+                                                (if not isSubmission_ && not stayingOnSamePath_ then
+                                                    Batch [ ScrollToTop, userEffect_ ]
 
-                                              else
-                                                userEffect_
+                                                 else
+                                                    userEffect_
+                                                )
                                             )
                                                 |> (case onActionMsg_ of
                                                         Just actionMsg_ ->
@@ -1102,22 +1155,22 @@ update config appMsg model =
 
                                                         Nothing ->
                                                             identity
-                                                   )
+                                                    )
 
                                         _ ->
-                                            ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
+                                            recoverFromFrozenViewsFailure (Just pendingUrl) model
 
                                 Nothing ->
                                     -- Decode failed
-                                    ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
+                                    recoverFromFrozenViewsFailure (Just pendingUrl) model
 
                         Nothing ->
                             -- Base64 decode failed
-                            ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
+                            recoverFromFrozenViewsFailure (Just pendingUrl) model
 
                 _ ->
-                    -- No page data, no pending path, or page not loaded - just clear the pending flag
-                    ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
+                    -- No page data, no pending path, or page not loaded - recover with full page load if possible
+                    recoverFromFrozenViewsFailure model.pendingFrozenViewsUrl model
 
         NoOp ->
             ( model, NoEffect )
@@ -1254,7 +1307,7 @@ perform config model effect =
         CancelRequest transitionKey ->
             Http.cancel (String.fromInt transitionKey)
 
-        FetchFrozenViews { path, query, body } ->
+        FetchFrozenViews { path, query, method, body } ->
             Json.Encode.object
                 [ ( "tag", Json.Encode.string "FetchFrozenViews" )
                 , ( "path", Json.Encode.string path )
@@ -1266,6 +1319,7 @@ perform config model effect =
                         Nothing ->
                             Json.Encode.null
                   )
+                , ( "method", Json.Encode.string (methodToString method) )
                 , ( "body"
                   , case body of
                         Just b ->
@@ -1719,7 +1773,7 @@ startNewGetLoad urlToGet ( model, effect ) =
 
         fetchEffect : Effect userMsg pageData actionData sharedData userEffect errorPage
         fetchEffect =
-            FetchFrozenViews { path = urlToGet.path, query = urlToGet.query, body = Nothing }
+            FetchFrozenViews { path = urlToGet.path, query = urlToGet.query, method = Form.Get, body = Nothing }
     in
     ( { model
         | nextTransitionKey = model.nextTransitionKey + 1
@@ -1778,6 +1832,62 @@ clearLoadingFetchersAfterDataLoad completedTransitionId model =
 currentUrlWithPath : String -> Model userModel pageData actionData sharedData -> Url
 currentUrlWithPath path { url } =
     { url | path = path }
+
+
+recoverFromFrozenViewsFailure :
+    Maybe Url
+    -> Model userModel pageData actionData sharedData
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+recoverFromFrozenViewsFailure maybePendingUrl model =
+    let
+        cleanedModel : Model userModel pageData actionData sharedData
+        cleanedModel =
+            { model
+                | pendingFrozenViewsUrl = Nothing
+                , transition = Nothing
+                , pendingRedirect = False
+                , pendingData = Nothing
+            }
+    in
+    case maybePendingUrl of
+        Just pendingUrl ->
+            ( cleanedModel, BrowserLoadUrl (Url.toString pendingUrl) )
+
+        Nothing ->
+            ( cleanedModel, NoEffect )
+
+
+submissionUrlUpdateEffect :
+    Model userModel pageData actionData sharedData
+    -> Url
+    -> Effect userMsg pageData actionData sharedData userEffect errorPage
+submissionUrlUpdateEffect model newUrl =
+    case model.transition of
+        Just ( _, Pages.Navigation.Submitting formData ) ->
+            if formData.method == Form.Get then
+                BrowserPushUrl (Url.toString newUrl)
+
+            else
+                NoEffect
+
+        _ ->
+            NoEffect
+
+
+combineEffects :
+    Effect userMsg pageData actionData sharedData userEffect errorPage
+    -> Effect userMsg pageData actionData sharedData userEffect errorPage
+    -> Effect userMsg pageData actionData sharedData userEffect errorPage
+combineEffects first second =
+    case ( first, second ) of
+        ( NoEffect, _ ) ->
+            second
+
+        ( _, NoEffect ) ->
+            first
+
+        _ ->
+            Batch [ first, second ]
 
 
 loadDataAndUpdateUrl :

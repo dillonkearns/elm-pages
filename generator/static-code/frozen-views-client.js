@@ -41,10 +41,12 @@ function parseCombinedContentDat(buffer) {
  *
  * @param {string} pathname - The path to fetch content for
  * @param {string | null} query - Optional query string (without leading ?)
- * @param {{ method?: string, body?: string | null }} [options] - Optional fetch options for POST requests
+ * @param {{ method?: "GET" | "POST", body?: string | null }} [options] - Optional fetch options
  * @returns {Promise<{ frozenViews: Record<string, string>, pageData: Uint8Array, rawBytes: Uint8Array } | null>}
  */
 export async function fetchContentWithFrozenViews(pathname, query = null, options = {}) {
+  const method = options.method === "POST" ? "POST" : "GET";
+
   // Ensure path ends with /
   let path = pathname.replace(/(\w)$/, "$1/");
   if (!path.endsWith("/")) {
@@ -53,7 +55,7 @@ export async function fetchContentWithFrozenViews(pathname, query = null, option
 
   // Build the URL with optional query string
   let url = `${window.location.origin}${path}content.dat`;
-  if (options.body) {
+  if (method === "POST") {
     // POST requests need trailing slash on content.dat path
     url += "/";
   } else if (query) {
@@ -61,18 +63,16 @@ export async function fetchContentWithFrozenViews(pathname, query = null, option
   }
 
   // Build fetch options
-  const fetchOptions = {};
-  if (options.body) {
-    fetchOptions.method = "POST";
+  const fetchOptions = { method };
+  if (method === "POST") {
     fetchOptions.headers = { "content-type": "application/x-www-form-urlencoded" };
-    fetchOptions.body = options.body;
+    fetchOptions.body = options.body ?? "";
   }
 
   try {
     const response = await fetch(url, fetchOptions);
-
-    if (response.ok) {
-      const buffer = await response.arrayBuffer();
+    const buffer = await response.arrayBuffer();
+    try {
       const { frozenViews, pageData } = parseCombinedContentDat(buffer);
 
       // Populate global for codemod to use
@@ -80,12 +80,11 @@ export async function fetchContentWithFrozenViews(pathname, query = null, option
 
       // Return rawBytes (full content.dat) for Elm decoder which expects the prefix
       return { frozenViews, pageData, rawBytes: new Uint8Array(buffer) };
-    } else if (response.status === 404) {
-      // Page not found
-      window.__ELM_PAGES_FROZEN_VIEWS__ = {};
-      return null;
-    } else {
-      console.warn(`Failed to fetch content.dat: ${response.status}`);
+    } catch (parseError) {
+      console.warn(
+        `Failed to parse content.dat response (status ${response.status})`,
+        parseError
+      );
       window.__ELM_PAGES_FROZEN_VIEWS__ = {};
       return null;
     }
