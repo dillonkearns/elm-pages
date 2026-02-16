@@ -464,11 +464,11 @@ extractFreezeCallNode node =
 {-| Check if a node is a reference to View.freeze.
 -}
 isFreezeNode : ModuleContext -> Node Expression -> Bool
-isFreezeNode context functionNode =
-    case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
-        Just [ "View" ] ->
-            case Node.value functionNode of
-                Expression.FunctionOrValue _ "freeze" ->
+isFreezeNode context (Node range expr) =
+    case expr of
+        Expression.FunctionOrValue _ "freeze" ->
+            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+                Just [ "View" ] ->
                     True
 
                 _ ->
@@ -562,10 +562,10 @@ Returns Just error if not allowed, Nothing if allowed or not a frozen view funct
 -}
 checkFrozenViewFunctionCall : Node Expression -> ModuleContext -> Maybe (Error {})
 checkFrozenViewFunctionCall functionNode context =
-    case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
-        Just [ "View" ] ->
-            case Node.value functionNode of
-                Expression.FunctionOrValue _ name ->
+    case Node.value functionNode of
+        Expression.FunctionOrValue _ name ->
+            case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
+                Just [ "View" ] ->
                     if List.member name staticFunctionNames && not (isAllowedModule context.moduleName) then
                         Just (frozenViewScopeError (Node.range functionNode) ("View." ++ name))
 
