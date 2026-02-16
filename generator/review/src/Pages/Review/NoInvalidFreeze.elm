@@ -584,29 +584,37 @@ checkFrozenViewFunctionCall functionNode context =
 expressionExitVisitor : Node Expression -> ModuleContext -> ModuleContext
 expressionExitVisitor ((Node range expr) as node) context =
     -- Track exiting tainted conditionals (if/case)
-    let
-        contextWithTaintedContextUpdate =
-            case context.taintedContext of
-                [] ->
-                    context
+    context
+        |> trackExitingTaintedConditionals node
+        |> checkFreezeCallExit node
 
-                taintedRange :: rest ->
-                    if taintedRange == range then
-                        { context | taintedContext = rest }
 
-                    else
-                        context
-    in
-    case extractFreezeCallNode node of
-        Just functionNode ->
-            if isFreezeNode contextWithTaintedContextUpdate functionNode then
-                { contextWithTaintedContextUpdate | freezeCallDepth = max 0 (contextWithTaintedContextUpdate.freezeCallDepth - 1) }
+trackExitingTaintedConditionals : Node Expression -> ModuleContext -> ModuleContext
+trackExitingTaintedConditionals ((Node range expr) as node) context =
+    case context.taintedContext of
+        [] ->
+            context
+
+        taintedRange :: rest ->
+            if taintedRange == range then
+                { context | taintedContext = rest }
 
             else
-                contextWithTaintedContextUpdate
+                context
+
+
+checkFreezeCallExit : Node Expression -> ModuleContext -> ModuleContext
+checkFreezeCallExit node context =
+    case extractFreezeCallNode node of
+        Just functionNode ->
+            if isFreezeNode context functionNode then
+                { context | freezeCallDepth = max 0 (context.freezeCallDepth - 1) }
+
+            else
+                context
 
         Nothing ->
-            contextWithTaintedContextUpdate
+            context
 
 
 letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Error {}), ModuleContext )
