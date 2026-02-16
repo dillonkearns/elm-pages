@@ -31,6 +31,14 @@ import * as globby from "globby";
 import { fileURLToPath } from "url";
 import { copyFile } from "fs/promises";
 
+/** @import { PageProgressArg } from "./render.js" */
+
+/**
+ * @param {PageProgressArg} fromElm
+ * @param {string} contentJsonString
+ * @returns {string}
+ */
+
 /**
  * @type {Promise<{ worker: Worker }>[]}
  */
@@ -964,18 +972,3 @@ function defaultPreloadForFile(file) {
     return "";
   }
 }
-
-/** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; body: string; } } FromElm */
-/** @typedef {HeadTag | JsonLdTag} SeoTag */
-/** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
-/** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */
-
-/** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
-
-/** @typedef {     { body: string; head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
-
-/**
- * @param {Arg} fromElm
- * @param {string} contentJsonString
- * @returns {string}
- */

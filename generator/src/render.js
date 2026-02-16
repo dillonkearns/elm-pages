@@ -260,7 +260,7 @@ function runGeneratorAppHelp(
  * @param {string} pagePath
  * @param {ParsedRequest} request
  * @param {(pattern: Set<string>) => void} addBackendTaskWatcher
- * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
+ * @returns {Promise<({is404: boolean} & ( { kind: 'bytes'; contentJson: string; statusCode: unknown; headers: unknown; contentDatPayload: { buffer: ArrayBuffer } } | { kind: 'html'; route: string; htmlString: unknown; contentJson: unknown; statusCode: unknown; headers: unknown; contentDatPayload: { buffer: ArrayBuffer } | undefined } | { kind: 'api-response'; statusCode: unknown; body: { body: string } }) )>}
  */
 function runElmApp(
   portsFile,
@@ -456,7 +456,7 @@ async function outputString(basePath, fromElm, isDevServer, contentDatPayload) {
 /** @typedef {{ contents: unknown; type: 'json-ld' }} JsonLdTag */
 
 // HTTP request types
-/** @typedef {{ url: string; method: string; headers: [string, string][]; body: Pages_Internal_StaticHttpBody; cacheOptions: unknown | null; env: Record<string, string | undefined>; dir: string[]; quiet: boolean }} Pages_StaticHttp_Request */
+/** @typedef {{ url: string; method: string; headers: [string, string][]; body: Pages_Internal_StaticHttpBody; cacheOptions: unknown[] | null; env: Record<string, string | undefined>; dir: string[]; quiet: boolean }} Pages_StaticHttp_Request */
 /** @typedef {Pages_Internal_EmptyBody | Pages_Internal_StringBody | Pages_Internal_JsonBody<unknown> | Pages_Internal_BytesBody} Pages_Internal_StaticHttpBody */
 /** @typedef {{ tag: "EmptyBody"; args: [] }} Pages_Internal_EmptyBody */
 /** @typedef {{ tag: "StringBody"; args: [string, string] }} Pages_Internal_StringBody */

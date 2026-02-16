@@ -58,7 +58,7 @@ async function requireElm(mode) {
 }
 
 async function outputString(
-  /** @type { { kind: 'page'; data: PageProgress } | { kind: 'api'; data: Object }  } */ fromElm,
+  /** @type {Awaited<ReturnType<typeof renderer.render>> & {}} */ fromElm,
   /** @type string */ pathname
 ) {
   switch (fromElm.kind) {
@@ -150,5 +150,3 @@ function renderTemplate(template, renderResult) {
 }
 
 parentPort.on("message", run);
-
-/** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */

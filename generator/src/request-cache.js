@@ -5,7 +5,7 @@ import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 
 const defaultHttpCachePath = "./.elm-pages/http-cache";
 
-/** @typedef {{kind: 'cache-response-path', value: string} | {kind: 'response-json', value: JSON}} Response */
+/** @typedef {{kind: 'cache-response-path', value: string} | {kind: 'response-json', value: object}} Response */
 
 /**
  * @param {string} mode
@@ -220,7 +220,7 @@ export function lookupOrPerform(portsFile, mode, rawRequest) {
 
 /**
  * @param {unknown} obj
- * @returns {JSON}
+ * @returns {object}
  */
 function toElmJson(obj) {
   if (Array.isArray(obj)) {
@@ -246,7 +246,7 @@ function toElmJson(obj) {
 }
 
 /**
- * @param {{url: string; headers: {[x: string]: string}; method: string; body: Body } } elmRequest
+ * @param {import("./render.js").Pages_StaticHttp_Request} elmRequest
  */
 function toRequest(elmRequest) {
   const elmHeaders = Object.fromEntries(elmRequest.headers);

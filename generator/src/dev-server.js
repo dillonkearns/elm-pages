@@ -397,7 +397,7 @@ export async function start(options) {
   /**
    * @param {string} pathname
    * @param {((value: any) => any) | null | undefined} onOk
-   * @param {((reason: any) => PromiseLike<never>) | null | undefined} onErr
+   * @param {((reason: any) => void) | null | undefined} onErr
    * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} serverRequest
    */
   function runRenderThread(serverRequest, pathname, onOk, onErr) {
@@ -875,7 +875,7 @@ function reqToJson(req, body, requestTime) {
  * @param {string | null} body
  * @param {Date} requestTime
  * @param {Object | null} multiPartFormData
- * @returns {{method: string; rawUrl: string; body: string?; }}
+ * @returns {{method: string; rawUrl: string; body: string?; headers: http.IncomingHttpHeaders; requestTime: number; multiPartFormData: Object | null}}
  */
 function toJsonHelper(req, body, requestTime, multiPartFormData) {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -885,7 +885,7 @@ function toJsonHelper(req, body, requestTime, multiPartFormData) {
     rawUrl: url.toString(),
     body: body,
     requestTime: Math.round(requestTime.getTime()),
-    multiPartFormData: multiPartFormData,
+    multiPartFormData,
   };
 }
 // TODO capture repeat entries into a list of values

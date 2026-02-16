@@ -4,7 +4,7 @@
 // Code  vemodified to ESM syntax from original repo
 
 import * as readline from "readline";
-// original code dependend on this for `getLinesLength`. Is this necessary?
+// original code depended on this for `getLinesLength`. Is this necessary?
 // const stripAnsi = require('strip-ansi');
 export const { dashes, dots } = {
   dots: {
@@ -57,7 +57,7 @@ export function purgeSpinnerOptions(options) {
 
 /**
  *
- * @param {Partial<{spinner: any, disableSpins: boolean, color: string, succeedColor: string, failColor: string, spinnerColor: string, succeedPrefix: string, failPrefix: string}>} options
+ * @param {Partial<import("./index.js").SpinnerOptions>} options
  * @returns
  */
 export function purgeSpinnersOptions({ spinner, disableSpins, ...others }) {
@@ -97,6 +97,9 @@ export function colorOptions({ color, succeedColor, failColor, spinnerColor }) {
   return colors;
 }
 
+/**
+ * @param {Partial<{ succeedPrefix: string, failPrefix: string }>} options
+ */
 function prefixOptions({ succeedPrefix, failPrefix }) {
   if (terminalSupportsUnicode()) {
     succeedPrefix = succeedPrefix || "✓";
