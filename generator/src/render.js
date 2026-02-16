@@ -124,6 +124,10 @@ export async function runGenerator(
     console.log(restoreColorSafe(error));
   }
 }
+
+/** @typedef {{ kind: 'html-template'; title: string; html: string; bytesData: string; headTags: string; rootElement: string }} HtmlTemplate */
+/** @typedef {{is404: boolean;} & ({kind: 'json'; contentJson: string; statusCode: number; headers: Record<string, string[]>} | {kind: 'html'; htmlString: HtmlTemplate; route: string; contentJson: unknown; statusCode: number; headers: Record<string, string[]>; contentDatPayload?: { buffer: ArrayBuffer }} | {kind: 'api-response'; body: {kind: 'server-response'; headers: Record<string, string[]>; statusCode: number; body: string} | {kind: 'static-file'; body: string}; statusCode: number} | {kind: 'bytes'; contentJson: string; contentDatPayload?: { buffer: ArrayBuffer }; statusCode: number; headers: Record<string, string[]>})} RenderResult */
+
 /**
  * @param {string[]} cliOptions
  * @param {PortsFile} portsFile
@@ -133,7 +137,7 @@ export async function runGenerator(
  * @param {string} mode
  * @param {string} pagePath
  * @param {string} versionMessage
- * @returns {Promise<({is404: boolean;} & ({kind: 'json';contentJson: string;} | {kind: 'html';htmlString: string;} | {kind: 'api-response';body: string;}))|void>}
+ * @returns {Promise<RenderResult | void>}
  */
 function runGeneratorAppHelp(
   cliOptions,
@@ -260,7 +264,7 @@ function runGeneratorAppHelp(
  * @param {string} pagePath
  * @param {ParsedRequest} request
  * @param {(pattern: Set<string>) => void} addBackendTaskWatcher
- * @returns {Promise<({is404: boolean} & ( { kind: 'bytes'; contentJson: string; statusCode: unknown; headers: unknown; contentDatPayload: { buffer: ArrayBuffer } } | { kind: 'html'; route: string; htmlString: unknown; contentJson: unknown; statusCode: unknown; headers: unknown; contentDatPayload: { buffer: ArrayBuffer } | undefined } | { kind: 'api-response'; statusCode: unknown; body: { body: string } }) )>}
+ * @returns {Promise<RenderResult>}
  */
 function runElmApp(
   portsFile,

@@ -398,7 +398,7 @@ export async function start(options) {
 
   /**
    * @param {string} pathname
-   * @param {((value: any) => any) | null | undefined} onOk
+   * @param {((value: import("./render.js").RenderResult) => any) | null | undefined} onOk
    * @param {((reason: any) => void) | null | undefined} onErr
    * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} serverRequest
    */
@@ -631,7 +631,10 @@ export async function start(options) {
             }
             default: {
               console.dir(renderResult);
-              throw "Unexpected renderResult kind: " + renderResult.kind;
+              throw (
+                "Unexpected renderResult kind: " +
+                /** @type {any} */ (renderResult).kind
+              );
             }
           }
         },
