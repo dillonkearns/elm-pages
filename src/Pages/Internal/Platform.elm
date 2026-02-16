@@ -952,6 +952,15 @@ update config appMsg model =
                                                 stayingOnSamePath =
                                                     pendingUrl.path == model.url.path
 
+                                                isSubmission : Bool
+                                                isSubmission =
+                                                    case model.transition of
+                                                        Just ( _, Pages.Navigation.Submitting _ ) ->
+                                                            True
+
+                                                        _ ->
+                                                            False
+
                                                 newUrl : Url
                                                 newUrl =
                                                     pendingUrl
@@ -1004,7 +1013,7 @@ update config appMsg model =
                                                 | ariaNavigationAnnouncement = mainView config updatedModel |> .title
                                                 , currentPath = newUrl.path
                                               }
-                                            , if not stayingOnSamePath then
+                                            , if not isSubmission && not stayingOnSamePath then
                                                 Batch [ ScrollToTop, userEffect ]
 
                                               else
