@@ -30,6 +30,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
+import Elm.Syntax.Range exposing (Range)
 import Pages.Review.TaintTracking as Taint
     exposing
         ( Nonempty(..)
@@ -97,9 +98,9 @@ type alias ModuleContext =
     , collectedFunctions : Dict String FunctionTaintInfo
     , reportedRanges : Set ( ( Int, Int ), ( Int, Int ) )
 
-    -- Tainted context depth: tracks when we're inside a conditional (if/case) that
-    -- depends on model. When > 0, we're in a tainted context and should report error.
-    , taintedContextDepth : Int
+    -- Tainted context: tracks when we're inside a conditional (if/case) that
+    -- depends on model. When the stack is not empty, we're in a tainted context and should report error.
+    , taintedContext : List Range
     }
 
 
@@ -146,7 +147,7 @@ fromProjectToModule =
             , projectFunctions = projectContext.functionTaintInfo
             , collectedFunctions = Dict.empty
             , reportedRanges = Set.empty
-            , taintedContextDepth = 0
+            , taintedContext = []
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -283,7 +284,7 @@ runtimeAppFields =
     ]
 
 
-{-| Check if a module name is a Route module (Route.Something, Route.Blog.Slug_, etc.)
+{-| Check if a module name is a Route module (Route.Something, Route.Blog.Slug\_, etc.)
 -}
 isRouteModule : ModuleName -> Bool
 isRouteModule moduleName =
@@ -309,8 +310,6 @@ isAllowedModule moduleName =
 staticFunctionNames : List String
 staticFunctionNames =
     [ "freeze" ]
-
-
 
 
 
@@ -480,18 +479,18 @@ isFreezeNode context functionNode =
 
 
 expressionEnterVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
-expressionEnterVisitor node context =
+expressionEnterVisitor ((Node range expr) as node) context =
     -- First, track entering tainted conditionals (if/case)
     let
         contextWithTaintedContext =
-            case Node.value node of
+            case expr of
                 Expression.IfBlock cond _ _ ->
                     let
                         condTaint =
                             analyzeExpressionTaint context cond
                     in
                     if condTaint == Tainted then
-                        { context | taintedContextDepth = context.taintedContextDepth + 1 }
+                        { context | taintedContext = range :: context.taintedContext }
 
                     else
                         context
@@ -502,7 +501,7 @@ expressionEnterVisitor node context =
                             analyzeExpressionTaint context caseBlock.expression
                     in
                     if scrutineeTaint == Tainted then
-                        { context | taintedContextDepth = context.taintedContextDepth + 1 }
+                        { context | taintedContext = range :: context.taintedContext }
 
                     else
                         context
@@ -534,7 +533,7 @@ expressionEnterVisitor node context =
                         -- Check if we're entering a View.freeze while inside a tainted conditional
                         -- (only report on first entry to freeze, not on nested freezes)
                         taintedConditionalError =
-                            if isEnteringFreeze && contextWithTaintedContext.freezeCallDepth == 0 && contextWithTaintedContext.taintedContextDepth > 0 then
+                            if isEnteringFreeze && contextWithTaintedContext.freezeCallDepth == 0 && not (List.isEmpty contextWithTaintedContext.taintedContext) then
                                 -- Just entered freeze while inside tainted conditional
                                 [ freezeInTaintedContextError (Node.range functionNode) ]
 
@@ -583,35 +582,20 @@ checkFrozenViewFunctionCall functionNode context =
 
 
 expressionExitVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
-expressionExitVisitor node context =
+expressionExitVisitor ((Node range expr) as node) context =
     -- Track exiting tainted conditionals (if/case)
     let
         contextWithTaintedContextUpdate =
-            case Node.value node of
-                Expression.IfBlock cond _ _ ->
-                    let
-                        condTaint =
-                            analyzeExpressionTaint context cond
-                    in
-                    if condTaint == Tainted && context.taintedContextDepth > 0 then
-                        { context | taintedContextDepth = context.taintedContextDepth - 1 }
-
-                    else
-                        context
-
-                Expression.CaseExpression caseBlock ->
-                    let
-                        scrutineeTaint =
-                            analyzeExpressionTaint context caseBlock.expression
-                    in
-                    if scrutineeTaint == Tainted && context.taintedContextDepth > 0 then
-                        { context | taintedContextDepth = context.taintedContextDepth - 1 }
-
-                    else
-                        context
-
-                _ ->
+            case context.taintedContext of
+                [] ->
                     context
+
+                taintedRange :: rest ->
+                    if taintedRange == range then
+                        { context | taintedContext = rest }
+
+                    else
+                        context
     in
     case extractFreezeCallNode node of
         Just functionNode ->
@@ -1015,3 +999,4 @@ freezeInTaintedContextError range =
             ]
         }
         range
+
