@@ -1,8 +1,8 @@
-// @ts-check
-
 /** @import { PortToElm, PortFromElm } from "elm" */
-/** @import { Readable, Writable, Duplex, Stream } from "node:stream" */
+/** @import { Duplex } from "node:stream" */
+/** @import { StdioOptions } from "node:child_process" */
 
+import { Readable, Writable } from "node:stream";
 import * as path from "node:path";
 import { default as mm } from "micromatch";
 import { default as matter } from "gray-matter";
@@ -469,8 +469,7 @@ async function outputString(basePath, fromElm, isDevServer, contentDatPayload) {
 /** @typedef {Pages_Internal_EmptyBody | Pages_Internal_StringBody | Pages_Internal_JsonBody<unknown> | Pages_Internal_BytesBody | Pages_Internal_MultipartBody} Pages_Internal_StaticHttpBody */
 /** @typedef {{ tag: "EmptyBody"; args: [] }} Pages_Internal_EmptyBody */
 /** @typedef {{ tag: "StringBody"; args: [string, string] }} Pages_Internal_StringBody */
-/** @typedef {{name: string; path?: string; portName?: string; input?: unknown}} Part */
-/** @typedef {{ tag: "MultipartBody"; args: Part[] }} Pages_Internal_MultipartBody */
+/** @typedef {{ tag: "MultipartBody"; args: import("./request-cache.js").Part[][] }} Pages_Internal_MultipartBody */
 /**
  * @template T
  * @typedef {{ tag: "JsonBody"; args: [T] }} Pages_Internal_JsonBody
@@ -865,7 +864,7 @@ function runStream(req, portsFile) {
 
 /**
  * @param {Readable | Writable | null} lastStream
- * @param {Part} part
+ * @param {StreamPart} part
  * @param {Context} options
  * @param {PortsFile} portsFile
  * @param {{ (value: unknown): void; (arg0: { error: any; }): void; }} resolve
@@ -944,11 +943,13 @@ async function pipePartToStream(
       stream: stream,
     };
   } else if (part.name === "customWrite") {
-    const newLocal = await portsFile[part.portName](part.input, {
-      cwd,
-      quiet,
-      env,
-    });
+    const newLocal = /** @type {StreamBag} */ (
+      await portsFile[part.portName](part.input, {
+        cwd,
+        quiet,
+        env,
+      })
+    );
     if (!validateStream.isWritableStream(newLocal.stream)) {
       throw `Expected '${part.portName}' to return a writable stream!`;
     }
@@ -958,9 +959,9 @@ async function pipePartToStream(
         error: `Custom write stream '${part.portName}' error: ${error.message}`,
       });
     });
-    pipeIfPossible(lastStream, newLocal.stream);
+    pipeIfPossible(lastStream, /** @type {Writable} */ (newLocal.stream));
     if (!lastStream) {
-      endStreamIfNoInput(newLocal.stream);
+      endStreamIfNoInput(/** @type {Writable} */ (newLocal.stream));
     }
     return newLocal;
   } else if (part.name === "gzip") {
@@ -1017,15 +1018,18 @@ async function pipePartToStream(
       // cache: mode === "build" ? "no-cache" : "default",
       cache: "default",
     });
-    const response = await makeFetchHappen(part.url, {
-      body: lastStream,
-      duplex: "half",
-      redirect: "follow",
-      method: part.method,
-      headers: part.headers,
-      retry: part.retries,
-      timeout: part.timeoutInMs,
-    });
+    const response = await makeFetchHappen(
+      part.url,
+      /** @type {any} */ ({
+        body: lastStream,
+        duplex: "half",
+        redirect: "follow",
+        method: part.method,
+        headers: part.headers,
+        retry: part.retries,
+        timeout: part.timeoutInMs,
+      })
+    );
     if (!isLastProcess && !response.ok) {
       resolve({
         error: `HTTP request failed: ${response.status} ${response.statusText}`,
@@ -1040,12 +1044,13 @@ async function pipePartToStream(
           statusText: response.statusText,
         };
       };
-      return { metadata, stream: response.body };
+      return { metadata, stream: /** @type {any} */ (response.body) };
     }
   } else if (part.name === "command") {
     const { command, args, allowNon0Status, output } = part;
-    /** @type {'ignore' | 'inherit'} } */
+    /** @type {StdioOptions} */
     let letPrint = quiet ? "ignore" : "inherit";
+    /** @type {StdioOptions} */
     let stderrKind = kind === "none" && isLastProcess ? letPrint : "pipe";
     if (output === "Ignore") {
       stderrKind = "ignore";
@@ -1053,6 +1058,7 @@ async function pipePartToStream(
       stderrKind = letPrint;
     }
 
+    /** @type {StdioOptions} */
     const stdoutKind =
       (output === "InsteadOfStdout" || kind === "none") && isLastProcess
         ? letPrint
@@ -1061,12 +1067,12 @@ async function pipePartToStream(
      * @type {import('node:child_process').ChildProcess}
      */
     const newProcess = spawnCallback(command, args, {
-      stdio: [
+      stdio: /** @type {StdioOptions} */ ([
         "pipe",
         // if we are capturing stderr instead of stdout, print out stdout with `inherit`
         stdoutKind,
         stderrKind,
-      ],
+      ]),
       cwd: cwd,
       env: env,
     });
@@ -1094,7 +1100,8 @@ async function pipePartToStream(
       : null;
 
     newProcess.once("error", (error) => {
-      newStream && newStream.end();
+      newStream &&
+        /** @type {Writable} */ (/** @type {unknown} */ (newStream)).end();
       newProcess.removeAllListeners();
       // Resolve metadata Promise to prevent hanging awaits
       if (resolveMeta) {
@@ -1106,7 +1113,8 @@ async function pipePartToStream(
     if (isLastProcess) {
       newProcess.once("exit", (code) => {
         if (code !== 0 && !allowNon0Status) {
-          newStream && newStream.end();
+          newStream &&
+            /** @type {Writable} */ (/** @type {unknown} */ (newStream)).end();
           resolve({
             error: `Command ${command} exited with code ${code}`,
           });
@@ -1127,7 +1135,7 @@ async function pipePartToStream(
   } else {
     // console.error(`Unknown stream part: ${part.name}!`);
     // process.exit(1);
-    throw `Unknown stream part: ${part.name}!`;
+    throw `Unknown stream part: ${/** @type {StreamPart} */ (part).name}!`;
   }
 }
 

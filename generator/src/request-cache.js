@@ -307,9 +307,11 @@ function toContentType(body) {
   }
 }
 
+/** @typedef {{type: string, name: string, value?: string, mimeType?: string, filename?: string, content?: string}} Part */
+
 /**
  * Convert structured parts from Elm into a FormData instance.
- * @param {Array<{type: string, name: string, value?: string, mimeType?: string, filename?: string, content?: string}>} parts
+ * @param {Array<Part>} parts
  * @returns {FormData}
  */
 function partsToFormData(parts) {
