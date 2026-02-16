@@ -24,6 +24,7 @@
  * @returns {Record<string, string>} Map of frozen view IDs to their outerHTML
  */
 export function extractFrozenViews(html) {
+  /** @type {Record<string, string>} */
   const regions = {};
   let sharedIndex = 0;
   let routeIndex = 0;
@@ -54,7 +55,10 @@ export function extractFrozenViews(html) {
     if (outerHTML) {
       // If this was a placeholder, update the data-static attribute in the extracted HTML
       if (placeholder.includes("__STATIC__")) {
-        regions[id] = outerHTML.replace(`data-static="${placeholder}"`, `data-static="${id}"`);
+        regions[id] = outerHTML.replace(
+          `data-static="${placeholder}"`,
+          `data-static="${id}"`
+        );
       } else {
         regions[id] = outerHTML;
       }
@@ -166,4 +170,8 @@ export function extractAndReplaceFrozenViews(html) {
   return { regions, html: updatedHtml };
 }
 
-export default { extractFrozenViews, replaceFrozenViewPlaceholders, extractAndReplaceFrozenViews };
+export default {
+  extractFrozenViews,
+  replaceFrozenViewPlaceholders,
+  extractAndReplaceFrozenViews,
+};

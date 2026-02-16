@@ -1,7 +1,8 @@
 import * as path from "path";
 import * as fsPromises from "fs/promises";
-import * as kleur from "kleur/colors";
 import { default as makeFetchHappenOriginal } from "make-fetch-happen";
+
+/** @import {Pages_StaticHttp_Request, Pages_Internal_StaticHttpBody} from "./render.js" */
 
 const defaultHttpCachePath = "./.elm-pages/http-cache";
 
@@ -9,7 +10,7 @@ const defaultHttpCachePath = "./.elm-pages/http-cache";
 
 /**
  * @param {string} mode
- * @param {import("./render.js").Pages_StaticHttp_Request} rawRequest
+ * @param {Pages_StaticHttp_Request} rawRequest
  * @param {Record<string, unknown>} portsFile
  * @returns {Promise<Response>}
  */
@@ -252,7 +253,7 @@ function toElmJson(obj) {
 }
 
 /**
- * @param {import("./render.js").Pages_StaticHttp_Request} elmRequest
+ * @param {Pages_StaticHttp_Request} elmRequest
  */
 function toRequest(elmRequest) {
   const elmHeaders = Object.fromEntries(elmRequest.headers);
@@ -266,7 +267,7 @@ function toRequest(elmRequest) {
   };
 }
 /**
- * @param {Body} body
+ * @param {Pages_Internal_StaticHttpBody} body
  */
 function toBody(body) {
   switch (body.tag) {
@@ -286,7 +287,7 @@ function toBody(body) {
 }
 
 /**
- * @param {Body} body
+ * @param {Pages_Internal_StaticHttpBody} body
  * @returns Object
  */
 function toContentType(body) {
@@ -321,13 +322,17 @@ function partsToFormData(parts) {
       case "bytes":
         formData.append(
           part.name,
-          new Blob([Buffer.from(part.content, "base64")], { type: part.mimeType })
+          new Blob([Buffer.from(part.content, "base64")], {
+            type: part.mimeType,
+          })
         );
         break;
       case "bytesWithFilename":
         formData.append(
           part.name,
-          new Blob([Buffer.from(part.content, "base64")], { type: part.mimeType }),
+          new Blob([Buffer.from(part.content, "base64")], {
+            type: part.mimeType,
+          }),
           part.filename
         );
         break;
@@ -340,6 +345,8 @@ function partsToFormData(parts) {
  * Read the response body in the format expected by the Elm side.
  * Works with both make-fetch-happen responses (which have .buffer())
  * and standard fetch responses (which have .arrayBuffer()).
+ * @param {{ text: () => any; }} response
+ * @param {string} expectString
  */
 async function readResponseBody(response, expectString) {
   if (expectString === "ExpectJson") {
@@ -349,12 +356,18 @@ async function readResponseBody(response, expectString) {
     } catch (error) {
       return { body: buf.toString("utf8"), bodyKind: "string" };
     }
-  } else if (expectString === "ExpectBytes" || expectString === "ExpectBytesResponse") {
+  } else if (
+    expectString === "ExpectBytes" ||
+    expectString === "ExpectBytesResponse"
+  ) {
     const buf = await responseBuffer(response);
     return { body: buf.toString("base64"), bodyKind: "bytes" };
   } else if (expectString === "ExpectWhatever") {
     return { body: null, bodyKind: "whatever" };
-  } else if (expectString === "ExpectResponse" || expectString === "ExpectString") {
+  } else if (
+    expectString === "ExpectResponse" ||
+    expectString === "ExpectString"
+  ) {
     return { body: await response.text(), bodyKind: "string" };
   } else {
     throw `Unexpected expectString ${expectString}`;
@@ -372,7 +385,6 @@ async function responseBuffer(response) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-/** @typedef { { tag: 'EmptyBody'} |{ tag: 'BytesBody'; args: [string, string] } |  { tag: 'StringBody'; args: [string, string] } | {tag: 'JsonBody'; args: [ Object ] } | {tag: 'MultipartBody'; args: [ Array ] } } Body  */
 function requireUncached(mode, filePath) {
   if (mode === "dev-server") {
     // for the build command, we can skip clearing the cache because it won't change while the build is running

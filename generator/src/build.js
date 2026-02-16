@@ -429,8 +429,10 @@ export async function render(request) {
     } catch (cliError) {
       // Check if this is an ephemeral field disagreement error - re-throw to outer catch
       if (
-        cliError.message &&
-        cliError.message.includes("EPHEMERAL FIELD DISAGREEMENT")
+        /** @type {Error} */ (cliError).message &&
+        /** @type {Error} */ (cliError).message.includes(
+          "EPHEMERAL FIELD DISAGREEMENT"
+        )
       ) {
         throw cliError;
       }

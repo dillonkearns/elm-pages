@@ -574,7 +574,7 @@ async function applyDataTypeFixes(cwd, fixes) {
     } catch (e) {
       // Skip files that can't be processed
       console.warn(
-        `Warning: Could not apply Data type fix to ${fullPath}: ${e.message}`
+        `Warning: Could not apply Data type fix to ${fullPath}: ${/** @type {Error} */ (e).message}`
       );
     }
   }

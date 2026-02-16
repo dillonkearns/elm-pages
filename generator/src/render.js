@@ -1,6 +1,7 @@
 // @ts-check
 
 /** @import { PortToElm, PortFromElm } from "elm" */
+/** @import { Readable, Writable, Duplex, Stream } from "node:stream" */
 
 import * as path from "node:path";
 import { default as mm } from "micromatch";
@@ -21,7 +22,6 @@ import * as readline from "readline";
 import { spawn as spawnCallback } from "cross-spawn";
 import * as consumers from "stream/consumers";
 import * as zlib from "node:zlib";
-import Stream, { Readable, Writable } from "node:stream";
 import * as validateStream from "./validate-stream.js";
 import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 import mergeStreams from "@sindresorhus/merge-streams";
@@ -126,7 +126,11 @@ export async function runGenerator(
 }
 
 /** @typedef {{ kind: 'html-template'; title: string; html: string; bytesData: string; headTags: string; rootElement: string }} HtmlTemplate */
-/** @typedef {{is404: boolean;} & ({kind: 'json'; contentJson: string; statusCode: number; headers: Record<string, string[]>} | {kind: 'html'; htmlString: HtmlTemplate; route: string; contentJson: unknown; statusCode: number; headers: Record<string, string[]>; contentDatPayload?: { buffer: ArrayBuffer }} | {kind: 'api-response'; body: {kind: 'server-response'; headers: Record<string, string[]>; statusCode: number; body: string} | {kind: 'static-file'; body: string}; statusCode: number} | {kind: 'bytes'; contentJson: string; contentDatPayload?: { buffer: ArrayBuffer }; statusCode: number; headers: Record<string, string[]>})} RenderResult */
+/** @typedef {{ kind: 'json'; contentJson: string; statusCode: number; headers: Record<string, string[]> }} RenderResultJson */
+/** @typedef {{ kind: 'html'; htmlString: HtmlTemplate; route: string; contentJson: unknown; statusCode: number; headers: Record<string, string[]>; contentDatPayload?: { buffer: ArrayBuffer } }} RenderResultHtml */
+/** @typedef {{ kind: 'api-response'; body: { kind: 'server-response'; headers: Record<string, string[]>; statusCode: number; body: string } | { kind: 'static-file'; body: string }; statusCode: number }} RenderResultApiResponse */
+/** @typedef {{ kind: 'bytes'; contentJson: string; contentDatPayload?: { buffer: ArrayBuffer }; statusCode: number; headers: Record<string, string[]>; html: string }} RenderResultBytes */
+/** @typedef {{is404: boolean;} & (RenderResultJson | RenderResultHtml | RenderResultApiResponse | RenderResultBytes)} RenderResult */
 
 /**
  * @param {string[]} cliOptions
@@ -428,8 +432,9 @@ async function outputString(basePath, fromElm, isDevServer, contentDatPayload) {
   };
 }
 
-/** @typedef {{ cwd: string; quiet: boolean; env: Record<string, string | undefined>; captureOutput: boolean }} Context */
-/** @typedef {{ [x: string]: (arg0: any, arg1: Context) => Promise<{metadata: any; stream: Stream | null}> }} PortsFile */
+/** @typedef {{ cwd: string; quiet: boolean; env: Record<string, string | undefined>; captureOutput?: boolean }} Context */
+/** @typedef {{ metadata: any; stream: Readable | Writable | null }} StreamBag */
+/** @typedef {{ [x: string]: (arg0: any, arg1: Context) => Promise<Readable | Writable | null | StreamBag> }} PortsFile */
 
 // Elm module & app types
 /** @typedef {{ mode: string; compatibilityKey: number; request: { payload: Payload; kind: string; jsonOnly: boolean } }} MainFlags */
@@ -461,9 +466,11 @@ async function outputString(basePath, fromElm, isDevServer, contentDatPayload) {
 
 // HTTP request types
 /** @typedef {{ url: string; method: string; headers: [string, string][]; body: Pages_Internal_StaticHttpBody; cacheOptions: unknown[] | null; env: Record<string, string | undefined>; dir: string[]; quiet: boolean }} Pages_StaticHttp_Request */
-/** @typedef {Pages_Internal_EmptyBody | Pages_Internal_StringBody | Pages_Internal_JsonBody<unknown> | Pages_Internal_BytesBody} Pages_Internal_StaticHttpBody */
+/** @typedef {Pages_Internal_EmptyBody | Pages_Internal_StringBody | Pages_Internal_JsonBody<unknown> | Pages_Internal_BytesBody | Pages_Internal_MultipartBody} Pages_Internal_StaticHttpBody */
 /** @typedef {{ tag: "EmptyBody"; args: [] }} Pages_Internal_EmptyBody */
 /** @typedef {{ tag: "StringBody"; args: [string, string] }} Pages_Internal_StringBody */
+/** @typedef {{name: string; path?: string; portName?: string; input?: unknown}} Part */
+/** @typedef {{ tag: "MultipartBody"; args: Part[] }} Pages_Internal_MultipartBody */
 /**
  * @template T
  * @typedef {{ tag: "JsonBody"; args: [T] }} Pages_Internal_JsonBody
@@ -774,7 +781,7 @@ function runStream(req, portsFile) {
   return new Promise(async (resolve) => {
     const context = getContext(req);
     let metadataResponse = null;
-    /** @type {Stream | null} */
+    /** @type {Readable | Writable | null} */
     let lastStream = null;
     try {
       const kind = req.body.args[0].kind;
@@ -783,6 +790,7 @@ function runStream(req, portsFile) {
 
       for (const part of parts) {
         let isLastProcess = index === parts.length - 1;
+        /** @type {Readable | Writable} */
         let thisStream;
         const { stream, metadata } = await pipePartToStream(
           lastStream,
@@ -856,14 +864,14 @@ function runStream(req, portsFile) {
 }
 
 /**
- * @param {Stream} lastStream
- * @param {{name: string; path?: string; portName?: string; input?: unknown}} part
+ * @param {Readable | Writable | null} lastStream
+ * @param {Part} part
  * @param {Context} options
  * @param {PortsFile} portsFile
  * @param {{ (value: unknown): void; (arg0: { error: any; }): void; }} resolve
  * @param {boolean} isLastProcess
  * @param {string} kind
- * @returns {Promise<{stream: Stream;metadata?: any;}>}
+ * @returns {Promise<{stream: Readable | Writable; metadata?: any;}>}
  */
 async function pipePartToStream(
   lastStream,
@@ -895,18 +903,20 @@ async function pipePartToStream(
       quiet,
       env,
     });
-    if (validateStream.isDuplexStream(newLocal.stream)) {
-      newLocal.stream.once("error", (error) => {
-        newLocal.stream.destroy();
+    if (
+      validateStream.isDuplexStream(/** @type {StreamBag} */ (newLocal).stream)
+    ) {
+      /** @type {StreamBag} */ (newLocal).stream.once("error", (error) => {
+        /** @type {StreamBag} */ (newLocal).stream.destroy();
         resolve({
           error: `Custom duplex stream '${part.portName}' error: ${error.message}`,
         });
       });
-      pipeIfPossible(lastStream, newLocal.stream);
+      pipeIfPossible(lastStream, /** @type {StreamBag} */ (newLocal).stream);
       if (!lastStream) {
-        endStreamIfNoInput(newLocal.stream);
+        endStreamIfNoInput(/** @type {StreamBag} */ (newLocal).stream);
       }
-      return newLocal;
+      return /** @type {StreamBag} */ (newLocal);
     } else {
       throw `Expected '${part.portName}' to be a duplex stream!`;
     }
@@ -917,7 +927,9 @@ async function pipePartToStream(
       env,
     });
     // customRead can return either a stream directly or { stream, metadata }
-    const stream = newLocal.stream || newLocal;
+    const stream =
+      /** @type {StreamBag} */ (newLocal).stream ||
+      /** @type {Readable} */ (newLocal);
     if (!validateStream.isReadableStream(stream)) {
       throw `Expected '${part.portName}' to return a readable stream!`;
     }
@@ -928,7 +940,7 @@ async function pipePartToStream(
       });
     });
     return {
-      metadata: newLocal.metadata || null,
+      metadata: /** @type {StreamBag} */ (newLocal).metadata || null,
       stream: stream,
     };
   } else if (part.name === "customWrite") {
@@ -1120,8 +1132,11 @@ async function pipePartToStream(
 }
 
 /**
- * @param { import('stream').Stream? } input
- * @param {import('stream').Writable | import('stream').Duplex} destination
+ * @template {Readable | Writable | Duplex} T
+ * @template {Writable} U
+ * @param {T | null} input
+ * @param {U} destination
+ * @returns {U}
  */
 function pipeIfPossible(input, destination) {
   if (input) {
@@ -1141,7 +1156,7 @@ function pipeIfPossible(input, destination) {
  * GUI applications like ksdiff/meld are particularly affected - they wait for
  * stdin to close before proceeding, causing hangs if we don't explicitly end it.
  *
- * @param {import('stream').Writable | null | undefined} stream - The writable stream to end
+ * @param {Writable | null | undefined} stream - The writable stream to end
  */
 function endStreamIfNoInput(stream) {
   if (!stream) {

@@ -10,12 +10,12 @@ import * as renderer from "../render.js";
 import { compileCliApp } from "../compile-elm.js";
 import { resolveInputPathOrModuleName } from "../resolve-elm-module.js";
 import { restoreColorSafe } from "../error-formatter.js";
-import { needsRecompilation, needsPortsRecompilation, updateVersionMarker } from "../script-cache.js";
 import {
-  compileElmForScript,
-  requireElm,
-  printCaughtError,
-} from "./shared.js";
+  needsRecompilation,
+  needsPortsRecompilation,
+  updateVersionMarker,
+} from "../script-cache.js";
+import { compileElmForScript, requireElm, printCaughtError } from "./shared.js";
 
 export async function run(elmModulePath, options, options2) {
   const unprocessedCliOptions = options2.args.splice(
@@ -25,7 +25,11 @@ export async function run(elmModulePath, options, options2) {
   try {
     const { moduleName, projectDirectory, sourceDirectory } =
       await resolveInputPathOrModuleName(elmModulePath);
-    await compileElmForScript(elmModulePath, { moduleName, projectDirectory, sourceDirectory });
+    await compileElmForScript(elmModulePath, {
+      moduleName,
+      projectDirectory,
+      sourceDirectory,
+    });
 
     // Check if custom-backend-task needs recompilation
     const portsCheck = await needsPortsRecompilation(projectDirectory);
@@ -67,6 +71,8 @@ export async function run(elmModulePath, options, options2) {
             // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
             console.error("Failed to load custom-backend-task file.", error);
           }
+
+          return undefined;
         });
       portsPath = await portBackendTaskCompiled;
     }
@@ -75,12 +81,24 @@ export async function run(elmModulePath, options, options2) {
     process.chdir(projectDirectory);
     // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
 
-    const outputPath = path.join(projectDirectory, "elm-stuff/elm-pages/elm.cjs");
-    const shouldRecompile = await needsRecompilation(projectDirectory, outputPath);
+    const outputPath = path.join(
+      projectDirectory,
+      "elm-stuff/elm-pages/elm.cjs"
+    );
+    const shouldRecompile = await needsRecompilation(
+      projectDirectory,
+      outputPath
+    );
 
     if (shouldRecompile) {
-      const elmEntrypointPath = path.join(projectDirectory, "elm-stuff/elm-pages/.elm-pages/ScriptMain.elm");
-      const elmOutputPath = path.join(projectDirectory, "elm-stuff/elm-pages/elm.js");
+      const elmEntrypointPath = path.join(
+        projectDirectory,
+        "elm-stuff/elm-pages/.elm-pages/ScriptMain.elm"
+      );
+      const elmOutputPath = path.join(
+        projectDirectory,
+        "elm-stuff/elm-pages/elm.js"
+      );
       await compileCliApp(
         { debug: true },
         elmEntrypointPath,

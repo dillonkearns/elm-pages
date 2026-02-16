@@ -4,7 +4,10 @@ import * as fs from "./dir-helpers.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { parentPort, threadId, workerData } from "node:worker_threads";
 import * as url from "node:url";
-import { extractAndReplaceFrozenViews, replaceFrozenViewPlaceholders } from "./extract-frozen-views.js";
+import {
+  extractAndReplaceFrozenViews,
+  replaceFrozenViewPlaceholders,
+} from "./extract-frozen-views.js";
 import { toExactBuffer } from "./binary-helpers.js";
 
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
@@ -74,7 +77,8 @@ async function outputString(fromElm, pathname) {
       const template = readFileSync("./dist/template.html", "utf8");
 
       // Extract frozen views from rendered HTML and replace __STATIC__ placeholders
-      const { regions: frozenViews, html: updatedHtml } = extractAndReplaceFrozenViews(args.htmlString?.html || "");
+      const { regions: frozenViews, html: updatedHtml } =
+        extractAndReplaceFrozenViews(args.htmlString?.html || "");
 
       // Update the HTML with resolved frozen view IDs
       if (args.htmlString) {
@@ -87,14 +91,14 @@ async function outputString(fromElm, pathname) {
         //         [N bytes: frozen views JSON (UTF-8)]
         //         [remaining bytes: original ResponseSketch binary]
         const frozenViewsJson = JSON.stringify(frozenViews);
-        const frozenViewsBuffer = Buffer.from(frozenViewsJson, 'utf8');
+        const frozenViewsBuffer = Buffer.from(frozenViewsJson, "utf8");
         const lengthBuffer = Buffer.alloc(4);
         lengthBuffer.writeUInt32BE(frozenViewsBuffer.length, 0);
 
         const contentDatBuffer = Buffer.concat([
           lengthBuffer,
           frozenViewsBuffer,
-          toExactBuffer(args.contentDatPayload)
+          toExactBuffer(args.contentDatPayload.buffer),
         ]);
 
         // Write the combined content.dat for SPA navigation
@@ -104,14 +108,17 @@ async function outputString(fromElm, pathname) {
         // The decoder (skipFrozenViewsPrefix) expects this format even for initial load
         const emptyFrozenViews = {};
         const emptyFrozenViewsJson = JSON.stringify(emptyFrozenViews);
-        const emptyFrozenViewsBuffer = Buffer.from(emptyFrozenViewsJson, 'utf8');
+        const emptyFrozenViewsBuffer = Buffer.from(
+          emptyFrozenViewsJson,
+          "utf8"
+        );
         const emptyLengthBuffer = Buffer.alloc(4);
         emptyLengthBuffer.writeUInt32BE(emptyFrozenViewsBuffer.length, 0);
 
         const htmlBytesBuffer = Buffer.concat([
           emptyLengthBuffer,
           emptyFrozenViewsBuffer,
-          toExactBuffer(args.contentDatPayload)
+          toExactBuffer(args.contentDatPayload.buffer),
         ]);
 
         // Update the bytesData in htmlString with the prefixed format

@@ -529,7 +529,7 @@ export async function start(options) {
               const combinedBuffer = Buffer.concat([
                 lengthBuffer,
                 frozenViewsBuffer,
-                toExactBuffer(renderResult.contentDatPayload),
+                toExactBuffer(renderResult.contentDatPayload.buffer),
               ]);
               res.writeHead(is404 ? 404 : renderResult.statusCode, {
                 "Content-Type": "application/octet-stream",

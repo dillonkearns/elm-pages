@@ -26,8 +26,8 @@ export function normalizeUrl(rawPagePath) {
 }
 
 /**
- * @param {Error|string|any[]} error - Thing that was thrown and caught.
- * @param {Function} [restoreColorSafe] - Optional color restore function.
+ * @param {unknown} error - Thing that was thrown and caught.
+ * @param {(error: unknown) => string} [restoreColorSafe] - Optional color restore function.
  */
 export function printCaughtError(error, restoreColorSafe) {
   if (typeof error === "string" || Array.isArray(error)) {
@@ -131,8 +131,10 @@ export async function compileElmForScript(elmModulePath, resolved) {
     const shouldRunCodegen = await needsCodegenInstall(projectDirectory);
     if (shouldRunCodegen) {
       const result = await runElmCodegenInstall();
-      if (!result.success) {
-        console.error(`Warning: ${result.message}. This may cause stale generated code or missing module errors.\n`);
+      if (result.success === false) {
+        console.error(
+          `Warning: ${result.message}. This may cause stale generated code or missing module errors.\n`
+        );
         if (result.error) {
           console.error(result.error);
         }

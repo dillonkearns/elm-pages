@@ -1,6 +1,6 @@
 // source: https://www.30secondsofcode.org/js/s/typecheck-nodejs-streams/
 
-/** @import {Stream} from "node:stream" */
+/** @import {Duplex, Stream} from "node:stream" */
 
 /**
  * @param {any} val
