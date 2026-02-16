@@ -266,11 +266,12 @@ analyzeExpressionTaint context =
 
 
 {-| Runtime app fields that don't exist at build time.
+Note: `action` is NOT in this list because it has the same lifecycle as `data` -
+both arrive in the same content.dat response and are only updated on server round-trips.
 -}
 runtimeAppFields : List String
 runtimeAppFields =
-    [ "action"
-    , "navigation"
+    [ "navigation"
     , "pageFormState"
     , "concurrentSubmissions"
     , "submit"
@@ -848,10 +849,10 @@ runtimeAppFieldError range fieldName =
         { message = "Runtime field `" ++ fieldName ++ "` accessed inside View.freeze"
         , details =
             [ "`app." ++ fieldName ++ "` is runtime-only data that doesn't exist at build time."
-            , "Frozen content is rendered once at build time, so runtime fields like `action`, `navigation`, `pageFormState`, `concurrentSubmissions`, `submit`, and `url` are not available."
+            , "Frozen content is rendered once at build time, so runtime fields like `navigation`, `pageFormState`, `concurrentSubmissions`, `submit`, and `url` are not available."
             , "To fix this, either:"
             , "1. Move the runtime-dependent content outside of `View.freeze`, or"
-            , "2. Only use build-time fields inside `View.freeze`: `app.data`, `app.sharedData`, `app.routeParams`, `app.path`"
+            , "2. Only use build-time fields inside `View.freeze`: `app.data`, `app.action`, `app.sharedData`, `app.routeParams`, `app.path`"
             ]
         }
         range
@@ -902,7 +903,7 @@ caseOnAppError range =
         { message = "Pattern match on app inside View.freeze"
         , details =
             [ "Using `case app of` inside `View.freeze` accesses the full app record which contains runtime-only fields."
-            , "Frozen content is rendered once at build time, and runtime fields like `action`, `navigation` don't exist yet."
+            , "Frozen content is rendered once at build time, and runtime fields like `navigation`, `pageFormState` don't exist yet."
             , "To fix this, either:"
             , "1. Move this content outside of `View.freeze`, or"
             , "2. Access specific build-time fields like `app.data` or `app.routeParams` instead"

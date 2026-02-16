@@ -70,7 +70,6 @@ type alias Data =
     , host : String
     , path : String
     , queryParams : List ( String, String )
-    , lastGreetedName : Maybe String
     }
 
 
@@ -123,17 +122,6 @@ data _ request =
                     (\( key, values ) ->
                         List.map (\v -> ( key, v )) values
                     )
-
-        lastGreetedName =
-            request
-                |> Request.rawFormData
-                |> Maybe.andThen
-                    (\fields ->
-                        fields
-                            |> List.filter (\( k, _ ) -> k == "name")
-                            |> List.head
-                            |> Maybe.map Tuple.second
-                    )
     in
     BackendTask.succeed
         (Response.render
@@ -143,7 +131,6 @@ data _ request =
             , host = host
             , path = path
             , queryParams = queryParams
-            , lastGreetedName = lastGreetedName
             }
         )
 
@@ -231,12 +218,11 @@ view app _ model =
             -- Frozen syntax-highlighted code example (tests DCE of SyntaxHighlight)
             , View.freeze syntaxHighlightedCodeExample
 
-            -- Frozen greeting (uses app.data, rendered as HTML over the wire)
-            , View.freeze (frozenGreetingSection app.data)
+            -- Frozen action result (uses app.action inside View.freeze!)
+            , View.freeze (frozenActionResultSection app.action)
 
-            -- Form + action result (dynamic, not frozen)
+            -- Form (dynamic, not frozen — needs event handlers for SPA submission)
             , greetingFormSection app
-            , actionResultSection app.action
 
             -- Interactive tabbed content (island)
             , tabbedSection model
@@ -296,30 +282,17 @@ greetingFormSection app =
         ]
 
 
-frozenGreetingSection : Data -> Html Never
-frozenGreetingSection pageData =
-    case pageData.lastGreetedName of
-        Just name ->
-            div [ Attr.class "bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-8" ]
-                [ h3 [ Attr.class "font-semibold text-indigo-800 mb-1" ]
-                    [ text "Frozen Greeting (from app.data)" ]
-                , p [ Attr.class "text-indigo-700" ]
-                    [ text ("The server greeted: " ++ name) ]
-                , p [ Attr.class "text-indigo-500 text-xs mt-2" ]
-                    [ text "This section is inside View.freeze. Its HTML was sent over the wire in content.dat!" ]
-                ]
-
-        Nothing ->
-            text ""
-
-
-actionResultSection : Maybe ActionData -> Html (PagesMsg Msg)
-actionResultSection maybeAction =
+frozenActionResultSection : Maybe ActionData -> Html Never
+frozenActionResultSection maybeAction =
     case maybeAction of
         Just actionData ->
             div [ Attr.class "bg-green-50 border border-green-200 rounded-lg p-4 mb-8" ]
-                [ p [ Attr.class "text-green-800 font-medium" ]
+                [ h3 [ Attr.class "font-semibold text-green-800 mb-1" ]
+                    [ text "Frozen Action Result (from app.action)" ]
+                , p [ Attr.class "text-green-700" ]
                     [ text actionData.greeting ]
+                , p [ Attr.class "text-green-500 text-xs mt-2" ]
+                    [ text "This section uses app.action inside View.freeze. Its HTML was sent over the wire in content.dat!" ]
                 ]
 
         Nothing ->

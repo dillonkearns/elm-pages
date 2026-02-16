@@ -18,7 +18,7 @@ Html.Lazy.lazy todaysDateView model.today
 
 Elm's `Html.Lazy` avoids unnecessary re-renders.
 
-`elm-pages`' `View.freeze` takes it a step further - it *never* renders your code on the client-side. In fact, it doesn't even bundle the rendering code or the `Data` fields it depends on! Instead, it does the work to render the HTML for Frozen Views before it ever hits the client-side (at build-time, or at server-render time for server-rendered routes).
+`elm-pages`' `View.freeze` takes it a step further - it *never* renders your code on the client-side. In fact, it doesn't even bundle the rendering code or the `Data` fields it depends on! Instead, it does the work to render the HTML for Frozen Views before it ever hits the client-side (at build-time, or at server-render time for server-rendered routes). Frozen views also work with form actions — when a form is submitted, the server re-renders the frozen HTML with the updated `app.data` and `app.action`, and the client adopts the new HTML without needing any of the rendering code.
 
 ## Usage
 
@@ -165,13 +165,50 @@ On the elm-pages.com docs site, frozen views cut the bundle size roughly in half
 | Raw     | 163.3 KB     | 77.7 KB           | -85.5 KB (-52%) |
 | Gzipped | 49.8 KB      | 26.4 KB           | -23.3 KB (-47%) |
 
+## Frozen Views with Form Actions
+
+Frozen views work with server-rendered routes and form actions. When a form is submitted, the server re-renders the page (including frozen views) with the new `app.action` data. The updated frozen HTML is sent back in the response and adopted by the client — all without needing any of the rendering code in the client bundle.
+
+```elm
+view :
+    App Data ActionData RouteParams
+    -> Model
+    -> View (PagesMsg Msg)
+view app model =
+    { title = "My Page"
+    , body =
+        [ -- This frozen view updates after form submission!
+          -- The server re-renders it with the new app.action value.
+          View.freeze (actionResultView app.action)
+
+        -- Forms themselves need event handlers, so they stay dynamic
+        , form []
+            [ input [ name "query" ] []
+            , button [] [ text "Submit" ]
+            ]
+        ]
+    }
+
+
+actionResultView : Maybe ActionData -> Html Never
+actionResultView maybeAction =
+    case maybeAction of
+        Just actionData ->
+            div [] [ text ("Result: " ++ actionData.message) ]
+
+        Nothing ->
+            text ""
+```
+
+Note that while `app.action` can be used inside `View.freeze`, forms themselves cannot be frozen because they require event handlers (which produce messages, making them incompatible with the `Html Never` type).
+
 ## When to Use Frozen Views
 
 Use `View.freeze` for content that:
 
 - **Doesn't need interactivity** - No click handlers, no dynamic updates
 - **Uses heavy dependencies** - Markdown parsers, syntax highlighters, complex formatting
-- **Comes from build-time data** - Content from `app.data` that won't change at runtime
+- **Comes from server data** - Content from `app.data` or `app.action` that is rendered on the server
 
 ## Is It Inefficient to Send a Lot of HTML?
 
@@ -307,15 +344,16 @@ View.freeze (button [ onClick MyMsg ] [ text "Click" ])
 
 ### Frozen content cannot use `model`
 
-Frozen content is rendered at build time (or server-render time), before any client-side state exists. You can use `app.data` (build-time data) but not `model` (runtime state).
+Frozen content is rendered at build time (or server-render time), before any client-side state exists. You can use `app.data` and `app.action` (server-provided data) but not `model` (runtime state).
 
 **The simple rule: Keep `model` out of `View.freeze` for optimal bundle size.**
 
 If you reference `model` inside a `View.freeze`, elm-pages will gracefully **de-optimize** that freeze call—the code will still work correctly, but the rendering code won't be eliminated from the client bundle. This prevents a subtle bug where frozen content would show stale model values.
 
 ```elm
--- This works AND is optimized (DCE applied)
+-- These work AND are optimized (DCE applied)
 View.freeze (text app.data.title)
+View.freeze (actionResultView app.action)
 
 -- This works but is NOT optimized (no DCE, dependencies stay in bundle)
 View.freeze (text model.searchQuery)

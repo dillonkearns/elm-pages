@@ -90,7 +90,7 @@ view app shared model =
                         |> Review.Test.expectNoErrors
             ]
         , describe "Runtime app fields"
-            [ test "detects app.action inside freeze" <|
+            [ test "allows app.action inside freeze" <|
                 \() ->
                     [ """module Route.Index exposing (view)
 
@@ -102,22 +102,7 @@ view app shared model =
 """
                     ]
                         |> Review.Test.runOnModules rule
-                        |> Review.Test.expectErrorsForModules
-                            [ ( "Route.Index"
-                              , [ Review.Test.error
-                                    { message = "Runtime field `action` accessed inside View.freeze"
-                                    , details =
-                                        [ "`app.action` is runtime-only data that doesn't exist at build time."
-                                        , "Frozen content is rendered once at build time, so runtime fields like `action`, `navigation`, `pageFormState`, `concurrentSubmissions`, `submit`, and `url` are not available."
-                                        , "To fix this, either:"
-                                        , "1. Move the runtime-dependent content outside of `View.freeze`, or"
-                                        , "2. Only use build-time fields inside `View.freeze`: `app.data`, `app.sharedData`, `app.routeParams`, `app.path`"
-                                        ]
-                                    , under = "app.action"
-                                    }
-                                ]
-                              )
-                            ]
+                        |> Review.Test.expectNoErrors
             , test "detects app.navigation inside freeze" <|
                 \() ->
                     [ """module Route.Index exposing (view)
@@ -136,10 +121,10 @@ view app shared model =
                                     { message = "Runtime field `navigation` accessed inside View.freeze"
                                     , details =
                                         [ "`app.navigation` is runtime-only data that doesn't exist at build time."
-                                        , "Frozen content is rendered once at build time, so runtime fields like `action`, `navigation`, `pageFormState`, `concurrentSubmissions`, `submit`, and `url` are not available."
+                                        , "Frozen content is rendered once at build time, so runtime fields like `navigation`, `pageFormState`, `concurrentSubmissions`, `submit`, and `url` are not available."
                                         , "To fix this, either:"
                                         , "1. Move the runtime-dependent content outside of `View.freeze`, or"
-                                        , "2. Only use build-time fields inside `View.freeze`: `app.data`, `app.sharedData`, `app.routeParams`, `app.path`"
+                                        , "2. Only use build-time fields inside `View.freeze`: `app.data`, `app.action`, `app.sharedData`, `app.routeParams`, `app.path`"
                                         ]
                                     , under = "app.navigation"
                                     }
@@ -164,10 +149,10 @@ view app shared model =
                                     { message = "Runtime field `url` accessed inside View.freeze"
                                     , details =
                                         [ "`app.url` is runtime-only data that doesn't exist at build time."
-                                        , "Frozen content is rendered once at build time, so runtime fields like `action`, `navigation`, `pageFormState`, `concurrentSubmissions`, `submit`, and `url` are not available."
+                                        , "Frozen content is rendered once at build time, so runtime fields like `navigation`, `pageFormState`, `concurrentSubmissions`, `submit`, and `url` are not available."
                                         , "To fix this, either:"
                                         , "1. Move the runtime-dependent content outside of `View.freeze`, or"
-                                        , "2. Only use build-time fields inside `View.freeze`: `app.data`, `app.sharedData`, `app.routeParams`, `app.path`"
+                                        , "2. Only use build-time fields inside `View.freeze`: `app.data`, `app.action`, `app.sharedData`, `app.routeParams`, `app.path`"
                                         ]
                                     , under = "app.url"
                                     }
@@ -218,10 +203,10 @@ view app shared model =
                                     { message = "Runtime field `submit` accessed inside View.freeze"
                                     , details =
                                         [ "`app.submit` is runtime-only data that doesn't exist at build time."
-                                        , "Frozen content is rendered once at build time, so runtime fields like `action`, `navigation`, `pageFormState`, `concurrentSubmissions`, `submit`, and `url` are not available."
+                                        , "Frozen content is rendered once at build time, so runtime fields like `navigation`, `pageFormState`, `concurrentSubmissions`, `submit`, and `url` are not available."
                                         , "To fix this, either:"
                                         , "1. Move the runtime-dependent content outside of `View.freeze`, or"
-                                        , "2. Only use build-time fields inside `View.freeze`: `app.data`, `app.sharedData`, `app.routeParams`, `app.path`"
+                                        , "2. Only use build-time fields inside `View.freeze`: `app.data`, `app.action`, `app.sharedData`, `app.routeParams`, `app.path`"
                                         ]
                                     , under = "app.submit"
                                     }
