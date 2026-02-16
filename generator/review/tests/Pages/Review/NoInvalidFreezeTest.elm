@@ -1046,7 +1046,50 @@ view app shared model =
                         |> Review.Test.expectNoErrors
             ]
         , describe "Pipeline expressions with View.freeze"
-            [ test "detects model.field inside freeze via right pipe" <|
+            [ test "detects model.field inside freeze via right pipe with parenthesized freeze" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    text model.name
+        |> (View.freeze)
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Model referenced inside View.freeze"
+                                    , details =
+                                        [ "Frozen content is rendered at build time when no model state exists."
+                                        , "Referencing `model` inside a `View.freeze` call would result in stale content that doesn't update when the model changes."
+                                        , "To fix this, either:"
+                                        , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                        , "2. Only use `app.data` fields inside `View.freeze` (data that is available at build time)"
+                                        ]
+                                    , under = "model.name"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "allows pure content via right pipe with parenthesized freeze" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    text app.data.name
+        |> (View.freeze)
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectNoErrors
+            , test "detects model.field inside freeze via right pipe" <|
                 \() ->
                     [ """module Route.Index exposing (view)
 
@@ -1103,6 +1146,34 @@ view app shared model =
                                 ]
                               )
                             ]
+            , test "detects model.field inside freeze via left pipe with parenthesized freeze" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    (View.freeze) <| text model.name
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Model referenced inside View.freeze"
+                                    , details =
+                                        [ "Frozen content is rendered at build time when no model state exists."
+                                        , "Referencing `model` inside a `View.freeze` call would result in stale content that doesn't update when the model changes."
+                                        , "To fix this, either:"
+                                        , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                        , "2. Only use `app.data` fields inside `View.freeze` (data that is available at build time)"
+                                        ]
+                                    , under = "model.name"
+                                    }
+                                ]
+                              )
+                            ]
             , test "allows pure content via right pipe into View.freeze" <|
                 \() ->
                     [ """module Route.Index exposing (view)
@@ -1113,6 +1184,49 @@ import Html exposing (text)
 view app shared model =
     text app.data.name
         |> View.freeze
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectNoErrors
+            , test "detects model.field via right pipe into unqualified freeze" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View exposing (freeze)
+import Html exposing (text)
+
+view app shared model =
+    text model.name
+        |> freeze
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Model referenced inside View.freeze"
+                                    , details =
+                                        [ "Frozen content is rendered at build time when no model state exists."
+                                        , "Referencing `model` inside a `View.freeze` call would result in stale content that doesn't update when the model changes."
+                                        , "To fix this, either:"
+                                        , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                        , "2. Only use `app.data` fields inside `View.freeze` (data that is available at build time)"
+                                        ]
+                                    , under = "model.name"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "allows pure content via right pipe into unqualified freeze" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View exposing (freeze)
+import Html exposing (text)
+
+view app shared model =
+    text app.data.name
+        |> freeze
 """
                     ]
                         |> Review.Test.runOnModules rule

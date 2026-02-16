@@ -1188,6 +1188,206 @@ view app =
                                 }
                             ]
             ]
+        , describe "Pipeline forms"
+            [ test "wraps right-pipe View.freeze argument" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import Html
+import View
+
+view app =
+    { title = "title"
+    , body = [ Html.text "hello" |> View.freeze ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                    ]
+                                , under = "Html.text \"hello\" |> View.freeze"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import View
+import Html.Attributes
+
+view app =
+    { title = "title"
+    , body = [ (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.text "hello") ])) |> View.freeze ]
+    }
+"""
+                            ]
+            , test "wraps left-pipe View.freeze argument" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import Html
+import View
+
+view app =
+    { title = "title"
+    , body = [ View.freeze <| Html.text "hello" ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                    ]
+                                , under = "View.freeze <| Html.text \"hello\""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import View
+import Html.Attributes
+
+view app =
+    { title = "title"
+    , body = [ View.freeze <| (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.text "hello") ])) ]
+    }
+"""
+                            ]
+            , test "wraps right-pipe View.freeze argument with parenthesized callee" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import Html
+import View
+
+view app =
+    { title = "title"
+    , body = [ Html.text "hello" |> (View.freeze) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                    ]
+                                , under = "Html.text \"hello\" |> (View.freeze)"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import View
+import Html.Attributes
+
+view app =
+    { title = "title"
+    , body = [ (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.text "hello") ])) |> (View.freeze) ]
+    }
+"""
+                            ]
+            , test "wraps left-pipe View.freeze argument with parenthesized callee" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import Html
+import View
+
+view app =
+    { title = "title"
+    , body = [ (View.freeze) <| Html.text "hello" ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                    ]
+                                , under = "(View.freeze) <| Html.text \"hello\""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import View
+import Html.Attributes
+
+view app =
+    { title = "title"
+    , body = [ (View.freeze) <| (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.text "hello") ])) ]
+    }
+"""
+                            ]
+            , test "wraps right-pipe unqualified freeze via exposing import" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import Html
+import View exposing (freeze)
+
+view app =
+    { title = "title"
+    , body = [ Html.text "hello" |> freeze ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                    ]
+                                , under = "Html.text \"hello\" |> freeze"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import View exposing (freeze)
+import Html.Attributes
+
+view app =
+    { title = "title"
+    , body = [ (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.text "hello") ])) |> freeze ]
+    }
+"""
+                            ]
+            , test "wraps left-pipe unqualified freeze via exposing import" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import Html
+import View exposing (freeze)
+
+view app =
+    { title = "title"
+    , body = [ freeze <| Html.text "hello" ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: wrap freeze argument with data-static"
+                                , details =
+                                    [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                    ]
+                                , under = "freeze <| Html.text \"hello\""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import View exposing (freeze)
+import Html.Attributes
+
+view app =
+    { title = "title"
+    , body = [ freeze <| (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.text "hello") ])) ]
+    }
+"""
+                            ]
+            ]
         , describe "Non-Route modules should be skipped"
             [ test "Site module with Data type should not be transformed" <|
                 \() ->

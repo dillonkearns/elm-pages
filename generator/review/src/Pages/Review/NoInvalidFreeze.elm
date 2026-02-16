@@ -426,6 +426,18 @@ extractPatternName node =
             Nothing
 
 
+{-| Unwrap parenthesized expressions recursively.
+-}
+unwrapParenthesizedExpression : Node Expression -> Node Expression
+unwrapParenthesizedExpression node =
+    case Node.value node of
+        Expression.ParenthesizedExpression inner ->
+            unwrapParenthesizedExpression inner
+
+        _ ->
+            node
+
+
 {-| Extract the function node from various View.freeze call forms.
 Returns the candidate function node from:
 
@@ -438,13 +450,13 @@ extractFreezeCallNode : Node Expression -> Maybe (Node Expression)
 extractFreezeCallNode node =
     case Node.value node of
         Expression.Application (functionNode :: _) ->
-            Just functionNode
+            Just (unwrapParenthesizedExpression functionNode)
 
         Expression.OperatorApplication "|>" _ _ rightExpr ->
-            Just rightExpr
+            Just (unwrapParenthesizedExpression rightExpr)
 
         Expression.OperatorApplication "<|" _ leftExpr _ ->
-            Just leftExpr
+            Just (unwrapParenthesizedExpression leftExpr)
 
         _ ->
             Nothing

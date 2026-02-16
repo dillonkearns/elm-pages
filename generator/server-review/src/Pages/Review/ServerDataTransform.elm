@@ -418,6 +418,53 @@ declarationExitVisitor node context =
             ( [], context )
 
 
+type alias FreezeCall =
+    { functionNode : Node Expression
+    , args : List (Node Expression)
+    }
+
+
+{-| Extract a View.freeze call from supported call shapes.
+
+Supports:
+- `View.freeze expr`
+- `expr |> View.freeze`
+- `View.freeze <| expr`
+
+-}
+extractFreezeCall : Node Expression -> Context -> Maybe FreezeCall
+extractFreezeCall node context =
+    let
+        check functionNode args =
+            let
+                unwrappedFunction =
+                    unwrapParenthesizedExpression functionNode
+            in
+            case args of
+                [ _ ] ->
+                    if isViewFreezeCall unwrappedFunction context then
+                        Just { functionNode = unwrappedFunction, args = args }
+
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
+    in
+    case Node.value node of
+        Expression.Application (functionNode :: args) ->
+            check functionNode args
+
+        Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
+            check rightExpr [ leftExpr ]
+
+        Expression.OperatorApplication "<|" _ leftExpr rightExpr ->
+            check leftExpr [ rightExpr ]
+
+        _ ->
+            Nothing
+
+
 expressionEnterVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionEnterVisitor node context =
     let
@@ -445,56 +492,50 @@ expressionEnterVisitor node context =
         -- Track entering freeze calls, check for app.data passed in client context,
         -- and handle freeze wrapping
         ( freezeErrors, contextWithFreezeTracking ) =
-            case Node.value node of
-                Expression.Application (functionNode :: args) ->
-                    case ModuleNameLookupTable.moduleNameFor contextWithRouteBuilder.lookupTable functionNode of
-                        Just [ "View" ] ->
-                            case Node.value functionNode of
-                                Expression.FunctionOrValue _ "freeze" ->
-                                    -- Handle View.freeze call - wrap argument if not already wrapped
-                                    let
-                                        ( errors, newContext ) =
-                                            handleViewFreezeWrapping node functionNode args contextWithRouteBuilder
-                                    in
-                                    ( errors
-                                    , { newContext | sharedState = PersistentFieldTracking.updateOnFreezeEnter newContext.sharedState }
-                                    )
+            case extractFreezeCall node contextWithRouteBuilder of
+                Just freezeCall ->
+                    -- Handle View.freeze call - wrap argument if not already wrapped
+                    let
+                        ( errors, newContext ) =
+                            handleViewFreezeWrapping node freezeCall.functionNode freezeCall.args contextWithRouteBuilder
+                    in
+                    ( errors
+                    , { newContext | sharedState = PersistentFieldTracking.updateOnFreezeEnter newContext.sharedState }
+                    )
 
-                                _ ->
-                                    -- Check for app.data passed as whole in CLIENT context
-                                    ( [], checkAppDataPassedToHelper contextWithRouteBuilder functionNode args )
-
-                        _ ->
+                Nothing ->
+                    case Node.value node of
+                        Expression.Application (functionNode :: args) ->
                             -- Check for app.data passed as whole in CLIENT context
                             ( [], checkAppDataPassedToHelper contextWithRouteBuilder functionNode args )
 
-                -- Handle pipe operators: app.data |> fn or fn <| app.data
-                -- But NOT accessor patterns like app.data |> .field (handled by trackFieldAccess)
-                Expression.OperatorApplication op _ leftExpr rightExpr ->
-                    case op of
-                        "|>" ->
-                            -- app.data |> fn  =>  fn(app.data), so fn is on the right
-                            -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
-                            if isRecordAccessFunction rightExpr then
-                                ( [], contextWithRouteBuilder )
+                        -- Handle pipe operators: app.data |> fn or fn <| app.data
+                        -- But NOT accessor patterns like app.data |> .field (handled by trackFieldAccess)
+                        Expression.OperatorApplication op _ leftExpr rightExpr ->
+                            case op of
+                                "|>" ->
+                                    -- app.data |> fn  =>  fn(app.data), so fn is on the right
+                                    -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
+                                    if isRecordAccessFunction rightExpr then
+                                        ( [], contextWithRouteBuilder )
 
-                            else
-                                ( [], checkAppDataPassedToHelperViaPipe contextWithRouteBuilder rightExpr leftExpr )
+                                    else
+                                        ( [], checkAppDataPassedToHelperViaPipe contextWithRouteBuilder rightExpr leftExpr )
 
-                        "<|" ->
-                            -- fn <| app.data  =>  fn(app.data), so fn is on the left
-                            -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
-                            if isRecordAccessFunction leftExpr then
-                                ( [], contextWithRouteBuilder )
+                                "<|" ->
+                                    -- fn <| app.data  =>  fn(app.data), so fn is on the left
+                                    -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
+                                    if isRecordAccessFunction leftExpr then
+                                        ( [], contextWithRouteBuilder )
 
-                            else
-                                ( [], checkAppDataPassedToHelperViaPipe contextWithRouteBuilder leftExpr rightExpr )
+                                    else
+                                        ( [], checkAppDataPassedToHelperViaPipe contextWithRouteBuilder leftExpr rightExpr )
+
+                                _ ->
+                                    ( [], contextWithRouteBuilder )
 
                         _ ->
                             ( [], contextWithRouteBuilder )
-
-                _ ->
-                    ( [], contextWithRouteBuilder )
 
         -- Track field access patterns
         contextWithFieldTracking =

@@ -562,51 +562,45 @@ expressionEnterVisitor node context =
         -- Track entering freeze calls
         -- Also check if app.data is passed as a whole in CLIENT or FREEZE context
         contextWithFreezeTracking =
-            case Node.value node of
-                Expression.Application (functionNode :: args) ->
-                    case ModuleNameLookupTable.moduleNameFor contextWithRouteBuilder.lookupTable functionNode of
-                        Just [ "View" ] ->
-                            case Node.value functionNode of
-                                Expression.FunctionOrValue _ "freeze" ->
-                                    -- Entering freeze - just set the flag, don't check app.data here
-                                    -- (we don't care about tracking inside ephemeral contexts)
-                                    { contextWithRouteBuilder | sharedState = PersistentFieldTracking.updateOnFreezeEnter contextWithRouteBuilder.sharedState }
+            case extractFreezeCall node contextWithRouteBuilder.lookupTable of
+                Just _ ->
+                    -- Entering freeze - just set the flag, don't check app.data here
+                    -- (we don't care about tracking inside ephemeral contexts)
+                    { contextWithRouteBuilder | sharedState = PersistentFieldTracking.updateOnFreezeEnter contextWithRouteBuilder.sharedState }
 
-                                _ ->
-                                    -- Check for app.data passed as whole in CLIENT or FREEZE context
-                                    checkAppDataPassedToHelper contextWithRouteBuilder functionNode args
-
-                        _ ->
+                Nothing ->
+                    case Node.value node of
+                        Expression.Application (functionNode :: args) ->
                             -- Check for app.data passed as whole in CLIENT or FREEZE context
                             checkAppDataPassedToHelper contextWithRouteBuilder functionNode args
 
-                -- Handle pipe operators: app.data |> fn or fn <| app.data
-                -- But NOT accessor patterns like app.data |> .field (handled by trackFieldAccess)
-                Expression.OperatorApplication op _ leftExpr rightExpr ->
-                    case op of
-                        "|>" ->
-                            -- app.data |> fn  =>  fn(app.data), so fn is on the right
-                            -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
-                            if isRecordAccessFunction rightExpr then
-                                contextWithRouteBuilder
+                        -- Handle pipe operators: app.data |> fn or fn <| app.data
+                        -- But NOT accessor patterns like app.data |> .field (handled by trackFieldAccess)
+                        Expression.OperatorApplication op _ leftExpr rightExpr ->
+                            case op of
+                                "|>" ->
+                                    -- app.data |> fn  =>  fn(app.data), so fn is on the right
+                                    -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
+                                    if isRecordAccessFunction rightExpr then
+                                        contextWithRouteBuilder
 
-                            else
-                                checkAppDataPassedToHelperViaPipe contextWithRouteBuilder rightExpr leftExpr
+                                    else
+                                        checkAppDataPassedToHelperViaPipe contextWithRouteBuilder rightExpr leftExpr
 
-                        "<|" ->
-                            -- fn <| app.data  =>  fn(app.data), so fn is on the left
-                            -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
-                            if isRecordAccessFunction leftExpr then
-                                contextWithRouteBuilder
+                                "<|" ->
+                                    -- fn <| app.data  =>  fn(app.data), so fn is on the left
+                                    -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
+                                    if isRecordAccessFunction leftExpr then
+                                        contextWithRouteBuilder
 
-                            else
-                                checkAppDataPassedToHelperViaPipe contextWithRouteBuilder leftExpr rightExpr
+                                    else
+                                        checkAppDataPassedToHelperViaPipe contextWithRouteBuilder leftExpr rightExpr
+
+                                _ ->
+                                    contextWithRouteBuilder
 
                         _ ->
                             contextWithRouteBuilder
-
-                _ ->
-                    contextWithRouteBuilder
 
         -- Track field access patterns
         contextWithFieldTracking =
@@ -717,22 +711,11 @@ expressionEnterVisitor node context =
                     contextWithTaintedContext
     in
     -- Handle the transformations
-    case Node.value node of
-        Expression.Application applicationExpressions ->
-            case applicationExpressions of
-                -- Single-argument application: View.freeze expr
-                functionNode :: _ :: [] ->
-                    case ModuleNameLookupTable.moduleNameFor contextWithTaintBindings.lookupTable functionNode of
-                        Just [ "View" ] ->
-                            handleViewFreezeCall functionNode node contextWithTaintBindings
+    case extractFreezeCall node contextWithTaintBindings.lookupTable of
+        Just freezeCall ->
+            handleViewFreezeCall freezeCall.functionNode freezeCall.argumentNode node contextWithTaintBindings
 
-                        _ ->
-                            ( [], contextWithTaintBindings )
-
-                _ ->
-                    ( [], contextWithTaintBindings )
-
-        _ ->
+        Nothing ->
             ( [], contextWithTaintBindings )
 
 
@@ -1373,8 +1356,62 @@ extractBaseFunctionName node =
             Nothing
 
 
-handleViewFreezeCall : Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )
-handleViewFreezeCall functionNode node context =
+type alias FreezeCall =
+    { functionNode : Node Expression
+    , argumentNode : Node Expression
+    }
+
+
+{-| Unwrap parenthesized expressions recursively.
+-}
+unwrapParenthesizedExpression : Node Expression -> Node Expression
+unwrapParenthesizedExpression node =
+    case Node.value node of
+        Expression.ParenthesizedExpression inner ->
+            unwrapParenthesizedExpression inner
+
+        _ ->
+            node
+
+
+{-| Extract a View.freeze call from supported call shapes.
+
+Supports:
+- `View.freeze expr`
+- `expr |> View.freeze`
+- `View.freeze <| expr`
+
+-}
+extractFreezeCall : Node Expression -> ModuleNameLookupTable -> Maybe FreezeCall
+extractFreezeCall node lookupTable =
+    let
+        check functionNode argNode =
+            let
+                unwrappedFunction =
+                    unwrapParenthesizedExpression functionNode
+            in
+            if PersistentFieldTracking.isViewFreezeCall unwrappedFunction lookupTable then
+                Just { functionNode = unwrappedFunction, argumentNode = argNode }
+
+            else
+                Nothing
+    in
+    case Node.value node of
+        Expression.Application (functionNode :: argNode :: []) ->
+            check functionNode argNode
+
+        Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
+            check rightExpr leftExpr
+
+        Expression.OperatorApplication "<|" _ leftExpr rightExpr ->
+            check leftExpr rightExpr
+
+        _ ->
+            Nothing
+
+
+handleViewFreezeCall : Node Expression -> Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )
+handleViewFreezeCall functionNode freezeArg node context =
     case Node.value functionNode of
         Expression.FunctionOrValue _ "freeze" ->
             -- First check: are we inside a nested freeze call?
@@ -1390,44 +1427,37 @@ handleViewFreezeCall functionNode node context =
                 ( [ emitDeOptimizationCount (Node.range node) "tainted_conditional" ], context )
 
             else
-                -- Extract the freeze argument from the application
-                case Node.value node of
-                    Expression.Application (_ :: freezeArg :: []) ->
-                        -- Check if the freeze argument is tainted (depends on model)
+                -- Check if the freeze argument is tainted (depends on model)
+                let
+                    taintContext =
+                        { modelParamName = context.modelParamName
+                        , sharedModelParamName = context.sharedModelParamName
+                        , bindings = context.taintBindings
+                        }
+
+                    argTaint =
+                        Taint.analyzeExpressionTaint taintContext freezeArg
+                in
+                case argTaint of
+                    Taint.Tainted ->
+                        -- Skip transformation - model is used, de-optimize gracefully
+                        -- Emit count so build system can run validation pass
+                        ( [ emitDeOptimizationCount (Node.range node) "tainted_argument" ], context )
+
+                    Taint.Pure ->
+                        -- Safe to transform - no model dependency
                         let
-                            taintContext =
-                                { modelParamName = context.modelParamName
-                                , sharedModelParamName = context.sharedModelParamName
-                                , bindings = context.taintBindings
-                                }
+                            -- Generate inlined lazy thunk with View.htmlToFreezable wrapper
+                            replacement =
+                                inlinedLazyThunk context
 
-                            argTaint =
-                                Taint.analyzeExpressionTaint taintContext freezeArg
+                            fixes =
+                                [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
+                                    ++ htmlLazyImportFix context
                         in
-                        case argTaint of
-                            Taint.Tainted ->
-                                -- Skip transformation - model is used, de-optimize gracefully
-                                -- Emit count so build system can run validation pass
-                                ( [ emitDeOptimizationCount (Node.range node) "tainted_argument" ], context )
-
-                            Taint.Pure ->
-                                -- Safe to transform - no model dependency
-                                let
-                                    -- Generate inlined lazy thunk with View.htmlToFreezable wrapper
-                                    replacement =
-                                        inlinedLazyThunk context
-
-                                    fixes =
-                                        [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
-                                            ++ htmlLazyImportFix context
-                                in
-                                ( [ createTransformErrorWithFixes "View.freeze" "inlined lazy thunk" node fixes ]
-                                , { context | staticIndex = context.staticIndex + 1 }
-                                )
-
-                    _ ->
-                        -- Unexpected structure, skip
-                        ( [], context )
+                        ( [ createTransformErrorWithFixes "View.freeze" "inlined lazy thunk" node fixes ]
+                        , { context | staticIndex = context.staticIndex + 1 }
+                        )
 
         _ ->
             ( [], context )

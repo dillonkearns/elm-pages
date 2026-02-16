@@ -5789,4 +5789,180 @@ view =
 """
                             ]
             ]
+        , describe "Pipeline forms"
+            [ test "transforms right-pipe View.freeze" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view =
+    { body = [ Html.text "hello" |> View.freeze ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "Html.text \"hello\" |> View.freeze"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view =
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
+"""
+                            ]
+            , test "transforms left-pipe View.freeze" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view =
+    { body = [ View.freeze <| Html.text "hello" ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze <| Html.text \"hello\""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view =
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
+"""
+                            ]
+            , test "transforms right-pipe View.freeze with parenthesized callee" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view =
+    { body = [ Html.text "hello" |> (View.freeze) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "Html.text \"hello\" |> (View.freeze)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view =
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
+"""
+                            ]
+            , test "transforms left-pipe View.freeze with parenthesized callee" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+
+view =
+    { body = [ (View.freeze) <| Html.text "hello" ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "(View.freeze) <| Html.text \"hello\""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view =
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
+"""
+                            ]
+            , test "transforms right-pipe unqualified freeze via exposing import" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View exposing (freeze)
+
+view =
+    { body = [ Html.text "hello" |> freeze ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "Html.text \"hello\" |> freeze"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View exposing (freeze)
+import Html.Lazy
+import Html as ElmPages__Html
+
+view =
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
+"""
+                            ]
+            , test "transforms left-pipe unqualified freeze via exposing import" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View exposing (freeze)
+
+view =
+    { body = [ freeze <| Html.text "hello" ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "freeze <| Html.text \"hello\""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View exposing (freeze)
+import Html.Lazy
+import Html as ElmPages__Html
+
+view =
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> ElmPages__Html.map never) ] }
+"""
+                            ]
+            ]
         ]

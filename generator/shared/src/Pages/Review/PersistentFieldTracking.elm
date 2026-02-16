@@ -1868,6 +1868,18 @@ isSharedModule moduleName =
     moduleName == [ "Shared" ]
 
 
+{-| Unwrap parenthesized expressions recursively.
+-}
+unwrapParenthesizedExpression : Node Expression -> Node Expression
+unwrapParenthesizedExpression node =
+    case Node.value node of
+        Expression.ParenthesizedExpression inner ->
+            unwrapParenthesizedExpression inner
+
+        _ ->
+            node
+
+
 {-| Check if a function node is a call to View.freeze.
 Uses the ModuleNameLookupTable to handle all import styles:
 
@@ -1878,9 +1890,13 @@ Uses the ModuleNameLookupTable to handle all import styles:
 -}
 isViewFreezeCall : Node Expression -> ModuleNameLookupTable -> Bool
 isViewFreezeCall functionNode lookupTable =
-    case Node.value functionNode of
+    let
+        unwrappedFunctionNode =
+            unwrapParenthesizedExpression functionNode
+    in
+    case Node.value unwrappedFunctionNode of
         Expression.FunctionOrValue _ "freeze" ->
-            ModuleNameLookupTable.moduleNameFor lookupTable functionNode == Just [ "View" ]
+            ModuleNameLookupTable.moduleNameFor lookupTable unwrappedFunctionNode == Just [ "View" ]
 
         _ ->
             False
@@ -1899,6 +1915,12 @@ isExitingFreezeCall node lookupTable =
     case Node.value node of
         Expression.Application (functionNode :: _) ->
             isViewFreezeCall functionNode lookupTable
+
+        Expression.OperatorApplication "|>" _ _ rightExpr ->
+            isViewFreezeCall rightExpr lookupTable
+
+        Expression.OperatorApplication "<|" _ leftExpr _ ->
+            isViewFreezeCall leftExpr lookupTable
 
         _ ->
             False
