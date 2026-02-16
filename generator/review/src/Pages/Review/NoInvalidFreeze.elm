@@ -89,7 +89,7 @@ initialProjectContext =
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
-    , freezeCallDepth : Int
+    , freezeStack : List Range
     , appParamName : Maybe String
     , sharedModelParamName : Maybe String
     , modelParamName : Maybe String
@@ -139,7 +139,7 @@ fromProjectToModule =
         (\lookupTable moduleName projectContext ->
             { lookupTable = lookupTable
             , moduleName = moduleName
-            , freezeCallDepth = 0
+            , freezeStack = []
             , appParamName = Nothing
             , sharedModelParamName = Nothing
             , modelParamName = Nothing
@@ -529,7 +529,7 @@ checkFreezeCall node context =
 
                         contextWithFreeze =
                             if isEnteringFreeze then
-                                { context | freezeCallDepth = context.freezeCallDepth + 1 }
+                                { context | freezeStack = Node.range node :: context.freezeStack }
 
                             else
                                 context
@@ -537,14 +537,14 @@ checkFreezeCall node context =
                         -- Check if we're entering a View.freeze while inside a tainted conditional
                         -- (only report on first entry to freeze, not on nested freezes)
                         taintedConditionalError =
-                            if isEnteringFreeze && context.freezeCallDepth == 0 && not (List.isEmpty context.taintedContext) then
+                            if isEnteringFreeze && List.isEmpty context.freezeStack && not (List.isEmpty context.taintedContext) then
                                 -- Just entered freeze while inside tainted conditional
                                 [ freezeInTaintedContextError (Node.range functionNode) ]
 
                             else
                                 []
                     in
-                    if contextWithFreeze.freezeCallDepth > 0 then
+                    if not (List.isEmpty contextWithFreeze.freezeStack) then
                         checkTaintedReference node contextWithFreeze taintedConditionalError
 
                     else
@@ -552,7 +552,7 @@ checkFreezeCall node context =
 
         Nothing ->
             -- Not a function call form - check taint if in freeze
-            if context.freezeCallDepth > 0 then
+            if not (List.isEmpty context.freezeStack) then
                 checkTaintedReference node context []
 
             else
@@ -604,17 +604,17 @@ trackExitingTaintedConditionals ((Node range expr) as node) context =
 
 
 checkFreezeCallExit : Node Expression -> ModuleContext -> ModuleContext
-checkFreezeCallExit node context =
-    case extractFreezeCallNode node of
-        Just functionNode ->
-            if isFreezeNode context functionNode then
-                { context | freezeCallDepth = max 0 (context.freezeCallDepth - 1) }
+checkFreezeCallExit (Node range _) context =
+    case context.freezeStack of
+        [] ->
+            context
+
+        freezeRange :: rest ->
+            if freezeRange == range then
+                { context | freezeStack = rest }
 
             else
                 context
-
-        Nothing ->
-            context
 
 
 letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Error {}), ModuleContext )
