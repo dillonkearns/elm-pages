@@ -41,9 +41,10 @@ function parseCombinedContentDat(buffer) {
  *
  * @param {string} pathname - The path to fetch content for
  * @param {string | null} query - Optional query string (without leading ?)
+ * @param {{ method?: string, body?: string | null }} [options] - Optional fetch options for POST requests
  * @returns {Promise<{ frozenViews: Record<string, string>, pageData: Uint8Array, rawBytes: Uint8Array } | null>}
  */
-export async function fetchContentWithFrozenViews(pathname, query = null) {
+export async function fetchContentWithFrozenViews(pathname, query = null, options = {}) {
   // Ensure path ends with /
   let path = pathname.replace(/(\w)$/, "$1/");
   if (!path.endsWith("/")) {
@@ -52,12 +53,23 @@ export async function fetchContentWithFrozenViews(pathname, query = null) {
 
   // Build the URL with optional query string
   let url = `${window.location.origin}${path}content.dat`;
-  if (query) {
+  if (options.body) {
+    // POST requests need trailing slash on content.dat path
+    url += "/";
+  } else if (query) {
     url += `?${query}`;
   }
 
+  // Build fetch options
+  const fetchOptions = {};
+  if (options.body) {
+    fetchOptions.method = "POST";
+    fetchOptions.headers = { "content-type": "application/x-www-form-urlencoded" };
+    fetchOptions.body = options.body;
+  }
+
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, fetchOptions);
 
     if (response.ok) {
       const buffer = await response.arrayBuffer();

@@ -30,7 +30,8 @@ function loadContentAndInitializeApp() {
   app.ports.toJsPort.subscribe(async (fromElm) => {
     if (fromElm.tag === "FetchFrozenViews") {
       // Fetch content.dat which contains both frozen views and page data
-      const result = await fetchContentWithFrozenViews(fromElm.path, fromElm.query);
+      const options = fromElm.body ? { body: fromElm.body } : {};
+      const result = await fetchContentWithFrozenViews(fromElm.path, fromElm.query, options);
       if (result && result.rawBytes) {
         // Send the FULL content.dat bytes (with prefix) to Elm
         // The Elm decoder (skipFrozenViewsPrefix) expects this format
