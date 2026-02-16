@@ -1045,4 +1045,278 @@ view app shared model =
                         |> Review.Test.runOnModules rule
                         |> Review.Test.expectNoErrors
             ]
+        , describe "Pipeline expressions with View.freeze"
+            [ test "detects model.field inside freeze via right pipe" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    text model.name
+        |> View.freeze
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Model referenced inside View.freeze"
+                                    , details =
+                                        [ "Frozen content is rendered at build time when no model state exists."
+                                        , "Referencing `model` inside a `View.freeze` call would result in stale content that doesn't update when the model changes."
+                                        , "To fix this, either:"
+                                        , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                        , "2. Only use `app.data` fields inside `View.freeze` (data that is available at build time)"
+                                        ]
+                                    , under = "model.name"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "detects model.field inside freeze via left pipe" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    View.freeze <| text model.name
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Model referenced inside View.freeze"
+                                    , details =
+                                        [ "Frozen content is rendered at build time when no model state exists."
+                                        , "Referencing `model` inside a `View.freeze` call would result in stale content that doesn't update when the model changes."
+                                        , "To fix this, either:"
+                                        , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                        , "2. Only use `app.data` fields inside `View.freeze` (data that is available at build time)"
+                                        ]
+                                    , under = "model.name"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "allows pure content via right pipe into View.freeze" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    text app.data.name
+        |> View.freeze
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectNoErrors
+            , test "allows pure content via left pipe from View.freeze" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    View.freeze <| text app.data.name
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectNoErrors
+            , test "detects tainted let binding inside freeze via right pipe" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    let
+        userName = model.name
+    in
+    text userName
+        |> View.freeze
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Tainted value `userName` used inside View.freeze"
+                                    , details =
+                                        [ "`userName` depends on `model` or other runtime data that doesn't exist at build time."
+                                        , "Frozen content is rendered once at build time. Values derived from `model` will be stale and won't update when the model changes."
+                                        , "To fix this, either:"
+                                        , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                        , "2. Only use values derived from `app.data` or other build-time data inside `View.freeze`"
+                                        ]
+                                    , under = "userName"
+                                    }
+                                    |> Review.Test.atExactly { start = { row = 10, column = 10 }, end = { row = 10, column = 18 } }
+                                ]
+                              )
+                            ]
+            , test "reports View.freeze via pipe in helper module" <|
+                \() ->
+                    [ """module Helpers exposing (frozenContent)
+
+import View
+import Html exposing (text)
+
+frozenContent =
+    text "hello"
+        |> View.freeze
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Helpers"
+                              , [ Review.Test.error
+                                    { message = "`View.freeze` can only be called from Route modules and Shared.elm"
+                                    , details =
+                                        [ "`View.freeze` currently has no effect outside of Shared.elm and your Route modules (files in your `app/Route/` directory)."
+                                        , "To fix this, either:"
+                                        , "1. Use `View.freeze` in a Route Module (it could simply be `View.freeze (myHelperFunction app.data.user)`)"
+                                        , "2. Remove this invalid use of `View.freeze`"
+                                        ]
+                                    , under = "View.freeze"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "detects runtime app field inside freeze via right pipe" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    text (Debug.toString app.navigation)
+        |> View.freeze
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Runtime field `navigation` accessed inside View.freeze"
+                                    , details =
+                                        [ "`app.navigation` is runtime-only data that doesn't exist at build time."
+                                        , "Frozen content is rendered once at build time, so runtime fields like `navigation`, `pageFormState`, `concurrentSubmissions`, `submit`, and `url` are not available."
+                                        , "To fix this, either:"
+                                        , "1. Move the runtime-dependent content outside of `View.freeze`, or"
+                                        , "2. Only use build-time fields inside `View.freeze`: `app.data`, `app.action`, `app.sharedData`, `app.routeParams`, `app.path`"
+                                        ]
+                                    , under = "app.navigation"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "detects cross-module taint inside freeze via right pipe" <|
+                \() ->
+                    [ """module Helpers exposing (formatUser)
+
+formatUser user =
+    user.name
+"""
+                    , """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+import Helpers
+
+view app shared model =
+    text (Helpers.formatUser model.user)
+        |> View.freeze
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Tainted value passed to `formatUser` inside View.freeze"
+                                    , details =
+                                        [ "This argument depends on `model` or other runtime data, and `formatUser` passes it through to the result."
+                                        , "Frozen content is rendered once at build time. Values derived from `model` will be stale and won't update when the model changes."
+                                        , "To fix this, either:"
+                                        , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                        , "2. Only use values derived from `app.data` or other build-time data inside `View.freeze`"
+                                        ]
+                                    , under = "model.user"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "detects View.freeze via right pipe inside tainted conditional" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    if model.isVisible then
+        text "visible"
+            |> View.freeze
+    else
+        text "hidden"
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "View.freeze inside conditionally-executed code path"
+                                    , details =
+                                        [ "This View.freeze is inside an if/case that depends on `model`."
+                                        , "The server renders at build time with initial model state, but the client may have different state."
+                                        , "This can cause server/client mismatch where different freeze indices are rendered."
+                                        , "Move the conditional logic outside of View.freeze, or ensure the condition only depends on build-time data."
+                                        ]
+                                    , under = "View.freeze"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "detects model inside freeze via chained right pipes" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import View
+import Html exposing (text, div)
+import Html.Attributes exposing (class)
+
+view app shared model =
+    text model.name
+        |> List.singleton
+        |> div [ class "wrapper" ]
+        |> View.freeze
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Model referenced inside View.freeze"
+                                    , details =
+                                        [ "Frozen content is rendered at build time when no model state exists."
+                                        , "Referencing `model` inside a `View.freeze` call would result in stale content that doesn't update when the model changes."
+                                        , "To fix this, either:"
+                                        , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                        , "2. Only use `app.data` fields inside `View.freeze` (data that is available at build time)"
+                                        ]
+                                    , under = "model.name"
+                                    }
+                                ]
+                              )
+                            ]
+            ]
         ]

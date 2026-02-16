@@ -426,6 +426,47 @@ extractPatternName node =
             Nothing
 
 
+{-| Extract the function node from various View.freeze call forms.
+Returns the candidate function node from:
+
+  - Direct application: `View.freeze expr`
+  - Right pipe: `expr |> View.freeze`
+  - Left pipe: `View.freeze <| expr`
+
+-}
+extractFreezeCallNode : Node Expression -> Maybe (Node Expression)
+extractFreezeCallNode node =
+    case Node.value node of
+        Expression.Application (functionNode :: _) ->
+            Just functionNode
+
+        Expression.OperatorApplication "|>" _ _ rightExpr ->
+            Just rightExpr
+
+        Expression.OperatorApplication "<|" _ leftExpr _ ->
+            Just leftExpr
+
+        _ ->
+            Nothing
+
+
+{-| Check if a node is a reference to View.freeze.
+-}
+isFreezeNode : ModuleContext -> Node Expression -> Bool
+isFreezeNode context functionNode =
+    case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
+        Just [ "View" ] ->
+            case Node.value functionNode of
+                Expression.FunctionOrValue _ "freeze" ->
+                    True
+
+                _ ->
+                    False
+
+        _ ->
+            False
+
+
 expressionEnterVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
 expressionEnterVisitor node context =
     -- First, track entering tainted conditionals (if/case)
@@ -457,8 +498,8 @@ expressionEnterVisitor node context =
                 _ ->
                     context
     in
-    case Node.value node of
-        Expression.Application (functionNode :: _) ->
+    case extractFreezeCallNode node of
+        Just functionNode ->
             -- Check if this is a call to a frozen view function
             case checkFrozenViewFunctionCall functionNode contextWithTaintedContext of
                 Just scopeError ->
@@ -469,17 +510,7 @@ expressionEnterVisitor node context =
                     -- No scope error - check if entering freeze and track taint
                     let
                         isEnteringFreeze =
-                            case ModuleNameLookupTable.moduleNameFor contextWithTaintedContext.lookupTable functionNode of
-                                Just [ "View" ] ->
-                                    case Node.value functionNode of
-                                        Expression.FunctionOrValue _ "freeze" ->
-                                            True
-
-                                        _ ->
-                                            False
-
-                                _ ->
-                                    False
+                            isFreezeNode contextWithTaintedContext functionNode
 
                         contextWithFreeze =
                             if isEnteringFreeze then
@@ -508,8 +539,8 @@ expressionEnterVisitor node context =
                     else
                         ( taintedConditionalError, contextWithFreeze )
 
-        _ ->
-            -- Not a function application - check taint if in freeze
+        Nothing ->
+            -- Not a function call form - check taint if in freeze
             if contextWithTaintedContext.freezeCallDepth > 0 then
                 checkTaintedReference node contextWithTaintedContext
 
@@ -570,21 +601,15 @@ expressionExitVisitor node context =
                 _ ->
                     context
     in
-    case Node.value node of
-        Expression.Application (functionNode :: _) ->
-            case ModuleNameLookupTable.moduleNameFor contextWithTaintedContextUpdate.lookupTable functionNode of
-                Just [ "View" ] ->
-                    case Node.value functionNode of
-                        Expression.FunctionOrValue _ "freeze" ->
-                            ( [], { contextWithTaintedContextUpdate | freezeCallDepth = max 0 (contextWithTaintedContextUpdate.freezeCallDepth - 1) } )
+    case extractFreezeCallNode node of
+        Just functionNode ->
+            if isFreezeNode contextWithTaintedContextUpdate functionNode then
+                ( [], { contextWithTaintedContextUpdate | freezeCallDepth = max 0 (contextWithTaintedContextUpdate.freezeCallDepth - 1) } )
 
-                        _ ->
-                            ( [], contextWithTaintedContextUpdate )
+            else
+                ( [], contextWithTaintedContextUpdate )
 
-                _ ->
-                    ( [], contextWithTaintedContextUpdate )
-
-        _ ->
+        Nothing ->
             ( [], contextWithTaintedContextUpdate )
 
 
