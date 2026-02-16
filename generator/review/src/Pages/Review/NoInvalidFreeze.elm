@@ -127,7 +127,7 @@ moduleVisitor schema =
     schema
         |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
         |> Rule.withExpressionEnterVisitor expressionEnterVisitor
-        |> Rule.withExpressionExitVisitor expressionExitVisitor
+        |> Rule.withExpressionExitVisitor (\node context -> ( [], expressionExitVisitor node context ))
         |> Rule.withLetDeclarationEnterVisitor letDeclarationEnterVisitor
         |> Rule.withCaseBranchEnterVisitor caseBranchEnterVisitor
         |> Rule.withCaseBranchExitVisitor caseBranchExitVisitor
@@ -581,7 +581,7 @@ checkFrozenViewFunctionCall functionNode context =
             Nothing
 
 
-expressionExitVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+expressionExitVisitor : Node Expression -> ModuleContext -> ModuleContext
 expressionExitVisitor ((Node range expr) as node) context =
     -- Track exiting tainted conditionals (if/case)
     let
@@ -600,13 +600,13 @@ expressionExitVisitor ((Node range expr) as node) context =
     case extractFreezeCallNode node of
         Just functionNode ->
             if isFreezeNode contextWithTaintedContextUpdate functionNode then
-                ( [], { contextWithTaintedContextUpdate | freezeCallDepth = max 0 (contextWithTaintedContextUpdate.freezeCallDepth - 1) } )
+                { contextWithTaintedContextUpdate | freezeCallDepth = max 0 (contextWithTaintedContextUpdate.freezeCallDepth - 1) }
 
             else
-                ( [], contextWithTaintedContextUpdate )
+                contextWithTaintedContextUpdate
 
         Nothing ->
-            ( [], contextWithTaintedContextUpdate )
+            contextWithTaintedContextUpdate
 
 
 letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Error {}), ModuleContext )
