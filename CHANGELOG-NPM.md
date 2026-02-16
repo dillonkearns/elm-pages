@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-02-15
+
 ### Added
 
 - **Frozen Views** support: virtual-dom codemod, frozen view extraction, combined `content.dat` format, and client-side frozen view management for SPA navigations.

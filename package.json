@@ -1,7 +1,7 @@
 {
   "name": "elm-pages",
   "type": "module",
-  "version": "3.0.28",
+  "version": "3.1.0",
   "homepage": "https://elm-pages.com",
   "moduleResolution": "node",
   "description": "Hybrid Elm framework with full-stack and static routes.",

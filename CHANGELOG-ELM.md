@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [11.0.0] - 2026-02-15
+
 ### Added
 
 - **Frozen Views**: `View.freeze` for build-time/server-render-time only content. Rendering code and dependencies are dead-code eliminated from the client bundle. ~50% bundle reduction on elm-pages.com docs.
