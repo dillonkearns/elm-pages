@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.1.2] - 2026-02-16
+
+### Fixed
+
+- Handle more pipeline variations (`|>`, `<|`) in `View.freeze` optimizations.
+- Fix taint analysis for `Shared` to track model correctly, and fix codemod to always use `elm/html` map (never `Html.Styled`).
+- Error handling for cases where no `source-directories` are found, to avoid confusing stack trace.
+
+### Added
+
+- Show help text for `elm-pages run --help` or `-h`.
+
 ## [3.1.0] - 2026-02-15
 
 ### Added
