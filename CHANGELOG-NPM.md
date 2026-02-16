@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-02-15
+
+### Fixed
+
+- Fix incompatible dependencies in `elm-pages init` template's `script/elm.json` (`dillonkearns/elm-pages` was pinned to 10.2.0, which is incompatible with `elm-cli-options-parser` 4.0.0 and `elm-codegen` 6.0.1). Updated to 11.0.0.
+- Update Elm dependency versions in init template to latest versions.
+
 ## [3.1.0] - 2026-02-15
 
 ### Added
