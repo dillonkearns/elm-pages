@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 import { rewriteElmJson } from "./rewrite-elm-json-help.js";
 import { ensureDirSync } from "./file-helpers.js";
 import { patchFrozenViews } from "./frozen-view-codemod.js";
+import { lamderaOrElmFallback } from "./commands/shared.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -148,16 +149,17 @@ async function compileElm(options, elmEntrypointPath, outputPath, cwd) {
   }
 }
 
-function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      await fsPromises.unlink(outputPath);
-    } catch (e) {
-      /* File may not exist, so ignore errors */
-    }
+async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
+  const executableName = await lamderaOrElmFallback();
+  try {
+    await fsPromises.unlink(outputPath);
+  } catch (e) {
+    /* File may not exist, so ignore errors */
+  }
 
+  return new Promise((resolve, reject) => {
     const subprocess = spawnCallback(
-      `lamdera`,
+      executableName,
       [
         "make",
         elmEntrypointPath,
@@ -180,8 +182,8 @@ function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
     subprocess.stderr.on("data", function (data) {
       commandOutput += data;
     });
-    subprocess.on("error", function () {
-      reject(commandOutput);
+    subprocess.on("error", function (err) {
+      reject(commandOutput || err.message);
     });
 
     subprocess.on("close", async (code) => {
@@ -205,10 +207,11 @@ function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
  * @param {{ debug: boolean; }} options
  */
 async function runElm(options, elmEntrypointPath, outputPath, cwd) {
+  const executableName = await lamderaOrElmFallback();
   const startTime = Date.now();
   return new Promise((resolve, reject) => {
     const child = spawnCallback(
-      `lamdera`,
+      executableName,
       [
         "make",
         elmEntrypointPath,
@@ -232,6 +235,10 @@ async function runElm(options, elmEntrypointPath, outputPath, cwd) {
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", function (/** @type {string} */ data) {
       scriptOutput += data.toString();
+    });
+
+    child.on("error", function (err) {
+      reject(scriptOutput || err.message);
     });
 
     child.on("close", function (code) {

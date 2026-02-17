@@ -98,8 +98,14 @@ export async function lamderaOrElmFallback() {
     await which("lamdera");
     cachedExecutableName = "lamdera";
   } catch (error) {
-    await which("elm");
-    cachedExecutableName = "elm";
+    try {
+      await which("elm");
+      cachedExecutableName = "elm";
+    } catch (elmError) {
+      throw new Error(
+        "I couldn't find lamdera or elm on the PATH. Please ensure one of them is installed and available.\nhttps://lamdera.com\nhttps://guide.elm-lang.org/install/elm.html"
+      );
+    }
   }
   return cachedExecutableName;
 }
