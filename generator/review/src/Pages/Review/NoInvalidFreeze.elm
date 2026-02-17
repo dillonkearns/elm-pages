@@ -486,10 +486,6 @@ trackEnteringTaintedConditionals : Node Expression -> ModuleContext -> ModuleCon
 trackEnteringTaintedConditionals (Node range expr) context =
     case expr of
         Expression.IfBlock cond _ _ ->
-            let
-                condTaint =
-                    analyzeExpressionTaint context cond
-            in
             case analyzeExpressionTaint context cond of
                 Tainted ->
                     { context | taintedContext = range :: context.taintedContext }
