@@ -1,10 +1,10 @@
 "use strict";
 
 // source: https://github.com/jbcarpanelli/spinnies/blob/master/utils.js
-// Code  vemodified to ESM syntax from original repo
+// Code modified to ESM syntax from original repo
 
 import * as readline from "readline";
-// original code dependend on this for `getLinesLength`. Is this necessary?
+// original code depended on this for `getLinesLength`. Is this necessary?
 // const stripAnsi = require('strip-ansi');
 export const { dashes, dots } = {
   dots: {
@@ -55,6 +55,10 @@ export function purgeSpinnerOptions(options) {
   return { ...colors, ...opts };
 }
 
+/**
+ * @param {Partial<import("./index.js").SpinnerOptions>} options
+ * @return {Partial<import("./index.js").SpinnerOptions>}
+ */
 export function purgeSpinnersOptions({ spinner, disableSpins, ...others }) {
   const colors = colorOptions(others);
   const prefixes = prefixOptions(others);
@@ -65,9 +69,13 @@ export function purgeSpinnersOptions({ spinner, disableSpins, ...others }) {
   return { ...colors, ...prefixes, ...disableSpinsOption, spinner };
 }
 
+/**
+ * @param {Partial<import("./index.js").Spinner>} spinner
+ * @return {import("./index.js").Spinner}
+ */
 function turnToValidSpinner(spinner = {}) {
   const platformSpinner = terminalSupportsUnicode() ? dots : dashes;
-  if (!typeof spinner === "object") return platformSpinner;
+  if (!(typeof spinner === "object")) return platformSpinner;
   let { interval, frames } = spinner;
   if (!Array.isArray(frames) || frames.length < 1)
     frames = platformSpinner.frames;
@@ -76,6 +84,10 @@ function turnToValidSpinner(spinner = {}) {
   return { interval, frames };
 }
 
+/**
+ * @param {Partial<{ color: string, succeedColor: string, failColor: string, spinnerColor: string }>} options
+ * @returns {{ color: string, succeedColor: string, failColor: string, spinnerColor: string }}
+ */
 export function colorOptions({ color, succeedColor, failColor, spinnerColor }) {
   const colors = { color, succeedColor, failColor, spinnerColor };
   Object.keys(colors).forEach((key) => {
@@ -85,6 +97,10 @@ export function colorOptions({ color, succeedColor, failColor, spinnerColor }) {
   return colors;
 }
 
+/**
+ * @param {Partial<{ succeedPrefix: string, failPrefix: string }>} options
+ * @returns {{ succeedPrefix: string, failPrefix: string }}
+ */
 function prefixOptions({ succeedPrefix, failPrefix }) {
   if (terminalSupportsUnicode()) {
     succeedPrefix = succeedPrefix || "✓";

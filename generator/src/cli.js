@@ -141,8 +141,8 @@ async function main() {
 }
 
 // Ensure proper exit code on unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled rejection:', reason);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled rejection:", reason);
   process.exit(1);
 });
 

@@ -21,22 +21,27 @@ import * as os from "os";
 import { ensureDirSync } from "./file-helpers.js";
 import { baseMiddleware } from "./basepath-middleware.js";
 import * as devcert from "devcert";
-import * as busboy from "busboy";
+import busboy from "busboy";
 import { createServer as createViteServer } from "vite";
 import * as esbuild from "esbuild";
 import { merge_vite_configs } from "./vite-utils.js";
 import { templateHtml } from "./pre-render-html.js";
 import { resolveConfig } from "./config.js";
-import { extractAndReplaceFrozenViews, replaceFrozenViewPlaceholders } from "./extract-frozen-views.js";
+import {
+  extractAndReplaceFrozenViews,
+  replaceFrozenViewPlaceholders,
+} from "./extract-frozen-views.js";
 import { toExactBuffer } from "./binary-helpers.js";
 import * as globby from "globby";
 import { fileURLToPath } from "url";
+
+/** @import {IncomingMessage} from "connect" */
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
+ * @param {{ port: number; base: string; https: boolean; debug: boolean; }} options
  */
 export async function start(options) {
   console.error = function (...messages) {
@@ -187,7 +192,6 @@ export async function start(options) {
       {
         server: {
           middlewareMode: true,
-          base: options.base,
           port: options.port,
         },
         assetsInclude: ["/elm-pages.js"],
@@ -279,9 +283,9 @@ export async function start(options) {
     http.createServer(app).listen(port);
   }
   /**
-   * @param {http.IncomingMessage} request
+   * @param {IncomingMessage} request
    * @param {http.ServerResponse} response
-   * @param {connect.NextHandleFunction} next
+   * @param {import("connect").NextFunction} next
    */
   function processRequest(request, response, next) {
     if (request.url && request.url.startsWith("/stream")) {
@@ -366,7 +370,7 @@ export async function start(options) {
   });
 
   /**
-   * @param {http.IncomingMessage} request
+   * @param {IncomingMessage} request
    * @param {http.ServerResponse} response
    */
   function handleStream(request, response) {
@@ -383,7 +387,7 @@ export async function start(options) {
 
   /**
    * @param {string} pathThatChanged
-   * @param {'add' | 'unlink' | 'addDir' | 'unlinkDir' | 'change'} eventName
+   * @param {import("chokidar/handler.js").EventName} eventName
    */
   function needToRerunCodegen(eventName, pathThatChanged) {
     return (
@@ -394,8 +398,8 @@ export async function start(options) {
 
   /**
    * @param {string} pathname
-   * @param {((value: any) => any) | null | undefined} onOk
-   * @param {((reason: any) => PromiseLike<never>) | null | undefined} onErr
+   * @param {((value: import("./render.js").RenderResult) => any) | null | undefined} onOk
+   * @param {((reason: any) => void) | null | undefined} onErr
    * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} serverRequest
    */
   function runRenderThread(serverRequest, pathname, onOk, onErr) {
@@ -428,7 +432,7 @@ export async function start(options) {
         }
       });
       readyThread.worker.on("error", (error) => {
-        reject(error.context);
+        reject(/** @type {any} */ (error).context);
       });
     })
       .then(onOk)
@@ -446,9 +450,9 @@ export async function start(options) {
   }
 
   /**
-   * @param {http.IncomingMessage} req
+   * @param {IncomingMessage} req
    * @param {http.ServerResponse} res
-   * @param {connect.NextHandleFunction} next
+   * @param {import("connect").NextFunction} next
    */
   async function handleNavigationRequest(req, res, next) {
     const urlParts = new URL(req.url || "", `https://localhost:${port}`);
@@ -458,7 +462,7 @@ export async function start(options) {
     } catch (error) {
       let isImplicitContractError = false;
       try {
-        let jsonParsed = JSON.parse(error);
+        let jsonParsed = JSON.parse(/** @type {string} */ (error));
         isImplicitContractError =
           jsonParsed.errors &&
           jsonParsed.errors.some((errorItem) => errorItem.name === "Main");
@@ -481,7 +485,7 @@ export async function start(options) {
           res.end(errorHtml());
         }
       } else {
-        console.log(restoreColorSafe(error));
+        console.log(restoreColorSafe(/** @type {string} */ (error)));
         if (req.url.includes("content.dat")) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(error);
@@ -516,15 +520,16 @@ export async function start(options) {
               // Create combined format for content.dat
               // Format: [4 bytes: frozen views JSON length][N bytes: JSON][remaining: ResponseSketch]
               // Extract frozen views from the HTML (needed for SPA navigation)
-              const { regions: frozenViews, html: updatedHtml } = extractAndReplaceFrozenViews(renderResult.html || "");
+              const { regions: frozenViews, html: updatedHtml } =
+                extractAndReplaceFrozenViews(renderResult.html || "");
               const frozenViewsJson = JSON.stringify(frozenViews);
-              const frozenViewsBuffer = Buffer.from(frozenViewsJson, 'utf8');
+              const frozenViewsBuffer = Buffer.from(frozenViewsJson, "utf8");
               const lengthBuffer = Buffer.alloc(4);
               lengthBuffer.writeUInt32BE(frozenViewsBuffer.length, 0);
               const combinedBuffer = Buffer.concat([
                 lengthBuffer,
                 frozenViewsBuffer,
-                toExactBuffer(renderResult.contentDatPayload)
+                toExactBuffer(renderResult.contentDatPayload.buffer),
               ]);
               res.writeHead(is404 ? 404 : renderResult.statusCode, {
                 "Content-Type": "application/octet-stream",
@@ -554,24 +559,26 @@ export async function start(options) {
 
                 // Replace __STATIC__ placeholders in HTML with indices
                 // (but don't include frozen views in bytesData - they're already in the rendered DOM)
-                const updatedHtml = replaceFrozenViewPlaceholders(info.html || "");
+                const updatedHtml = replaceFrozenViewPlaceholders(
+                  info.html || ""
+                );
 
                 // Create combined format with empty frozen views for initial page load
                 // (frozen views are already in the DOM, so client adopts from there)
                 const emptyFrozenViews = {};
                 const frozenViewsJson = JSON.stringify(emptyFrozenViews);
-                const frozenViewsBuffer = Buffer.from(frozenViewsJson, 'utf8');
+                const frozenViewsBuffer = Buffer.from(frozenViewsJson, "utf8");
                 const lengthBuffer = Buffer.alloc(4);
                 lengthBuffer.writeUInt32BE(frozenViewsBuffer.length, 0);
 
                 // Decode original bytesData and prepend empty frozen views header
-                const originalBytes = Buffer.from(info.bytesData, 'base64');
+                const originalBytes = Buffer.from(info.bytesData, "base64");
                 const combinedBuffer = Buffer.concat([
                   lengthBuffer,
                   frozenViewsBuffer,
-                  originalBytes
+                  originalBytes,
                 ]);
-                const combinedBytesData = combinedBuffer.toString('base64');
+                const combinedBytesData = combinedBuffer.toString("base64");
 
                 const renderedHtml = processedTemplate
                   .replace(
@@ -591,7 +598,7 @@ export async function start(options) {
                 });
                 res.end(renderedHtml);
               } catch (e) {
-                vite.ssrFixStacktrace(e);
+                vite.ssrFixStacktrace(/** @type {Error} */ (e));
                 next(e);
               }
               break;
@@ -624,7 +631,10 @@ export async function start(options) {
             }
             default: {
               console.dir(renderResult);
-              throw "Unexpected renderResult kind: " + renderResult.kind;
+              throw (
+                "Unexpected renderResult kind: " +
+                /** @type {any} */ (renderResult).kind
+              );
             }
           }
         },
@@ -681,7 +691,7 @@ export async function start(options) {
   }
 
   /**
-   * @returns {Promise<{ ready:boolean; worker: Worker }>}
+   * @returns {Promise<{ ready:boolean; worker: Worker; used: boolean; stale: boolean; }>}
    * */
   function waitForThread() {
     return new Promise((resolve, reject) => {
@@ -820,7 +830,7 @@ async function ensureRequiredExecutables() {
 }
 
 /**
- * @param {http.IncomingMessage} req
+ * @param {IncomingMessage} req
  * @param {string | null} body
  * @param {Date} requestTime
  */
@@ -869,11 +879,11 @@ function reqToJson(req, body, requestTime) {
 }
 
 /**
- * @param {http.IncomingMessage} req
+ * @param {IncomingMessage} req
  * @param {string | null} body
  * @param {Date} requestTime
  * @param {Object | null} multiPartFormData
- * @returns {{method: string; rawUrl: string; body: string?; }}
+ * @returns {{method: string; rawUrl: string; body: string?; headers: http.IncomingHttpHeaders; requestTime: number; multiPartFormData: Object | null}}
  */
 function toJsonHelper(req, body, requestTime, multiPartFormData) {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -883,7 +893,7 @@ function toJsonHelper(req, body, requestTime, multiPartFormData) {
     rawUrl: url.toString(),
     body: body,
     requestTime: Math.round(requestTime.getTime()),
-    multiPartFormData: multiPartFormData,
+    multiPartFormData,
   };
 }
 // TODO capture repeat entries into a list of values

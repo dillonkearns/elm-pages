@@ -10,7 +10,7 @@ import which from "which";
 /**
  * Runs elm-review analysis on the original app/ folder to extract ephemeral fields info.
  * This info is used to generate custom CLI encoders that skip ephemeral fields.
- * @returns {Object<string, {ephemeralFields: string[], persistentFields: string[]}>}
+ * @returns {Promise<Record<string, {ephemeralFields: string[], persistentFields: string[]}>[]>}
  */
 async function analyzeEphemeralFields() {
   const __filename = fileURLToPath(import.meta.url);
@@ -52,7 +52,9 @@ async function analyzeEphemeralFields() {
             error.message &&
             error.message.startsWith("EPHEMERAL_FIELDS_JSON:")
           ) {
-            const jsonStr = error.message.slice("EPHEMERAL_FIELDS_JSON:".length);
+            const jsonStr = error.message.slice(
+              "EPHEMERAL_FIELDS_JSON:".length
+            );
             const data = JSON.parse(jsonStr);
             // Only add if there are actually ephemeral fields
             if (data.ephemeralFields && data.ephemeralFields.length > 0) {
@@ -66,7 +68,7 @@ async function analyzeEphemeralFields() {
     // If parsing fails, return empty list (no ephemeral field optimization)
     console.warn(
       "Warning: Could not parse elm-review output for ephemeral fields analysis:",
-      e.message
+      /** @type {Error} */ (e).message
     );
   }
 
@@ -78,7 +80,11 @@ async function analyzeEphemeralFields() {
  * @param {'browser' | 'cli'} phase
  * @param {{ skipEphemeralAnalysis?: boolean }} [options]
  */
-export async function generateTemplateModuleConnector(basePath, phase, options = {}) {
+export async function generateTemplateModuleConnector(
+  basePath,
+  phase,
+  options = {}
+) {
   const templates = globby
     .globbySync(["app/Route/**/*.elm"], {})
     .map((file) => {
@@ -142,7 +148,12 @@ export async function generateTemplateModuleConnector(basePath, phase, options =
   };
 }
 
-async function runElmCodegenCli(templates, basePath, phase, routesWithEphemeral) {
+async function runElmCodegenCli(
+  templates,
+  basePath,
+  phase,
+  routesWithEphemeral
+) {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
   const filePath = pathToFileURL(

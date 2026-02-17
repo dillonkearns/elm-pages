@@ -1,8 +1,8 @@
 /** This code is from https://github.com/sveltejs/kit/blob/3b457f67d4d7c59fc63bb3f600a490e4dacc2e62/packages/kit/src/exports/vite/utils.js */
 
 /**
- * @param {...import('vite').UserConfig} configs
- * @returns {import('vite').UserConfig}
+ * @param {...import('vite').InlineConfig} configs
+ * @returns {import('vite').InlineConfig}
  */
 export function merge_vite_configs(...configs) {
   return deep_merge(

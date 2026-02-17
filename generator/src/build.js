@@ -11,7 +11,12 @@ import * as os from "os";
 import { Worker, SHARE_ENV } from "worker_threads";
 import { ensureDirSync, writeFileIfChanged } from "./file-helpers.js";
 import { needsPortsRecompilation } from "./script-cache.js";
-import { generateClientFolder, generateServerFolder, compareEphemeralFields, formatDisagreementError } from "./codegen.js";
+import {
+  generateClientFolder,
+  generateServerFolder,
+  compareEphemeralFields,
+  formatDisagreementError,
+} from "./codegen.js";
 import { default as which } from "which";
 
 // Cache for which() results to avoid repeated PATH lookups
@@ -26,8 +31,25 @@ import * as globby from "globby";
 import { fileURLToPath } from "url";
 import { copyFile } from "fs/promises";
 
+/** @import { PageProgressArg } from "./render.js" */
+
+/**
+ * @param {PageProgressArg} fromElm
+ * @param {string} contentJsonString
+ * @returns {string}
+ */
+
+/**
+ * @type {Promise<{ worker: Worker }>[]}
+ */
 let pool = [];
+/**
+ * @type {(value: unknown) => void}
+ */
 let pagesReady;
+/**
+ * @type {(reason: unknown) => void}
+ */
 let pagesErrored;
 let pages = new Promise((resolve, reject) => {
   pagesReady = resolve;
@@ -151,7 +173,6 @@ export async function run(options) {
         root: process.cwd(),
         base: options.base,
         assetsInclude: ["/elm-pages.js"],
-        ssr: false,
 
         build: {
           manifest: "___vite-manifest___.json",
@@ -184,19 +205,25 @@ export async function run(options) {
 
       if (options.strict) {
         console.error("\n" + formatted);
-        console.error("\nBuild failed: View.freeze validation errors detected.");
+        console.error(
+          "\nBuild failed: View.freeze validation errors detected."
+        );
         console.error("Use without --strict to continue with warnings.\n");
         process.exitCode = 1;
         return;
       } else {
-        const warningFormatted = formatted.replace(/\x1b\[31m/g, '\x1b[33m').replace(/\x1b\[91m/g, '\x1b[93m');
+        const warningFormatted = formatted
+          .replace(/\x1b\[31m/g, "\x1b[33m")
+          .replace(/\x1b\[91m/g, "\x1b[93m");
         console.warn("\n\x1b[33mView.freeze warnings:\x1b[0m\n");
         console.warn(warningFormatted);
       }
     }
 
     if (deOptCount > 0 && validationResult.errors.length > 0) {
-      console.warn(`\n\x1b[33m${deOptCount} View.freeze call(s) de-optimized (code still works, just without DCE).\x1b[0m\n`);
+      console.warn(
+        `\n\x1b[33m${deOptCount} View.freeze call(s) de-optimized (code still works, just without DCE).\x1b[0m\n`
+      );
     }
 
     const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);
@@ -280,7 +307,7 @@ export async function run(options) {
       global.portsFilePath = portsCheck.outputPath;
     }
 
-    global.XMLHttpRequest = {};
+    global.XMLHttpRequest = /** @type {typeof XMLHttpRequest} */ ({});
     const compileCliPromise = compileCliApp(options);
     try {
       const serverResult = await compileCliPromise;
@@ -401,7 +428,12 @@ export async function render(request) {
       });
     } catch (cliError) {
       // Check if this is an ephemeral field disagreement error - re-throw to outer catch
-      if (cliError.message && cliError.message.includes("EPHEMERAL FIELD DISAGREEMENT")) {
+      if (
+        /** @type {Error} */ (cliError).message &&
+        /** @type {Error} */ (cliError).message.includes(
+          "EPHEMERAL FIELD DISAGREEMENT"
+        )
+      ) {
         throw cliError;
       }
 
@@ -448,6 +480,8 @@ export async function render(request) {
 
 /**
  * @param {string} basePath
+ * @param {() => void} whenDone
+ * @returns {Promise<{worker: Worker}>}
  */
 function initWorker(basePath, whenDone) {
   return new Promise((resolve, reject) => {
@@ -580,7 +614,10 @@ async function compileElm(options, config) {
     await runTerser(fullOutputPath);
   }
 
-  return { ephemeralFields: clientResult.ephemeralFields, deOptimizationCount: clientResult.deOptimizationCount || 0 };
+  return {
+    ephemeralFields: clientResult.ephemeralFields,
+    deOptimizationCount: clientResult.deOptimizationCount || 0,
+  };
 }
 
 async function fingerprintElmAsset(fullOutputPath, withoutExtension) {
@@ -702,9 +739,7 @@ function runElmMake(mode, options, elmEntrypointPath, outputPath, cwd) {
       }
     );
     if (await fs.fileExists(outputPath)) {
-      await fsPromises.unlink(outputPath, {
-        force: true /* ignore errors if file doesn't exist */,
-      });
+      await fsPromises.unlink(outputPath);
     }
     let commandOutput = "";
 
@@ -939,18 +974,3 @@ function defaultPreloadForFile(file) {
     return "";
   }
 }
-
-/** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; body: string; } } FromElm */
-/** @typedef {HeadTag | JsonLdTag} SeoTag */
-/** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
-/** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */
-
-/** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
-
-/** @typedef {     { body: string; head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
-
-/**
- * @param {Arg} fromElm
- * @param {string} contentJsonString
- * @returns {string}
- */

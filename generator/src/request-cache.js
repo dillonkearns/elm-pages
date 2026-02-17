@@ -1,23 +1,20 @@
 import * as path from "path";
 import * as fsPromises from "fs/promises";
-import * as kleur from "kleur/colors";
 import { default as makeFetchHappenOriginal } from "make-fetch-happen";
+
+/** @import {Pages_StaticHttp_Request, Pages_Internal_StaticHttpBody} from "./render.js" */
 
 const defaultHttpCachePath = "./.elm-pages/http-cache";
 
-/** @typedef {{kind: 'cache-response-path', value: string} | {kind: 'response-json', value: JSON}} Response */
+/** @typedef {{kind: 'cache-response-path', value: string} | {kind: 'response-json', value: object}} Response */
 
 /**
  * @param {string} mode
- * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body; }} rawRequest
+ * @param {Pages_StaticHttp_Request} rawRequest
  * @param {Record<string, unknown>} portsFile
  * @returns {Promise<Response>}
  */
-export function lookupOrPerform(
-  portsFile,
-  mode,
-  rawRequest
-) {
+export function lookupOrPerform(portsFile, mode, rawRequest) {
   const uniqueTimeId =
     Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const timeStart = (message) => {
@@ -44,7 +41,10 @@ export function lookupOrPerform(
 
     if (request.url === "elm-pages-internal://port") {
       try {
-        const { input, portName } = rawRequest.body.args[0];
+        const { input, portName } =
+          /** @type {{input: unknown, portName: string}} */ (
+            rawRequest.body.args[0]
+          );
 
         if (portBackendTask === null) {
           resolve({
@@ -83,7 +83,7 @@ export function lookupOrPerform(
                 "elm-pages-internal-error": "ErrorInCustomBackendTaskFile",
                 error:
                   (portBackendTaskImportError &&
-                    portBackendTaskImportError.stack) ||
+                    /** @type {Error} */ (portBackendTaskImportError).stack) ||
                   "",
               }),
             });
@@ -197,14 +197,17 @@ export function lookupOrPerform(
           },
         });
       } catch (error) {
-        if (error.code === "ECONNREFUSED") {
+        if (
+          /** @type {NodeJS.ErrnoException} */ (error).code === "ECONNREFUSED"
+        ) {
           resolve({
             kind: "response-json",
             value: { "elm-pages-internal-error": "NetworkError" },
           });
         } else if (
-          error.code === "ETIMEDOUT" ||
-          error.code === "ERR_SOCKET_TIMEOUT"
+          /** @type {NodeJS.ErrnoException} */ (error).code === "ETIMEDOUT" ||
+          /** @type {NodeJS.ErrnoException} */ (error).code ===
+            "ERR_SOCKET_TIMEOUT"
         ) {
           resolve({
             kind: "response-json",
@@ -224,7 +227,7 @@ export function lookupOrPerform(
 
 /**
  * @param {unknown} obj
- * @returns {JSON}
+ * @returns {object}
  */
 function toElmJson(obj) {
   if (Array.isArray(obj)) {
@@ -250,7 +253,7 @@ function toElmJson(obj) {
 }
 
 /**
- * @param {{url: string; headers: {[x: string]: string}; method: string; body: Body } } elmRequest
+ * @param {Pages_StaticHttp_Request} elmRequest
  */
 function toRequest(elmRequest) {
   const elmHeaders = Object.fromEntries(elmRequest.headers);
@@ -264,7 +267,7 @@ function toRequest(elmRequest) {
   };
 }
 /**
- * @param {Body} body
+ * @param {Pages_Internal_StaticHttpBody} body
  */
 function toBody(body) {
   switch (body.tag) {
@@ -284,7 +287,7 @@ function toBody(body) {
 }
 
 /**
- * @param {Body} body
+ * @param {Pages_Internal_StaticHttpBody} body
  * @returns Object
  */
 function toContentType(body) {
@@ -304,9 +307,11 @@ function toContentType(body) {
   }
 }
 
+/** @typedef {{type: string, name: string, value?: string, mimeType?: string, filename?: string, content?: string}} Part */
+
 /**
  * Convert structured parts from Elm into a FormData instance.
- * @param {Array<{type: string, name: string, value?: string, mimeType?: string, filename?: string, content?: string}>} parts
+ * @param {Array<Part>} parts
  * @returns {FormData}
  */
 function partsToFormData(parts) {
@@ -319,13 +324,17 @@ function partsToFormData(parts) {
       case "bytes":
         formData.append(
           part.name,
-          new Blob([Buffer.from(part.content, "base64")], { type: part.mimeType })
+          new Blob([Buffer.from(part.content, "base64")], {
+            type: part.mimeType,
+          })
         );
         break;
       case "bytesWithFilename":
         formData.append(
           part.name,
-          new Blob([Buffer.from(part.content, "base64")], { type: part.mimeType }),
+          new Blob([Buffer.from(part.content, "base64")], {
+            type: part.mimeType,
+          }),
           part.filename
         );
         break;
@@ -338,6 +347,8 @@ function partsToFormData(parts) {
  * Read the response body in the format expected by the Elm side.
  * Works with both make-fetch-happen responses (which have .buffer())
  * and standard fetch responses (which have .arrayBuffer()).
+ * @param {{ text: () => any; }} response
+ * @param {string} expectString
  */
 async function readResponseBody(response, expectString) {
   if (expectString === "ExpectJson") {
@@ -347,12 +358,18 @@ async function readResponseBody(response, expectString) {
     } catch (error) {
       return { body: buf.toString("utf8"), bodyKind: "string" };
     }
-  } else if (expectString === "ExpectBytes" || expectString === "ExpectBytesResponse") {
+  } else if (
+    expectString === "ExpectBytes" ||
+    expectString === "ExpectBytesResponse"
+  ) {
     const buf = await responseBuffer(response);
     return { body: buf.toString("base64"), bodyKind: "bytes" };
   } else if (expectString === "ExpectWhatever") {
     return { body: null, bodyKind: "whatever" };
-  } else if (expectString === "ExpectResponse" || expectString === "ExpectString") {
+  } else if (
+    expectString === "ExpectResponse" ||
+    expectString === "ExpectString"
+  ) {
     return { body: await response.text(), bodyKind: "string" };
   } else {
     throw `Unexpected expectString ${expectString}`;
@@ -370,7 +387,6 @@ async function responseBuffer(response) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-/** @typedef { { tag: 'EmptyBody'} |{ tag: 'BytesBody'; args: [string, string] } |  { tag: 'StringBody'; args: [string, string] } | {tag: 'JsonBody'; args: [ Object ] } | {tag: 'MultipartBody'; args: [ Array ] } } Body  */
 function requireUncached(mode, filePath) {
   if (mode === "dev-server") {
     // for the build command, we can skip clearing the cache because it won't change while the build is running

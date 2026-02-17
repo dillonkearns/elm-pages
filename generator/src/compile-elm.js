@@ -204,7 +204,7 @@ async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
  * @param {string} elmEntrypointPath
  * @param {string} outputPath
  * @param {string} [cwd]
- * @param {{ debug: boolean; }} options
+ * @param {{ debug: boolean; optimize: boolean }} options
  */
 async function runElm(options, elmEntrypointPath, outputPath, cwd) {
   const executableName = await lamderaOrElmFallback();

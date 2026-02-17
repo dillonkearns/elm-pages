@@ -23,11 +23,12 @@ function parseHeader(rule, path) {
 }
 
 /**
- * parseMsg :: String|Object -> String
- *
  * This function takes in the error message and makes sure that it has the proper formatting
- **/
-/**
+ *
+ * ```elm ish
+ * parseMsg :: String | Object -> String
+ * ```
+ *
  * @param {Message} msg
  * */
 function parseMsg(msg) {
@@ -35,7 +36,7 @@ function parseMsg(msg) {
     return msg;
   } else {
     if (msg.underline && msg.color) {
-      return kleur[toKleurColor(msg.color)]().underline(msg.string);
+      return kleur.underline(kleur[toKleurColor(msg.color)](msg.string));
     } else if (msg.underline) {
       return kleur.underline(msg.string);
     } else if (msg.color) {
@@ -67,7 +68,7 @@ function toKleurColor(color) {
     }
     return "red";
   } else {
-    return color.toLowerCase();
+    return /** @type {keyof import("kleur").Kleur} */ (color.toLowerCase());
   }
 }
 
@@ -96,7 +97,9 @@ export const restoreColor = (error) => {
         )
         .join("\n\n\n\n\n");
     } else if (error.type === "error") {
-      return restoreProblem(error.path)(error);
+      return restoreProblem(error.path)(
+        /** @type {Problem} */ (/** @type {unknown} */ (error))
+      );
     } else {
       throw `Unexpected error ${JSON.stringify(error, null, 2)}`;
     }
@@ -107,7 +110,7 @@ export const restoreColor = (error) => {
 };
 
 /**
- * @param {string|RootObject[]} error
+ * @param {unknown} error
  * @returns {string}
  */
 export function restoreColorSafe(error) {
@@ -118,10 +121,10 @@ export function restoreColorSafe(error) {
     } else if (Array.isArray(error)) {
       return error.map(restoreColor).join("\n\n\n");
     } else {
-      return restoreColor(error);
+      return restoreColor(/** @type {RootObject} */ (error));
     }
   } catch (e) {
-    return error;
+    return /** @type {string} */ (error);
   }
 }
 
@@ -132,18 +135,18 @@ export function restoreColorSafe(error) {
  **/
 const restoreProblem =
   (/** @type {string} */ path) => (/** @type {Problem | IError} */ info) => {
-    if (info.rule && info.formatted) {
+    if ("rule" in info && "formatted" in info) {
       return [
         parseHeader(info.rule, path),
-        ...info.formatted.map(parseMsg),
+        .../** @type {Message[]} */ (info.formatted).map(parseMsg),
       ].join("");
     } else if (typeof info.message === "string") {
       return info.message;
     } else {
       // console.log("info.message", info.message);
       return [
-        parseHeader(info.title, path),
-        ...info.message.map(parseMsg),
+        parseHeader(/** @type {Problem} */ (info).title, path),
+        .../** @type {Message[]} */ (info.message).map(parseMsg),
       ].join("");
     }
   };

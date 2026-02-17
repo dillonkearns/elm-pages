@@ -34,23 +34,13 @@ export async function rewriteElmJson(
 }
 
 /**
- * @param {fs.PathLike | fs.promises.FileHandle} filePath
+ * @param {fs.PathLike} filePath
  * @param {string | NodeJS.ArrayBufferView | Iterable<string | NodeJS.ArrayBufferView> | AsyncIterable<string | NodeJS.ArrayBufferView> | import("stream").Stream} content
  */
 async function writeFileIfChanged(filePath, content) {
-  if (
-    !(await fileExists(filePath)) ||
-    (await fs.promises.readFile(filePath, "utf8")) !== content
-  ) {
-    await fs.promises.writeFile(filePath, content);
-  }
-}
-/**
- * @param {fs.PathLike} file
- */
-function fileExists(file) {
-  return fs.promises
-    .access(file, fs.constants.F_OK)
-    .then(() => true)
-    .catch(() => false);
+  try {
+    if ((await fs.promises.readFile(filePath, "utf8")) !== content) {
+      await fs.promises.writeFile(filePath, content);
+    }
+  } catch {}
 }

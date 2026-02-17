@@ -3,7 +3,8 @@
   "compilerOptions": {
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
-    "module": "nodenext",
+    "module": "preserve",
+    "moduleResolution": "bundler",
     "target": "esnext",
     "lib": ["esnext", "dom", "dom.iterable"],
     "types": ["node"],
@@ -14,8 +15,8 @@
     "noEmit": true,
 
     // Stricter Typechecking Options
-    // "noUncheckedIndexedAccess": true,
-    // "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
 
     // Style Options
     // "noImplicitReturns": true,
@@ -25,10 +26,6 @@
     // "noFallthroughCasesInSwitch": true,
     // "noPropertyAccessFromIndexSignature": true,
 
-    // Migration
-    "noImplicitAny": false,
-    "strictNullChecks": false,
-
     // Recommended Options
     "strict": true,
     "verbatimModuleSyntax": true,
@@ -37,6 +34,5 @@
     "moduleDetection": "force",
     "skipLibCheck": true
   },
-  "exclude": ["**/elm-stuff", "**/node_modules", "**/generated"],
-  "include": ["adapter/**/*", "generator/src/**/*"]
+  "exclude": ["**/elm-stuff", "**/node_modules", "**/generated"]
 }

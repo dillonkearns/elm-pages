@@ -11,112 +11,118 @@ export function routeParams(name) {
     .filter((maybeParam) => maybeParam !== null);
 }
 
-/** @typedef { { kind: ('dynamic' | 'optional' | 'required-splat' | 'optional-splat'); name: string } } Segment */
+/** @typedef { { kind: ('dynamic' | 'optional' | 'required-splat' | 'optional-splat' | 'static' | 'optional'); name: string } } Segment */
 
 /**
  * @param {string[]} name
  * @returns {Segment[]}
  */
 export function parseRouteParams(name) {
-  return name.flatMap((section) => {
-    const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
-    const maybeParam = (routeParamMatch && routeParamMatch[1]) || "TODO";
-    const isSplat = maybeParam === "SPLAT";
+  return name.flatMap(
+    /** @returns {Segment[]} */
+    (section) => {
+      const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
+      const maybeParam = (routeParamMatch && routeParamMatch[1]) || "TODO";
+      const isSplat = maybeParam === "SPLAT";
 
-    // return maybeParam && toFieldName(maybeParam);
-    if (routeParamMatch[2] === "") {
-      return [];
-    } else if (routeParamMatch[2] === "_") {
-      if (isSplat) {
-        return [
-          {
-            kind: "required-splat",
-            name: toFieldName(maybeParam),
-          },
-        ];
+      // return maybeParam && toFieldName(maybeParam);
+      if (routeParamMatch[2] === "") {
+        return [];
+      } else if (routeParamMatch[2] === "_") {
+        if (isSplat) {
+          return [
+            {
+              kind: "required-splat",
+              name: toFieldName(maybeParam),
+            },
+          ];
+        } else {
+          return [
+            {
+              kind: "dynamic",
+              name: toFieldName(maybeParam),
+            },
+          ];
+        }
+      } else if (routeParamMatch[2] === "__") {
+        if (isSplat) {
+          return [
+            {
+              kind: "optional-splat",
+              name: toFieldName(maybeParam),
+            },
+          ];
+        } else {
+          return [
+            {
+              kind: "optional",
+              name: toFieldName(maybeParam),
+            },
+          ];
+        }
       } else {
-        return [
-          {
-            kind: "dynamic",
-            name: toFieldName(maybeParam),
-          },
-        ];
+        throw "Unhandled";
       }
-    } else if (routeParamMatch[2] === "__") {
-      if (isSplat) {
-        return [
-          {
-            kind: "optional-splat",
-            name: toFieldName(maybeParam),
-          },
-        ];
-      } else {
-        return [
-          {
-            kind: "optional",
-            name: toFieldName(maybeParam),
-          },
-        ];
-      }
-    } else {
-      throw "Unhandled";
     }
-  });
+  );
 }
 
 /**
  * @param {string[]} name
- * @returns {( Segment | {kind: 'static'; name: string})[]}
+ * @returns {Segment[]}
  */
 export function parseRouteParamsWithStatic(name) {
-  return name.flatMap((section) => {
-    const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
-    const maybeParam = (routeParamMatch && routeParamMatch[1]) || "TODO";
-    const isSplat = maybeParam === "SPLAT";
+  return name.flatMap(
+    /** @returns {Segment[]} */
+    (section) => {
+      const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
+      const maybeParam = (routeParamMatch && routeParamMatch[1]) || "TODO";
+      const isSplat = maybeParam === "SPLAT";
 
-    // return maybeParam && toFieldName(maybeParam);
-    if (routeParamMatch[2] === "") {
-      if (maybeParam === "Index") {
-        return [];
+      // return maybeParam && toFieldName(maybeParam);
+      if (routeParamMatch[2] === "") {
+        if (maybeParam === "Index") {
+          return [];
+        } else {
+          return [{ kind: "static", name: maybeParam }];
+        }
+      } else if (routeParamMatch[2] === "_") {
+        if (isSplat) {
+          return [
+            {
+              kind: "required-splat",
+              name: toFieldName(maybeParam),
+            },
+          ];
+        } else {
+          return [
+            {
+              kind: "dynamic",
+              name: toFieldName(maybeParam),
+            },
+          ];
+        }
+      } else if (routeParamMatch[2] === "__") {
+        if (isSplat) {
+          return [
+            {
+              kind: "optional-splat",
+              name: toFieldName(maybeParam),
+            },
+          ];
+        } else {
+          return [
+            {
+              kind: "optional",
+              name: toFieldName(maybeParam),
+            },
+          ];
+        }
       } else {
-        return [{ kind: "static", name: maybeParam }];
+        throw "Unhandled";
       }
-    } else if (routeParamMatch[2] === "_") {
-      if (isSplat) {
-        return [
-          {
-            kind: "required-splat",
-            name: toFieldName(maybeParam),
-          },
-        ];
-      } else {
-        return [
-          {
-            kind: "dynamic",
-            name: toFieldName(maybeParam),
-          },
-        ];
-      }
-    } else if (routeParamMatch[2] === "__") {
-      if (isSplat) {
-        return [
-          {
-            kind: "optional-splat",
-            name: toFieldName(maybeParam),
-          },
-        ];
-      } else {
-        return [
-          {
-            kind: "optional",
-            name: toFieldName(maybeParam),
-          },
-        ];
-      }
-    } else {
-      throw "Unhandled";
     }
-  });
+  );
 }
 
 /**

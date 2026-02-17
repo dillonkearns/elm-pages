@@ -8,7 +8,13 @@ import { default as which } from "which";
 import { generateTemplateModuleConnector } from "./generate-template-module-connector.js";
 
 import * as path from "path";
-import { ensureDirSync, deleteIfExists, writeFileIfChanged, copyDirIfNewer, copyFileIfNewer } from "./file-helpers.js";
+import {
+  ensureDirSync,
+  deleteIfExists,
+  writeFileIfChanged,
+  copyDirIfNewer,
+  copyFileIfNewer,
+} from "./file-helpers.js";
 import { fileURLToPath } from "url";
 global.builtAt = new Date();
 
@@ -126,7 +132,10 @@ export async function generateClientFolder(basePath) {
     uiFileContent
   );
   const result = await runElmReviewCodemod("./elm-stuff/elm-pages/client/");
-  return { ephemeralFields: result.ephemeralFields, deOptimizationCount: result.deOptimizationCount || 0 };
+  return {
+    ephemeralFields: result.ephemeralFields,
+    deOptimizationCount: result.deOptimizationCount || 0,
+  };
 }
 
 /**
@@ -167,13 +176,19 @@ export async function generateServerFolder(basePath) {
   // Run server-specific elm-review codemod FIRST
   // This creates the Ephemeral type alias in Route files
   // Must run before generateTemplateModuleConnector so Main.elm can reference Ephemeral
-  const serverResult = await runElmReviewCodemod("./elm-stuff/elm-pages/server/", "server");
+  const serverResult = await runElmReviewCodemod(
+    "./elm-stuff/elm-pages/server/",
+    "server"
+  );
 
   // Now generate Main.elm which can reference Route.Index.Ephemeral etc.
   const cliCode = await generateTemplateModuleConnector(basePath, "cli");
 
   // Generate browser code to get Fetcher modules (needed for route modules that import Fetchers)
-  const browserCode = await generateTemplateModuleConnector(basePath, "browser");
+  const browserCode = await generateTemplateModuleConnector(
+    basePath,
+    "browser"
+  );
 
   // Write generated Main.elm, Route.elm, Pages.elm
   await writeFileIfChanged(
@@ -214,7 +229,12 @@ export async function runElmReviewCodemod(cwd, target = "client") {
   const lamderaPath = await which("lamdera");
 
   // Run elm-review without fixes first to capture EPHEMERAL_FIELDS_JSON for analysis
-  const analysisOutput = await runElmReviewCommand(cwdPath, configPath, lamderaPath, false);
+  const analysisOutput = await runElmReviewCommand(
+    cwdPath,
+    configPath,
+    lamderaPath,
+    false
+  );
   const ephemeralFields = parseEphemeralFieldsWithFields(analysisOutput);
   const deOptimizationCount = parseDeOptimizationCount(analysisOutput);
 
@@ -245,9 +265,14 @@ export function parseDeOptimizationCount(elmReviewOutput) {
 
   for (const fileErrors of jsonOutput.errors) {
     for (const error of fileErrors.errors) {
-      if (error.message && error.message.startsWith("DEOPTIMIZATION_COUNT_JSON:")) {
+      if (
+        error.message &&
+        error.message.startsWith("DEOPTIMIZATION_COUNT_JSON:")
+      ) {
         try {
-          const jsonStr = error.message.slice("DEOPTIMIZATION_COUNT_JSON:".length);
+          const jsonStr = error.message.slice(
+            "DEOPTIMIZATION_COUNT_JSON:".length
+          );
           const data = JSON.parse(jsonStr);
           if (data.count) {
             count += data.count;
@@ -269,13 +294,23 @@ export function parseDeOptimizationCount(elmReviewOutput) {
  * @param {string} lamderaPath
  * @param {boolean} applyFixes
  */
-async function runElmReviewCommand(cwdPath, configPath, lamderaPath, applyFixes) {
+async function runElmReviewCommand(
+  cwdPath,
+  configPath,
+  lamderaPath,
+  applyFixes
+) {
   const args = [
-    "--report", "json",
-    "--namespace", "elm-pages",
-    "--config", configPath,
-    "--elmjson", "elm.json",
-    "--compiler", lamderaPath,
+    "--report",
+    "json",
+    "--namespace",
+    "elm-pages",
+    "--config",
+    configPath,
+    "--elmjson",
+    "elm.json",
+    "--compiler",
+    lamderaPath,
   ];
   if (applyFixes) {
     args.unshift("--fix-all-without-prompt");
@@ -308,9 +343,10 @@ async function runElmReviewCommand(cwdPath, configPath, lamderaPath, applyFixes)
         // but this is expected when fixes are already applied ("failing fix").
         // We only reject on actual compilation/parsing errors, not just failing fixes.
         // Check if the output indicates a real error vs just failing fixes
-        const hasRealError = output.includes("PARSING ERROR") ||
-                             output.includes("COMPILE ERROR") ||
-                             output.includes("CONFIGURATION ERROR");
+        const hasRealError =
+          output.includes("PARSING ERROR") ||
+          output.includes("COMPILE ERROR") ||
+          output.includes("CONFIGURATION ERROR");
         if (hasRealError) {
           reject(output);
         } else {
@@ -392,7 +428,11 @@ function parseEphemeralFieldsWithFields(elmReviewOutput) {
         try {
           const jsonStr = error.message.slice("EPHEMERAL_FIELDS_JSON:".length);
           const data = JSON.parse(jsonStr);
-          if (data.module && data.ephemeralFields && Array.isArray(data.ephemeralFields)) {
+          if (
+            data.module &&
+            data.ephemeralFields &&
+            Array.isArray(data.ephemeralFields)
+          ) {
             const existingFields = result.get(data.module) || new Set();
             for (const field of data.ephemeralFields) {
               existingFields.add(field);
@@ -424,8 +464,8 @@ export function compareEphemeralFields(serverFields, clientFields) {
     const serverSet = serverFields.get(module) || new Set();
     const clientSet = clientFields.get(module) || new Set();
 
-    const serverOnly = [...serverSet].filter(f => !clientSet.has(f));
-    const clientOnly = [...clientSet].filter(f => !serverSet.has(f));
+    const serverOnly = [...serverSet].filter((f) => !clientSet.has(f));
+    const clientOnly = [...clientSet].filter((f) => !serverSet.has(f));
 
     if (serverOnly.length > 0 || clientOnly.length > 0) {
       disagreements.push({ module, serverOnly, clientOnly });
@@ -444,16 +484,20 @@ export function formatDisagreementError(comparison) {
   const lines = [
     "\n=== EPHEMERAL FIELD DISAGREEMENT ===\n",
     "Server and client transforms disagree on which Data fields are ephemeral.",
-    "This is likely a bug. Please report at https://github.com/dillonkearns/elm-pages/issues\n"
+    "This is likely a bug. Please report at https://github.com/dillonkearns/elm-pages/issues\n",
   ];
 
   for (const { module, serverOnly, clientOnly } of comparison.disagreements) {
     lines.push(`Module: ${module}`);
     for (const field of serverOnly) {
-      lines.push(`  Field "${field}": server says ephemeral, client says persistent`);
+      lines.push(
+        `  Field "${field}": server says ephemeral, client says persistent`
+      );
     }
     for (const field of clientOnly) {
-      lines.push(`  Field "${field}": client says ephemeral, server says persistent`);
+      lines.push(
+        `  Field "${field}": client says ephemeral, server says persistent`
+      );
     }
   }
 
@@ -478,7 +522,9 @@ async function applyDataTypeFixes(cwd, fixes) {
       // We need to find the balanced braces for the record definition
       const dataTypeMatch = content.match(/type\s+alias\s+Data\s*=\s*\n?\s*/);
       if (!dataTypeMatch) {
-        console.warn(`Warning: Could not find Data type definition in ${fullPath}`);
+        console.warn(
+          `Warning: Could not find Data type definition in ${fullPath}`
+        );
         continue;
       }
 
@@ -489,10 +535,10 @@ async function applyDataTypeFixes(cwd, fixes) {
       let recordStart = -1;
       let recordEnd = -1;
       for (let i = prefixEnd; i < content.length; i++) {
-        if (content[i] === '{') {
+        if (content[i] === "{") {
           if (recordStart === -1) recordStart = i;
           braceCount++;
-        } else if (content[i] === '}') {
+        } else if (content[i] === "}") {
           braceCount--;
           if (braceCount === 0) {
             recordEnd = i + 1;
@@ -502,11 +548,16 @@ async function applyDataTypeFixes(cwd, fixes) {
       }
 
       if (recordStart === -1 || recordEnd === -1) {
-        console.warn(`Warning: Could not find balanced braces in Data type definition in ${fullPath}`);
+        console.warn(
+          `Warning: Could not find balanced braces in Data type definition in ${fullPath}`
+        );
         continue;
       }
 
-      const currentRecord = content.substring(recordStart, recordEnd).replace(/\s+/g, " ").trim();
+      const currentRecord = content
+        .substring(recordStart, recordEnd)
+        .replace(/\s+/g, " ")
+        .trim();
       const targetRecord = fix.newDataType.replace(/\s+/g, " ").trim();
 
       // Check if fix is already applied
@@ -515,11 +566,16 @@ async function applyDataTypeFixes(cwd, fixes) {
       }
 
       // Replace the record part only
-      const newContent = content.substring(0, recordStart) + fix.newDataType + content.substring(recordEnd);
+      const newContent =
+        content.substring(0, recordStart) +
+        fix.newDataType +
+        content.substring(recordEnd);
       await fs.promises.writeFile(fullPath, newContent);
     } catch (e) {
       // Skip files that can't be processed
-      console.warn(`Warning: Could not apply Data type fix to ${fullPath}: ${e.message}`);
+      console.warn(
+        `Warning: Could not apply Data type fix to ${fullPath}: ${/** @type {Error} */ (e).message}`
+      );
     }
   }
 }
@@ -584,8 +640,10 @@ async function listFiles(dir) {
 }
 
 /**
- * @param {any[]} arrays
+ * @template T
+ * @param {T[][]} arrays
+ * @return {T[]}
  */
 function merge(arrays) {
-  return [].concat.apply([], arrays);
+  return /** @type {T[]} */ ([]).concat.apply([], arrays);
 }

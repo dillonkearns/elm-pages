@@ -14,7 +14,27 @@ import {
 } from "./utils.js";
 import { dots, dashes, writeStream, cleanStream } from "./utils.js";
 
+/**
+ * @typedef {{ interval: number, frames: string[] }} Spinner
+ */
+
+/**
+ * @typedef {{
+ *   spinner: Partial<Spinner>,
+ *   disableSpins: boolean,
+ *   color: string,
+ *   succeedColor: string,
+ *   failColor: string,
+ *   spinnerColor: string,
+ *   succeedPrefix: string,
+ *   failPrefix: string
+ * }} SpinnerOptions
+ */
+
 export class Spinnies {
+  /**
+   * @param {Partial<SpinnerOptions>} options
+   */
   constructor(options = {}) {
     options = purgeSpinnersOptions(options);
     this.options = {
