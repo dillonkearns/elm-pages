@@ -30,6 +30,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
+import Elm.Syntax.Range exposing (Range)
 import Pages.Review.TaintTracking as Taint
     exposing
         ( Nonempty(..)
@@ -47,7 +48,7 @@ import Set exposing (Set)
 
 {-| Convert a range to a comparable tuple for Set storage.
 -}
-rangeToComparable : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> ( ( Int, Int ), ( Int, Int ) )
+rangeToComparable : Range -> ( ( Int, Int ), ( Int, Int ) )
 rangeToComparable range =
     ( ( range.start.row, range.start.column ), ( range.end.row, range.end.column ) )
 
@@ -87,8 +88,8 @@ initialProjectContext =
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
-    , moduleName : ModuleName
-    , freezeCallDepth : Int
+    , isAllowedModule : Bool
+    , freezeStack : List Range
     , appParamName : Maybe String
     , sharedModelParamName : Maybe String
     , modelParamName : Maybe String
@@ -97,9 +98,9 @@ type alias ModuleContext =
     , collectedFunctions : Dict String FunctionTaintInfo
     , reportedRanges : Set ( ( Int, Int ), ( Int, Int ) )
 
-    -- Tainted context depth: tracks when we're inside a conditional (if/case) that
-    -- depends on model. When > 0, we're in a tainted context and should report error.
-    , taintedContextDepth : Int
+    -- Tainted context: tracks when we're inside a conditional (if/case) that
+    -- depends on model. When the stack is not empty, we're in a tainted context and should report error.
+    , taintedContext : List Range
     }
 
 
@@ -126,7 +127,7 @@ moduleVisitor schema =
     schema
         |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
         |> Rule.withExpressionEnterVisitor expressionEnterVisitor
-        |> Rule.withExpressionExitVisitor expressionExitVisitor
+        |> Rule.withExpressionExitVisitor (\node context -> ( [], expressionExitVisitor node context ))
         |> Rule.withLetDeclarationEnterVisitor letDeclarationEnterVisitor
         |> Rule.withCaseBranchEnterVisitor caseBranchEnterVisitor
         |> Rule.withCaseBranchExitVisitor caseBranchExitVisitor
@@ -137,8 +138,8 @@ fromProjectToModule =
     Rule.initContextCreator
         (\lookupTable moduleName projectContext ->
             { lookupTable = lookupTable
-            , moduleName = moduleName
-            , freezeCallDepth = 0
+            , isAllowedModule = isAllowedModule moduleName
+            , freezeStack = []
             , appParamName = Nothing
             , sharedModelParamName = Nothing
             , modelParamName = Nothing
@@ -146,7 +147,7 @@ fromProjectToModule =
             , projectFunctions = projectContext.functionTaintInfo
             , collectedFunctions = Dict.empty
             , reportedRanges = Set.empty
-            , taintedContextDepth = 0
+            , taintedContext = []
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -182,20 +183,21 @@ foldProjectContexts a b =
 Returns the error (if new) and the updated context with the range tracked.
 -}
 reportErrorIfNew :
-    { start : { row : Int, column : Int }, end : { row : Int, column : Int } }
+    Range
     -> Error {}
     -> ModuleContext
+    -> List (Error {})
     -> ( List (Error {}), ModuleContext )
-reportErrorIfNew range error context =
+reportErrorIfNew range error context accErrors =
     let
         rangeKey =
             rangeToComparable range
     in
     if Set.member rangeKey context.reportedRanges then
-        ( [], context )
+        ( accErrors, context )
 
     else
-        ( [ error ]
+        ( error :: accErrors
         , { context | reportedRanges = Set.insert rangeKey context.reportedRanges }
         )
 
@@ -203,19 +205,16 @@ reportErrorIfNew range error context =
 {-| Collect errors from a list, deduplicating by range.
 -}
 collectErrors :
-    List ( { start : { row : Int, column : Int }, end : { row : Int, column : Int } }, Error {} )
+    List ( Range, Error {} )
     -> ModuleContext
+    -> List (Error {})
     -> ( List (Error {}), ModuleContext )
-collectErrors errorPairs context =
+collectErrors errorPairs context accErrors =
     List.foldl
-        (\( range, error ) ( accErrors, accContext ) ->
-            let
-                ( newErrors, newContext ) =
-                    reportErrorIfNew range error accContext
-            in
-            ( accErrors ++ newErrors, newContext )
+        (\( range, error ) ( accErrors_, accContext ) ->
+            reportErrorIfNew range error accContext accErrors_
         )
-        ( [], context )
+        ( accErrors, context )
         errorPairs
 
 
@@ -283,7 +282,7 @@ runtimeAppFields =
     ]
 
 
-{-| Check if a module name is a Route module (Route.Something, Route.Blog.Slug_, etc.)
+{-| Check if a module name is a Route module (Route.Something, Route.Blog.Slug\_, etc.)
 -}
 isRouteModule : ModuleName -> Bool
 isRouteModule moduleName =
@@ -309,8 +308,6 @@ isAllowedModule moduleName =
 staticFunctionNames : List String
 staticFunctionNames =
     [ "freeze" ]
-
-
 
 
 
@@ -344,18 +341,16 @@ declarationEnterVisitor node context =
                     }
 
                 -- Analyze body - if result is tainted, some param flowed through
-                bodyTaint =
-                    Taint.analyzeExpressionTaint paramFlowContext functionDecl.expression
-
                 -- If the body is tainted (with params as tainted), all params could flow through
                 -- A more sophisticated analysis would track exactly which params flow
                 paramsThatTaint =
-                    if bodyTaint == Tainted then
-                        List.range 0 (List.length functionDecl.arguments - 1)
-                            |> Set.fromList
+                    case Taint.analyzeExpressionTaint paramFlowContext functionDecl.expression of
+                        Tainted ->
+                            List.range 0 (List.length functionDecl.arguments - 1)
+                                |> Set.fromList
 
-                    else
-                        Set.empty
+                        Pure ->
+                            Set.empty
 
                 -- Also check if function captures tainted values from outer scope
                 -- (using the actual context with model param info)
@@ -465,11 +460,11 @@ extractFreezeCallNode node =
 {-| Check if a node is a reference to View.freeze.
 -}
 isFreezeNode : ModuleContext -> Node Expression -> Bool
-isFreezeNode context functionNode =
-    case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
-        Just [ "View" ] ->
-            case Node.value functionNode of
-                Expression.FunctionOrValue _ "freeze" ->
+isFreezeNode context (Node range expr) =
+    case expr of
+        Expression.FunctionOrValue _ "freeze" ->
+            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+                Just [ "View" ] ->
                     True
 
                 _ ->
@@ -482,82 +477,84 @@ isFreezeNode context functionNode =
 expressionEnterVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
 expressionEnterVisitor node context =
     -- First, track entering tainted conditionals (if/case)
-    let
-        contextWithTaintedContext =
-            case Node.value node of
-                Expression.IfBlock cond _ _ ->
-                    let
-                        condTaint =
-                            analyzeExpressionTaint context cond
-                    in
-                    if condTaint == Tainted then
-                        { context | taintedContextDepth = context.taintedContextDepth + 1 }
+    context
+        |> trackEnteringTaintedConditionals node
+        |> checkFreezeCall node
 
-                    else
-                        context
 
-                Expression.CaseExpression caseBlock ->
-                    let
-                        scrutineeTaint =
-                            analyzeExpressionTaint context caseBlock.expression
-                    in
-                    if scrutineeTaint == Tainted then
-                        { context | taintedContextDepth = context.taintedContextDepth + 1 }
+trackEnteringTaintedConditionals : Node Expression -> ModuleContext -> ModuleContext
+trackEnteringTaintedConditionals (Node range expr) context =
+    case expr of
+        Expression.IfBlock cond _ _ ->
+            let
+                condTaint =
+                    analyzeExpressionTaint context cond
+            in
+            case analyzeExpressionTaint context cond of
+                Tainted ->
+                    { context | taintedContext = range :: context.taintedContext }
 
-                    else
-                        context
-
-                _ ->
+                Pure ->
                     context
-    in
+
+        Expression.CaseExpression { expression } ->
+            case analyzeExpressionTaint context expression of
+                Tainted ->
+                    { context | taintedContext = range :: context.taintedContext }
+
+                Pure ->
+                    context
+
+        _ ->
+            context
+
+
+checkFreezeCall : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+checkFreezeCall node context =
     case extractFreezeCallNode node of
         Just functionNode ->
             -- Check if this is a call to a frozen view function
-            case checkFrozenViewFunctionCall functionNode contextWithTaintedContext of
+            case checkFrozenViewFunctionCall functionNode context of
                 Just scopeError ->
                     -- Report scope error and don't enter freeze mode (no point checking taint)
-                    ( [ scopeError ], contextWithTaintedContext )
+                    ( [ scopeError ], context )
 
                 Nothing ->
                     -- No scope error - check if entering freeze and track taint
                     let
                         isEnteringFreeze =
-                            isFreezeNode contextWithTaintedContext functionNode
+                            isFreezeNode context functionNode
 
                         contextWithFreeze =
                             if isEnteringFreeze then
-                                { contextWithTaintedContext | freezeCallDepth = contextWithTaintedContext.freezeCallDepth + 1 }
+                                { context | freezeStack = Node.range node :: context.freezeStack }
 
                             else
-                                contextWithTaintedContext
+                                context
 
                         -- Check if we're entering a View.freeze while inside a tainted conditional
                         -- (only report on first entry to freeze, not on nested freezes)
                         taintedConditionalError =
-                            if isEnteringFreeze && contextWithTaintedContext.freezeCallDepth == 0 && contextWithTaintedContext.taintedContextDepth > 0 then
+                            if isEnteringFreeze && List.isEmpty context.freezeStack && not (List.isEmpty context.taintedContext) then
                                 -- Just entered freeze while inside tainted conditional
                                 [ freezeInTaintedContextError (Node.range functionNode) ]
 
                             else
                                 []
                     in
-                    if contextWithFreeze.freezeCallDepth > 0 then
-                        let
-                            ( taintErrors, finalContext ) =
-                                checkTaintedReference node contextWithFreeze
-                        in
-                        ( taintedConditionalError ++ taintErrors, finalContext )
+                    if not (List.isEmpty contextWithFreeze.freezeStack) then
+                        checkTaintedReference node contextWithFreeze taintedConditionalError
 
                     else
                         ( taintedConditionalError, contextWithFreeze )
 
         Nothing ->
             -- Not a function call form - check taint if in freeze
-            if contextWithTaintedContext.freezeCallDepth > 0 then
-                checkTaintedReference node contextWithTaintedContext
+            if not (List.isEmpty context.freezeStack) then
+                checkTaintedReference node context []
 
             else
-                ( [], contextWithTaintedContext )
+                ( [], context )
 
 
 {-| Check if a function call is to a frozen view function and if the current module is allowed.
@@ -565,11 +562,11 @@ Returns Just error if not allowed, Nothing if allowed or not a frozen view funct
 -}
 checkFrozenViewFunctionCall : Node Expression -> ModuleContext -> Maybe (Error {})
 checkFrozenViewFunctionCall functionNode context =
-    case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
-        Just [ "View" ] ->
-            case Node.value functionNode of
-                Expression.FunctionOrValue _ name ->
-                    if List.member name staticFunctionNames && not (isAllowedModule context.moduleName) then
+    case Node.value functionNode of
+        Expression.FunctionOrValue _ name ->
+            case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
+                Just [ "View" ] ->
+                    if List.member name staticFunctionNames && not context.isAllowedModule then
                         Just (frozenViewScopeError (Node.range functionNode) ("View." ++ name))
 
                     else
@@ -582,47 +579,40 @@ checkFrozenViewFunctionCall functionNode context =
             Nothing
 
 
-expressionExitVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
-expressionExitVisitor node context =
+expressionExitVisitor : Node Expression -> ModuleContext -> ModuleContext
+expressionExitVisitor ((Node range expr) as node) context =
     -- Track exiting tainted conditionals (if/case)
-    let
-        contextWithTaintedContextUpdate =
-            case Node.value node of
-                Expression.IfBlock cond _ _ ->
-                    let
-                        condTaint =
-                            analyzeExpressionTaint context cond
-                    in
-                    if condTaint == Tainted && context.taintedContextDepth > 0 then
-                        { context | taintedContextDepth = context.taintedContextDepth - 1 }
+    context
+        |> trackExitingTaintedConditionals node
+        |> checkFreezeCallExit node
 
-                    else
-                        context
 
-                Expression.CaseExpression caseBlock ->
-                    let
-                        scrutineeTaint =
-                            analyzeExpressionTaint context caseBlock.expression
-                    in
-                    if scrutineeTaint == Tainted && context.taintedContextDepth > 0 then
-                        { context | taintedContextDepth = context.taintedContextDepth - 1 }
+trackExitingTaintedConditionals : Node Expression -> ModuleContext -> ModuleContext
+trackExitingTaintedConditionals ((Node range expr) as node) context =
+    case context.taintedContext of
+        [] ->
+            context
 
-                    else
-                        context
-
-                _ ->
-                    context
-    in
-    case extractFreezeCallNode node of
-        Just functionNode ->
-            if isFreezeNode contextWithTaintedContextUpdate functionNode then
-                ( [], { contextWithTaintedContextUpdate | freezeCallDepth = max 0 (contextWithTaintedContextUpdate.freezeCallDepth - 1) } )
+        taintedRange :: rest ->
+            if taintedRange == range then
+                { context | taintedContext = rest }
 
             else
-                ( [], contextWithTaintedContextUpdate )
+                context
 
-        Nothing ->
-            ( [], contextWithTaintedContextUpdate )
+
+checkFreezeCallExit : Node Expression -> ModuleContext -> ModuleContext
+checkFreezeCallExit (Node range _) context =
+    case context.freezeStack of
+        [] ->
+            context
+
+        freezeRange :: rest ->
+            if freezeRange == range then
+                { context | freezeStack = rest }
+
+            else
+                context
 
 
 letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Error {}), ModuleContext )
@@ -679,14 +669,14 @@ caseBranchExitVisitor _ _ context =
 {-| Check if an expression inside freeze is tainted, including cross-module function calls.
 Uses deduplication to avoid reporting multiple errors at the same location.
 -}
-checkTaintedReference : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
-checkTaintedReference node context =
+checkTaintedReference : Node Expression -> ModuleContext -> List (Error {}) -> ( List (Error {}), ModuleContext )
+checkTaintedReference node context accErrors =
     case Node.value node of
         -- Check for tainted local variable
         Expression.FunctionOrValue [] varName ->
             if context.modelParamName == Just varName || context.sharedModelParamName == Just varName then
                 -- model itself is handled by more specific checks (RecordAccess)
-                ( [], context )
+                ( accErrors, context )
 
             else
                 case lookupBinding varName context of
@@ -694,60 +684,59 @@ checkTaintedReference node context =
                         reportErrorIfNew (Node.range node)
                             (taintedValueError (Node.range node) varName)
                             context
+                            accErrors
 
                     _ ->
-                        ( [], context )
+                        ( accErrors, context )
 
         -- Check for model.field or taintedVar.field
-        Expression.RecordAccess innerExpr (Node _ fieldName) ->
-            case Node.value innerExpr of
-                Expression.FunctionOrValue [] varName ->
-                    case lookupBinding varName context of
-                        Just Tainted ->
-                            reportErrorIfNew (Node.range node)
-                                (taintedValueError (Node.range node) varName)
-                                context
+        Expression.RecordAccess (Node _ (Expression.FunctionOrValue [] varName)) (Node _ fieldName) ->
+            case lookupBinding varName context of
+                Just Tainted ->
+                    reportErrorIfNew (Node.range node)
+                        (taintedValueError (Node.range node) varName)
+                        context
+                        accErrors
 
-                        Just Pure ->
-                            ( [], context )
+                Just Pure ->
+                    ( accErrors, context )
 
-                        Nothing ->
-                            if context.modelParamName == Just varName || context.sharedModelParamName == Just varName then
-                                reportErrorIfNew (Node.range node)
-                                    (modelInFreezeError (Node.range node))
-                                    context
+                Nothing ->
+                    if context.modelParamName == Just varName || context.sharedModelParamName == Just varName then
+                        reportErrorIfNew (Node.range node)
+                            (modelInFreezeError (Node.range node))
+                            context
+                            accErrors
 
-                            else if context.appParamName == Just varName && List.member fieldName runtimeAppFields then
-                                reportErrorIfNew (Node.range node)
-                                    (runtimeAppFieldError (Node.range node) fieldName)
-                                    context
+                    else if context.appParamName == Just varName && List.member fieldName runtimeAppFields then
+                        reportErrorIfNew (Node.range node)
+                            (runtimeAppFieldError (Node.range node) fieldName)
+                            context
+                            accErrors
 
-                            else
-                                ( [], context )
-
-                _ ->
-                    ( [], context )
+                    else
+                        ( accErrors, context )
 
         -- Check for cross-module function calls with tainted arguments
         Expression.Application (functionNode :: args) ->
-            checkCrossModuleCall functionNode args context
+            checkCrossModuleCall functionNode args context accErrors
 
         -- Pipe operator
         Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
-            checkPipeExpression leftExpr rightExpr context
+            checkPipeExpression leftExpr rightExpr context accErrors
 
         -- Case expression
         Expression.CaseExpression caseBlock ->
-            checkCaseExpression caseBlock.expression context
+            checkCaseExpression caseBlock.expression context accErrors
 
         _ ->
-            ( [], context )
+            ( accErrors, context )
 
 
 {-| Check if a cross-module function call passes tainted values.
 -}
-checkCrossModuleCall : Node Expression -> List (Node Expression) -> ModuleContext -> ( List (Error {}), ModuleContext )
-checkCrossModuleCall functionNode args context =
+checkCrossModuleCall : Node Expression -> List (Node Expression) -> ModuleContext -> List (Error {}) -> ( List (Error {}), ModuleContext )
+checkCrossModuleCall functionNode args context accErrors =
     case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
         Just moduleName ->
             case Node.value functionNode of
@@ -763,40 +752,37 @@ checkCrossModuleCall functionNode args context =
                                 |> List.indexedMap
                                     (\idx argNode ->
                                         if Set.member idx functionInfo.paramsThatTaintResult then
-                                            let
-                                                argTaint =
-                                                    analyzeExpressionTaint context argNode
-                                            in
-                                            if argTaint == Tainted then
-                                                Just
-                                                    ( Node.range argNode
-                                                    , crossModuleTaintError (Node.range argNode) functionName
-                                                    )
+                                            case analyzeExpressionTaint context argNode of
+                                                Tainted ->
+                                                    Just
+                                                        ( Node.range argNode
+                                                        , crossModuleTaintError (Node.range argNode) functionName
+                                                        )
 
-                                            else
-                                                Nothing
+                                                Pure ->
+                                                    Nothing
 
                                         else
                                             Nothing
                                     )
                                 |> List.filterMap identity
-                                |> (\errorPairs -> collectErrors errorPairs context)
+                                |> (\errorPairs -> collectErrors errorPairs context accErrors)
 
                         Nothing ->
                             -- Unknown function (external package) - no error
-                            ( [], context )
+                            ( accErrors, context )
 
                 _ ->
-                    ( [], context )
+                    ( accErrors, context )
 
         Nothing ->
-            ( [], context )
+            ( accErrors, context )
 
 
 {-| Check pipe expressions for tainted values.
 -}
-checkPipeExpression : Node Expression -> Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
-checkPipeExpression leftExpr rightExpr context =
+checkPipeExpression : Node Expression -> Node Expression -> ModuleContext -> List (Error {}) -> ( List (Error {}), ModuleContext )
+checkPipeExpression leftExpr rightExpr context accErrors =
     case Node.value rightExpr of
         Expression.RecordAccessFunction fieldName ->
             case Node.value leftExpr of
@@ -805,11 +791,13 @@ checkPipeExpression leftExpr rightExpr context =
                         reportErrorIfNew (Node.range leftExpr)
                             (accessorOnModelError (Node.range leftExpr))
                             context
+                            accErrors
 
                     else if context.appParamName == Just varName && List.member fieldName runtimeAppFields then
                         reportErrorIfNew (Node.range leftExpr)
                             (accessorOnRuntimeAppFieldError (Node.range leftExpr) fieldName)
                             context
+                            accErrors
 
                     else
                         case lookupBinding varName context of
@@ -817,32 +805,35 @@ checkPipeExpression leftExpr rightExpr context =
                                 reportErrorIfNew (Node.range leftExpr)
                                     (taintedValueError (Node.range leftExpr) varName)
                                     context
+                                    accErrors
 
                             _ ->
-                                ( [], context )
+                                ( accErrors, context )
 
                 _ ->
-                    ( [], context )
+                    ( accErrors, context )
 
         _ ->
-            ( [], context )
+            ( accErrors, context )
 
 
 {-| Check case expressions on tainted values.
 -}
-checkCaseExpression : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
-checkCaseExpression exprNode context =
+checkCaseExpression : Node Expression -> ModuleContext -> List (Error {}) -> ( List (Error {}), ModuleContext )
+checkCaseExpression exprNode context accErrors =
     case Node.value exprNode of
         Expression.FunctionOrValue [] varName ->
             if context.modelParamName == Just varName || context.sharedModelParamName == Just varName then
                 reportErrorIfNew (Node.range exprNode)
                     (caseOnModelError (Node.range exprNode))
                     context
+                    accErrors
 
             else if context.appParamName == Just varName then
                 reportErrorIfNew (Node.range exprNode)
                     (caseOnAppError (Node.range exprNode))
                     context
+                    accErrors
 
             else
                 case lookupBinding varName context of
@@ -850,19 +841,20 @@ checkCaseExpression exprNode context =
                         reportErrorIfNew (Node.range exprNode)
                             (caseOnTaintedValueError (Node.range exprNode) varName)
                             context
+                            accErrors
 
                     _ ->
-                        ( [], context )
+                        ( accErrors, context )
 
         _ ->
-            ( [], context )
+            ( accErrors, context )
 
 
 
 -- ERROR HELPERS
 
 
-taintedValueError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+taintedValueError : Range -> String -> Error {}
 taintedValueError range varName =
     Rule.error
         { message = "Tainted value `" ++ varName ++ "` used inside View.freeze"
@@ -877,7 +869,7 @@ taintedValueError range varName =
         range
 
 
-modelInFreezeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+modelInFreezeError : Range -> Error {}
 modelInFreezeError range =
     Rule.error
         { message = "Model referenced inside View.freeze"
@@ -892,7 +884,7 @@ modelInFreezeError range =
         range
 
 
-runtimeAppFieldError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+runtimeAppFieldError : Range -> String -> Error {}
 runtimeAppFieldError range fieldName =
     Rule.error
         { message = "Runtime field `" ++ fieldName ++ "` accessed inside View.freeze"
@@ -907,7 +899,7 @@ runtimeAppFieldError range fieldName =
         range
 
 
-accessorOnModelError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+accessorOnModelError : Range -> Error {}
 accessorOnModelError range =
     Rule.error
         { message = "Accessor on model inside View.freeze"
@@ -920,7 +912,7 @@ accessorOnModelError range =
         range
 
 
-accessorOnRuntimeAppFieldError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+accessorOnRuntimeAppFieldError : Range -> String -> Error {}
 accessorOnRuntimeAppFieldError range fieldName =
     Rule.error
         { message = "Accessor on runtime app field inside View.freeze"
@@ -933,7 +925,7 @@ accessorOnRuntimeAppFieldError range fieldName =
         range
 
 
-caseOnModelError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+caseOnModelError : Range -> Error {}
 caseOnModelError range =
     Rule.error
         { message = "Pattern match on model inside View.freeze"
@@ -946,7 +938,7 @@ caseOnModelError range =
         range
 
 
-caseOnAppError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+caseOnAppError : Range -> Error {}
 caseOnAppError range =
     Rule.error
         { message = "Pattern match on app inside View.freeze"
@@ -961,7 +953,7 @@ caseOnAppError range =
         range
 
 
-caseOnTaintedValueError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+caseOnTaintedValueError : Range -> String -> Error {}
 caseOnTaintedValueError range varName =
     Rule.error
         { message = "Pattern match on tainted value `" ++ varName ++ "` inside View.freeze"
@@ -974,7 +966,7 @@ caseOnTaintedValueError range varName =
         range
 
 
-crossModuleTaintError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+crossModuleTaintError : Range -> String -> Error {}
 crossModuleTaintError range functionName =
     Rule.error
         { message = "Tainted value passed to `" ++ functionName ++ "` inside View.freeze"
@@ -989,7 +981,7 @@ crossModuleTaintError range functionName =
         range
 
 
-frozenViewScopeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+frozenViewScopeError : Range -> String -> Error {}
 frozenViewScopeError range functionName =
     Rule.error
         { message = "`" ++ functionName ++ "` can only be called from Route modules and Shared.elm"
@@ -1003,7 +995,7 @@ frozenViewScopeError range functionName =
         range
 
 
-freezeInTaintedContextError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+freezeInTaintedContextError : Range -> Error {}
 freezeInTaintedContextError range =
     Rule.error
         { message = "View.freeze inside conditionally-executed code path"
