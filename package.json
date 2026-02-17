@@ -51,11 +51,11 @@
     "micromatch": "^4.0.8",
     "serve-static": "^2.2.1",
     "terser": "^5.44.1",
-    "vite": "^7.3.1",
+    "vite": "^8.0.0-beta.14",
     "which": "^6.0.1"
   },
-  "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "4.55.1"
+  "overrides": {
+    "vite": "^8.0.0-beta.14"
   },
   "devDependencies": {
     "@types/cross-spawn": "^6.0.6",
@@ -74,7 +74,7 @@
     "lamdera": "^0.19.1-1.4.0",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "https://pkg.pr.new/vitest@0583f06"
   },
   "files": [
     "adapter/",
