@@ -328,7 +328,7 @@ type Msg userMsg pageData actionData sharedData errorPage
     | UrlChanged Url
       -- TODO rename to PagesMsg
     | UserMsg (PagesMsg userMsg)
-      --| SetField { formId : String, name : String, value : String }
+    | SetField { formId : String, name : String, value : String }
     | FormMsg (Form.Msg (Msg userMsg pageData actionData sharedData errorPage))
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
     | FetcherComplete Bool String Int (Result Http.Error ( Maybe userMsg, ActionDataOrRedirect actionData ))
@@ -614,10 +614,21 @@ update config appMsg model =
                     let
                         ( formModel, formCmd ) =
                             Form.update formMsg model.pageFormState
+
+                        currentRoute : route
+                        currentRoute =
+                            config.urlToRoute model.url
                     in
                     ( { model | pageFormState = formModel }
                     , RunCmd (Cmd.map UserMsg formCmd)
                     )
+                        |> (case config.onFormChange currentRoute formModel of
+                                Just userMsg ->
+                                    performUserMsg userMsg config
+
+                                Nothing ->
+                                    identity
+                           )
 
                 Pages.Internal.Msg.NoOp ->
                     ( model, NoEffect )
@@ -907,6 +918,29 @@ update config appMsg model =
                         _ ->
                             ( model, NoEffect )
                     )
+
+        SetField info ->
+            ( { model
+                | pageFormState =
+                    model.pageFormState
+                        |> Dict.update info.formId
+                            (Maybe.map
+                                (\formState ->
+                                    { formState
+                                        | fields =
+                                            formState.fields
+                                                |> Dict.update info.name
+                                                    (Maybe.map
+                                                        (\fieldState ->
+                                                            { fieldState | value = info.value }
+                                                        )
+                                                    )
+                                    }
+                                )
+                            )
+              }
+            , NoEffect
+            )
 
         FetcherStarted fetcherKey transitionId fetcherData initiatedAt ->
             ( { model
@@ -1242,10 +1276,9 @@ perform config model effect =
                             , fromPageMsg = Pages.Internal.Msg.UserMsg >> UserMsg
                             , key = key
                             , setField =
-                                \_ ->
-                                    --Task.succeed (SetField info) |> Task.perform identity
-                                    -- TODO
-                                    Cmd.none
+                                \info ->
+                                    Task.succeed (SetField info)
+                                        |> Task.perform identity
                             }
 
                 Nothing ->
