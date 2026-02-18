@@ -21,6 +21,7 @@ import Bytes exposing (Bytes)
 import Bytes.Decode
 import Dict exposing (Dict)
 import Form
+import Form.Validation exposing (FieldStatus(..))
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
@@ -328,7 +329,7 @@ type Msg userMsg pageData actionData sharedData errorPage
     | UrlChanged Url
       -- TODO rename to PagesMsg
     | UserMsg (PagesMsg userMsg)
-      --| SetField { formId : String, name : String, value : String }
+    | SetField { formId : String, name : String, value : String }
     | FormMsg (Form.Msg (Msg userMsg pageData actionData sharedData errorPage))
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
     | FetcherComplete Bool String Int (Result Http.Error ( Maybe userMsg, ActionDataOrRedirect actionData ))
@@ -621,6 +622,47 @@ update config appMsg model =
 
                 Pages.Internal.Msg.NoOp ->
                     ( model, NoEffect )
+
+        SetField info ->
+            let
+                newForm : Form.FormState
+                newForm =
+                    case Dict.get info.formId model.pageFormState of
+                        Nothing ->
+                            { fields =
+                                Dict.singleton info.name
+                                    { value = info.value
+                                    , status = NotVisited
+                                    }
+                            , submitAttempted = False
+                            }
+
+                        Just oldForm ->
+                            let
+                                newField : Form.FieldState
+                                newField =
+                                    case Dict.get info.name oldForm.fields of
+                                        Nothing ->
+                                            { value = info.value
+                                            , status = NotVisited
+                                            }
+
+                                        Just oldField ->
+                                            { value = info.value
+                                            , status = oldField.status
+                                            }
+                            in
+                            { fields =
+                                Dict.insert info.name newField oldForm.fields
+                            , submitAttempted = oldForm.submitAttempted
+                            }
+            in
+            ( { model
+                | pageFormState =
+                    Dict.insert info.formId newForm model.pageFormState
+              }
+            , NoEffect
+            )
 
         UpdateCacheAndUrlNew scrollToTopWhenDone urlWithoutRedirectResolution maybeUserMsg updateResult ->
             -- TODO remove all fetchers that are in the state `FetcherReloading` here -- I think that's the right logic?
@@ -1242,10 +1284,10 @@ perform config model effect =
                             , fromPageMsg = Pages.Internal.Msg.UserMsg >> UserMsg
                             , key = key
                             , setField =
-                                \_ ->
-                                    --Task.succeed (SetField info) |> Task.perform identity
-                                    -- TODO
-                                    Cmd.none
+                                \info ->
+                                    SetField info
+                                        |> Task.succeed
+                                        |> Task.perform identity
                             }
 
                 Nothing ->
