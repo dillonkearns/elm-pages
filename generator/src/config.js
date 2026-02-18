@@ -1,8 +1,10 @@
 import * as path from "path";
+import { pathToFileURL } from "url";
 
 export async function resolveConfig() {
+  const configPath = path.join(process.cwd(), "elm-pages.config.mjs");
   const initialConfig = await await import(
-    path.join(process.cwd(), "elm-pages.config.mjs")
+    pathToFileURL(configPath)
   )
     .then(async (elmPagesConfig) => {
       return (
