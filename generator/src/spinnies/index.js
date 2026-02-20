@@ -36,6 +36,7 @@ export class Spinnies {
     this.spin =
       !this.options.disableSpins &&
       !process.env.CI &&
+      process.env.TERM !== 'dumb' &&
       process.stderr &&
       process.stderr.isTTY;
     this.bindSigint();
@@ -58,7 +59,11 @@ export class Spinnies {
     };
 
     this.spinners[name] = spinnerProperties;
-    this.updateSpinnerState();
+    if (this.spin) {
+      this.updateSpinnerState();
+    } else {
+      this.stream.write(`- ${spinnerProperties.text}\n`);
+    }
 
     return spinnerProperties;
   }
@@ -66,21 +71,35 @@ export class Spinnies {
   update(name, options = {}) {
     const { status } = options;
     this.setSpinnerProperties(name, options, status);
-    this.updateSpinnerState();
+    if (this.spin) {
+      this.updateSpinnerState();
+    }
 
     return this.spinners[name];
   }
 
   succeed(name, options = {}) {
     this.setSpinnerProperties(name, options, "succeed");
-    this.updateSpinnerState();
+    if (this.spin) {
+      this.updateSpinnerState();
+    } else {
+      const spinner = this.spinners[name];
+      this.stream.write(`${chalk.green(spinner.succeedPrefix)} ${chalk[spinner.succeedColor](spinner.text)}\n`);
+      this.checkIfActiveSpinners();
+    }
 
     return this.spinners[name];
   }
 
   fail(name, options = {}) {
     this.setSpinnerProperties(name, options, "fail");
-    this.updateSpinnerState();
+    if (this.spin) {
+      this.updateSpinnerState();
+    } else {
+      const spinner = this.spinners[name];
+      this.stream.write(`${chalk.red(spinner.failPrefix)} ${chalk[spinner.failColor](spinner.text)}\n`);
+      this.checkIfActiveSpinners();
+    }
 
     return this.spinners[name];
   }
@@ -133,16 +152,12 @@ export class Spinnies {
     this.spinners[name] = { ...this.spinners[name], ...options, status };
   }
 
-  updateSpinnerState(name, options = {}, status) {
-    if (this.spin) {
-      clearInterval(this.currentInterval);
-      this.currentInterval = this.loopStream();
-      if (!this.isCursorHidden) cliCursor.hide();
-      this.isCursorHidden = true;
-      this.checkIfActiveSpinners();
-    } else {
-      this.setRawStreamOutput();
-    }
+  updateSpinnerState() {
+    clearInterval(this.currentInterval);
+    this.currentInterval = this.loopStream();
+    if (!this.isCursorHidden) cliCursor.hide();
+    this.isCursorHidden = true;
+    this.checkIfActiveSpinners();
   }
 
   loopStream() {
@@ -201,12 +216,6 @@ export class Spinnies {
     writeStream(this.stream, output, linesLength);
     if (hasActiveSpinners) cleanStream(this.stream, linesLength);
     this.lineCount = linesLength.length;
-  }
-
-  setRawStreamOutput() {
-    Object.values(this.spinners).forEach((i) => {
-      process.stderr.write(`- ${i.text}\n`);
-    });
   }
 
   checkIfActiveSpinners() {
