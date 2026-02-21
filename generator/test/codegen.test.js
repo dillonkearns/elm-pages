@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { compareEphemeralFields, formatDisagreementError } from "../src/codegen.js";
+import { compareEphemeralFields, formatDisagreementError, extractElmReviewCrashError } from "../src/codegen.js";
 
 describe("compareEphemeralFields", () => {
   it("returns null when both agree", () => {
@@ -97,6 +97,64 @@ describe("compareEphemeralFields", () => {
     expect(result.disagreements[0].module).toBe("Route.ServerOnly");
     expect(result.disagreements[0].serverOnly).toEqual(["field"]);
     expect(result.disagreements[0].clientOnly).toEqual([]);
+  });
+});
+
+describe("extractElmReviewCrashError", () => {
+  it("detects UNEXPECTED ERROR (stack overflow)", () => {
+    const output = JSON.stringify({
+      type: "error",
+      title: "UNEXPECTED ERROR",
+      path: "/some/path/elm.json",
+      message: ["RangeError: Maximum call stack size exceeded\n    at Function.f ..."]
+    });
+    const result = extractElmReviewCrashError(output);
+    expect(result).not.toBeNull();
+    expect(result.title).toBe("UNEXPECTED ERROR");
+    expect(result.message).toContain("Maximum call stack size exceeded");
+  });
+
+  it("detects ELM.JSON NOT FOUND", () => {
+    const output = JSON.stringify({
+      type: "error",
+      title: "ELM.JSON NOT FOUND",
+      path: "/some/path",
+      message: ["I could not find the elm.json"]
+    });
+    const result = extractElmReviewCrashError(output);
+    expect(result).not.toBeNull();
+    expect(result.title).toBe("ELM.JSON NOT FOUND");
+  });
+
+  it("detects CONFIGURATION ERROR", () => {
+    const output = JSON.stringify({
+      type: "error",
+      title: "CONFIGURATION ERROR",
+      message: ["Something went wrong"]
+    });
+    const result = extractElmReviewCrashError(output);
+    expect(result).not.toBeNull();
+    expect(result.title).toBe("CONFIGURATION ERROR");
+  });
+
+  it("returns null for normal review errors", () => {
+    const output = JSON.stringify({
+      type: "review-errors",
+      errors: [{ path: "src/Main.elm", errors: [] }]
+    });
+    const result = extractElmReviewCrashError(output);
+    expect(result).toBeNull();
+  });
+
+  it("returns null for empty output", () => {
+    const result = extractElmReviewCrashError("");
+    expect(result).toBeNull();
+  });
+
+  it("detects missing binary", () => {
+    const result = extractElmReviewCrashError("elm-review: command not found");
+    expect(result).not.toBeNull();
+    expect(result.title).toBe("elm-review not found");
   });
 });
 

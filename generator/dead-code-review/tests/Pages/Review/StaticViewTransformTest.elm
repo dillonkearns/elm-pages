@@ -5789,6 +5789,36 @@ view =
 """
                             ]
             ]
+        , describe "Already-transformed freeze calls"
+            [ test "skips View.freeze when argument is already a lazy thunk (pipe form)" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view =
+    { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "skips View.freeze when argument is htmlToFreezable application" <|
+                \() ->
+                    """module Route.Index exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view =
+    { body = [ View.freeze (View.htmlToFreezable (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0")) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            ]
         , describe "Pipeline forms"
             [ test "transforms right-pipe View.freeze" <|
                 \() ->

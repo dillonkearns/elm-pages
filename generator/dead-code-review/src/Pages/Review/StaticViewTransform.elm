@@ -1414,9 +1414,16 @@ handleViewFreezeCall : Node Expression -> Node Expression -> Node Expression -> 
 handleViewFreezeCall functionNode freezeArg node context =
     case Node.value functionNode of
         Expression.FunctionOrValue _ "freeze" ->
+            -- Skip already-transformed freeze calls to prevent infinite recursion.
+            -- The generated lazy thunk code contains `... |> View.htmlToFreezable |> View.freeze`.
+            -- When elm-review re-analyzes after applying fixes, it would detect
+            -- this View.freeze and try to transform it again. We detect this pattern
+            -- by checking if the freeze argument ends with `|> View.htmlToFreezable`.
+            if isAlreadyTransformedFreezeArg freezeArg then
+                ( [], context )
             -- First check: are we inside a nested freeze call?
             -- Nested freeze should be a no-op - only transform the outermost freeze
-            if context.sharedState.freezeCallDepth > 1 then
+            else if context.sharedState.freezeCallDepth > 1 then
                 -- Inside nested freeze - skip transformation (no-op)
                 ( [], context )
             -- Second check: are we inside a tainted conditional (if/case that depends on model)?
@@ -1461,6 +1468,40 @@ handleViewFreezeCall functionNode freezeArg node context =
 
         _ ->
             ( [], context )
+
+
+{-| Check if a freeze argument is already a transformed lazy thunk.
+
+The generated code produces: `... |> View.htmlToFreezable |> View.freeze`
+When elm-review re-analyzes after fixing, it detects the outer `View.freeze`
+and extracts the argument as `... |> View.htmlToFreezable`. We detect this
+pattern to prevent re-transformation.
+
+-}
+isAlreadyTransformedFreezeArg : Node Expression -> Bool
+isAlreadyTransformedFreezeArg argNode =
+    case Node.value argNode of
+        Expression.OperatorApplication "|>" _ _ rightExpr ->
+            case Node.value rightExpr of
+                Expression.FunctionOrValue _ "htmlToFreezable" ->
+                    True
+
+                _ ->
+                    False
+
+        Expression.Application (funcNode :: _) ->
+            case Node.value funcNode of
+                Expression.FunctionOrValue _ "htmlToFreezable" ->
+                    True
+
+                _ ->
+                    False
+
+        Expression.ParenthesizedExpression inner ->
+            isAlreadyTransformedFreezeArg inner
+
+        _ ->
+            False
 
 
 createTransformErrorWithFixes : String -> String -> Node Expression -> List Review.Fix.Fix -> Error {}

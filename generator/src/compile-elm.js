@@ -10,6 +10,7 @@ import { rewriteElmJson } from "./rewrite-elm-json-help.js";
 import { ensureDirSync } from "./file-helpers.js";
 import { patchFrozenViews } from "./frozen-view-codemod.js";
 import { lamderaOrElmFallback } from "./commands/shared.js";
+import { extractElmReviewCrashError } from "./codegen.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -287,9 +288,11 @@ export async function runElmReview(cwd) {
 
     child.on("close", function (code) {
       console.log(`Ran elm-review in ${timeFrom(startTime)}`);
-      if (code === 0) {
-        resolve(scriptOutput);
+      const crashError = extractElmReviewCrashError(scriptOutput);
+      if (crashError) {
+        reject(new Error(`elm-review crashed: ${crashError.title}\n${crashError.message}`));
       } else {
+        // Exit code 1 is expected (review errors found), resolve either way
         resolve(scriptOutput);
       }
     });
@@ -334,18 +337,16 @@ export async function runElmReviewForDCE(cwd) {
 
     child.on("close", function (code) {
       console.log(`Ran elm-review DCE transform in ${timeFrom(startTime)}`);
-      if (code === 0) {
+      const crashError = extractElmReviewCrashError(scriptOutput);
+      if (crashError) {
+        reject(new Error(`elm-review crashed: ${crashError.title}\n${crashError.message}`));
+      } else if (code === 0) {
         console.log("DCE transforms applied successfully");
         resolve(scriptOutput);
       } else {
-        // elm-review returns non-zero if it made fixes, which is expected
-        // We only reject on actual errors
-        if (scriptOutput.includes("error")) {
-          reject(scriptOutput);
-        } else {
-          console.log("DCE transforms applied (with fixes)");
-          resolve(scriptOutput);
-        }
+        // elm-review returns non-zero when fixes are applied, which is expected
+        console.log("DCE transforms applied (with fixes)");
+        resolve(scriptOutput);
       }
     });
   });
