@@ -10,7 +10,7 @@ HTML for adoption by the virtual-dom.
     -- View.freeze (user-defined in View.elm):
     View.freeze (heavyRender data)
     -- becomes:
-    Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable
+    Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze
 
 ## Data Type Transformation
 
@@ -1474,7 +1474,7 @@ createTransformErrorWithFixes fromFn toFn node fixes =
 
 
 {-| Generate fixes to add `import Html.Lazy` and `import Html` if not already imported.
-The generated code uses elm/html for `Html.Lazy.lazy`, `Html.text ""`, and `Html.map never`.
+The generated code uses elm/html for `Html.Lazy.lazy` and `Html.text ""`.
 -}
 htmlLazyImportFix : Context -> List Review.Fix.Fix
 htmlLazyImportFix context =
@@ -1521,18 +1521,22 @@ htmlLazyImportFix context =
         ]
 
 
-{-| Generate inlined lazy thunk with View.htmlToFreezable wrapper and map never.
+{-| Generate inlined lazy thunk with View.htmlToFreezable and View.freeze.
 
-The generated code (using elm/html's Html module throughout):
+The generated code (using elm/html's Html module for the thunk):
 
     Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0"
         |> View.htmlToFreezable
-        |> Html.map never
+        |> View.freeze
 
 This creates a lazy thunk with a magic string prefix that the virtual-dom codemod
 detects at runtime to adopt pre-rendered HTML. The View.htmlToFreezable wrapper
-converts the Html.Html Never back to the user's Freezable type, and Html.map never
-converts from `Freezable` (Html Never) to `Html msg`.
+converts the Html.Html Never to the user's Freezable type, and View.freeze
+converts from Freezable to the body element type (e.g., Html msg, Html.Styled.Html msg).
+
+Using View.freeze instead of Html.map never is essential because the user's Freezable
+type may not be Html.Html (e.g., Html.Styled.Html Never for elm-css, Element Never
+for elm-ui). View.freeze already knows how to do this conversion correctly.
 
 When Html is not already imported, we add `import Html as ElmPages__Html` to avoid
 conflicts with user imports (e.g., `import Accessibility as Html`).
@@ -1549,7 +1553,7 @@ inlinedLazyThunk context =
                 NotImported ->
                     "Html.Lazy"
 
-        -- Determine the elm/html prefix for text, map, etc.
+        -- Determine the elm/html prefix for text (used in the lazy thunk argument).
         -- Use ElmPages__ prefix when we're adding the import to avoid conflicts
         htmlPrefix =
             case context.htmlImport of
@@ -1558,10 +1562,6 @@ inlinedLazyThunk context =
 
                 NotImported ->
                     "ElmPages__Html"
-
-        -- Always use elm/html for map never, same prefix as for text
-        mapPrefix =
-            htmlPrefix
 
         -- Magic prefix that vdom codemod detects
         -- Shared module uses "shared:" prefix to distinguish from Route frozen views
@@ -1576,7 +1576,7 @@ inlinedLazyThunk context =
             in
             "\"__ELM_PAGES_STATIC__" ++ prefix ++ String.fromInt context.staticIndex ++ "\""
     in
-    "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> " ++ htmlPrefix ++ ".text \"\") " ++ staticId ++ " |> View.htmlToFreezable |> " ++ mapPrefix ++ ".map never)"
+    "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> " ++ htmlPrefix ++ ".text \"\") " ++ staticId ++ " |> View.htmlToFreezable |> View.freeze)"
 
 
 {-| Final evaluation - emit Data type transformation if there are removable fields.
