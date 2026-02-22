@@ -1423,7 +1423,7 @@ config =
                     -- and we can't track cross-module field usage.
                     -- View.freeze in Shared.elm still works for HTML transformation, but
                     -- data fields are not eliminated.
-                    """module Shared exposing (Data, template)
+                                    """module Shared exposing (Data, template)
 
 import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
@@ -1489,6 +1489,97 @@ view sharedData page model toMsg pageView =
 template =
     {}
 """
+                            ]
+            ]
+        , describe "Helper module frozen view IDs"
+            [ test "adds helper ID parameter and rewrites two route call sites" <|
+                \() ->
+                    [ """module UserCard exposing (view)
+
+import Html
+import View
+
+view user =
+    View.freeze (Html.text user.name)
+"""
+                    , """module Route.Index exposing (view)
+
+import Html
+import UserCard
+
+view app =
+    { body =
+        [ UserCard.view app.data.alice
+        , UserCard.view app.data.bob
+        ]
+    }
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "UserCard"
+                              , [ Review.Test.error
+                                    { message = "Server codemod: wrap freeze argument with data-static"
+                                    , details =
+                                        [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                        ]
+                                    , under = "View.freeze (Html.text user.name)"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module UserCard exposing (view)
+
+import Html
+import View
+import Html.Attributes
+
+view elmPagesFid user =
+    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
+"""
+                                ]
+                              )
+                            , ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Server codemod: pass frozen ID to helper call"
+                                    , details =
+                                        [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze."
+                                        ]
+                                    , under = "UserCard.view app.data.alice"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Html
+import UserCard
+
+view app =
+    { body =
+        [ UserCard.view "0" app.data.alice
+        , UserCard.view app.data.bob
+        ]
+    }
+"""
+                                , Review.Test.error
+                                    { message = "Server codemod: pass frozen ID to helper call"
+                                    , details =
+                                        [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze."
+                                        ]
+                                    , under = "UserCard.view app.data.bob"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Html
+import UserCard
+
+view app =
+    { body =
+        [ UserCard.view app.data.alice
+        , UserCard.view "1" app.data.bob
+        ]
+    }
+"""
+                                ]
+                              )
                             ]
             ]
         ]

@@ -40,9 +40,36 @@ type alias HelperAnalysis =
     PersistentFieldTracking.HelperAnalysis
 
 
+type alias ProjectContext =
+    { freezeFunctions : Dict ( ModuleName, String ) Int
+    }
+
+
+initialProjectContext : ProjectContext
+initialProjectContext =
+    { freezeFunctions = Dict.empty
+    }
+
+
+type alias FunctionDeclarationInfo =
+    { functionNameRange : Range
+    , firstArgRange : Maybe Range
+    , signatureTypeRange : Maybe Range
+    , hasFidParam : Bool
+    , hasFidTypeAnnotation : Bool
+    }
+
+
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
+    , projectFreezeFunctions : Dict ( ModuleName, String ) Int
+    , staticIndex : Int
+    , helperCallSeedIndex : Int
+    , functionDeclarationInfo : Dict String FunctionDeclarationInfo
+    , injectedFidFunctions : Set String
+    , helperFunctionFreezeIndex : Dict String Int
+    , localTransformedFreezeFunctions : Dict String Int
 
     -- Shared field tracking state (embedded from PersistentFieldTracking)
     -- This contains: clientUsedFields, freezeCallDepth, inHeadFunction, appDataBindings,
@@ -82,7 +109,22 @@ type alias Context =
 
 rule : Rule
 rule =
-    Rule.newModuleRuleSchemaUsingContextCreator "Pages.Review.ServerDataTransform" initialContext
+    Rule.newProjectRuleSchema "Pages.Review.ServerDataTransform" initialProjectContext
+        |> Rule.withContextFromImportedModules
+        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContextUsingContextCreator
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = foldProjectContexts
+            }
+        |> Rule.fromProjectRuleSchema
+
+
+moduleVisitor :
+    Rule.ModuleRuleSchema {} Context
+    -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } Context
+moduleVisitor schema =
+    schema
         |> Rule.providesFixesForModuleRule
         |> Rule.withImportVisitor importVisitor
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
@@ -91,7 +133,6 @@ rule =
         |> Rule.withExpressionEnterVisitor expressionEnterVisitor
         |> Rule.withExpressionExitVisitor expressionExitVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
-        |> Rule.fromModuleRuleSchema
 
 
 {-| Visit module definition to find where "Data" is exported.
@@ -146,12 +187,19 @@ moduleDefinitionVisitor node context =
             ( [], context )
 
 
-initialContext : Rule.ContextCreator () Context
-initialContext =
+fromProjectToModule : Rule.ContextCreator ProjectContext Context
+fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable moduleName () ->
+        (\lookupTable moduleName projectContext ->
             { lookupTable = lookupTable
             , moduleName = moduleName
+            , projectFreezeFunctions = projectContext.freezeFunctions
+            , staticIndex = 0
+            , helperCallSeedIndex = 0
+            , functionDeclarationInfo = Dict.empty
+            , injectedFidFunctions = Set.empty
+            , helperFunctionFreezeIndex = Dict.empty
+            , localTransformedFreezeFunctions = Dict.empty
             , sharedState = PersistentFieldTracking.emptySharedState
             , dataConstructorRanges = []
             , dataTypeRange = Nothing
@@ -168,6 +216,32 @@ initialContext =
         )
         |> Rule.withModuleNameLookupTable
         |> Rule.withModuleName
+
+
+fromModuleToProject : Rule.ContextCreator Context ProjectContext
+fromModuleToProject =
+    Rule.initContextCreator
+        (\moduleName context ->
+            { freezeFunctions =
+                Dict.foldl
+                    (\fnName count acc ->
+                        if count > 0 then
+                            Dict.insert ( moduleName, fnName ) count acc
+
+                        else
+                            acc
+                    )
+                    Dict.empty
+                    context.localTransformedFreezeFunctions
+            }
+        )
+        |> Rule.withModuleName
+
+
+foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
+foldProjectContexts a b =
+    { freezeFunctions = Dict.union a.freezeFunctions b.freezeFunctions
+    }
 
 
 {-| Track Html and Html.Attributes import aliases and last import row.
@@ -219,10 +293,11 @@ declarationEnterVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration function ->
             let
+                functionDeclaration =
+                    Node.value function.declaration
+
                 functionName =
-                    function.declaration
-                        |> Node.value
-                        |> .name
+                    functionDeclaration.name
                         |> Node.value
 
                 -- Collect Data type references from the function signature
@@ -237,11 +312,37 @@ declarationEnterVisitor node context =
                 contextWithDataRefs =
                     { context | dataTypeReferenceRanges = context.dataTypeReferenceRanges ++ dataRefs }
 
+                functionInfo =
+                    { functionNameRange = Node.range functionDeclaration.name
+                    , firstArgRange = List.head functionDeclaration.arguments |> Maybe.map Node.range
+                    , signatureTypeRange = function.signature |> Maybe.map (\signatureNode -> Node.range (Node.value signatureNode).typeAnnotation)
+                    , hasFidParam =
+                        case List.head functionDeclaration.arguments of
+                            Just firstArg ->
+                                isFidPattern firstArg
+
+                            Nothing ->
+                                False
+                    , hasFidTypeAnnotation =
+                        case function.signature of
+                            Just signatureNode ->
+                                signatureStartsWithString (Node.value signatureNode).typeAnnotation
+
+                            Nothing ->
+                                False
+                    }
+
+                contextWithFunctionInfo =
+                    { contextWithDataRefs
+                        | functionDeclarationInfo =
+                            Dict.insert functionName functionInfo contextWithDataRefs.functionDeclarationInfo
+                    }
+
                 -- Track current function for per-function field tracking
                 -- This enables correction for non-conventional head function naming
                 contextWithFunctionEnter =
-                    { contextWithDataRefs
-                        | sharedState = PersistentFieldTracking.updateOnFunctionEnter functionName contextWithDataRefs.sharedState
+                    { contextWithFunctionInfo
+                        | sharedState = PersistentFieldTracking.updateOnFunctionEnter functionName contextWithFunctionInfo.sharedState
                     }
 
                 -- Determine the actual head function name from RouteBuilder
@@ -465,6 +566,102 @@ extractFreezeCall node context =
             Nothing
 
 
+rewriteHelperCallWithFrozenId : Node Expression -> Context -> ( List (Error {}), Context )
+rewriteHelperCallWithFrozenId node context =
+    case Node.value node of
+        Expression.Application (functionNode :: args) ->
+            if shouldSeedHelperCallIds context && helperCallNeedsFrozenId functionNode context && not (callAlreadyHasFrozenIdSeed args) then
+                let
+                    frozenSeedLiteral =
+                        "\"" ++ nextHelperCallSeed context ++ "\""
+
+                    insertionFix =
+                        case args of
+                            firstArg :: _ ->
+                                Review.Fix.insertAt (Node.range firstArg).start (frozenSeedLiteral ++ " ")
+
+                            [] ->
+                                Review.Fix.insertAt (Node.range functionNode).end (" " ++ frozenSeedLiteral)
+                in
+                ( [ Rule.errorWithFix
+                        { message = "Server codemod: pass frozen ID to helper call"
+                        , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                        }
+                        (Node.range node)
+                        [ insertionFix ]
+                  ]
+                , { context | helperCallSeedIndex = context.helperCallSeedIndex + 1 }
+                )
+
+            else
+                ( [], context )
+
+        _ ->
+            ( [], context )
+
+
+shouldSeedHelperCallIds : Context -> Bool
+shouldSeedHelperCallIds context =
+    (PersistentFieldTracking.isRouteModule context.moduleName || PersistentFieldTracking.isSharedModule context.moduleName)
+        && (currentFunctionName context == Just "view")
+
+
+helperCallNeedsFrozenId : Node Expression -> Context -> Bool
+helperCallNeedsFrozenId functionNode context =
+    let
+        unwrapped =
+            unwrapParenthesizedExpression functionNode
+    in
+    case Node.value unwrapped of
+        Expression.FunctionOrValue _ fnName ->
+            case ModuleNameLookupTable.moduleNameFor context.lookupTable unwrapped of
+                Just moduleName ->
+                    Dict.member ( moduleName, fnName ) context.projectFreezeFunctions
+
+                Nothing ->
+                    False
+
+        _ ->
+            False
+
+
+callAlreadyHasFrozenIdSeed : List (Node Expression) -> Bool
+callAlreadyHasFrozenIdSeed args =
+    case args of
+        firstArg :: _ ->
+            case Node.value (unwrapParenthesizedExpression firstArg) of
+                Expression.Literal _ ->
+                    True
+
+                _ ->
+                    False
+
+        [] ->
+            False
+
+
+nextHelperCallSeed : Context -> String
+nextHelperCallSeed context =
+    let
+        prefix =
+            if context.moduleName == [ "Shared" ] then
+                "shared:"
+
+            else
+                ""
+    in
+    prefix ++ String.fromInt context.helperCallSeedIndex
+
+
+advanceRootSeedIndex : Context -> Context
+advanceRootSeedIndex context =
+    if shouldSeedHelperCallIds context then
+        { context | staticIndex = context.staticIndex + 1 }
+
+    else
+        context
+
+
 expressionEnterVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionEnterVisitor node context =
     let
@@ -496,8 +693,11 @@ expressionEnterVisitor node context =
                 Just freezeCall ->
                     -- Handle View.freeze call - wrap argument if not already wrapped
                     let
+                        contextWithFreezePresence =
+                            recordTransformedFreezeInCurrentFunction contextWithRouteBuilder
+
                         ( errors, newContext ) =
-                            handleViewFreezeWrapping node freezeCall.functionNode freezeCall.args contextWithRouteBuilder
+                            handleViewFreezeWrapping node freezeCall.functionNode freezeCall.args contextWithFreezePresence
                     in
                     ( errors
                     , { newContext | sharedState = PersistentFieldTracking.updateOnFreezeEnter newContext.sharedState }
@@ -540,8 +740,11 @@ expressionEnterVisitor node context =
         -- Track field access patterns
         contextWithFieldTracking =
             trackFieldAccess node contextWithFreezeTracking
+
+        ( helperCallErrors, contextWithHelperCalls ) =
+            rewriteHelperCallWithFrozenId node contextWithFieldTracking
     in
-    ( freezeErrors, contextWithFieldTracking )
+    ( freezeErrors ++ helperCallErrors, contextWithHelperCalls )
 
 
 {-| Handle View.freeze calls - wrap the argument with data-static if not already wrapped.
@@ -570,11 +773,17 @@ handleViewFreezeWrapping applicationNode functionNode args context =
                 -- Check if the argument is already wrapped with data-static
                 if isAlreadyWrappedWithDataStatic innerNode then
                     -- Already wrapped, no transformation needed (base case)
-                    ( [], context )
+                    ( [], advanceRootSeedIndex context )
 
                 else
                     -- Generate the wrapping fix
                     let
+                        ( dataStaticIdExpression, contextWithIdProgress ) =
+                            nextDataStaticIdExpression context
+
+                        helperDeclarationFixes =
+                            helperFidInjectionFixes contextWithIdProgress
+
                         -- Use ElmPages__ prefix when we're adding the import to avoid conflicts
                         -- with user imports (e.g., `import Accessibility as Html`)
                         htmlPrefix =
@@ -626,9 +835,6 @@ handleViewFreezeWrapping applicationNode functionNode args context =
                         -- This handles type conversion for elm-css and other view libraries where Freezable != Html.Html Never
                         -- Shared module uses "shared:" prefix to distinguish from Route frozen views
                         -- Need to add outer parentheses if not already parenthesized
-                        staticPrefix =
-                            getStaticPrefix context.moduleName
-
                         ( wrapperPrefix, wrapperSuffix ) =
                             if isParenthesized then
                                 -- Original had parentheses, we use the inner range and add just the wrapper
@@ -636,7 +842,9 @@ handleViewFreezeWrapping applicationNode functionNode args context =
                                     ++ htmlPrefix
                                     ++ ".div [ "
                                     ++ attrPrefix
-                                    ++ ".attribute \"data-static\" \"" ++ staticPrefix ++ "__STATIC__\" ] [ View.freezableToHtml ("
+                                    ++ ".attribute \"data-static\" "
+                                    ++ dataStaticIdExpression
+                                    ++ " ] [ View.freezableToHtml ("
                                 , ") ])"
                                 )
 
@@ -646,7 +854,9 @@ handleViewFreezeWrapping applicationNode functionNode args context =
                                     ++ htmlPrefix
                                     ++ ".div [ "
                                     ++ attrPrefix
-                                    ++ ".attribute \"data-static\" \"" ++ staticPrefix ++ "__STATIC__\" ] [ View.freezableToHtml ("
+                                    ++ ".attribute \"data-static\" "
+                                    ++ dataStaticIdExpression
+                                    ++ " ] [ View.freezableToHtml ("
                                 , ") ]))"
                                 )
 
@@ -657,7 +867,7 @@ handleViewFreezeWrapping applicationNode functionNode args context =
 
                         -- Combine import fixes with wrapper fixes
                         fix =
-                            importFixes ++ wrapperFixes
+                            importFixes ++ helperDeclarationFixes ++ wrapperFixes
                     in
                     ( [ Rule.errorWithFix
                             { message = "Server codemod: wrap freeze argument with data-static"
@@ -668,12 +878,188 @@ handleViewFreezeWrapping applicationNode functionNode args context =
                             (Node.range applicationNode)
                             fix
                       ]
-                    , context
+                    , markCurrentFunctionFidInjected contextWithIdProgress
                     )
 
             _ ->
                 -- Not a single-argument application, ignore
                 ( [], context )
+
+
+frozenIdParamName : String
+frozenIdParamName =
+    "elmPagesFid"
+
+
+currentFunctionName : Context -> Maybe String
+currentFunctionName context =
+    context.sharedState.currentFunctionName
+
+
+usesHelperFrozenIds : Context -> Bool
+usesHelperFrozenIds context =
+    (not (PersistentFieldTracking.isRouteModule context.moduleName))
+        && (not (PersistentFieldTracking.isSharedModule context.moduleName))
+        && Maybe.withDefault False (Maybe.map (\_ -> True) (currentFunctionName context))
+
+
+recordTransformedFreezeInCurrentFunction : Context -> Context
+recordTransformedFreezeInCurrentFunction context =
+    case currentFunctionName context of
+        Just fnName ->
+            { context
+                | localTransformedFreezeFunctions =
+                    Dict.update fnName
+                        (\maybeCount ->
+                            case maybeCount of
+                                Just count ->
+                                    Just (count + 1)
+
+                                Nothing ->
+                                    Just 1
+                        )
+                        context.localTransformedFreezeFunctions
+            }
+
+        Nothing ->
+            context
+
+
+nextDataStaticIdExpression : Context -> ( String, Context )
+nextDataStaticIdExpression context =
+    if usesHelperFrozenIds context then
+        case currentFunctionName context of
+            Just fnName ->
+                let
+                    localIndex =
+                        Dict.get fnName context.helperFunctionFreezeIndex
+                            |> Maybe.withDefault 0
+
+                    updatedContext =
+                        { context
+                            | helperFunctionFreezeIndex =
+                                Dict.insert fnName (localIndex + 1) context.helperFunctionFreezeIndex
+                        }
+                in
+                ( "(" ++ frozenIdParamName ++ " ++ \":" ++ String.fromInt localIndex ++ "\")"
+                , updatedContext
+                )
+
+            Nothing ->
+                nextRootDataStaticIdExpression context
+
+    else
+        nextRootDataStaticIdExpression context
+
+
+nextRootDataStaticIdExpression : Context -> ( String, Context )
+nextRootDataStaticIdExpression context =
+    let
+        prefix =
+            getStaticPrefix context.moduleName
+    in
+    ( "\"" ++ prefix ++ "__STATIC__\""
+    , { context | staticIndex = context.staticIndex + 1 }
+    )
+
+
+helperFidInjectionFixes : Context -> List Review.Fix.Fix
+helperFidInjectionFixes context =
+    if not (usesHelperFrozenIds context) then
+        []
+
+    else
+        case currentFunctionName context of
+            Nothing ->
+                []
+
+            Just fnName ->
+                if Set.member fnName context.injectedFidFunctions then
+                    []
+
+                else
+                    case Dict.get fnName context.functionDeclarationInfo of
+                        Nothing ->
+                            []
+
+                        Just info ->
+                            let
+                                declarationFixes =
+                                    if info.hasFidParam then
+                                        []
+
+                                    else
+                                        [ case info.firstArgRange of
+                                            Just firstArgRange ->
+                                                Review.Fix.insertAt firstArgRange.start (frozenIdParamName ++ " ")
+
+                                            Nothing ->
+                                                Review.Fix.insertAt info.functionNameRange.end (" " ++ frozenIdParamName)
+                                        ]
+
+                                signatureFixes =
+                                    if info.hasFidTypeAnnotation then
+                                        []
+
+                                    else
+                                        case info.signatureTypeRange of
+                                            Just signatureTypeRange ->
+                                                [ Review.Fix.insertAt signatureTypeRange.start "String -> " ]
+
+                                            Nothing ->
+                                                []
+                            in
+                            declarationFixes ++ signatureFixes
+
+
+markCurrentFunctionFidInjected : Context -> Context
+markCurrentFunctionFidInjected context =
+    if not (usesHelperFrozenIds context) then
+        context
+
+    else
+        case currentFunctionName context of
+            Just fnName ->
+                { context | injectedFidFunctions = Set.insert fnName context.injectedFidFunctions }
+
+            Nothing ->
+                context
+
+
+isFidPattern : Node Pattern -> Bool
+isFidPattern node =
+    case Node.value node of
+        Pattern.VarPattern name ->
+            name == frozenIdParamName
+
+        Pattern.ParenthesizedPattern inner ->
+            isFidPattern inner
+
+        Pattern.AsPattern inner (Node _ name) ->
+            name == frozenIdParamName || isFidPattern inner
+
+        _ ->
+            False
+
+
+signatureStartsWithString : Node TypeAnnotation -> Bool
+signatureStartsWithString node =
+    case Node.value node of
+        TypeAnnotation.FunctionTypeAnnotation firstArg _ ->
+            isStringTypeAnnotation firstArg
+
+        _ ->
+            False
+
+
+isStringTypeAnnotation : Node TypeAnnotation -> Bool
+isStringTypeAnnotation node =
+    case Node.value node of
+        TypeAnnotation.Typed (Node _ ( [], "String" )) [] ->
+            True
+
+        _ ->
+            False
 
 
 {-| Check if an expression is a ParenthesizedExpression.

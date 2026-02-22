@@ -47,7 +47,7 @@ view app shared model =
                     ]
                         |> Review.Test.runOnModules rule
                         |> Review.Test.expectNoErrors
-            , test "reports View.freeze in helper module" <|
+            , test "allows View.freeze in helper module" <|
                 \() ->
                     [ """module Helpers exposing (frozenContent)
 
@@ -59,21 +59,7 @@ frozenContent =
 """
                     ]
                         |> Review.Test.runOnModules rule
-                        |> Review.Test.expectErrorsForModules
-                            [ ( "Helpers"
-                              , [ Review.Test.error
-                                    { message = "`View.freeze` can only be called from Route modules and Shared.elm"
-                                    , details =
-                                        [ "`View.freeze` currently has no effect outside of Shared.elm and your Route modules (files in your `app/Route/` directory)."
-                                        , "To fix this, either:"
-                                        , "1. Use `View.freeze` in a Route Module (it could simply be `View.freeze (myHelperFunction app.data.user)`)"
-                                        , "2. Remove this invalid use of `View.freeze`"
-                                        ]
-                                    , under = "View.freeze"
-                                    }
-                                ]
-                              )
-                            ]
+                        |> Review.Test.expectNoErrors
             , test "allows View.freeze in nested Route modules" <|
                 \() ->
                     [ """module Route.Blog.Slug_ exposing (view)
@@ -1277,7 +1263,7 @@ view app shared model =
                                 ]
                               )
                             ]
-            , test "reports View.freeze via pipe in helper module" <|
+            , test "allows View.freeze via pipe in helper module" <|
                 \() ->
                     [ """module Helpers exposing (frozenContent)
 
@@ -1290,21 +1276,7 @@ frozenContent =
 """
                     ]
                         |> Review.Test.runOnModules rule
-                        |> Review.Test.expectErrorsForModules
-                            [ ( "Helpers"
-                              , [ Review.Test.error
-                                    { message = "`View.freeze` can only be called from Route modules and Shared.elm"
-                                    , details =
-                                        [ "`View.freeze` currently has no effect outside of Shared.elm and your Route modules (files in your `app/Route/` directory)."
-                                        , "To fix this, either:"
-                                        , "1. Use `View.freeze` in a Route Module (it could simply be `View.freeze (myHelperFunction app.data.user)`)"
-                                        , "2. Remove this invalid use of `View.freeze`"
-                                        ]
-                                    , under = "View.freeze"
-                                    }
-                                ]
-                              )
-                            ]
+                        |> Review.Test.expectNoErrors
             , test "detects runtime app field inside freeze via right pipe" <|
                 \() ->
                     [ """module Route.Index exposing (view)
