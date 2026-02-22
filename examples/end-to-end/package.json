@@ -6,11 +6,17 @@
   "scripts": {
     "start": "elm-pages dev",
     "serve": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
-    "build": "elm-pages build"
+    "build": "elm-pages build",
+    "build:netlify": "npm run build -- --debug --keep-cache",
+    "netlify:dev": "BROWSER=none npx --yes netlify-cli@15.0.2 dev --offline --port 8888 --dir dist --functions functions",
+    "netlify:serve": "npm run build:netlify && npm run netlify:dev",
+    "cypress:netlify": "cypress run --config-file cypress.netlify.config.ts",
+    "test:netlify:frozen-views": "bash ./scripts/frozen-views-netlify-harness.sh"
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
   "devDependencies": {
+    "@netlify/functions": "^3.1.10",
     "cypress": "^14.1.0",
     "elm-pages": "file:../..",
     "elm-tooling": "^1.15.1",

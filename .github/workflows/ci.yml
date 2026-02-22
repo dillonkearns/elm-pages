@@ -83,16 +83,19 @@ jobs:
           wait-on: "http://localhost:1234"
           wait-on-timeout: 120
 
+      - name: Cypress tests (Netlify build output)
+        run: (cd examples/end-to-end && npm run test:netlify:frozen-views)
+
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: cypress-screenshots
-          path: cypress/screenshots
+          path: examples/end-to-end/cypress/screenshots
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: cypress-videos
-          path: cypress/videos
+          path: examples/end-to-end/cypress/videos
       - run: npx elm-tooling install
       - name: Build static-regions example site
         working-directory: examples/static-regions

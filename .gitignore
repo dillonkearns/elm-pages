@@ -9,6 +9,7 @@ coverage
 tests/VerifyExamples/
 cypress/videos
 cypress/screenshots
+test-results/
 .idea
 generated/
 .elm-pages

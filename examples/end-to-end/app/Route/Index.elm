@@ -116,6 +116,8 @@ view app shared =
         , div []
             [ Route.Index |> link [] [ text "Link to Self" ] ]
         , div []
+            [ a [ href "/frozen-views" ] [ text "Frozen Views (Netlify)" ] ]
+        , div []
             [ text <|
                 "Now: "
                     ++ DateFormat.format

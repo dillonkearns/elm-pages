@@ -3,6 +3,7 @@ elm-stuff/
 dist/
 .cache/
 .elm-pages/
+functions/
 functions/render/elm-pages-cli.js
 cypress/videos
 cypress/screenshots
@@ -10,4 +11,4 @@ cypress/screenshots
 # Test artifacts from StreamTests.elm
 empty-gzip-test.gz
 formatted-elm.txt
-
+.netlify-dev-harness.log

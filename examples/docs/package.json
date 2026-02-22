@@ -7,7 +7,8 @@
     "start": "elm-pages dev",
     "vercel-build": "(cd ../../ && npm install) && npm install && curl https://static.lamdera.com/bin/linux/lamdera -o ./node_modules/.bin/lamdera && chmod a+x ./node_modules/.bin/lamdera && npx --no-install elm-tooling install && npx elm-pages build",
     "start:https": "elm-pages dev --https",
-    "build": "elm-pages build --keep-cache"
+    "build": "elm-pages build --keep-cache",
+    "preview:netlify": "BROWSER=none netlify dev --offline --port 8888 --dir dist --functions functions"
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
