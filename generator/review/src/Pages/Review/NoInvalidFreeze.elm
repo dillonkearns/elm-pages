@@ -138,7 +138,7 @@ fromProjectToModule =
     Rule.initContextCreator
         (\lookupTable moduleName projectContext ->
             { lookupTable = lookupTable
-            , isAllowedModule = isAllowedModule moduleName
+            , isAllowedModule = True
             , freezeStack = []
             , appParamName = Nothing
             , sharedModelParamName = Nothing
@@ -558,21 +558,7 @@ Returns Just error if not allowed, Nothing if allowed or not a frozen view funct
 -}
 checkFrozenViewFunctionCall : Node Expression -> ModuleContext -> Maybe (Error {})
 checkFrozenViewFunctionCall functionNode context =
-    case Node.value functionNode of
-        Expression.FunctionOrValue _ name ->
-            case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
-                Just [ "View" ] ->
-                    if List.member name staticFunctionNames && not context.isAllowedModule then
-                        Just (frozenViewScopeError (Node.range functionNode) ("View." ++ name))
-
-                    else
-                        Nothing
-
-                _ ->
-                    Nothing
-
-        _ ->
-            Nothing
+    Nothing
 
 
 expressionExitVisitor : Node Expression -> ModuleContext -> ModuleContext

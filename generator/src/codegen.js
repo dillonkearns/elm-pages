@@ -300,26 +300,59 @@ async function runElmReviewCommand(cwdPath, configPath, lamderaPath, applyFixes)
     });
 
     child.on("close", function (code) {
-      if (code === 0 || !applyFixes) {
-        // For analysis-only run, exit code 1 is expected (errors found)
+      // Check for elm-review crashes (stack overflow, missing elm.json, config errors, etc.)
+      // These have {"type":"error",...} in the JSON output, as opposed to
+      // {"type":"review-errors",...} for normal review results.
+      const crashError = extractElmReviewCrashError(output);
+      if (crashError) {
+        reject(new Error(`elm-review crashed: ${crashError.title}\n${crashError.message}`));
+        return;
+      }
+
+      if (code === 0) {
+        resolve(output);
+      } else if (!applyFixes) {
+        // For analysis-only run, exit code 1 is expected (review errors found)
         resolve(output);
       } else {
-        // When applying fixes, elm-review returns non-zero if there are errors,
-        // but this is expected when fixes are already applied ("failing fix").
-        // We only reject on actual compilation/parsing errors, not just failing fixes.
-        // Check if the output indicates a real error vs just failing fixes
-        const hasRealError = output.includes("PARSING ERROR") ||
-                             output.includes("COMPILE ERROR") ||
-                             output.includes("CONFIGURATION ERROR");
-        if (hasRealError) {
-          reject(output);
-        } else {
-          // Treat "(failing fix)" as success - the code is already in the desired state
-          resolve(output);
-        }
+        // When applying fixes, elm-review returns non-zero when fixes are
+        // already applied ("failing fix") which is expected. Resolve as success.
+        resolve(output);
       }
     });
   });
+}
+
+/**
+ * Check if elm-review output indicates a crash (as opposed to normal review errors).
+ *
+ * Normal review output has {"type":"review-errors",...} at the top level.
+ * Crash output has {"type":"error","title":"...","message":[...]} at the top level.
+ *
+ * This catches all crash types: UNEXPECTED ERROR (stack overflow), ELM.JSON NOT FOUND,
+ * CONFIGURATION ERROR, PARSING ERROR, COMPILE ERROR, etc.
+ *
+ * @param {string} output - raw elm-review output (may contain multiple JSON objects)
+ * @returns {{title: string, message: string} | null} - crash info, or null if no crash
+ */
+export function extractElmReviewCrashError(output) {
+  try {
+    const parsed = JSON.parse(output);
+    if (parsed && parsed.type === "error") {
+      const title = parsed.title || "Unknown error";
+      const message = Array.isArray(parsed.message)
+        ? parsed.message.join("")
+        : (parsed.message || "");
+      return { title, message };
+    }
+  } catch (e) {
+    // Output isn't valid JSON - could be a raw error message from a missing binary etc.
+    // Check for common non-JSON crash indicators
+    if (output.includes("command not found") || output.includes("ENOENT")) {
+      return { title: "elm-review not found", message: output };
+    }
+  }
+  return null;
 }
 
 /**

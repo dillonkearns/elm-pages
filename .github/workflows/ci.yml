@@ -39,7 +39,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.elm
-          key: elm-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json', 'examples/routing/elm.json', 'examples/escaping/elm.json', 'examples/base-path/elm.json') }}
+          key: elm-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json', 'examples/routing/elm.json', 'examples/escaping/elm.json', 'examples/base-path/elm.json', 'examples/static-regions/elm.json') }}
       - name: Download lamdera
         run: curl https://static.lamdera.com/bin/linux/lamdera-next-alpine-musl -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
 
@@ -94,6 +94,9 @@ jobs:
           name: cypress-videos
           path: cypress/videos
       - run: npx elm-tooling install
+      - name: Build static-regions example site
+        working-directory: examples/static-regions
+        run: npm install && npx elm-pages build
       - name: Build base path example site
         run: cd examples/base-path && npm install && npx elm-pages build --base elm-pages && cd ../..
       - name: GitHub Pages Example Deploy

@@ -14,6 +14,7 @@ import BackendTask exposing (BackendTask)
 import Dict
 import Effect exposing (Effect)
 import FatalError exposing (FatalError)
+import FrozenHelper
 import Form
 import Form.Field as Field
 import Form.FieldView
@@ -214,6 +215,16 @@ view app _ model =
 
             -- Frozen explanation cards
             , View.freeze explanationCards
+
+            -- Helper-module frozen cards (calls helper with View.freeze twice)
+            , FrozenHelper.summaryCard
+                { title = "Request host"
+                , details = "Built once at render time"
+                }
+            , FrozenHelper.summaryCard
+                { title = "Accept language"
+                , details = "Reused via frozen region adoption"
+                }
 
             -- Frozen syntax-highlighted code example (tests DCE of SyntaxHighlight)
             , View.freeze syntaxHighlightedCodeExample
