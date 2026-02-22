@@ -20,6 +20,8 @@ Elm's `Html.Lazy` avoids unnecessary re-renders.
 
 `elm-pages`' `View.freeze` takes it a step further - it *never* renders your code on the client-side. In fact, it doesn't even bundle the rendering code or the `Data` fields it depends on! Instead, it does the work to render the HTML for Frozen Views before it ever hits the client-side (at build-time, or at server-render time for server-rendered routes). Frozen views also work with form actions — when a form is submitted, the server re-renders the frozen HTML with the updated `app.data` and `app.action`, and the client adopts the new HTML without needing any of the rendering code.
 
+See the [live demo route](/frozen-views).
+
 ## Usage
 
 To use Frozen Views, you wrap part of your view code (must be within a Route Module file) that doesn't depend on dynamic parameters like your `model` with a call to `View.freeze`:
