@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { compareEphemeralFields, formatDisagreementError, extractElmReviewCrashError } from "../src/codegen.js";
+import {
+  compareEphemeralFields,
+  formatDisagreementError,
+  extractElmReviewCrashError,
+} from "../src/codegen.js";
 
 describe("compareEphemeralFields", () => {
   it("returns null when both agree", () => {

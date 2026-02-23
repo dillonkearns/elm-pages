@@ -67,6 +67,8 @@ jobs:
         run: npm run build:generator
       - name: Tests
         run: npm test
+      - name: Frozen helper seeding fixture tests
+        run: npm run test:frozen-helper-seeding
       #      - name: elm-format
       #        run: npx --no-install elm-format --validate src/ generator/src
       - name: Build elm docs

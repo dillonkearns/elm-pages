@@ -442,7 +442,7 @@ Helper modules with `View.freeze` are supported, but there are still some contex
 - Function-value and partial-application usage (for example `List.map Card.view` or `List.map (Card.view prefix)`)
 - Recursive helper re-entry without explicit ID threading
 
-In these cases, elm-pages reports a codemod error and asks you to refactor to static call sites.
+In these cases, elm-pages falls back to de-optimized frozen views and shows a warning by default. With `--strict`, these become build errors so you can enforce optimizable patterns in CI.
 
 ### Current Limitation: Codemod Scope
 

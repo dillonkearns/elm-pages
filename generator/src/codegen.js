@@ -96,7 +96,7 @@ async function newCopyBoth(modulePath) {
 /**
  * Generate the client folder with client-specific codemods.
  * @param {string} basePath
- * @returns {Promise<{ephemeralFields: Map<string, Set<string>>, deOptimizationCount: number}>}
+ * @returns {Promise<{ephemeralFields: Map<string, Set<string>>, deOptimizationCount: number, unsupportedHelperSeedingIssues: Array<{path: string, message: string}>}>}
  */
 export async function generateClientFolder(basePath) {
   const browserCode = await generateTemplateModuleConnector(
@@ -126,13 +126,18 @@ export async function generateClientFolder(basePath) {
     uiFileContent
   );
   const result = await runElmReviewCodemod("./elm-stuff/elm-pages/client/");
-  return { ephemeralFields: result.ephemeralFields, deOptimizationCount: result.deOptimizationCount || 0 };
+  return {
+    ephemeralFields: result.ephemeralFields,
+    deOptimizationCount: result.deOptimizationCount || 0,
+    unsupportedHelperSeedingIssues:
+      result.unsupportedHelperSeedingIssues || [],
+  };
 }
 
 /**
  * Generate the server folder with server-specific codemods.
  * @param {string} basePath
- * @returns {Promise<{ephemeralFields: Map<string, Set<string>>}>}
+ * @returns {Promise<{ephemeralFields: Map<string, Set<string>>, unsupportedHelperSeedingIssues: Array<{path: string, message: string}>}>}
  */
 export async function generateServerFolder(basePath) {
   ensureDirSync("./elm-stuff/elm-pages/server/app");
@@ -195,13 +200,17 @@ export async function generateServerFolder(basePath) {
     browserCode.fetcherModules
   );
 
-  return { ephemeralFields: serverResult.ephemeralFields };
+  return {
+    ephemeralFields: serverResult.ephemeralFields,
+    unsupportedHelperSeedingIssues:
+      serverResult.unsupportedHelperSeedingIssues || [],
+  };
 }
 
 /**
  * @param {string} [ cwd ]
  * @param {"client" | "server"} [ target ] - which codemod config to use (default: client)
- * @returns {Promise<{ephemeralFields: Map<string, Set<string>>, deOptimizationCount: number}>}
+ * @returns {Promise<{ephemeralFields: Map<string, Set<string>>, deOptimizationCount: number, unsupportedHelperSeedingIssues: Array<{path: string, message: string}>, codemodFixesApplied: boolean}>}
  */
 export async function runElmReviewCodemod(cwd, target = "client") {
   // Use different elm-review configs for client vs server transformations
@@ -217,11 +226,24 @@ export async function runElmReviewCodemod(cwd, target = "client") {
   const analysisOutput = await runElmReviewCommand(cwdPath, configPath, lamderaPath, false);
   const ephemeralFields = parseEphemeralFieldsWithFields(analysisOutput);
   const deOptimizationCount = parseDeOptimizationCount(analysisOutput);
+  const unsupportedHelperSeedingIssues = parseUnsupportedHelperSeedingIssues(
+    analysisOutput,
+    target
+  );
 
-  // Now run elm-review with fixes
-  await runElmReviewCommand(cwdPath, configPath, lamderaPath, true);
+  // If helper ID seeding is unsupported in this target, skip codemod fixes and
+  // fall back to untransformed source (safe de-optimization).
+  if (unsupportedHelperSeedingIssues.length === 0) {
+    // Now run elm-review with fixes
+    await runElmReviewCommand(cwdPath, configPath, lamderaPath, true);
+  }
 
-  return { ephemeralFields, deOptimizationCount };
+  return {
+    ephemeralFields,
+    deOptimizationCount,
+    unsupportedHelperSeedingIssues,
+    codemodFixesApplied: unsupportedHelperSeedingIssues.length === 0,
+  };
 }
 
 /**
@@ -260,6 +282,55 @@ export function parseDeOptimizationCount(elmReviewOutput) {
   }
 
   return count;
+}
+
+/**
+ * Parse unsupported helper ID seeding diagnostics from elm-review output.
+ * These indicate patterns where helper ID auto-seeding is not currently supported
+ * (for example function-value/partial usage or repeated contexts like List.map).
+ *
+ * @param {string} elmReviewOutput
+ * @param {"client" | "server"} [target]
+ * @returns {Array<{path: string, message: string}>}
+ */
+export function parseUnsupportedHelperSeedingIssues(
+  elmReviewOutput,
+  target = "client"
+) {
+  let jsonOutput;
+  try {
+    jsonOutput = JSON.parse(elmReviewOutput);
+  } catch (e) {
+    return [];
+  }
+
+  if (!jsonOutput.errors) {
+    return [];
+  }
+
+  const messagePrefix =
+    target === "server"
+      ? "Server codemod: unsupported helper"
+      : "Frozen view codemod: unsupported helper";
+
+  const issues = [];
+
+  for (const fileErrors of jsonOutput.errors) {
+    for (const error of fileErrors.errors) {
+      if (
+        error.message &&
+        typeof error.message === "string" &&
+        error.message.startsWith(messagePrefix)
+      ) {
+        issues.push({
+          path: fileErrors.path,
+          message: error.message,
+        });
+      }
+    }
+  }
+
+  return issues;
 }
 
 /**

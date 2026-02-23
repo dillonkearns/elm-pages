@@ -10,6 +10,7 @@
     "start": "cd examples/end-to-end && npm i && npx elm-pages dev",
     "test": "./test.sh",
     "test:snapshot": "(cd examples/escaping && npm install && npm test) && (cd examples/base-path && npm install && npm test)",
+    "test:frozen-helper-seeding": "vitest run generator/test/frozen-helper-seeding.integration.test.ts",
     "cypress": "npm start & cypress run",
     "cypress:netlify": "cd examples/end-to-end && npm run test:netlify:frozen-views",
     "build:generator": "elm-codegen install && (cd codegen && lamdera make Generate.elm --output elm-pages-codegen.js && mv elm-pages-codegen.js elm-pages-codegen.cjs)",

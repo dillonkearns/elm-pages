@@ -43,7 +43,7 @@ async function main() {
     )
     .option(
       "--strict",
-      "Fail the build if View.freeze is used incorrectly (wrong module scope or de-optimized due to model usage)"
+      "Fail the build if View.freeze is used incorrectly (invalid runtime usage, de-optimizations, or unsupported helper-seeding patterns)"
     )
     .description("run a full site build")
     .action(async (options) => {
