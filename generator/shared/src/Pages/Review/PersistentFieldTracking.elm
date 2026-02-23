@@ -10,6 +10,7 @@ module Pages.Review.PersistentFieldTracking exposing
     , PendingHelperCall
     , RouteBuilderFunctions
     , SharedFieldTrackingState
+    , FunctionId
     , analyzeCaseOnAppData
     , analyzeFieldAccessesOnParam
     , analyzeHelperCallInClientContext
@@ -36,6 +37,9 @@ module Pages.Review.PersistentFieldTracking exposing
     , extractDataTypeRanges
     , extractFieldAccess
     , extractFieldNames
+    , functionIdToHelperKey
+    , helperKeyToFunctionId
+    , helperKeyToLocalNameInModule
     , extractLetBoundHelperFunctions
     , extractPatternName
     , extractPatternNames
@@ -96,6 +100,43 @@ import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Set exposing (Set)
+
+
+type alias FunctionId =
+    ( ModuleName, String )
+
+
+functionIdToHelperKey : FunctionId -> String
+functionIdToHelperKey ( moduleName, functionName ) =
+    String.join "." moduleName ++ "::" ++ functionName
+
+
+helperKeyToFunctionId : String -> Maybe FunctionId
+helperKeyToFunctionId helperKey =
+    case String.split "::" helperKey of
+        [ modulePart, functionName ] ->
+            if String.isEmpty modulePart || String.isEmpty functionName then
+                Nothing
+
+            else
+                Just ( String.split "." modulePart, functionName )
+
+        _ ->
+            Nothing
+
+
+helperKeyToLocalNameInModule : ModuleName -> String -> Maybe String
+helperKeyToLocalNameInModule moduleName helperKey =
+    case helperKeyToFunctionId helperKey of
+        Just ( functionModuleName, functionName ) ->
+            if functionModuleName == moduleName then
+                Just functionName
+
+            else
+                Nothing
+
+        Nothing ->
+            Nothing
 
 
 {-| Analysis of a helper function's field usage on a parameter.
@@ -347,8 +388,8 @@ StaticViewTransform and ServerDataTransform. It handles:
 Returns an updated SharedFieldTrackingState.
 
 -}
-trackFieldAccessShared : Node Expression -> SharedFieldTrackingState -> ModuleNameLookupTable -> SharedFieldTrackingState
-trackFieldAccessShared node state lookupTable =
+trackFieldAccessShared : Node Expression -> SharedFieldTrackingState -> ModuleNameLookupTable -> ModuleName -> SharedFieldTrackingState
+trackFieldAccessShared node state lookupTable moduleName =
     -- Use shared extractFieldAccess for common patterns
     case extractFieldAccess node state.appParamName state.appDataBindings of
         FieldAccessed fieldName ->
@@ -401,6 +442,7 @@ trackFieldAccessShared node state lookupTable =
                         -- Extract let-bound helper functions using shared logic
                         newHelperFunctions =
                             extractLetBoundHelperFunctions
+                                moduleName
                                 letBlock.declarations
                                 state.helperFunctions
                     in
@@ -1590,9 +1632,9 @@ resolvePendingHelperCalls pendingCalls helperFunctions =
                         -- Qualified/complex function - can't track
                         ( fields, True )
 
-                    Just { funcName, argIndex } ->
+                    Just { functionKey, argIndex } ->
                         -- Follow alias chain to get the final analysis for this arg position
-                        case resolveHelperWithAliases funcName argIndex helperFunctions Set.empty of
+                        case resolveHelperWithAliases functionKey argIndex helperFunctions Set.empty of
                             Just analysis ->
                                 if analysis.isTrackable then
                                     -- Known helper with trackable field usage!
@@ -1636,11 +1678,11 @@ resolveHelperWithAliases funcName argIndex helperFunctions visited =
                             Just targetName ->
                                 -- This is an alias, follow the chain
                                 -- For aliases, the argIndex carries through to the target
-                                resolveHelperWithAliases targetName argIndex helperFunctions (Set.insert funcName visited)
+                                resolveHelperWithAliases (resolveLocalHelperKey targetName funcName) argIndex helperFunctions (Set.insert funcName visited)
 
                             Nothing ->
                                 -- Not an alias - resolve any delegations
-                                resolveDelegations analysis helperFunctions (Set.insert funcName visited)
+                                resolveDelegations funcName analysis helperFunctions (Set.insert funcName visited)
 
                     _ ->
                         -- No matching param index or multiple matches - can't track
@@ -1657,8 +1699,8 @@ Returns the analysis with accessedFields updated to include all fields from
 resolved delegations. Returns Nothing if any delegation can't be resolved.
 
 -}
-resolveDelegations : HelperAnalysis -> Dict String (List HelperAnalysis) -> Set String -> Maybe HelperAnalysis
-resolveDelegations analysis helperFunctions visited =
+resolveDelegations : String -> HelperAnalysis -> Dict String (List HelperAnalysis) -> Set String -> Maybe HelperAnalysis
+resolveDelegations currentFunctionKey analysis helperFunctions visited =
     if List.isEmpty analysis.delegations then
         -- No delegations, return as-is
         Just analysis
@@ -1671,7 +1713,7 @@ resolveDelegations analysis helperFunctions visited =
                     ( accFields, False )
 
                 else
-                    case resolveHelperWithAliases delegation.funcName delegation.argIndex helperFunctions visited of
+                    case resolveHelperWithAliases (resolveLocalHelperKey delegation.funcName currentFunctionKey) delegation.argIndex helperFunctions visited of
                         Just resolvedAnalysis ->
                             if resolvedAnalysis.isTrackable then
                                 ( Set.union accFields resolvedAnalysis.accessedFields, True )
@@ -1696,6 +1738,16 @@ resolveDelegations analysis helperFunctions visited =
         else
             -- Some delegation couldn't be resolved - mark as untrackable
             Just { analysis | isTrackable = False }
+
+
+resolveLocalHelperKey : String -> String -> String
+resolveLocalHelperKey localFunctionName sourceFunctionKey =
+    case helperKeyToFunctionId sourceFunctionKey of
+        Just ( moduleName, _ ) ->
+            functionIdToHelperKey ( moduleName, localFunctionName )
+
+        Nothing ->
+            localFunctionName
 
 
 {-| Extract all field names from a list of field definitions.
@@ -1986,10 +2038,12 @@ when processing LetExpression nodes.
 
 -}
 extractLetBoundHelperFunctions :
+    ModuleName
+    ->
     List (Node Expression.LetDeclaration)
     -> Dict String (List HelperAnalysis)
     -> Dict String (List HelperAnalysis)
-extractLetBoundHelperFunctions declarations existingHelpers =
+extractLetBoundHelperFunctions moduleName declarations existingHelpers =
     declarations
         |> List.foldl
             (\declNode helpers ->
@@ -2001,6 +2055,9 @@ extractLetBoundHelperFunctions declarations existingHelpers =
 
                             fnName =
                                 Node.value fnDecl.name
+
+                            functionKey =
+                                functionIdToHelperKey ( moduleName, fnName )
                         in
                         case fnDecl.arguments of
                             [] ->
@@ -2017,7 +2074,7 @@ extractLetBoundHelperFunctions declarations existingHelpers =
                                     helpers
 
                                 else
-                                    Dict.insert fnName helperAnalysis helpers
+                                    Dict.insert functionKey helperAnalysis helpers
 
                     Expression.LetDestructuring _ _ ->
                         helpers
@@ -2213,7 +2270,7 @@ type alias AppDataClassification =
     { hasDirectAppData : Bool -- app.data passed directly as argument
     , hasWrappedAppData : Bool -- app.data wrapped in list/tuple/etc.
     , isAccessorApplication : Bool -- .field app.data pattern (handled by trackFieldAccess)
-    , maybeFuncName : Maybe String -- local function name if applicable
+    , maybeFunctionKey : Maybe String -- module-qualified helper key if applicable
     , appDataArgIndex : Maybe Int -- which argument position has app.data (0-indexed)
     }
 
@@ -2240,8 +2297,9 @@ classifyAppDataArguments :
     -> Set String
     -> (Node Expression -> Bool)
     -> (Node Expression -> Bool)
+    -> (Node Expression -> Maybe FunctionId)
     -> AppDataClassification
-classifyAppDataArguments functionNode args appParamName appDataBindings isFreezeCall containsAppData =
+classifyAppDataArguments functionNode args appParamName appDataBindings isFreezeCall containsAppData resolveFunctionId =
     let
         -- Check for DIRECT app.data arguments (can potentially use helper analysis)
         -- vs WRAPPED app.data arguments (list, tuple, etc. - can't track)
@@ -2369,19 +2427,14 @@ classifyAppDataArguments functionNode args appParamName appDataBindings isFreeze
                 _ ->
                     False
 
-        -- Extract function name if it's a local function
-        maybeFuncName =
-            case Node.value functionNode of
-                Expression.FunctionOrValue [] funcName ->
-                    Just funcName
-
-                _ ->
-                    Nothing
+        maybeFunctionKey =
+            resolveFunctionId functionNode
+                |> Maybe.map functionIdToHelperKey
     in
     { hasDirectAppData = hasDirectAppData
     , hasWrappedAppData = hasWrappedAppData
     , isAccessorApplication = isAccessorApplication
-    , maybeFuncName = maybeFuncName
+    , maybeFunctionKey = maybeFunctionKey
     , appDataArgIndex = appDataArgIndex
     }
 
@@ -2494,7 +2547,7 @@ containsAppDataExpressionHelp node appParamName appDataBindings isFreezeCall =
 {-| A pending helper call with function name and the argument index where app.data was passed.
 -}
 type alias PendingHelperCall =
-    { funcName : String
+    { functionKey : String
     , argIndex : Int
     }
 
@@ -2598,10 +2651,10 @@ determinePendingHelperAction classification =
 
     else if classification.hasDirectAppData then
         -- app.data passed directly - may be able to track via helper analysis
-        case ( classification.maybeFuncName, classification.appDataArgIndex ) of
-            ( Just funcName, Just argIndex ) ->
+        case ( classification.maybeFunctionKey, classification.appDataArgIndex ) of
+            ( Just functionKey, Just argIndex ) ->
                 -- Local function with known arg position - store for lookup in finalEvaluation
-                AddKnownHelper { funcName = funcName, argIndex = argIndex }
+                AddKnownHelper { functionKey = functionKey, argIndex = argIndex }
 
             _ ->
                 -- Qualified or complex function expression, or missing arg index - can't look up
@@ -2666,31 +2719,25 @@ StaticViewTransform and ServerDataTransform.
 Returns a HelperCallResult that both transforms can interpret.
 
 -}
-analyzePipedHelperCall : Node Expression -> HelperCallResult
-analyzePipedHelperCall functionNode =
+analyzePipedHelperCall : (Node Expression -> Maybe FunctionId) -> Node Expression -> HelperCallResult
+analyzePipedHelperCall resolveFunctionId functionNode =
     case Node.value functionNode of
-        Expression.FunctionOrValue [] funcName ->
-            -- Local named function - track as pending helper call (arg index is 0 for pipe)
-            HelperCallKnown { funcName = funcName, argIndex = 0 }
-
         Expression.FunctionOrValue _ _ ->
-            -- Qualified function (e.g., Module.fn) - can't analyze, bail out
-            HelperCallUntrackable
+            case resolveFunctionId functionNode of
+                Just functionId ->
+                    HelperCallKnown { functionKey = functionIdToHelperKey functionId, argIndex = 0 }
+
+                Nothing ->
+                    HelperCallUntrackable
 
         Expression.Application (firstExpr :: appliedArgs) ->
             -- Partial application: `formatHelper "prefix"` where app.data will be the next arg
             -- The piped value goes to position = number of already-applied args
-            case Node.value firstExpr of
-                Expression.FunctionOrValue [] funcName ->
-                    -- Local function with some args already applied
-                    -- app.data becomes the next argument position
-                    HelperCallKnown { funcName = funcName, argIndex = List.length appliedArgs }
+            case resolveFunctionId firstExpr of
+                Just functionId ->
+                    HelperCallKnown { functionKey = functionIdToHelperKey functionId, argIndex = List.length appliedArgs }
 
-                Expression.FunctionOrValue _ _ ->
-                    -- Qualified function - can't analyze
-                    HelperCallUntrackable
-
-                _ ->
+                Nothing ->
                     -- Complex expression (e.g., (fn) arg) - try lambda analysis
                     analyzeLambdaForPipe functionNode
 

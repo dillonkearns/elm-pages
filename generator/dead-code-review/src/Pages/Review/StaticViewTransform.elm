@@ -68,6 +68,7 @@ type alias ProjectContext =
     { freezeFunctions : Dict ( ModuleName, String ) Int
     , functionCalls : Dict ( ModuleName, String ) (Set ( ModuleName, String ))
     , functionArities : Dict ( ModuleName, String ) Int
+    , helperFunctions : Dict String (List HelperAnalysis)
     }
 
 
@@ -76,6 +77,7 @@ initialProjectContext =
     { freezeFunctions = Dict.empty
     , functionCalls = Dict.empty
     , functionArities = Dict.empty
+    , helperFunctions = Dict.empty
     }
 
 
@@ -234,7 +236,9 @@ fromProjectToModule =
             , helperFunctionFreezeIndex = Dict.empty
             , localTransformedFreezeFunctions = Dict.empty
             , localFunctionCalls = Dict.empty
-            , sharedState = PersistentFieldTracking.emptySharedState
+            , sharedState =
+                PersistentFieldTracking.emptySharedState
+                    |> (\sharedState -> { sharedState | helperFunctions = projectContext.helperFunctions })
             , fieldBindings = Dict.empty
             , fieldBindingRanges = Set.empty
             , dataUsedAsConstructor = False
@@ -283,6 +287,17 @@ fromModuleToProject =
                     )
                     Dict.empty
                     context.functionDeclarationInfo
+            , helperFunctions =
+                Dict.filter
+                    (\helperKey _ ->
+                        case PersistentFieldTracking.helperKeyToFunctionId helperKey of
+                            Just ( helperModuleName, _ ) ->
+                                helperModuleName == moduleName
+
+                            Nothing ->
+                                False
+                    )
+                    context.sharedState.helperFunctions
             }
         )
         |> Rule.withModuleName
@@ -314,10 +329,14 @@ foldProjectContexts a b =
 
         mergedFunctionArities =
             Dict.union a.functionArities b.functionArities
+
+        mergedHelperFunctions =
+            Dict.union a.helperFunctions b.helperFunctions
     in
     { freezeFunctions = FreezeHelperPlanning.computeTransitiveFreezeFunctions mergedDirectFreezeFunctions mergedFunctionCalls
     , functionCalls = mergedFunctionCalls
     , functionArities = mergedFunctionArities
+    , helperFunctions = mergedHelperFunctions
     }
 
 
@@ -577,7 +596,11 @@ declarationEnterVisitor node context =
 
                                 updatedSharedState =
                                     { currentSharedState
-                                        | helperFunctions = Dict.insert functionName helperAnalysis currentSharedState.helperFunctions
+                                        | helperFunctions =
+                                            Dict.insert
+                                                (PersistentFieldTracking.functionIdToHelperKey ( context.moduleName, functionName ))
+                                                helperAnalysis
+                                                currentSharedState.helperFunctions
                                     }
                             in
                             { contextWithDataRanges | sharedState = updatedSharedState }
@@ -1122,6 +1145,7 @@ trackFieldAccess node context =
                                     -- Extract let-bound helper functions using shared logic
                                     newHelpers =
                                         PersistentFieldTracking.extractLetBoundHelperFunctions
+                                            context.moduleName
                                             letBlock.declarations
                                             context.sharedState.helperFunctions
 
@@ -1470,14 +1494,20 @@ checkAppDataPassedToHelper context functionNode args =
                 context.sharedState.appDataBindings
                 (\fn -> isViewFreezeCall fn context)
                 (\expr -> containsAppDataExpression expr context)
+                (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context)
     in
     if (context.sharedState.freezeCallDepth > 0) || context.sharedState.inHeadFunction then
         -- In ephemeral context (freeze/head)
         -- Track local functions called with app.data for potential stubbing (client-specific)
-        case classification.maybeFuncName of
-            Just funcName ->
+        case classification.maybeFunctionKey of
+            Just functionKey ->
                 if classification.hasDirectAppData || classification.hasWrappedAppData then
-                    { context | helpersCalledInFreeze = Set.insert funcName context.helpersCalledInFreeze }
+                    case PersistentFieldTracking.helperKeyToLocalNameInModule context.moduleName functionKey of
+                        Just localFunctionName ->
+                            { context | helpersCalledInFreeze = Set.insert localFunctionName context.helpersCalledInFreeze }
+
+                        Nothing ->
+                            context
 
                 else
                     context
@@ -1514,7 +1544,7 @@ checkAppDataPassedToHelperViaPipe context functionNode argNode =
 
     else
         -- In client context - use shared pipe analysis
-        applyHelperCallResult context (PersistentFieldTracking.analyzePipedHelperCall functionNode)
+        applyHelperCallResult context (PersistentFieldTracking.analyzePipedHelperCall (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context) functionNode)
 
 
 {-| Apply a HelperCallResult to the context.
@@ -1589,7 +1619,11 @@ resolveCalledFunctionId functionNode context =
         Expression.FunctionOrValue qualifier fnName ->
             case ModuleNameLookupTable.moduleNameFor context.lookupTable unwrapped of
                 Just moduleName ->
-                    Just ( moduleName, fnName )
+                    if List.isEmpty moduleName then
+                        Just ( context.moduleName, fnName )
+
+                    else
+                        Just ( moduleName, fnName )
 
                 Nothing ->
                     if List.isEmpty qualifier then
@@ -2491,7 +2525,7 @@ finalEvaluation context =
                         helpersCalledInClientContext =
                             context.sharedState.pendingHelperCalls
                                 |> List.filterMap identity
-                                |> List.map .funcName
+                                |> List.filterMap (\pendingCall -> PersistentFieldTracking.helperKeyToLocalNameInModule context.moduleName pendingCall.functionKey)
                                 |> Set.fromList
 
                         freezeOnlyHelpers =
