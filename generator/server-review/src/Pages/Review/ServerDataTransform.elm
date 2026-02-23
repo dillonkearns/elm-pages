@@ -27,6 +27,7 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Pages.Review.FreezeHelperPlanning as FreezeHelperPlanning
 import Pages.Review.PersistentFieldTracking as PersistentFieldTracking
 import Review.Fix
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
@@ -289,66 +290,10 @@ foldProjectContexts a b =
         mergedFunctionArities =
             Dict.union a.functionArities b.functionArities
     in
-    { freezeFunctions = computeTransitiveFreezeFunctions mergedDirectFreezeFunctions mergedFunctionCalls
+    { freezeFunctions = FreezeHelperPlanning.computeTransitiveFreezeFunctions mergedDirectFreezeFunctions mergedFunctionCalls
     , functionCalls = mergedFunctionCalls
     , functionArities = mergedFunctionArities
     }
-
-
-computeTransitiveFreezeFunctions :
-    Dict ( ModuleName, String ) Int
-    -> Dict ( ModuleName, String ) (Set ( ModuleName, String ))
-    -> Dict ( ModuleName, String ) Int
-computeTransitiveFreezeFunctions directFreezeFunctions functionCalls =
-    let
-        directFreezeCallers =
-            directFreezeFunctions
-                |> Dict.filter (\_ count -> count > 0)
-                |> Dict.keys
-                |> Set.fromList
-
-        transitiveFreezeCallers =
-            fixedPointFreezeCallers directFreezeCallers functionCalls
-    in
-    Set.foldl
-        (\functionId acc ->
-            Dict.insert functionId
-                (Dict.get functionId directFreezeFunctions |> Maybe.withDefault 1)
-                acc
-        )
-        Dict.empty
-        transitiveFreezeCallers
-
-
-fixedPointFreezeCallers :
-    Set ( ModuleName, String )
-    -> Dict ( ModuleName, String ) (Set ( ModuleName, String ))
-    -> Set ( ModuleName, String )
-fixedPointFreezeCallers currentFreezeCallers functionCalls =
-    let
-        callersReachingFreeze =
-            Dict.foldl
-                (\caller callees acc ->
-                    if Set.member caller currentFreezeCallers then
-                        acc
-
-                    else if Set.isEmpty (Set.intersect callees currentFreezeCallers) then
-                        acc
-
-                    else
-                        Set.insert caller acc
-                )
-                Set.empty
-                functionCalls
-
-        nextFreezeCallers =
-            Set.union currentFreezeCallers callersReachingFreeze
-    in
-    if Set.size nextFreezeCallers == Set.size currentFreezeCallers then
-        currentFreezeCallers
-
-    else
-        fixedPointFreezeCallers nextFreezeCallers functionCalls
 
 
 {-| Track Html and Html.Attributes import aliases and last import row.
@@ -800,149 +745,38 @@ rewriteHelperCallWithFrozenId node context =
 
 shouldSeedHelperCallIds : Context -> Bool
 shouldSeedHelperCallIds context =
-    case currentFunctionName context of
-        Nothing ->
-            False
-
-        Just functionName ->
-            if PersistentFieldTracking.isRouteModule context.moduleName || PersistentFieldTracking.isSharedModule context.moduleName then
-                functionName == "view"
-
-            else
-                True
+    FreezeHelperPlanning.shouldSeedHelperCallIds
+        { isRouteModule = PersistentFieldTracking.isRouteModule
+        , isSharedModule = PersistentFieldTracking.isSharedModule
+        , moduleName = context.moduleName
+        , currentFunctionName = currentFunctionName context
+        
+        }
 
 
 helperCallNeedsFrozenId : Node Expression -> Context -> Bool
 helperCallNeedsFrozenId functionNode context =
-    case resolveCalledFunctionId functionNode context of
-        Just functionId ->
-            functionReachesFreeze Set.empty functionId context
-
-        Nothing ->
-            False
-
-
-functionReachesFreeze : Set ( ModuleName, String ) -> ( ModuleName, String ) -> Context -> Bool
-functionReachesFreeze visited functionId context =
-    if Set.member functionId visited then
-        False
-
-    else if projectFreezeContains functionId context then
-        True
-
-    else
-        let
-            nextVisited =
-                Set.insert functionId visited
-
-            callees =
-                lookupProjectFunctionCallees functionId context
-        in
-        if Set.isEmpty callees then
-            False
-
-        else
-            Set.foldl
-                (\callee reachesFreeze ->
-                    reachesFreeze || functionReachesFreeze nextVisited callee context
-                )
-                False
-                callees
-
-
-projectFreezeContains : ( ModuleName, String ) -> Context -> Bool
-projectFreezeContains functionId context =
-    Dict.keys context.projectFreezeFunctions
-        |> List.any (\candidateId -> functionIdsMatch functionId candidateId)
-
-
-lookupProjectFunctionCallees : ( ModuleName, String ) -> Context -> Set ( ModuleName, String )
-lookupProjectFunctionCallees functionId context =
-    Dict.foldl
-        (\candidateId callees acc ->
-            if functionIdsMatch functionId candidateId then
-                Set.union callees acc
-
-            else
-                acc
-        )
-        Set.empty
-        context.projectFunctionCalls
-
-
-functionIdsMatch : ( ModuleName, String ) -> ( ModuleName, String ) -> Bool
-functionIdsMatch ( targetModule, targetFunction ) ( candidateModule, candidateFunction ) =
-    targetFunction == candidateFunction
-        && moduleNamesMatch targetModule candidateModule
-
-
-moduleNamesMatch : ModuleName -> ModuleName -> Bool
-moduleNamesMatch targetModule candidateModule =
-    targetModule == candidateModule
-        || (isSingleSegment targetModule && moduleNameLastSegment targetModule == moduleNameLastSegment candidateModule)
-        || (isSingleSegment candidateModule && moduleNameLastSegment targetModule == moduleNameLastSegment candidateModule)
-
-
-isSingleSegment : ModuleName -> Bool
-isSingleSegment moduleName =
-    List.length moduleName == 1
-
-
-moduleNameLastSegment : ModuleName -> Maybe String
-moduleNameLastSegment moduleName =
-    moduleName
-        |> List.reverse
-        |> List.head
+    FreezeHelperPlanning.helperCallNeedsFrozenId
+        (freezeKnowledge context)
+        (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context)
+        functionNode
 
 
 findUnsupportedHelperFunctionValueOrPartialArg : List (Node Expression) -> Context -> Maybe (Node Expression)
 findUnsupportedHelperFunctionValueOrPartialArg args context =
-    args
-        |> List.filter (\arg -> isUnsupportedHelperFunctionValueOrPartial arg context)
-        |> List.head
-
-
-isUnsupportedHelperFunctionValueOrPartial : Node Expression -> Context -> Bool
-isUnsupportedHelperFunctionValueOrPartial argNode context =
-    case Node.value (unwrapParenthesizedExpression argNode) of
-        Expression.FunctionOrValue _ _ ->
-            helperCallNeedsFrozenId argNode context
-
-        _ ->
-            False
+    FreezeHelperPlanning.findUnsupportedHelperFunctionValueArg
+        (freezeKnowledge context)
+        (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context)
+        args
 
 
 isPartialHelperCall : Node Expression -> List (Node Expression) -> Context -> Bool
 isPartialHelperCall functionNode args context =
-    case resolveCalledFunctionId functionNode context |> Maybe.andThen (\functionId -> lookupProjectFunctionArity functionId context) of
-        Just requiredArgCount ->
-            List.length args < requiredArgCount
-
-        Nothing ->
-            False
-
-
-lookupProjectFunctionArity : ( ModuleName, String ) -> Context -> Maybe Int
-lookupProjectFunctionArity functionId context =
-    let
-        matchingArities =
-            Dict.foldl
-                (\candidateId argCount acc ->
-                    if functionIdsMatch functionId candidateId then
-                        Set.insert argCount acc
-
-                    else
-                        acc
-                )
-                Set.empty
-                context.projectFunctionArities
-    in
-    case Set.toList matchingArities of
-        [ uniqueArgCount ] ->
-            Just uniqueArgCount
-
-        _ ->
-            Nothing
+    FreezeHelperPlanning.isPartialHelperCall
+        (freezeKnowledge context)
+        (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context)
+        functionNode
+        args
 
 
 unsupportedHelperFunctionValueOrPartialError : String -> Node Expression -> Error {}
@@ -955,6 +789,14 @@ unsupportedHelperFunctionValueOrPartialError message expressionNode =
             ]
         }
         (Node.range expressionNode)
+
+
+freezeKnowledge : Context -> FreezeHelperPlanning.FreezeKnowledge
+freezeKnowledge context =
+    { freezeFunctions = context.projectFreezeFunctions
+    , functionCalls = context.projectFunctionCalls
+    , functionArities = context.projectFunctionArities
+    }
 
 
 callAlreadyHasFrozenIdSeed : List (Node Expression) -> Bool
