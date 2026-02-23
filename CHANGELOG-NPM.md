@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.1.4] - 2026-02-23
+
+### Fixed
+
+- Fix false "ephemeral disagreement" errors caused by elm-review stderr output being mixed into JSON stdout. Fixes incorrect error reporting during frozen view codegen.
+- Fix overlapping elm-review fix ranges in ephemeral type generation by combining all fixes into a single `errorWithFix`.
+- Show a helpful error message when neither `lamdera` nor `elm` is found on PATH, instead of silently failing. Fixes [#562](https://github.com/dillonkearns/elm-pages/issues/562).
+
+### Changed
+
+- Improved performance of the `NoInvalidFreeze` elm-review rule (see [#566](https://github.com/dillonkearns/elm-pages/pull/566)). Thank you [@jfmengels](https://github.com/jfmengels)!
+
 ## [3.1.3] - 2026-02-16
 
 ### Fixed
