@@ -6080,5 +6080,84 @@ view app =
                                 ]
                               )
                             ]
+            , test "propagates helper IDs through transitive helper call chains" <|
+                \() ->
+                    [ """module Card exposing (view)
+
+import Html.Styled as Html
+import View
+
+view user =
+    View.freeze (Html.text user.name)
+"""
+                    , """module CardWrapper exposing (view)
+
+import Card
+
+view user =
+    Card.view user
+"""
+                    , """module Route.Index exposing (view)
+
+import CardWrapper
+
+view app =
+    { body = [ CardWrapper.view app.data.user ] }
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Card"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                    , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                    , under = "View.freeze (Html.text user.name)"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Card exposing (view)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view elmPagesFid user =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid ++ ":0") |> View.htmlToFreezable |> View.freeze)
+"""
+                                ]
+                              )
+                            , ( "CardWrapper"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: pass frozen ID to helper call"
+                                    , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                                    , under = "Card.view user"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module CardWrapper exposing (view)
+
+import Card
+
+view elmPagesFid user =
+    Card.view (elmPagesFid ++ ":0") user
+"""
+                                ]
+                              )
+                            , ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: pass frozen ID to helper call"
+                                    , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                                    , under = "CardWrapper.view app.data.user"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import CardWrapper
+
+view app =
+    { body = [ CardWrapper.view "0" app.data.user ] }
+"""
+                                ]
+                              )
+                            ]
             ]
         ]

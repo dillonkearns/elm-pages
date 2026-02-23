@@ -5,7 +5,7 @@ import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
-import FrozenHelper
+import FrozenHelperWrapper
 import Head
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
@@ -126,13 +126,13 @@ view app _ model =
                 , Html.text "."
                 ]
             , View.freeze (serverDataSection app.data)
-            , FrozenHelper.summaryCard
-                { title = "Request host"
-                , details = "Built once at server render time"
+            , FrozenHelperWrapper.summaryCard
+                { title = "Transitive helper card A"
+                , details = "Route -> wrapper -> freeze helper (first call site)"
                 }
-            , FrozenHelper.summaryCard
-                { title = "Accept language"
-                , details = "Included in frozen HTML payload"
+            , FrozenHelperWrapper.summaryCard
+                { title = "Transitive helper card B"
+                , details = "Route -> wrapper -> freeze helper (second call site)"
                 }
             , Html.div
                 [ Attr.style "margin-top" "24px"

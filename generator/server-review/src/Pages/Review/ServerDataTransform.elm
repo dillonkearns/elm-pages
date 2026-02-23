@@ -42,12 +42,14 @@ type alias HelperAnalysis =
 
 type alias ProjectContext =
     { freezeFunctions : Dict ( ModuleName, String ) Int
+    , functionCalls : Dict ( ModuleName, String ) (Set ( ModuleName, String ))
     }
 
 
 initialProjectContext : ProjectContext
 initialProjectContext =
     { freezeFunctions = Dict.empty
+    , functionCalls = Dict.empty
     }
 
 
@@ -64,12 +66,14 @@ type alias Context =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
     , projectFreezeFunctions : Dict ( ModuleName, String ) Int
+    , projectFunctionCalls : Dict ( ModuleName, String ) (Set ( ModuleName, String ))
     , staticIndex : Int
     , helperCallSeedIndex : Int
     , functionDeclarationInfo : Dict String FunctionDeclarationInfo
     , injectedFidFunctions : Set String
     , helperFunctionFreezeIndex : Dict String Int
     , localTransformedFreezeFunctions : Dict String Int
+    , localFunctionCalls : Dict ( ModuleName, String ) (Set ( ModuleName, String ))
 
     -- Shared field tracking state (embedded from PersistentFieldTracking)
     -- This contains: clientUsedFields, freezeCallDepth, inHeadFunction, appDataBindings,
@@ -194,12 +198,14 @@ fromProjectToModule =
             { lookupTable = lookupTable
             , moduleName = moduleName
             , projectFreezeFunctions = projectContext.freezeFunctions
+            , projectFunctionCalls = projectContext.functionCalls
             , staticIndex = 0
             , helperCallSeedIndex = 0
             , functionDeclarationInfo = Dict.empty
             , injectedFidFunctions = Set.empty
             , helperFunctionFreezeIndex = Dict.empty
             , localTransformedFreezeFunctions = Dict.empty
+            , localFunctionCalls = Dict.empty
             , sharedState = PersistentFieldTracking.emptySharedState
             , dataConstructorRanges = []
             , dataTypeRange = Nothing
@@ -233,6 +239,7 @@ fromModuleToProject =
                     )
                     Dict.empty
                     context.localTransformedFreezeFunctions
+            , functionCalls = context.localFunctionCalls
             }
         )
         |> Rule.withModuleName
@@ -240,8 +247,87 @@ fromModuleToProject =
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts a b =
-    { freezeFunctions = Dict.union a.freezeFunctions b.freezeFunctions
+    let
+        mergedFunctionCalls =
+            Dict.foldl
+                (\caller callees acc ->
+                    Dict.update caller
+                        (\maybeExisting ->
+                            Just <|
+                                case maybeExisting of
+                                    Just existing ->
+                                        Set.union existing callees
+
+                                    Nothing ->
+                                        callees
+                        )
+                        acc
+                )
+                a.functionCalls
+                b.functionCalls
+
+        mergedDirectFreezeFunctions =
+            Dict.union a.freezeFunctions b.freezeFunctions
+    in
+    { freezeFunctions = computeTransitiveFreezeFunctions mergedDirectFreezeFunctions mergedFunctionCalls
+    , functionCalls = mergedFunctionCalls
     }
+
+
+computeTransitiveFreezeFunctions :
+    Dict ( ModuleName, String ) Int
+    -> Dict ( ModuleName, String ) (Set ( ModuleName, String ))
+    -> Dict ( ModuleName, String ) Int
+computeTransitiveFreezeFunctions directFreezeFunctions functionCalls =
+    let
+        directFreezeCallers =
+            directFreezeFunctions
+                |> Dict.filter (\_ count -> count > 0)
+                |> Dict.keys
+                |> Set.fromList
+
+        transitiveFreezeCallers =
+            fixedPointFreezeCallers directFreezeCallers functionCalls
+    in
+    Set.foldl
+        (\functionId acc ->
+            Dict.insert functionId
+                (Dict.get functionId directFreezeFunctions |> Maybe.withDefault 1)
+                acc
+        )
+        Dict.empty
+        transitiveFreezeCallers
+
+
+fixedPointFreezeCallers :
+    Set ( ModuleName, String )
+    -> Dict ( ModuleName, String ) (Set ( ModuleName, String ))
+    -> Set ( ModuleName, String )
+fixedPointFreezeCallers currentFreezeCallers functionCalls =
+    let
+        callersReachingFreeze =
+            Dict.foldl
+                (\caller callees acc ->
+                    if Set.member caller currentFreezeCallers then
+                        acc
+
+                    else if Set.isEmpty (Set.intersect callees currentFreezeCallers) then
+                        acc
+
+                    else
+                        Set.insert caller acc
+                )
+                Set.empty
+                functionCalls
+
+        nextFreezeCallers =
+            Set.union currentFreezeCallers callersReachingFreeze
+    in
+    if Set.size nextFreezeCallers == Set.size currentFreezeCallers then
+        currentFreezeCallers
+
+    else
+        fixedPointFreezeCallers nextFreezeCallers functionCalls
 
 
 {-| Track Html and Html.Attributes import aliases and last import row.
@@ -566,32 +652,93 @@ extractFreezeCall node context =
             Nothing
 
 
+recordFunctionCallEdge : Node Expression -> Context -> Context
+recordFunctionCallEdge functionNode context =
+    case ( currentFunctionName context, resolveCalledFunctionId functionNode context ) of
+        ( Just callerFunctionName, Just calleeFunctionId ) ->
+            let
+                callerFunctionId =
+                    ( context.moduleName, callerFunctionName )
+            in
+            { context
+                | localFunctionCalls =
+                    Dict.update callerFunctionId
+                        (\maybeExisting ->
+                            Just <|
+                                case maybeExisting of
+                                    Just existing ->
+                                        Set.insert calleeFunctionId existing
+
+                                    Nothing ->
+                                        Set.singleton calleeFunctionId
+                        )
+                        context.localFunctionCalls
+            }
+
+        _ ->
+            context
+
+
+resolveCalledFunctionId : Node Expression -> Context -> Maybe ( ModuleName, String )
+resolveCalledFunctionId functionNode context =
+    let
+        unwrapped =
+            unwrapParenthesizedExpression functionNode
+    in
+    case Node.value unwrapped of
+        Expression.FunctionOrValue qualifier fnName ->
+            case ModuleNameLookupTable.moduleNameFor context.lookupTable unwrapped of
+                Just moduleName ->
+                    Just ( moduleName, fnName )
+
+                Nothing ->
+                    if List.isEmpty qualifier then
+                        Just ( context.moduleName, fnName )
+
+                    else
+                        Just ( qualifier, fnName )
+
+        _ ->
+            Nothing
+
+
 rewriteHelperCallWithFrozenId : Node Expression -> Context -> ( List (Error {}), Context )
 rewriteHelperCallWithFrozenId node context =
     case Node.value node of
         Expression.Application (functionNode :: args) ->
-            if shouldSeedHelperCallIds context && helperCallNeedsFrozenId functionNode context && not (callAlreadyHasFrozenIdSeed args) then
+            if shouldSeedHelperCallIds context && helperCallNeedsFrozenId functionNode context then
                 let
-                    frozenSeedLiteral =
-                        "\"" ++ nextHelperCallSeed context ++ "\""
-
-                    insertionFix =
-                        case args of
-                            firstArg :: _ ->
-                                Review.Fix.insertAt (Node.range firstArg).start (frozenSeedLiteral ++ " ")
-
-                            [] ->
-                                Review.Fix.insertAt (Node.range functionNode).end (" " ++ frozenSeedLiteral)
+                    contextWithFreezePresence =
+                        recordTransformedFreezeInCurrentFunction context
                 in
-                ( [ Rule.errorWithFix
-                        { message = "Server codemod: pass frozen ID to helper call"
-                        , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
-                        }
-                        (Node.range node)
-                        [ insertionFix ]
-                  ]
-                , { context | helperCallSeedIndex = context.helperCallSeedIndex + 1 }
-                )
+                if callAlreadyHasFrozenIdSeed args then
+                    ( [], contextWithFreezePresence )
+
+                else
+                    let
+                        ( frozenSeedExpression, contextWithSeed ) =
+                            nextHelperCallSeedExpression contextWithFreezePresence
+
+                        insertionFix =
+                            case args of
+                                firstArg :: _ ->
+                                    Review.Fix.insertAt (Node.range firstArg).start (frozenSeedExpression ++ " ")
+
+                                [] ->
+                                    Review.Fix.insertAt (Node.range functionNode).end (" " ++ frozenSeedExpression)
+
+                        helperDeclarationFixes =
+                            helperFidInjectionFixes contextWithSeed
+                    in
+                    ( [ Rule.errorWithFix
+                            { message = "Server codemod: pass frozen ID to helper call"
+                            , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                            }
+                            (Node.range node)
+                            (insertionFix :: helperDeclarationFixes)
+                      ]
+                    , markCurrentFunctionFidInjected contextWithSeed
+                    )
 
             else
                 ( [], context )
@@ -602,27 +749,99 @@ rewriteHelperCallWithFrozenId node context =
 
 shouldSeedHelperCallIds : Context -> Bool
 shouldSeedHelperCallIds context =
-    (PersistentFieldTracking.isRouteModule context.moduleName || PersistentFieldTracking.isSharedModule context.moduleName)
-        && (currentFunctionName context == Just "view")
+    case currentFunctionName context of
+        Nothing ->
+            False
+
+        Just functionName ->
+            if PersistentFieldTracking.isRouteModule context.moduleName || PersistentFieldTracking.isSharedModule context.moduleName then
+                functionName == "view"
+
+            else
+                True
 
 
 helperCallNeedsFrozenId : Node Expression -> Context -> Bool
 helperCallNeedsFrozenId functionNode context =
-    let
-        unwrapped =
-            unwrapParenthesizedExpression functionNode
-    in
-    case Node.value unwrapped of
-        Expression.FunctionOrValue _ fnName ->
-            case ModuleNameLookupTable.moduleNameFor context.lookupTable unwrapped of
-                Just moduleName ->
-                    Dict.member ( moduleName, fnName ) context.projectFreezeFunctions
+    case resolveCalledFunctionId functionNode context of
+        Just functionId ->
+            functionReachesFreeze Set.empty functionId context
 
-                Nothing ->
-                    False
-
-        _ ->
+        Nothing ->
             False
+
+
+functionReachesFreeze : Set ( ModuleName, String ) -> ( ModuleName, String ) -> Context -> Bool
+functionReachesFreeze visited functionId context =
+    if Set.member functionId visited then
+        False
+
+    else if projectFreezeContains functionId context then
+        True
+
+    else
+        let
+            nextVisited =
+                Set.insert functionId visited
+
+            callees =
+                lookupProjectFunctionCallees functionId context
+        in
+        if Set.isEmpty callees then
+            False
+
+        else
+            Set.foldl
+                (\callee reachesFreeze ->
+                    reachesFreeze || functionReachesFreeze nextVisited callee context
+                )
+                False
+                callees
+
+
+projectFreezeContains : ( ModuleName, String ) -> Context -> Bool
+projectFreezeContains functionId context =
+    Dict.keys context.projectFreezeFunctions
+        |> List.any (\candidateId -> functionIdsMatch functionId candidateId)
+
+
+lookupProjectFunctionCallees : ( ModuleName, String ) -> Context -> Set ( ModuleName, String )
+lookupProjectFunctionCallees functionId context =
+    Dict.foldl
+        (\candidateId callees acc ->
+            if functionIdsMatch functionId candidateId then
+                Set.union callees acc
+
+            else
+                acc
+        )
+        Set.empty
+        context.projectFunctionCalls
+
+
+functionIdsMatch : ( ModuleName, String ) -> ( ModuleName, String ) -> Bool
+functionIdsMatch ( targetModule, targetFunction ) ( candidateModule, candidateFunction ) =
+    targetFunction == candidateFunction
+        && moduleNamesMatch targetModule candidateModule
+
+
+moduleNamesMatch : ModuleName -> ModuleName -> Bool
+moduleNamesMatch targetModule candidateModule =
+    targetModule == candidateModule
+        || (isSingleSegment targetModule && moduleNameLastSegment targetModule == moduleNameLastSegment candidateModule)
+        || (isSingleSegment candidateModule && moduleNameLastSegment targetModule == moduleNameLastSegment candidateModule)
+
+
+isSingleSegment : ModuleName -> Bool
+isSingleSegment moduleName =
+    List.length moduleName == 1
+
+
+moduleNameLastSegment : ModuleName -> Maybe String
+moduleNameLastSegment moduleName =
+    moduleName
+        |> List.reverse
+        |> List.head
 
 
 callAlreadyHasFrozenIdSeed : List (Node Expression) -> Bool
@@ -634,10 +853,54 @@ callAlreadyHasFrozenIdSeed args =
                     True
 
                 _ ->
-                    False
+                    expressionContainsFidVariable firstArg
 
         [] ->
             False
+
+
+expressionContainsFidVariable : Node Expression -> Bool
+expressionContainsFidVariable node =
+    case Node.value (unwrapParenthesizedExpression node) of
+        Expression.FunctionOrValue [] fnName ->
+            fnName == frozenIdParamName
+
+        Expression.OperatorApplication _ _ left right ->
+            expressionContainsFidVariable left || expressionContainsFidVariable right
+
+        Expression.Application exprs ->
+            List.any expressionContainsFidVariable exprs
+
+        Expression.IfBlock condition thenBranch elseBranch ->
+            expressionContainsFidVariable condition
+                || expressionContainsFidVariable thenBranch
+                || expressionContainsFidVariable elseBranch
+
+        Expression.CaseExpression caseBlock ->
+            expressionContainsFidVariable caseBlock.expression
+
+        Expression.ParenthesizedExpression inner ->
+            expressionContainsFidVariable inner
+
+        _ ->
+            False
+
+
+nextHelperCallSeedExpression : Context -> ( String, Context )
+nextHelperCallSeedExpression context =
+    let
+        nextContext =
+            { context | helperCallSeedIndex = context.helperCallSeedIndex + 1 }
+    in
+    if usesHelperFrozenIds context then
+        ( "(" ++ frozenIdParamName ++ " ++ \":" ++ String.fromInt context.helperCallSeedIndex ++ "\")"
+        , nextContext
+        )
+
+    else
+        ( "\"" ++ nextHelperCallSeed context ++ "\""
+        , nextContext
+        )
 
 
 nextHelperCallSeed : Context -> String
@@ -686,15 +949,34 @@ expressionEnterVisitor node context =
                 Nothing ->
                     contextWithDataConstructorCheck
 
+        contextWithCallGraph =
+            case Node.value node of
+                Expression.Application (functionNode :: _) ->
+                    recordFunctionCallEdge functionNode contextWithRouteBuilder
+
+                Expression.OperatorApplication op _ leftExpr rightExpr ->
+                    case op of
+                        "|>" ->
+                            recordFunctionCallEdge rightExpr contextWithRouteBuilder
+
+                        "<|" ->
+                            recordFunctionCallEdge leftExpr contextWithRouteBuilder
+
+                        _ ->
+                            contextWithRouteBuilder
+
+                _ ->
+                    contextWithRouteBuilder
+
         -- Track entering freeze calls, check for app.data passed in client context,
         -- and handle freeze wrapping
         ( freezeErrors, contextWithFreezeTracking ) =
-            case extractFreezeCall node contextWithRouteBuilder of
+            case extractFreezeCall node contextWithCallGraph of
                 Just freezeCall ->
                     -- Handle View.freeze call - wrap argument if not already wrapped
                     let
                         contextWithFreezePresence =
-                            recordTransformedFreezeInCurrentFunction contextWithRouteBuilder
+                            recordTransformedFreezeInCurrentFunction contextWithCallGraph
 
                         ( errors, newContext ) =
                             handleViewFreezeWrapping node freezeCall.functionNode freezeCall.args contextWithFreezePresence
@@ -707,7 +989,7 @@ expressionEnterVisitor node context =
                     case Node.value node of
                         Expression.Application (functionNode :: args) ->
                             -- Check for app.data passed as whole in CLIENT context
-                            ( [], checkAppDataPassedToHelper contextWithRouteBuilder functionNode args )
+                            ( [], checkAppDataPassedToHelper contextWithCallGraph functionNode args )
 
                         -- Handle pipe operators: app.data |> fn or fn <| app.data
                         -- But NOT accessor patterns like app.data |> .field (handled by trackFieldAccess)
@@ -717,25 +999,25 @@ expressionEnterVisitor node context =
                                     -- app.data |> fn  =>  fn(app.data), so fn is on the right
                                     -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
                                     if isRecordAccessFunction rightExpr then
-                                        ( [], contextWithRouteBuilder )
+                                        ( [], contextWithCallGraph )
 
                                     else
-                                        ( [], checkAppDataPassedToHelperViaPipe contextWithRouteBuilder rightExpr leftExpr )
+                                        ( [], checkAppDataPassedToHelperViaPipe contextWithCallGraph rightExpr leftExpr )
 
                                 "<|" ->
                                     -- fn <| app.data  =>  fn(app.data), so fn is on the left
                                     -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
                                     if isRecordAccessFunction leftExpr then
-                                        ( [], contextWithRouteBuilder )
+                                        ( [], contextWithCallGraph )
 
                                     else
-                                        ( [], checkAppDataPassedToHelperViaPipe contextWithRouteBuilder leftExpr rightExpr )
+                                        ( [], checkAppDataPassedToHelperViaPipe contextWithCallGraph leftExpr rightExpr )
 
                                 _ ->
-                                    ( [], contextWithRouteBuilder )
+                                    ( [], contextWithCallGraph )
 
                         _ ->
-                            ( [], contextWithRouteBuilder )
+                            ( [], contextWithCallGraph )
 
         -- Track field access patterns
         contextWithFieldTracking =

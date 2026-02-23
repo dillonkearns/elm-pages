@@ -12,6 +12,8 @@ context("frozen views netlify build output", () => {
     cy.url().should("include", "/frozen-views");
     cy.contains("h1", "Frozen Views (Netlify E2E)");
     cy.contains("h3", "Live Server Data");
+    cy.contains("Transitive helper card A");
+    cy.contains("Transitive helper card B");
   });
 
   it("serves frozen HTML payload from content.dat", () => {
@@ -30,10 +32,18 @@ context("frozen views netlify build output", () => {
       const frozenViews = parseFrozenViewsFromBinary(response.body);
       const html = Object.values(frozenViews).join("\n");
 
+      expect(Object.keys(frozenViews)).to.have.length(3);
       expect(html).to.include("Live Server Data");
       expect(html).to.include("Name from query params: codex");
       expect(html).to.include("Language Preferences: en-US");
-      expect(html).to.include("Request host");
+      expect(html).to.include("Transitive helper card A");
+      expect(html).to.include("Transitive helper card B");
+      expect(html).to.include(
+        "Route -&gt; wrapper -&gt; freeze helper (first call site)"
+      );
+      expect(html).to.include(
+        "Route -&gt; wrapper -&gt; freeze helper (second call site)"
+      );
     });
   });
 
