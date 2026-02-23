@@ -1823,6 +1823,22 @@ extractDataTypeReferences =
     PersistentFieldTracking.extractDataTypeRanges
 
 
+{-| Check if one range fully contains another range.
+-}
+rangeContains : Range -> Range -> Bool
+rangeContains outer inner =
+    let
+        outerStartsBefore =
+            (outer.start.row < inner.start.row)
+                || (outer.start.row == inner.start.row && outer.start.column <= inner.start.column)
+
+        outerEndsAfter =
+            (outer.end.row > inner.end.row)
+                || (outer.end.row == inner.end.row && outer.end.column >= inner.end.column)
+    in
+    outerStartsBefore && outerEndsAfter
+
+
 {-| Final evaluation - generate Ephemeral/Data split and ephemeralToData function.
 
 The formula is: ephemeral = allFields - clientUsedFields
@@ -1945,7 +1961,7 @@ finalEvaluation context =
                                 ++ ephemeralToDataFn
 
                         -- Update data function signature: Data -> Ephemeral
-                        dataSignatureFix =
+                        dataSignatureFixes =
                             case ( context.dataFunctionSignatureRange, context.dataFunctionSignature ) of
                                 ( Just sigRange, Just sigStr ) ->
                                     -- Replace "Data" with "Ephemeral" in the signature
@@ -1955,16 +1971,7 @@ finalEvaluation context =
                                             String.replace " Data" " Ephemeral" sigStr
                                     in
                                     if updatedSig /= sigStr then
-                                        [ Rule.errorWithFix
-                                            { message = "Server codemod: update data function return type"
-                                            , details =
-                                                [ "Changing return type from Data to Ephemeral."
-                                                , "The data function now returns Ephemeral (full type) for rendering."
-                                                ]
-                                            }
-                                            sigRange
-                                            [ Review.Fix.replaceRangeBy sigRange updatedSig ]
-                                        ]
+                                        [ Review.Fix.replaceRangeBy sigRange updatedSig ]
 
                                     else
                                         []
@@ -1977,51 +1984,52 @@ finalEvaluation context =
                             context.dataConstructorRanges
                                 |> List.map
                                     (\constructorRange ->
-                                        Rule.errorWithFix
-                                            { message = "Server codemod: update Data constructor to Ephemeral"
-                                            , details =
-                                                [ "Changing Data to Ephemeral in record constructor usage."
-                                                , "The full record type is now called Ephemeral."
-                                                ]
-                                            }
-                                            constructorRange
-                                            [ Review.Fix.replaceRangeBy constructorRange "Ephemeral" ]
+                                        Review.Fix.replaceRangeBy constructorRange "Ephemeral"
                                     )
 
                         -- Fix Data type references in function signatures (e.g., App Data -> App Ephemeral)
+                        -- Exclude references that fall within the data function's signature range,
+                        -- since that range is already handled by dataSignatureFixes (which replaces
+                        -- the entire annotation). Including both would create overlapping fix ranges
+                        -- that elm-review rejects.
                         dataTypeReferenceFixes =
                             context.dataTypeReferenceRanges
+                                |> List.filter
+                                    (\refRange ->
+                                        case context.dataFunctionSignatureRange of
+                                            Just sigRange ->
+                                                not (rangeContains sigRange refRange)
+
+                                            Nothing ->
+                                                True
+                                    )
                                 |> List.map
                                     (\refRange ->
-                                        Rule.errorWithFix
-                                            { message = "Server codemod: update Data type reference to Ephemeral"
-                                            , details =
-                                                [ "Changing Data to Ephemeral in type signature."
-                                                , "The server uses Ephemeral (full type) for views."
-                                                ]
-                                            }
-                                            refRange
-                                            [ Review.Fix.replaceRangeBy refRange "Ephemeral" ]
+                                        Review.Fix.replaceRangeBy refRange "Ephemeral"
                                     )
 
                         -- Fix module exports to include Ephemeral
-                        exportFix =
+                        exportFixes =
                             case context.dataExportRange of
                                 Just exportRange ->
                                     -- Insert ", Ephemeral" after "Data" in exports
-                                    [ Rule.errorWithFix
-                                        { message = "Server codemod: export Ephemeral type"
-                                        , details =
-                                            [ "Adding Ephemeral to module exports."
-                                            , "The generated Main.elm needs to reference Route.*.Ephemeral."
-                                            ]
-                                        }
-                                        exportRange
-                                        [ Review.Fix.insertAt exportRange.end ", Ephemeral, ephemeralToData" ]
-                                    ]
+                                    [ Review.Fix.insertAt exportRange.end ", Ephemeral, ephemeralToData" ]
 
                                 Nothing ->
                                     []
+
+                        -- Combine ALL fixes into a single errorWithFix so they are applied
+                        -- atomically by elm-review. If fixes are split across multiple errors,
+                        -- elm-review applies one fix at a time and re-analyzes between each.
+                        -- After the Data type split is applied, hasEphemeralType becomes True
+                        -- on re-analysis, which would prevent the remaining fixes (exports,
+                        -- constructors, signatures) from ever being generated.
+                        allFixes =
+                            [ Review.Fix.replaceRangeBy range fullReplacement ]
+                                ++ dataSignatureFixes
+                                ++ dataConstructorFixes
+                                ++ dataTypeReferenceFixes
+                                ++ exportFixes
 
                         -- Emit EPHEMERAL_FIELDS_JSON for the codegen to pick up
                         ephemeralFieldsJson =
@@ -2038,8 +2046,8 @@ finalEvaluation context =
                                 }
                                 range
                     in
-                    ephemeralFieldsError
-                        :: Rule.errorWithFix
+                    [ ephemeralFieldsError
+                    , Rule.errorWithFix
                             { message = "Server codemod: split Data into Ephemeral and Data"
                             , details =
                                 [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
@@ -2048,9 +2056,5 @@ finalEvaluation context =
                                 ]
                             }
                             range
-                            [ Review.Fix.replaceRangeBy range fullReplacement
-                            ]
-                        :: dataSignatureFix
-                        ++ dataConstructorFixes
-                        ++ dataTypeReferenceFixes
-                        ++ exportFix
+                            allFixes
+                    ]
