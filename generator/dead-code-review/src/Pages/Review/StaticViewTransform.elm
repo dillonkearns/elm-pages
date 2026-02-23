@@ -170,6 +170,10 @@ type alias Context =
     -- helper ID seeding is not guaranteed to be unique per invocation.
     , lambdaDepth : Int
 
+    -- Stack of let-bound local functions that directly call helpers requiring frozen ID seeding.
+    -- Used to flag unsupported function-value/partial usage like `List.map renderItem`.
+    , localLetFunctionsNeedingSeed : List (Set String)
+
     -- Track if NarrowedData type alias already exists (to prevent infinite fix loop)
     , narrowedDataExists : Bool
 
@@ -255,6 +259,7 @@ fromProjectToModule =
             , taintBindings = Taint.emptyBindings
             , taintedContextDepth = 0
             , lambdaDepth = 0
+            , localLetFunctionsNeedingSeed = []
             , narrowedDataExists = False
             , helpersCalledInFreeze = Set.empty
             , helperDataTypeRanges = Dict.empty
@@ -855,6 +860,23 @@ expressionEnterVisitor node context =
                 _ ->
                     contextWithFieldTracking
 
+        contextWithLocalLetFunctions =
+            case Node.value node of
+                Expression.LetExpression letBlock ->
+                    let
+                        localFunctionsNeedingSeed =
+                            FreezeHelperPlanning.letFunctionsWithDirectSeededHelperCalls
+                                (\functionNode -> helperCallNeedsFrozenId functionNode contextWithTaintedContext)
+                                letBlock.declarations
+                    in
+                    { contextWithTaintedContext
+                        | localLetFunctionsNeedingSeed =
+                            localFunctionsNeedingSeed :: contextWithTaintedContext.localLetFunctionsNeedingSeed
+                    }
+
+                _ ->
+                    contextWithTaintedContext
+
         -- Track tainted bindings for let expressions
         -- When entering a let, push a new scope and add bindings from declarations
         contextWithTaintBindings =
@@ -863,7 +885,7 @@ expressionEnterVisitor node context =
                     let
                         -- Push a new scope first
                         initialScope =
-                            Taint.nonemptyCons Dict.empty contextWithTaintedContext.taintBindings
+                            Taint.nonemptyCons Dict.empty contextWithLocalLetFunctions.taintBindings
 
                         -- Process each let declaration, accumulating bindings
                         -- Later declarations can depend on earlier ones, so we update context as we go
@@ -873,8 +895,8 @@ expressionEnterVisitor node context =
                                     let
                                         -- Create a TaintContext with current accumulated bindings
                                         taintContext =
-                                            { modelParamName = contextWithTaintedContext.modelParamName
-                                            , sharedModelParamName = contextWithTaintedContext.sharedModelParamName
+                                            { modelParamName = contextWithLocalLetFunctions.modelParamName
+                                            , sharedModelParamName = contextWithLocalLetFunctions.sharedModelParamName
                                             , bindings = currentBindings
                                             }
 
@@ -912,10 +934,10 @@ expressionEnterVisitor node context =
                                 initialScope
                                 letBlock.declarations
                     in
-                    { contextWithTaintedContext | taintBindings = finalScope }
+                    { contextWithLocalLetFunctions | taintBindings = finalScope }
 
                 _ ->
-                    contextWithTaintedContext
+                    contextWithLocalLetFunctions
     in
     -- Handle the transformations
     case extractFreezeCall node contextWithTaintBindings.lookupTable of
@@ -945,13 +967,28 @@ expressionExitVisitor node context =
         contextWithPoppedScope =
             case Node.value node of
                 Expression.LetExpression _ ->
-                    case Taint.nonemptyPop contextWithLambdaDepthUpdate.taintBindings of
-                        Just popped ->
-                            { contextWithLambdaDepthUpdate | taintBindings = popped }
+                    let
+                        poppedTaintBindings =
+                            case Taint.nonemptyPop contextWithLambdaDepthUpdate.taintBindings of
+                                Just popped ->
+                                    popped
 
-                        Nothing ->
-                            -- Should never happen - we always push before pop
-                            contextWithLambdaDepthUpdate
+                                Nothing ->
+                                    -- Should never happen - we always push before pop
+                                    contextWithLambdaDepthUpdate.taintBindings
+
+                        poppedLocalLetFunctions =
+                            case contextWithLambdaDepthUpdate.localLetFunctionsNeedingSeed of
+                                _ :: remaining ->
+                                    remaining
+
+                                [] ->
+                                    []
+                    in
+                    { contextWithLambdaDepthUpdate
+                        | taintBindings = poppedTaintBindings
+                        , localLetFunctionsNeedingSeed = poppedLocalLetFunctions
+                    }
 
                 _ ->
                     contextWithLambdaDepthUpdate
@@ -1785,10 +1822,19 @@ helperCallNeedsFrozenId functionNode context =
 
 findUnsupportedHelperFunctionValueOrPartialArg : List (Node Expression) -> Context -> Maybe (Node Expression)
 findUnsupportedHelperFunctionValueOrPartialArg args context =
-    FreezeHelperPlanning.findUnsupportedHelperFunctionValueArg
-        (freezeKnowledge context)
-        (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context)
-        args
+    case
+        FreezeHelperPlanning.findUnsupportedHelperFunctionValueArg
+            (freezeKnowledge context)
+            (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context)
+            args
+    of
+        Just unsupportedArg ->
+            Just unsupportedArg
+
+        Nothing ->
+            FreezeHelperPlanning.findUnsupportedLocalFunctionValueArg
+                (currentLocalLetFunctionsNeedingSeed context)
+                args
 
 
 isPartialHelperCall : Node Expression -> List (Node Expression) -> Context -> Bool
@@ -1818,6 +1864,12 @@ freezeKnowledge context =
     , functionCalls = context.projectFunctionCalls
     , functionArities = context.projectFunctionArities
     }
+
+
+currentLocalLetFunctionsNeedingSeed : Context -> Set String
+currentLocalLetFunctionsNeedingSeed context =
+    context.localLetFunctionsNeedingSeed
+        |> List.foldl Set.union Set.empty
 
 
 callAlreadyHasFrozenIdSeed : List (Node Expression) -> Bool

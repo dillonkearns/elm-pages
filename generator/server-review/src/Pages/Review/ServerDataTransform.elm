@@ -121,6 +121,10 @@ type alias Context =
     -- Lambda depth: when > 0 we are inside a repeated-execution context where
     -- helper ID seeding is not guaranteed to be unique per invocation.
     , lambdaDepth : Int
+
+    -- Stack of let-bound local functions that directly call helpers requiring frozen ID seeding.
+    -- Used to flag unsupported function-value/partial usage like `List.map renderItem`.
+    , localLetFunctionsNeedingSeed : List (Set String)
     }
 
 
@@ -235,6 +239,7 @@ fromProjectToModule =
             , htmlAttributesAlias = Nothing
             , lastImportRow = 0
             , lambdaDepth = 0
+            , localLetFunctionsNeedingSeed = []
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -794,10 +799,19 @@ helperCallNeedsFrozenId functionNode context =
 
 findUnsupportedHelperFunctionValueOrPartialArg : List (Node Expression) -> Context -> Maybe (Node Expression)
 findUnsupportedHelperFunctionValueOrPartialArg args context =
-    FreezeHelperPlanning.findUnsupportedHelperFunctionValueArg
-        (freezeKnowledge context)
-        (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context)
-        args
+    case
+        FreezeHelperPlanning.findUnsupportedHelperFunctionValueArg
+            (freezeKnowledge context)
+            (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context)
+            args
+    of
+        Just unsupportedArg ->
+            Just unsupportedArg
+
+        Nothing ->
+            FreezeHelperPlanning.findUnsupportedLocalFunctionValueArg
+                (currentLocalLetFunctionsNeedingSeed context)
+                args
 
 
 isPartialHelperCall : Node Expression -> List (Node Expression) -> Context -> Bool
@@ -827,6 +841,12 @@ freezeKnowledge context =
     , functionCalls = context.projectFunctionCalls
     , functionArities = context.projectFunctionArities
     }
+
+
+currentLocalLetFunctionsNeedingSeed : Context -> Set String
+currentLocalLetFunctionsNeedingSeed context =
+    context.localLetFunctionsNeedingSeed
+        |> List.foldl Set.union Set.empty
 
 
 callAlreadyHasFrozenIdSeed : List (Node Expression) -> Bool
@@ -1016,8 +1036,25 @@ expressionEnterVisitor node context =
         contextWithFieldTracking =
             trackFieldAccess node contextWithFreezeTracking
 
+        contextWithLocalLetFunctions =
+            case Node.value node of
+                Expression.LetExpression letBlock ->
+                    let
+                        localFunctionsNeedingSeed =
+                            FreezeHelperPlanning.letFunctionsWithDirectSeededHelperCalls
+                                (\functionNode -> helperCallNeedsFrozenId functionNode contextWithFieldTracking)
+                                letBlock.declarations
+                    in
+                    { contextWithFieldTracking
+                        | localLetFunctionsNeedingSeed =
+                            localFunctionsNeedingSeed :: contextWithFieldTracking.localLetFunctionsNeedingSeed
+                    }
+
+                _ ->
+                    contextWithFieldTracking
+
         ( helperCallErrors, contextWithHelperCalls ) =
-            rewriteHelperCallWithFrozenId node contextWithFieldTracking
+            rewriteHelperCallWithFrozenId node contextWithLocalLetFunctions
     in
     ( freezeErrors ++ helperCallErrors, contextWithHelperCalls )
 
@@ -1542,7 +1579,7 @@ getStaticPrefix moduleName =
 expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionExitVisitor node context =
     let
-        contextWithLambdaDepthUpdate =
+        contextWithDepthAndLetUpdate =
             case Node.value node of
                 Expression.LambdaExpression _ ->
                     if context.lambdaDepth > 0 then
@@ -1551,14 +1588,26 @@ expressionExitVisitor node context =
                     else
                         context
 
+                Expression.LetExpression _ ->
+                    let
+                        poppedLocalLetFunctions =
+                            case context.localLetFunctionsNeedingSeed of
+                                _ :: remaining ->
+                                    remaining
+
+                                [] ->
+                                    []
+                    in
+                    { context | localLetFunctionsNeedingSeed = poppedLocalLetFunctions }
+
                 _ ->
                     context
     in
-    if PersistentFieldTracking.isExitingFreezeCall node contextWithLambdaDepthUpdate.lookupTable then
-        ( [], { contextWithLambdaDepthUpdate | sharedState = PersistentFieldTracking.updateOnFreezeExit contextWithLambdaDepthUpdate.sharedState } )
+    if PersistentFieldTracking.isExitingFreezeCall node contextWithDepthAndLetUpdate.lookupTable then
+        ( [], { contextWithDepthAndLetUpdate | sharedState = PersistentFieldTracking.updateOnFreezeExit contextWithDepthAndLetUpdate.sharedState } )
 
     else
-        ( [], contextWithLambdaDepthUpdate )
+        ( [], contextWithDepthAndLetUpdate )
 
 
 {-| Extract head function name from RouteBuilder.preRender/single/serverRender record argument.

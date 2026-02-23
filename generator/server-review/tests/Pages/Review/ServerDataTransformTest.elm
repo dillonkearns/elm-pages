@@ -1860,6 +1860,88 @@ view elmPagesFid_cardwrapper_view user =
                                 ]
                               )
                             ]
+            , test "reports unsupported local helper function value usage in list.map" <|
+                \() ->
+                    [ """module Card exposing (view)
+
+import Html
+import View
+
+view user =
+    View.freeze (Html.text user.name)
+"""
+                    , """module Route.Index exposing (view)
+
+import Card
+
+view app =
+    let
+        renderUser user =
+            Card.view user
+    in
+    { body =
+        app.data.users
+            |> List.map renderUser
+    }
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Card"
+                              , [ Review.Test.error
+                                    { message = "Server codemod: wrap freeze argument with data-static"
+                                    , details =
+                                        [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                        ]
+                                    , under = "View.freeze (Html.text user.name)"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Card exposing (view)
+
+import Html
+import View
+import Html.Attributes
+
+view elmPagesFid_card_view user =
+    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid_card_view ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
+"""
+                                ]
+                              )
+                            , ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Server codemod: pass frozen ID to helper call"
+                                    , details =
+                                        [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze."
+                                        ]
+                                    , under = "Card.view user"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Card
+
+view app =
+    let
+        renderUser user =
+            Card.view "0" user
+    in
+    { body =
+        app.data.users
+            |> List.map renderUser
+    }
+"""
+                                , Review.Test.error
+                                    { message = "Server codemod: unsupported helper function value or partial application"
+                                    , details =
+                                        [ "Cannot pass a helper containing View.freeze as a function value or partial application (for example List.map Helper.view)."
+                                        , "Refactor this helper call to a static call site so each invocation can get a unique frozen ID."
+                                        ]
+                                    , under = "renderUser"
+                                    }
+                                    |> Review.Test.atExactly { start = { row = 12, column = 25 }, end = { row = 12, column = 35 } }
+                                ]
+                              )
+                            ]
             , test "reports unsupported helper partial application in list.map" <|
                 \() ->
                     [ """module Card exposing (view)

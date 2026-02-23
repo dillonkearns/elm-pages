@@ -3,9 +3,11 @@ module Pages.Review.FreezeHelperPlanning exposing
     , FunctionId
     , computeTransitiveFreezeFunctions
     , findUnsupportedHelperFunctionValueArg
+    , findUnsupportedLocalFunctionValueArg
     , functionContainsFreeze
     , helperCallNeedsFrozenId
     , isPartialHelperCall
+    , letFunctionsWithDirectSeededHelperCalls
     , shouldSeedHelperCallIds
     )
 
@@ -203,6 +205,76 @@ findUnsupportedHelperFunctionValueArg knowledge resolveCalledFunctionId args =
                         False
             )
         |> List.head
+
+
+letFunctionsWithDirectSeededHelperCalls :
+    (Node Expression -> Bool)
+    -> List (Node Expression.LetDeclaration)
+    -> Set String
+letFunctionsWithDirectSeededHelperCalls needsFrozenId declarations =
+    declarations
+        |> List.filterMap
+            (\declaration ->
+                case Node.value declaration of
+                    Expression.LetFunction letFn ->
+                        let
+                            fnDecl =
+                                Node.value letFn.declaration
+
+                            fnName =
+                                Node.value fnDecl.name
+                        in
+                        case extractDirectAppliedFunction fnDecl.expression of
+                            Just functionNode ->
+                                if needsFrozenId functionNode then
+                                    Just fnName
+
+                                else
+                                    Nothing
+
+                            Nothing ->
+                                Nothing
+
+                    Expression.LetDestructuring _ _ ->
+                        Nothing
+            )
+        |> Set.fromList
+
+
+findUnsupportedLocalFunctionValueArg :
+    Set String
+    -> List (Node Expression)
+    -> Maybe (Node Expression)
+findUnsupportedLocalFunctionValueArg localFunctionNames args =
+    args
+        |> List.filter
+            (\arg ->
+                case Node.value (unwrapParenthesizedExpression arg) of
+                    Expression.FunctionOrValue [] functionName ->
+                        Set.member functionName localFunctionNames
+
+                    Expression.Application (firstExpr :: _) ->
+                        case Node.value (unwrapParenthesizedExpression firstExpr) of
+                            Expression.FunctionOrValue [] functionName ->
+                                Set.member functionName localFunctionNames
+
+                            _ ->
+                                False
+
+                    _ ->
+                        False
+            )
+        |> List.head
+
+
+extractDirectAppliedFunction : Node Expression -> Maybe (Node Expression)
+extractDirectAppliedFunction expressionNode =
+    case Node.value (unwrapParenthesizedExpression expressionNode) of
+        Expression.Application (functionNode :: _) ->
+            Just functionNode
+
+        _ ->
+            Nothing
 
 
 isPartialHelperCall :
