@@ -52,6 +52,10 @@ export function extractFrozenViews(html) {
     const outerHTML = extractElement(html, startIndex, tagName);
 
     if (outerHTML) {
+      if (Object.prototype.hasOwnProperty.call(regions, id)) {
+        throw new Error(`Duplicate data-static id "${id}" found while extracting frozen views`);
+      }
+
       // If this was a placeholder, update the data-static attribute in the extracted HTML
       if (placeholder.includes("__STATIC__")) {
         regions[id] = outerHTML.replace(`data-static="${placeholder}"`, `data-static="${id}"`);

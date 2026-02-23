@@ -90,4 +90,17 @@ describe("extractFrozenViews", () => {
 
     expect(Object.keys(regions)).toEqual(["test"]);
   });
+
+  it("throws on duplicate data-static ids", () => {
+    const html = `
+      <div>
+        <div data-static="duplicate">First</div>
+        <section data-static="duplicate">Second</section>
+      </div>
+    `;
+
+    expect(() => extractFrozenViews(html)).toThrowError(
+      "Duplicate data-static id \"duplicate\" found while extracting frozen views",
+    );
+  });
 });

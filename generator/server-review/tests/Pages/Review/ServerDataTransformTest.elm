@@ -1940,5 +1940,26 @@ view elmPagesFid_cardwrapper_view prefix user =
                                 ]
                               )
                             ]
+            , test "idempotent: already wrapped helper freeze and seeded route call produce no errors" <|
+                \() ->
+                    [ """module Card exposing (view)
+
+import Html
+import View
+import Html.Attributes
+
+view elmPagesFid_card_view user =
+    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid_card_view ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
+"""
+                    , """module Route.Index exposing (view)
+
+import Card
+
+view app =
+    { body = [ Card.view "0" app.data.user ] }
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectNoErrors
             ]
         ]

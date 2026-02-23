@@ -5,6 +5,19 @@ function parseFrozenViewsFromBinary(binaryBody) {
   return JSON.parse(jsonString);
 }
 
+function extractDataStaticIds(html) {
+  const ids = new Set();
+  const pattern = /data-static="([^"]+)"/g;
+  let match = pattern.exec(html);
+
+  while (match !== null) {
+    ids.add(match[1]);
+    match = pattern.exec(html);
+  }
+
+  return [...ids].sort();
+}
+
 context("frozen views netlify build output", () => {
   it("navigates to frozen views from the index page", () => {
     cy.visit("/");
@@ -44,6 +57,24 @@ context("frozen views netlify build output", () => {
       expect(html).to.include(
         "Route -&gt; wrapper -&gt; freeze helper (second call site)"
       );
+    });
+  });
+
+  it("matches content.dat frozen view keys to server-rendered data-static ids", () => {
+    cy.request({
+      url: "/frozen-views/content.dat?name=codex",
+      encoding: "binary",
+      headers: {
+        "accept-language": "en-US,en;q=0.9",
+      },
+    }).then((contentDatResponse) => {
+      const frozenViews = parseFrozenViewsFromBinary(contentDatResponse.body);
+      const contentDatKeys = Object.keys(frozenViews).sort();
+
+      cy.request("/frozen-views?name=codex").then((htmlResponse) => {
+        const serverRenderedIds = extractDataStaticIds(htmlResponse.body);
+        expect(contentDatKeys).to.deep.equal(serverRenderedIds);
+      });
     });
   });
 
