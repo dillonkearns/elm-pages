@@ -108,6 +108,10 @@ type alias Context =
 
     -- Track last import row for inserting new imports
     , lastImportRow : Int
+
+    -- Lambda depth: when > 0 we are inside a repeated-execution context where
+    -- helper ID seeding is not guaranteed to be unique per invocation.
+    , lambdaDepth : Int
     }
 
 
@@ -218,6 +222,7 @@ fromProjectToModule =
             , htmlAlias = Nothing
             , htmlAttributesAlias = Nothing
             , lastImportRow = 0
+            , lambdaDepth = 0
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -711,7 +716,20 @@ rewriteHelperCallWithFrozenId node context =
                     contextWithFreezePresence =
                         recordTransformedFreezeInCurrentFunction context
                 in
-                if callAlreadyHasFrozenIdSeed args then
+                if contextWithFreezePresence.lambdaDepth > 0 then
+                    ( [ Rule.error
+                            { message = "Server codemod: unsupported helper ID seeding in repeated context"
+                            , details =
+                                [ "Cannot auto-seed frozen helper IDs inside lambdas or higher-order iterations (for example List.map)."
+                                , "Refactor this helper call to a static call site so each invocation can get a unique frozen ID."
+                                ]
+                            }
+                            (Node.range node)
+                      ]
+                    , contextWithFreezePresence
+                    )
+
+                else if callAlreadyHasFrozenIdSeed args then
                     ( [], contextWithFreezePresence )
 
                 else
@@ -928,14 +946,22 @@ advanceRootSeedIndex context =
 expressionEnterVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionEnterVisitor node context =
     let
+        contextWithLambdaDepth =
+            case Node.value node of
+                Expression.LambdaExpression _ ->
+                    { context | lambdaDepth = context.lambdaDepth + 1 }
+
+                _ ->
+                    context
+
         -- Track where Data is used as a record constructor (needs to become Ephemeral)
         contextWithDataConstructorCheck =
             case Node.value node of
                 Expression.FunctionOrValue [] "Data" ->
-                    { context | dataConstructorRanges = Node.range node :: context.dataConstructorRanges }
+                    { contextWithLambdaDepth | dataConstructorRanges = Node.range node :: contextWithLambdaDepth.dataConstructorRanges }
 
                 _ ->
-                    context
+                    contextWithLambdaDepth
 
         -- Detect RouteBuilder calls and extract function names
         -- This ensures we correctly identify which functions are ephemeral (head, data)
@@ -1481,11 +1507,24 @@ getStaticPrefix moduleName =
 
 expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionExitVisitor node context =
-    if PersistentFieldTracking.isExitingFreezeCall node context.lookupTable then
-        ( [], { context | sharedState = PersistentFieldTracking.updateOnFreezeExit context.sharedState } )
+    let
+        contextWithLambdaDepthUpdate =
+            case Node.value node of
+                Expression.LambdaExpression _ ->
+                    if context.lambdaDepth > 0 then
+                        { context | lambdaDepth = context.lambdaDepth - 1 }
+
+                    else
+                        context
+
+                _ ->
+                    context
+    in
+    if PersistentFieldTracking.isExitingFreezeCall node contextWithLambdaDepthUpdate.lookupTable then
+        ( [], { contextWithLambdaDepthUpdate | sharedState = PersistentFieldTracking.updateOnFreezeExit contextWithLambdaDepthUpdate.sharedState } )
 
     else
-        ( [], context )
+        ( [], contextWithLambdaDepthUpdate )
 
 
 {-| Extract head function name from RouteBuilder.preRender/single/serverRender record argument.

@@ -157,6 +157,10 @@ type alias Context =
     -- depends on model. When > 0, we're in a tainted context and should skip transforms.
     , taintedContextDepth : Int
 
+    -- Lambda depth: when > 0 we are inside a repeated-execution context where
+    -- helper ID seeding is not guaranteed to be unique per invocation.
+    , lambdaDepth : Int
+
     -- Track if NarrowedData type alias already exists (to prevent infinite fix loop)
     , narrowedDataExists : Bool
 
@@ -238,6 +242,7 @@ fromProjectToModule =
             , modelParamName = Nothing
             , taintBindings = Taint.emptyBindings
             , taintedContextDepth = 0
+            , lambdaDepth = 0
             , narrowedDataExists = False
             , helpersCalledInFreeze = Set.empty
             , helperDataTypeRanges = Dict.empty
@@ -700,6 +705,14 @@ declarationExitVisitor node context =
 expressionEnterVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionEnterVisitor node context =
     let
+        contextWithLambdaDepth =
+            case Node.value node of
+                Expression.LambdaExpression _ ->
+                    { context | lambdaDepth = context.lambdaDepth + 1 }
+
+                _ ->
+                    context
+
         -- Detect if Data is used as a record constructor function in CLIENT code
         -- (e.g., `map4 Data`, `succeed Data`, `Data field1 field2`)
         --
@@ -713,23 +726,23 @@ expressionEnterVisitor node context =
         -- Example that is NOT safe (in view function, runs on client):
         --   view app = ... let defaultData = Data "a" "b" in ...
         contextWithDataConstructorCheck =
-            if context.dataUsedAsConstructor then
+            if contextWithLambdaDepth.dataUsedAsConstructor then
                 -- Already detected, no need to check again
-                context
+                contextWithLambdaDepth
 
-            else if context.inDataFunction then
+            else if contextWithLambdaDepth.inDataFunction then
                 -- Inside the data function - usage is safe (DCE'd on client)
-                context
+                contextWithLambdaDepth
 
             else
                 case Node.value node of
                     -- Direct use: Data as function argument (e.g., `map4 Data`)
                     -- Note: Match any module prefix since elm-syntax may qualify local names
                     Expression.FunctionOrValue _ "Data" ->
-                        { context | dataUsedAsConstructor = True }
+                        { contextWithLambdaDepth | dataUsedAsConstructor = True }
 
                     _ ->
-                        context
+                        contextWithLambdaDepth
 
         -- Detect RouteBuilder calls and extract function names
         -- This ensures we only treat the actual head/data functions as ephemeral
@@ -928,20 +941,32 @@ expressionEnterVisitor node context =
 expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionExitVisitor node context =
     let
+        contextWithLambdaDepthUpdate =
+            case Node.value node of
+                Expression.LambdaExpression _ ->
+                    if context.lambdaDepth > 0 then
+                        { context | lambdaDepth = context.lambdaDepth - 1 }
+
+                    else
+                        context
+
+                _ ->
+                    context
+
         -- Pop taint binding scope when exiting let expressions
         contextWithPoppedScope =
             case Node.value node of
                 Expression.LetExpression _ ->
-                    case Taint.nonemptyPop context.taintBindings of
+                    case Taint.nonemptyPop contextWithLambdaDepthUpdate.taintBindings of
                         Just popped ->
-                            { context | taintBindings = popped }
+                            { contextWithLambdaDepthUpdate | taintBindings = popped }
 
                         Nothing ->
                             -- Should never happen - we always push before pop
-                            context
+                            contextWithLambdaDepthUpdate
 
                 _ ->
-                    context
+                    contextWithLambdaDepthUpdate
 
         -- Track exiting tainted conditionals (if/case)
         -- Decrement taintedContextDepth when exiting a tainted conditional
@@ -1675,7 +1700,20 @@ rewriteHelperCallWithFrozenId node context =
                     contextWithFreezePresence =
                         recordTransformedFreezeInCurrentFunction context
                 in
-                if callAlreadyHasFrozenIdSeed args then
+                if contextWithFreezePresence.lambdaDepth > 0 then
+                    ( [ Rule.error
+                            { message = "Frozen view codemod: unsupported helper ID seeding in repeated context"
+                            , details =
+                                [ "Cannot auto-seed frozen helper IDs inside lambdas or higher-order iterations (for example List.map)."
+                                , "Refactor this helper call to a static call site so each invocation can get a unique frozen ID."
+                                ]
+                            }
+                            (Node.range node)
+                      ]
+                    , contextWithFreezePresence
+                    )
+
+                else if callAlreadyHasFrozenIdSeed args then
                     ( [], contextWithFreezePresence )
 
                 else

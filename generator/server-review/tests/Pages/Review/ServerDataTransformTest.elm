@@ -1665,5 +1665,86 @@ view app =
                                 ]
                               )
                             ]
+            , test "reports unsupported repeated helper call context in list.map lambda" <|
+                \() ->
+                    [ """module Card exposing (view)
+
+import Html
+import View
+
+view user =
+    View.freeze (Html.text user.name)
+"""
+                    , """module CardWrapper exposing (view)
+
+import Card
+
+view user =
+    Card.view user
+"""
+                    , """module Route.Index exposing (view)
+
+import CardWrapper
+
+view app =
+    { body =
+        app.data.users
+            |> List.map
+                (\\user -> CardWrapper.view user)
+    }
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Card"
+                              , [ Review.Test.error
+                                    { message = "Server codemod: wrap freeze argument with data-static"
+                                    , details =
+                                        [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                        ]
+                                    , under = "View.freeze (Html.text user.name)"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Card exposing (view)
+
+import Html
+import View
+import Html.Attributes
+
+view elmPagesFid user =
+    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
+"""
+                                ]
+                              )
+                            , ( "CardWrapper"
+                              , [ Review.Test.error
+                                    { message = "Server codemod: pass frozen ID to helper call"
+                                    , details =
+                                        [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze."
+                                        ]
+                                    , under = "Card.view user"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module CardWrapper exposing (view)
+
+import Card
+
+view elmPagesFid user =
+    Card.view (elmPagesFid ++ ":0") user
+"""
+                                ]
+                              )
+                            , ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Server codemod: unsupported helper ID seeding in repeated context"
+                                    , details =
+                                        [ "Cannot auto-seed frozen helper IDs inside lambdas or higher-order iterations (for example List.map)."
+                                        , "Refactor this helper call to a static call site so each invocation can get a unique frozen ID."
+                                        ]
+                                    , under = "CardWrapper.view user"
+                                    }
+                                ]
+                              )
+                            ]
             ]
         ]
