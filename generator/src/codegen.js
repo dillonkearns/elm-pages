@@ -355,40 +355,63 @@ async function runElmReviewCommand(cwdPath, configPath, lamderaPath, applyFixes)
   return new Promise((resolve, reject) => {
     const child = spawnCallback("elm-review", args, { cwd: cwdPath });
 
-    let output = "";
+    let stdout = "";
+    let stderr = "";
 
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", function (/** @type {string} */ data) {
-      output += data.toString();
+      stdout += data.toString();
     });
 
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", function (/** @type {string} */ data) {
-      output += data.toString();
+      stderr += data.toString();
     });
     child.on("error", function () {
-      reject(output);
+      reject(stdout + stderr);
     });
 
     child.on("close", function (code) {
       // Check for elm-review crashes (stack overflow, missing elm.json, config errors, etc.)
       // These have {"type":"error",...} in the JSON output, as opposed to
       // {"type":"review-errors",...} for normal review results.
+      const combined = stdout + stderr;
+      const output = stdout || combined;
       const crashError = extractElmReviewCrashError(output);
       if (crashError) {
         reject(new Error(`elm-review crashed: ${crashError.title}\n${crashError.message}`));
         return;
       }
 
-      if (code === 0) {
-        resolve(output);
-      } else if (!applyFixes) {
+      let parsedOutput = null;
+      try {
+        parsedOutput = JSON.parse(output);
+      } catch (e) {
+        // non-JSON output handled by string checks below
+      }
+
+      if (parsedOutput && parsedOutput.type === "compile-errors") {
+        reject(combined);
+        return;
+      }
+
+      if (code === 0 || !applyFixes) {
         // For analysis-only run, exit code 1 is expected (review errors found)
         resolve(output);
       } else {
         // When applying fixes, elm-review returns non-zero when fixes are
-        // already applied ("failing fix") which is expected. Resolve as success.
-        resolve(output);
+        // already applied ("failing fix"), which is expected.
+        // Reject only on real parse/compile/config failures.
+        const hasRealError = combined.includes("PARSING ERROR") ||
+          combined.includes("COMPILE ERROR") ||
+          combined.includes("CONFIGURATION ERROR") ||
+          combined.includes("\"type\":\"compile-errors\"") ||
+          combined.includes("\"type\":\"error\"");
+        if (hasRealError) {
+          reject(combined);
+        } else {
+          resolve(output);
+        }
       }
     });
   });
