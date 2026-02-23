@@ -5996,7 +5996,40 @@ view =
                             ]
             ]
         , describe "Helper module frozen view IDs"
-            [ test "adds helper ID parameter and rewrites two route call sites" <|
+            [ test "uses deterministic helper FID parameter name based on module and function" <|
+                \() ->
+                    [ """module UserCard exposing (view)
+
+import Html.Styled as Html
+import View
+
+view user =
+    View.freeze (Html.text user.name)
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "UserCard"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                    , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                    , under = "View.freeze (Html.text user.name)"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module UserCard exposing (view)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view elmPagesFid_usercard_view user =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid_usercard_view ++ ":0") |> View.htmlToFreezable |> View.freeze)
+"""
+                                ]
+                              )
+                            ]
+            , test "adds helper ID parameter and rewrites two route call sites" <|
                 \() ->
                     [ """module UserCard exposing (view)
 
@@ -6035,8 +6068,8 @@ import View
 import Html.Lazy
 import Html as ElmPages__Html
 
-view elmPagesFid user =
-    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid ++ ":0") |> View.htmlToFreezable |> View.freeze)
+view elmPagesFid_usercard_view user =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid_usercard_view ++ ":0") |> View.htmlToFreezable |> View.freeze)
 """
                                 ]
                               )
@@ -6121,8 +6154,8 @@ import View
 import Html.Lazy
 import Html as ElmPages__Html
 
-view elmPagesFid user =
-    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid ++ ":0") |> View.htmlToFreezable |> View.freeze)
+view elmPagesFid_card_view user =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid_card_view ++ ":0") |> View.htmlToFreezable |> View.freeze)
 """
                                 ]
                               )
@@ -6137,8 +6170,8 @@ view elmPagesFid user =
 
 import Card
 
-view elmPagesFid user =
-    Card.view (elmPagesFid ++ ":0") user
+view elmPagesFid_cardwrapper_view user =
+    Card.view (elmPagesFid_cardwrapper_view ++ ":0") user
 """
                                 ]
                               )
@@ -6204,8 +6237,8 @@ import View
 import Html.Lazy
 import Html as ElmPages__Html
 
-view elmPagesFid user =
-    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid ++ ":0") |> View.htmlToFreezable |> View.freeze)
+view elmPagesFid_card_view user =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid_card_view ++ ":0") |> View.htmlToFreezable |> View.freeze)
 """
                                 ]
                               )
@@ -6220,8 +6253,8 @@ view elmPagesFid user =
 
 import Card
 
-view elmPagesFid user =
-    Card.view (elmPagesFid ++ ":0") user
+view elmPagesFid_cardwrapper_view user =
+    Card.view (elmPagesFid_cardwrapper_view ++ ":0") user
 """
                                 ]
                               )
@@ -6281,8 +6314,8 @@ import View
 import Html.Lazy
 import Html as ElmPages__Html
 
-view elmPagesFid user =
-    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid ++ ":0") |> View.htmlToFreezable |> View.freeze)
+view elmPagesFid_card_view user =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid_card_view ++ ":0") |> View.htmlToFreezable |> View.freeze)
 """
                                 ]
                               )
@@ -6297,8 +6330,8 @@ view elmPagesFid user =
 
 import Card
 
-view elmPagesFid user =
-    Card.view (elmPagesFid ++ ":0") user
+view elmPagesFid_cardwrapper_view user =
+    Card.view (elmPagesFid_cardwrapper_view ++ ":0") user
 """
                                 ]
                               )
@@ -6358,8 +6391,8 @@ import View
 import Html.Lazy
 import Html as ElmPages__Html
 
-view elmPagesFid user =
-    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid ++ ":0") |> View.htmlToFreezable |> View.freeze)
+view elmPagesFid_card_view user =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid_card_view ++ ":0") |> View.htmlToFreezable |> View.freeze)
 """
                                 ]
                               )
@@ -6374,8 +6407,8 @@ view elmPagesFid user =
 
 import Card
 
-view elmPagesFid prefix user =
-    Card.view (elmPagesFid ++ ":0") { name = prefix ++ user.name }
+view elmPagesFid_cardwrapper_view prefix user =
+    Card.view (elmPagesFid_cardwrapper_view ++ ":0") { name = prefix ++ user.name }
 """
                                 ]
                               )

@@ -1492,7 +1492,41 @@ template =
                             ]
             ]
         , describe "Helper module frozen view IDs"
-            [ test "adds helper ID parameter and rewrites two route call sites" <|
+            [ test "uses deterministic helper FID parameter name based on module and function" <|
+                \() ->
+                    [ """module UserCard exposing (view)
+
+import Html
+import View
+
+view user =
+    View.freeze (Html.text user.name)
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "UserCard"
+                              , [ Review.Test.error
+                                    { message = "Server codemod: wrap freeze argument with data-static"
+                                    , details =
+                                        [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                        ]
+                                    , under = "View.freeze (Html.text user.name)"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module UserCard exposing (view)
+
+import Html
+import View
+import Html.Attributes
+
+view elmPagesFid_usercard_view user =
+    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid_usercard_view ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
+"""
+                                ]
+                              )
+                            ]
+            , test "adds helper ID parameter and rewrites two route call sites" <|
                 \() ->
                     [ """module UserCard exposing (view)
 
@@ -1532,8 +1566,8 @@ import Html
 import View
 import Html.Attributes
 
-view elmPagesFid user =
-    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
+view elmPagesFid_usercard_view user =
+    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid_usercard_view ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
 """
                                 ]
                               )
@@ -1623,8 +1657,8 @@ import Html
 import View
 import Html.Attributes
 
-view elmPagesFid user =
-    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
+view elmPagesFid_card_view user =
+    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid_card_view ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
 """
                                 ]
                               )
@@ -1641,8 +1675,8 @@ view elmPagesFid user =
 
 import Card
 
-view elmPagesFid user =
-    Card.view (elmPagesFid ++ ":0") user
+view elmPagesFid_cardwrapper_view user =
+    Card.view (elmPagesFid_cardwrapper_view ++ ":0") user
 """
                                 ]
                               )
@@ -1711,8 +1745,8 @@ import Html
 import View
 import Html.Attributes
 
-view elmPagesFid user =
-    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
+view elmPagesFid_card_view user =
+    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid_card_view ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
 """
                                 ]
                               )
@@ -1729,8 +1763,8 @@ view elmPagesFid user =
 
 import Card
 
-view elmPagesFid user =
-    Card.view (elmPagesFid ++ ":0") user
+view elmPagesFid_cardwrapper_view user =
+    Card.view (elmPagesFid_cardwrapper_view ++ ":0") user
 """
                                 ]
                               )
@@ -1791,8 +1825,8 @@ import Html
 import View
 import Html.Attributes
 
-view elmPagesFid user =
-    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
+view elmPagesFid_card_view user =
+    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid_card_view ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
 """
                                 ]
                               )
@@ -1809,8 +1843,8 @@ view elmPagesFid user =
 
 import Card
 
-view elmPagesFid user =
-    Card.view (elmPagesFid ++ ":0") user
+view elmPagesFid_cardwrapper_view user =
+    Card.view (elmPagesFid_cardwrapper_view ++ ":0") user
 """
                                 ]
                               )
@@ -1871,8 +1905,8 @@ import Html
 import View
 import Html.Attributes
 
-view elmPagesFid user =
-    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
+view elmPagesFid_card_view user =
+    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid_card_view ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
 """
                                 ]
                               )
@@ -1889,8 +1923,8 @@ view elmPagesFid user =
 
 import Card
 
-view elmPagesFid prefix user =
-    Card.view (elmPagesFid ++ ":0") { name = prefix ++ user.name }
+view elmPagesFid_cardwrapper_view prefix user =
+    Card.view (elmPagesFid_cardwrapper_view ++ ":0") { name = prefix ++ user.name }
 """
                                 ]
                               )

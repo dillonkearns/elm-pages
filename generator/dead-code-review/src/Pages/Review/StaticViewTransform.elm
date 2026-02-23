@@ -32,6 +32,7 @@ the virtual-dom codemod detects at runtime to adopt pre-rendered HTML.
 
 -}
 
+import Char
 import Dict exposing (Dict)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
@@ -83,6 +84,7 @@ type alias FunctionDeclarationInfo =
     , firstArgRange : Maybe Range
     , signatureTypeRange : Maybe Range
     , argumentCount : Int
+    , fidParamName : Maybe String
     , hasFidParam : Bool
     , hasFidTypeAnnotation : Bool
     }
@@ -403,17 +405,18 @@ declarationEnterVisitor node context =
                     PersistentFieldTracking.updateOnFunctionEnter functionName context.sharedState
 
                 functionInfo =
+                    let
+                        maybeExistingFidParamName =
+                            functionDeclaration.arguments
+                                |> List.head
+                                |> Maybe.andThen fidParamNameFromPattern
+                    in
                     { functionNameRange = Node.range functionDeclaration.name
                     , firstArgRange = List.head functionDeclaration.arguments |> Maybe.map Node.range
                     , signatureTypeRange = function.signature |> Maybe.map (\signatureNode -> Node.range (Node.value signatureNode).typeAnnotation)
                     , argumentCount = List.length functionDeclaration.arguments
-                    , hasFidParam =
-                        case List.head functionDeclaration.arguments of
-                            Just firstArg ->
-                                isFidPattern firstArg
-
-                            Nothing ->
-                                False
+                    , fidParamName = maybeExistingFidParamName
+                    , hasFidParam = maybeExistingFidParamName /= Nothing
                     , hasFidTypeAnnotation =
                         case function.signature of
                             Just signatureNode ->
@@ -1802,7 +1805,7 @@ expressionContainsFidVariable : Node Expression -> Bool
 expressionContainsFidVariable node =
     case Node.value (unwrapParenthesizedExpression node) of
         Expression.FunctionOrValue [] fnName ->
-            fnName == frozenIdParamName
+            isFidParamName fnName
 
         Expression.OperatorApplication _ _ left right ->
             expressionContainsFidVariable left || expressionContainsFidVariable right
@@ -1832,7 +1835,7 @@ nextHelperCallSeedExpression context =
             { context | helperCallSeedIndex = context.helperCallSeedIndex + 1 }
     in
     if usesHelperFrozenIds context then
-        ( "(" ++ frozenIdParamName ++ " ++ \":" ++ String.fromInt context.helperCallSeedIndex ++ "\")"
+        ( "(" ++ currentFunctionFidParamName context ++ " ++ \":" ++ String.fromInt context.helperCallSeedIndex ++ "\")"
         , nextContext
         )
 
@@ -1931,14 +1934,70 @@ handleViewFreezeCall functionNode freezeArg node context =
             ( [], context )
 
 
-frozenIdParamName : String
-frozenIdParamName =
+frozenIdParamPrefix : String
+frozenIdParamPrefix =
     "elmPagesFid"
 
 
 currentFunctionName : Context -> Maybe String
 currentFunctionName context =
     context.sharedState.currentFunctionName
+
+
+isFidParamName : String -> Bool
+isFidParamName name =
+    String.startsWith frozenIdParamPrefix name
+
+
+sanitizeFidNamePart : String -> String
+sanitizeFidNamePart rawPart =
+    rawPart
+        |> String.toLower
+        |> String.map
+            (\char ->
+                if Char.isAlphaNum char then
+                    char
+
+                else
+                    '_'
+            )
+
+
+generatedFidParamName : ModuleName -> String -> String
+generatedFidParamName moduleName functionName =
+    let
+        modulePart =
+            moduleName
+                |> List.map sanitizeFidNamePart
+                |> String.join "_"
+
+        functionPart =
+            sanitizeFidNamePart functionName
+
+        suffix =
+            if String.isEmpty modulePart then
+                functionPart
+
+            else
+                modulePart ++ "_" ++ functionPart
+    in
+    frozenIdParamPrefix ++ "_" ++ suffix
+
+
+currentFunctionFidParamName : Context -> String
+currentFunctionFidParamName context =
+    case currentFunctionName context of
+        Just fnName ->
+            case Dict.get fnName context.functionDeclarationInfo of
+                Just info ->
+                    info.fidParamName
+                        |> Maybe.withDefault (generatedFidParamName context.moduleName fnName)
+
+                Nothing ->
+                    generatedFidParamName context.moduleName fnName
+
+        Nothing ->
+            frozenIdParamPrefix
 
 
 usesHelperFrozenIds : Context -> Bool
@@ -1987,7 +2046,7 @@ nextStaticIdExpression context =
                         }
                 in
                 ( "(\"__ELM_PAGES_STATIC__\" ++ "
-                    ++ frozenIdParamName
+                    ++ currentFunctionFidParamName context
                     ++ " ++ \":"
                     ++ String.fromInt localIndex
                     ++ "\")"
@@ -2037,6 +2096,9 @@ helperFidInjectionFixes context =
 
                         Just info ->
                             let
+                                fidParamName =
+                                    generatedFidParamName context.moduleName fnName
+
                                 declarationFixes =
                                     if info.hasFidParam then
                                         []
@@ -2044,10 +2106,10 @@ helperFidInjectionFixes context =
                                     else
                                         [ case info.firstArgRange of
                                             Just firstArgRange ->
-                                                Review.Fix.insertAt firstArgRange.start (frozenIdParamName ++ " ")
+                                                Review.Fix.insertAt firstArgRange.start (fidParamName ++ " ")
 
                                             Nothing ->
-                                                Review.Fix.insertAt info.functionNameRange.end (" " ++ frozenIdParamName)
+                                                Review.Fix.insertAt info.functionNameRange.end (" " ++ fidParamName)
                                         ]
 
                                 signatureFixes =
@@ -2079,20 +2141,28 @@ markCurrentFunctionFidInjected context =
                 context
 
 
-isFidPattern : Node Pattern -> Bool
-isFidPattern node =
+fidParamNameFromPattern : Node Pattern -> Maybe String
+fidParamNameFromPattern node =
     case Node.value node of
         Pattern.VarPattern name ->
-            name == frozenIdParamName
+            if isFidParamName name then
+                Just name
+
+            else
+                Nothing
 
         Pattern.ParenthesizedPattern inner ->
-            isFidPattern inner
+            fidParamNameFromPattern inner
 
         Pattern.AsPattern inner (Node _ name) ->
-            name == frozenIdParamName || isFidPattern inner
+            if isFidParamName name then
+                Just name
+
+            else
+                fidParamNameFromPattern inner
 
         _ ->
-            False
+            Nothing
 
 
 signatureStartsWithString : Node TypeAnnotation -> Bool
