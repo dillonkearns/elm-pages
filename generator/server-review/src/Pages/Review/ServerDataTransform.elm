@@ -726,6 +726,19 @@ rewriteHelperCallWithFrozenId node context =
                                 , contextWithFreezePresence
                                 )
 
+                            else if currentFunctionIsRecursive contextWithFreezePresence then
+                                ( [ Rule.error
+                                        { message = "Server codemod: unsupported helper ID seeding in repeated context"
+                                        , details =
+                                            [ "Cannot auto-seed frozen helper IDs inside recursive helper functions."
+                                            , "Refactor recursion so each invocation receives an explicit unique frozen ID seed."
+                                            ]
+                                        }
+                                        (Node.range node)
+                                  ]
+                                , contextWithFreezePresence
+                                )
+
                             else if contextWithFreezePresence.lambdaDepth > 0 then
                                 ( [ Rule.error
                                         { message = "Server codemod: unsupported helper ID seeding in repeated context"
@@ -837,9 +850,48 @@ unsupportedHelperFunctionValueOrPartialError message expressionNode =
 
 freezeKnowledge : Context -> FreezeHelperPlanning.FreezeKnowledge
 freezeKnowledge context =
-    { freezeFunctions = context.projectFreezeFunctions
-    , functionCalls = context.projectFunctionCalls
-    , functionArities = context.projectFunctionArities
+    let
+        localFreezeFunctions =
+            Dict.foldl
+                (\fnName count acc ->
+                    if count > 0 then
+                        Dict.insert ( context.moduleName, fnName ) count acc
+
+                    else
+                        acc
+                )
+                Dict.empty
+                context.localTransformedFreezeFunctions
+
+        mergedFunctionCalls =
+            Dict.foldl
+                (\caller callees acc ->
+                    Dict.update caller
+                        (\maybeExisting ->
+                            Just <|
+                                case maybeExisting of
+                                    Just existing ->
+                                        Set.union existing callees
+
+                                    Nothing ->
+                                        callees
+                        )
+                        acc
+                )
+                context.projectFunctionCalls
+                context.localFunctionCalls
+
+        localFunctionArities =
+            Dict.foldl
+                (\functionName info acc ->
+                    Dict.insert ( context.moduleName, functionName ) info.argumentCount acc
+                )
+                Dict.empty
+                context.functionDeclarationInfo
+    in
+    { freezeFunctions = Dict.union localFreezeFunctions context.projectFreezeFunctions
+    , functionCalls = mergedFunctionCalls
+    , functionArities = Dict.union localFunctionArities context.projectFunctionArities
     }
 
 
@@ -847,6 +899,18 @@ currentLocalLetFunctionsNeedingSeed : Context -> Set String
 currentLocalLetFunctionsNeedingSeed context =
     context.localLetFunctionsNeedingSeed
         |> List.foldl Set.union Set.empty
+
+
+currentFunctionIsRecursive : Context -> Bool
+currentFunctionIsRecursive context =
+    case currentFunctionName context of
+        Just functionName ->
+            FreezeHelperPlanning.functionIsRecursive
+                (freezeKnowledge context)
+                ( context.moduleName, functionName )
+
+        Nothing ->
+            False
 
 
 callAlreadyHasFrozenIdSeed : List (Node Expression) -> Bool

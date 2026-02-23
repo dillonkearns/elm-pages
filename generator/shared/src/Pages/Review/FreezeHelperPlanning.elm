@@ -4,6 +4,7 @@ module Pages.Review.FreezeHelperPlanning exposing
     , computeTransitiveFreezeFunctions
     , findUnsupportedHelperFunctionValueArg
     , findUnsupportedLocalFunctionValueArg
+    , functionIsRecursive
     , functionContainsFreeze
     , helperCallNeedsFrozenId
     , isPartialHelperCall
@@ -105,6 +106,11 @@ functionContainsFreeze knowledge functionId =
     functionReachesFreeze Set.empty functionId knowledge
 
 
+functionIsRecursive : FreezeKnowledge -> FunctionId -> Bool
+functionIsRecursive knowledge functionId =
+    functionCanReachTarget Set.empty functionId functionId knowledge
+
+
 functionReachesFreeze : Set FunctionId -> FunctionId -> FreezeKnowledge -> Bool
 functionReachesFreeze visited functionId knowledge =
     if Set.member functionId visited then
@@ -131,6 +137,29 @@ functionReachesFreeze visited functionId knowledge =
                 )
                 False
                 callees
+
+
+functionCanReachTarget : Set FunctionId -> FunctionId -> FunctionId -> FreezeKnowledge -> Bool
+functionCanReachTarget visited targetFunctionId currentFunctionId knowledge =
+    if Set.member currentFunctionId visited then
+        False
+
+    else
+        let
+            nextVisited =
+                Set.insert currentFunctionId visited
+
+            callees =
+                lookupProjectFunctionCallees currentFunctionId knowledge
+        in
+        Set.foldl
+            (\callee reachesTarget ->
+                reachesTarget
+                    || functionIdsMatch callee targetFunctionId
+                    || functionCanReachTarget nextVisited targetFunctionId callee knowledge
+            )
+            False
+            callees
 
 
 projectFreezeContains : FunctionId -> FreezeKnowledge -> Bool

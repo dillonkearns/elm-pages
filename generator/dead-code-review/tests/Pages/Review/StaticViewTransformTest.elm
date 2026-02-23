@@ -6503,6 +6503,61 @@ view elmPagesFid_cardwrapper_view prefix user =
                                 ]
                               )
                             ]
+            , test "reports unsupported helper ID seeding in recursive helper function" <|
+                \() ->
+                    [ """module CardWrapper exposing (renderMany)
+
+import Html.Styled as Html
+import View
+
+renderMany users =
+    case users of
+        [] ->
+            []
+
+        user :: rest ->
+            [ View.freeze (Html.text user.name)
+            , renderMany rest
+            ]
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "CardWrapper"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                    , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                    , under = "View.freeze (Html.text user.name)"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module CardWrapper exposing (renderMany)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+renderMany elmPagesFid_cardwrapper_rendermany users =
+    case users of
+        [] ->
+            []
+
+        user :: rest ->
+            [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid_cardwrapper_rendermany ++ ":0") |> View.htmlToFreezable |> View.freeze)
+            , renderMany rest
+            ]
+"""
+                                , Review.Test.error
+                                    { message = "Frozen view codemod: unsupported helper ID seeding in repeated context"
+                                    , details =
+                                        [ "Cannot auto-seed frozen helper IDs inside recursive helper functions."
+                                        , "Refactor recursion so each invocation receives an explicit unique frozen ID seed."
+                                        ]
+                                    , under = "renderMany rest"
+                                    }
+                                ]
+                              )
+                            ]
             , test "idempotent: already transformed helper freeze and seeded route call produce no errors" <|
                 \() ->
                     [ """module Card exposing (view)
