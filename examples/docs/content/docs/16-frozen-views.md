@@ -24,7 +24,7 @@ See the [live demo route](/frozen-views).
 
 ## Usage
 
-To use Frozen Views, you wrap part of your view code (must be within a Route Module file) that doesn't depend on dynamic parameters like your `model` with a call to `View.freeze`:
+To use Frozen Views, you wrap part of your view code that doesn't depend on dynamic parameters like your `model` with a call to `View.freeze`. You can do this directly in a Route module or inside helper modules:
 
 ```elm
 type alias Data =
@@ -88,6 +88,49 @@ The frozen part renders to HTML at build time (or server-render time for server-
      in the content.dat response. -->
 <h1>Today's date: 2025-01-27</h1>
 ```
+
+## Helper Modules (Supported)
+
+`View.freeze` can live in helper modules, and those helpers can be called from route modules.
+
+```elm
+module FrozenHelper exposing (summaryCard)
+
+import Html exposing (Html, div, h3, p, text)
+import View
+
+
+summaryCard : { title : String, details : String } -> Html msg
+summaryCard info =
+    View.freeze
+        (div []
+            [ h3 [] [ text info.title ]
+            , p [] [ text info.details ]
+            ]
+        )
+```
+
+```elm
+view :
+    App Data ActionData RouteParams
+    -> Model
+    -> View (PagesMsg Msg)
+view app model =
+    { title = "My Page"
+    , body =
+        [ FrozenHelper.summaryCard
+            { title = "Server Data"
+            , details = app.data.summary
+            }
+        , FrozenHelper.summaryCard
+            { title = "Another Card"
+            , details = "Also frozen"
+            }
+        ]
+    }
+```
+
+As a rule of thumb, call frozen helpers directly where you render them (like above), rather than passing them around as function values.
 
 ## Mental Model: Server-Only vs Client Regions
 
@@ -391,6 +434,20 @@ This is especially useful in CI pipelines to enforce that all `View.freeze` call
 
 Without `--strict`, de-optimized freeze calls still work correctly — the rendering code just won't be eliminated from the client bundle for those specific calls.
 
-### Frozen views must be in Route Modules
+### Helper-Call Patterns That Are Still Unsupported
 
-Currently, `View.freeze` can only be called within Route Module `view` functions—not in `Shared.elm` or other helper modules. This is a temporary limitation for the initial release that will likely be removed in the future.
+Helper modules with `View.freeze` are supported, but there are still some contexts where the codemod cannot auto-seed unique helper IDs yet:
+
+- Repeated lambda contexts (for example `List.map (\user -> Card.view user)`)
+- Function-value and partial-application usage (for example `List.map Card.view` or `List.map (Card.view prefix)`)
+- Recursive helper re-entry without explicit ID threading
+
+In these cases, elm-pages reports a codemod error and asks you to refactor to static call sites.
+
+### Current Limitation: Codemod Scope
+
+Today, the frozen-view codemod runs on source files under `app/` (the source tree copied for client/server codegen). If freeze-enabled helpers live outside `app/`, they are currently outside codemod coverage.
+
+### TODO
+
+- Expand frozen-view codemod coverage beyond `app/` source modules.
