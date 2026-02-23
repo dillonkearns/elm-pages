@@ -65,6 +65,7 @@ type alias HelperAnalysis =
 type alias ProjectContext =
     { freezeFunctions : Dict ( ModuleName, String ) Int
     , functionCalls : Dict ( ModuleName, String ) (Set ( ModuleName, String ))
+    , functionArities : Dict ( ModuleName, String ) Int
     }
 
 
@@ -72,6 +73,7 @@ initialProjectContext : ProjectContext
 initialProjectContext =
     { freezeFunctions = Dict.empty
     , functionCalls = Dict.empty
+    , functionArities = Dict.empty
     }
 
 
@@ -79,6 +81,7 @@ type alias FunctionDeclarationInfo =
     { functionNameRange : Range
     , firstArgRange : Maybe Range
     , signatureTypeRange : Maybe Range
+    , argumentCount : Int
     , hasFidParam : Bool
     , hasFidTypeAnnotation : Bool
     }
@@ -89,6 +92,7 @@ type alias Context =
     , moduleName : ModuleName
     , projectFreezeFunctions : Dict ( ModuleName, String ) Int
     , projectFunctionCalls : Dict ( ModuleName, String ) (Set ( ModuleName, String ))
+    , projectFunctionArities : Dict ( ModuleName, String ) Int
     , htmlLazyImport : HtmlLazyImport
     , htmlImport : HtmlLazyImport -- tracks elm/html's Html module import and alias
     , lastImportRow : Int
@@ -216,6 +220,7 @@ fromProjectToModule =
             , moduleName = moduleName
             , projectFreezeFunctions = projectContext.freezeFunctions
             , projectFunctionCalls = projectContext.functionCalls
+            , projectFunctionArities = projectContext.functionArities
             , htmlLazyImport = NotImported
             , htmlImport = NotImported
             , lastImportRow = 2
@@ -268,6 +273,13 @@ fromModuleToProject =
                     Dict.empty
                     context.localTransformedFreezeFunctions
             , functionCalls = context.localFunctionCalls
+            , functionArities =
+                Dict.foldl
+                    (\functionName info acc ->
+                        Dict.insert ( moduleName, functionName ) info.argumentCount acc
+                    )
+                    Dict.empty
+                    context.functionDeclarationInfo
             }
         )
         |> Rule.withModuleName
@@ -296,9 +308,13 @@ foldProjectContexts a b =
 
         mergedDirectFreezeFunctions =
             Dict.union a.freezeFunctions b.freezeFunctions
+
+        mergedFunctionArities =
+            Dict.union a.functionArities b.functionArities
     in
     { freezeFunctions = computeTransitiveFreezeFunctions mergedDirectFreezeFunctions mergedFunctionCalls
     , functionCalls = mergedFunctionCalls
+    , functionArities = mergedFunctionArities
     }
 
 
@@ -445,6 +461,7 @@ declarationEnterVisitor node context =
                     { functionNameRange = Node.range functionDeclaration.name
                     , firstArgRange = List.head functionDeclaration.arguments |> Maybe.map Node.range
                     , signatureTypeRange = function.signature |> Maybe.map (\signatureNode -> Node.range (Node.value signatureNode).typeAnnotation)
+                    , argumentCount = List.length functionDeclaration.arguments
                     , hasFidParam =
                         case List.head functionDeclaration.arguments of
                             Just firstArg ->
@@ -1695,52 +1712,68 @@ rewriteHelperCallWithFrozenId : Node Expression -> Context -> ( List (Error {}),
 rewriteHelperCallWithFrozenId node context =
     case Node.value node of
         Expression.Application (functionNode :: args) ->
-            if shouldSeedHelperCallIds context && helperCallNeedsFrozenId functionNode context then
-                let
-                    contextWithFreezePresence =
-                        recordTransformedFreezeInCurrentFunction context
-                in
-                if contextWithFreezePresence.lambdaDepth > 0 then
-                    ( [ Rule.error
-                            { message = "Frozen view codemod: unsupported helper ID seeding in repeated context"
-                            , details =
-                                [ "Cannot auto-seed frozen helper IDs inside lambdas or higher-order iterations (for example List.map)."
-                                , "Refactor this helper call to a static call site so each invocation can get a unique frozen ID."
-                                ]
-                            }
-                            (Node.range node)
-                      ]
-                    , contextWithFreezePresence
-                    )
+            if shouldSeedHelperCallIds context then
+                case findUnsupportedHelperFunctionValueOrPartialArg args context of
+                    Just unsupportedArg ->
+                        ( [ unsupportedHelperFunctionValueOrPartialError "Frozen view codemod: unsupported helper function value or partial application" unsupportedArg ]
+                        , context
+                        )
 
-                else if callAlreadyHasFrozenIdSeed args then
-                    ( [], contextWithFreezePresence )
+                    Nothing ->
+                        if helperCallNeedsFrozenId functionNode context then
+                            let
+                                contextWithFreezePresence =
+                                    recordTransformedFreezeInCurrentFunction context
+                            in
+                            if isPartialHelperCall functionNode args contextWithFreezePresence then
+                                ( [ unsupportedHelperFunctionValueOrPartialError "Frozen view codemod: unsupported helper function value or partial application" node ]
+                                , contextWithFreezePresence
+                                )
 
-                else
-                    let
-                        ( frozenSeedExpression, contextWithSeed ) =
-                            nextHelperCallSeedExpression contextWithFreezePresence
+                            else if contextWithFreezePresence.lambdaDepth > 0 then
+                                ( [ Rule.error
+                                        { message = "Frozen view codemod: unsupported helper ID seeding in repeated context"
+                                        , details =
+                                            [ "Cannot auto-seed frozen helper IDs inside lambdas or higher-order iterations (for example List.map)."
+                                            , "Refactor this helper call to a static call site so each invocation can get a unique frozen ID."
+                                            ]
+                                        }
+                                        (Node.range node)
+                                  ]
+                                , contextWithFreezePresence
+                                )
 
-                        insertionFix =
-                            case args of
-                                firstArg :: _ ->
-                                    Review.Fix.insertAt (Node.range firstArg).start (frozenSeedExpression ++ " ")
+                            else if callAlreadyHasFrozenIdSeed args then
+                                ( [], contextWithFreezePresence )
 
-                                [] ->
-                                    Review.Fix.insertAt (Node.range functionNode).end (" " ++ frozenSeedExpression)
+                            else
+                                let
+                                    ( frozenSeedExpression, contextWithSeed ) =
+                                        nextHelperCallSeedExpression contextWithFreezePresence
 
-                        helperDeclarationFixes =
-                            helperFidInjectionFixes contextWithSeed
-                    in
-                    ( [ Rule.errorWithFix
-                            { message = "Frozen view codemod: pass frozen ID to helper call"
-                            , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
-                            }
-                            (Node.range node)
-                            (insertionFix :: helperDeclarationFixes)
-                      ]
-                    , markCurrentFunctionFidInjected contextWithSeed
-                    )
+                                    insertionFix =
+                                        case args of
+                                            firstArg :: _ ->
+                                                Review.Fix.insertAt (Node.range firstArg).start (frozenSeedExpression ++ " ")
+
+                                            [] ->
+                                                Review.Fix.insertAt (Node.range functionNode).end (" " ++ frozenSeedExpression)
+
+                                    helperDeclarationFixes =
+                                        helperFidInjectionFixes contextWithSeed
+                                in
+                                ( [ Rule.errorWithFix
+                                        { message = "Frozen view codemod: pass frozen ID to helper call"
+                                        , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                                        }
+                                        (Node.range node)
+                                        (insertionFix :: helperDeclarationFixes)
+                                  ]
+                                , markCurrentFunctionFidInjected contextWithSeed
+                                )
+
+                        else
+                            ( [], context )
 
             else
                 ( [], context )
@@ -1844,6 +1877,68 @@ moduleNameLastSegment moduleName =
     moduleName
         |> List.reverse
         |> List.head
+
+
+findUnsupportedHelperFunctionValueOrPartialArg : List (Node Expression) -> Context -> Maybe (Node Expression)
+findUnsupportedHelperFunctionValueOrPartialArg args context =
+    args
+        |> List.filter (\arg -> isUnsupportedHelperFunctionValueOrPartial arg context)
+        |> List.head
+
+
+isUnsupportedHelperFunctionValueOrPartial : Node Expression -> Context -> Bool
+isUnsupportedHelperFunctionValueOrPartial argNode context =
+    case Node.value (unwrapParenthesizedExpression argNode) of
+        Expression.FunctionOrValue _ _ ->
+            helperCallNeedsFrozenId argNode context
+
+        _ ->
+            False
+
+
+isPartialHelperCall : Node Expression -> List (Node Expression) -> Context -> Bool
+isPartialHelperCall functionNode args context =
+    case resolveCalledFunctionId functionNode context |> Maybe.andThen (\functionId -> lookupProjectFunctionArity functionId context) of
+        Just requiredArgCount ->
+            List.length args < requiredArgCount
+
+        Nothing ->
+            False
+
+
+lookupProjectFunctionArity : ( ModuleName, String ) -> Context -> Maybe Int
+lookupProjectFunctionArity functionId context =
+    let
+        matchingArities =
+            Dict.foldl
+                (\candidateId argCount acc ->
+                    if functionIdsMatch functionId candidateId then
+                        Set.insert argCount acc
+
+                    else
+                        acc
+                )
+                Set.empty
+                context.projectFunctionArities
+    in
+    case Set.toList matchingArities of
+        [ uniqueArgCount ] ->
+            Just uniqueArgCount
+
+        _ ->
+            Nothing
+
+
+unsupportedHelperFunctionValueOrPartialError : String -> Node Expression -> Error {}
+unsupportedHelperFunctionValueOrPartialError message expressionNode =
+    Rule.error
+        { message = message
+        , details =
+            [ "Cannot pass a helper containing View.freeze as a function value or partial application (for example List.map Helper.view)."
+            , "Refactor this helper call to a static call site so each invocation can get a unique frozen ID."
+            ]
+        }
+        (Node.range expressionNode)
 
 
 callAlreadyHasFrozenIdSeed : List (Node Expression) -> Bool

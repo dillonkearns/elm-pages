@@ -6237,5 +6237,159 @@ view elmPagesFid user =
                                 ]
                               )
                             ]
+            , test "reports unsupported helper function value usage in list.map" <|
+                \() ->
+                    [ """module Card exposing (view)
+
+import Html.Styled as Html
+import View
+
+view user =
+    View.freeze (Html.text user.name)
+"""
+                    , """module CardWrapper exposing (view)
+
+import Card
+
+view user =
+    Card.view user
+"""
+                    , """module Route.Index exposing (view)
+
+import CardWrapper
+
+view app =
+    { body =
+        app.data.users
+            |> List.map CardWrapper.view
+    }
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Card"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                    , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                    , under = "View.freeze (Html.text user.name)"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Card exposing (view)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view elmPagesFid user =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid ++ ":0") |> View.htmlToFreezable |> View.freeze)
+"""
+                                ]
+                              )
+                            , ( "CardWrapper"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: pass frozen ID to helper call"
+                                    , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                                    , under = "Card.view user"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module CardWrapper exposing (view)
+
+import Card
+
+view elmPagesFid user =
+    Card.view (elmPagesFid ++ ":0") user
+"""
+                                ]
+                              )
+                            , ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: unsupported helper function value or partial application"
+                                    , details =
+                                        [ "Cannot pass a helper containing View.freeze as a function value or partial application (for example List.map Helper.view)."
+                                        , "Refactor this helper call to a static call site so each invocation can get a unique frozen ID."
+                                        ]
+                                    , under = "CardWrapper.view"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "reports unsupported helper partial application in list.map" <|
+                \() ->
+                    [ """module Card exposing (view)
+
+import Html.Styled as Html
+import View
+
+view user =
+    View.freeze (Html.text user.name)
+"""
+                    , """module CardWrapper exposing (view)
+
+import Card
+
+view prefix user =
+    Card.view { name = prefix ++ user.name }
+"""
+                    , """module Route.Index exposing (view)
+
+import CardWrapper
+
+view app =
+    { body =
+        app.data.users
+            |> List.map (CardWrapper.view app.data.prefix)
+    }
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Card"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                    , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                    , under = "View.freeze (Html.text user.name)"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Card exposing (view)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view elmPagesFid user =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid ++ ":0") |> View.htmlToFreezable |> View.freeze)
+"""
+                                ]
+                              )
+                            , ( "CardWrapper"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: pass frozen ID to helper call"
+                                    , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                                    , under = "Card.view { name = prefix ++ user.name }"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module CardWrapper exposing (view)
+
+import Card
+
+view elmPagesFid prefix user =
+    Card.view (elmPagesFid ++ ":0") { name = prefix ++ user.name }
+"""
+                                ]
+                              )
+                            , ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: unsupported helper function value or partial application"
+                                    , details =
+                                        [ "Cannot pass a helper containing View.freeze as a function value or partial application (for example List.map Helper.view)."
+                                        , "Refactor this helper call to a static call site so each invocation can get a unique frozen ID."
+                                        ]
+                                    , under = "CardWrapper.view app.data.prefix"
+                                    }
+                                ]
+                              )
+                            ]
             ]
         ]
