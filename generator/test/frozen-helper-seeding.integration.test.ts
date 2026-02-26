@@ -1,5 +1,6 @@
 import {
   cpSync,
+  existsSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -11,6 +12,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sync as spawnSync } from "cross-spawn";
 import { afterEach, describe, expect, it } from "vitest";
+import { extractFrozenViews } from "../src/extract-frozen-views.js";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(testDir, "..", "..");
@@ -26,6 +28,12 @@ const buildModes = [
 ] as const;
 
 type BuildModeName = (typeof buildModes)[number]["name"];
+type RawBuildResult = {
+  status: number;
+  stdout: string;
+  stderr: string;
+  projectDir: string;
+};
 
 function stripAnsi(input: string): string {
   return input.replace(/\x1B\[[0-9;]*m/g, "");
@@ -105,6 +113,17 @@ function runElmPagesBuild(
   caseId: string,
   extraArgs: string[] = []
 ): { status: number; output: string } {
+  const rawResult = runElmPagesBuildRaw(caseId, extraArgs);
+  return {
+    status: rawResult.status,
+    output: relevantBuildOutput(rawResult.stdout, rawResult.stderr),
+  };
+}
+
+function runElmPagesBuildRaw(
+  caseId: string,
+  extraArgs: string[] = []
+): RawBuildResult {
   const projectDir = prepareProjectForCase(caseId);
   const cliPath = join(repoRoot, "generator", "src", "cli.js");
   const result = spawnSync(
@@ -120,8 +139,63 @@ function runElmPagesBuild(
 
   return {
     status: result.status ?? 1,
-    output: relevantBuildOutput(result.stdout ?? "", result.stderr ?? ""),
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+    projectDir,
   };
+}
+
+function parseFrozenViewsPrefixFromBytes(
+  bytes: Buffer
+): { regions: Record<string, string>; remainingByteLength: number } {
+  if (bytes.length < 4) {
+    throw new Error("Expected at least 4 bytes for frozen views length prefix.");
+  }
+
+  const frozenViewsLength = bytes.readUInt32BE(0);
+  const frozenViewsEnd = 4 + frozenViewsLength;
+  const frozenViewsJson = bytes.slice(4, frozenViewsEnd).toString("utf8");
+
+  return {
+    regions: JSON.parse(frozenViewsJson),
+    remainingByteLength: Math.max(0, bytes.length - frozenViewsEnd),
+  };
+}
+
+function extractBytesDataBase64(indexHtml: string): string {
+  const match = indexHtml.match(
+    /<script id="__ELM_PAGES_BYTES_DATA__" type="application\/octet-stream">([^<]+)<\/script>/
+  );
+
+  if (!match || !match[1]) {
+    throw new Error("Could not find __ELM_PAGES_BYTES_DATA__ script tag.");
+  }
+
+  return match[1];
+}
+
+function findModuleFileInWorkspace(
+  workspaceDir: string,
+  moduleRelativePath: string
+): string {
+  const elmJsonPath = join(workspaceDir, "elm.json");
+  const elmJson = JSON.parse(readFileSync(elmJsonPath, "utf8"));
+  const sourceDirectories = elmJson["source-directories"];
+
+  if (!Array.isArray(sourceDirectories)) {
+    throw new Error(`Invalid source-directories in ${elmJsonPath}`);
+  }
+
+  for (const sourceDirectory of sourceDirectories) {
+    const candidatePath = join(workspaceDir, sourceDirectory, moduleRelativePath);
+    if (existsSync(candidatePath)) {
+      return candidatePath;
+    }
+  }
+
+  throw new Error(
+    `Could not find ${moduleRelativePath} in workspace ${workspaceDir}`
+  );
 }
 
 function readExpectedResult(
@@ -170,4 +244,75 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
       );
     }
   }
+
+  it(
+    "supported-helper-src-module emits matching frozen view payloads with client/server seeding agreement",
+    () => {
+      const result = runElmPagesBuildRaw("supported-helper-src-module");
+      expect(result.status).toBe(0);
+
+      const indexHtmlPath = join(result.projectDir, "dist", "index.html");
+      const contentDatPath = join(result.projectDir, "dist", "content.dat");
+      const indexHtml = readFileSync(indexHtmlPath, "utf8");
+      const contentDatBytes = readFileSync(contentDatPath);
+
+      const extractedFromHtml = extractFrozenViews(indexHtml);
+      const contentDatDecoded = parseFrozenViewsPrefixFromBytes(contentDatBytes);
+
+      expect(Object.keys(contentDatDecoded.regions).sort()).toEqual(["0:0", "1:0"]);
+      expect(contentDatDecoded.regions).toEqual(extractedFromHtml);
+      expect(contentDatDecoded.regions["0:0"]).toContain("User: Alice");
+      expect(contentDatDecoded.regions["1:0"]).toContain("User: Bob");
+      expect(contentDatDecoded.remainingByteLength).toBeGreaterThan(0);
+
+      const bytesDataBase64 = extractBytesDataBase64(indexHtml);
+      const bytesDataDecoded = parseFrozenViewsPrefixFromBytes(
+        Buffer.from(bytesDataBase64, "base64")
+      );
+      expect(bytesDataDecoded.regions).toEqual({});
+      expect(bytesDataDecoded.remainingByteLength).toBeGreaterThan(0);
+
+      const clientWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "client");
+      const serverWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "server");
+      const clientHelperPath = findModuleFileInWorkspace(
+        clientWorkspace,
+        join("Ui", "FrozenHelper.elm")
+      );
+      const serverHelperPath = findModuleFileInWorkspace(
+        serverWorkspace,
+        join("Ui", "FrozenHelper.elm")
+      );
+      const clientHelper = readFileSync(clientHelperPath, "utf8");
+      const serverHelper = readFileSync(serverHelperPath, "utf8");
+
+      expect(clientHelper).toContain(
+        "summaryCard : String -> { name : String } -> Html msg"
+      );
+      expect(serverHelper).toContain(
+        "summaryCard : String -> { name : String } -> Html msg"
+      );
+      expect(clientHelper).toContain("++ \":0\")");
+      expect(serverHelper).toContain("++ \":0\")");
+
+      const clientRoute = readFileSync(
+        join(clientWorkspace, "app", "Route", "Index.elm"),
+        "utf8"
+      );
+      const serverRoute = readFileSync(
+        join(serverWorkspace, "app", "Route", "Index.elm"),
+        "utf8"
+      );
+      const callSeedPattern = /summaryCard \"([^\"]+)\"/g;
+      const clientSeeds = [...clientRoute.matchAll(callSeedPattern)].map(
+        (match) => match[1]
+      );
+      const serverSeeds = [...serverRoute.matchAll(callSeedPattern)].map(
+        (match) => match[1]
+      );
+
+      expect(clientSeeds).toEqual(["0", "1"]);
+      expect(serverSeeds).toEqual(clientSeeds);
+    },
+    integrationTestTimeoutMs
+  );
 });
