@@ -193,14 +193,12 @@ showStep (Options options_) =
     BackendTask.Internal.Request.request
         { name = "start-spinner"
         , body =
-            BackendTask.Http.jsonBody
-                ([ ( "text", Encode.string options_.text ) |> Just
-                 , ( "immediateStart", Encode.bool options_.immediateStart ) |> Just
-                 , options_.animation |> Maybe.map (\animation -> ( "spinner", Encode.string animation ))
-                 ]
-                    |> List.filterMap identity
-                    |> Encode.object
-                )
+            toInternalStartSpinnerBody
+                { text = options_.text
+                , spinnerId = Nothing
+                , immediateStart = options_.immediateStart
+                , spinner = options_.animation
+                }
         , expect =
             BackendTask.Http.expectJson
                 (Decode.map
@@ -235,13 +233,11 @@ runTaskWithOptions (Options options_) backendTask =
                             BackendTask.Internal.Request.request
                                 { name = "stop-spinner"
                                 , body =
-                                    BackendTask.Http.jsonBody
-                                        (Encode.object
-                                            [ ( "spinnerId", Encode.string spinnerId )
-                                            , ( "completionFn", encodeCompletionIcon completionIcon |> Encode.string )
-                                            , ( "completionText", completionText |> Maybe.map Encode.string |> Maybe.withDefault Encode.null )
-                                            ]
-                                        )
+                                    toInternalStopSpinnerBody
+                                        { spinnerId = spinnerId
+                                        , completionIcon = completionIcon
+                                        , completionText = completionText
+                                        }
                                 , expect = BackendTask.Http.expectJson (Decode.succeed ())
                                 }
                                 |> BackendTask.andThen (\() -> BackendTask.fail error)
@@ -255,13 +251,11 @@ runTaskWithOptions (Options options_) backendTask =
                             BackendTask.Internal.Request.request
                                 { name = "stop-spinner"
                                 , body =
-                                    BackendTask.Http.jsonBody
-                                        (Encode.object
-                                            [ ( "spinnerId", Encode.string spinnerId )
-                                            , ( "completionFn", encodeCompletionIcon completionIcon |> Encode.string )
-                                            , ( "completionText", completionText |> Maybe.map Encode.string |> Maybe.withDefault Encode.null )
-                                            ]
-                                        )
+                                    toInternalStopSpinnerBody
+                                        { spinnerId = spinnerId
+                                        , completionIcon = completionIcon
+                                        , completionText = completionText
+                                        }
                                 , expect = BackendTask.Http.expectJson (Decode.succeed value)
                                 }
                         )
@@ -316,14 +310,12 @@ runSpinnerWithTask (Spinner spinnerId (Options options_)) backendTask =
     BackendTask.Internal.Request.request
         { name = "start-spinner"
         , body =
-            BackendTask.Http.jsonBody
-                (Encode.object
-                    [ ( "text", Encode.string options_.text )
-                    , ( "spinnerId", Encode.string spinnerId )
-                    , ( "immediateStart", Encode.bool options_.immediateStart )
-                    , ( "spinner", Encode.string "line" )
-                    ]
-                )
+            toInternalStartSpinnerBody
+                { text = options_.text
+                , spinnerId = Just spinnerId
+                , immediateStart = options_.immediateStart
+                , spinner = Just "line"
+                }
         , expect = BackendTask.Http.expectJson (Decode.succeed ())
         }
         |> BackendTask.andThen (\() -> backendTask)
@@ -336,13 +328,11 @@ runSpinnerWithTask (Spinner spinnerId (Options options_)) backendTask =
                 BackendTask.Internal.Request.request
                     { name = "stop-spinner"
                     , body =
-                        BackendTask.Http.jsonBody
-                            (Encode.object
-                                [ ( "spinnerId", Encode.string spinnerId )
-                                , ( "completionFn", encodeCompletionIcon completionIcon |> Encode.string )
-                                , ( "completionText", completionText |> Maybe.map Encode.string |> Maybe.withDefault Encode.null )
-                                ]
-                            )
+                        toInternalStopSpinnerBody
+                            { spinnerId = spinnerId
+                            , completionIcon = completionIcon
+                            , completionText = completionText
+                            }
                     , expect = BackendTask.Http.expectJson (Decode.succeed value)
                     }
             )
@@ -355,13 +345,11 @@ runSpinnerWithTask (Spinner spinnerId (Options options_)) backendTask =
                 BackendTask.Internal.Request.request
                     { name = "stop-spinner"
                     , body =
-                        BackendTask.Http.jsonBody
-                            (Encode.object
-                                [ ( "spinnerId", Encode.string spinnerId )
-                                , ( "completionFn", encodeCompletionIcon completionIcon |> Encode.string )
-                                , ( "completionText", completionText |> Maybe.map Encode.string |> Maybe.withDefault Encode.null )
-                                ]
-                            )
+                        toInternalStopSpinnerBody
+                            { spinnerId = spinnerId
+                            , completionIcon = completionIcon
+                            , completionText = completionText
+                            }
                     , expect = BackendTask.Http.expectJson (Decode.succeed ())
                     }
                     |> BackendTask.andThen (\() -> BackendTask.fail error)
@@ -374,15 +362,12 @@ spinner text onCompletion task =
     BackendTask.Internal.Request.request
         { name = "start-spinner"
         , body =
-            BackendTask.Http.jsonBody
-                (Encode.object
-                    [ ( "text", Encode.string text )
-                    , ( "immediateStart", Encode.bool True )
-                    , ( "spinner", Encode.string "line" )
-
-                    -- TODO more ora options here
-                    ]
-                )
+            toInternalStartSpinnerBody
+                { text = text
+                , immediateStart = True
+                , spinnerId = Nothing
+                , spinner = Just "line"
+                }
         , expect =
             BackendTask.Http.expectJson Decode.string
         }
@@ -398,13 +383,11 @@ spinner text onCompletion task =
                             BackendTask.Internal.Request.request
                                 { name = "stop-spinner"
                                 , body =
-                                    BackendTask.Http.jsonBody
-                                        (Encode.object
-                                            [ ( "spinnerId", Encode.string spinnerId )
-                                            , ( "completionFn", encodeCompletionIcon completionIcon |> Encode.string )
-                                            , ( "completionText", completionText |> Maybe.map Encode.string |> Maybe.withDefault Encode.null )
-                                            ]
-                                        )
+                                    toInternalStopSpinnerBody
+                                        { spinnerId = spinnerId
+                                        , completionIcon = completionIcon
+                                        , completionText = completionText
+                                        }
                                 , expect = BackendTask.Http.expectJson (Decode.succeed ())
                                 }
                                 |> BackendTask.andThen (\() -> BackendTask.fail error)
@@ -418,17 +401,49 @@ spinner text onCompletion task =
                             BackendTask.Internal.Request.request
                                 { name = "stop-spinner"
                                 , body =
-                                    BackendTask.Http.jsonBody
-                                        (Encode.object
-                                            [ ( "spinnerId", Encode.string spinnerId )
-                                            , ( "completionFn", encodeCompletionIcon completionIcon |> Encode.string )
-                                            , ( "completionText", completionText |> Maybe.map Encode.string |> Maybe.withDefault Encode.null )
-                                            ]
-                                        )
+                                    toInternalStopSpinnerBody
+                                        { spinnerId = spinnerId
+                                        , completionIcon = completionIcon
+                                        , completionText = completionText
+                                        }
                                 , expect = BackendTask.Http.expectJson (Decode.succeed value)
                                 }
                         )
             )
+
+
+toInternalStartSpinnerBody :
+    { text : String
+    , immediateStart : Bool
+    , spinnerId : Maybe String
+    , spinner : Maybe String
+    }
+    -> BackendTask.Http.Body
+toInternalStartSpinnerBody ({ text, immediateStart } as config) =
+    [ Just ( "text", Encode.string text )
+    , Just ( "immediateStart", Encode.bool immediateStart )
+    , Maybe.map (\kind -> ( "spinnerId", Encode.string kind )) config.spinnerId
+    , Maybe.map (\kind -> ( "spinner", Encode.string kind )) config.spinner
+    ]
+        |> List.filterMap identity
+        |> Encode.object
+        |> BackendTask.Http.jsonBody
+
+
+toInternalStopSpinnerBody :
+    { spinnerId : String
+    , completionIcon : CompletionIcon
+    , completionText : Maybe String
+    }
+    -> BackendTask.Http.Body
+toInternalStopSpinnerBody { spinnerId, completionIcon, completionText } =
+    BackendTask.Http.jsonBody
+        (Encode.object
+            [ ( "spinnerId", Encode.string spinnerId )
+            , ( "completionFn", encodeCompletionIcon completionIcon |> Encode.string )
+            , ( "completionText", completionText |> Maybe.map Encode.string |> Maybe.withDefault Encode.null )
+            ]
+        )
 
 
 encodeCompletionIcon : CompletionIcon -> String

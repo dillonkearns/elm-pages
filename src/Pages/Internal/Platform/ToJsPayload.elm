@@ -2,12 +2,14 @@ module Pages.Internal.Platform.ToJsPayload exposing
     ( NewThingForPort
     , ToJsSuccessPayloadNew
     , ToJsSuccessPayloadNewCombined(..)
+    , sendToJs
     , successCodecNew2
     )
 
 import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
 import Codec exposing (Codec)
+import Codec.Advanced
 import Dict exposing (Dict)
 import Head
 import Json.Decode as Decode
@@ -93,15 +95,75 @@ type ToJsSuccessPayloadNewCombined
     | Port String
     | Errors (List BuildError)
     | ApiResponse
+    | PrintAndExitSuccess String
+    | FetchFrozenViews { path : String, query : Maybe String, body : Maybe String }
 
 
 successCodecNew2 : String -> String -> Codec ToJsSuccessPayloadNewCombined
 successCodecNew2 canonicalSiteUrl currentPagePath =
-    Codec.custom
-        (\errorsTag vApiResponse success vDoHttp vSendApiResponse vPort value ->
+    let
+        variant :
+            String
+            -> (a -> v)
+            -> Codec a
+            -> Codec.Advanced.AdvancedCodec ((a -> Codec.Value) -> b) v
+            -> Codec.Advanced.AdvancedCodec b v
+        variant name ctor argsCodec =
+            Codec.Advanced.variant ctor
+                (Codec.object identity
+                    |> Codec.constantField "tag" name Codec.string
+                    |> Codec.field "args" identity argsCodec
+                    |> Codec.buildObject
+                )
+
+        variant0 :
+            String
+            -> a
+            -> Codec.Advanced.AdvancedCodec ((() -> Codec.Value) -> b) a
+            -> Codec.Advanced.AdvancedCodec b a
+        variant0 name ctor =
+            variant name
+                (\_ -> ctor)
+                (Codec.list (Codec.fail "Expected an empty list")
+                    |> Codec.andThen
+                        (\l ->
+                            case l of
+                                [] ->
+                                    Codec.succeed ()
+
+                                h :: _ ->
+                                    never h
+                        )
+                        (\_ -> [])
+                )
+
+        variant1 :
+            String
+            -> (a -> v)
+            -> Codec a
+            -> Codec.Advanced.AdvancedCodec ((a -> Codec.Value) -> b) v
+            -> Codec.Advanced.AdvancedCodec b v
+        variant1 name ctor argCodec =
+            variant name
+                ctor
+                (Codec.list argCodec
+                    |> Codec.andThen
+                        (\l ->
+                            case l of
+                                [ x ] ->
+                                    Codec.succeed x
+
+                                _ ->
+                                    Codec.fail "Expected one element"
+                        )
+                        List.singleton
+                )
+    in
+    Codec.Advanced.custom
+        (\errorsTag vApiResponse success vDoHttp vSendApiResponse vPort vPrintExitAndSuccess vFetchFrozenViews value ->
             case value of
                 ApiResponse ->
-                    vApiResponse
+                    vApiResponse ()
 
                 Errors errorList ->
                     errorsTag errorList
@@ -117,12 +179,18 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
 
                 Port string ->
                     vPort string
+
+                PrintAndExitSuccess message ->
+                    vPrintExitAndSuccess message
+
+                FetchFrozenViews data ->
+                    vFetchFrozenViews data
         )
-        |> Codec.variant1 "Errors" Errors errorCodec
-        |> Codec.variant0 "ApiResponse" ApiResponse
-        |> Codec.variant1 "PageProgress" PageProgress (successCodecNew canonicalSiteUrl currentPagePath)
-        |> Codec.variant1 "DoHttp" DoHttp (Codec.list (Codec.tuple Codec.string Pages.StaticHttp.Request.codec))
-        |> Codec.variant1 "ApiResponse"
+        |> variant1 "Errors" Errors errorCodec
+        |> variant0 "ApiResponse" ApiResponse
+        |> variant1 "PageProgress" PageProgress (successCodecNew canonicalSiteUrl currentPagePath)
+        |> variant1 "DoHttp" DoHttp (Codec.list (Codec.tuple Codec.string Pages.StaticHttp.Request.codec))
+        |> variant1 "ApiResponse"
             SendApiResponse
             (Codec.object (\body staticHttpCache statusCode -> { body = body, staticHttpCache = staticHttpCache, statusCode = statusCode })
                 |> Codec.field "body" .body Codec.value
@@ -132,5 +200,28 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
                 |> Codec.field "statusCode" .statusCode Codec.int
                 |> Codec.buildObject
             )
-        |> Codec.variant1 "Port" Port Codec.string
-        |> Codec.buildCustom
+        |> variant1 "Port" Port Codec.string
+        |> Codec.Advanced.variant PrintAndExitSuccess Codec.string
+        |> Codec.Advanced.variant FetchFrozenViews
+            (Codec.object (\path query body -> { path = path, query = query, body = body })
+                |> Codec.constantField "tag" "FetchFrozenViews" Codec.string
+                |> Codec.field "path" .path Codec.string
+                |> Codec.field "query" .query (Codec.nullable Codec.string)
+                |> Codec.field "body" .body (Codec.nullable Codec.string)
+                |> Codec.buildObject
+            )
+        |> Codec.Advanced.build
+
+
+sendToJs :
+    { canonicalSiteUrl : String
+    , currentPagePath : String
+    , config : { config | toJsPort : Codec.Value -> Cmd Never }
+    }
+    -> ToJsSuccessPayloadNewCombined
+    -> Cmd msg
+sendToJs { canonicalSiteUrl, currentPagePath, config } payload =
+    payload
+        |> Codec.encoder (successCodecNew2 canonicalSiteUrl currentPagePath)
+        |> config.toJsPort
+        |> Cmd.map never

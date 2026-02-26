@@ -38,7 +38,7 @@
             "fredcy/elm-parseint": "2.0.1",
             "jluckyiv/elm-utc-date-strings": "1.0.0",
             "justinmimbs/date": "4.1.0",
-            "miniBill/elm-codec": "2.2.0",
+            "miniBill/elm-codec": "2.3.0",
             "miniBill/elm-unicode": "1.1.1",
             "noahzgordon/elm-color-extra": "1.0.2",
             "robinheghan/fnv1a": "1.0.0",

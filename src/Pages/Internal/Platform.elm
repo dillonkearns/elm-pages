@@ -32,6 +32,7 @@ import Pages.Fetcher
 import Pages.Flags
 import Pages.Internal.Msg
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
+import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
 import Pages.Navigation
@@ -1254,29 +1255,13 @@ perform config model effect =
         CancelRequest transitionKey ->
             Http.cancel (String.fromInt transitionKey)
 
-        FetchFrozenViews { path, query, body } ->
-            Json.Encode.object
-                [ ( "tag", Json.Encode.string "FetchFrozenViews" )
-                , ( "path", Json.Encode.string path )
-                , ( "query"
-                  , case query of
-                        Just q ->
-                            Json.Encode.string q
-
-                        Nothing ->
-                            Json.Encode.null
-                  )
-                , ( "body"
-                  , case body of
-                        Just b ->
-                            Json.Encode.string b
-
-                        Nothing ->
-                            Json.Encode.null
-                  )
-                ]
-                |> config.toJsPort
-                |> Cmd.map never
+        FetchFrozenViews data ->
+            ToJsPayload.FetchFrozenViews data
+                |> ToJsPayload.sendToJs
+                    { canonicalSiteUrl = ""
+                    , currentPagePath = ""
+                    , config = config
+                    }
 
 
 startFetcher : String -> Int -> { fields : List ( String, String ), url : Maybe String, decoder : Result error Bytes -> value, headers : List ( String, String ) } -> Model userModel pageData actionData sharedData -> Cmd (Msg value pageData actionData sharedData errorPage)

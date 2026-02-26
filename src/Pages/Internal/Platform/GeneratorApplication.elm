@@ -134,10 +134,19 @@ app config =
                       , fatal = True
                       }
                     ]
-                    |> Codec.encodeToValue (ToJsPayload.successCodecNew2 "" "")
-                    |> config.toJsPort
-                    |> Cmd.map never
-        , printAndExitSuccess = \string -> config.toJsPort (Encode.string string) |> Cmd.map never
+                    |> ToJsPayload.sendToJs
+                        { canonicalSiteUrl = ""
+                        , currentPagePath = ""
+                        , config = config
+                        }
+        , printAndExitSuccess =
+            \string ->
+                ToJsPayload.PrintAndExitSuccess string
+                    |> ToJsPayload.sendToJs
+                        { canonicalSiteUrl = ""
+                        , currentPagePath = ""
+                        , config = config
+                        }
         }
 
 
@@ -200,9 +209,11 @@ perform config effect =
                         ( Pages.StaticHttp.Request.hash request, request )
                     )
                 |> ToJsPayload.DoHttp
-                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
-                |> config.toJsPort
-                |> Cmd.map never
+                |> ToJsPayload.sendToJs
+                    { canonicalSiteUrl = canonicalSiteUrl
+                    , currentPagePath = ""
+                    , config = config
+                    }
 
         Effect.SendSinglePage info ->
             let
@@ -216,9 +227,11 @@ perform config effect =
                             ""
             in
             info
-                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
-                |> config.toJsPort
-                |> Cmd.map never
+                |> ToJsPayload.sendToJs
+                    { canonicalSiteUrl = canonicalSiteUrl
+                    , currentPagePath = currentPagePath
+                    , config = config
+                    }
 
         Effect.SendSinglePageNew rawBytes info ->
             let

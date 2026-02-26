@@ -32,7 +32,7 @@
             "lamdera/codecs": "1.0.0",
             "lamdera/core": "1.0.0",
             "mdgriffith/elm-codegen": "5.2.0",
-            "miniBill/elm-codec": "2.2.0",
+            "miniBill/elm-codec": "2.3.0",
             "noahzgordon/elm-color-extra": "1.0.2",
             "robinheghan/fnv1a": "1.0.0",
             "rtfeldman/elm-css": "18.0.0",
