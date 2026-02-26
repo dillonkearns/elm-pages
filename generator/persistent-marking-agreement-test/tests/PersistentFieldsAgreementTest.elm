@@ -345,6 +345,100 @@ someHelper items = ""
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
+            , test "AGREEMENT: helper called with app.data in multiple direct argument positions - server bails out (all persistent)" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { title : String
+    , subtitle : String
+    , body : String
+    }
+
+view app =
+    { title = combine app.data app.data
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+
+combine first second =
+    first.title ++ second.subtitle
+"""
+                    in
+                    -- Server bails out: multiple direct app.data arguments in one helper call
+                    -- are conservatively treated as untrackable to avoid incorrect field removal.
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectNoErrors
+            , test "AGREEMENT: helper called with app.data in multiple direct argument positions - client bails out (all persistent)" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+
+type alias Data =
+    { title : String
+    , subtitle : String
+    , body : String
+    }
+
+view app =
+    { title = combine app.data app.data
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]) ]
+    }
+
+combine first second =
+    first.title ++ second.subtitle
+"""
+                    in
+                    -- Client also bails out for the same reason (safe fallback).
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.div [ Html.Attributes.attribute \"data-static\" \"__STATIC__\" ] [ Html.text app.data.body ])"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import Html.Styled as Html
+import View
+import Html.Lazy
+type alias Data =
+    { title : String
+    , subtitle : String
+    , body : String
+    }
+
+view app =
+    { title = combine app.data app.data
+    , body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ]
+    }
+
+combine first second =
+    first.title ++ second.subtitle
+"""
+                            , Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)\"}"
+                                , details = [ "No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)" ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
             , test "AGREEMENT: record update on app.data binding - server bails out (all persistent)" <|
                 \() ->
                     -- Record update on a variable bound to app.data uses ALL fields from app.data

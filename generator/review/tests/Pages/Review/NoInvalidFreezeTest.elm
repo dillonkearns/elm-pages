@@ -372,6 +372,48 @@ view app shared model =
                                 ]
                               )
                             ]
+            , test "detects tainted argument through transitive helper wrapper that renders View.freeze" <|
+                \() ->
+                    [ """module FrozenHelper exposing (frozenUser)
+
+import View
+import Html exposing (text)
+
+frozenUser user =
+    View.freeze (text user.name)
+"""
+                    , """module WrappedHelper exposing (renderUser)
+
+import FrozenHelper
+
+renderUser user =
+    FrozenHelper.frozenUser user
+"""
+                    , """module Route.Index exposing (view)
+
+import WrappedHelper
+
+view app shared model =
+    WrappedHelper.renderUser model.user
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Tainted value passed to `renderUser`, which is used in View.freeze"
+                                    , details =
+                                        [ "This argument depends on `model` or other runtime data, and `renderUser` renders frozen content."
+                                        , "Frozen content is rendered once at build time. Values derived from `model` will be stale and won't update when the model changes."
+                                        , "To fix this, either:"
+                                        , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                        , "2. Only pass build-time data (`app.data`, `app.sharedData`, `app.routeParams`, `app.path`, `app.action`) to helpers that render `View.freeze`"
+                                        ]
+                                    , under = "model.user"
+                                    }
+                                ]
+                              )
+                            ]
             , test "detects taint through let binding passed to helper" <|
                 \() ->
                     -- With deduplication, only one error per location.

@@ -2268,6 +2268,7 @@ extractAppDataAccessorApplicationField functionNode argNode appParamName appData
 -}
 type alias AppDataClassification =
     { hasDirectAppData : Bool -- app.data passed directly as argument
+    , hasMultipleDirectAppData : Bool -- app.data passed directly in multiple argument positions
     , hasWrappedAppData : Bool -- app.data wrapped in list/tuple/etc.
     , isAccessorApplication : Bool -- .field app.data pattern (handled by trackFieldAccess)
     , maybeFunctionKey : Maybe String -- module-qualified helper key if applicable
@@ -2405,6 +2406,9 @@ classifyAppDataArguments functionNode args appParamName appDataBindings isFreeze
         hasDirectAppData =
             not (List.isEmpty directAppDataIndices)
 
+        hasMultipleDirectAppData =
+            List.length directAppDataIndices > 1
+
         hasWrappedAppData =
             not (List.isEmpty wrappedAppDataArgs)
 
@@ -2432,6 +2436,7 @@ classifyAppDataArguments functionNode args appParamName appDataBindings isFreeze
                 |> Maybe.map functionIdToHelperKey
     in
     { hasDirectAppData = hasDirectAppData
+    , hasMultipleDirectAppData = hasMultipleDirectAppData
     , hasWrappedAppData = hasWrappedAppData
     , isAccessorApplication = isAccessorApplication
     , maybeFunctionKey = maybeFunctionKey
@@ -2644,6 +2649,11 @@ determinePendingHelperAction classification =
     -- which is already handled by trackFieldAccess
     if classification.isAccessorApplication then
         NoHelperAction
+
+    else if classification.hasMultipleDirectAppData then
+        -- Multiple direct app.data args in one call are ambiguous for current helper tracking.
+        -- Use safe fallback to avoid removing fields incorrectly.
+        AddUnknownHelper
 
     else if classification.hasWrappedAppData then
         -- app.data is wrapped in list/tuple/etc. - can't track, bail out

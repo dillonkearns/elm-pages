@@ -500,11 +500,25 @@ expressionContainsViewFreeze context node =
 
     else
         case Node.value node of
-            Expression.Application expressions ->
-                List.any (expressionContainsViewFreeze context) expressions
+            Expression.Application (functionNode :: args) ->
+                functionContainsFreezeFromSummary context functionNode
+                    || List.any (expressionContainsViewFreeze context) (functionNode :: args)
 
-            Expression.OperatorApplication _ _ leftExpr rightExpr ->
-                expressionContainsViewFreeze context leftExpr
+            Expression.Application [] ->
+                False
+
+            Expression.OperatorApplication operator _ leftExpr rightExpr ->
+                (case operator of
+                    "|>" ->
+                        functionContainsFreezeFromSummary context rightExpr
+
+                    "<|" ->
+                        functionContainsFreezeFromSummary context leftExpr
+
+                    _ ->
+                        False
+                )
+                    || expressionContainsViewFreeze context leftExpr
                     || expressionContainsViewFreeze context rightExpr
 
             Expression.IfBlock condition thenBranch elseBranch ->
@@ -563,6 +577,32 @@ letDeclarationContainsViewFreeze context letDeclarationNode =
 
         Expression.LetDestructuring _ expression ->
             expressionContainsViewFreeze context expression
+
+
+functionContainsFreezeFromSummary : ModuleContext -> Node Expression -> Bool
+functionContainsFreezeFromSummary context functionNode =
+    case resolveFunctionId context functionNode of
+        Just functionId ->
+            lookupFunctionTaintInfo context functionId
+                |> Maybe.map .containsFreeze
+                |> Maybe.withDefault False
+
+        Nothing ->
+            False
+
+
+lookupFunctionTaintInfo : ModuleContext -> ( ModuleName, String ) -> Maybe FunctionTaintInfo
+lookupFunctionTaintInfo context ( moduleName, functionName ) =
+    case Dict.get ( moduleName, functionName ) context.projectFunctions of
+        Just functionInfo ->
+            Just functionInfo
+
+        Nothing ->
+            if moduleName == context.moduleName then
+                Dict.get functionName context.collectedFunctions
+
+            else
+                Nothing
 
 
 expressionEnterVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
