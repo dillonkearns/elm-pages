@@ -59,7 +59,7 @@ view app =
     , body : String
     }"""
                                 }
-                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
 
 import Helpers
 import Html
@@ -80,37 +80,6 @@ type alias Data =
 ephemeralToData : Ephemeral -> Data
 ephemeralToData ephemeral =
     { title = ephemeral.title
-    }
-
-view app =
-    { title = Helpers.titleFromData app.data
-    , body =
-        [ View.freeze
-            (View.htmlToFreezable
-                (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Helpers.bodyFromData app.data) ])
-            )
-        ]
-    }
-"""
-                            , Review.Test.error
-                                { message = "Server codemod: export Ephemeral type"
-                                , details =
-                                    [ "Adding Ephemeral to module exports."
-                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
-                                    ]
-                                , under = "Data"
-                                }
-                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
-                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
-
-import Helpers
-import Html
-import Html.Attributes
-import View
-
-type alias Data =
-    { title : String
-    , body : String
     }
 
 view app =
