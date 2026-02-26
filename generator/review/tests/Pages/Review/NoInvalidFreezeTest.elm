@@ -255,6 +255,123 @@ view app shared model =
                     ]
                         |> Review.Test.runOnModules rule
                         |> Review.Test.expectNoErrors
+            , test "detects tainted argument passed to helper that renders View.freeze" <|
+                \() ->
+                    [ """module Helpers exposing (frozenUser)
+
+import View
+import Html exposing (text)
+
+frozenUser user =
+    View.freeze (text user.name)
+"""
+                    , """module Route.Index exposing (view)
+
+import Helpers
+import Html exposing (text)
+
+view app shared model =
+    Helpers.frozenUser model.user
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Tainted value passed to `frozenUser`, which is used in View.freeze"
+                                    , details =
+                                        [ "This argument depends on `model` or other runtime data, and `frozenUser` renders frozen content."
+                                        , "Frozen content is rendered once at build time. Values derived from `model` will be stale and won't update when the model changes."
+                                        , "To fix this, either:"
+                                        , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                        , "2. Only pass build-time data (`app.data`, `app.sharedData`, `app.routeParams`, `app.path`, `app.action`) to helpers that render `View.freeze`"
+                                        ]
+                                    , under = "model.user"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "mixed call sites: only tainted helper argument is reported" <|
+                \() ->
+                    [ """module Helpers exposing (frozenUser)
+
+import View
+import Html exposing (text)
+
+frozenUser user =
+    View.freeze (text user.name)
+"""
+                    , """module Route.Index exposing (view)
+
+import Helpers
+import Html exposing (div, text)
+
+view app shared model =
+    div []
+        [ Helpers.frozenUser app.data.user
+        , Helpers.frozenUser model.user
+        ]
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Tainted value passed to `frozenUser`, which is used in View.freeze"
+                                    , details =
+                                        [ "This argument depends on `model` or other runtime data, and `frozenUser` renders frozen content."
+                                        , "Frozen content is rendered once at build time. Values derived from `model` will be stale and won't update when the model changes."
+                                        , "To fix this, either:"
+                                        , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                        , "2. Only pass build-time data (`app.data`, `app.sharedData`, `app.routeParams`, `app.path`, `app.action`) to helpers that render `View.freeze`"
+                                        ]
+                                    , under = "model.user"
+                                    }
+                                ]
+                              )
+                            ]
+            , test "different route modules: only tainted module call site is reported" <|
+                \() ->
+                    [ """module Helpers exposing (frozenUser)
+
+import View
+import Html exposing (text)
+
+frozenUser user =
+    View.freeze (text user.name)
+"""
+                    , """module Route.Index exposing (view)
+
+import Helpers
+
+view app shared model =
+    Helpers.frozenUser app.data.user
+"""
+                    , """module Route.Admin exposing (view)
+
+import Helpers
+
+view app shared model =
+    Helpers.frozenUser model.user
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Admin"
+                              , [ Review.Test.error
+                                    { message = "Tainted value passed to `frozenUser`, which is used in View.freeze"
+                                    , details =
+                                        [ "This argument depends on `model` or other runtime data, and `frozenUser` renders frozen content."
+                                        , "Frozen content is rendered once at build time. Values derived from `model` will be stale and won't update when the model changes."
+                                        , "To fix this, either:"
+                                        , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                        , "2. Only pass build-time data (`app.data`, `app.sharedData`, `app.routeParams`, `app.path`, `app.action`) to helpers that render `View.freeze`"
+                                        ]
+                                    , under = "model.user"
+                                    }
+                                ]
+                              )
+                            ]
             , test "detects taint through let binding passed to helper" <|
                 \() ->
                     -- With deduplication, only one error per location.

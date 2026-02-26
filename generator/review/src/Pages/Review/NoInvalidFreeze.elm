@@ -61,11 +61,13 @@ rangeToComparable range =
 
   - `capturesTaint`: True if the function body references tainted values from outer scope
   - `paramsThatTaintResult`: Set of parameter indices (0-based) that flow through to the result
+  - `containsFreeze`: True if the function body contains a View.freeze call
 
 -}
 type alias FunctionTaintInfo =
     { capturesTaint : Bool
     , paramsThatTaintResult : Set Int
+    , containsFreeze : Bool
     }
 
 
@@ -87,7 +89,8 @@ initialProjectContext =
 
 
 type alias ModuleContext =
-    { lookupTable : ModuleNameLookupTable
+    { moduleName : ModuleName
+    , lookupTable : ModuleNameLookupTable
     , isAllowedModule : Bool
     , freezeStack : List Range
     , appParamName : Maybe String
@@ -137,7 +140,8 @@ fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
         (\lookupTable moduleName projectContext ->
-            { lookupTable = lookupTable
+            { moduleName = moduleName
+            , lookupTable = lookupTable
             , isAllowedModule = True
             , freezeStack = []
             , appParamName = Nothing
@@ -357,9 +361,13 @@ declarationEnterVisitor node context =
                 capturesTaint =
                     analyzeExpressionTaint context functionDecl.expression == Tainted
 
+                containsFreeze =
+                    expressionContainsViewFreeze context functionDecl.expression
+
                 functionInfo =
                     { capturesTaint = capturesTaint
                     , paramsThatTaintResult = paramsThatTaint
+                    , containsFreeze = containsFreeze
                     }
 
                 newCollected =
@@ -474,12 +482,102 @@ isFreezeNode context (Node range expr) =
             False
 
 
+{-| Check whether an expression contains a View.freeze call anywhere in its subtree.
+-}
+expressionContainsViewFreeze : ModuleContext -> Node Expression -> Bool
+expressionContainsViewFreeze context node =
+    let
+        isDirectFreezeCall =
+            case extractFreezeCallNode node of
+                Just functionNode ->
+                    isFreezeNode context functionNode
+
+                Nothing ->
+                    False
+    in
+    if isDirectFreezeCall then
+        True
+
+    else
+        case Node.value node of
+            Expression.Application expressions ->
+                List.any (expressionContainsViewFreeze context) expressions
+
+            Expression.OperatorApplication _ _ leftExpr rightExpr ->
+                expressionContainsViewFreeze context leftExpr
+                    || expressionContainsViewFreeze context rightExpr
+
+            Expression.IfBlock condition thenBranch elseBranch ->
+                expressionContainsViewFreeze context condition
+                    || expressionContainsViewFreeze context thenBranch
+                    || expressionContainsViewFreeze context elseBranch
+
+            Expression.TupledExpression expressions ->
+                List.any (expressionContainsViewFreeze context) expressions
+
+            Expression.ListExpr expressions ->
+                List.any (expressionContainsViewFreeze context) expressions
+
+            Expression.ParenthesizedExpression expression ->
+                expressionContainsViewFreeze context expression
+
+            Expression.RecordExpr fields ->
+                fields
+                    |> List.any
+                        (\(Node _ ( _, fieldExpr )) ->
+                            expressionContainsViewFreeze context fieldExpr
+                        )
+
+            Expression.RecordUpdateExpression _ fields ->
+                fields
+                    |> List.any
+                        (\(Node _ ( _, fieldExpr )) ->
+                            expressionContainsViewFreeze context fieldExpr
+                        )
+
+            Expression.LambdaExpression lambda ->
+                expressionContainsViewFreeze context lambda.expression
+
+            Expression.LetExpression letBlock ->
+                List.any (letDeclarationContainsViewFreeze context) letBlock.declarations
+                    || expressionContainsViewFreeze context letBlock.expression
+
+            Expression.CaseExpression caseBlock ->
+                expressionContainsViewFreeze context caseBlock.expression
+                    || List.any
+                        (\( _, branchExpr ) -> expressionContainsViewFreeze context branchExpr)
+                        caseBlock.cases
+
+            Expression.Negation expression ->
+                expressionContainsViewFreeze context expression
+
+            _ ->
+                False
+
+
+letDeclarationContainsViewFreeze : ModuleContext -> Node Expression.LetDeclaration -> Bool
+letDeclarationContainsViewFreeze context letDeclarationNode =
+    case Node.value letDeclarationNode of
+        Expression.LetFunction letFunction ->
+            expressionContainsViewFreeze context (Node.value letFunction.declaration).expression
+
+        Expression.LetDestructuring _ expression ->
+            expressionContainsViewFreeze context expression
+
+
 expressionEnterVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
 expressionEnterVisitor node context =
-    -- First, track entering tainted conditionals (if/case)
-    context
-        |> trackEnteringTaintedConditionals node
-        |> checkFreezeCall node
+    let
+        contextWithTaintedConditionals =
+            trackEnteringTaintedConditionals node context
+
+        ( frozenHelperCallErrors, contextWithFrozenHelperCheck ) =
+            checkTaintedArgsPassedToFrozenHelperCall node contextWithTaintedConditionals
+
+        ( freezeCallErrors, contextWithFreezeCheck ) =
+            checkFreezeCall node contextWithFrozenHelperCheck
+    in
+    ( frozenHelperCallErrors ++ freezeCallErrors, contextWithFreezeCheck )
 
 
 trackEnteringTaintedConditionals : Node Expression -> ModuleContext -> ModuleContext
@@ -559,6 +657,71 @@ Returns Just error if not allowed, Nothing if allowed or not a frozen view funct
 checkFrozenViewFunctionCall : Node Expression -> ModuleContext -> Maybe (Error {})
 checkFrozenViewFunctionCall functionNode context =
     Nothing
+
+
+{-| Check call sites outside freeze contexts for tainted arguments passed to helpers
+that render View.freeze.
+-}
+checkTaintedArgsPassedToFrozenHelperCall : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+checkTaintedArgsPassedToFrozenHelperCall node context =
+    if not (List.isEmpty context.freezeStack) then
+        ( [], context )
+
+    else
+        case Node.value node of
+            Expression.Application (functionNode :: args) ->
+                checkTaintedArgsForFrozenHelper functionNode args context []
+
+            Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
+                checkTaintedArgsForFrozenHelper rightExpr [ leftExpr ] context []
+
+            Expression.OperatorApplication "<|" _ leftExpr rightExpr ->
+                checkTaintedArgsForFrozenHelper leftExpr [ rightExpr ] context []
+
+            _ ->
+                ( [], context )
+
+
+checkTaintedArgsForFrozenHelper :
+    Node Expression
+    -> List (Node Expression)
+    -> ModuleContext
+    -> List (Error {})
+    -> ( List (Error {}), ModuleContext )
+checkTaintedArgsForFrozenHelper functionNode args context accErrors =
+    case resolveFunctionId context functionNode of
+        Just ( moduleName, functionName ) ->
+            case Dict.get ( moduleName, functionName ) context.projectFunctions of
+                Just functionInfo ->
+                    if functionInfo.containsFreeze then
+                        args
+                            |> List.indexedMap
+                                (\idx argNode ->
+                                    if Set.member idx functionInfo.paramsThatTaintResult then
+                                        case analyzeExpressionTaint context argNode of
+                                            Tainted ->
+                                                Just
+                                                    ( Node.range argNode
+                                                    , taintedValuePassedToFrozenHelperError (Node.range argNode) functionName
+                                                    )
+
+                                            Pure ->
+                                                Nothing
+
+                                    else
+                                        Nothing
+                                )
+                            |> List.filterMap identity
+                            |> (\errorPairs -> collectErrors errorPairs context accErrors)
+
+                    else
+                        ( accErrors, context )
+
+                Nothing ->
+                    ( accErrors, context )
+
+        Nothing ->
+            ( accErrors, context )
 
 
 expressionExitVisitor : Node Expression -> ModuleContext -> ModuleContext
@@ -715,46 +878,64 @@ checkTaintedReference node context accErrors =
             ( accErrors, context )
 
 
+resolveFunctionId : ModuleContext -> Node Expression -> Maybe ( ModuleName, String )
+resolveFunctionId context functionNode =
+    let
+        unwrappedFunctionNode =
+            unwrapParenthesizedExpression functionNode
+    in
+    case Node.value unwrappedFunctionNode of
+        Expression.FunctionOrValue qualifier functionName ->
+            case ModuleNameLookupTable.moduleNameFor context.lookupTable unwrappedFunctionNode of
+                Just resolvedModuleName ->
+                    if List.isEmpty resolvedModuleName then
+                        Just ( context.moduleName, functionName )
+
+                    else
+                        Just ( resolvedModuleName, functionName )
+
+                Nothing ->
+                    if List.isEmpty qualifier then
+                        Just ( context.moduleName, functionName )
+
+                    else
+                        Just ( qualifier, functionName )
+
+        _ ->
+            Nothing
+
+
 {-| Check if a cross-module function call passes tainted values.
 -}
 checkCrossModuleCall : Node Expression -> List (Node Expression) -> ModuleContext -> List (Error {}) -> ( List (Error {}), ModuleContext )
 checkCrossModuleCall functionNode args context accErrors =
-    case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
-        Just moduleName ->
-            case Node.value functionNode of
-                Expression.FunctionOrValue _ functionName ->
-                    let
-                        key =
-                            ( moduleName, functionName )
-                    in
-                    case Dict.get key context.projectFunctions of
-                        Just functionInfo ->
-                            -- Check if any tainted arg is passed to a param that taints result
-                            args
-                                |> List.indexedMap
-                                    (\idx argNode ->
-                                        if Set.member idx functionInfo.paramsThatTaintResult then
-                                            case analyzeExpressionTaint context argNode of
-                                                Tainted ->
-                                                    Just
-                                                        ( Node.range argNode
-                                                        , crossModuleTaintError (Node.range argNode) functionName
-                                                        )
+    case resolveFunctionId context functionNode of
+        Just ( moduleName, functionName ) ->
+            case Dict.get ( moduleName, functionName ) context.projectFunctions of
+                Just functionInfo ->
+                    -- Check if any tainted arg is passed to a param that taints result
+                    args
+                        |> List.indexedMap
+                            (\idx argNode ->
+                                if Set.member idx functionInfo.paramsThatTaintResult then
+                                    case analyzeExpressionTaint context argNode of
+                                        Tainted ->
+                                            Just
+                                                ( Node.range argNode
+                                                , crossModuleTaintError (Node.range argNode) functionName
+                                                )
 
-                                                Pure ->
-                                                    Nothing
-
-                                        else
+                                        Pure ->
                                             Nothing
-                                    )
-                                |> List.filterMap identity
-                                |> (\errorPairs -> collectErrors errorPairs context accErrors)
 
-                        Nothing ->
-                            -- Unknown function (external package) - no error
-                            ( accErrors, context )
+                                else
+                                    Nothing
+                            )
+                        |> List.filterMap identity
+                        |> (\errorPairs -> collectErrors errorPairs context accErrors)
 
-                _ ->
+                Nothing ->
+                    -- Unknown function (external package) - no error
                     ( accErrors, context )
 
         Nothing ->
@@ -943,6 +1124,21 @@ caseOnTaintedValueError range varName =
             [ "`" ++ varName ++ "` depends on `model` or other runtime data that doesn't exist at build time."
             , "Using `case " ++ varName ++ " of` inside `View.freeze` depends on data that won't exist at build time."
             , "To fix this, move the model-dependent content outside of `View.freeze`."
+            ]
+        }
+        range
+
+
+taintedValuePassedToFrozenHelperError : Range -> String -> Error {}
+taintedValuePassedToFrozenHelperError range functionName =
+    Rule.error
+        { message = "Tainted value passed to `" ++ functionName ++ "`, which is used in View.freeze"
+        , details =
+            [ "This argument depends on `model` or other runtime data, and `" ++ functionName ++ "` renders frozen content."
+            , "Frozen content is rendered once at build time. Values derived from `model` will be stale and won't update when the model changes."
+            , "To fix this, either:"
+            , "1. Move the model-dependent content outside of `View.freeze`, or"
+            , "2. Only pass build-time data (`app.data`, `app.sharedData`, `app.routeParams`, `app.path`, `app.action`) to helpers that render `View.freeze`"
             ]
         }
         range
