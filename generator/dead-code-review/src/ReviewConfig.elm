@@ -10,5 +10,4 @@ config =
     [ Pages.Review.DeadCodeEliminateData.rule
         |> Rule.filterErrorsForFiles (String.startsWith "app/")
     , Pages.Review.StaticViewTransform.rule
-        |> Rule.filterErrorsForFiles (String.startsWith "app/")
     ]

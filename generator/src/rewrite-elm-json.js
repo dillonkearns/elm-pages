@@ -18,6 +18,10 @@ export async function rewriteElmJson(
 }
 
 function rewriteElmJsonHelp(elmJson, options) {
+  const localSourceDirectories =
+    options && options.localSourceDirectories
+      ? options.localSourceDirectories
+      : null;
   // The internal generated file will be at:
   // ./elm-stuff/elm-pages/ (depth 2) or ./elm-stuff/elm-pages/server/ (depth 3)
   // So, we need to take the existing elmJson and
@@ -36,7 +40,12 @@ function rewriteElmJsonHelp(elmJson, options) {
   const keepAppLocal = options && options.keepAppLocal;
 
   elmJson["source-directories"] = elmJson["source-directories"].map((item) => {
-    if (item === ".") {
+    if (
+      localSourceDirectories &&
+      Object.prototype.hasOwnProperty.call(localSourceDirectories, item)
+    ) {
+      return localSourceDirectories[item];
+    } else if (item === ".") {
       return "parentDirectory";
     } else if (keepAppLocal && item === "app") {
       // Keep app local for server folder - files are copied and transformed there

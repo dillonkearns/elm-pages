@@ -8,12 +8,13 @@ import { default as which } from "which";
 import { generateTemplateModuleConnector } from "./generate-template-module-connector.js";
 
 import * as path from "path";
-import { ensureDirSync, deleteIfExists, writeFileIfChanged, copyDirIfNewer, copyFileIfNewer } from "./file-helpers.js";
+import { ensureDirSync, deleteIfExists, writeFileIfChanged, copyFileIfNewer } from "./file-helpers.js";
 import { fileURLToPath } from "url";
 global.builtAt = new Date();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const SOURCE_DIRECTORY_MIRROR_ROOT = ".elm-pages-source-directories";
 
 /**
  * @param {string} basePath
@@ -94,6 +95,158 @@ async function newCopyBoth(modulePath) {
 }
 
 /**
+ * Mirror all project source-directories into the codemod workspace so elm-review
+ * fixes are applied to copied files instead of mutating the original project.
+ *
+ * @param {string} targetRootDir
+ * @returns {Promise<Record<string, string>>}
+ */
+async function prepareSourceDirectoriesForCodemod(targetRootDir) {
+  const elmJson = JSON.parse((await fs.promises.readFile("./elm.json")).toString());
+  const sourceDirectories = Array.isArray(elmJson["source-directories"])
+    ? elmJson["source-directories"]
+    : [];
+  /** @type {Record<string, string>} */
+  const localSourceDirectories = {};
+  let mirroredDirectoryIndex = 0;
+
+  for (const sourceDirectory of sourceDirectories) {
+    if (sourceDirectory === ".elm-pages") {
+      continue;
+    }
+
+    const localDirectory =
+      sourceDirectory === "app"
+        ? "app"
+        : `${SOURCE_DIRECTORY_MIRROR_ROOT}/${mirroredDirectoryIndex++}`;
+    localSourceDirectories[sourceDirectory] = localDirectory;
+
+    const sourceAbsolutePath = path.resolve(process.cwd(), sourceDirectory);
+    const destinationAbsolutePath = path.join(targetRootDir, localDirectory);
+    await syncElmSourceDirectory(sourceAbsolutePath, destinationAbsolutePath, {
+      excludeBuildArtifacts: sourceDirectory === ".",
+    });
+  }
+
+  await cleanupStaleMirroredSourceDirectories(targetRootDir, mirroredDirectoryIndex);
+
+  return localSourceDirectories;
+}
+
+/**
+ * @param {string} sourceDirectory
+ * @param {string} destinationDirectory
+ * @param {{excludeBuildArtifacts?: boolean}} [options]
+ */
+async function syncElmSourceDirectory(sourceDirectory, destinationDirectory, options = {}) {
+  ensureDirSync(destinationDirectory);
+  const sourceElmFiles = await listElmFiles(sourceDirectory, {
+    excludeBuildArtifacts: options.excludeBuildArtifacts === true,
+  });
+  const sourceElmFileSet = new Set(sourceElmFiles);
+
+  for (const relativeElmPath of sourceElmFiles) {
+    const sourcePath = path.join(sourceDirectory, relativeElmPath);
+    const destinationPath = path.join(destinationDirectory, relativeElmPath);
+    ensureDirSync(path.dirname(destinationPath));
+    await copyFileIfNewer(sourcePath, destinationPath);
+  }
+
+  const destinationElmFiles = await listElmFiles(destinationDirectory);
+  for (const relativeElmPath of destinationElmFiles) {
+    if (!sourceElmFileSet.has(relativeElmPath)) {
+      await fs.promises.unlink(path.join(destinationDirectory, relativeElmPath));
+    }
+  }
+}
+
+/**
+ * @param {string} baseDirectory
+ * @param {{excludeBuildArtifacts?: boolean}} [options]
+ * @returns {Promise<string[]>}
+ */
+async function listElmFiles(baseDirectory, options = {}) {
+  const topLevelIgnoredNames =
+    options.excludeBuildArtifacts === true
+      ? new Set(["elm-stuff", "node_modules", ".git", "dist"])
+      : new Set();
+  return listElmFilesHelp(baseDirectory, "", topLevelIgnoredNames);
+}
+
+/**
+ * @param {string} baseDirectory
+ * @param {string} relativeDirectory
+ * @param {Set<string>} topLevelIgnoredNames
+ * @returns {Promise<string[]>}
+ */
+async function listElmFilesHelp(baseDirectory, relativeDirectory, topLevelIgnoredNames) {
+  const absoluteDirectory =
+    relativeDirectory === ""
+      ? baseDirectory
+      : path.join(baseDirectory, relativeDirectory);
+  const entries = await fs.promises.readdir(absoluteDirectory, {
+    withFileTypes: true,
+  });
+  const files = [];
+
+  for (const entry of entries) {
+    const relativeEntryPath =
+      relativeDirectory === ""
+        ? entry.name
+        : path.join(relativeDirectory, entry.name);
+
+    if (entry.isSymbolicLink()) {
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      if (relativeDirectory === "" && topLevelIgnoredNames.has(entry.name)) {
+        continue;
+      }
+
+      files.push(
+        ...(await listElmFilesHelp(
+          baseDirectory,
+          relativeEntryPath,
+          topLevelIgnoredNames
+        ))
+      );
+    } else if (entry.isFile() && entry.name.endsWith(".elm")) {
+      files.push(relativeEntryPath);
+    }
+  }
+
+  return files;
+}
+
+/**
+ * @param {string} targetRootDir
+ * @param {number} mirroredDirectoryCount
+ */
+async function cleanupStaleMirroredSourceDirectories(
+  targetRootDir,
+  mirroredDirectoryCount
+) {
+  const mirrorRootDirectory = path.join(targetRootDir, SOURCE_DIRECTORY_MIRROR_ROOT);
+  ensureDirSync(mirrorRootDirectory);
+  const validDirectoryNames = new Set(
+    Array.from({ length: mirroredDirectoryCount }, (_, index) => String(index))
+  );
+  const entries = await fs.promises.readdir(mirrorRootDirectory, {
+    withFileTypes: true,
+  });
+
+  for (const entry of entries) {
+    if (!validDirectoryNames.has(entry.name)) {
+      await fs.promises.rm(path.join(mirrorRootDirectory, entry.name), {
+        recursive: true,
+        force: true,
+      });
+    }
+  }
+}
+
+/**
  * Generate the client folder with client-specific codemods.
  * @param {string} basePath
  * @returns {Promise<{ephemeralFields: Map<string, Set<string>>, deOptimizationCount: number, unsupportedHelperSeedingIssues: Array<{path: string, message: string}>}>}
@@ -104,14 +257,15 @@ export async function generateClientFolder(basePath) {
     "browser"
   );
   const uiFileContent = elmPagesUiFile();
-  ensureDirSync("./elm-stuff/elm-pages/client/app");
   ensureDirSync("./elm-stuff/elm-pages/client/.elm-pages");
   await newCopyBoth("RouteBuilder.elm");
   await newCopyBoth("SharedTemplate.elm");
   await newCopyBoth("SiteConfig.elm");
 
-  await rewriteClientElmJson();
-  await copyDirIfNewer("./app", "./elm-stuff/elm-pages/client/app");
+  const localSourceDirectories = await prepareSourceDirectoriesForCodemod(
+    "./elm-stuff/elm-pages/client"
+  );
+  await rewriteClientElmJson({ localSourceDirectories });
 
   await writeFileIfChanged(
     "./elm-stuff/elm-pages/client/.elm-pages/Main.elm",
@@ -140,7 +294,6 @@ export async function generateClientFolder(basePath) {
  * @returns {Promise<{ephemeralFields: Map<string, Set<string>>, unsupportedHelperSeedingIssues: Array<{path: string, message: string}>}>}
  */
 export async function generateServerFolder(basePath) {
-  ensureDirSync("./elm-stuff/elm-pages/server/app");
   ensureDirSync("./elm-stuff/elm-pages/server/.elm-pages");
 
   // Copy RouteBuilder and other framework files to server folder
@@ -159,15 +312,15 @@ export async function generateServerFolder(basePath) {
     ),
   ]);
 
+  const localSourceDirectories = await prepareSourceDirectoriesForCodemod(
+    "./elm-stuff/elm-pages/server"
+  );
+
   // Rewrite elm.json for server folder (3 levels deep, so need ../../../)
-  // Keep app/ local since we copy the app files to server folder for transformation
   await rewriteElmJson("./elm.json", "./elm-stuff/elm-pages/server/elm.json", {
     pathPrefix: "../../../",
-    keepAppLocal: true,
+    localSourceDirectories,
   });
-
-  // Copy app files to server folder
-  await copyDirIfNewer("./app", "./elm-stuff/elm-pages/server/app");
 
   // Run server-specific elm-review codemod FIRST
   // This creates the Ephemeral type alias in Route files

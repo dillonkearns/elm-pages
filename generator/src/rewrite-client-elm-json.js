@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 
-export async function rewriteClientElmJson() {
+export async function rewriteClientElmJson(options = {}) {
   var elmJson = JSON.parse(
     (await fs.promises.readFile("./elm.json")).toString()
   );
@@ -9,28 +9,46 @@ export async function rewriteClientElmJson() {
 
   await writeFileIfChanged(
     "./elm-stuff/elm-pages/client/elm.json",
-    JSON.stringify(rewriteClientElmJsonHelp(elmJson))
+    JSON.stringify(rewriteClientElmJsonHelp(elmJson, options))
   );
 }
 
-function rewriteClientElmJsonHelp(elmJson) {
+function rewriteClientElmJsonHelp(elmJson, options = {}) {
+  const localSourceDirectories = options.localSourceDirectories || null;
+
   // The internal generated file will be at:
   // ./elm-stuff/elm-pages/
   // So, we need to take the existing elmJson and
   // 1. remove existing path that looks at `Pages.elm`
   elmJson["source-directories"] = elmJson["source-directories"].filter(
     (item) => {
-      return item != ".elm-pages" && item != "app";
+      if (item == ".elm-pages") {
+        return false;
+      }
+
+      if (!localSourceDirectories && item == "app") {
+        return false;
+      }
+
+      return true;
     }
   );
   // 2. prepend ../../../ to remaining
   elmJson["source-directories"] = elmJson["source-directories"].map((item) => {
+    if (
+      localSourceDirectories &&
+      Object.prototype.hasOwnProperty.call(localSourceDirectories, item)
+    ) {
+      return localSourceDirectories[item];
+    }
     return "../../../" + item;
   });
   elmJson["dependencies"]["direct"]["lamdera/codecs"] = "1.0.0";
   // 3. add our own secret My.elm module 😈
   elmJson["source-directories"].push(".elm-pages");
-  elmJson["source-directories"].push("app");
+  if (!localSourceDirectories) {
+    elmJson["source-directories"].push("app");
+  }
   return elmJson;
 }
 
