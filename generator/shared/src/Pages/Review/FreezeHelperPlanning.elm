@@ -34,6 +34,7 @@ type alias FreezeKnowledge =
     { freezeFunctions : Dict FunctionId Int
     , functionCalls : Dict FunctionId (Set FunctionId)
     , functionArities : Dict FunctionId Int
+    , functionHasFidParam : Dict FunctionId Bool
     }
 
 
@@ -313,9 +314,32 @@ isPartialHelperCall :
     -> List (Node Expression)
     -> Bool
 isPartialHelperCall knowledge resolveCalledFunctionId functionNode args =
-    case resolveCalledFunctionId functionNode |> Maybe.andThen (\functionId -> lookupProjectFunctionArity functionId knowledge) of
-        Just requiredArgCount ->
-            List.length args < requiredArgCount
+    case resolveCalledFunctionId functionNode of
+        Just functionId ->
+            case lookupProjectFunctionArity functionId knowledge of
+                Just requiredArgCount ->
+                    let
+                        actualArgCount =
+                            List.length args
+
+                        missingArgCount =
+                            requiredArgCount - actualArgCount
+
+                        hasGeneratedFidParam =
+                            lookupProjectFunctionHasFidParam functionId knowledge
+                                |> Maybe.withDefault False
+                    in
+                    if actualArgCount >= requiredArgCount then
+                        False
+
+                    else if hasGeneratedFidParam && missingArgCount == 1 then
+                        False
+
+                    else
+                        True
+
+                Nothing ->
+                    False
 
         Nothing ->
             False
@@ -342,6 +366,37 @@ lookupProjectFunctionArity functionId knowledge =
 
         _ ->
             Nothing
+
+
+lookupProjectFunctionHasFidParam : FunctionId -> FreezeKnowledge -> Maybe Bool
+lookupProjectFunctionHasFidParam functionId knowledge =
+    let
+        ( maybeUniqueValue, hasConflict ) =
+            Dict.foldl
+                (\candidateId hasFidParam acc ->
+                    if functionIdsMatch functionId candidateId then
+                        case acc of
+                            ( Nothing, conflict ) ->
+                                ( Just hasFidParam, conflict )
+
+                            ( Just existingValue, conflict ) ->
+                                if existingValue == hasFidParam then
+                                    ( Just existingValue, conflict )
+
+                                else
+                                    ( Just existingValue, True )
+
+                    else
+                        acc
+                )
+                ( Nothing, False )
+                knowledge.functionHasFidParam
+    in
+    if hasConflict then
+        Nothing
+
+    else
+        maybeUniqueValue
 
 
 shouldSeedHelperCallIds : ShouldSeedConfig -> Bool

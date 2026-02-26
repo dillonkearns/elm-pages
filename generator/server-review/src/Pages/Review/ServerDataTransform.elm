@@ -46,6 +46,7 @@ type alias ProjectContext =
     { freezeFunctions : Dict ( ModuleName, String ) Int
     , functionCalls : Dict ( ModuleName, String ) (Set ( ModuleName, String ))
     , functionArities : Dict ( ModuleName, String ) Int
+    , functionHasFidParam : Dict ( ModuleName, String ) Bool
     , helperFunctions : Dict String (List HelperAnalysis)
     }
 
@@ -55,6 +56,7 @@ initialProjectContext =
     { freezeFunctions = Dict.empty
     , functionCalls = Dict.empty
     , functionArities = Dict.empty
+    , functionHasFidParam = Dict.empty
     , helperFunctions = Dict.empty
     }
 
@@ -76,6 +78,7 @@ type alias Context =
     , projectFreezeFunctions : Dict ( ModuleName, String ) Int
     , projectFunctionCalls : Dict ( ModuleName, String ) (Set ( ModuleName, String ))
     , projectFunctionArities : Dict ( ModuleName, String ) Int
+    , projectFunctionHasFidParam : Dict ( ModuleName, String ) Bool
     , staticIndex : Int
     , helperCallSeedIndex : Int
     , functionDeclarationInfo : Dict String FunctionDeclarationInfo
@@ -217,6 +220,7 @@ fromProjectToModule =
             , projectFreezeFunctions = projectContext.freezeFunctions
             , projectFunctionCalls = projectContext.functionCalls
             , projectFunctionArities = projectContext.functionArities
+            , projectFunctionHasFidParam = projectContext.functionHasFidParam
             , staticIndex = 0
             , helperCallSeedIndex = 0
             , functionDeclarationInfo = Dict.empty
@@ -269,6 +273,13 @@ fromModuleToProject =
                     )
                     Dict.empty
                     context.functionDeclarationInfo
+            , functionHasFidParam =
+                Dict.foldl
+                    (\functionName info acc ->
+                        Dict.insert ( moduleName, functionName ) info.hasFidParam acc
+                    )
+                    Dict.empty
+                    context.functionDeclarationInfo
             , helperFunctions =
                 Dict.filter
                     (\helperKey _ ->
@@ -312,12 +323,16 @@ foldProjectContexts a b =
         mergedFunctionArities =
             Dict.union a.functionArities b.functionArities
 
+        mergedFunctionHasFidParam =
+            Dict.union a.functionHasFidParam b.functionHasFidParam
+
         mergedHelperFunctions =
             Dict.union a.helperFunctions b.helperFunctions
     in
     { freezeFunctions = FreezeHelperPlanning.computeTransitiveFreezeFunctions mergedDirectFreezeFunctions mergedFunctionCalls
     , functionCalls = mergedFunctionCalls
     , functionArities = mergedFunctionArities
+    , functionHasFidParam = mergedFunctionHasFidParam
     , helperFunctions = mergedHelperFunctions
     }
 
@@ -888,10 +903,19 @@ freezeKnowledge context =
                 )
                 Dict.empty
                 context.functionDeclarationInfo
+
+        localFunctionHasFidParam =
+            Dict.foldl
+                (\functionName info acc ->
+                    Dict.insert ( context.moduleName, functionName ) info.hasFidParam acc
+                )
+                Dict.empty
+                context.functionDeclarationInfo
     in
     { freezeFunctions = Dict.union localFreezeFunctions context.projectFreezeFunctions
     , functionCalls = mergedFunctionCalls
     , functionArities = Dict.union localFunctionArities context.projectFunctionArities
+    , functionHasFidParam = Dict.union localFunctionHasFidParam context.projectFunctionHasFidParam
     }
 
 
