@@ -82,15 +82,25 @@ function relevantBuildOutput(stdout: string, stderr: string): string {
 function patchSourceDirectoriesForTempProject(tempProjectDir: string): void {
   const elmJsonPath = join(tempProjectDir, "elm.json");
   const elmJson = JSON.parse(readFileSync(elmJsonPath, "utf8"));
+  const sourceDirectories = elmJson["source-directories"];
 
-  elmJson["source-directories"] = [
-    "src",
-    "app",
-    ".elm-pages",
-    relative(tempProjectDir, join(repoRoot, "src")),
-    relative(tempProjectDir, join(repoRoot, "plugins")),
-    "elm-program-test-src",
-  ];
+  if (!Array.isArray(sourceDirectories)) {
+    throw new Error(`Invalid source-directories in ${elmJsonPath}`);
+  }
+
+  const rewrittenSourceDirectories = sourceDirectories.map((sourceDirectory) => {
+    if (sourceDirectory === "../../src") {
+      return relative(tempProjectDir, join(repoRoot, "src"));
+    }
+
+    if (sourceDirectory === "../../plugins") {
+      return relative(tempProjectDir, join(repoRoot, "plugins"));
+    }
+
+    return sourceDirectory;
+  });
+
+  elmJson["source-directories"] = [...new Set(rewrittenSourceDirectories)];
 
   writeFileSync(elmJsonPath, JSON.stringify(elmJson, null, 4) + "\n");
 }
@@ -221,6 +231,73 @@ function readExpectedResult(
   };
 }
 
+function assertSupportedHelperSeedingAgreement(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const indexHtmlPath = join(result.projectDir, "dist", "index.html");
+  const contentDatPath = join(result.projectDir, "dist", "content.dat");
+  const indexHtml = readFileSync(indexHtmlPath, "utf8");
+  const contentDatBytes = readFileSync(contentDatPath);
+
+  const extractedFromHtml = extractFrozenViews(indexHtml);
+  const contentDatDecoded = parseFrozenViewsPrefixFromBytes(contentDatBytes);
+
+  expect(Object.keys(contentDatDecoded.regions).sort()).toEqual(["0:0", "1:0"]);
+  expect(contentDatDecoded.regions).toEqual(extractedFromHtml);
+  expect(contentDatDecoded.regions["0:0"]).toContain("User: Alice");
+  expect(contentDatDecoded.regions["1:0"]).toContain("User: Bob");
+  expect(contentDatDecoded.remainingByteLength).toBeGreaterThan(0);
+
+  const bytesDataBase64 = extractBytesDataBase64(indexHtml);
+  const bytesDataDecoded = parseFrozenViewsPrefixFromBytes(
+    Buffer.from(bytesDataBase64, "base64")
+  );
+  expect(bytesDataDecoded.regions).toEqual({});
+  expect(bytesDataDecoded.remainingByteLength).toBeGreaterThan(0);
+
+  const clientWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "client");
+  const serverWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "server");
+  const clientHelperPath = findModuleFileInWorkspace(
+    clientWorkspace,
+    join("Ui", "FrozenHelper.elm")
+  );
+  const serverHelperPath = findModuleFileInWorkspace(
+    serverWorkspace,
+    join("Ui", "FrozenHelper.elm")
+  );
+  const clientHelper = readFileSync(clientHelperPath, "utf8");
+  const serverHelper = readFileSync(serverHelperPath, "utf8");
+
+  expect(clientHelper).toContain(
+    "summaryCard : String -> { name : String } -> Html msg"
+  );
+  expect(serverHelper).toContain(
+    "summaryCard : String -> { name : String } -> Html msg"
+  );
+  expect(clientHelper).toContain("++ \":0\")");
+  expect(serverHelper).toContain("++ \":0\")");
+
+  const clientRoute = readFileSync(
+    join(clientWorkspace, "app", "Route", "Index.elm"),
+    "utf8"
+  );
+  const serverRoute = readFileSync(
+    join(serverWorkspace, "app", "Route", "Index.elm"),
+    "utf8"
+  );
+  const callSeedPattern = /summaryCard \"([^\"]+)\"/g;
+  const clientSeeds = [...clientRoute.matchAll(callSeedPattern)].map(
+    (match) => match[1]
+  );
+  const serverSeeds = [...serverRoute.matchAll(callSeedPattern)].map(
+    (match) => match[1]
+  );
+
+  expect(clientSeeds).toEqual(["0", "1"]);
+  expect(serverSeeds).toEqual(clientSeeds);
+}
+
 describe.sequential("frozen helper seeding CLI behavior", () => {
   const caseIds = listFixtureCaseIds();
 
@@ -248,70 +325,15 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
   it(
     "supported-helper-src-module emits matching frozen view payloads with client/server seeding agreement",
     () => {
-      const result = runElmPagesBuildRaw("supported-helper-src-module");
-      expect(result.status).toBe(0);
+      assertSupportedHelperSeedingAgreement("supported-helper-src-module");
+    },
+    integrationTestTimeoutMs
+  );
 
-      const indexHtmlPath = join(result.projectDir, "dist", "index.html");
-      const contentDatPath = join(result.projectDir, "dist", "content.dat");
-      const indexHtml = readFileSync(indexHtmlPath, "utf8");
-      const contentDatBytes = readFileSync(contentDatPath);
-
-      const extractedFromHtml = extractFrozenViews(indexHtml);
-      const contentDatDecoded = parseFrozenViewsPrefixFromBytes(contentDatBytes);
-
-      expect(Object.keys(contentDatDecoded.regions).sort()).toEqual(["0:0", "1:0"]);
-      expect(contentDatDecoded.regions).toEqual(extractedFromHtml);
-      expect(contentDatDecoded.regions["0:0"]).toContain("User: Alice");
-      expect(contentDatDecoded.regions["1:0"]).toContain("User: Bob");
-      expect(contentDatDecoded.remainingByteLength).toBeGreaterThan(0);
-
-      const bytesDataBase64 = extractBytesDataBase64(indexHtml);
-      const bytesDataDecoded = parseFrozenViewsPrefixFromBytes(
-        Buffer.from(bytesDataBase64, "base64")
-      );
-      expect(bytesDataDecoded.regions).toEqual({});
-      expect(bytesDataDecoded.remainingByteLength).toBeGreaterThan(0);
-
-      const clientWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "client");
-      const serverWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "server");
-      const clientHelperPath = findModuleFileInWorkspace(
-        clientWorkspace,
-        join("Ui", "FrozenHelper.elm")
-      );
-      const serverHelperPath = findModuleFileInWorkspace(
-        serverWorkspace,
-        join("Ui", "FrozenHelper.elm")
-      );
-      const clientHelper = readFileSync(clientHelperPath, "utf8");
-      const serverHelper = readFileSync(serverHelperPath, "utf8");
-
-      expect(clientHelper).toContain(
-        "summaryCard : String -> { name : String } -> Html msg"
-      );
-      expect(serverHelper).toContain(
-        "summaryCard : String -> { name : String } -> Html msg"
-      );
-      expect(clientHelper).toContain("++ \":0\")");
-      expect(serverHelper).toContain("++ \":0\")");
-
-      const clientRoute = readFileSync(
-        join(clientWorkspace, "app", "Route", "Index.elm"),
-        "utf8"
-      );
-      const serverRoute = readFileSync(
-        join(serverWorkspace, "app", "Route", "Index.elm"),
-        "utf8"
-      );
-      const callSeedPattern = /summaryCard \"([^\"]+)\"/g;
-      const clientSeeds = [...clientRoute.matchAll(callSeedPattern)].map(
-        (match) => match[1]
-      );
-      const serverSeeds = [...serverRoute.matchAll(callSeedPattern)].map(
-        (match) => match[1]
-      );
-
-      expect(clientSeeds).toEqual(["0", "1"]);
-      expect(serverSeeds).toEqual(clientSeeds);
+  it(
+    "supported-helper-lib-source-dir emits matching frozen view payloads with client/server seeding agreement",
+    () => {
+      assertSupportedHelperSeedingAgreement("supported-helper-lib-source-dir");
     },
     integrationTestTimeoutMs
   );
