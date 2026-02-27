@@ -1,0 +1,2836 @@
+module Pages.Review.StaticViewTransform exposing (rule)
+
+{-| This rule transforms frozen view render calls into inlined lazy thunks in the client
+bundle. This enables dead-code elimination of the frozen view rendering dependencies
+(markdown parsers, syntax highlighters, etc.) while preserving the pre-rendered
+HTML for adoption by the virtual-dom.
+
+## Transformations
+
+    -- View.freeze (user-defined in View.elm):
+    View.freeze (heavyRender data)
+    -- becomes:
+    Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze
+
+## Data Type Transformation
+
+This rule analyzes field access patterns on `app.data` and removes fields that
+are NOT used on the client (i.e., fields only used in ephemeral contexts like
+`View.freeze` calls or the `head` function).
+
+The model is:
+- Start with ALL fields from the Data type
+- Track which fields are accessed in CLIENT contexts (outside freeze/head)
+- Removable fields = allFields - clientUsedFields
+
+Fields used only in ephemeral contexts (freeze, head) are removed from the
+`Data` type alias in the client bundle, enabling DCE to eliminate the field
+accessors and any rendering code that depends on them.
+
+The inlined lazy thunk uses a magic string prefix "__ELM_PAGES_STATIC__" that
+the virtual-dom codemod detects at runtime to adopt pre-rendered HTML.
+
+-}
+
+import Char
+import Dict exposing (Dict)
+import Elm.Syntax.Declaration as Declaration exposing (Declaration)
+import Elm.Syntax.Expression as Expression exposing (Expression)
+import Elm.Syntax.Import exposing (Import)
+import Elm.Syntax.ModuleName exposing (ModuleName)
+import Elm.Syntax.Node as Node exposing (Node(..))
+import Elm.Syntax.Pattern as Pattern exposing (Pattern)
+import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Pages.Review.FreezeHelperPlanning as FreezeHelperPlanning
+import Pages.Review.PersistentFieldTracking as PersistentFieldTracking
+import Pages.Review.TaintTracking as Taint
+import Review.Fix
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.Rule as Rule exposing (Error, Rule)
+import Set exposing (Set)
+
+
+{-| Convert a range to a comparable tuple for Set storage.
+-}
+rangeToComparable : Range -> ( ( Int, Int ), ( Int, Int ) )
+rangeToComparable range =
+    ( ( range.start.row, range.start.column ), ( range.end.row, range.end.column ) )
+
+
+{-| Analysis of a helper function's field usage on its first parameter.
+-}
+type alias HelperAnalysis =
+    PersistentFieldTracking.HelperAnalysis
+
+
+type alias ProjectContext =
+    { freezeFunctions : Dict ( ModuleName, String ) Int
+    , functionCalls : Dict ( ModuleName, String ) (Set ( ModuleName, String ))
+    , functionArities : Dict ( ModuleName, String ) Int
+    , functionHasFidParam : Dict ( ModuleName, String ) Bool
+    , helperFunctions : Dict String (List HelperAnalysis)
+    }
+
+
+initialProjectContext : ProjectContext
+initialProjectContext =
+    { freezeFunctions = Dict.empty
+    , functionCalls = Dict.empty
+    , functionArities = Dict.empty
+    , functionHasFidParam = Dict.empty
+    , helperFunctions = Dict.empty
+    }
+
+
+type alias FunctionDeclarationInfo =
+    { functionNameRange : Range
+    , firstArgRange : Maybe Range
+    , signatureTypeRange : Maybe Range
+    , argumentCount : Int
+    , fidParamName : Maybe String
+    , hasFidParam : Bool
+    , hasFidTypeAnnotation : Bool
+    }
+
+
+type alias Context =
+    { lookupTable : ModuleNameLookupTable
+    , moduleName : ModuleName
+    , projectFreezeFunctions : Dict ( ModuleName, String ) Int
+    , projectFunctionCalls : Dict ( ModuleName, String ) (Set ( ModuleName, String ))
+    , projectFunctionArities : Dict ( ModuleName, String ) Int
+    , projectFunctionHasFidParam : Dict ( ModuleName, String ) Bool
+    , htmlLazyImport : HtmlLazyImport
+    , htmlImport : HtmlLazyImport -- tracks elm/html's Html module import and alias
+    , lastImportRow : Int
+    , staticIndex : Int
+    , helperCallSeedIndex : Int
+    , functionDeclarationInfo : Dict String FunctionDeclarationInfo
+    , injectedFidFunctions : Set String
+    , helperFunctionFreezeIndex : Dict String Int
+    , localTransformedFreezeFunctions : Dict String Int
+    , localFunctionCalls : Dict ( ModuleName, String ) (Set ( ModuleName, String ))
+
+    -- Shared field tracking state (embedded from PersistentFieldTracking)
+    -- This contains: clientUsedFields, freezeCallDepth, inHeadFunction, appDataBindings,
+    -- appParamName, helperFunctions, pendingHelperCalls, dataTypeFields, markAllFieldsAsUsed,
+    -- currentFunctionName, perFunctionClientFields, routeBuilderHeadFn
+    , sharedState : PersistentFieldTracking.SharedFieldTrackingState
+
+    -- Field-specific binding tracking (for let bindings like `let title = app.data.title`)
+    -- Maps variable name -> field name from app.data
+    -- When a variable is used in client context, we mark its field as client-used
+    , fieldBindings : Dict String String
+
+    -- Ranges of expressions that are RHS of field bindings (to skip in normal tracking)
+    -- These are tracked via the variable usage, not the direct field access
+    , fieldBindingRanges : Set ( ( Int, Int ), ( Int, Int ) )
+
+    -- Track if Data is used as a record constructor function
+    -- (e.g., `map4 Data arg1 arg2 arg3 arg4`)
+    -- If true, we can't transform the type alias without breaking the constructor
+    , dataUsedAsConstructor : Bool
+
+    -- Data type location for transformation
+    , dataTypeRange : Maybe Range
+    , dataTypeDeclarationEndRow : Int -- Row where Data type declaration ends (for inserting NarrowedData)
+
+    -- Ranges where "App Data" appears in type signatures (to replace with "App NarrowedData")
+    , appDataTypeRanges : List Range
+
+    -- Head function body range for stubbing
+    , headFunctionBodyRange : Maybe Range
+
+    -- Data function body range for stubbing (never runs on client)
+    , dataFunctionBodyRange : Maybe Range
+
+    -- Track if we're currently inside the data function body
+    -- Used to distinguish Data constructor usage in data (safe, DCE'd) vs client code (not safe)
+    , inDataFunction : Bool
+
+    -- RouteBuilder convention verification
+    -- We track what function names are passed to RouteBuilder.preRender/single/serverRender
+    -- If the names don't match conventions, we bail out of optimization
+    -- Note: routeBuilderHeadFn is tracked in sharedState for agreement with ServerDataTransform
+    , routeBuilderDataFn : Maybe String -- What's passed to `data = X` in RouteBuilder
+    , routeBuilderFound : Bool -- Did we find a RouteBuilder call?
+
+    -- Shared model parameter name from view function (second parameter)
+    , sharedModelParamName : Maybe String
+
+    -- Model parameter name from view function (third parameter, typically "model")
+    , modelParamName : Maybe String
+
+    -- Taint tracking for model-derived bindings (used to de-optimize freeze calls)
+    , taintBindings : Taint.Bindings
+
+    -- Tainted context depth: tracks when we're inside a conditional (if/case) that
+    -- depends on model. When > 0, we're in a tainted context and should skip transforms.
+    , taintedContextDepth : Int
+
+    -- Lambda depth: when > 0 we are inside a repeated-execution context where
+    -- helper ID seeding is not guaranteed to be unique per invocation.
+    , lambdaDepth : Int
+
+    -- Stack of let-bound local functions that directly call helpers requiring frozen ID seeding.
+    -- Used to flag unsupported function-value/partial usage like `List.map renderItem`.
+    , localLetFunctionsNeedingSeed : List (Set String)
+
+    -- Track if NarrowedData type alias already exists (to prevent infinite fix loop)
+    , narrowedDataExists : Bool
+
+    -- Helpers called with app.data inside freeze context
+    -- These can have their type annotations updated from Data to Ephemeral
+    , helpersCalledInFreeze : Set String
+
+    -- Ranges where "Data" appears in helper type annotations (maps function name -> list of ranges)
+    -- Used to replace Data with Ephemeral for freeze-only helpers
+    , helperDataTypeRanges : Dict String (List Range)
+    }
+
+
+type HtmlLazyImport
+    = NotImported
+    | ImportedAs ModuleName
+
+
+rule : Rule
+rule =
+    Rule.newProjectRuleSchema "Pages.Review.StaticViewTransform" initialProjectContext
+        |> Rule.withContextFromImportedModules
+        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContextUsingContextCreator
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = foldProjectContexts
+            }
+        |> Rule.fromProjectRuleSchema
+
+
+moduleVisitor :
+    Rule.ModuleRuleSchema {} Context
+    -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } Context
+moduleVisitor schema =
+    schema
+        |> Rule.providesFixesForModuleRule
+        |> Rule.withImportVisitor importVisitor
+        |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
+        |> Rule.withDeclarationExitVisitor declarationExitVisitor
+        |> Rule.withExpressionEnterVisitor expressionEnterVisitor
+        |> Rule.withExpressionExitVisitor expressionExitVisitor
+        |> Rule.withCaseBranchEnterVisitor caseBranchEnterVisitor
+        |> Rule.withCaseBranchExitVisitor caseBranchExitVisitor
+        |> Rule.withFinalModuleEvaluation finalEvaluation
+
+
+fromProjectToModule : Rule.ContextCreator ProjectContext Context
+fromProjectToModule =
+    Rule.initContextCreator
+        (\lookupTable moduleName projectContext ->
+            { lookupTable = lookupTable
+            , moduleName = moduleName
+            , projectFreezeFunctions = projectContext.freezeFunctions
+            , projectFunctionCalls = projectContext.functionCalls
+            , projectFunctionArities = projectContext.functionArities
+            , projectFunctionHasFidParam = projectContext.functionHasFidParam
+            , htmlLazyImport = NotImported
+            , htmlImport = NotImported
+            , lastImportRow = 2
+            , staticIndex = 0
+            , helperCallSeedIndex = 0
+            , functionDeclarationInfo = Dict.empty
+            , injectedFidFunctions = Set.empty
+            , helperFunctionFreezeIndex = Dict.empty
+            , localTransformedFreezeFunctions = Dict.empty
+            , localFunctionCalls = Dict.empty
+            , sharedState =
+                PersistentFieldTracking.emptySharedState
+                    |> (\sharedState -> { sharedState | helperFunctions = projectContext.helperFunctions })
+            , fieldBindings = Dict.empty
+            , fieldBindingRanges = Set.empty
+            , dataUsedAsConstructor = False
+            , dataTypeRange = Nothing
+            , dataTypeDeclarationEndRow = 0
+            , appDataTypeRanges = []
+            , headFunctionBodyRange = Nothing
+            , dataFunctionBodyRange = Nothing
+            , inDataFunction = False
+            , routeBuilderDataFn = Nothing
+            , routeBuilderFound = False
+            , sharedModelParamName = Nothing
+            , modelParamName = Nothing
+            , taintBindings = Taint.emptyBindings
+            , taintedContextDepth = 0
+            , lambdaDepth = 0
+            , localLetFunctionsNeedingSeed = []
+            , narrowedDataExists = False
+            , helpersCalledInFreeze = Set.empty
+            , helperDataTypeRanges = Dict.empty
+            }
+        )
+        |> Rule.withModuleNameLookupTable
+        |> Rule.withModuleName
+
+
+fromModuleToProject : Rule.ContextCreator Context ProjectContext
+fromModuleToProject =
+    Rule.initContextCreator
+        (\moduleName context ->
+            { freezeFunctions =
+                Dict.foldl
+                    (\fnName count acc ->
+                        if count > 0 then
+                            Dict.insert ( moduleName, fnName ) count acc
+
+                        else
+                            acc
+                    )
+                    Dict.empty
+                    context.localTransformedFreezeFunctions
+            , functionCalls = context.localFunctionCalls
+            , functionArities =
+                Dict.foldl
+                    (\functionName info acc ->
+                        Dict.insert ( moduleName, functionName ) info.argumentCount acc
+                    )
+                    Dict.empty
+                    context.functionDeclarationInfo
+            , functionHasFidParam =
+                Dict.foldl
+                    (\functionName info acc ->
+                        Dict.insert ( moduleName, functionName ) info.hasFidParam acc
+                    )
+                    Dict.empty
+                    context.functionDeclarationInfo
+            , helperFunctions =
+                Dict.filter
+                    (\helperKey _ ->
+                        case PersistentFieldTracking.helperKeyToFunctionId helperKey of
+                            Just ( helperModuleName, _ ) ->
+                                helperModuleName == moduleName
+
+                            Nothing ->
+                                False
+                    )
+                    context.sharedState.helperFunctions
+            }
+        )
+        |> Rule.withModuleName
+
+
+foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
+foldProjectContexts a b =
+    let
+        mergedFunctionCalls =
+            Dict.foldl
+                (\caller callees acc ->
+                    Dict.update caller
+                        (\maybeExisting ->
+                            Just <|
+                                case maybeExisting of
+                                    Just existing ->
+                                        Set.union existing callees
+
+                                    Nothing ->
+                                        callees
+                        )
+                        acc
+                )
+                a.functionCalls
+                b.functionCalls
+
+        mergedDirectFreezeFunctions =
+            Dict.union a.freezeFunctions b.freezeFunctions
+
+        mergedFunctionArities =
+            Dict.union a.functionArities b.functionArities
+
+        mergedFunctionHasFidParam =
+            Dict.union a.functionHasFidParam b.functionHasFidParam
+
+        mergedHelperFunctions =
+            Dict.union a.helperFunctions b.helperFunctions
+    in
+    { freezeFunctions = FreezeHelperPlanning.computeTransitiveFreezeFunctions mergedDirectFreezeFunctions mergedFunctionCalls
+    , functionCalls = mergedFunctionCalls
+    , functionArities = mergedFunctionArities
+    , functionHasFidParam = mergedFunctionHasFidParam
+    , helperFunctions = mergedHelperFunctions
+    }
+
+
+importVisitor : Node Import -> Context -> ( List (Rule.Error {}), Context )
+importVisitor node context =
+    let
+        import_ =
+            Node.value node
+
+        moduleName =
+            Node.value import_.moduleName
+
+        importEndRow =
+            (Node.range node).end.row
+    in
+    if moduleName == [ "Html", "Lazy" ] then
+        ( []
+        , { context
+            | htmlLazyImport =
+                import_.moduleAlias
+                    |> Maybe.map Node.value
+                    |> Maybe.withDefault [ "Html", "Lazy" ]
+                    |> ImportedAs
+            , lastImportRow = max context.lastImportRow importEndRow
+          }
+        )
+
+    else if moduleName == [ "Html" ] then
+        ( []
+        , { context
+            | htmlImport =
+                import_.moduleAlias
+                    |> Maybe.map Node.value
+                    |> Maybe.withDefault [ "Html" ]
+                    |> ImportedAs
+            , lastImportRow = max context.lastImportRow importEndRow
+          }
+        )
+
+    else
+        ( []
+        , { context | lastImportRow = max context.lastImportRow importEndRow }
+        )
+
+
+declarationEnterVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )
+declarationEnterVisitor node context =
+    case Node.value node of
+        Declaration.FunctionDeclaration function ->
+            let
+                functionDeclaration =
+                    Node.value function.declaration
+
+                functionName =
+                    functionDeclaration.name
+                        |> Node.value
+
+                bodyRange =
+                    functionDeclaration.expression
+                        |> Node.range
+
+                -- Determine the actual head function name
+                -- If we've seen RouteBuilder, use the extracted name
+                -- Otherwise fall back to "head" (the convention)
+                actualHeadFn =
+                    context.sharedState.routeBuilderHeadFn
+                        |> Maybe.withDefault "head"
+
+                -- Determine the actual data function name
+                actualDataFn =
+                    context.routeBuilderDataFn
+                        |> Maybe.withDefault "data"
+
+                -- Find "App Data" in type signature and track its range for replacement
+                appDataRanges =
+                    case function.signature of
+                        Just (Node _ signature) ->
+                            findAppDataRanges signature.typeAnnotation
+
+                        Nothing ->
+                            []
+
+                -- Track that we're entering this function (for per-function field tracking)
+                sharedStateWithFunctionEnter =
+                    PersistentFieldTracking.updateOnFunctionEnter functionName context.sharedState
+
+                functionInfo =
+                    let
+                        maybeExistingFidParamName =
+                            functionDeclaration.arguments
+                                |> List.head
+                                |> Maybe.andThen fidParamNameFromPattern
+                    in
+                    { functionNameRange = Node.range functionDeclaration.name
+                    , firstArgRange = List.head functionDeclaration.arguments |> Maybe.map Node.range
+                    , signatureTypeRange = function.signature |> Maybe.map (\signatureNode -> Node.range (Node.value signatureNode).typeAnnotation)
+                    , argumentCount = List.length functionDeclaration.arguments
+                    , fidParamName = maybeExistingFidParamName
+                    , hasFidParam = maybeExistingFidParamName /= Nothing
+                    , hasFidTypeAnnotation =
+                        case function.signature of
+                            Just signatureNode ->
+                                signatureStartsWithString (Node.value signatureNode).typeAnnotation
+
+                            Nothing ->
+                                False
+                    }
+
+                contextWithFunctionInfo =
+                    { context
+                        | functionDeclarationInfo =
+                            Dict.insert functionName functionInfo context.functionDeclarationInfo
+                    }
+
+                contextWithAppDataRanges =
+                    { contextWithFunctionInfo
+                        | appDataTypeRanges = contextWithFunctionInfo.appDataTypeRanges ++ appDataRanges
+                        , sharedState = sharedStateWithFunctionEnter
+                    }
+            in
+            if functionName == actualHeadFn then
+                ( []
+                , { contextWithAppDataRanges
+                    | sharedState = PersistentFieldTracking.updateOnHeadEnter contextWithAppDataRanges.sharedState
+                    , headFunctionBodyRange = Just bodyRange
+                  }
+                )
+
+            else if functionName == actualDataFn then
+                -- Capture the data function body for potential stubbing
+                -- The data function never runs on client, only at build time
+                -- Also track that we're inside the data function for safe Data constructor detection
+                ( [], { contextWithAppDataRanges | dataFunctionBodyRange = Just bodyRange, inDataFunction = True } )
+
+            else if functionName == "view" || functionName == "init" || functionName == "update" then
+                -- Extract the App parameter name from client-side functions
+                -- We need to track field usage in ALL client-side functions, not just view
+                -- because fields accessed in init/update also need to be in the client Data type
+                --
+                -- IMPORTANT: The App parameter position varies by function:
+                -- - view: typically first parameter, but can vary with buildWithLocalState
+                -- - init: typically third parameter (after Maybe PageUrl, Shared.Model)
+                -- - update: typically third parameter (after PageUrl, Shared.Model)
+                --
+                -- We find the correct position by looking at the type signature for the
+                -- parameter with type `App Data ActionData RouteParams`.
+                let
+                    arguments =
+                        function.declaration
+                            |> Node.value
+                            |> .arguments
+
+                    -- Try to find App parameter index from type signature
+                    maybeAppParamIndex =
+                        case function.signature of
+                            Just (Node _ signature) ->
+                                findAppParamIndex signature.typeAnnotation
+
+                            Nothing ->
+                                -- No type signature - fall back to first parameter
+                                Just 0
+
+                    maybeAppParamPattern =
+                        maybeAppParamIndex
+                            |> Maybe.andThen
+                                (\index ->
+                                    arguments
+                                        |> List.drop index
+                                        |> List.head
+                                )
+
+                    maybeAppParam =
+                        maybeAppParamPattern
+                            |> Maybe.andThen PersistentFieldTracking.extractPatternName
+
+                    -- Extract app.data bindings from patterns like ({ data } as app)
+                    appDataBindingsFromPattern =
+                        maybeAppParamPattern
+                            |> Maybe.map PersistentFieldTracking.extractAppDataBindingsFromPattern
+                            |> Maybe.withDefault Set.empty
+
+                    -- Extract shared model parameter name (second parameter: view app shared ...)
+                    maybeSharedModelParam =
+                        if functionName == "view" then
+                            arguments
+                                |> List.drop 1
+                                |> List.head
+                                |> Maybe.andThen PersistentFieldTracking.extractPatternName
+
+                        else
+                            Nothing
+
+                    -- Extract model parameter name only for view function
+                    -- Model is the third parameter: view app shared model = ...
+                    maybeModelParam =
+                        if functionName == "view" then
+                            arguments
+                                |> List.drop 2
+                                |> List.head
+                                |> Maybe.andThen PersistentFieldTracking.extractPatternName
+
+                        else
+                            Nothing
+
+                    currentSharedState =
+                        contextWithAppDataRanges.sharedState
+
+                    updatedSharedState =
+                        { currentSharedState
+                            | appParamName = maybeAppParam
+                            , appDataBindings = Set.union currentSharedState.appDataBindings appDataBindingsFromPattern
+                        }
+                in
+                ( []
+                , { contextWithAppDataRanges
+                    | sharedState = updatedSharedState
+                    , sharedModelParamName = maybeSharedModelParam
+                    , modelParamName = maybeModelParam
+                  }
+                )
+
+            else
+                -- Analyze non-special functions as potential helpers
+                -- This allows us to track which fields they access when called with app.data
+                let
+                    helperAnalysis =
+                        PersistentFieldTracking.analyzeHelperFunction function
+
+                    -- Find all ranges where "Data" appears in the type annotation
+                    -- These can be replaced with "Ephemeral" for freeze-only helpers
+                    dataRangesInSignature =
+                        case function.signature of
+                            Just (Node _ signature) ->
+                                findDataTypeRanges signature.typeAnnotation
+
+                            Nothing ->
+                                []
+
+                    contextWithDataRanges =
+                        if List.isEmpty dataRangesInSignature then
+                            contextWithAppDataRanges
+
+                        else
+                            { contextWithAppDataRanges
+                                | helperDataTypeRanges =
+                                    Dict.insert functionName dataRangesInSignature contextWithAppDataRanges.helperDataTypeRanges
+                            }
+
+                    contextWithHelper =
+                        if List.isEmpty helperAnalysis then
+                            contextWithDataRanges
+
+                        else
+                            let
+                                currentSharedState =
+                                    contextWithDataRanges.sharedState
+
+                                updatedSharedState =
+                                    { currentSharedState
+                                        | helperFunctions =
+                                            Dict.insert
+                                                (PersistentFieldTracking.functionIdToHelperKey ( context.moduleName, functionName ))
+                                                helperAnalysis
+                                                currentSharedState.helperFunctions
+                                    }
+                            in
+                            { contextWithDataRanges | sharedState = updatedSharedState }
+                in
+                ( [], contextWithHelper )
+
+        Declaration.AliasDeclaration typeAlias ->
+            let
+                typeName =
+                    Node.value typeAlias.name
+
+                -- Track the end of the full declaration for inserting NarrowedData after
+                declarationEndRow =
+                    (Node.range node).end.row
+            in
+            if typeName == "Data" then
+                case Node.value typeAlias.typeAnnotation of
+                    TypeAnnotation.Record recordFields ->
+                        let
+                            fields =
+                                PersistentFieldTracking.extractDataTypeFields recordFields
+
+                            currentSharedState =
+                                context.sharedState
+
+                            updatedSharedState =
+                                { currentSharedState | dataTypeFields = fields }
+                        in
+                        ( []
+                        , { context
+                            | dataTypeRange = Just (Node.range typeAlias.typeAnnotation)
+                            , sharedState = updatedSharedState
+                            , dataTypeDeclarationEndRow = declarationEndRow
+                          }
+                        )
+
+                    _ ->
+                        ( [], context )
+
+            else if typeName == "NarrowedData" then
+                -- NarrowedData already exists, don't emit fix for it again
+                ( [], { context | narrowedDataExists = True } )
+
+            else
+                ( [], context )
+
+        _ ->
+            ( [], context )
+
+
+declarationExitVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )
+declarationExitVisitor node context =
+    case Node.value node of
+        Declaration.FunctionDeclaration function ->
+            let
+                functionName =
+                    function.declaration
+                        |> Node.value
+                        |> .name
+                        |> Node.value
+
+                -- Use the same logic as enter visitor for consistency
+                actualHeadFn =
+                    context.sharedState.routeBuilderHeadFn
+                        |> Maybe.withDefault "head"
+
+                -- Determine the actual data function name
+                actualDataFn =
+                    context.routeBuilderDataFn
+                        |> Maybe.withDefault "data"
+
+                -- Track that we're exiting this function (for per-function field tracking)
+                sharedStateWithFunctionExit =
+                    PersistentFieldTracking.updateOnFunctionExit context.sharedState
+            in
+            if functionName == actualHeadFn then
+                ( [], { context | sharedState = PersistentFieldTracking.updateOnHeadExit sharedStateWithFunctionExit } )
+
+            else if functionName == actualDataFn then
+                -- Exiting the data function - reset inDataFunction flag
+                ( [], { context | sharedState = sharedStateWithFunctionExit, inDataFunction = False } )
+
+            else
+                ( [], { context | sharedState = sharedStateWithFunctionExit } )
+
+        _ ->
+            ( [], context )
+
+
+expressionEnterVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+expressionEnterVisitor node context =
+    let
+        contextWithLambdaDepth =
+            case Node.value node of
+                Expression.LambdaExpression _ ->
+                    { context | lambdaDepth = context.lambdaDepth + 1 }
+
+                _ ->
+                    context
+
+        -- Detect if Data is used as a record constructor function in CLIENT code
+        -- (e.g., `map4 Data`, `succeed Data`, `Data field1 field2`)
+        --
+        -- IMPORTANT: We only flag this when the constructor is used OUTSIDE the `data` function.
+        -- Usage inside the `data` function is safe because that function is DCE'd on the client.
+        -- The server transform handles the constructor by renaming Data -> Ephemeral.
+        --
+        -- Example that IS safe (in data function, DCE'd on client):
+        --   data = BackendTask.map4 Data arg1 arg2 arg3 arg4
+        --
+        -- Example that is NOT safe (in view function, runs on client):
+        --   view app = ... let defaultData = Data "a" "b" in ...
+        contextWithDataConstructorCheck =
+            if contextWithLambdaDepth.dataUsedAsConstructor then
+                -- Already detected, no need to check again
+                contextWithLambdaDepth
+
+            else if contextWithLambdaDepth.inDataFunction then
+                -- Inside the data function - usage is safe (DCE'd on client)
+                contextWithLambdaDepth
+
+            else
+                case Node.value node of
+                    -- Direct use: Data as function argument (e.g., `map4 Data`)
+                    -- Note: Match any module prefix since elm-syntax may qualify local names
+                    Expression.FunctionOrValue _ "Data" ->
+                        { contextWithLambdaDepth | dataUsedAsConstructor = True }
+
+                    _ ->
+                        contextWithLambdaDepth
+
+        -- Detect RouteBuilder calls and extract function names
+        -- This ensures we only treat the actual head/data functions as ephemeral
+        -- Uses shared detection logic from PersistentFieldTracking
+        contextWithRouteBuilder =
+            case PersistentFieldTracking.isRouteBuilderCall contextWithDataConstructorCheck.lookupTable node of
+                Just args ->
+                    extractRouteBuilderFunctions contextWithDataConstructorCheck args
+
+                Nothing ->
+                    contextWithDataConstructorCheck
+
+        contextWithCallGraph =
+            case Node.value node of
+                Expression.Application (functionNode :: _) ->
+                    recordFunctionCallEdge functionNode contextWithRouteBuilder
+
+                Expression.OperatorApplication op _ leftExpr rightExpr ->
+                    case op of
+                        "|>" ->
+                            recordFunctionCallEdge rightExpr contextWithRouteBuilder
+
+                        "<|" ->
+                            recordFunctionCallEdge leftExpr contextWithRouteBuilder
+
+                        _ ->
+                            contextWithRouteBuilder
+
+                _ ->
+                    contextWithRouteBuilder
+
+        -- Track entering freeze calls
+        -- Also check if app.data is passed as a whole in CLIENT or FREEZE context
+        contextWithFreezeTracking =
+            case extractFreezeCall node contextWithCallGraph.lookupTable of
+                Just _ ->
+                    -- Entering freeze - just set the flag, don't check app.data here
+                    -- (we don't care about tracking inside ephemeral contexts)
+                    let
+                        contextWithFreezePresence =
+                            recordTransformedFreezeInCurrentFunction contextWithCallGraph
+                    in
+                    { contextWithFreezePresence | sharedState = PersistentFieldTracking.updateOnFreezeEnter contextWithFreezePresence.sharedState }
+
+                Nothing ->
+                    case Node.value node of
+                        Expression.Application (functionNode :: args) ->
+                            -- Check for app.data passed as whole in CLIENT or FREEZE context
+                            checkAppDataPassedToHelper contextWithCallGraph functionNode args
+
+                        -- Handle pipe operators: app.data |> fn or fn <| app.data
+                        -- But NOT accessor patterns like app.data |> .field (handled by trackFieldAccess)
+                        Expression.OperatorApplication op _ leftExpr rightExpr ->
+                            case op of
+                                "|>" ->
+                                    -- app.data |> fn  =>  fn(app.data), so fn is on the right
+                                    -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
+                                    if isRecordAccessFunction rightExpr then
+                                        contextWithCallGraph
+
+                                    else
+                                        checkAppDataPassedToHelperViaPipe contextWithCallGraph rightExpr leftExpr
+
+                                "<|" ->
+                                    -- fn <| app.data  =>  fn(app.data), so fn is on the left
+                                    -- Skip if fn is a RecordAccessFunction (.field) - handled elsewhere
+                                    if isRecordAccessFunction leftExpr then
+                                        contextWithCallGraph
+
+                                    else
+                                        checkAppDataPassedToHelperViaPipe contextWithCallGraph leftExpr rightExpr
+
+                                _ ->
+                                    contextWithCallGraph
+
+                        _ ->
+                            contextWithCallGraph
+
+        -- Track field access patterns
+        contextWithFieldTracking =
+            trackFieldAccess node contextWithFreezeTracking
+
+        -- Track entering tainted conditionals (if/case)
+        -- When the condition/scrutinee is tainted, increment taintedContextDepth
+        -- This allows us to detect View.freeze calls inside tainted conditionals
+        contextWithTaintedContext =
+            case Node.value node of
+                Expression.IfBlock cond _ _ ->
+                    let
+                        taintContext =
+                            { modelParamName = contextWithFieldTracking.modelParamName
+                            , sharedModelParamName = contextWithFieldTracking.sharedModelParamName
+                            , bindings = contextWithFieldTracking.taintBindings
+                            }
+
+                        condTaint =
+                            Taint.analyzeExpressionTaint taintContext cond
+                    in
+                    if condTaint == Taint.Tainted then
+                        { contextWithFieldTracking | taintedContextDepth = contextWithFieldTracking.taintedContextDepth + 1 }
+
+                    else
+                        contextWithFieldTracking
+
+                Expression.CaseExpression caseBlock ->
+                    let
+                        taintContext =
+                            { modelParamName = contextWithFieldTracking.modelParamName
+                            , sharedModelParamName = contextWithFieldTracking.sharedModelParamName
+                            , bindings = contextWithFieldTracking.taintBindings
+                            }
+
+                        scrutineeTaint =
+                            Taint.analyzeExpressionTaint taintContext caseBlock.expression
+                    in
+                    if scrutineeTaint == Taint.Tainted then
+                        { contextWithFieldTracking | taintedContextDepth = contextWithFieldTracking.taintedContextDepth + 1 }
+
+                    else
+                        contextWithFieldTracking
+
+                _ ->
+                    contextWithFieldTracking
+
+        contextWithLocalLetFunctions =
+            case Node.value node of
+                Expression.LetExpression letBlock ->
+                    let
+                        localFunctionsNeedingSeed =
+                            FreezeHelperPlanning.letFunctionsWithDirectSeededHelperCalls
+                                (\functionNode -> helperCallNeedsFrozenId functionNode contextWithTaintedContext)
+                                letBlock.declarations
+                    in
+                    { contextWithTaintedContext
+                        | localLetFunctionsNeedingSeed =
+                            localFunctionsNeedingSeed :: contextWithTaintedContext.localLetFunctionsNeedingSeed
+                    }
+
+                _ ->
+                    contextWithTaintedContext
+
+        -- Track tainted bindings for let expressions
+        -- When entering a let, push a new scope and add bindings from declarations
+        contextWithTaintBindings =
+            case Node.value node of
+                Expression.LetExpression letBlock ->
+                    let
+                        -- Push a new scope first
+                        initialScope =
+                            Taint.nonemptyCons Dict.empty contextWithLocalLetFunctions.taintBindings
+
+                        -- Process each let declaration, accumulating bindings
+                        -- Later declarations can depend on earlier ones, so we update context as we go
+                        finalScope =
+                            List.foldl
+                                (\declNode currentBindings ->
+                                    let
+                                        -- Create a TaintContext with current accumulated bindings
+                                        taintContext =
+                                            { modelParamName = contextWithLocalLetFunctions.modelParamName
+                                            , sharedModelParamName = contextWithLocalLetFunctions.sharedModelParamName
+                                            , bindings = currentBindings
+                                            }
+
+                                        newBindings =
+                                            case Node.value declNode of
+                                                Expression.LetFunction letFn ->
+                                                    let
+                                                        fnDecl =
+                                                            Node.value letFn.declaration
+
+                                                        fnName =
+                                                            Node.value fnDecl.name
+
+                                                        -- For functions with no arguments, track as binding
+                                                        -- Functions with arguments are treated as pure (they're definitions)
+                                                        taint =
+                                                            case fnDecl.arguments of
+                                                                [] ->
+                                                                    Taint.analyzeExpressionTaint taintContext fnDecl.expression
+
+                                                                _ ->
+                                                                    Taint.Pure
+                                                    in
+                                                    [ ( fnName, taint ) ]
+
+                                                Expression.LetDestructuring pattern expr ->
+                                                    let
+                                                        exprTaint =
+                                                            Taint.analyzeExpressionTaint taintContext expr
+                                                    in
+                                                    Taint.extractBindingsFromPattern exprTaint pattern
+                                    in
+                                    Taint.addBindingsToScope newBindings currentBindings
+                                )
+                                initialScope
+                                letBlock.declarations
+                    in
+                    { contextWithLocalLetFunctions | taintBindings = finalScope }
+
+                _ ->
+                    contextWithLocalLetFunctions
+    in
+    -- Handle the transformations
+    case extractFreezeCall node contextWithTaintBindings.lookupTable of
+        Just freezeCall ->
+            handleViewFreezeCall freezeCall.functionNode freezeCall.argumentNode node contextWithTaintBindings
+
+        Nothing ->
+            rewriteHelperCallWithFrozenId node contextWithTaintBindings
+
+
+expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+expressionExitVisitor node context =
+    let
+        contextWithLambdaDepthUpdate =
+            case Node.value node of
+                Expression.LambdaExpression _ ->
+                    if context.lambdaDepth > 0 then
+                        { context | lambdaDepth = context.lambdaDepth - 1 }
+
+                    else
+                        context
+
+                _ ->
+                    context
+
+        -- Pop taint binding scope when exiting let expressions
+        contextWithPoppedScope =
+            case Node.value node of
+                Expression.LetExpression _ ->
+                    let
+                        poppedTaintBindings =
+                            case Taint.nonemptyPop contextWithLambdaDepthUpdate.taintBindings of
+                                Just popped ->
+                                    popped
+
+                                Nothing ->
+                                    -- Should never happen - we always push before pop
+                                    contextWithLambdaDepthUpdate.taintBindings
+
+                        poppedLocalLetFunctions =
+                            case contextWithLambdaDepthUpdate.localLetFunctionsNeedingSeed of
+                                _ :: remaining ->
+                                    remaining
+
+                                [] ->
+                                    []
+                    in
+                    { contextWithLambdaDepthUpdate
+                        | taintBindings = poppedTaintBindings
+                        , localLetFunctionsNeedingSeed = poppedLocalLetFunctions
+                    }
+
+                _ ->
+                    contextWithLambdaDepthUpdate
+
+        -- Track exiting tainted conditionals (if/case)
+        -- Decrement taintedContextDepth when exiting a tainted conditional
+        contextWithTaintedContextUpdate =
+            case Node.value node of
+                Expression.IfBlock cond _ _ ->
+                    let
+                        taintContext =
+                            { modelParamName = contextWithPoppedScope.modelParamName
+                            , sharedModelParamName = contextWithPoppedScope.sharedModelParamName
+                            , bindings = contextWithPoppedScope.taintBindings
+                            }
+
+                        condTaint =
+                            Taint.analyzeExpressionTaint taintContext cond
+                    in
+                    if condTaint == Taint.Tainted && contextWithPoppedScope.taintedContextDepth > 0 then
+                        { contextWithPoppedScope | taintedContextDepth = contextWithPoppedScope.taintedContextDepth - 1 }
+
+                    else
+                        contextWithPoppedScope
+
+                Expression.CaseExpression caseBlock ->
+                    let
+                        taintContext =
+                            { modelParamName = contextWithPoppedScope.modelParamName
+                            , sharedModelParamName = contextWithPoppedScope.sharedModelParamName
+                            , bindings = contextWithPoppedScope.taintBindings
+                            }
+
+                        scrutineeTaint =
+                            Taint.analyzeExpressionTaint taintContext caseBlock.expression
+                    in
+                    if scrutineeTaint == Taint.Tainted && contextWithPoppedScope.taintedContextDepth > 0 then
+                        { contextWithPoppedScope | taintedContextDepth = contextWithPoppedScope.taintedContextDepth - 1 }
+
+                    else
+                        contextWithPoppedScope
+
+                _ ->
+                    contextWithPoppedScope
+    in
+    if PersistentFieldTracking.isExitingFreezeCall node contextWithTaintedContextUpdate.lookupTable then
+        ( [], { contextWithTaintedContextUpdate | sharedState = PersistentFieldTracking.updateOnFreezeExit contextWithTaintedContextUpdate.sharedState } )
+
+    else
+        ( [], contextWithTaintedContextUpdate )
+
+
+{-| Visitor for entering a case branch. Pushes a new scope and adds pattern bindings.
+Pattern bindings inherit taint from the case expression.
+-}
+caseBranchEnterVisitor : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> Context -> ( List (Error {}), Context )
+caseBranchEnterVisitor caseBlockNode ( patternNode, _ ) context =
+    let
+        caseBlock =
+            Node.value caseBlockNode
+
+        -- Analyze the case expression for taint
+        taintContext =
+            { modelParamName = context.modelParamName
+            , sharedModelParamName = context.sharedModelParamName
+            , bindings = context.taintBindings
+            }
+
+        caseTaint =
+            Taint.analyzeExpressionTaint taintContext caseBlock.expression
+
+        -- Extract pattern bindings with the case expression's taint
+        patternBindings =
+            Taint.extractBindingsFromPattern caseTaint patternNode
+
+        -- Push a new scope and add bindings
+        newScope =
+            Taint.nonemptyCons Dict.empty context.taintBindings
+                |> Taint.addBindingsToScope patternBindings
+    in
+    ( [], { context | taintBindings = newScope } )
+
+
+{-| Visitor for exiting a case branch. Pops the scope.
+-}
+caseBranchExitVisitor : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> Context -> ( List (Error {}), Context )
+caseBranchExitVisitor _ _ context =
+    case Taint.nonemptyPop context.taintBindings of
+        Just popped ->
+            ( [], { context | taintBindings = popped } )
+
+        Nothing ->
+            -- Should never happen - we always push before pop
+            ( [], context )
+
+
+{-| Track field access on app.data and variables bound to app.data.
+
+Uses the shared extractFieldAccess function for common patterns (RecordAccess,
+OperatorApplication, Application, RecordUpdateExpression). Handles LetExpression
+and CaseExpression separately as they need context-specific logic.
+
+The client transform has additional tracking for field bindings (let title = app.data.title)
+to track variable usage rather than the definition site.
+
+-}
+trackFieldAccess : Node Expression -> Context -> Context
+trackFieldAccess node context =
+    let
+        -- Check if this expression is in a range we should skip (field binding RHS)
+        -- These are tracked via the variable usage, not the definition
+        nodeRange =
+            rangeToComparable (Node.range node)
+
+        isFieldBindingRHS =
+            Set.member nodeRange context.fieldBindingRanges
+    in
+    -- First check for variable reference to a field binding (client-specific tracking)
+    case Node.value node of
+        Expression.FunctionOrValue [] varName ->
+            case Dict.get varName context.fieldBindings of
+                Just fieldName ->
+                    -- This variable is bound to an app.data field
+                    addFieldAccess fieldName context
+
+                Nothing ->
+                    context
+
+        _ ->
+            -- Skip field binding RHS expressions (they're tracked via variable usage)
+            if isFieldBindingRHS then
+                context
+
+            else
+                -- Use shared extractFieldAccess for common patterns
+                case PersistentFieldTracking.extractFieldAccess node context.sharedState.appParamName context.sharedState.appDataBindings of
+                    PersistentFieldTracking.FieldAccessed fieldName ->
+                        addFieldAccess fieldName context
+
+                    PersistentFieldTracking.MarkAllFieldsUsed ->
+                        if (context.sharedState.freezeCallDepth > 0) || context.sharedState.inHeadFunction then
+                            -- In ephemeral context, we don't care
+                            context
+
+                        else
+                            let
+                                updatedSharedState =
+                                    PersistentFieldTracking.markAllFieldsAsPersistent context.sharedState
+                            in
+                            { context | sharedState = updatedSharedState }
+
+                    PersistentFieldTracking.NoFieldAccess ->
+                        -- Handle patterns that need context-specific logic
+                        case Node.value node of
+                            -- Case expression on app.data: use shared analysis
+                            Expression.CaseExpression _ ->
+                                if (context.sharedState.freezeCallDepth > 0) || context.sharedState.inHeadFunction then
+                                    -- In ephemeral context, we don't care
+                                    context
+
+                                else
+                                    -- Use unified case analysis from shared module
+                                    case PersistentFieldTracking.analyzeCaseOnAppData node context.sharedState.appParamName context.sharedState.appDataBindings of
+                                        PersistentFieldTracking.CaseTrackedFields fields ->
+                                            Set.foldl addFieldAccess context fields
+
+                                        PersistentFieldTracking.CaseAddBindings bindings ->
+                                            let
+                                                currentSharedState =
+                                                    context.sharedState
+
+                                                updatedSharedState =
+                                                    { currentSharedState | appDataBindings = Set.union currentSharedState.appDataBindings bindings }
+                                            in
+                                            { context | sharedState = updatedSharedState }
+
+                                        PersistentFieldTracking.CaseMarkAllFieldsUsed ->
+                                            let
+                                                updatedSharedState =
+                                                    PersistentFieldTracking.markAllFieldsAsPersistent context.sharedState
+                                            in
+                                            { context | sharedState = updatedSharedState }
+
+                                        PersistentFieldTracking.CaseNotOnAppData ->
+                                            context
+
+                            -- Let expressions can bind app.data to a variable, or bind specific fields
+                            -- They can also define local helper functions that should be analyzed
+                            Expression.LetExpression letBlock ->
+                                let
+                                    -- Extract let-bound helper functions using shared logic
+                                    newHelpers =
+                                        PersistentFieldTracking.extractLetBoundHelperFunctions
+                                            context.moduleName
+                                            letBlock.declarations
+                                            context.sharedState.helperFunctions
+
+                                    -- Client-specific: track app.data bindings and field bindings
+                                    letBindingResult =
+                                        letBlock.declarations
+                                            |> List.foldl
+                                                (\declNode acc ->
+                                                    case Node.value declNode of
+                                                        Expression.LetFunction letFn ->
+                                                            let
+                                                                fnDecl =
+                                                                    Node.value letFn.declaration
+
+                                                                varName =
+                                                                    Node.value fnDecl.name
+
+                                                                exprRange =
+                                                                    Node.range fnDecl.expression
+                                                            in
+                                                            case fnDecl.arguments of
+                                                                [] ->
+                                                                    -- No arguments, could be binding app.data or app.data.field
+                                                                    case extractAppDataFieldAccess fnDecl.expression context of
+                                                                        Just fieldName ->
+                                                                            -- let title = app.data.title
+                                                                            -- Track the range to skip in normal field tracking
+                                                                            { acc
+                                                                                | fieldBinds = Dict.insert varName fieldName acc.fieldBinds
+                                                                                , bindingRanges = Set.insert (rangeToComparable exprRange) acc.bindingRanges
+                                                                            }
+
+                                                                        Nothing ->
+                                                                            if isAppDataAccess fnDecl.expression context then
+                                                                                -- let d = app.data
+                                                                                { acc | appBindings = Set.insert varName acc.appBindings }
+
+                                                                            else
+                                                                                acc
+
+                                                                _ ->
+                                                                    -- Has arguments - handled by extractLetBoundHelperFunctions
+                                                                    acc
+
+                                                        Expression.LetDestructuring pattern expr ->
+                                                            -- Handle: let { field1, field2 } = app.data in ...
+                                                            -- With record destructuring, variable names ARE field names
+                                                            if isAppDataAccess expr context then
+                                                                let
+                                                                    destructuredNames =
+                                                                        PersistentFieldTracking.extractPatternNames pattern
+
+                                                                    -- For record destructuring of app.data, variable name = field name
+                                                                    newFieldBinds =
+                                                                        destructuredNames
+                                                                            |> Set.foldl (\name dict -> Dict.insert name name dict) acc.fieldBinds
+
+                                                                    -- Track the range to skip
+                                                                    letExprRange =
+                                                                        Node.range expr
+                                                                in
+                                                                { acc
+                                                                    | appBindings = Set.union destructuredNames acc.appBindings
+                                                                    , fieldBinds = newFieldBinds
+                                                                    , bindingRanges = Set.insert (rangeToComparable letExprRange) acc.bindingRanges
+                                                                }
+
+                                                            else
+                                                                acc
+                                                )
+                                                { appBindings = context.sharedState.appDataBindings
+                                                , fieldBinds = context.fieldBindings
+                                                , bindingRanges = context.fieldBindingRanges
+                                                }
+
+                                    currentSharedState =
+                                        context.sharedState
+
+                                    updatedSharedState =
+                                        { currentSharedState
+                                            | appDataBindings = letBindingResult.appBindings
+                                            , helperFunctions = newHelpers
+                                        }
+                                in
+                                { context
+                                    | sharedState = updatedSharedState
+                                    , fieldBindings = letBindingResult.fieldBinds
+                                    , fieldBindingRanges = letBindingResult.bindingRanges
+                                }
+
+                            _ ->
+                                context
+
+
+{-| Check if a function node is a call to View.freeze.
+-}
+isViewFreezeCall : Node Expression -> Context -> Bool
+isViewFreezeCall functionNode context =
+    PersistentFieldTracking.isViewFreezeCall functionNode context.lookupTable
+
+
+{-| Check if an expression is `app.data` (or `static.data`, etc. based on context.sharedState.appParamName)
+-}
+isAppDataAccess : Node Expression -> Context -> Bool
+isAppDataAccess node context =
+    PersistentFieldTracking.isAppDataAccess node context.sharedState.appParamName context.sharedState.appDataBindings
+
+
+{-| Delegate to shared isRecordAccessFunction function.
+-}
+isRecordAccessFunction : Node Expression -> Bool
+isRecordAccessFunction =
+    PersistentFieldTracking.isRecordAccessFunction
+
+
+
+
+{-| Extract the field name if the expression is `app.data.fieldName`.
+Returns Just fieldName if it matches, Nothing otherwise.
+-}
+extractAppDataFieldAccess : Node Expression -> Context -> Maybe String
+extractAppDataFieldAccess node context =
+    case Node.value node of
+        -- app.data.fieldName
+        Expression.RecordAccess innerExpr (Node _ fieldName) ->
+            if isAppDataAccess innerExpr context then
+                Just fieldName
+
+            else
+                Nothing
+
+        _ ->
+            Nothing
+
+
+{-| Check if an expression contains `app.data` being passed as a WHOLE to a function.
+Delegates to shared implementation in PersistentFieldTracking.
+-}
+containsAppDataExpression : Node Expression -> Context -> Bool
+containsAppDataExpression node context =
+    PersistentFieldTracking.containsAppDataExpression
+        node
+        context.sharedState.appParamName
+        context.sharedState.appDataBindings
+        (\fn -> isViewFreezeCall fn context)
+
+
+{-| Extract field name from pipe operator with accessor pattern on app.data.
+-}
+extractAppDataPipeAccessorField : String -> Node Expression -> Node Expression -> Context -> Maybe String
+extractAppDataPipeAccessorField op leftExpr rightExpr context =
+    PersistentFieldTracking.extractAppDataPipeAccessorField op leftExpr rightExpr context.sharedState.appParamName context.sharedState.appDataBindings
+
+
+{-| Find all occurrences of "App Data ..." in a type annotation.
+Returns the ranges of the "Data" type argument so it can be replaced with "NarrowedData".
+
+For example, in `App Data ActionData RouteParams -> Shared.Model -> View msg`,
+this finds the range of `Data` (the first type argument to `App`).
+
+-}
+findAppDataRanges : Node TypeAnnotation -> List Range
+findAppDataRanges node =
+    case Node.value node of
+        TypeAnnotation.Typed (Node _ ( moduleName, typeName )) args ->
+            let
+                -- Check if this is "App" (from RouteBuilder or unqualified)
+                isAppType =
+                    (moduleName == [] && typeName == "App")
+                        || (moduleName == [ "RouteBuilder" ] && typeName == "App")
+
+                -- If it's App and first arg is "Data", get that range
+                appDataRange =
+                    if isAppType then
+                        case args of
+                            (Node dataRange (TypeAnnotation.Typed (Node _ ( [], "Data" )) _)) :: _ ->
+                                [ dataRange ]
+
+                            _ ->
+                                []
+
+                    else
+                        []
+
+                -- Recurse into type arguments
+                nestedRanges =
+                    args |> List.concatMap findAppDataRanges
+            in
+            appDataRange ++ nestedRanges
+
+        TypeAnnotation.FunctionTypeAnnotation left right ->
+            findAppDataRanges left ++ findAppDataRanges right
+
+        TypeAnnotation.Tupled nodes ->
+            nodes |> List.concatMap findAppDataRanges
+
+        TypeAnnotation.Record fields ->
+            fields
+                |> List.concatMap
+                    (\(Node _ ( _, typeNode )) ->
+                        findAppDataRanges typeNode
+                    )
+
+        TypeAnnotation.GenericRecord _ (Node _ fields) ->
+            fields
+                |> List.concatMap
+                    (\(Node _ ( _, typeNode )) ->
+                        findAppDataRanges typeNode
+                    )
+
+        _ ->
+            []
+
+
+{-| Find the index (0-based) of the parameter that has the `App` type.
+
+This is used for functions like `init` and `update` where the App parameter
+is not the first parameter. For example:
+
+    init : Maybe PageUrl -> Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+
+The App parameter is at index 2 (third parameter).
+
+Returns Nothing if no App parameter is found.
+
+-}
+findAppParamIndex : Node TypeAnnotation -> Maybe Int
+findAppParamIndex typeAnnotation =
+    findAppParamIndexHelper 0 typeAnnotation
+
+
+findAppParamIndexHelper : Int -> Node TypeAnnotation -> Maybe Int
+findAppParamIndexHelper index node =
+    case Node.value node of
+        TypeAnnotation.FunctionTypeAnnotation left right ->
+            -- Check if the left side is an App type
+            if isAppTypeAnnotation left then
+                Just index
+
+            else
+                -- Recurse to the next parameter
+                findAppParamIndexHelper (index + 1) right
+
+        _ ->
+            -- Not a function type - check if it's an App type (last parameter or simple type)
+            if isAppTypeAnnotation node then
+                Just index
+
+            else
+                Nothing
+
+
+{-| Check if a type annotation is an App type (App Data ActionData RouteParams).
+-}
+isAppTypeAnnotation : Node TypeAnnotation -> Bool
+isAppTypeAnnotation node =
+    case Node.value node of
+        TypeAnnotation.Typed (Node _ ( moduleName, typeName )) _ ->
+            (moduleName == [] && typeName == "App")
+                || (moduleName == [ "RouteBuilder" ] && typeName == "App")
+
+        _ ->
+            False
+
+
+{-| Find all ranges where "Data" appears as a type in a type annotation.
+
+This is used to replace Data with Ephemeral in freeze-only helper annotations.
+Returns the ranges of the "Data" type references (not the full Typed node).
+
+-}
+findDataTypeRanges : Node TypeAnnotation -> List Range
+findDataTypeRanges =
+    PersistentFieldTracking.extractDataTypeRanges
+
+
+{-| Add a field access to clientUsedFields if we're in a CLIENT context.
+Fields accessed in ephemeral contexts (freeze, head) are NOT tracked as client-used,
+but are still tracked per-function for head function correction.
+
+Delegates to the shared updateOnFieldAccess to ensure agreement with ServerDataTransform.
+-}
+addFieldAccess : String -> Context -> Context
+addFieldAccess fieldName context =
+    { context
+        | sharedState = PersistentFieldTracking.updateOnFieldAccess fieldName context.sharedState
+    }
+
+
+{-| Extract function names from RouteBuilder.preRender/single/serverRender record argument.
+
+This ensures we correctly identify which functions are ephemeral (head, data)
+based on what's ACTUALLY passed to RouteBuilder, not just by function name.
+
+If the record uses simple function references like `{ head = head, data = data }`,
+we extract those names. If it uses lambdas or complex expressions, we can't
+safely track ephemeral contexts, so we leave the names as Nothing (which will
+cause us to bail out of optimization).
+
+-}
+extractRouteBuilderFunctions : Context -> List (Node Expression) -> Context
+extractRouteBuilderFunctions context args =
+    case args of
+        recordArg :: _ ->
+            case Node.value recordArg of
+                Expression.RecordExpr fields ->
+                    let
+                        -- Use shared extraction logic
+                        extracted =
+                            PersistentFieldTracking.extractRouteBuilderFunctions fields
+
+                        -- Store head function name in shared state for agreement with ServerDataTransform
+                        updatedSharedState =
+                            PersistentFieldTracking.setRouteBuilderHeadFn extracted.headFn context.sharedState
+                    in
+                    { context
+                        | routeBuilderFound = True
+                        , sharedState = updatedSharedState
+                        , routeBuilderDataFn = extracted.dataFn
+                    }
+
+                _ ->
+                    -- Not a record literal - can't extract function names
+                    { context | routeBuilderFound = True }
+
+        _ ->
+            context
+
+
+{-| Check if app.data is passed as a whole to a function.
+
+In CLIENT context: track as pending helper call for field usage analysis.
+In FREEZE context: track as helper called in freeze for potential stubbing.
+
+Uses shared analyzeHelperCallInClientContext from PersistentFieldTracking.
+
+-}
+checkAppDataPassedToHelper : Context -> Node Expression -> List (Node Expression) -> Context
+checkAppDataPassedToHelper context functionNode args =
+    let
+        classification =
+            PersistentFieldTracking.classifyAppDataArguments
+                functionNode
+                args
+                context.sharedState.appParamName
+                context.sharedState.appDataBindings
+                (\fn -> isViewFreezeCall fn context)
+                (\expr -> containsAppDataExpression expr context)
+                (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context)
+    in
+    if (context.sharedState.freezeCallDepth > 0) || context.sharedState.inHeadFunction then
+        -- In ephemeral context (freeze/head)
+        -- Track local functions called with app.data for potential stubbing (client-specific)
+        case classification.maybeFunctionKey of
+            Just functionKey ->
+                if classification.hasDirectAppData || classification.hasWrappedAppData then
+                    case PersistentFieldTracking.helperKeyToLocalNameInModule context.moduleName functionKey of
+                        Just localFunctionName ->
+                            { context | helpersCalledInFreeze = Set.insert localFunctionName context.helpersCalledInFreeze }
+
+                        Nothing ->
+                            context
+
+                else
+                    context
+
+            Nothing ->
+                context
+
+    else
+        -- In client context - use shared analysis with inline lambda fallback
+        applyHelperCallResult context (PersistentFieldTracking.analyzeHelperCallInClientContext functionNode classification)
+
+
+{-| Check if app.data is passed to a function via pipe operator.
+
+Handles `app.data |> fn` and `fn <| app.data` patterns.
+Uses shared analyzePipedHelperCall from PersistentFieldTracking.
+
+-}
+checkAppDataPassedToHelperViaPipe : Context -> Node Expression -> Node Expression -> Context
+checkAppDataPassedToHelperViaPipe context functionNode argNode =
+    -- Check if the argument is app.data (or an alias)
+    if not (isAppDataAccess argNode context) then
+        context
+
+    else if (context.sharedState.freezeCallDepth > 0) || context.sharedState.inHeadFunction then
+        -- In ephemeral context (freeze/head)
+        -- Track local functions called with app.data for potential stubbing
+        case extractBaseFunctionName functionNode of
+            Just funcName ->
+                { context | helpersCalledInFreeze = Set.insert funcName context.helpersCalledInFreeze }
+
+            Nothing ->
+                context
+
+    else
+        -- In client context - use shared pipe analysis
+        applyHelperCallResult context (PersistentFieldTracking.analyzePipedHelperCall (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context) functionNode)
+
+
+{-| Apply a HelperCallResult to the context.
+
+Delegates to shared applyHelperCallResult to ensure identical logic with server.
+Both checkAppDataPassedToHelper and checkAppDataPassedToHelperViaPipe use this.
+
+-}
+applyHelperCallResult : Context -> PersistentFieldTracking.HelperCallResult -> Context
+applyHelperCallResult context result =
+    { context | sharedState = PersistentFieldTracking.applyHelperCallResult result context.sharedState }
+
+
+{-| Extract the base function name from a function expression.
+Handles both simple function references and partial applications.
+-}
+extractBaseFunctionName : Node Expression -> Maybe String
+extractBaseFunctionName node =
+    case Node.value node of
+        Expression.FunctionOrValue [] funcName ->
+            Just funcName
+
+        Expression.Application (firstExpr :: _) ->
+            case Node.value firstExpr of
+                Expression.FunctionOrValue [] funcName ->
+                    Just funcName
+
+                _ ->
+                    Nothing
+
+        Expression.ParenthesizedExpression inner ->
+            extractBaseFunctionName inner
+
+        _ ->
+            Nothing
+
+
+recordFunctionCallEdge : Node Expression -> Context -> Context
+recordFunctionCallEdge functionNode context =
+    case ( currentFunctionName context, resolveCalledFunctionId functionNode context ) of
+        ( Just callerFunctionName, Just calleeFunctionId ) ->
+            let
+                callerFunctionId =
+                    ( context.moduleName, callerFunctionName )
+            in
+            { context
+                | localFunctionCalls =
+                    Dict.update callerFunctionId
+                        (\maybeExisting ->
+                            Just <|
+                                case maybeExisting of
+                                    Just existing ->
+                                        Set.insert calleeFunctionId existing
+
+                                    Nothing ->
+                                        Set.singleton calleeFunctionId
+                        )
+                        context.localFunctionCalls
+            }
+
+        _ ->
+            context
+
+
+resolveCalledFunctionId : Node Expression -> Context -> Maybe ( ModuleName, String )
+resolveCalledFunctionId functionNode context =
+    let
+        unwrapped =
+            unwrapParenthesizedExpression functionNode
+    in
+    case Node.value unwrapped of
+        Expression.FunctionOrValue qualifier fnName ->
+            case ModuleNameLookupTable.moduleNameFor context.lookupTable unwrapped of
+                Just moduleName ->
+                    if List.isEmpty moduleName then
+                        Just ( context.moduleName, fnName )
+
+                    else
+                        Just ( moduleName, fnName )
+
+                Nothing ->
+                    if List.isEmpty qualifier then
+                        Just ( context.moduleName, fnName )
+
+                    else
+                        Just ( qualifier, fnName )
+
+        _ ->
+            Nothing
+
+
+type alias FreezeCall =
+    { functionNode : Node Expression
+    , argumentNode : Node Expression
+    }
+
+
+{-| Unwrap parenthesized expressions recursively.
+-}
+unwrapParenthesizedExpression : Node Expression -> Node Expression
+unwrapParenthesizedExpression node =
+    case Node.value node of
+        Expression.ParenthesizedExpression inner ->
+            unwrapParenthesizedExpression inner
+
+        _ ->
+            node
+
+
+{-| Extract a View.freeze call from supported call shapes.
+
+Supports:
+- `View.freeze expr`
+- `expr |> View.freeze`
+- `View.freeze <| expr`
+
+-}
+extractFreezeCall : Node Expression -> ModuleNameLookupTable -> Maybe FreezeCall
+extractFreezeCall node lookupTable =
+    let
+        check functionNode argNode =
+            let
+                unwrappedFunction =
+                    unwrapParenthesizedExpression functionNode
+            in
+            if PersistentFieldTracking.isViewFreezeCall unwrappedFunction lookupTable then
+                Just { functionNode = unwrappedFunction, argumentNode = argNode }
+
+            else
+                Nothing
+    in
+    case Node.value node of
+        Expression.Application (functionNode :: argNode :: []) ->
+            check functionNode argNode
+
+        Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
+            check rightExpr leftExpr
+
+        Expression.OperatorApplication "<|" _ leftExpr rightExpr ->
+            check leftExpr rightExpr
+
+        _ ->
+            Nothing
+
+
+rewriteHelperCallWithFrozenId : Node Expression -> Context -> ( List (Error {}), Context )
+rewriteHelperCallWithFrozenId node context =
+    case Node.value node of
+        Expression.Application (functionNode :: args) ->
+            if shouldSeedHelperCallIds context then
+                case findUnsupportedHelperFunctionValueOrPartialArg args context of
+                    Just unsupportedArg ->
+                        ( [ unsupportedHelperFunctionValueOrPartialError "Frozen view codemod: unsupported helper function value or partial application" unsupportedArg ]
+                        , context
+                        )
+
+                    Nothing ->
+                        if helperCallNeedsFrozenId functionNode context then
+                            let
+                                contextWithFreezePresence =
+                                    recordTransformedFreezeInCurrentFunction context
+                            in
+                            if isPartialHelperCall functionNode args contextWithFreezePresence then
+                                ( [ unsupportedHelperFunctionValueOrPartialError "Frozen view codemod: unsupported helper function value or partial application" node ]
+                                , contextWithFreezePresence
+                                )
+
+                            else if currentFunctionIsRecursive contextWithFreezePresence then
+                                ( [ Rule.error
+                                        { message = "Frozen view codemod: unsupported helper ID seeding in repeated context"
+                                        , details =
+                                            [ "Cannot auto-seed frozen helper IDs inside recursive helper functions."
+                                            , "Refactor recursion so each invocation receives an explicit unique frozen ID seed."
+                                            ]
+                                        }
+                                        (Node.range node)
+                                  ]
+                                , contextWithFreezePresence
+                                )
+
+                            else if contextWithFreezePresence.lambdaDepth > 0 then
+                                ( [ Rule.error
+                                        { message = "Frozen view codemod: unsupported helper ID seeding in repeated context"
+                                        , details =
+                                            [ "Cannot auto-seed frozen helper IDs inside lambdas or higher-order iterations (for example List.map)."
+                                            , "Refactor this helper call to a static call site so each invocation can get a unique frozen ID."
+                                            ]
+                                        }
+                                        (Node.range node)
+                                  ]
+                                , contextWithFreezePresence
+                                )
+
+                            else if callAlreadyHasFrozenIdSeed args then
+                                ( [], contextWithFreezePresence )
+
+                            else
+                                let
+                                    ( frozenSeedExpression, contextWithSeed ) =
+                                        nextHelperCallSeedExpression contextWithFreezePresence
+
+                                    insertionFix =
+                                        case args of
+                                            firstArg :: _ ->
+                                                Review.Fix.insertAt (Node.range firstArg).start (frozenSeedExpression ++ " ")
+
+                                            [] ->
+                                                Review.Fix.insertAt (Node.range functionNode).end (" " ++ frozenSeedExpression)
+
+                                    helperDeclarationFixes =
+                                        helperFidInjectionFixes contextWithSeed
+                                in
+                                ( [ Rule.errorWithFix
+                                        { message = "Frozen view codemod: pass frozen ID to helper call"
+                                        , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                                        }
+                                        (Node.range node)
+                                        (insertionFix :: helperDeclarationFixes)
+                                  ]
+                                , markCurrentFunctionFidInjected contextWithSeed
+                                )
+
+                        else
+                            ( [], context )
+
+            else
+                ( [], context )
+
+        _ ->
+            ( [], context )
+
+
+shouldSeedHelperCallIds : Context -> Bool
+shouldSeedHelperCallIds context =
+    FreezeHelperPlanning.shouldSeedHelperCallIds
+        { isRouteModule = PersistentFieldTracking.isRouteModule
+        , isSharedModule = PersistentFieldTracking.isSharedModule
+        , moduleName = context.moduleName
+        , currentFunctionName = currentFunctionName context
+        
+        }
+
+
+helperCallNeedsFrozenId : Node Expression -> Context -> Bool
+helperCallNeedsFrozenId functionNode context =
+    FreezeHelperPlanning.helperCallNeedsFrozenId
+        (freezeKnowledge context)
+        (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context)
+        functionNode
+
+
+findUnsupportedHelperFunctionValueOrPartialArg : List (Node Expression) -> Context -> Maybe (Node Expression)
+findUnsupportedHelperFunctionValueOrPartialArg args context =
+    case
+        FreezeHelperPlanning.findUnsupportedHelperFunctionValueArg
+            (freezeKnowledge context)
+            (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context)
+            args
+    of
+        Just unsupportedArg ->
+            Just unsupportedArg
+
+        Nothing ->
+            FreezeHelperPlanning.findUnsupportedLocalFunctionValueArg
+                (currentLocalLetFunctionsNeedingSeed context)
+                args
+
+
+isPartialHelperCall : Node Expression -> List (Node Expression) -> Context -> Bool
+isPartialHelperCall functionNode args context =
+    FreezeHelperPlanning.isPartialHelperCall
+        (freezeKnowledge context)
+        (\calledFunctionNode -> resolveCalledFunctionId calledFunctionNode context)
+        functionNode
+        args
+
+
+unsupportedHelperFunctionValueOrPartialError : String -> Node Expression -> Error {}
+unsupportedHelperFunctionValueOrPartialError message expressionNode =
+    Rule.error
+        { message = message
+        , details =
+            [ "Cannot pass a helper containing View.freeze as a function value or partial application (for example List.map Helper.view)."
+            , "Refactor this helper call to a static call site so each invocation can get a unique frozen ID."
+            ]
+        }
+        (Node.range expressionNode)
+
+
+freezeKnowledge : Context -> FreezeHelperPlanning.FreezeKnowledge
+freezeKnowledge context =
+    let
+        localFreezeFunctions =
+            Dict.foldl
+                (\fnName count acc ->
+                    if count > 0 then
+                        Dict.insert ( context.moduleName, fnName ) count acc
+
+                    else
+                        acc
+                )
+                Dict.empty
+                context.localTransformedFreezeFunctions
+
+        mergedFunctionCalls =
+            Dict.foldl
+                (\caller callees acc ->
+                    Dict.update caller
+                        (\maybeExisting ->
+                            Just <|
+                                case maybeExisting of
+                                    Just existing ->
+                                        Set.union existing callees
+
+                                    Nothing ->
+                                        callees
+                        )
+                        acc
+                )
+                context.projectFunctionCalls
+                context.localFunctionCalls
+
+        localFunctionArities =
+            Dict.foldl
+                (\functionName info acc ->
+                    Dict.insert ( context.moduleName, functionName ) info.argumentCount acc
+                )
+                Dict.empty
+                context.functionDeclarationInfo
+
+        localFunctionHasFidParam =
+            Dict.foldl
+                (\functionName info acc ->
+                    Dict.insert ( context.moduleName, functionName ) info.hasFidParam acc
+                )
+                Dict.empty
+                context.functionDeclarationInfo
+    in
+    { freezeFunctions = Dict.union localFreezeFunctions context.projectFreezeFunctions
+    , functionCalls = mergedFunctionCalls
+    , functionArities = Dict.union localFunctionArities context.projectFunctionArities
+    , functionHasFidParam = Dict.union localFunctionHasFidParam context.projectFunctionHasFidParam
+    }
+
+
+currentLocalLetFunctionsNeedingSeed : Context -> Set String
+currentLocalLetFunctionsNeedingSeed context =
+    context.localLetFunctionsNeedingSeed
+        |> List.foldl Set.union Set.empty
+
+
+currentFunctionIsRecursive : Context -> Bool
+currentFunctionIsRecursive context =
+    case currentFunctionName context of
+        Just functionName ->
+            FreezeHelperPlanning.functionIsRecursive
+                (freezeKnowledge context)
+                ( context.moduleName, functionName )
+
+        Nothing ->
+            False
+
+
+callAlreadyHasFrozenIdSeed : List (Node Expression) -> Bool
+callAlreadyHasFrozenIdSeed args =
+    case args of
+        firstArg :: _ ->
+            case Node.value (unwrapParenthesizedExpression firstArg) of
+                Expression.Literal _ ->
+                    True
+
+                _ ->
+                    expressionContainsFidVariable firstArg
+
+        [] ->
+            False
+
+
+expressionContainsFidVariable : Node Expression -> Bool
+expressionContainsFidVariable node =
+    case Node.value (unwrapParenthesizedExpression node) of
+        Expression.FunctionOrValue [] fnName ->
+            isFidParamName fnName
+
+        Expression.OperatorApplication _ _ left right ->
+            expressionContainsFidVariable left || expressionContainsFidVariable right
+
+        Expression.Application exprs ->
+            List.any expressionContainsFidVariable exprs
+
+        Expression.IfBlock condition thenBranch elseBranch ->
+            expressionContainsFidVariable condition
+                || expressionContainsFidVariable thenBranch
+                || expressionContainsFidVariable elseBranch
+
+        Expression.CaseExpression caseBlock ->
+            expressionContainsFidVariable caseBlock.expression
+
+        Expression.ParenthesizedExpression inner ->
+            expressionContainsFidVariable inner
+
+        _ ->
+            False
+
+
+nextHelperCallSeedExpression : Context -> ( String, Context )
+nextHelperCallSeedExpression context =
+    let
+        nextContext =
+            { context | helperCallSeedIndex = context.helperCallSeedIndex + 1 }
+    in
+    if usesHelperFrozenIds context then
+        ( "(" ++ currentFunctionFidParamName context ++ " ++ \":" ++ String.fromInt context.helperCallSeedIndex ++ "\")"
+        , nextContext
+        )
+
+    else
+        ( "\"" ++ nextHelperCallSeed context ++ "\""
+        , nextContext
+        )
+
+
+nextHelperCallSeed : Context -> String
+nextHelperCallSeed context =
+    let
+        prefix =
+            if context.moduleName == [ "Shared" ] then
+                "shared:"
+
+            else
+                ""
+    in
+    prefix ++ String.fromInt context.helperCallSeedIndex
+
+
+advanceRootSeedIndex : Context -> Context
+advanceRootSeedIndex context =
+    if shouldSeedHelperCallIds context then
+        { context | staticIndex = context.staticIndex + 1 }
+
+    else
+        context
+
+
+handleViewFreezeCall : Node Expression -> Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )
+handleViewFreezeCall functionNode freezeArg node context =
+    case Node.value functionNode of
+        Expression.FunctionOrValue _ "freeze" ->
+            -- Skip already-transformed freeze calls to prevent infinite recursion.
+            -- The generated lazy thunk code contains `... |> View.htmlToFreezable |> View.freeze`.
+            -- When elm-review re-analyzes after applying fixes, it would detect
+            -- this View.freeze and try to transform it again. We detect this pattern
+            -- by checking if the freeze argument ends with `|> View.htmlToFreezable`.
+            if isAlreadyTransformedFreezeArg freezeArg then
+                ( [], advanceRootSeedIndex context )
+            -- First check: are we inside a nested freeze call?
+            -- Nested freeze should be a no-op - only transform the outermost freeze
+            else if context.sharedState.freezeCallDepth > 1 then
+                -- Inside nested freeze - skip transformation (no-op)
+                ( [], context )
+            -- Second check: are we inside a tainted conditional (if/case that depends on model)?
+            -- If so, skip transformation to avoid server/client mismatch
+            else if context.taintedContextDepth > 0 then
+                -- Inside tainted conditional - de-optimize (skip transformation)
+                -- Emit count so build system can run validation pass
+                ( [ emitDeOptimizationCount (Node.range node) "tainted_conditional" ], context )
+
+            else
+                -- Check if the freeze argument is tainted (depends on model)
+                let
+                    taintContext =
+                        { modelParamName = context.modelParamName
+                        , sharedModelParamName = context.sharedModelParamName
+                        , bindings = context.taintBindings
+                        }
+
+                    argTaint =
+                        Taint.analyzeExpressionTaint taintContext freezeArg
+                in
+                case argTaint of
+                    Taint.Tainted ->
+                        -- Skip transformation - model is used, de-optimize gracefully
+                        -- Emit count so build system can run validation pass
+                        ( [ emitDeOptimizationCount (Node.range node) "tainted_argument" ], context )
+
+                    Taint.Pure ->
+                        -- Safe to transform - no model dependency
+                        let
+                            ( staticIdExpression, contextWithIdProgress ) =
+                                nextStaticIdExpression context
+
+                            -- Generate inlined lazy thunk with View.htmlToFreezable wrapper
+                            replacement =
+                                inlinedLazyThunk contextWithIdProgress staticIdExpression
+
+                            helperDeclarationFixes =
+                                helperFidInjectionFixes contextWithIdProgress
+
+                            fixes =
+                                [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
+                                    ++ helperDeclarationFixes
+                                    ++ htmlLazyImportFix context
+                        in
+                        ( [ createTransformErrorWithFixes "View.freeze" "inlined lazy thunk" node fixes ]
+                        , markCurrentFunctionFidInjected contextWithIdProgress
+                        )
+
+        _ ->
+            ( [], context )
+
+
+frozenIdParamPrefix : String
+frozenIdParamPrefix =
+    "elmPagesFid"
+
+
+currentFunctionName : Context -> Maybe String
+currentFunctionName context =
+    context.sharedState.currentFunctionName
+
+
+isFidParamName : String -> Bool
+isFidParamName name =
+    String.startsWith frozenIdParamPrefix name
+
+
+sanitizeFidNamePart : String -> String
+sanitizeFidNamePart rawPart =
+    rawPart
+        |> String.toLower
+        |> String.map
+            (\char ->
+                if Char.isAlphaNum char then
+                    char
+
+                else
+                    '_'
+            )
+
+
+generatedFidParamName : ModuleName -> String -> String
+generatedFidParamName moduleName functionName =
+    let
+        modulePart =
+            moduleName
+                |> List.map sanitizeFidNamePart
+                |> String.join "_"
+
+        functionPart =
+            sanitizeFidNamePart functionName
+
+        suffix =
+            if String.isEmpty modulePart then
+                functionPart
+
+            else
+                modulePart ++ "_" ++ functionPart
+    in
+    frozenIdParamPrefix ++ "_" ++ suffix
+
+
+currentFunctionFidParamName : Context -> String
+currentFunctionFidParamName context =
+    case currentFunctionName context of
+        Just fnName ->
+            case Dict.get fnName context.functionDeclarationInfo of
+                Just info ->
+                    info.fidParamName
+                        |> Maybe.withDefault (generatedFidParamName context.moduleName fnName)
+
+                Nothing ->
+                    generatedFidParamName context.moduleName fnName
+
+        Nothing ->
+            frozenIdParamPrefix
+
+
+usesHelperFrozenIds : Context -> Bool
+usesHelperFrozenIds context =
+    (not (PersistentFieldTracking.isRouteModule context.moduleName))
+        && (not (PersistentFieldTracking.isSharedModule context.moduleName))
+        && Maybe.withDefault False (Maybe.map (\_ -> True) (currentFunctionName context))
+
+
+recordTransformedFreezeInCurrentFunction : Context -> Context
+recordTransformedFreezeInCurrentFunction context =
+    case currentFunctionName context of
+        Just fnName ->
+            { context
+                | localTransformedFreezeFunctions =
+                    Dict.update fnName
+                        (\maybeCount ->
+                            case maybeCount of
+                                Just count ->
+                                    Just (count + 1)
+
+                                Nothing ->
+                                    Just 1
+                        )
+                        context.localTransformedFreezeFunctions
+            }
+
+        Nothing ->
+            context
+
+
+nextStaticIdExpression : Context -> ( String, Context )
+nextStaticIdExpression context =
+    if usesHelperFrozenIds context then
+        case currentFunctionName context of
+            Just fnName ->
+                let
+                    localIndex =
+                        Dict.get fnName context.helperFunctionFreezeIndex
+                            |> Maybe.withDefault 0
+
+                    updatedContext =
+                        { context
+                            | helperFunctionFreezeIndex =
+                                Dict.insert fnName (localIndex + 1) context.helperFunctionFreezeIndex
+                        }
+                in
+                ( "(\"__ELM_PAGES_STATIC__\" ++ "
+                    ++ currentFunctionFidParamName context
+                    ++ " ++ \":"
+                    ++ String.fromInt localIndex
+                    ++ "\")"
+                , updatedContext
+                )
+
+            Nothing ->
+                nextRootStaticIdExpression context
+
+    else
+        nextRootStaticIdExpression context
+
+
+nextRootStaticIdExpression : Context -> ( String, Context )
+nextRootStaticIdExpression context =
+    let
+        prefix =
+            if context.moduleName == [ "Shared" ] then
+                "shared:"
+
+            else
+                ""
+    in
+    ( "\"__ELM_PAGES_STATIC__" ++ prefix ++ String.fromInt context.staticIndex ++ "\""
+    , { context | staticIndex = context.staticIndex + 1 }
+    )
+
+
+helperFidInjectionFixes : Context -> List Review.Fix.Fix
+helperFidInjectionFixes context =
+    if not (usesHelperFrozenIds context) then
+        []
+
+    else
+        case currentFunctionName context of
+            Nothing ->
+                []
+
+            Just fnName ->
+                if Set.member fnName context.injectedFidFunctions then
+                    []
+
+                else
+                    case Dict.get fnName context.functionDeclarationInfo of
+                        Nothing ->
+                            []
+
+                        Just info ->
+                            let
+                                fidParamName =
+                                    generatedFidParamName context.moduleName fnName
+
+                                declarationFixes =
+                                    if info.hasFidParam then
+                                        []
+
+                                    else
+                                        [ case info.firstArgRange of
+                                            Just firstArgRange ->
+                                                Review.Fix.insertAt firstArgRange.start (fidParamName ++ " ")
+
+                                            Nothing ->
+                                                Review.Fix.insertAt info.functionNameRange.end (" " ++ fidParamName)
+                                        ]
+
+                                signatureFixes =
+                                    if info.hasFidTypeAnnotation then
+                                        []
+
+                                    else
+                                        case info.signatureTypeRange of
+                                            Just signatureTypeRange ->
+                                                [ Review.Fix.insertAt signatureTypeRange.start "String -> " ]
+
+                                            Nothing ->
+                                                []
+                            in
+                            declarationFixes ++ signatureFixes
+
+
+markCurrentFunctionFidInjected : Context -> Context
+markCurrentFunctionFidInjected context =
+    if not (usesHelperFrozenIds context) then
+        context
+
+    else
+        case currentFunctionName context of
+            Just fnName ->
+                { context | injectedFidFunctions = Set.insert fnName context.injectedFidFunctions }
+
+            Nothing ->
+                context
+
+
+fidParamNameFromPattern : Node Pattern -> Maybe String
+fidParamNameFromPattern node =
+    case Node.value node of
+        Pattern.VarPattern name ->
+            if isFidParamName name then
+                Just name
+
+            else
+                Nothing
+
+        Pattern.ParenthesizedPattern inner ->
+            fidParamNameFromPattern inner
+
+        Pattern.AsPattern inner (Node _ name) ->
+            if isFidParamName name then
+                Just name
+
+            else
+                fidParamNameFromPattern inner
+
+        _ ->
+            Nothing
+
+
+signatureStartsWithString : Node TypeAnnotation -> Bool
+signatureStartsWithString node =
+    case Node.value node of
+        TypeAnnotation.FunctionTypeAnnotation firstArg _ ->
+            isStringTypeAnnotation firstArg
+
+        _ ->
+            False
+
+
+isStringTypeAnnotation : Node TypeAnnotation -> Bool
+isStringTypeAnnotation node =
+    case Node.value node of
+        TypeAnnotation.Typed (Node _ ( [], "String" )) [] ->
+            True
+
+        _ ->
+            False
+
+
+{-| Check if a freeze argument is already a transformed lazy thunk.
+
+The generated code produces: `... |> View.htmlToFreezable |> View.freeze`
+When elm-review re-analyzes after fixing, it detects the outer `View.freeze`
+and extracts the argument as `... |> View.htmlToFreezable`. We detect this
+pattern to prevent re-transformation.
+
+-}
+isAlreadyTransformedFreezeArg : Node Expression -> Bool
+isAlreadyTransformedFreezeArg argNode =
+    case Node.value argNode of
+        Expression.OperatorApplication "|>" _ _ rightExpr ->
+            case Node.value rightExpr of
+                Expression.FunctionOrValue _ "htmlToFreezable" ->
+                    True
+
+                _ ->
+                    False
+
+        Expression.Application (funcNode :: _) ->
+            case Node.value funcNode of
+                Expression.FunctionOrValue _ "htmlToFreezable" ->
+                    True
+
+                _ ->
+                    False
+
+        Expression.ParenthesizedExpression inner ->
+            isAlreadyTransformedFreezeArg inner
+
+        _ ->
+            False
+
+
+createTransformErrorWithFixes : String -> String -> Node Expression -> List Review.Fix.Fix -> Error {}
+createTransformErrorWithFixes fromFn toFn node fixes =
+    Rule.errorWithFix
+        { message = "Frozen view codemod: transform " ++ fromFn ++ " to " ++ toFn
+        , details = [ "Transforms " ++ fromFn ++ " to " ++ toFn ++ " for client-side adoption and DCE" ]
+        }
+        (Node.range node)
+        fixes
+
+
+{-| Generate fixes to add `import Html.Lazy` and `import Html` if not already imported.
+The generated code uses elm/html for `Html.Lazy.lazy` and `Html.text ""`.
+-}
+htmlLazyImportFix : Context -> List Review.Fix.Fix
+htmlLazyImportFix context =
+    let
+        needsHtmlLazy =
+            case context.htmlLazyImport of
+                ImportedAs _ ->
+                    False
+
+                NotImported ->
+                    True
+
+        needsHtml =
+            case context.htmlImport of
+                ImportedAs _ ->
+                    False
+
+                NotImported ->
+                    True
+
+        importsToAdd =
+            (if needsHtmlLazy then
+                "import Html.Lazy\n"
+
+             else
+                ""
+            )
+                ++ (if needsHtml then
+                        -- Use unique ElmPages__ prefix to avoid conflicts with user imports
+                        -- (e.g., `import Accessibility as Html` or `import Html.Styled as Html`)
+                        "import Html as ElmPages__Html\n"
+
+                    else
+                        ""
+                   )
+    in
+    if String.isEmpty importsToAdd then
+        []
+
+    else
+        [ Review.Fix.insertAt
+            { row = context.lastImportRow + 1, column = 1 }
+            importsToAdd
+        ]
+
+
+{-| Generate inlined lazy thunk with View.htmlToFreezable and View.freeze.
+
+The generated code (using elm/html's Html module for the thunk):
+
+    Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0"
+        |> View.htmlToFreezable
+        |> View.freeze
+
+This creates a lazy thunk with a magic string prefix that the virtual-dom codemod
+detects at runtime to adopt pre-rendered HTML. The View.htmlToFreezable wrapper
+converts the Html.Html Never to the user's Freezable type, and View.freeze
+converts from Freezable to the body element type (e.g., Html msg, Html.Styled.Html msg).
+
+Using View.freeze instead of Html.map never is essential because the user's Freezable
+type may not be Html.Html (e.g., Html.Styled.Html Never for elm-css, Element Never
+for elm-ui). View.freeze already knows how to do this conversion correctly.
+
+When Html is not already imported, we add `import Html as ElmPages__Html` to avoid
+conflicts with user imports (e.g., `import Accessibility as Html`).
+
+-}
+inlinedLazyThunk : Context -> String -> String
+inlinedLazyThunk context staticIdExpression =
+    let
+        htmlLazyPrefix =
+            case context.htmlLazyImport of
+                ImportedAs alias ->
+                    String.join "." alias
+
+                NotImported ->
+                    "Html.Lazy"
+
+        -- Determine the elm/html prefix for text (used in the lazy thunk argument).
+        -- Use ElmPages__ prefix when we're adding the import to avoid conflicts
+        htmlPrefix =
+            case context.htmlImport of
+                ImportedAs alias ->
+                    String.join "." alias
+
+                NotImported ->
+                    "ElmPages__Html"
+    in
+    "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> " ++ htmlPrefix ++ ".text \"\") " ++ staticIdExpression ++ " |> View.htmlToFreezable |> View.freeze)"
+
+
+{-| Final evaluation - emit Data type transformation if there are removable fields.
+
+The model is:
+- Start with ALL fields from the Data type
+- Fields used in CLIENT contexts (outside freeze/head) are in clientUsedFields
+- Removable fields = allFields - clientUsedFields
+
+Conservative approach:
+- Only tracks DIRECT field access patterns like `app.data.fieldName`
+- If `app.data` is passed as a whole to ANY function in CLIENT context,
+  we can't safely determine which fields are client-used, so we skip entirely
+- If `Data` is used as a record constructor function (e.g., `map4 Data`),
+  we can't transform the type without breaking the constructor call
+- If RouteBuilder doesn't use conventional naming (`head = head`, `data = data`),
+  we can't safely track ephemeral contexts, so we skip entirely
+
+False negatives (missing optimization) are acceptable.
+False positives (breaking code) are NOT acceptable.
+
+-}
+finalEvaluation : Context -> List (Error {})
+finalEvaluation context =
+    let
+        -- Only apply transformations to Route modules (Route.Index, Route.Blog.Slug_, etc.)
+        -- Uses shared function to ensure agreement with ServerDataTransform
+        isRouteModule =
+            PersistentFieldTracking.isRouteModule context.moduleName
+
+        -- Fields to subtract from clientUsedFields because they were accessed in the head function
+        -- This handles the case where the head function is defined BEFORE RouteBuilder is seen,
+        -- so we initially tracked its field accesses as client-used. Now we correct that.
+        -- Uses shared computation to ensure agreement with ServerDataTransform.
+        headFunctionFields =
+            PersistentFieldTracking.computeHeadFunctionFields context.sharedState
+    in
+    -- Conservative: skip transformation in these cases:
+    -- 1. Not a Route module (Site.elm, Shared.elm, etc.)
+    -- 2. Data is used as a constructor in CLIENT code (changing type would break it)
+    --    Note: usage in the `data` function is SAFE (DCE'd on client, server renames to Ephemeral)
+    -- 3. NarrowedData type alias already exists (fix was already applied)
+    -- Note: markAllFieldsAsClientUsed is handled via effectiveClientUsedFields fallback below
+    if not isRouteModule then
+        -- Not a Route module, no transformation needed (this is expected for Site.elm, Shared.elm, etc.)
+        []
+
+    else if context.narrowedDataExists then
+        -- Already transformed, skip
+        []
+
+    else if context.dataUsedAsConstructor then
+        -- Data is used as a constructor in CLIENT code (outside the data function)
+        -- We can't narrow the type without breaking the constructor call
+        --
+        -- NOTE: Data constructor usage INSIDE the `data` function is safe because:
+        -- 1. The `data` function is DCE'd on the client
+        -- 2. The server transform renames Data -> Ephemeral in constructor usage
+        -- We only skip when the constructor is used in CLIENT code (view, init, update, etc.)
+        []
+
+    else
+        case context.dataTypeRange of
+            Nothing ->
+                -- No Data type found - nothing to optimize
+                []
+
+            Just range ->
+                let
+                    -- All field names from the Data type
+                    allFieldNames =
+                        PersistentFieldTracking.extractFieldNames context.sharedState.dataTypeFields
+
+                    -- Compute ephemeral fields using shared logic
+                    -- This ensures agreement with ServerDataTransform's field computation
+                    ephemeralResult =
+                        PersistentFieldTracking.computeEphemeralFieldsWithCorrection
+                            { allFieldNames = allFieldNames
+                            , clientUsedFields = context.sharedState.clientUsedFields
+                            , pendingHelperCalls = context.sharedState.pendingHelperCalls
+                            , helperFunctions = context.sharedState.helperFunctions
+                            , headFunctionFields = headFunctionFields
+                            , markAllFieldsAsUsed = context.sharedState.markAllFieldsAsUsed
+                            }
+
+                    -- Removable fields: fields that are NOT used in client context (ephemeral)
+                    removableFields =
+                        ephemeralResult.ephemeralFields
+
+                    -- Client-used fields: these MUST be kept in the Data type (persistent)
+                    clientUsedFieldDefs =
+                        context.sharedState.dataTypeFields
+                            |> List.filter (\( name, _ ) -> not (Set.member name removableFields))
+
+                    -- Skip reason for diagnostics
+                    skipReason =
+                        ephemeralResult.skipReason
+                in
+                if Set.isEmpty removableFields then
+                    -- No removable fields - emit diagnostic if there was a specific reason
+                    case skipReason of
+                        Just reason ->
+                            [ emitDiagnostic context.moduleName
+                                "all_fields_client_used"
+                                ("No fields could be removed from Data type. " ++ reason)
+                            ]
+
+                        Nothing ->
+                            -- All fields are legitimately used in client context - no diagnostic needed
+                            []
+
+                else
+                    -- Generate fix to rewrite Data type alias
+                    -- Use single-line format for simplicity
+                    let
+                        newTypeAnnotation =
+                            if List.isEmpty clientUsedFieldDefs then
+                                "{}"
+
+                            else
+                                "{ "
+                                    ++ (clientUsedFieldDefs
+                                            |> List.map (\( name, typeNode ) -> name ++ " : " ++ PersistentFieldTracking.typeAnnotationToString (Node.value typeNode))
+                                            |> String.join ", "
+                                       )
+                                    ++ " }"
+
+                        -- Always stub out head when removing fields
+                        -- The head function never runs on client, so we replace body with []
+                        headStubFix =
+                            case context.headFunctionBodyRange of
+                                Just headRange ->
+                                    [ Rule.errorWithFix
+                                        { message = "Head function codemod: stub out for client bundle"
+                                        , details =
+                                            [ "Replacing head function body with [] because Data fields are being removed."
+                                            , "The head function never runs on the client (it's for SEO at build time), so stubbing it out allows DCE."
+                                            ]
+                                        }
+                                        headRange
+                                        [ Review.Fix.replaceRangeBy headRange "[]" ]
+                                    ]
+
+                                Nothing ->
+                                    []
+
+                        -- Always stub out the data function when transforming Data type
+                        -- The data function constructs Data records and never runs on client
+                        -- Stub it with BackendTask.fail which works regardless of arity
+                        dataStubFix =
+                            case context.dataFunctionBodyRange of
+                                Just dataRange ->
+                                    [ Rule.errorWithFix
+                                        { message = "Data function codemod: stub out for client bundle"
+                                        , details =
+                                            [ "Replacing data function body because Data fields are being removed."
+                                            , "The data function never runs on the client (it's for build-time data fetching), so stubbing it out allows DCE."
+                                            ]
+                                        }
+                                        dataRange
+                                        [ Review.Fix.replaceRangeBy dataRange "BackendTask.fail (FatalError.fromString \"\")" ]
+                                    ]
+
+                                Nothing ->
+                                    []
+
+                        -- Find helpers that are ONLY called from freeze context (not from client)
+                        -- These need their type annotations updated from Data to Ephemeral
+                        helpersCalledInClientContext =
+                            context.sharedState.pendingHelperCalls
+                                |> List.filterMap identity
+                                |> List.filterMap (\pendingCall -> PersistentFieldTracking.helperKeyToLocalNameInModule context.moduleName pendingCall.functionKey)
+                                |> Set.fromList
+
+                        freezeOnlyHelpers =
+                            context.helpersCalledInFreeze
+                                |> Set.filter (\name -> not (Set.member name helpersCalledInClientContext))
+
+                        -- Find freeze-only helpers that have Data in their type annotation
+                        -- These need Data replaced with Ephemeral to continue type-checking
+                        helpersNeedingEphemeral =
+                            freezeOnlyHelpers
+                                |> Set.filter (\name -> Dict.member name context.helperDataTypeRanges)
+
+                        -- Narrow the Data type directly by replacing the record definition
+                        -- with only client-used fields
+                        removableFieldsList =
+                            Set.toList removableFields
+
+                        -- Collect all helper annotation Data->Ephemeral replacements
+                        helperAnnotationReplacements =
+                            helpersNeedingEphemeral
+                                |> Set.toList
+                                |> List.concatMap
+                                    (\helperName ->
+                                        case Dict.get helperName context.helperDataTypeRanges of
+                                            Just dataRanges ->
+                                                dataRanges
+                                                    |> List.map
+                                                        (\dataRange ->
+                                                            Review.Fix.replaceRangeBy dataRange "Ephemeral"
+                                                        )
+
+                                            Nothing ->
+                                                []
+                                    )
+
+                        -- Generate Ephemeral type insertion if needed
+                        ephemeralTypeInsertion =
+                            if Set.isEmpty helpersNeedingEphemeral then
+                                []
+
+                            else
+                                let
+                                    fullTypeAnnotation =
+                                        "{ "
+                                            ++ (context.sharedState.dataTypeFields
+                                                    |> List.map (\( name, typeNode ) -> name ++ " : " ++ PersistentFieldTracking.typeAnnotationToString (Node.value typeNode))
+                                                    |> String.join ", "
+                                               )
+                                            ++ " }"
+
+                                    insertPosition =
+                                        { row = context.dataTypeDeclarationEndRow + 1, column = 1 }
+                                in
+                                [ Review.Fix.insertAt insertPosition
+                                    ("\n\ntype alias Ephemeral =\n    " ++ fullTypeAnnotation ++ "\n")
+                                ]
+
+                        -- Combine all fixes into a single error (Data narrowing + Ephemeral generation + annotation updates)
+                        allDataTypeFixes =
+                            [ Review.Fix.replaceRangeBy range newTypeAnnotation ]
+                                ++ ephemeralTypeInsertion
+                                ++ helperAnnotationReplacements
+
+                        dataTypeNarrowFix =
+                            Rule.errorWithFix
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: " ++ String.join ", " removableFieldsList
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                        ++ (if Set.isEmpty helpersNeedingEphemeral then
+                                                []
+
+                                            else
+                                                [ "Generating Ephemeral type alias and updating helper annotations for: "
+                                                    ++ String.join ", " (Set.toList helpersNeedingEphemeral)
+                                                ]
+                                           )
+                                }
+                                range
+                                allDataTypeFixes
+
+                        -- JSON output for the build system to consume
+                        -- This is parsed by generate-template-module-connector.js
+                        jsonMessage =
+                            "EPHEMERAL_FIELDS_JSON:{\"module\":\""
+                                ++ String.join "." context.moduleName
+                                ++ "\",\"ephemeralFields\":["
+                                ++ (removableFieldsList |> List.map (\f -> "\"" ++ f ++ "\"") |> String.join ",")
+                                ++ "],\"newDataType\":\""
+                                ++ escapeJsonString newTypeAnnotation
+                                ++ "\",\"range\":{\"start\":{\"row\":"
+                                ++ String.fromInt range.start.row
+                                ++ ",\"column\":"
+                                ++ String.fromInt range.start.column
+                                ++ "},\"end\":{\"row\":"
+                                ++ String.fromInt range.end.row
+                                ++ ",\"column\":"
+                                ++ String.fromInt range.end.column
+                                ++ "}}}"
+
+                        jsonOutputRange =
+                            { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+
+                        jsonOutputError =
+                            Rule.error
+                                { message = jsonMessage
+                                , details = [ "This is machine-readable output for the build system." ]
+                                }
+                                jsonOutputRange
+                    in
+                    [ dataTypeNarrowFix ]
+                        ++ headStubFix
+                        ++ dataStubFix
+                        ++ [ jsonOutputError ]
+
+
+{-| Escape a string for use in a JSON string value.
+Handles quotes and backslashes.
+-}
+escapeJsonString : String -> String
+escapeJsonString str =
+    str
+        |> String.replace "\\" "\\\\"
+        |> String.replace "\"" "\\\""
+        |> String.replace "\n" "\\n"
+        |> String.replace "\t" "\\t"
+
+
+{-| Emit a de-optimization count message.
+This signals to the build system that a View.freeze call was skipped
+(not transformed) due to taint analysis. The build system can use this
+to trigger a validation pass that provides user-friendly error messages.
+-}
+emitDeOptimizationCount : Range -> String -> Error {}
+emitDeOptimizationCount range reason =
+    Rule.error
+        { message = "DEOPTIMIZATION_COUNT_JSON:{\"count\":1,\"reason\":\"" ++ reason ++ "\"}"
+        , details = [ "View.freeze optimization skipped due to " ++ reason ]
+        }
+        range
+
+
+{-| Emit a diagnostic message about why optimization was skipped or limited.
+These are informational messages to help users understand the optimization behavior.
+The format is JSON for easy parsing by the build system.
+-}
+emitDiagnostic : ModuleName -> String -> String -> Error {}
+emitDiagnostic moduleName reason details =
+    let
+        moduleNameStr =
+            String.join "." moduleName
+
+        jsonMessage =
+            "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\""
+                ++ moduleNameStr
+                ++ "\",\"reason\":\""
+                ++ reason
+                ++ "\",\"details\":\""
+                ++ escapeJsonString details
+                ++ "\"}"
+    in
+    Rule.error
+        { message = jsonMessage
+        , details = [ details ]
+        }
+        -- Use a dummy range at start of file
+        { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }

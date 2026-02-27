@@ -279,7 +279,9 @@ export async function generateClientFolder(basePath) {
     "./elm-stuff/elm-pages/client/.elm-pages/Pages.elm",
     uiFileContent
   );
-  const result = await runElmReviewCodemod("./elm-stuff/elm-pages/client/");
+  const result = await runElmReviewCodemod("./elm-stuff/elm-pages/client/", "client", {
+    localSourceDirectories,
+  });
   return {
     ephemeralFields: result.ephemeralFields,
     deOptimizationCount: result.deOptimizationCount || 0,
@@ -325,10 +327,23 @@ export async function generateServerFolder(basePath) {
   // Run server-specific elm-review codemod FIRST
   // This creates the Ephemeral type alias in Route files
   // Must run before generateTemplateModuleConnector so Main.elm can reference Ephemeral
-  const serverResult = await runElmReviewCodemod("./elm-stuff/elm-pages/server/", "server");
+  const serverResult = await runElmReviewCodemod(
+    "./elm-stuff/elm-pages/server/",
+    "server",
+    { localSourceDirectories }
+  );
 
-  // Now generate Main.elm which can reference Route.Index.Ephemeral etc.
-  const cliCode = await generateTemplateModuleConnector(basePath, "cli");
+  const shouldSkipCliEphemeralAnalysis =
+    (serverResult.unsupportedHelperSeedingIssues || []).some((issue) =>
+      issue.path.startsWith("app/Route/") || issue.path === "app/Shared.elm"
+    );
+
+  // When helper seeding is unsupported, server codemod fixes are skipped and
+  // route modules may not expose Ephemeral aliases. Skip CLI ephemeral analysis
+  // so generated Main.elm does not reference missing Route.*.Ephemeral types.
+  const cliCode = await generateTemplateModuleConnector(basePath, "cli", {
+    skipEphemeralAnalysis: shouldSkipCliEphemeralAnalysis,
+  });
 
   // Generate browser code to get Fetcher modules (needed for route modules that import Fetchers)
   const browserCode = await generateTemplateModuleConnector(basePath, "browser");
@@ -363,14 +378,19 @@ export async function generateServerFolder(basePath) {
 /**
  * @param {string} [ cwd ]
  * @param {"client" | "server"} [ target ] - which codemod config to use (default: client)
+ * @param {{localSourceDirectories?: Record<string, string>}} [options]
  * @returns {Promise<{ephemeralFields: Map<string, Set<string>>, deOptimizationCount: number, unsupportedHelperSeedingIssues: Array<{path: string, message: string}>, codemodFixesApplied: boolean}>}
  */
-export async function runElmReviewCodemod(cwd, target = "client") {
+export async function runElmReviewCodemod(cwd, target = "client", options = {}) {
   // Use different elm-review configs for client vs server transformations
   const configPath =
     target === "server"
       ? path.join(__dirname, "../../generator/server-review")
       : path.join(__dirname, "../../generator/dead-code-review");
+  const partialFallbackConfigPath =
+    target === "server"
+      ? path.join(__dirname, "../../generator/server-review-partial-fallback")
+      : path.join(__dirname, "../../generator/dead-code-review-partial-fallback");
 
   const cwdPath = path.join(process.cwd(), cwd || ".");
   const lamderaPath = await which("lamdera");
@@ -379,24 +399,96 @@ export async function runElmReviewCodemod(cwd, target = "client") {
   const analysisOutput = await runElmReviewCommand(cwdPath, configPath, lamderaPath, false);
   const ephemeralFields = parseEphemeralFieldsWithFields(analysisOutput);
   const deOptimizationCount = parseDeOptimizationCount(analysisOutput);
+  const localToSourceDirectories = buildLocalToSourceDirectoriesLookup(
+    options.localSourceDirectories || null
+  );
   const unsupportedHelperSeedingIssues = parseUnsupportedHelperSeedingIssues(
     analysisOutput,
     target
-  );
+  ).map((issue) => ({
+    ...issue,
+    path: remapIssuePathFromMirroredSourceDirectory(
+      issue.path,
+      localToSourceDirectories
+    ),
+  }));
 
   // If helper ID seeding is unsupported in this target, skip codemod fixes and
-  // fall back to untransformed source (safe de-optimization).
-  if (unsupportedHelperSeedingIssues.length === 0) {
-    // Now run elm-review with fixes
-    await runElmReviewCommand(cwdPath, configPath, lamderaPath, true);
-  }
+  // apply a route/shared-only fallback codemod pass. This preserves supported
+  // direct route freezes while avoiding helper-signature rewrites that require
+  // unsupported seeding shapes.
+  const fixConfigPath =
+    unsupportedHelperSeedingIssues.length > 0
+      ? partialFallbackConfigPath
+      : configPath;
+
+  await runElmReviewCommand(cwdPath, fixConfigPath, lamderaPath, true);
 
   return {
     ephemeralFields,
     deOptimizationCount,
     unsupportedHelperSeedingIssues,
-    codemodFixesApplied: unsupportedHelperSeedingIssues.length === 0,
+    codemodFixesApplied: true,
   };
+}
+
+/**
+ * @param {Record<string, string> | null} localSourceDirectories
+ * @returns {Array<{sourceDirectory: string, localDirectory: string}>}
+ */
+function buildLocalToSourceDirectoriesLookup(localSourceDirectories) {
+  if (!localSourceDirectories) {
+    return [];
+  }
+
+  return Object.entries(localSourceDirectories)
+    .map(([sourceDirectory, localDirectory]) => ({
+      sourceDirectory: normalizeIssuePath(sourceDirectory),
+      localDirectory: normalizeIssuePath(localDirectory),
+    }))
+    .sort((left, right) => right.localDirectory.length - left.localDirectory.length);
+}
+
+/**
+ * @param {string} issuePath
+ * @param {Array<{sourceDirectory: string, localDirectory: string}>} localToSourceDirectories
+ * @returns {string}
+ */
+function remapIssuePathFromMirroredSourceDirectory(
+  issuePath,
+  localToSourceDirectories
+) {
+  const normalizedIssuePath = normalizeIssuePath(issuePath);
+
+  for (const mapping of localToSourceDirectories) {
+    if (mapping.localDirectory === "") {
+      continue;
+    }
+
+    if (normalizedIssuePath === mapping.localDirectory) {
+      return mapping.sourceDirectory;
+    }
+
+    if (normalizedIssuePath.startsWith(mapping.localDirectory + "/")) {
+      return (
+        mapping.sourceDirectory +
+        normalizedIssuePath.slice(mapping.localDirectory.length)
+      );
+    }
+  }
+
+  return normalizedIssuePath;
+}
+
+/**
+ * @param {string} inputPath
+ * @returns {string}
+ */
+function normalizeIssuePath(inputPath) {
+  return inputPath
+    .replace(/\\/g, "/")
+    .replace(/^\.\/+/, "")
+    .replace(/\/+$/, "");
 }
 
 /**

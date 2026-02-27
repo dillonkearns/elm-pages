@@ -298,6 +298,32 @@ function assertSupportedHelperSeedingAgreement(caseId: string): void {
   expect(serverSeeds).toEqual(clientSeeds);
 }
 
+function assertMixedSupportedAndUnsupportedBehavior(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const indexHtmlPath = join(result.projectDir, "dist", "index.html");
+  const contentDatPath = join(result.projectDir, "dist", "content.dat");
+  const indexHtml = readFileSync(indexHtmlPath, "utf8");
+  const contentDatBytes = readFileSync(contentDatPath);
+  const extractedFromHtml = extractFrozenViews(indexHtml);
+  const contentDatDecoded = parseFrozenViewsPrefixFromBytes(contentDatBytes);
+
+  expect(contentDatDecoded.regions).toEqual(extractedFromHtml);
+  expect(Object.keys(contentDatDecoded.regions).length).toBeGreaterThan(0);
+  expect(
+    Object.values(contentDatDecoded.regions).some((region) =>
+      region.includes("Direct: Hello")
+    )
+  ).toBe(true);
+
+  const clientRoute = readFileSync(
+    join(result.projectDir, "elm-stuff", "elm-pages", "client", "app", "Route", "Index.elm"),
+    "utf8"
+  );
+  expect(clientRoute).toContain("__ELM_PAGES_STATIC__");
+}
+
 describe.sequential("frozen helper seeding CLI behavior", () => {
   const caseIds = listFixtureCaseIds();
 
@@ -334,6 +360,16 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
     "supported-helper-lib-source-dir emits matching frozen view payloads with client/server seeding agreement",
     () => {
       assertSupportedHelperSeedingAgreement("supported-helper-lib-source-dir");
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "mixed-supported-and-unsupported-lib still adopts supported direct freeze call in default mode",
+    () => {
+      assertMixedSupportedAndUnsupportedBehavior(
+        "mixed-supported-and-unsupported-lib"
+      );
     },
     integrationTestTimeoutMs
   );
