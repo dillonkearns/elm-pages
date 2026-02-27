@@ -797,7 +797,9 @@ failIf condition fatalError =
 
 
 {-| Run a cleanup task after the main task completes, regardless of whether the main task succeeded or failed.
-The main task's original result (success or error) is preserved. Cleanup errors are silently suppressed.
+If cleanup fails, its error is propagated.
+
+When both the main task and cleanup fail, the cleanup error takes precedence (matching `try/finally` behavior in many languages).
 
 This is useful for resource cleanup, similar to `try/finally` in other languages or `trap cleanup EXIT` in bash.
 
@@ -813,13 +815,12 @@ This is useful for resource cleanup, similar to `try/finally` in other languages
             )
 
 -}
-finally : BackendTask cleanupError () -> BackendTask error a -> BackendTask error a
+finally : BackendTask error () -> BackendTask error a -> BackendTask error a
 finally cleanup task =
     task
         |> toResult
         |> andThen
             (\result ->
                 cleanup
-                    |> onError (\_ -> succeed ())
                     |> andThen (\() -> fromResult result)
             )

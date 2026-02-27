@@ -134,12 +134,21 @@ runTests =
                 BackendTask.succeed 42
                     |> BackendTask.finally (Script.log "cleanup ran")
                     |> BackendTask.map (Expect.equal 42)
-        , test "suppresses cleanup error" <|
+        , test "propagates cleanup error" <|
             \() ->
                 BackendTask.succeed 42
                     |> BackendTask.finally
-                        (BackendTask.fail (FatalError.build { title = "cleanup error", body = "should be suppressed" }))
-                    |> BackendTask.map (Expect.equal 42)
+                        (BackendTask.fail (FatalError.build { title = "cleanup error", body = "should surface" }))
+                    |> BackendTask.toResult
+                    |> BackendTask.map
+                        (\result ->
+                            case result of
+                                Ok value ->
+                                    Expect.fail ("Expected cleanup error, got success: " ++ String.fromInt value)
+
+                                Err _ ->
+                                    Expect.pass
+                        )
         ]
     , describe "BackendTask.File.exists"
         [ test "returns True for existing file" <|
