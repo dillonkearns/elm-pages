@@ -1,7 +1,7 @@
 module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions
-    , writeFile, deleteFile, copyFile, move
+    , writeFile, removeFile, copyFile, move
     , makeDirectory, removeDirectory, makeTempDirectory
     , command, exec
     , log, sleep, doThen, which, expectWhich, question, readKey, readKeyWithDefault
@@ -22,7 +22,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 ## File System Utilities
 
-@docs writeFile, deleteFile, copyFile, move
+@docs writeFile, removeFile, copyFile, move
 
 @docs makeDirectory, removeDirectory, makeTempDirectory
 
@@ -387,16 +387,16 @@ readKeyWithDefault default =
             )
 
 
-{-| Delete a file. Silently succeeds if the file doesn't exist (like `rm -f`).
-Returns the path that was deleted, enabling chaining.
+{-| Remove a file. Silently succeeds if the file doesn't exist (like `rm -f`).
+Returns the path that was removed, enabling chaining.
 
     Script.writeFile { path = "temp.txt", body = "..." }
         |> BackendTask.allowFatal
-        |> BackendTask.andThen (\() -> Script.deleteFile "temp.txt")
+        |> BackendTask.andThen (\() -> Script.removeFile "temp.txt")
 
 -}
-deleteFile : String -> BackendTask FatalError String
-deleteFile filePath =
+removeFile : String -> BackendTask FatalError String
+removeFile filePath =
     BackendTask.Internal.Request.request
         { name = "delete-file"
         , body =
@@ -477,10 +477,10 @@ makeDirectory { recursive } dirPath =
         }
 
 
-{-| Remove a directory. Silently succeeds if the directory doesn't exist.
+{-| Remove a directory. Silently succeeds if the directory doesn't exist (like `rm -f` on a missing path).
 
-The explicit `{ recursive : Bool }` flag makes dangerous `rm -rf` behavior opt-in — you must consciously choose
-recursive removal of non-empty directories.
+The `{ recursive : Bool }` flag only controls whether non-empty directories can be removed (`rm -r` behavior).
+It does not control force semantics.
 
     -- Remove a directory and all its contents
     Script.removeDirectory { recursive = True } "build"

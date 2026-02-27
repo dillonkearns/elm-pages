@@ -83,7 +83,7 @@ runTests =
                 File.exists "does-not-exist.xyz"
                     |> BackendTask.map (Expect.equal False)
         ]
-    , describe "Script.deleteFile"
+    , describe "Script.removeFile"
         [ test "removes a file" <|
             \() ->
                 let
@@ -94,13 +94,13 @@ runTests =
                     |> BackendTask.allowFatal
                     |> BackendTask.andThen
                         (\() ->
-                            Script.deleteFile filePath
+                            Script.removeFile filePath
                                 |> BackendTask.andThen (\_ -> File.exists filePath)
                         )
                     |> BackendTask.map (Expect.equal False)
         , test "on missing file succeeds" <|
             \() ->
-                Script.deleteFile (testDir ++ "/nonexistent.txt")
+                Script.removeFile (testDir ++ "/nonexistent.txt")
                     |> BackendTask.map (\_ -> Expect.pass)
         ]
     , describe "Script.makeDirectory"
