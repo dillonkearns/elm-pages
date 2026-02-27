@@ -2,7 +2,7 @@ module BackendTask exposing
     ( BackendTask
     , map, succeed, fail
     , fromResult
-    , andThen, resolve, combine
+    , andThen, and, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
     , allowFatal, mapError, onError, toResult
@@ -76,7 +76,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 ## Chaining Requests
 
-@docs andThen, resolve, combine
+@docs andThen, and, resolve, combine
 
 @docs andMap
 
@@ -519,6 +519,22 @@ andThen fn requestInfo =
                         lookupFn maybeMockResolver responses
                             |> andThen fn
                     )
+
+
+{-| Chain two `BackendTask`s sequentially, discarding the result of the first.
+Analogous to `&&` in shell scripts — run this, and if it succeeds, run the next thing.
+
+Use `andThen` when you need the previous result, `and` when you just need sequencing.
+
+    createSnapshot n typesContent
+        |> BackendTask.and (rewriteMigrationImports n)
+        |> BackendTask.and (createMigrationStub n k)
+        |> BackendTask.and (writeSchemaVersion k)
+
+-}
+and : BackendTask error b -> BackendTask error a -> BackendTask error b
+and next previous =
+    previous |> andThen (\_ -> next)
 
 
 {-| -}
