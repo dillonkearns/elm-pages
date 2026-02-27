@@ -7,6 +7,7 @@ module BackendTask exposing
     , map2, map3, map4, map5, map6, map7, map8, map9
     , allowFatal, mapError, onError, toResult
     , do, doEach, sequence, failIf
+    , finally
     , inDir, quiet, withEnv
     )
 
@@ -86,6 +87,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 @docs allowFatal, mapError, onError, toResult
 
+@docs finally
 
 ## Scripting
 
@@ -776,3 +778,32 @@ failIf condition fatalError =
 
     else
         succeed ()
+
+
+{-| Run a cleanup task after the main task completes, regardless of whether the main task succeeded or failed.
+The main task's original result (success or error) is preserved. Cleanup errors are silently suppressed.
+
+This is useful for resource cleanup, similar to `try/finally` in other languages or `trap cleanup EXIT` in bash.
+
+    import BackendTask exposing (BackendTask)
+    import Pages.Script as Script
+
+    Script.makeTempDirectory "build-"
+        |> BackendTask.andThen
+            (\tmpDir ->
+                doWork tmpDir
+                    |> BackendTask.finally
+                        (Script.removeDirectory { recursive = True } tmpDir)
+            )
+
+-}
+finally : BackendTask cleanupError () -> BackendTask error a -> BackendTask error a
+finally cleanup task =
+    task
+        |> toResult
+        |> andThen
+            (\result ->
+                cleanup
+                    |> onError (\_ -> succeed ())
+                    |> andThen (\() -> fromResult result)
+            )

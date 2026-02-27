@@ -11,3 +11,18 @@ cypress/screenshots
 empty-gzip-test.gz
 formatted-elm.txt
 
+# Test artifacts from FileTests.elm
+test-delete-target.txt
+test-make-dir/
+test-make-dir-single/
+test-remove-dir/
+test-remove-empty-dir/
+test-copy-source.txt
+test-copy-source2.txt
+test-copy-dest.txt
+test-copy-nested/
+test-move-source.txt
+test-move-source2.txt
+test-move-dest.txt
+test-move-nested/
+

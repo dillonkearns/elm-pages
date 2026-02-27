@@ -18,6 +18,7 @@ import { default as which } from "which";
 import * as readline from "readline";
 import { spawn as spawnCallback } from "cross-spawn";
 import * as consumers from "stream/consumers";
+import * as os from "node:os";
 import * as zlib from "node:zlib";
 import { Readable, Writable } from "node:stream";
 import * as validateStream from "./validate-stream.js";
@@ -546,8 +547,22 @@ async function runInternalJob(
           requestHash,
           await runDecryptJob(requestToPerform, patternsToWatch),
         ];
+      case "elm-pages-internal://file-exists":
+        return [requestHash, await runFileExists(requestToPerform)];
       case "elm-pages-internal://write-file":
         return [requestHash, await runWriteFileJob(requestToPerform)];
+      case "elm-pages-internal://delete-file":
+        return [requestHash, await runDeleteFile(requestToPerform)];
+      case "elm-pages-internal://copy-file":
+        return [requestHash, await runCopyFile(requestToPerform)];
+      case "elm-pages-internal://move":
+        return [requestHash, await runMove(requestToPerform)];
+      case "elm-pages-internal://make-directory":
+        return [requestHash, await runMakeDirectory(requestToPerform)];
+      case "elm-pages-internal://remove-directory":
+        return [requestHash, await runRemoveDirectory(requestToPerform)];
+      case "elm-pages-internal://make-temp-directory":
+        return [requestHash, await runMakeTempDirectory(requestToPerform)];
       case "elm-pages-internal://sleep":
         return [requestHash, await runSleep(requestToPerform)];
       case "elm-pages-internal://which":
@@ -1139,6 +1154,131 @@ export async function readKey() {
       resolve(key);
     });
   });
+}
+
+async function runFileExists(req) {
+  const cwd = path.resolve(...req.dir);
+  const filePath = path.resolve(cwd, req.body.args[0]);
+  try {
+    await fsPromises.access(filePath, fs.constants.F_OK);
+    return jsonResponse(req, true);
+  } catch {
+    return jsonResponse(req, false);
+  }
+}
+
+async function runDeleteFile(req) {
+  const cwd = path.resolve(...req.dir);
+  const data = req.body.args[0];
+  const filePath = path.resolve(cwd, data.path);
+  try {
+    await fsPromises.unlink(filePath);
+    return jsonResponse(req, filePath);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return jsonResponse(req, filePath);
+    }
+    throw {
+      title: "BackendTask Error",
+      message: `Script.deleteFile failed for path: ${kleur.yellow(
+        filePath
+      )}\n${kleur.red(error.toString())}`,
+    };
+  }
+}
+
+async function runCopyFile(req) {
+  const cwd = path.resolve(...req.dir);
+  const data = req.body.args[0];
+  const fromPath = path.resolve(cwd, data.from);
+  const toPath = path.resolve(cwd, data.to);
+  try {
+    await fsPromises.mkdir(path.dirname(toPath), { recursive: true });
+    await fsPromises.copyFile(fromPath, toPath);
+    return jsonResponse(req, toPath);
+  } catch (error) {
+    throw {
+      title: "BackendTask Error",
+      message: `Script.copyFile failed from ${kleur.yellow(
+        fromPath
+      )} to ${kleur.yellow(toPath)}\n${kleur.red(error.toString())}`,
+    };
+  }
+}
+
+async function runMove(req) {
+  const cwd = path.resolve(...req.dir);
+  const data = req.body.args[0];
+  const fromPath = path.resolve(cwd, data.from);
+  const toPath = path.resolve(cwd, data.to);
+  try {
+    await fsPromises.mkdir(path.dirname(toPath), { recursive: true });
+    await fsPromises.rename(fromPath, toPath);
+    return jsonResponse(req, toPath);
+  } catch (error) {
+    throw {
+      title: "BackendTask Error",
+      message: `Script.move failed from ${kleur.yellow(
+        fromPath
+      )} to ${kleur.yellow(toPath)}\n${kleur.red(error.toString())}`,
+    };
+  }
+}
+
+async function runMakeDirectory(req) {
+  const cwd = path.resolve(...req.dir);
+  const data = req.body.args[0];
+  const dirPath = path.resolve(cwd, data.path);
+  try {
+    await fsPromises.mkdir(dirPath, { recursive: data.recursive });
+    return jsonResponse(req, dirPath);
+  } catch (error) {
+    throw {
+      title: "BackendTask Error",
+      message: `Script.makeDirectory failed for path: ${kleur.yellow(
+        dirPath
+      )}\n${kleur.red(error.toString())}`,
+    };
+  }
+}
+
+async function runRemoveDirectory(req) {
+  const cwd = path.resolve(...req.dir);
+  const data = req.body.args[0];
+  const dirPath = path.resolve(cwd, data.path);
+  try {
+    if (data.recursive) {
+      await fsPromises.rm(dirPath, { recursive: true });
+    } else {
+      await fsPromises.rmdir(dirPath);
+    }
+    return jsonResponse(req, null);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return jsonResponse(req, null);
+    }
+    throw {
+      title: "BackendTask Error",
+      message: `Script.removeDirectory failed for path: ${kleur.yellow(
+        dirPath
+      )}\n${kleur.red(error.toString())}`,
+    };
+  }
+}
+
+async function runMakeTempDirectory(req) {
+  const prefix = req.body.args[0];
+  try {
+    const tmpDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), prefix));
+    return jsonResponse(req, tmpDir);
+  } catch (error) {
+    throw {
+      title: "BackendTask Error",
+      message: `Script.makeTempDirectory failed with prefix: ${kleur.yellow(
+        prefix
+      )}\n${kleur.red(error.toString())}`,
+    };
+  }
 }
 
 async function runWriteFileJob(req) {

@@ -1,7 +1,8 @@
 module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions
-    , writeFile
+    , writeFile, deleteFile, copyFile, move
+    , makeDirectory, removeDirectory, makeTempDirectory
     , command, exec
     , log, sleep, doThen, which, expectWhich, question, readKey, readKeyWithDefault
     , Error(..)
@@ -21,7 +22,9 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 ## File System Utilities
 
-@docs writeFile
+@docs writeFile, deleteFile, copyFile, move
+
+@docs makeDirectory, removeDirectory, makeTempDirectory
 
 
 ## Shell Commands
@@ -382,6 +385,145 @@ readKeyWithDefault default =
                 else
                     key
             )
+
+
+{-| Delete a file. Silently succeeds if the file doesn't exist (like `rm -f`).
+Returns the path that was deleted, enabling chaining.
+
+    Script.writeFile { path = "temp.txt", body = "..." }
+        |> BackendTask.allowFatal
+        |> BackendTask.andThen (\() -> Script.deleteFile "temp.txt")
+
+-}
+deleteFile : String -> BackendTask FatalError String
+deleteFile filePath =
+    BackendTask.Internal.Request.request
+        { name = "delete-file"
+        , body =
+            BackendTask.Http.jsonBody
+                (Encode.object
+                    [ ( "path", Encode.string filePath )
+                    ]
+                )
+        , expect = BackendTask.Http.expectJson Decode.string
+        }
+
+
+{-| Copy a single file. Auto-creates parent directories of the destination (matching `writeFile` behavior).
+Returns the destination path for chaining.
+
+    Script.copyFile { from = "src/config.json", to = "dist/config.json" }
+
+-}
+copyFile : { from : String, to : String } -> BackendTask FatalError String
+copyFile { from, to } =
+    BackendTask.Internal.Request.request
+        { name = "copy-file"
+        , body =
+            BackendTask.Http.jsonBody
+                (Encode.object
+                    [ ( "from", Encode.string from )
+                    , ( "to", Encode.string to )
+                    ]
+                )
+        , expect = BackendTask.Http.expectJson Decode.string
+        }
+
+
+{-| Move (rename) a file or directory. Atomic on the same filesystem. Auto-creates parent directories of the destination.
+Returns the destination path for chaining.
+
+    Script.move { from = "build/output.js", to = "dist/app.js" }
+
+-}
+move : { from : String, to : String } -> BackendTask FatalError String
+move { from, to } =
+    BackendTask.Internal.Request.request
+        { name = "move"
+        , body =
+            BackendTask.Http.jsonBody
+                (Encode.object
+                    [ ( "from", Encode.string from )
+                    , ( "to", Encode.string to )
+                    ]
+                )
+        , expect = BackendTask.Http.expectJson Decode.string
+        }
+
+
+{-| Create a directory. Returns the resolved path.
+
+The `{ recursive : Bool }` flag controls whether parent directories are created (like `mkdir -p`).
+
+    -- Create nested directories
+    Script.makeDirectory { recursive = True } "dist/assets/images"
+
+    -- Create a single directory (parent must exist)
+    Script.makeDirectory { recursive = False } "output"
+
+-}
+makeDirectory : { recursive : Bool } -> String -> BackendTask FatalError String
+makeDirectory { recursive } dirPath =
+    BackendTask.Internal.Request.request
+        { name = "make-directory"
+        , body =
+            BackendTask.Http.jsonBody
+                (Encode.object
+                    [ ( "path", Encode.string dirPath )
+                    , ( "recursive", Encode.bool recursive )
+                    ]
+                )
+        , expect = BackendTask.Http.expectJson Decode.string
+        }
+
+
+{-| Remove a directory. Silently succeeds if the directory doesn't exist.
+
+The explicit `{ recursive : Bool }` flag makes dangerous `rm -rf` behavior opt-in — you must consciously choose
+recursive removal of non-empty directories.
+
+    -- Remove a directory and all its contents
+    Script.removeDirectory { recursive = True } "build"
+
+    -- Remove only if empty
+    Script.removeDirectory { recursive = False } "empty-dir"
+
+-}
+removeDirectory : { recursive : Bool } -> String -> BackendTask FatalError ()
+removeDirectory { recursive } dirPath =
+    BackendTask.Internal.Request.request
+        { name = "remove-directory"
+        , body =
+            BackendTask.Http.jsonBody
+                (Encode.object
+                    [ ( "path", Encode.string dirPath )
+                    , ( "recursive", Encode.bool recursive )
+                    ]
+                )
+        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        }
+
+
+{-| Create a temporary directory with a given prefix. Returns the absolute path to the created directory.
+
+Pairs naturally with `BackendTask.finally` for cleanup:
+
+    Script.makeTempDirectory "my-build-"
+        |> BackendTask.andThen
+            (\tmpDir ->
+                doWork tmpDir
+                    |> BackendTask.finally
+                        (Script.removeDirectory { recursive = True } tmpDir)
+            )
+
+-}
+makeTempDirectory : String -> BackendTask FatalError String
+makeTempDirectory prefix =
+    BackendTask.Internal.Request.request
+        { name = "make-temp-directory"
+        , body = BackendTask.Http.jsonBody (Encode.string prefix)
+        , expect = BackendTask.Http.expectJson Decode.string
+        }
 
 
 {-| Like [`command`](#command), but prints stderr and stdout to the console as the command runs instead of capturing them.
