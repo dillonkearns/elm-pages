@@ -1,6 +1,7 @@
 module StreamDemo exposing (run)
 
 import BackendTask exposing (BackendTask)
+import FilePath exposing (FilePath)
 import BackendTask.Stream as Stream exposing (Stream)
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
@@ -10,7 +11,7 @@ import Pages.Script as Script exposing (Script)
 run : Script
 run =
     Script.withoutCliOptions
-        --Stream.fileRead "elm.json"
+        --Stream.fileRead (FilePath.fromString "elm.json")
         --Stream.command "ls" [ "-l" ]
         --    |> Stream.pipe Stream.stdout
         --    |> Stream.run
@@ -19,10 +20,10 @@ run =
         --    string
         --        |> Stream.fromString
         --        |> Stream.pipe
-        --Stream.fileRead "script/src/StreamDemo.elm"
+        --Stream.fileRead (FilePath.fromString "script/src/StreamDemo.elm")
         --Stream.stdin
         --    |> Stream.pipe (Stream.command "elm-format" [ "--stdin" ])
-        --    --|> Stream.pipe (Stream.fileWrite "my-formatted-example.elm")
+        --    --|> Stream.pipe (Stream.fileWrite (FilePath.fromString "my-formatted-example.elm"))
         --    |> Stream.pipe Stream.stdout
         --    |> Stream.run
         --unzip
@@ -52,13 +53,15 @@ readType =
     Stream.fileRead zipFile
         |> Stream.pipe Stream.unzip
         |> Stream.readJson (Decode.field "type" Decode.string)
+        |> BackendTask.allowFatal
+        |> BackendTask.map .body
 
 
 zip =
     --Stream.command "elm-review" [ "--report=json" ]
     --|> Stream.pipe Stream.stdout
     --Stream.command "ls" [ "-l" ]
-    Stream.fileRead "elm.json"
+    Stream.fileRead (FilePath.fromString "elm.json")
         |> Stream.pipe Stream.gzip
         --|> Stream.pipe Stream.stdout
         |> Stream.pipe (Stream.fileWrite zipFile)
@@ -73,9 +76,9 @@ unzip =
         |> Stream.run
 
 
-zipFile : String.String
+zipFile : FilePath
 zipFile =
-    "elm-review-report.gz.json"
+    FilePath.fromString "elm-review-report.gz.json"
 
 
 example1 : BackendTask FatalError ()
@@ -88,17 +91,16 @@ a = 1
 b =            2
         """
         )
-        (Stream.fileWrite "my-formatted-example.elm")
+        (Stream.fileWrite (FilePath.fromString "my-formatted-example.elm"))
 
 
 example2 : BackendTask FatalError ()
 example2 =
     formatFile
-        (Stream.fileRead "script/src/StreamDemo.elm")
+        (Stream.fileRead (FilePath.fromString "script/src/StreamDemo.elm"))
         Stream.stdout
 
 
-formatFile : Stream { read : (), write : fromWriteable } -> Stream { read : anything, write : () } -> BackendTask FatalError ()
 formatFile source destination =
     source
         |> Stream.pipe (Stream.command "elm-format" [ "--stdin" ])

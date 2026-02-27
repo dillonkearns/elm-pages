@@ -20,6 +20,11 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 @docs withCliOptions, withoutCliOptions
 
 
+## Paths
+
+File system APIs in this module use [`FilePath`](FilePath#FilePath).
+
+
 ## File System Utilities
 
 @docs writeFile, deleteFile, copyFile, move
@@ -44,6 +49,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 -}
 
 import BackendTask exposing (BackendTask)
+import FilePath exposing (FilePath)
 import BackendTask.Http
 import BackendTask.Internal.Request
 import BackendTask.Stream as Stream exposing (defaultCommandOptions)
@@ -70,38 +76,43 @@ type Error
 
 
 {-| Write a file to the file system.
+Returns the absolute resolved path to the written file for chaining.
 
 File paths are relative to the root of your `elm-pages` project (next to the `elm.json` file and `src/` directory), or you can pass in absolute paths beginning with a `/`.
 
     module MyScript exposing (run)
 
     import BackendTask
+    import FilePath exposing (FilePath)
     import Pages.Script as Script
 
     run =
         Script.withoutCliOptions
             (Script.writeFile
-                { path = "hello.json"
-                , body = """{ "message": "Hello, World!" }"""
-                }
+                { body = """{ "message": "Hello, World!" }""" }
+                (FilePath.fromString "hello.json")
                 |> BackendTask.allowFatal
+                |> BackendTask.andThen
+                    (\writtenPath ->
+                        Script.log ("Wrote " ++ FilePath.toString writtenPath)
+                    )
             )
 
 -}
-writeFile : { path : String, body : String } -> BackendTask { fatal : FatalError, recoverable : Error } ()
-writeFile { path, body } =
+writeFile : { body : String } -> FilePath -> BackendTask { fatal : FatalError, recoverable : Error } FilePath
+writeFile { body } filePath =
     BackendTask.Internal.Request.request
         { name = "write-file"
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "path", Encode.string path )
+                    [ ( "path", filePath |> FilePath.toString |> Encode.string )
                     , ( "body", Encode.string body )
                     ]
                 )
         , expect =
             -- TODO decode possible error details here
-            BackendTask.Http.expectJson (Decode.succeed ())
+            BackendTask.Http.expectJson (Decode.map FilePath.fromString Decode.string)
         }
 
 
@@ -388,92 +399,101 @@ readKeyWithDefault default =
 
 
 {-| Delete a file. Silently succeeds if the file doesn't exist (like `rm -f`).
-Returns the path that was deleted, enabling chaining.
 
-    Script.writeFile { path = "temp.txt", body = "..." }
+    import FilePath exposing (FilePath)
+
+    Script.writeFile { body = "..." } (FilePath.fromString "temp.txt")
         |> BackendTask.allowFatal
-        |> BackendTask.andThen (\() -> Script.deleteFile "temp.txt")
+        |> BackendTask.andThen (\_ -> Script.deleteFile (FilePath.fromString "temp.txt"))
 
 -}
-deleteFile : String -> BackendTask FatalError String
+deleteFile : FilePath -> BackendTask FatalError ()
 deleteFile filePath =
     BackendTask.Internal.Request.request
         { name = "delete-file"
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "path", Encode.string filePath )
+                    [ ( "path", filePath |> FilePath.toString |> Encode.string )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson Decode.string
+        , expect = BackendTask.Http.expectJson (Decode.succeed ())
         }
 
 
 {-| Copy a single file. Auto-creates parent directories of the destination (matching `writeFile` behavior).
-Returns the destination path for chaining.
+Returns the absolute resolved destination path for chaining.
 
-    Script.copyFile { from = "src/config.json", to = "dist/config.json" }
+    import FilePath exposing (FilePath)
+
+    FilePath.fromString "src/config.json"
+        |> Script.copyFile { to = FilePath.fromString "dist/config.json" }
 
 -}
-copyFile : { from : String, to : String } -> BackendTask FatalError String
-copyFile { from, to } =
+copyFile : { to : FilePath } -> FilePath -> BackendTask FatalError FilePath
+copyFile { to } from =
     BackendTask.Internal.Request.request
         { name = "copy-file"
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "from", Encode.string from )
-                    , ( "to", Encode.string to )
+                    [ ( "from", from |> FilePath.toString |> Encode.string )
+                    , ( "to", to |> FilePath.toString |> Encode.string )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson Decode.string
+        , expect = BackendTask.Http.expectJson (Decode.map FilePath.fromString Decode.string)
         }
 
 
 {-| Move (rename) a file or directory. Atomic on the same filesystem. Auto-creates parent directories of the destination.
-Returns the destination path for chaining.
+Returns the absolute resolved destination path for chaining.
 
-    Script.move { from = "build/output.js", to = "dist/app.js" }
+    import FilePath exposing (FilePath)
+
+    FilePath.fromString "build/output.js"
+        |> Script.move { to = FilePath.fromString "dist/app.js" }
 
 -}
-move : { from : String, to : String } -> BackendTask FatalError String
-move { from, to } =
+move : { to : FilePath } -> FilePath -> BackendTask FatalError FilePath
+move { to } from =
     BackendTask.Internal.Request.request
         { name = "move"
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "from", Encode.string from )
-                    , ( "to", Encode.string to )
+                    [ ( "from", from |> FilePath.toString |> Encode.string )
+                    , ( "to", to |> FilePath.toString |> Encode.string )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson Decode.string
+        , expect = BackendTask.Http.expectJson (Decode.map FilePath.fromString Decode.string)
         }
 
 
-{-| Create a directory. Returns the resolved path.
+{-| Create a directory. Returns the absolute resolved path.
 
 The `{ recursive : Bool }` flag controls whether parent directories are created (like `mkdir -p`).
 
+    import FilePath exposing (FilePath)
+
     -- Create nested directories
-    Script.makeDirectory { recursive = True } "dist/assets/images"
+    Script.makeDirectory { recursive = True } (FilePath.fromString "dist/assets/images")
 
     -- Create a single directory (parent must exist)
-    Script.makeDirectory { recursive = False } "output"
+    Script.makeDirectory { recursive = False } (FilePath.fromString "output")
 
 -}
-makeDirectory : { recursive : Bool } -> String -> BackendTask FatalError String
+makeDirectory : { recursive : Bool } -> FilePath -> BackendTask FatalError FilePath
 makeDirectory { recursive } dirPath =
     BackendTask.Internal.Request.request
         { name = "make-directory"
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "path", Encode.string dirPath )
+                    [ ( "path", dirPath |> FilePath.toString |> Encode.string )
                     , ( "recursive", Encode.bool recursive )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson Decode.string
+        , expect = BackendTask.Http.expectJson (Decode.map FilePath.fromString Decode.string)
         }
 
 
@@ -482,21 +502,23 @@ makeDirectory { recursive } dirPath =
 The explicit `{ recursive : Bool }` flag makes dangerous `rm -rf` behavior opt-in — you must consciously choose
 recursive removal of non-empty directories.
 
+    import FilePath exposing (FilePath)
+
     -- Remove a directory and all its contents
-    Script.removeDirectory { recursive = True } "build"
+    Script.removeDirectory { recursive = True } (FilePath.fromString "build")
 
     -- Remove only if empty
-    Script.removeDirectory { recursive = False } "empty-dir"
+    Script.removeDirectory { recursive = False } (FilePath.fromString "empty-dir")
 
 -}
-removeDirectory : { recursive : Bool } -> String -> BackendTask FatalError ()
+removeDirectory : { recursive : Bool } -> FilePath -> BackendTask FatalError ()
 removeDirectory { recursive } dirPath =
     BackendTask.Internal.Request.request
         { name = "remove-directory"
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "path", Encode.string dirPath )
+                    [ ( "path", dirPath |> FilePath.toString |> Encode.string )
                     , ( "recursive", Encode.bool recursive )
                     ]
                 )
@@ -508,6 +530,8 @@ removeDirectory { recursive } dirPath =
 
 Pairs naturally with `BackendTask.finally` for cleanup:
 
+    import FilePath exposing (FilePath)
+
     Script.makeTempDirectory "my-build-"
         |> BackendTask.andThen
             (\tmpDir ->
@@ -517,12 +541,12 @@ Pairs naturally with `BackendTask.finally` for cleanup:
             )
 
 -}
-makeTempDirectory : String -> BackendTask FatalError String
+makeTempDirectory : String -> BackendTask FatalError FilePath
 makeTempDirectory prefix =
     BackendTask.Internal.Request.request
         { name = "make-temp-directory"
         , body = BackendTask.Http.jsonBody (Encode.string prefix)
-        , expect = BackendTask.Http.expectJson Decode.string
+        , expect = BackendTask.Http.expectJson (Decode.map FilePath.fromString Decode.string)
         }
 
 

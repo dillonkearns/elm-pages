@@ -19,6 +19,7 @@
         "BackendTask.Random",
         "BackendTask.Time",
         "BackendTask.File",
+        "FilePath",
         "BackendTask.Custom",
         "BackendTask.Env",
         "BackendTask.Stream",

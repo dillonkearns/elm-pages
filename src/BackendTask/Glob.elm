@@ -97,19 +97,20 @@ used in the function you use in `Glob.succeed`.
 Let's try our blogPostsGlob from before, but change every `match` to `capture`.
 
     import BackendTask exposing (BackendTask)
+    import FilePath exposing (FilePath)
 
     blogPostsGlob :
         BackendTask
             error
             (List
-                { filePath : String
+                { filePath : FilePath
                 , slug : String
                 }
             )
     blogPostsGlob =
         Glob.succeed
             (\capture1 capture2 capture3 ->
-                { filePath = capture1 ++ capture2 ++ capture3
+                { filePath = FilePath.fromString (capture1 ++ capture2 ++ capture3)
                 , slug = capture2
                 }
             )
@@ -125,10 +126,10 @@ Now we actually have the full file path of our files. But having that slug (like
 we kept that in our record as well. So we'll now have the equivalent of this `BackendTask` with the current `.md` files in our `blog` folder:
 
     BackendTask.succeed
-        [ { filePath = "content/blog/first-post.md"
+        [ { filePath = FilePath.fromString "content/blog/first-post.md"
           , slug = "first-post"
           }
-        , { filePath = "content/blog/second-post.md"
+        , { filePath = FilePath.fromString "content/blog/second-post.md"
           , slug = "second-post"
           }
         ]
@@ -244,6 +245,7 @@ You can access a file's stats including timestamps when the file was created and
 -}
 
 import BackendTask exposing (BackendTask)
+import FilePath exposing (FilePath)
 import BackendTask.Http
 import BackendTask.Internal.Glob exposing (Glob(..))
 import BackendTask.Internal.Request
@@ -327,24 +329,25 @@ succeed constructor =
     Glob "" (\_ _ captures -> ( constructor, captures ))
 
 
-fullFilePath : Glob String
+fullFilePath : Glob FilePath
 fullFilePath =
     Glob ""
         (\_ fullPath captures ->
-            ( fullPath, captures )
+            ( FilePath.fromString fullPath, captures )
         )
 
 
 {-|
 
     import BackendTask exposing (BackendTask)
+    import FilePath exposing (FilePath)
     import BackendTask.Glob as Glob
 
     blogPosts :
         BackendTask
             error
             (List
-                { filePath : String
+                { filePath : FilePath
                 , slug : String
                 }
             )
@@ -367,7 +370,7 @@ file path in your `Glob` pipeline.
 Whenever possible, it's a good idea to use function to make sure you have an accurate file path when you need to read a file.
 
 -}
-captureFilePath : Glob (String -> value) -> Glob value
+captureFilePath : Glob (FilePath -> value) -> Glob value
 captureFilePath =
     capture fullFilePath
 
@@ -375,7 +378,7 @@ captureFilePath =
 {-| The information about a file that you can access when you use [`captureStats`](#captureStats).
 -}
 type alias FileStats =
-    { fullPath : String
+    { fullPath : FilePath
     , sizeInBytes : Int
     , lastContentChange : Time.Posix
     , lastAccess : Time.Posix
@@ -419,7 +422,7 @@ captureStats =
             (\fileStats _ captures ->
                 ( fileStats
                     |> Maybe.withDefault
-                        { fullPath = "ERROR"
+                        { fullPath = FilePath.fromString "ERROR"
                         , sizeInBytes = -1
                         , lastContentChange = Time.millisToPosix 0
                         , lastAccess = Time.millisToPosix 0
@@ -433,11 +436,11 @@ captureStats =
         )
 
 
-fullStats : Glob String
+fullStats : Glob FilePath
 fullStats =
     Glob ""
         (\_ fullPath captures ->
-            ( fullPath, captures )
+            ( FilePath.fromString fullPath, captures )
         )
 
 
@@ -1126,7 +1129,7 @@ toBackendTaskWithOptions options glob =
 fileStatsDecoder : Decode.Decoder FileStats
 fileStatsDecoder =
     Decode.map7 FileStats
-        (Decode.field "fullPath" Decode.string)
+        (Decode.field "fullPath" (Decode.map FilePath.fromString Decode.string))
         (Decode.field "size" Decode.int)
         (Decode.field "mtime" Decode.int |> Decode.map Time.millisToPosix)
         (Decode.field "atime" Decode.int |> Decode.map Time.millisToPosix)
@@ -1144,7 +1147,9 @@ For example, maybe you can have
     import BackendTask exposing (BackendTask)
     import BackendTask.Glob as Glob
 
-    findBlogBySlug : String -> BackendTask FatalError String
+    import FilePath exposing (FilePath)
+
+    findBlogBySlug : String -> BackendTask FatalError FilePath
     findBlogBySlug slug =
         Glob.succeed identity
             |> Glob.captureFilePath
@@ -1170,9 +1175,9 @@ If we used `findBlogBySlug "first-post"` with these files:
 
 This would give us:
 
-    results : BackendTask FatalError String
+    results : BackendTask FatalError FilePath
     results =
-        BackendTask.succeed "blog/first-post/index.md"
+        BackendTask.succeed (FilePath.fromString "blog/first-post/index.md")
 
 If we used `findBlogBySlug "first-post"` with these files:
 
@@ -1267,26 +1272,28 @@ For example, if we have the following files:
 
     import BackendTask.Glob as Glob
 
-    blogPosts : BackendTask error (List String)
+    import FilePath exposing (FilePath)
+
+    blogPosts : BackendTask error (List FilePath)
     blogPosts =
         Glob.fromString "content/blog/*.md"
 
-    --> BackendTask.succeed [ "content/blog/first-post.md", "content/blog/second-post.md" ]
-    elmFiles : BackendTask error (List String)
+    --> BackendTask.succeed [ FilePath.fromString "content/blog/first-post.md", FilePath.fromString "content/blog/second-post.md" ]
+    elmFiles : BackendTask error (List FilePath)
     elmFiles =
         Glob.fromString "src/**/*.elm"
 
-    --> BackendTask.succeed [ "src/Main.elm", "src/Ui", "src/Ui/Icon.elm" ]
+    --> BackendTask.succeed [ FilePath.fromString "src/Main.elm", FilePath.fromString "src/Ui", FilePath.fromString "src/Ui/Icon.elm" ]
 
 -}
-fromString : String -> BackendTask error (List String)
+fromString : String -> BackendTask error (List FilePath)
 fromString pattern_ =
     fromStringWithOptions { defaultOptions | include = FilesAndFolders } pattern_
 
 
 {-| Same as [`fromString`](#fromString), but with custom [`Options`](#Options).
 -}
-fromStringWithOptions : Options -> String -> BackendTask error (List String)
+fromStringWithOptions : Options -> String -> BackendTask error (List FilePath)
 fromStringWithOptions options pattern_ =
     Glob pattern_ (\_ _ _ -> ( identity, [] ))
         |> captureFilePath

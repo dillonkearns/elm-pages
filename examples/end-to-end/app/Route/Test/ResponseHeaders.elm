@@ -2,6 +2,7 @@ module Route.Test.ResponseHeaders exposing (ActionData, Data, Model, Msg, Static
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
+import FilePath exposing (FilePath)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Head
@@ -52,7 +53,7 @@ type alias Data =
 data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
 data routeParams request =
     BackendTask.succeed Data
-        |> BackendTask.andMap (BackendTask.File.rawFile "greeting.txt" |> BackendTask.allowFatal)
+        |> BackendTask.andMap (BackendTask.File.rawFile (FilePath.fromString "greeting.txt") |> BackendTask.allowFatal)
         |> BackendTask.map Response.render
         |> BackendTask.map (Response.withHeader "x-powered-by" "my-framework")
 

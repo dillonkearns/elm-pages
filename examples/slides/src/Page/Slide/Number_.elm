@@ -1,9 +1,10 @@
 module Page.Slide.Number_ exposing (Data, Model, Msg, page)
 
-import Browser.Events
-import Browser.Navigation
 import BackendTask
 import BackendTask.File
+import FilePath exposing (FilePath)
+import Browser.Events
+import Browser.Navigation
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
@@ -14,7 +15,7 @@ import Markdown.Parser
 import Markdown.Renderer
 import MarkdownRenderer
 import OptimizedDecoder
-import RouteBuilder exposing (Page, App)
+import RouteBuilder exposing (App, Page)
 import Shared
 import Tailwind.Utilities as Tw
 import View exposing (View)
@@ -123,7 +124,7 @@ data routeParams =
 slideBody : RouteParams -> BackendTask.BackendTask (List (Html.Html Msg))
 slideBody route =
     BackendTask.File.read
-        "slides.md"
+        (FilePath.fromString "slides.md")
         (BackendTask.File.body
             |> OptimizedDecoder.andThen
                 (\rawBody ->
@@ -148,7 +149,7 @@ slideBody route =
 
 slideCount : BackendTask.BackendTask Int
 slideCount =
-    BackendTask.File.read "slides.md"
+    BackendTask.File.read (FilePath.fromString "slides.md")
         (BackendTask.File.body
             |> OptimizedDecoder.andThen
                 (\rawBody ->

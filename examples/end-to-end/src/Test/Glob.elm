@@ -1,6 +1,7 @@
 module Test.Glob exposing (all)
 
 import BackendTask exposing (BackendTask)
+import FilePath exposing (FilePath)
 import BackendTask.Glob as Glob exposing (Glob, Include(..), defaultOptions)
 import Expect
 import Test exposing (Test, describe, test)
@@ -11,17 +12,17 @@ all =
     [ globTestCase
         { name = "1"
         , glob = findBySplat []
-        , expected = [ "content/index.md" ]
+        , expected = [ FilePath.fromString "content/index.md" ]
         }
     , globTestCase
         { name = "2"
         , glob = findBySplat [ "foo" ]
-        , expected = [ "content/foo/index.md" ]
+        , expected = [ FilePath.fromString "content/foo/index.md" ]
         }
     , globTestCase
         { name = "3"
         , glob = findBySplat [ "bar" ]
-        , expected = [ "content/bar.md" ]
+        , expected = [ FilePath.fromString "content/bar.md" ]
         }
     , globTestCase
         { name = "4"
@@ -244,7 +245,7 @@ all =
                 |> Glob.match Glob.wildcard
                 |> Glob.match (Glob.literal ".txt")
         , expected =
-            [ "greeting.txt" ]
+            [ FilePath.fromString "greeting.txt" ]
         }
     , globTestCase
         { name = "wildcard and recursiveWildcard in one pattern"
@@ -313,10 +314,11 @@ all =
         |> BackendTask.map (describe "glob tests")
 
 
-findBySplat : List String -> Glob String
+findBySplat : List String -> Glob FilePath
 findBySplat splat =
     if splat == [] then
         Glob.literal "content/index.md"
+            |> Glob.map FilePath.fromString
 
     else
         Glob.succeed identity

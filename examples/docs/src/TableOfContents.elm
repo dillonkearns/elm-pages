@@ -2,6 +2,7 @@ module TableOfContents exposing (..)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
+import FilePath exposing (FilePath)
 import FatalError exposing (FatalError)
 import Html exposing (..)
 import Html.Attributes as Attr
@@ -11,7 +12,7 @@ import Markdown.Parser
 
 
 backendTask :
-    BackendTask FatalError (List { file | filePath : String, slug : String })
+    BackendTask FatalError (List { file | filePath : FilePath, slug : String })
     -> BackendTask FatalError (TableOfContents Data)
 backendTask docFiles =
     docFiles

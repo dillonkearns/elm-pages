@@ -1,6 +1,7 @@
 module AddRoute exposing (run)
 
 import BackendTask
+import FilePath exposing (FilePath)
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
@@ -44,8 +45,11 @@ run =
         (\cliOptions ->
             cliOptions
                 |> createFile
-                |> Script.writeFile
+                |> (\{ path, body } ->
+                        Script.writeFile { body = body } (FilePath.fromString path)
+                   )
                 |> BackendTask.allowFatal
+                |> BackendTask.map (\_ -> ())
         )
 
 

@@ -56,6 +56,7 @@ plain old JSON in Elm.
 -}
 
 import BackendTask exposing (BackendTask)
+import FilePath exposing (FilePath)
 import BackendTask.Http
 import BackendTask.Internal.Request
 import Bytes exposing (Bytes)
@@ -75,13 +76,14 @@ frontmatter frontmatterDecoder =
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
+    import FilePath exposing (FilePath)
     import FatalError exposing (FatalError)
     import Json.Decode as Decode exposing (Decoder)
 
     blogPost : BackendTask FatalError BlogPostMetadata
     blogPost =
         File.bodyWithFrontmatter blogPostDecoder
-            "blog/hello-world.md"
+            (FilePath.fromString "blog/hello-world.md")
             |> BackendTask.allowFatal
 
     type alias BlogPostMetadata =
@@ -113,6 +115,7 @@ It's common to parse the body with a markdown parser or other format.
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
+    import FilePath exposing (FilePath)
     import FatalError exposing (FatalError)
     import Html exposing (Html)
     import Json.Decode as Decode
@@ -138,8 +141,8 @@ It's common to parse the body with a markdown parser or other format.
                         |> Decode.fromResult
                     )
             )
-            "foo.md"
-                |> BackendTask.allowFatal
+            (FilePath.fromString "foo.md")
+            |> BackendTask.allowFatal
 
     markdownToView :
         String
@@ -158,7 +161,7 @@ It's common to parse the body with a markdown parser or other format.
 -}
 bodyWithFrontmatter :
     (String -> Decoder frontmatter)
-    -> String
+    -> FilePath
     ->
         BackendTask
             { fatal : FatalError
@@ -166,9 +169,13 @@ bodyWithFrontmatter :
             }
             frontmatter
 bodyWithFrontmatter frontmatterDecoder filePath =
+    let
+        filePathString =
+            FilePath.toString filePath
+    in
     BackendTask.Internal.Request.request2
         { name = "read-file"
-        , body = BackendTask.Http.stringBody "" filePath
+        , body = BackendTask.Http.stringBody "" filePathString
         , expect =
             body
                 |> Decode.andThen
@@ -182,7 +189,7 @@ bodyWithFrontmatter frontmatterDecoder filePath =
                     { title = "BackendTask.File Decoder Error"
                     , body =
                         "I encountered a Json Decoder error from a call to BackendTask.File.bodyWithFrontmatter.\n\n"
-                            ++ ("I was trying to process `" ++ filePath ++ "`.\n\n")
+                            ++ ("I was trying to process `" ++ filePathString ++ "`.\n\n")
                             ++ Decode.errorToString frontmatterDecodeError
                     }
                         |> FatalError.build
@@ -205,6 +212,7 @@ just the metadata.
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
+    import FilePath exposing (FilePath)
     import FatalError exposing (FatalError)
     import Json.Decode as Decode exposing (Decoder)
 
@@ -212,7 +220,7 @@ just the metadata.
     blogPost =
         File.onlyFrontmatter
             blogPostDecoder
-            "blog/hello-world.md"
+            (FilePath.fromString "blog/hello-world.md")
             |> BackendTask.allowFatal
 
     type alias BlogPostMetadata =
@@ -231,9 +239,10 @@ the [`BackendTask`](BackendTask) API along with [`BackendTask.Glob`](BackendTask
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
+    import FilePath exposing (FilePath)
     import Decode exposing (Decoder)
 
-    blogPostFiles : BackendTask (List String)
+    blogPostFiles : BackendTask (List FilePath)
     blogPostFiles =
         Glob.succeed identity
             |> Glob.captureFilePath
@@ -256,7 +265,7 @@ the [`BackendTask`](BackendTask) API along with [`BackendTask.Glob`](BackendTask
 -}
 onlyFrontmatter :
     Decoder frontmatter
-    -> String
+    -> FilePath
     ->
         BackendTask
             { fatal : FatalError
@@ -264,9 +273,13 @@ onlyFrontmatter :
             }
             frontmatter
 onlyFrontmatter frontmatterDecoder filePath =
+    let
+        filePathString =
+            FilePath.toString filePath
+    in
     BackendTask.Internal.Request.request2
         { name = "read-file"
-        , body = BackendTask.Http.stringBody "" filePath
+        , body = BackendTask.Http.stringBody "" filePathString
         , expect = frontmatter frontmatterDecoder
         , errorDecoder = Decode.field "errorCode" (errorDecoder filePath)
         , onError =
@@ -275,7 +288,7 @@ onlyFrontmatter frontmatterDecoder filePath =
                     { title = "BackendTask.File Decoder Error"
                     , body =
                         "I encountered a Json Decoder error from a call to BackendTask.File.onlyFrontmatter.\n\n"
-                            ++ ("I was trying to process `" ++ filePath ++ "`.\n\n")
+                            ++ ("I was trying to process `" ++ filePathString ++ "`.\n\n")
                             ++ Decode.errorToString frontmatterDecodeError
                     }
                         |> FatalError.build
@@ -298,18 +311,19 @@ Hey there! This is my first post :)
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
+    import FilePath exposing (FilePath)
     import FatalError exposing (FatalError)
 
     data : BackendTask FatalError String
     data =
-        File.bodyWithoutFrontmatter "blog/hello-world.md"
+        File.bodyWithoutFrontmatter (FilePath.fromString "blog/hello-world.md")
             |> BackendTask.allowFatal
 
 Then data will yield the value `"Hey there! This is my first post :)"`.
 
 -}
 bodyWithoutFrontmatter :
-    String
+    FilePath
     ->
         BackendTask
             { fatal : FatalError
@@ -333,15 +347,16 @@ You could read a file called `hello.txt` in your root project directory like thi
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
+    import FilePath exposing (FilePath)
     import FatalError exposing (FatalError)
 
     elmJsonFile : BackendTask FatalError String
     elmJsonFile =
-        File.rawFile "hello.txt"
+        File.rawFile (FilePath.fromString "hello.txt")
             |> BackendTask.allowFatal
 
 -}
-rawFile : String -> BackendTask { fatal : FatalError, recoverable : FileReadError decoderError } String
+rawFile : FilePath -> BackendTask { fatal : FatalError, recoverable : FileReadError decoderError } String
 rawFile filePath =
     read filePath (Decode.field "rawFile" Decode.string)
 
@@ -352,18 +367,19 @@ You could read a file called `hello.jpg` in your root project directory like thi
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
+    import FilePath exposing (FilePath)
     import Bytes exposing (Bytes)
 
     elmBinaryFile : BackendTask Bytes
     elmBinaryFile =
-        File.binaryFile "hello.jpg"
+        File.binaryFile (FilePath.fromString "hello.jpg")
 
 -}
-binaryFile : String -> BackendTask { fatal : FatalError, recoverable : FileReadError decoderError } Bytes
+binaryFile : FilePath -> BackendTask { fatal : FatalError, recoverable : FileReadError decoderError } Bytes
 binaryFile filePath =
     BackendTask.Internal.Request.request
         { name = "read-file-binary"
-        , body = BackendTask.Http.stringBody "" filePath
+        , body = BackendTask.Http.stringBody "" (FilePath.toString filePath)
         , expect =
             Bytes.Decode.signedInt32 Bytes.BE
                 |> Bytes.Decode.andThen
@@ -385,6 +401,7 @@ The Decode will strip off any unused JSON data.
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
+    import FilePath exposing (FilePath)
     import FatalError exposing (FatalError)
     import Json.Decode as Decode
 
@@ -395,13 +412,13 @@ The Decode will strip off any unused JSON data.
                 "source-directories"
                 (Decode.list Decode.string)
             )
-            "elm.json"
+            (FilePath.fromString "elm.json")
             |> BackendTask.allowFatal
 
 -}
 jsonFile :
     Decoder a
-    -> String
+    -> FilePath
     ->
         BackendTask
             { fatal : FatalError
@@ -436,11 +453,11 @@ body =
     Decode.field "withoutFrontmatter" Decode.string
 
 
-read : String -> Decoder a -> BackendTask { fatal : FatalError, recoverable : FileReadError error } a
+read : FilePath -> Decoder a -> BackendTask { fatal : FatalError, recoverable : FileReadError error } a
 read filePath decoder =
     BackendTask.Internal.Request.request
         { name = "read-file"
-        , body = BackendTask.Http.stringBody "" filePath
+        , body = BackendTask.Http.stringBody "" (FilePath.toString filePath)
         , expect =
             Decode.oneOf
                 [ Decode.field "errorCode"
@@ -452,23 +469,27 @@ read filePath decoder =
         |> BackendTask.andThen BackendTask.fromResult
 
 
-errorDecoder : String -> Decoder { fatal : FatalError, recoverable : FileReadError decoding }
+errorDecoder : FilePath -> Decoder { fatal : FatalError, recoverable : FileReadError decoding }
 errorDecoder filePath =
     Decode.succeed (fileNotFound filePath)
 
 
 fileNotFound :
-    String
+    FilePath
     ->
         { fatal : FatalError
         , recoverable : FileReadError decoding
         }
 fileNotFound filePath =
+    let
+        filePathString =
+            FilePath.toString filePath
+    in
     FatalError.recoverable
         { title = "File Doesn't Exist"
         , body =
             [ TerminalText.text "Couldn't find file at path `"
-            , TerminalText.yellow filePath
+            , TerminalText.yellow filePathString
             , TerminalText.text "`"
             ]
                 |> TerminalText.toString
@@ -480,17 +501,18 @@ fileNotFound filePath =
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
+    import FilePath exposing (FilePath)
 
     checkConfig : BackendTask error Bool
     checkConfig =
-        File.exists "config.json"
+        File.exists (FilePath.fromString "config.json")
 
 -}
-exists : String -> BackendTask error Bool
+exists : FilePath -> BackendTask error Bool
 exists filePath =
     BackendTask.Internal.Request.request
         { name = "file-exists"
-        , body = BackendTask.Http.jsonBody (Encode.string filePath)
+        , body = BackendTask.Http.jsonBody (Encode.string (FilePath.toString filePath))
         , expect = BackendTask.Http.expectJson Decode.bool
         }
 
@@ -500,11 +522,12 @@ Other errors (decoding errors, permission errors, etc.) are re-thrown as fatal e
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
+    import FilePath exposing (FilePath)
     import FatalError exposing (FatalError)
 
     readOptionalConfig : BackendTask FatalError (Maybe String)
     readOptionalConfig =
-        File.rawFile "config.txt"
+        File.rawFile (FilePath.fromString "config.txt")
             |> File.optional
 
 -}

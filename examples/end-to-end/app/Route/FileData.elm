@@ -2,6 +2,7 @@ module Route.FileData exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
+import FilePath exposing (FilePath)
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
@@ -50,7 +51,7 @@ type alias Data =
 
 data : BackendTask FatalError Data
 data =
-    "my-json-data.json"
+    FilePath.fromString "my-json-data.json"
         |> BackendTask.File.jsonFile (Decode.field "greeting" Decode.string)
         |> BackendTask.allowFatal
         |> BackendTask.map Data

@@ -2,6 +2,7 @@ module TestBinaryRead exposing (run)
 
 import BackendTask
 import BackendTask.File
+import FilePath exposing (FilePath)
 import Bytes
 import Bytes.Decode
 import FatalError
@@ -11,7 +12,7 @@ import Pages.Script as Script exposing (Script)
 
 run : Script
 run =
-    BackendTask.File.binaryFile "elm.json"
+    BackendTask.File.binaryFile (FilePath.fromString "elm.json")
         |> BackendTask.allowFatal
         |> BackendTask.andThen
             (\bytes ->

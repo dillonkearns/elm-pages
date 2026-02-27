@@ -548,7 +548,7 @@ async function runInternalJob(
           await runDecryptJob(requestToPerform, patternsToWatch),
         ];
       case "elm-pages-internal://file-exists":
-        return [requestHash, await runFileExists(requestToPerform)];
+        return [requestHash, await runFileExists(requestToPerform, patternsToWatch)];
       case "elm-pages-internal://write-file":
         return [requestHash, await runWriteFileJob(requestToPerform)];
       case "elm-pages-internal://delete-file":
@@ -1156,9 +1156,10 @@ export async function readKey() {
   });
 }
 
-async function runFileExists(req) {
+async function runFileExists(req, patternsToWatch) {
   const cwd = path.resolve(...req.dir);
   const filePath = path.resolve(cwd, req.body.args[0]);
+  patternsToWatch.add(filePath);
   try {
     await fsPromises.access(filePath, fs.constants.F_OK);
     return jsonResponse(req, true);
@@ -1173,10 +1174,10 @@ async function runDeleteFile(req) {
   const filePath = path.resolve(cwd, data.path);
   try {
     await fsPromises.unlink(filePath);
-    return jsonResponse(req, filePath);
+    return jsonResponse(req, null);
   } catch (error) {
     if (error.code === "ENOENT") {
-      return jsonResponse(req, filePath);
+      return jsonResponse(req, null);
     }
     throw {
       title: "BackendTask Error",
@@ -1216,6 +1217,29 @@ async function runMove(req) {
     await fsPromises.rename(fromPath, toPath);
     return jsonResponse(req, toPath);
   } catch (error) {
+    if (error.code === "EXDEV") {
+      try {
+        const stat = await fsPromises.lstat(fromPath);
+        await fsPromises.mkdir(path.dirname(toPath), { recursive: true });
+
+        if (stat.isDirectory()) {
+          await fsPromises.cp(fromPath, toPath, { recursive: true });
+        } else {
+          await fsPromises.copyFile(fromPath, toPath);
+        }
+
+        await fsPromises.rm(fromPath, { recursive: true });
+        return jsonResponse(req, toPath);
+      } catch (crossDeviceError) {
+        throw {
+          title: "BackendTask Error",
+          message: `Script.move failed from ${kleur.yellow(
+            fromPath
+          )} to ${kleur.yellow(toPath)}\n${kleur.red(crossDeviceError.toString())}`,
+        };
+      }
+    }
+
     throw {
       title: "BackendTask Error",
       message: `Script.move failed from ${kleur.yellow(
@@ -1247,6 +1271,14 @@ async function runRemoveDirectory(req) {
   const data = req.body.args[0];
   const dirPath = path.resolve(cwd, data.path);
   try {
+    const stat = await fsPromises.lstat(dirPath);
+    if (!stat.isDirectory()) {
+      throw {
+        code: "ENOTDIR",
+        toString: () => `Not a directory: ${dirPath}`,
+      };
+    }
+
     if (data.recursive) {
       await fsPromises.rm(dirPath, { recursive: true });
     } else {
@@ -1288,7 +1320,7 @@ async function runWriteFileJob(req) {
   try {
     await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
     await fsPromises.writeFile(filePath, data.body);
-    return jsonResponse(req, null);
+    return jsonResponse(req, filePath);
   } catch (error) {
     console.trace(error);
     throw {

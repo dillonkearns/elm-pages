@@ -1,6 +1,7 @@
 module AddStaticRoute exposing (run)
 
 import BackendTask
+import FilePath exposing (FilePath)
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
@@ -28,8 +29,11 @@ run =
         (\cliOptions ->
             cliOptions
                 |> createFile
-                |> Script.writeFile
+                |> (\( filePath, body ) ->
+                        Script.writeFile { body = body } filePath
+                   )
                 |> BackendTask.allowFatal
+                |> BackendTask.map (\_ -> ())
         )
 
 
@@ -42,48 +46,54 @@ program =
             )
 
 
-createFile : CliOptions -> { path : String, body : String }
+createFile : CliOptions -> ( FilePath, String )
 createFile { moduleName } =
-    Scaffold.Route.preRender
-        { moduleName = moduleName
-        , pages =
-            Gen.BackendTask.succeed
-                (Elm.list [])
-        , data =
-            ( Alias (Type.record [])
-            , \routeParams ->
-                Gen.BackendTask.succeed (Elm.record [])
-            )
-        , head = \app -> Elm.list []
-        }
-        |> Scaffold.Route.buildWithLocalState
-            { view =
-                \{ shared, model, app } ->
-                    Gen.View.make_.view
-                        { title = moduleName |> String.join "." |> Elm.string
-                        , body =
-                            Elm.list
-                                [ Html.h2 [] [ Html.text "New Page" ]
+    let
+        generatedFile =
+            Scaffold.Route.preRender
+                { moduleName = moduleName
+                , pages =
+                    Gen.BackendTask.succeed
+                        (Elm.list [])
+                , data =
+                    ( Alias (Type.record [])
+                    , \routeParams ->
+                        Gen.BackendTask.succeed (Elm.record [])
+                    )
+                , head = \app -> Elm.list []
+                }
+                |> Scaffold.Route.buildWithLocalState
+                    { view =
+                        \{ shared, model, app } ->
+                            Gen.View.make_.view
+                                { title = moduleName |> String.join "." |> Elm.string
+                                , body =
+                                    Elm.list
+                                        [ Html.h2 [] [ Html.text "New Page" ]
+                                        ]
+                                }
+                    , update =
+                        \{ shared, app, msg, model } ->
+                            Elm.Case.custom msg
+                                (Type.named [] "Msg")
+                                [ Elm.Case.branch (Elm.Arg.customType "NoOp" ())
+                                    (\() ->
+                                        Elm.tuple model
+                                            Effect.none
+                                    )
                                 ]
-                        }
-            , update =
-                \{ shared, app, msg, model } ->
-                    Elm.Case.custom msg
-                        (Type.named [] "Msg")
-                        [ Elm.Case.branch (Elm.Arg.customType "NoOp" ())
-                            (\() ->
-                                Elm.tuple model
-                                    Effect.none
-                            )
-                        ]
-            , init =
-                \{ shared, app } ->
-                    Elm.tuple (Elm.record []) Effect.none
-            , subscriptions =
-                \{ routeParams, path, shared, model } ->
-                    Gen.Platform.Sub.none
-            , model =
-                Alias (Type.record [])
-            , msg =
-                Custom [ Elm.variant "NoOp" ]
-            }
+                    , init =
+                        \{ shared, app } ->
+                            Elm.tuple (Elm.record []) Effect.none
+                    , subscriptions =
+                        \{ routeParams, path, shared, model } ->
+                            Gen.Platform.Sub.none
+                    , model =
+                        Alias (Type.record [])
+                    , msg =
+                        Custom [ Elm.variant "NoOp" ]
+                    }
+    in
+    ( FilePath.fromString generatedFile.path
+    , generatedFile.body
+    )

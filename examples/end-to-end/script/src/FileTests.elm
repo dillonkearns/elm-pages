@@ -2,6 +2,7 @@ module FileTests exposing (run)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File as File
+import FilePath exposing (FilePath)
 import BackendTaskTest exposing (describe, test, testScript)
 import Expect
 import FatalError exposing (FatalError)
@@ -11,9 +12,14 @@ import Pages.Script as Script exposing (Script)
 {-| All test artifacts go in this directory so they don't interfere with glob
 pattern tests in the Cypress suite (which match \*.txt at the project root).
 -}
-testDir : String
+testDir : FilePath
 testDir =
-    ".file-test-artifacts"
+    FilePath.fromString ".file-test-artifacts"
+
+
+testPath : String -> FilePath
+testPath relativePath =
+    FilePath.append testDir (FilePath.fromString relativePath)
 
 
 run : Script
@@ -27,10 +33,81 @@ run =
 
 runTests : BackendTask FatalError ()
 runTests =
-    [ describe "BackendTask.File.optional"
+    [ describe "FilePath.fromString normalization"
+        [ test "empty path normalizes to dot" <|
+            \() ->
+                FilePath.fromString ""
+                    |> FilePath.toString
+                    |> Expect.equal "."
+                    |> BackendTask.succeed
+        , test "collapses duplicate separators and dot segments" <|
+            \() ->
+                FilePath.fromString "foo//bar/./baz/"
+                    |> FilePath.toString
+                    |> Expect.equal "foo/bar/baz"
+                    |> BackendTask.succeed
+        , test "resolves parent segments when possible" <|
+            \() ->
+                FilePath.fromString "foo/bar/../baz"
+                    |> FilePath.toString
+                    |> Expect.equal "foo/baz"
+                    |> BackendTask.succeed
+        , test "keeps unresolved parents for relative paths" <|
+            \() ->
+                FilePath.fromString "../../foo"
+                    |> FilePath.toString
+                    |> Expect.equal "../../foo"
+                    |> BackendTask.succeed
+        , test "does not go above POSIX root" <|
+            \() ->
+                FilePath.fromString "/foo/../../bar"
+                    |> FilePath.toString
+                    |> Expect.equal "/bar"
+                    |> BackendTask.succeed
+        , test "normalizes Windows absolute paths" <|
+            \() ->
+                FilePath.fromString "C:\\foo\\..\\bar\\."
+                    |> FilePath.toString
+                    |> Expect.equal "C:/bar"
+                    |> BackendTask.succeed
+        , test "preserves Windows drive-relative semantics" <|
+            \() ->
+                FilePath.fromString "C:foo\\..\\bar"
+                    |> FilePath.toString
+                    |> Expect.equal "C:bar"
+                    |> BackendTask.succeed
+        , test "normalizes UNC style paths" <|
+            \() ->
+                FilePath.fromString "\\\\server\\share\\folder\\..\\file.txt"
+                    |> FilePath.toString
+                    |> Expect.equal "//server/share/file.txt"
+                    |> BackendTask.succeed
+        , test "absolute detection handles POSIX, UNC, and Windows" <|
+            \() ->
+                Expect.all
+                    [ \_ -> Expect.equal True (FilePath.fromString "/foo" |> FilePath.isAbsolute)
+                    , \_ -> Expect.equal True (FilePath.fromString "//server/share" |> FilePath.isAbsolute)
+                    , \_ -> Expect.equal True (FilePath.fromString "C:/foo" |> FilePath.isAbsolute)
+                    , \_ -> Expect.equal False (FilePath.fromString "C:foo" |> FilePath.isAbsolute)
+                    , \_ -> Expect.equal False (FilePath.fromString "../foo" |> FilePath.isAbsolute)
+                    ]
+                    ()
+                    |> BackendTask.succeed
+        ]
+    , describe "FilePath.append normalization"
+        [ test "append resolves parent segments" <|
+            \() ->
+                FilePath.append
+                    (FilePath.fromString "a/b")
+                    (FilePath.fromString "../c")
+                    |> FilePath.toString
+                    |> Expect.equal "a/c"
+                    |> BackendTask.succeed
+        ]
+    , describe "BackendTask.File.optional"
         [ test "existing file returns Just" <|
             \() ->
-                File.rawFile "elm.json"
+                File.rawFile (FilePath.fromString "elm.json")
                     |> File.optional
                     |> BackendTask.map
                         (\result ->
@@ -47,7 +124,7 @@ runTests =
                         )
         , test "missing file returns Nothing" <|
             \() ->
-                File.rawFile "does-not-exist.xyz"
+                File.rawFile (FilePath.fromString "does-not-exist.xyz")
                     |> File.optional
                     |> BackendTask.map (Expect.equal Nothing)
         ]
@@ -67,11 +144,11 @@ runTests =
     , describe "BackendTask.File.exists"
         [ test "returns True for existing file" <|
             \() ->
-                File.exists "elm.json"
+                File.exists (FilePath.fromString "elm.json")
                     |> BackendTask.map (Expect.equal True)
         , test "returns False for missing file" <|
             \() ->
-                File.exists "does-not-exist.xyz"
+                File.exists (FilePath.fromString "does-not-exist.xyz")
                     |> BackendTask.map (Expect.equal False)
         ]
     , describe "Script.deleteFile"
@@ -79,27 +156,27 @@ runTests =
             \() ->
                 let
                     filePath =
-                        testDir ++ "/delete-target.txt"
+                        testPath "delete-target.txt"
                 in
-                Script.writeFile { path = filePath, body = "delete me" }
+                Script.writeFile { body = "delete me" } filePath
                     |> BackendTask.allowFatal
                     |> BackendTask.andThen
-                        (\() ->
+                        (\_ ->
                             Script.deleteFile filePath
-                                |> BackendTask.andThen (\_ -> File.exists filePath)
+                                |> BackendTask.andThen (\() -> File.exists filePath)
                         )
                     |> BackendTask.map (Expect.equal False)
         , test "on missing file succeeds" <|
             \() ->
-                Script.deleteFile (testDir ++ "/nonexistent.txt")
-                    |> BackendTask.map (\_ -> Expect.pass)
+                Script.deleteFile (testPath "nonexistent.txt")
+                    |> BackendTask.map (\() -> Expect.pass)
         ]
     , describe "Script.makeDirectory"
         [ test "recursive creates nested dirs" <|
             \() ->
                 let
                     dirPath =
-                        testDir ++ "/make-dir/nested/deep"
+                        testPath "make-dir/nested/deep"
                 in
                 Script.makeDirectory { recursive = True } dirPath
                     |> BackendTask.andThen (\_ -> File.exists dirPath)
@@ -108,7 +185,7 @@ runTests =
             \() ->
                 let
                     dirPath =
-                        testDir ++ "/make-dir-single"
+                        testPath "make-dir-single"
                 in
                 Script.removeDirectory { recursive = False } dirPath
                     |> BackendTask.andThen (\() -> Script.makeDirectory { recursive = False } dirPath)
@@ -119,26 +196,28 @@ runTests =
             \() ->
                 let
                     dirPath =
-                        testDir ++ "/remove-dir"
+                        testPath "remove-dir"
                 in
                 Script.makeDirectory { recursive = True } dirPath
                     |> BackendTask.andThen
                         (\_ ->
-                            Script.writeFile { path = dirPath ++ "/file.txt", body = "content" }
+                            Script.writeFile
+                                { body = "content" }
+                                (FilePath.append dirPath (FilePath.fromString "file.txt"))
                                 |> BackendTask.allowFatal
                         )
-                    |> BackendTask.andThen (\() -> Script.removeDirectory { recursive = True } dirPath)
+                    |> BackendTask.andThen (\_ -> Script.removeDirectory { recursive = True } dirPath)
                     |> BackendTask.andThen (\() -> File.exists dirPath)
                     |> BackendTask.map (Expect.equal False)
         , test "on missing dir succeeds" <|
             \() ->
-                Script.removeDirectory { recursive = True } (testDir ++ "/nonexistent-dir")
+                Script.removeDirectory { recursive = True } (testPath "nonexistent-dir")
                     |> BackendTask.map (\() -> Expect.pass)
         , test "non-recursive removes empty dir" <|
             \() ->
                 let
                     dirPath =
-                        testDir ++ "/remove-empty-dir"
+                        testPath "remove-empty-dir"
                 in
                 Script.makeDirectory { recursive = False } dirPath
                     |> BackendTask.andThen (\_ -> Script.removeDirectory { recursive = False } dirPath)
@@ -150,28 +229,28 @@ runTests =
             \() ->
                 let
                     src =
-                        testDir ++ "/copy-source.txt"
+                        testPath "copy-source.txt"
 
                     dest =
-                        testDir ++ "/copy-dest.txt"
+                        testPath "copy-dest.txt"
                 in
-                Script.writeFile { path = src, body = "copy me" }
+                Script.writeFile { body = "copy me" } src
                     |> BackendTask.allowFatal
-                    |> BackendTask.andThen (\() -> Script.copyFile { from = src, to = dest })
+                    |> BackendTask.andThen (\_ -> Script.copyFile { to = dest } src)
                     |> BackendTask.andThen (\_ -> File.rawFile dest |> BackendTask.allowFatal)
                     |> BackendTask.map (Expect.equal "copy me")
         , test "auto-creates parent dirs" <|
             \() ->
                 let
                     src =
-                        testDir ++ "/copy-source2.txt"
+                        testPath "copy-source2.txt"
 
                     dest =
-                        testDir ++ "/copy-nested/deep/dest.txt"
+                        testPath "copy-nested/deep/dest.txt"
                 in
-                Script.writeFile { path = src, body = "nested copy" }
+                Script.writeFile { body = "nested copy" } src
                     |> BackendTask.allowFatal
-                    |> BackendTask.andThen (\() -> Script.copyFile { from = src, to = dest })
+                    |> BackendTask.andThen (\_ -> Script.copyFile { to = dest } src)
                     |> BackendTask.map (\_ -> Expect.pass)
         ]
     , describe "Script.move"
@@ -179,14 +258,14 @@ runTests =
             \() ->
                 let
                     src =
-                        testDir ++ "/move-source.txt"
+                        testPath "move-source.txt"
 
                     dest =
-                        testDir ++ "/move-dest.txt"
+                        testPath "move-dest.txt"
                 in
-                Script.writeFile { path = src, body = "move me" }
+                Script.writeFile { body = "move me" } src
                     |> BackendTask.allowFatal
-                    |> BackendTask.andThen (\() -> Script.move { from = src, to = dest })
+                    |> BackendTask.andThen (\_ -> Script.move { to = dest } src)
                     |> BackendTask.andThen
                         (\_ ->
                             BackendTask.map2 Tuple.pair
@@ -205,14 +284,14 @@ runTests =
             \() ->
                 let
                     src =
-                        testDir ++ "/move-source2.txt"
+                        testPath "move-source2.txt"
 
                     dest =
-                        testDir ++ "/move-nested/deep/dest.txt"
+                        testPath "move-nested/deep/dest.txt"
                 in
-                Script.writeFile { path = src, body = "nested move" }
+                Script.writeFile { body = "nested move" } src
                     |> BackendTask.allowFatal
-                    |> BackendTask.andThen (\() -> Script.move { from = src, to = dest })
+                    |> BackendTask.andThen (\_ -> Script.move { to = dest } src)
                     |> BackendTask.map (\_ -> Expect.pass)
         ]
     , describe "Script.makeTempDirectory"
@@ -229,11 +308,11 @@ runTests =
                             Expect.all
                                 [ \_ -> Expect.equal True exists
                                 , \_ ->
-                                    if String.contains "test-prefix-" tmpDir then
+                                    if String.contains "test-prefix-" (FilePath.toString tmpDir) then
                                         Expect.pass
 
                                     else
-                                        Expect.fail ("Expected path to contain prefix, got: " ++ tmpDir)
+                                        Expect.fail ("Expected path to contain prefix, got: " ++ FilePath.toString tmpDir)
                                 ]
                                 ()
                         )
@@ -244,9 +323,11 @@ runTests =
                 Script.makeTempDirectory "integration-test-"
                     |> BackendTask.andThen
                         (\tmpDir ->
-                            Script.writeFile { path = tmpDir ++ "/test.txt", body = "temp content" }
+                            Script.writeFile
+                                { body = "temp content" }
+                                (FilePath.append tmpDir (FilePath.fromString "test.txt"))
                                 |> BackendTask.allowFatal
-                                |> BackendTask.andThen (\() -> BackendTask.succeed tmpDir)
+                                |> BackendTask.andThen (\_ -> BackendTask.succeed tmpDir)
                                 |> BackendTask.finally
                                     (Script.removeDirectory { recursive = True } tmpDir)
                         )
@@ -257,9 +338,11 @@ runTests =
                 Script.makeTempDirectory "integration-fail-"
                     |> BackendTask.andThen
                         (\tmpDir ->
-                            Script.writeFile { path = tmpDir ++ "/test.txt", body = "temp content" }
+                            Script.writeFile
+                                { body = "temp content" }
+                                (FilePath.append tmpDir (FilePath.fromString "test.txt"))
                                 |> BackendTask.allowFatal
-                                |> BackendTask.andThen (\() -> BackendTask.fail (FatalError.build { title = "intentional", body = "error" }))
+                                |> BackendTask.andThen (\_ -> BackendTask.fail (FatalError.build { title = "intentional", body = "error" }))
                                 |> BackendTask.finally
                                     (Script.removeDirectory { recursive = True } tmpDir)
                                 |> BackendTask.toResult

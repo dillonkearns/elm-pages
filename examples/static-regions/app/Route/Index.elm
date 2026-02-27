@@ -3,6 +3,7 @@ module Route.Index exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import BackendTask.File
+import FilePath exposing (FilePath)
 import BackendTask.Random
 import BackendTask.Time
 import DateFormat
@@ -59,7 +60,7 @@ type alias Data =
 data : BackendTask FatalError Data
 data =
     BackendTask.map4 Data
-        (BackendTask.File.rawFile "greeting.txt" |> BackendTask.allowFatal)
+        (BackendTask.File.rawFile (FilePath.fromString "greeting.txt") |> BackendTask.allowFatal)
         (BackendTask.Custom.run "hello" (Encode.string "Jane") Decode.string |> BackendTask.allowFatal)
         (BackendTask.Random.generate generator)
         BackendTask.Time.now

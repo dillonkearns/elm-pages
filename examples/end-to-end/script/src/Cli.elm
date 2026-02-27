@@ -1,6 +1,7 @@
 module Cli exposing (run)
 
 import BackendTask
+import FilePath exposing (FilePath)
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
@@ -29,10 +30,14 @@ run =
                     buildFile (cliOptions.moduleName |> String.split ".")
             in
             Script.writeFile
-                { path = "app/" ++ file.path
-                , body = file.contents
-                }
+                { body = file.contents }
+                (FilePath.join
+                    [ FilePath.fromString "app"
+                    , FilePath.fromString file.path
+                    ]
+                )
                 |> BackendTask.allowFatal
+                |> BackendTask.map (\_ -> ())
         )
 
 

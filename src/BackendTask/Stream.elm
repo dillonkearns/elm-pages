@@ -33,7 +33,7 @@ For example,
     import BackendTask.Stream as Stream exposing (Stream)
 
     example =
-        Stream.fileRead "data.txt"
+        Stream.fileRead (Path.fromString "data.txt")
             |> Stream.unzip
             |> Stream.command "wc" [ "-l" ]
             |> Stream.httpWithInput
@@ -77,7 +77,7 @@ So instead of `grep error < log.txt`, you would use
     run : Script
     run =
         Script.withoutCliOptions
-            (Stream.fileRead "log.txt"
+            (Stream.fileRead (Path.fromString "log.txt")
                 |> Stream.pipe (Stream.command "grep" [ "error" ])
                 |> Stream.stdout
                 |> Stream.run
@@ -134,13 +134,13 @@ You can also use [`Stream.read`](#read) and ignore the captured output, but this
     run : Script
     run =
         Script.withoutCliOptions
-            (Stream.fileRead "elm.json"
+            (Stream.fileRead (Path.fromString "elm.json")
                 |> Stream.pipe Stream.gzip
-                |> Stream.pipe (Stream.fileWrite "elm.json.gz")
+                |> Stream.pipe (Stream.fileWrite (Path.fromString "elm.json.gz"))
                 |> Stream.run
                 |> BackendTask.andThen
                     (\_ ->
-                        Stream.fileRead "elm.json.gz"
+                        Stream.fileRead (Path.fromString "elm.json.gz")
                             |> Stream.pipe Stream.unzip
                             |> Stream.pipe Stream.stdout
                             |> Stream.run
@@ -241,6 +241,7 @@ export async function customWriteStream(input, { cwd, env, quiet }) {
 -}
 
 import BackendTask exposing (BackendTask)
+import FilePath exposing (FilePath)
 import BackendTask.Http exposing (Body)
 import BackendTask.Internal.Request
 import Base64
@@ -338,7 +339,7 @@ stdin =
     run : Script
     run =
         Script.withoutCliOptions
-            (Stream.fileRead "data.gzip.txt"
+            (Stream.fileRead (Path.fromString "data.gzip.txt")
                 |> Stream.pipe Stream.unzip
                 |> Stream.pipe Stream.stdout
                 |> Stream.run
@@ -369,7 +370,7 @@ stderr =
     run : Script
     run =
         Script.withoutCliOptions
-            (Stream.fileRead "elm.json"
+            (Stream.fileRead (Path.fromString "elm.json")
                 |> Stream.readJson (Decode.field "source-directories" (Decode.list Decode.string))
                 |> BackendTask.allowFatal
                 |> BackendTask.andThen
@@ -384,10 +385,10 @@ stderr =
 If you want to read a file but don't need to use any of the other Stream functions, you can use [`BackendTask.File.read`](BackendTask-File#rawFile) instead.
 
 -}
-fileRead : String -> Stream () () { read : (), write : Never }
+fileRead : FilePath -> Stream () () { read : (), write : Never }
 fileRead path =
     -- TODO revisit the error type instead of ()?
-    single unit "fileRead" [ ( "path", Encode.string path ) ]
+    single unit "fileRead" [ ( "path", Encode.string (FilePath.toString path) ) ]
 
 
 {-| Write a Stream to a file.
@@ -401,15 +402,15 @@ fileRead path =
     run : Script
     run =
         Script.withoutCliOptions
-            (Stream.fileRead "logs.txt"
+            (Stream.fileRead (Path.fromString "logs.txt")
                 |> Stream.pipe (Stream.command "grep" [ "error" ])
-                |> Stream.pipe (Stream.fileWrite "errors.txt")
+                |> Stream.pipe (Stream.fileWrite (Path.fromString "errors.txt"))
             )
 
 -}
-fileWrite : String -> Stream () () { read : Never, write : () }
+fileWrite : FilePath -> Stream () () { read : Never, write : () }
 fileWrite path =
-    single unit "fileWrite" [ ( "path", Encode.string path ) ]
+    single unit "fileWrite" [ ( "path", Encode.string (FilePath.toString path) ) ]
 
 
 {-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `ReadableStream` it returns.
@@ -864,7 +865,7 @@ decodeLog decoder =
     run : Script
     run =
         Script.withoutCliOptions
-            (Stream.fileRead "data.json"
+            (Stream.fileRead (Path.fromString "data.json")
                 |> Stream.readJson (Decode.field "name" Decode.string)
                 |> BackendTask.allowFatal
                 |> BackendTask.andThen
@@ -988,7 +989,7 @@ empty output, you can use `allowNon0Status`.
     run : Script
     run =
         Script.withoutCliOptions
-            (Stream.fileRead "log.txt"
+            (Stream.fileRead (Path.fromString "log.txt")
                 |> Stream.pipe
                     (Stream.commandWithOptions
                         (Stream.defaultCommandOptions |> Stream.allowNon0Status)

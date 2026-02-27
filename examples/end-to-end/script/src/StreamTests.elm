@@ -2,6 +2,7 @@ module StreamTests exposing (run)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
+import FilePath exposing (FilePath)
 import BackendTask.Http exposing (Error(..))
 import BackendTask.Stream as Stream exposing (Stream, defaultCommandOptions)
 import BackendTaskTest exposing (testScript)
@@ -64,7 +65,7 @@ run =
             |> try
             |> expectError "invalid stream"
                 "Expected 'customReadStream' to be a duplex stream!"
-        , Stream.fileRead "elm.json"
+        , Stream.fileRead (FilePath.fromString "elm.json")
             |> Stream.pipe Stream.gzip
             |> Stream.pipe (Stream.fileWrite zipFile)
             |> Stream.run
@@ -102,12 +103,12 @@ b =
                 )
         , Stream.fromString "module A\na=0"
             |> Stream.pipe (Stream.command "elm-format" [ "--stdin" ])
-            |> Stream.pipe (Stream.fileWrite "formatted-elm.txt")
+            |> Stream.pipe (Stream.fileWrite (FilePath.fromString "formatted-elm.txt"))
             |> Stream.run
             |> BackendTask.quiet
             |> BackendTask.andThen
                 (\() ->
-                    Stream.fileRead "formatted-elm.txt"
+                    Stream.fileRead (FilePath.fromString "formatted-elm.txt")
                         |> Stream.read
                         |> try
                 )
@@ -117,7 +118,7 @@ b =
                         |> Expect.equal
                             "module A exposing (a)\n\n\na =\n    0\n"
                 )
-        , Stream.fileRead "elm.json"
+        , Stream.fileRead (FilePath.fromString "elm.json")
             |> Stream.pipe
                 (Stream.command "jq"
                     [ """."source-directories"[0]"""
@@ -205,12 +206,12 @@ b =
             |> try
             |> test "writeStream meta"
                 (Expect.equal "Hi! I'm metadata from customWriteStream!")
-        , Stream.fileRead "does-not-exist"
+        , Stream.fileRead (FilePath.fromString "does-not-exist")
             |> Stream.run
             |> expectErrorContains "file not found error"
                 "ENOENT: no such file or directory"
         , Stream.fromString "This is input..."
-            |> Stream.pipe (Stream.fileWrite "/this/is/invalid.txt")
+            |> Stream.pipe (Stream.fileWrite (FilePath.fromString "/this/is/invalid.txt"))
             |> Stream.run
             -- Linux returns EACCES (permission denied), macOS returns ENOENT
             |> expectErrorContains "invalid file write destination"
@@ -246,11 +247,11 @@ b =
                 )
           -- Test piping gzip output to a file, then reading and unzipping
         , Stream.gzip
-            |> Stream.pipe (Stream.fileWrite "empty-gzip-test.gz")
+            |> Stream.pipe (Stream.fileWrite (FilePath.fromString "empty-gzip-test.gz"))
             |> Stream.run
             |> BackendTask.andThen
                 (\() ->
-                    Stream.fileRead "empty-gzip-test.gz"
+                    Stream.fileRead (FilePath.fromString "empty-gzip-test.gz")
                         |> Stream.pipe Stream.unzip
                         |> Stream.read
                         |> try
@@ -394,6 +395,6 @@ try =
     BackendTask.allowFatal
 
 
-zipFile : String.String
+zipFile : FilePath
 zipFile =
-    "elm-review-report.gz.json"
+    FilePath.fromString "elm-review-report.gz.json"
