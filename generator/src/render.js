@@ -1181,7 +1181,7 @@ async function runDeleteFile(req) {
     }
     throw {
       title: "BackendTask Error",
-      message: `Script.deleteFile failed for path: ${kleur.yellow(
+      message: `Script.removeFile failed for path: ${kleur.yellow(
         filePath
       )}\n${kleur.red(error.toString())}`,
     };

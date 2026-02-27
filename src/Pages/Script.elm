@@ -1,7 +1,7 @@
 module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions
-    , writeFile, deleteFile, copyFile, move
+    , writeFile, removeFile, copyFile, move
     , makeDirectory, removeDirectory, makeTempDirectory
     , command, exec
     , log, sleep, doThen, which, expectWhich, question, readKey, readKeyWithDefault
@@ -27,7 +27,7 @@ File system APIs in this module use [`FilePath`](FilePath#FilePath).
 
 ## File System Utilities
 
-@docs writeFile, deleteFile, copyFile, move
+@docs writeFile, removeFile, copyFile, move
 
 @docs makeDirectory, removeDirectory, makeTempDirectory
 
@@ -398,17 +398,17 @@ readKeyWithDefault default =
             )
 
 
-{-| Delete a file. Silently succeeds if the file doesn't exist (like `rm -f`).
+{-| Remove a file. Silently succeeds if the file doesn't exist (like `rm -f`).
 
     import FilePath exposing (FilePath)
 
     Script.writeFile { body = "..." } (FilePath.fromString "temp.txt")
         |> BackendTask.allowFatal
-        |> BackendTask.andThen (\_ -> Script.deleteFile (FilePath.fromString "temp.txt"))
+        |> BackendTask.andThen (\_ -> Script.removeFile (FilePath.fromString "temp.txt"))
 
 -}
-deleteFile : FilePath -> BackendTask FatalError ()
-deleteFile filePath =
+removeFile : FilePath -> BackendTask FatalError ()
+removeFile filePath =
     BackendTask.Internal.Request.request
         { name = "delete-file"
         , body =
@@ -497,10 +497,10 @@ makeDirectory { recursive } dirPath =
         }
 
 
-{-| Remove a directory. Silently succeeds if the directory doesn't exist.
+{-| Remove a directory. Silently succeeds if the directory doesn't exist (like `rm -f` on a missing path).
 
-The explicit `{ recursive : Bool }` flag makes dangerous `rm -rf` behavior opt-in — you must consciously choose
-recursive removal of non-empty directories.
+The `{ recursive : Bool }` flag only controls whether non-empty directories can be removed (`rm -r` behavior).
+It does not control force semantics.
 
     import FilePath exposing (FilePath)
 

@@ -521,10 +521,17 @@ andThen fn requestInfo =
                     )
 
 
-{-| Chain two `BackendTask`s sequentially, discarding the result of the first.
-Analogous to `&&` in shell scripts — run this, and if it succeeds, run the next thing.
+{-| Chain two `BackendTask`s sequentially.
+The task on the left side of `|>` runs first. If it succeeds, `next` runs.
+The left-side result is discarded.
+
+Analogous to `&&` in shell scripts.
 
 Use `andThen` when you need the previous result, `and` when you just need sequencing.
+
+    step1
+        |> BackendTask.and step2
+    -- equivalent to: step1 |> BackendTask.andThen (\_ -> step2)
 
     createSnapshot n typesContent
         |> BackendTask.and (rewriteMigrationImports n)
