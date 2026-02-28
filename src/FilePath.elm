@@ -118,6 +118,7 @@ segments filePath =
 isAbsolute : FilePath -> Bool
 isAbsolute filePath =
     let
+        root : String
         root =
             (parse filePath).root
     in
@@ -144,9 +145,7 @@ the base path.
 append : FilePath -> FilePath -> FilePath
 append basePath nextPath =
     let
-        baseParsed =
-            parse basePath
-
+        nextParsed : ParsedPath
         nextParsed =
             parse nextPath
     in
@@ -157,6 +156,11 @@ append basePath nextPath =
         basePath
 
     else
+        let
+            baseParsed : ParsedPath
+            baseParsed =
+                parse basePath
+        in
         FilePath
             (render
                 { root = baseParsed.root
@@ -185,6 +189,7 @@ join paths =
 dirname : FilePath -> Maybe FilePath
 dirname filePath =
     let
+        parsed : ParsedPath
         parsed =
             parse filePath
     in
@@ -198,6 +203,7 @@ dirname filePath =
 
         _ :: parentSegmentsReversed ->
             let
+                parentSegments : List String
                 parentSegments =
                     List.reverse parentSegmentsReversed
             in
@@ -263,9 +269,11 @@ Returns `Nothing` when roots differ.
 relativeTo : FilePath -> FilePath -> Maybe FilePath
 relativeTo basePath targetPath =
     let
+        baseParsed : ParsedPath
         baseParsed =
             parse basePath
 
+        targetParsed : ParsedPath
         targetParsed =
             parse targetPath
     in
@@ -277,6 +285,7 @@ relativeTo basePath targetPath =
             { leftRemainder, rightRemainder } =
                 dropCommonPrefix baseParsed.pathSegments targetParsed.pathSegments
 
+            relativeSegments : List String
             relativeSegments =
                 List.repeat (List.length leftRemainder) ".." ++ rightRemainder
         in
@@ -296,6 +305,7 @@ type alias ParsedPath =
 parse : FilePath -> ParsedPath
 parse (FilePath rawPath) =
     let
+        normalized : String
         normalized =
             normalizeSeparators rawPath
 
@@ -365,6 +375,7 @@ normalizePathSegments hasAbsoluteRoot rawSegments =
 render : ParsedPath -> String
 render parsed =
     let
+        joinedSegments : String
         joinedSegments =
             String.join "/" parsed.pathSegments
     in
@@ -417,6 +428,7 @@ driveRoot pathString =
                 Just ( ':', restAfterColon ) ->
                     if Char.isAlpha firstChar then
                         let
+                            drivePrefix : String
                             drivePrefix =
                                 String.fromChar firstChar ++ ":"
                         in

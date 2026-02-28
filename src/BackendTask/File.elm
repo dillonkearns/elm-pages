@@ -170,6 +170,7 @@ bodyWithFrontmatter :
             frontmatter
 bodyWithFrontmatter frontmatterDecoder filePath =
     let
+        filePathString : String
         filePathString =
             FilePath.toString filePath
     in
@@ -274,6 +275,7 @@ onlyFrontmatter :
             frontmatter
 onlyFrontmatter frontmatterDecoder filePath =
     let
+        filePathString : String
         filePathString =
             FilePath.toString filePath
     in
@@ -482,6 +484,7 @@ fileNotFound :
         }
 fileNotFound filePath =
     let
+        filePathString : String
         filePathString =
             FilePath.toString filePath
     in
