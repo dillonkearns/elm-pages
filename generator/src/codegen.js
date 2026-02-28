@@ -596,13 +596,13 @@ async function findReferencedHelperPathForUnsupportedIssue(
   }
 
   const regionText = extractRegionText(fileContent, issue.region);
-  const qualifier = extractQualifiedFunctionQualifier(regionText);
-  if (!qualifier) {
+  const functionReference = parseFunctionReference(regionText);
+  if (!functionReference) {
     return null;
   }
 
   const imports = parseElmImports(fileContent);
-  const helperModuleName = resolveImportedModuleName(imports, qualifier);
+  const helperModuleName = resolveImportedModuleName(imports, functionReference);
   if (!helperModuleName) {
     return null;
   }
@@ -664,57 +664,103 @@ function extractRegionText(fileContent, region) {
  * @param {string} expressionText
  * @returns {string | null}
  */
-function extractQualifiedFunctionQualifier(expressionText) {
+function parseFunctionReference(expressionText) {
   const normalizedExpression = expressionText
     .trim()
     .replace(/^\(+/, "")
     .replace(/\)+$/, "")
+    .replace(/[,;]$/, "")
     .replace(/\s+/g, "");
-  const qualifierMatch = normalizedExpression.match(
-    /^([A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*)\.[a-z][A-Za-z0-9_']*$/
+
+  const qualifiedReferenceMatch = normalizedExpression.match(
+    /^([A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*)\.([a-z][A-Za-z0-9_']*)$/
   );
-  return qualifierMatch ? qualifierMatch[1] : null;
+  if (qualifiedReferenceMatch) {
+    return {
+      qualifier: qualifiedReferenceMatch[1],
+      functionName: qualifiedReferenceMatch[2],
+    };
+  }
+
+  const unqualifiedReferenceMatch = normalizedExpression.match(
+    /^([a-z][A-Za-z0-9_']*)$/
+  );
+  if (unqualifiedReferenceMatch) {
+    return {
+      qualifier: null,
+      functionName: unqualifiedReferenceMatch[1],
+    };
+  }
+
+  return null;
 }
 
 /**
  * @param {string} fileContent
- * @returns {{byAlias: Map<string, string>, byModule: Set<string>}}
+ * @returns {{byAlias: Map<string, string>, byModule: Set<string>, imports: Array<{moduleName: string, exposesAll: boolean, exposedValues: Set<string>}>}}
  */
 function parseElmImports(fileContent) {
   const byAlias = new Map();
   const byModule = new Set();
-  const importLinePattern =
-    /^import\s+([A-Z][A-Za-z0-9_.]*)(?:\s+as\s+([A-Z][A-Za-z0-9_]*))?/;
+  const imports = [];
+  const importPattern =
+    /(?:^|\n)\s*import\s+([A-Z][A-Za-z0-9_.]*)(?:\s+as\s+([A-Z][A-Za-z0-9_]*))?(?:\s+exposing\s*\(([\s\S]*?)\))?/g;
 
-  for (const line of fileContent.split(/\r?\n/)) {
-    const importMatch = line.trim().match(importLinePattern);
-    if (!importMatch) {
-      continue;
-    }
-
+  for (const importMatch of fileContent.matchAll(importPattern)) {
     const moduleName = importMatch[1];
     const alias = importMatch[2] || null;
+    const exposingClause = importMatch[3] || null;
     byModule.add(moduleName);
     if (alias) {
       byAlias.set(alias, moduleName);
     }
+
+    const exposingTokens =
+      exposingClause === null
+        ? []
+        : exposingClause
+            .split(",")
+            .map((token) => token.trim())
+            .filter((token) => token.length > 0);
+    const exposesAll = exposingTokens.includes("..");
+    const exposedValues = new Set(
+      exposingTokens.filter((token) => /^[a-z][A-Za-z0-9_']*$/.test(token))
+    );
+    imports.push({ moduleName, exposesAll, exposedValues });
   }
 
-  return { byAlias, byModule };
+  return { byAlias, byModule, imports };
 }
 
 /**
- * @param {{byAlias: Map<string, string>, byModule: Set<string>}} imports
- * @param {string} qualifier
+ * @param {{byAlias: Map<string, string>, byModule: Set<string>, imports: Array<{moduleName: string, exposesAll: boolean, exposedValues: Set<string>}>}} imports
+ * @param {{qualifier: string | null, functionName: string}} functionReference
  * @returns {string | null}
  */
-function resolveImportedModuleName(imports, qualifier) {
-  if (imports.byAlias.has(qualifier)) {
-    return imports.byAlias.get(qualifier) || null;
+function resolveImportedModuleName(imports, functionReference) {
+  if (functionReference.qualifier !== null) {
+    const qualifier = functionReference.qualifier;
+    if (imports.byAlias.has(qualifier)) {
+      return imports.byAlias.get(qualifier) || null;
+    }
+
+    if (imports.byModule.has(qualifier)) {
+      return qualifier;
+    }
+
+    return null;
   }
 
-  if (imports.byModule.has(qualifier)) {
-    return qualifier;
+  const matchingImports = imports.imports
+    .filter(
+      (importEntry) =>
+        importEntry.exposesAll ||
+        importEntry.exposedValues.has(functionReference.functionName)
+    )
+    .map((importEntry) => importEntry.moduleName);
+
+  if (matchingImports.length === 1) {
+    return matchingImports[0];
   }
 
   return null;
@@ -948,6 +994,15 @@ export function parseUnsupportedHelperSeedingIssues(
 
   return issues;
 }
+
+export const __testHelpers = {
+  computeUnsupportedFixExclusionPaths,
+  findReferencedHelperPathForUnsupportedIssue,
+  extractRegionText,
+  parseFunctionReference,
+  parseElmImports,
+  resolveImportedModuleName,
+};
 
 /**
  * Run elm-review command
