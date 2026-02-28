@@ -407,22 +407,44 @@ export async function runElmReviewCodemod(cwd, target = "client", options = {}) 
     target
   ).map((issue) => ({
     ...issue,
+    localPath: normalizeIssuePath(issue.path),
     path: remapIssuePathFromMirroredSourceDirectory(
       issue.path,
       localToSourceDirectories
     ),
   }));
 
-  // If helper ID seeding is unsupported in this target, skip codemod fixes and
-  // apply a route/shared-only fallback codemod pass. This preserves supported
-  // direct route freezes while avoiding helper-signature rewrites that require
-  // unsupported seeding shapes.
-  const fixConfigPath =
-    unsupportedHelperSeedingIssues.length > 0
-      ? partialFallbackConfigPath
-      : configPath;
-
-  await runElmReviewCommand(cwdPath, fixConfigPath, lamderaPath, true);
+  if (unsupportedHelperSeedingIssues.length > 0) {
+    const partialFallbackWorkspace = await createPartialFallbackConfigWorkspace(
+      target,
+      partialFallbackConfigPath
+    );
+    try {
+      await syncFallbackRuleModules(target, partialFallbackWorkspace.configPath);
+      const excludedPaths = await computeUnsupportedFixExclusionPaths(
+        cwdPath,
+        unsupportedHelperSeedingIssues
+      );
+      await writePartialFallbackReviewConfig(
+        partialFallbackWorkspace.configPath,
+        target,
+        excludedPaths
+      );
+      await runElmReviewCommand(
+        cwdPath,
+        partialFallbackWorkspace.configPath,
+        lamderaPath,
+        true
+      );
+    } finally {
+      await fs.promises.rm(partialFallbackWorkspace.rootPath, {
+        recursive: true,
+        force: true,
+      });
+    }
+  } else {
+    await runElmReviewCommand(cwdPath, configPath, lamderaPath, true);
+  }
 
   return {
     ephemeralFields,
@@ -430,6 +452,354 @@ export async function runElmReviewCodemod(cwd, target = "client", options = {}) 
     unsupportedHelperSeedingIssues,
     codemodFixesApplied: true,
   };
+}
+
+/**
+ * @param {"client" | "server"} target
+ * @param {string} fallbackConfigPath
+ * @returns {Promise<{rootPath: string, configPath: string}>}
+ */
+async function createPartialFallbackConfigWorkspace(target, fallbackConfigPath) {
+  const parentDirectory = path.dirname(fallbackConfigPath);
+  const configPath = await fs.promises.mkdtemp(
+    path.join(
+      parentDirectory,
+      `${path.basename(fallbackConfigPath)}.tmp-review-${target}-`
+    )
+  );
+  await fs.promises.rm(configPath, { recursive: true, force: true });
+  await fsExtra.copy(fallbackConfigPath, configPath);
+  return { rootPath: configPath, configPath };
+}
+
+/**
+ * @param {"client" | "server"} target
+ * @param {string} fallbackConfigPath
+ */
+async function syncFallbackRuleModules(target, fallbackConfigPath) {
+  const sourceRulesPath =
+    target === "server"
+      ? path.join(__dirname, "../../generator/server-review/src/Pages/Review")
+      : path.join(__dirname, "../../generator/dead-code-review/src/Pages/Review");
+  const fallbackRulesPath = path.join(fallbackConfigPath, "src", "Pages", "Review");
+  await fs.promises.mkdir(fallbackRulesPath, { recursive: true });
+
+  const sourceEntries = await fs.promises.readdir(sourceRulesPath, {
+    withFileTypes: true,
+  });
+  const sourceElmFiles = sourceEntries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".elm"))
+    .map((entry) => entry.name);
+  const sourceElmFileSet = new Set(sourceElmFiles);
+
+  for (const fileName of sourceElmFiles) {
+    await copyFileIfNewer(
+      path.join(sourceRulesPath, fileName),
+      path.join(fallbackRulesPath, fileName)
+    );
+  }
+
+  const fallbackEntries = await fs.promises.readdir(fallbackRulesPath, {
+    withFileTypes: true,
+  });
+  for (const entry of fallbackEntries) {
+    if (
+      entry.isFile() &&
+      entry.name.endsWith(".elm") &&
+      !sourceElmFileSet.has(entry.name)
+    ) {
+      await fs.promises.unlink(path.join(fallbackRulesPath, entry.name));
+    }
+  }
+}
+
+/**
+ * @param {string} cwdPath
+ * @param {Array<{path: string, localPath?: string, message: string, region?: any}>} issues
+ * @returns {Promise<string[]>}
+ */
+async function computeUnsupportedFixExclusionPaths(cwdPath, issues) {
+  const sourceDirectories = await readWorkspaceSourceDirectories(cwdPath);
+  const excludedPaths = new Set();
+
+  for (const issue of issues) {
+    const localPath =
+      issue.localPath && issue.localPath.length > 0
+        ? issue.localPath
+        : normalizeIssuePath(issue.path);
+    if (localPath.length > 0) {
+      excludedPaths.add(localPath);
+    }
+  }
+
+  for (const issue of issues) {
+    const referencedHelperPath =
+      await findReferencedHelperPathForUnsupportedIssue(
+        cwdPath,
+        sourceDirectories,
+        issue
+      );
+    if (referencedHelperPath) {
+      excludedPaths.add(referencedHelperPath);
+    }
+  }
+
+  return Array.from(excludedPaths).sort();
+}
+
+/**
+ * @param {string} cwdPath
+ * @returns {Promise<string[]>}
+ */
+async function readWorkspaceSourceDirectories(cwdPath) {
+  try {
+    const elmJson = JSON.parse(
+      (await fs.promises.readFile(path.join(cwdPath, "elm.json"))).toString()
+    );
+    return Array.isArray(elmJson["source-directories"])
+      ? elmJson["source-directories"]
+      : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+/**
+ * @param {string} cwdPath
+ * @param {string[]} sourceDirectories
+ * @param {{path: string, localPath?: string, message: string, region?: any}} issue
+ * @returns {Promise<string | null>}
+ */
+async function findReferencedHelperPathForUnsupportedIssue(
+  cwdPath,
+  sourceDirectories,
+  issue
+) {
+  if (!issue.region || !issue.region.start || !issue.region.end) {
+    return null;
+  }
+
+  const issueLocalPath =
+    issue.localPath && issue.localPath.length > 0
+      ? issue.localPath
+      : normalizeIssuePath(issue.path);
+  if (issueLocalPath.length === 0) {
+    return null;
+  }
+
+  const issueAbsolutePath = path.join(cwdPath, issueLocalPath);
+  let fileContent;
+  try {
+    fileContent = await fs.promises.readFile(issueAbsolutePath, "utf8");
+  } catch (_error) {
+    return null;
+  }
+
+  const regionText = extractRegionText(fileContent, issue.region);
+  const qualifier = extractQualifiedFunctionQualifier(regionText);
+  if (!qualifier) {
+    return null;
+  }
+
+  const imports = parseElmImports(fileContent);
+  const helperModuleName = resolveImportedModuleName(imports, qualifier);
+  if (!helperModuleName) {
+    return null;
+  }
+
+  const helperRelativeModulePath =
+    helperModuleName.replace(/\./g, "/") + ".elm";
+  for (const sourceDirectory of sourceDirectories) {
+    const candidatePath = path.join(
+      cwdPath,
+      sourceDirectory,
+      helperRelativeModulePath
+    );
+    if (fs.existsSync(candidatePath)) {
+      return normalizeIssuePath(path.relative(cwdPath, candidatePath));
+    }
+  }
+
+  return null;
+}
+
+/**
+ * @param {string} fileContent
+ * @param {{start: {line: number, column: number}, end: {line: number, column: number}}} region
+ * @returns {string}
+ */
+function extractRegionText(fileContent, region) {
+  const lines = fileContent.split(/\r?\n/);
+  const startLine = region.start.line;
+  const endLine = region.end.line;
+  const startColumn = region.start.column;
+  const endColumn = region.end.column;
+
+  if (
+    startLine <= 0 ||
+    endLine <= 0 ||
+    startLine > lines.length ||
+    endLine > lines.length
+  ) {
+    return "";
+  }
+
+  if (startLine === endLine) {
+    const line = lines[startLine - 1] || "";
+    return line.slice(Math.max(startColumn - 1, 0), Math.max(endColumn - 1, 0));
+  }
+
+  const parts = [];
+  const firstLine = lines[startLine - 1] || "";
+  parts.push(firstLine.slice(Math.max(startColumn - 1, 0)));
+  for (let lineIndex = startLine; lineIndex < endLine - 1; lineIndex++) {
+    parts.push(lines[lineIndex] || "");
+  }
+  const lastLine = lines[endLine - 1] || "";
+  parts.push(lastLine.slice(0, Math.max(endColumn - 1, 0)));
+  return parts.join(" ").trim();
+}
+
+/**
+ * @param {string} expressionText
+ * @returns {string | null}
+ */
+function extractQualifiedFunctionQualifier(expressionText) {
+  const normalizedExpression = expressionText
+    .trim()
+    .replace(/^\(+/, "")
+    .replace(/\)+$/, "")
+    .replace(/\s+/g, "");
+  const qualifierMatch = normalizedExpression.match(
+    /^([A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*)\.[a-z][A-Za-z0-9_']*$/
+  );
+  return qualifierMatch ? qualifierMatch[1] : null;
+}
+
+/**
+ * @param {string} fileContent
+ * @returns {{byAlias: Map<string, string>, byModule: Set<string>}}
+ */
+function parseElmImports(fileContent) {
+  const byAlias = new Map();
+  const byModule = new Set();
+  const importLinePattern =
+    /^import\s+([A-Z][A-Za-z0-9_.]*)(?:\s+as\s+([A-Z][A-Za-z0-9_]*))?/;
+
+  for (const line of fileContent.split(/\r?\n/)) {
+    const importMatch = line.trim().match(importLinePattern);
+    if (!importMatch) {
+      continue;
+    }
+
+    const moduleName = importMatch[1];
+    const alias = importMatch[2] || null;
+    byModule.add(moduleName);
+    if (alias) {
+      byAlias.set(alias, moduleName);
+    }
+  }
+
+  return { byAlias, byModule };
+}
+
+/**
+ * @param {{byAlias: Map<string, string>, byModule: Set<string>}} imports
+ * @param {string} qualifier
+ * @returns {string | null}
+ */
+function resolveImportedModuleName(imports, qualifier) {
+  if (imports.byAlias.has(qualifier)) {
+    return imports.byAlias.get(qualifier) || null;
+  }
+
+  if (imports.byModule.has(qualifier)) {
+    return qualifier;
+  }
+
+  return null;
+}
+
+/**
+ * @param {string} fallbackConfigPath
+ * @param {"client" | "server"} target
+ * @param {string[]} excludedPaths
+ */
+async function writePartialFallbackReviewConfig(
+  fallbackConfigPath,
+  target,
+  excludedPaths
+) {
+  const reviewConfigPath = path.join(fallbackConfigPath, "src", "ReviewConfig.elm");
+  const excludedPathsLiteral = toElmStringList(excludedPaths);
+  const isIncludedDefinition = `excludedPaths : List String
+excludedPaths =
+${excludedPathsLiteral}
+
+
+isIncluded : String -> Bool
+isIncluded path =
+    not (List.member path excludedPaths)
+`;
+
+  const reviewConfigContent =
+    target === "server"
+      ? `module ReviewConfig exposing (config)
+
+import Pages.Review.ServerDataTransform
+import Review.Rule as Rule exposing (Rule)
+
+
+${isIncludedDefinition}
+
+config : List Rule
+config =
+    [ Pages.Review.ServerDataTransform.rule
+        |> Rule.filterErrorsForFiles isIncluded
+    ]
+`
+      : `module ReviewConfig exposing (config)
+
+import Pages.Review.DeadCodeEliminateData
+import Pages.Review.StaticViewTransform
+import Review.Rule as Rule exposing (Rule)
+
+
+${isIncludedDefinition}
+
+config : List Rule
+config =
+    [ Pages.Review.DeadCodeEliminateData.rule
+        |> Rule.filterErrorsForFiles (\\path -> String.startsWith "app/" path && isIncluded path)
+    , Pages.Review.StaticViewTransform.rule
+        |> Rule.filterErrorsForFiles isIncluded
+    ]
+`;
+
+  await fs.promises.writeFile(reviewConfigPath, reviewConfigContent);
+}
+
+/**
+ * @param {string[]} values
+ * @returns {string}
+ */
+function toElmStringList(values) {
+  if (values.length === 0) {
+    return "    []";
+  }
+
+  return `    [ ${values
+    .map((value) => `"${escapeElmString(value)}"`)
+    .join("\n    , ")}
+    ]`;
+}
+
+/**
+ * @param {string} value
+ * @returns {string}
+ */
+function escapeElmString(value) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
 /**
@@ -536,7 +906,7 @@ export function parseDeOptimizationCount(elmReviewOutput) {
  *
  * @param {string} elmReviewOutput
  * @param {"client" | "server"} [target]
- * @returns {Array<{path: string, message: string}>}
+ * @returns {Array<{path: string, message: string, region?: any}>}
  */
 export function parseUnsupportedHelperSeedingIssues(
   elmReviewOutput,
@@ -570,6 +940,7 @@ export function parseUnsupportedHelperSeedingIssues(
         issues.push({
           path: fileErrors.path,
           message: error.message,
+          region: error.region || null,
         });
       }
     }

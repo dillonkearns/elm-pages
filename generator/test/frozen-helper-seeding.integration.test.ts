@@ -324,6 +324,44 @@ function assertMixedSupportedAndUnsupportedBehavior(caseId: string): void {
   expect(clientRoute).toContain("__ELM_PAGES_STATIC__");
 }
 
+function assertSupportedHelperAdoptionWithUnrelatedUnsupported(
+  caseId: string
+): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const indexHtmlPath = join(result.projectDir, "dist", "index.html");
+  const contentDatPath = join(result.projectDir, "dist", "content.dat");
+  const indexHtml = readFileSync(indexHtmlPath, "utf8");
+  const contentDatBytes = readFileSync(contentDatPath);
+  const extractedFromHtml = extractFrozenViews(indexHtml);
+  const contentDatDecoded = parseFrozenViewsPrefixFromBytes(contentDatBytes);
+
+  expect(contentDatDecoded.regions).toEqual(extractedFromHtml);
+  expect(Object.keys(contentDatDecoded.regions).sort()).toEqual(["0:0"]);
+  expect(contentDatDecoded.regions["0:0"]).toContain("Supported: Alice");
+
+  const clientWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "client");
+  const serverWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "server");
+  const clientHelperPath = findModuleFileInWorkspace(
+    clientWorkspace,
+    join("Ui", "SupportedHelper.elm")
+  );
+  const serverHelperPath = findModuleFileInWorkspace(
+    serverWorkspace,
+    join("Ui", "SupportedHelper.elm")
+  );
+  const clientHelper = readFileSync(clientHelperPath, "utf8");
+  const serverHelper = readFileSync(serverHelperPath, "utf8");
+
+  expect(clientHelper).toContain(
+    "summaryCard : String -> { name : String } -> Html msg"
+  );
+  expect(serverHelper).toContain(
+    "summaryCard : String -> { name : String } -> Html msg"
+  );
+}
+
 describe.sequential("frozen helper seeding CLI behavior", () => {
   const caseIds = listFixtureCaseIds();
 
@@ -369,6 +407,16 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
     () => {
       assertMixedSupportedAndUnsupportedBehavior(
         "mixed-supported-and-unsupported-lib"
+      );
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "mixed-supported-helper-unrelated-unsupported-lib still adopts supported helper",
+    () => {
+      assertSupportedHelperAdoptionWithUnrelatedUnsupported(
+        "mixed-supported-helper-unrelated-unsupported-lib"
       );
     },
     integrationTestTimeoutMs

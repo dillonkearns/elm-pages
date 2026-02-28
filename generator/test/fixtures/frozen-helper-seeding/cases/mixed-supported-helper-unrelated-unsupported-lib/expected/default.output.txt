@@ -1,0 +1,3 @@
+View.freeze warnings: unsupported helper usage detected in 1 location(s).
+- lib/Ui/UnsupportedUsage.elm: Frozen view codemod: unsupported helper function value or partial application
+Falling back to de-optimized frozen views for this build target (codemod fixes were skipped).
