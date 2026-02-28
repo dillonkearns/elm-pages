@@ -49,12 +49,12 @@ run =
                     createFile (cliOptions.moduleName |> String.split ".") (List.map parseFields cliOptions.rest)
             in
             Script.writeFile
-                { body = file.contents }
                 (FilePath.join
                     [ FilePath.fromString "app"
                     , FilePath.fromString file.path
                     ]
                 )
+                file.contents
                 |> BackendTask.allowFatal
                 |> BackendTask.map (\_ -> ())
         )

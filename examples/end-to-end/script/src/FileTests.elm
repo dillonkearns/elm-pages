@@ -167,7 +167,7 @@ runTests =
                     filePath =
                         testPath "delete-target.txt"
                 in
-                Script.writeFile { body = "delete me" } filePath
+                Script.writeFile filePath "delete me"
                     |> BackendTask.allowFatal
                     |> BackendTask.andThen
                         (\_ ->
@@ -211,8 +211,8 @@ runTests =
                     |> BackendTask.andThen
                         (\_ ->
                             Script.writeFile
-                                { body = "content" }
                                 (FilePath.append dirPath (FilePath.fromString "file.txt"))
+                                "content"
                                 |> BackendTask.allowFatal
                         )
                     |> BackendTask.andThen (\_ -> Script.removeDirectory { recursive = True } dirPath)
@@ -243,7 +243,7 @@ runTests =
                     dest =
                         testPath "copy-dest.txt"
                 in
-                Script.writeFile { body = "copy me" } src
+                Script.writeFile src "copy me"
                     |> BackendTask.allowFatal
                     |> BackendTask.andThen (\_ -> Script.copyFile { to = dest } src)
                     |> BackendTask.andThen (\_ -> File.rawFile dest |> BackendTask.allowFatal)
@@ -257,7 +257,7 @@ runTests =
                     dest =
                         testPath "copy-nested/deep/dest.txt"
                 in
-                Script.writeFile { body = "nested copy" } src
+                Script.writeFile src "nested copy"
                     |> BackendTask.allowFatal
                     |> BackendTask.andThen (\_ -> Script.copyFile { to = dest } src)
                     |> BackendTask.map (\_ -> Expect.pass)
@@ -272,7 +272,7 @@ runTests =
                     dest =
                         testPath "move-dest.txt"
                 in
-                Script.writeFile { body = "move me" } src
+                Script.writeFile src "move me"
                     |> BackendTask.allowFatal
                     |> BackendTask.andThen (\_ -> Script.move { to = dest } src)
                     |> BackendTask.andThen
@@ -298,7 +298,7 @@ runTests =
                     dest =
                         testPath "move-nested/deep/dest.txt"
                 in
-                Script.writeFile { body = "nested move" } src
+                Script.writeFile src "nested move"
                     |> BackendTask.allowFatal
                     |> BackendTask.andThen (\_ -> Script.move { to = dest } src)
                     |> BackendTask.map (\_ -> Expect.pass)
@@ -333,8 +333,8 @@ runTests =
                     |> BackendTask.andThen
                         (\tmpDir ->
                             Script.writeFile
-                                { body = "temp content" }
                                 (FilePath.append tmpDir (FilePath.fromString "test.txt"))
+                                "temp content"
                                 |> BackendTask.allowFatal
                                 |> BackendTask.andThen (\_ -> BackendTask.succeed tmpDir)
                                 |> BackendTask.finally
@@ -348,8 +348,8 @@ runTests =
                     |> BackendTask.andThen
                         (\tmpDir ->
                             Script.writeFile
-                                { body = "temp content" }
                                 (FilePath.append tmpDir (FilePath.fromString "test.txt"))
+                                "temp content"
                                 |> BackendTask.allowFatal
                                 |> BackendTask.andThen (\_ -> BackendTask.fail (FatalError.build { title = "intentional", body = "error" }))
                                 |> BackendTask.finally

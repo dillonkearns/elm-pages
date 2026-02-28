@@ -30,12 +30,12 @@ run =
                     buildFile (cliOptions.moduleName |> String.split ".")
             in
             Script.writeFile
-                { body = file.contents }
                 (FilePath.join
                     [ FilePath.fromString "app"
                     , FilePath.fromString file.path
                     ]
                 )
+                file.contents
                 |> BackendTask.allowFatal
                 |> BackendTask.map (\_ -> ())
         )

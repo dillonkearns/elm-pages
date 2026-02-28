@@ -101,6 +101,7 @@ example2 =
         Stream.stdout
 
 
+formatFile : Stream error1 metadata1 { read : (), write : fromWriteable } -> Stream error2 metadata2 { read : toReadable, write : () } -> BackendTask FatalError ()
 formatFile source destination =
     source
         |> Stream.pipe (Stream.command "elm-format" [ "--stdin" ])

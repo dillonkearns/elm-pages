@@ -46,7 +46,7 @@ run =
             cliOptions
                 |> createFile
                 |> (\{ path, body } ->
-                        Script.writeFile { body = body } (FilePath.fromString path)
+                        Script.writeFile (FilePath.fromString path) body
                    )
                 |> BackendTask.allowFatal
                 |> BackendTask.map (\_ -> ())

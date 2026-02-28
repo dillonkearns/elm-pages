@@ -4,7 +4,7 @@ module FilePath exposing
     , toString, toPosixString, toWindowsString
     , segments, isAbsolute
     , append, join
-    , dirname, filename, filenameWithExtension, stem, extension
+    , dirname, filename, filenameWithExtension, filenameWithoutExtension, extension
     , relativeTo
     )
 
@@ -23,7 +23,7 @@ implementation details.
 
 @docs append, join
 
-@docs dirname, filename, filenameWithExtension, stem, extension
+@docs dirname, filename, filenameWithExtension, filenameWithoutExtension, extension
 
 @docs relativeTo
 
@@ -65,16 +65,24 @@ fromString rawPath =
 -}
 fromSegments : List String -> FilePath
 fromSegments pathSegments =
-    pathSegments
-        |> List.filter (\segment_ -> segment_ /= "")
-        |> String.join "/"
-        |> (\joined ->
-                if joined == "" then
-                    FilePath "."
+    case pathSegments of
+        "" :: rest ->
+            rest
+                |> List.filter (\segment_ -> segment_ /= "")
+                |> String.join "/"
+                |> (\joined -> FilePath ("/" ++ joined))
 
-                else
-                    FilePath joined
-           )
+        _ ->
+            pathSegments
+                |> List.filter (\segment_ -> segment_ /= "")
+                |> String.join "/"
+                |> (\joined ->
+                        if joined == "" then
+                            FilePath "."
+
+                        else
+                            FilePath joined
+                   )
 
 
 {-| Convert a path to a string. Uses `/` separators.
@@ -181,7 +189,7 @@ join paths =
             FilePath "."
 
         firstPath :: restPaths ->
-            List.foldl append firstPath restPaths
+            List.foldl (\nextPath basePath -> append basePath nextPath) firstPath restPaths
 
 
 {-| Parent directory of a path.
@@ -239,8 +247,8 @@ filenameWithExtension =
 
 {-| Filename without extension.
 -}
-stem : FilePath -> Maybe String
-stem filePath =
+filenameWithoutExtension : FilePath -> Maybe String
+filenameWithoutExtension filePath =
     filename filePath
         |> Maybe.map
             (\name ->

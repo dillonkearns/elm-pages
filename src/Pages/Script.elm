@@ -89,8 +89,8 @@ File paths are relative to the root of your `elm-pages` project (next to the `el
     run =
         Script.withoutCliOptions
             (Script.writeFile
-                { body = """{ "message": "Hello, World!" }""" }
                 (FilePath.fromString "hello.json")
+                """{ "message": "Hello, World!" }"""
                 |> BackendTask.allowFatal
                 |> BackendTask.andThen
                     (\writtenPath ->
@@ -99,8 +99,8 @@ File paths are relative to the root of your `elm-pages` project (next to the `el
             )
 
 -}
-writeFile : { body : String } -> FilePath -> BackendTask { fatal : FatalError, recoverable : Error } FilePath
-writeFile { body } filePath =
+writeFile : FilePath -> String -> BackendTask { fatal : FatalError, recoverable : Error } FilePath
+writeFile filePath body =
     BackendTask.Internal.Request.request
         { name = "write-file"
         , body =
@@ -402,7 +402,7 @@ readKeyWithDefault default =
 
     import FilePath exposing (FilePath)
 
-    Script.writeFile { body = "..." } (FilePath.fromString "temp.txt")
+    Script.writeFile (FilePath.fromString "temp.txt") "..."
         |> BackendTask.allowFatal
         |> BackendTask.andThen (\_ -> Script.removeFile (FilePath.fromString "temp.txt"))
 
