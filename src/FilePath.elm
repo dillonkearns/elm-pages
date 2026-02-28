@@ -1,6 +1,6 @@
 module FilePath exposing
     ( FilePath
-    , fromString, fromSegments
+    , fromString, relative, absolute
     , toString, toPosixString, toWindowsString
     , segments, isAbsolute
     , append, join
@@ -15,7 +15,7 @@ implementation details.
 
 @docs FilePath
 
-@docs fromString, fromSegments
+@docs fromString, relative, absolute
 
 @docs toString, toPosixString, toWindowsString
 
@@ -61,28 +61,40 @@ fromString rawPath =
         )
 
 
-{-| Build a relative path from path segments.
+{-| Build a relative path from segments.
+
+    FilePath.relative [ "src", "Main.elm" ]
+        |> FilePath.toString
+    --> "src/Main.elm"
+
 -}
-fromSegments : List String -> FilePath
-fromSegments pathSegments =
-    case pathSegments of
-        "" :: rest ->
-            rest
-                |> List.filter (\segment_ -> segment_ /= "")
-                |> String.join "/"
-                |> (\joined -> FilePath ("/" ++ joined))
+relative : List String -> FilePath
+relative pathSegments =
+    pathSegments
+        |> List.filter (\segment_ -> segment_ /= "")
+        |> String.join "/"
+        |> (\joined ->
+                if joined == "" then
+                    FilePath "."
 
-        _ ->
-            pathSegments
-                |> List.filter (\segment_ -> segment_ /= "")
-                |> String.join "/"
-                |> (\joined ->
-                        if joined == "" then
-                            FilePath "."
+                else
+                    FilePath joined
+           )
 
-                        else
-                            FilePath joined
-                   )
+
+{-| Build an absolute path from segments.
+
+    FilePath.absolute [ "usr", "bin" ]
+        |> FilePath.toString
+    --> "/usr/bin"
+
+-}
+absolute : List String -> FilePath
+absolute pathSegments =
+    pathSegments
+        |> List.filter (\segment_ -> segment_ /= "")
+        |> String.join "/"
+        |> (\joined -> FilePath ("/" ++ joined))
 
 
 {-| Convert a path to a string. Uses `/` separators.
@@ -301,7 +313,7 @@ relativeTo basePath targetPath =
             Just (FilePath ".")
 
         else
-            Just (fromSegments relativeSegments)
+            Just (relative relativeSegments)
 
 
 type alias ParsedPath =

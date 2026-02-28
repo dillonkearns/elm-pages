@@ -9,7 +9,8 @@ all : Test
 all =
     describe "FilePath"
         [ joinTests
-        , fromSegmentsTests
+        , relativeTests
+        , absoluteTests
         , normalizationTests
         , filenameTests
         ]
@@ -48,19 +49,35 @@ joinTests =
         ]
 
 
-fromSegmentsTests : Test
-fromSegmentsTests =
-    describe "fromSegments"
-        [ test "builds relative path" <|
+relativeTests : Test
+relativeTests =
+    describe "relative"
+        [ test "builds relative path from segments" <|
             \() ->
-                FilePath.fromSegments [ "usr", "bin" ]
+                FilePath.relative [ "usr", "bin" ]
                     |> FilePath.toString
                     |> Expect.equal "usr/bin"
-        , test "leading empty string produces absolute path" <|
+        , test "empty segments produce dot" <|
             \() ->
-                FilePath.fromSegments [ "", "usr", "bin" ]
+                FilePath.relative []
+                    |> FilePath.toString
+                    |> Expect.equal "."
+        ]
+
+
+absoluteTests : Test
+absoluteTests =
+    describe "absolute"
+        [ test "builds absolute path from segments" <|
+            \() ->
+                FilePath.absolute [ "usr", "bin" ]
                     |> FilePath.toString
                     |> Expect.equal "/usr/bin"
+        , test "empty segments produce root" <|
+            \() ->
+                FilePath.absolute []
+                    |> FilePath.toString
+                    |> Expect.equal "/"
         ]
 
 

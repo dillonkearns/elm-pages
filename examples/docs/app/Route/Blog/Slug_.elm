@@ -207,7 +207,7 @@ data routeParams =
         )
         frontmatterDecoder
         TailwindMarkdownRenderer.renderer
-        (FilePath.fromSegments [ "content", "blog", routeParams.slug ++ ".md" ])
+        (FilePath.relative [ "content", "blog", routeParams.slug ++ ".md" ])
 
 
 type alias ArticleMetadata =
