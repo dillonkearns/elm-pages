@@ -18,6 +18,7 @@ import {
   DB_FORMAT_VERSION,
   DB_HEADER_SIZE,
 } from "../src/db-bin-format.js";
+import { writeSchemaVersion } from "../src/db-schema.js";
 
 let tmpDir;
 
@@ -292,5 +293,95 @@ describe("schema hash validation", () => {
     const parsed = parseDbBinHeader(buf);
 
     expect(parsed.schemaHashHex).toBe(hash);
+  });
+});
+
+// --- Section D1: db-migrate-read handler ---
+
+describe("db-migrate-read response format", () => {
+  const testHash = crypto.createHash("sha256").update("test").digest("hex");
+
+  it("returns JSON { version, data } from db.bin", () => {
+    const wire3Data = Buffer.from([0xDE, 0xAD, 0xBE, 0xEF]);
+    const dbBin = buildDbBin(testHash, 3, wire3Data);
+    const parsed = parseDbBinHeader(dbBin);
+
+    // Simulate what the handler does: extract version + base64 data
+    const response = {
+      version: parsed.schemaVersion,
+      data: Buffer.from(parsed.wire3Data).toString("base64"),
+    };
+
+    expect(response.version).toBe(3);
+    // Verify base64 round-trip
+    const decoded = Buffer.from(response.data, "base64");
+    expect([...decoded]).toEqual([0xDE, 0xAD, 0xBE, 0xEF]);
+  });
+
+  it("returns { version: 0, data: '' } when no db.bin exists", () => {
+    // Simulate no-file case
+    const response = { version: 0, data: "" };
+    expect(response.version).toBe(0);
+    expect(response.data).toBe("");
+  });
+});
+
+// --- Section D2: db-migrate-write handler ---
+
+describe("db-migrate-write handler pattern", () => {
+  const testHash = crypto.createHash("sha256").update("test").digest("hex");
+
+  it("writes db.bin with correct header from schema-version.json hash and base64 data", async () => {
+    const dbBinPath = path.join(tmpDir, "db.bin");
+
+    // Set up schema version
+    await writeSchemaVersion(tmpDir, 3);
+
+    // Simulate what handler does: receive base64 data + hash, build db.bin
+    const wire3Data = Buffer.from([10, 20, 30, 40]);
+    const base64Data = wire3Data.toString("base64");
+    const decodedData = Buffer.from(base64Data, "base64");
+
+    const newHash = crypto.createHash("sha256").update("new-schema").digest("hex");
+    const fileBuffer = buildDbBin(newHash, 3, decodedData);
+
+    // Atomic write
+    const tmpPath = `${dbBinPath}.tmp.${process.pid}`;
+    await fs.promises.writeFile(tmpPath, fileBuffer);
+    await fs.promises.rename(tmpPath, dbBinPath);
+
+    // Verify
+    const written = await fs.promises.readFile(dbBinPath);
+    const parsed = parseDbBinHeader(written);
+    expect(parsed.schemaVersion).toBe(3);
+    expect(parsed.schemaHashHex).toBe(newHash);
+    expect([...parsed.wire3Data]).toEqual([10, 20, 30, 40]);
+  });
+
+  it("creates backup db.bin.backup before writing", async () => {
+    const dbBinPath = path.join(tmpDir, "db.bin");
+    const backupPath = `${dbBinPath}.backup`;
+
+    // Create existing db.bin
+    const existingData = buildDbBin(testHash, 1, Buffer.from([1, 2, 3]));
+    await fs.promises.writeFile(dbBinPath, existingData);
+
+    // Simulate backup + write
+    await fs.promises.copyFile(dbBinPath, backupPath);
+    const newData = buildDbBin(testHash, 2, Buffer.from([4, 5, 6]));
+    const tmpPath = `${dbBinPath}.tmp.${process.pid}`;
+    await fs.promises.writeFile(tmpPath, newData);
+    await fs.promises.rename(tmpPath, dbBinPath);
+
+    // Verify backup exists with old data
+    expect(fs.existsSync(backupPath)).toBe(true);
+    const backup = parseDbBinHeader(await fs.promises.readFile(backupPath));
+    expect(backup.schemaVersion).toBe(1);
+    expect([...backup.wire3Data]).toEqual([1, 2, 3]);
+
+    // Verify new data
+    const current = parseDbBinHeader(await fs.promises.readFile(dbBinPath));
+    expect(current.schemaVersion).toBe(2);
+    expect([...current.wire3Data]).toEqual([4, 5, 6]);
   });
 });

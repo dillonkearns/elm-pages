@@ -326,16 +326,23 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
     } = await import("../db-schema.js");
     const { parseDbBinHeader, buildDbBin } = await import("../db-bin-format.js");
 
+    // db.bin and .elm-pages-db live at the runtime CWD (where the user runs
+    // `elm-pages run`), NOT at projectDirectory. The render.js handlers resolve
+    // db.bin via path.resolve(...req.dir) which defaults to process.cwd().
+    // This function is called before any chdir in run.js, so process.cwd()
+    // matches the runtime CWD.
+    const runtimeDir = process.cwd();
+
     const dbElmPath = await findDbElm(projectDirectory, sourceDirectory);
     const schemaHash = await computeSchemaHash(dbElmPath);
 
     // Ensure schema version file exists
-    const schemaVersion = await readSchemaVersion(projectDirectory);
-    await writeSchemaVersion(projectDirectory, schemaVersion);
+    const schemaVersion = await readSchemaVersion(runtimeDir);
+    await writeSchemaVersion(runtimeDir, schemaVersion);
 
     // Deep compare: if db.bin exists with a different hash, check if it's
     // a cosmetic change (comments/formatting) vs a structural change.
-    const dbBinPath = path.join(projectDirectory, "db.bin");
+    const dbBinPath = path.join(runtimeDir, "db.bin");
     if (fs.existsSync(dbBinPath)) {
       const dbBinContents = fs.readFileSync(dbBinPath);
       const parsed = parseDbBinHeader(dbBinContents);
@@ -359,9 +366,76 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
       const compileDir = path.join(projectDirectory, "elm-stuff", "elm-pages");
       try {
         const compiledHash = await compileWitnessAndHash(compileDir, executableName);
-        await saveSchemaMeta(projectDirectory, schemaHash, compiledHash);
+        await saveSchemaMeta(runtimeDir, schemaHash, compiledHash);
       } catch (_) {
         // Non-fatal: deep compare just won't be available until next successful compile
+      }
+    }
+
+    // Migration auto-apply: if db.bin version < schema version, run migration chain
+    const {
+      detectMigrationNeeded, validateMigrationChain,
+      prepareMigrationSourceDirs, writeMigrateChain,
+    } = await import("../db-migrate.js");
+
+    const migrationStatus = await detectMigrationNeeded(runtimeDir);
+    if (migrationStatus.action === "migrate") {
+      const validation = await validateMigrationChain(
+        runtimeDir,
+        migrationStatus.fromVersion,
+        migrationStatus.toVersion
+      );
+      if (!validation.valid) {
+        const issues = [];
+        if (validation.missingFiles && validation.missingFiles.length > 0) {
+          issues.push(`Missing files: ${validation.missingFiles.join(", ")}`);
+        }
+        if (validation.unimplemented && validation.unimplemented.length > 0) {
+          issues.push(`Unimplemented migrations: ${validation.unimplemented.join(", ")}`);
+        }
+        throw `Migration needed (V${migrationStatus.fromVersion} -> V${migrationStatus.toVersion}) but chain is invalid:\n  ${issues.join("\n  ")}\n\nImplement the migration stubs in .elm-pages-db/Db/Migrate/ and try again.`;
+      }
+
+      // Generate MigrateChain.elm
+      await writeMigrateChain(runtimeDir, migrationStatus.toVersion);
+
+      const compileDir = path.join(projectDirectory, "elm-stuff", "elm-pages");
+
+      // Add .elm-pages-db to source dirs for compilation
+      const restore = await prepareMigrationSourceDirs(compileDir, runtimeDir);
+
+      try {
+        // Write migration wrapper
+        await writeFileIfChanged(
+          path.join(compileDir, ".elm-pages", "ScriptMain.elm"),
+          generatorWrapperFile("MigrateChain")
+        );
+
+        // Compile MigrateChain
+        const { compileCliApp } = await import("../compile-elm.js");
+        const elmEntrypointPath = path.join(compileDir, ".elm-pages", "ScriptMain.elm");
+        const migrateOutputPath = path.join(compileDir, "migrate-chain.js");
+        await compileCliApp(
+          { debug: true },
+          elmEntrypointPath,
+          migrateOutputPath,
+          compileDir,
+          migrateOutputPath
+        );
+
+        // Run the migration script
+        const renderer = await import("../render.js");
+        const Elm = await requireElm(migrateOutputPath);
+        await renderer.runGenerator([], null, Elm, "MigrateChain");
+
+        console.log(`Migration applied: V${migrationStatus.fromVersion} -> V${migrationStatus.toVersion}`);
+      } finally {
+        await restore();
+        // Restore the normal ScriptMain wrapper for the actual script
+        await writeFileIfChanged(
+          path.join(compileDir, ".elm-pages", "ScriptMain.elm"),
+          generatorWrapperFile(moduleName)
+        );
       }
     }
 

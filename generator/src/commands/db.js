@@ -223,6 +223,69 @@ export async function status() {
 }
 
 /**
+ * elm-pages db migrate
+ * Creates a version snapshot, migration stub, and MigrateChain.elm.
+ */
+export async function migrate() {
+  const cwd = process.cwd();
+  const { readSchemaVersion } = await import("../db-schema.js");
+  const { createSnapshot, writeMigrateChain } = await import("../db-migrate.js");
+
+  // Find Db.elm
+  const dbElmPath = await findDbElmForMigration(cwd);
+  if (!dbElmPath) {
+    throw new Error(
+      "Could not find Db.elm. Run `elm-pages db init` first."
+    );
+  }
+
+  const dbSource = fs.readFileSync(dbElmPath, "utf8");
+  const currentVersion = await readSchemaVersion(cwd);
+
+  // createSnapshot guards against pending migrations
+  await createSnapshot(cwd, dbSource, currentVersion);
+
+  const newVersion = currentVersion + 1;
+  // Generate MigrateChain.elm
+  await writeMigrateChain(cwd, newVersion);
+
+  console.log(`\nCreated migration V${currentVersion} -> V${newVersion}:`);
+  console.log(`  Snapshot: .elm-pages-db/Db/V${currentVersion}.elm`);
+  console.log(`  Stub:     .elm-pages-db/Db/Migrate/V${newVersion}.elm`);
+  console.log(`  Chain:    .elm-pages-db/MigrateChain.elm`);
+  console.log(`\nNext steps:`);
+  console.log(`  1. Edit .elm-pages-db/Db/Migrate/V${newVersion}.elm to implement the migration`);
+  console.log(`  2. Replace the todo_implement_migration sentinel with your migration logic`);
+  console.log(`  3. Run your script — the migration will be applied automatically`);
+}
+
+/**
+ * Find Db.elm for migration (similar to status command).
+ * @param {string} cwd
+ * @returns {Promise<string|null>}
+ */
+async function findDbElmForMigration(cwd) {
+  const elmJsonCandidates = [
+    path.resolve(cwd, "script/elm.json"),
+    path.resolve(cwd, "elm.json"),
+  ];
+  for (const elmJsonPath of elmJsonCandidates) {
+    if (fs.existsSync(elmJsonPath)) {
+      const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
+      const sourceDirs = elmJson["source-directories"] || [];
+      const base = path.dirname(elmJsonPath);
+      for (const dir of sourceDirs) {
+        const candidate = path.resolve(base, dir, "Db.elm");
+        if (fs.existsSync(candidate)) {
+          return candidate;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Prompt user for yes/no confirmation.
  * @param {string} message
  * @returns {Promise<boolean>}

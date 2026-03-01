@@ -603,6 +603,10 @@ async function runInternalJob(
         return [requestHash, await runDbLockAcquire(requestToPerform)];
       case "elm-pages-internal://db-lock-release":
         return [requestHash, await runDbLockRelease(requestToPerform)];
+      case "elm-pages-internal://db-migrate-read":
+        return [requestHash, await runDbMigrateRead(requestToPerform)];
+      case "elm-pages-internal://db-migrate-write":
+        return [requestHash, await runDbMigrateWrite(requestToPerform)];
       default:
         throw `Unexpected internal BackendTask request format: ${kleur.yellow(
           JSON.stringify(2, null, requestToPerform)
@@ -825,6 +829,99 @@ async function runDbLockRelease(req) {
     }
   } catch (_) {
     // Lock file already gone - that's fine
+  }
+
+  return jsonResponse(req, null);
+}
+
+async function runDbMigrateRead(req) {
+  const cwd = path.resolve(...req.dir);
+  const dbBinPath = path.resolve(cwd, "db.bin");
+
+  try {
+    const fileContents = await fsPromises.readFile(dbBinPath);
+    const parsed = parseDbBinHeader(fileContents);
+
+    return jsonResponse(req, {
+      version: parsed.schemaVersion,
+      data: Buffer.from(parsed.wire3Data).toString("base64"),
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return jsonResponse(req, { version: 0, data: "" });
+    }
+    throw error;
+  }
+}
+
+async function runDbMigrateWrite(req) {
+  const cwd = path.resolve(...req.dir);
+  const { data: base64Data } = req.body.args[0];
+  const dbBinPath = path.resolve(cwd, "db.bin");
+
+  const wire3Data = Buffer.from(base64Data, "base64");
+
+  // Read current schema hash from the current Db.elm source via schema-version.json
+  // The migration chain encodes with the NEW Db.w3_encode_Db,
+  // so we need the current schema hash for the new db.bin header.
+  const { computeSchemaHash, readSchemaVersion } = await import("./db-schema.js");
+
+  const schemaVersion = await readSchemaVersion(cwd);
+
+  // Compute hash from current Db.elm
+  let schemaHash;
+  try {
+    // Find Db.elm - check common locations
+    const candidates = [
+      path.resolve(cwd, "script/src/Db.elm"),
+      path.resolve(cwd, "src/Db.elm"),
+    ];
+    // Also check elm.json source directories
+    for (const elmJsonName of ["script/elm.json", "elm.json"]) {
+      const elmJsonPath = path.resolve(cwd, elmJsonName);
+      try {
+        const elmJson = JSON.parse(await fsPromises.readFile(elmJsonPath, "utf8"));
+        const base = path.dirname(elmJsonPath);
+        for (const dir of elmJson["source-directories"] || []) {
+          candidates.push(path.resolve(base, dir, "Db.elm"));
+        }
+      } catch (_) {}
+    }
+    for (const candidate of candidates) {
+      try {
+        await fsPromises.access(candidate);
+        schemaHash = await computeSchemaHash(candidate);
+        break;
+      } catch (_) {}
+    }
+    if (!schemaHash) {
+      throw { title: "Migration write failed", message: "Could not find Db.elm to compute schema hash." };
+    }
+  } catch (error) {
+    if (error.title) throw error;
+    throw { title: "Migration write failed", message: `Error computing schema hash: ${error.message}` };
+  }
+
+  // Create backup before writing
+  try {
+    await fsPromises.copyFile(dbBinPath, `${dbBinPath}.backup`);
+  } catch (_) {
+    // No existing file to back up — that's fine
+  }
+
+  const fileBuffer = buildDbBin(schemaHash, schemaVersion, wire3Data);
+
+  // Atomic write
+  const tmpPath = `${dbBinPath}.tmp.${process.pid}`;
+  try {
+    await fsPromises.writeFile(tmpPath, fileBuffer);
+    await fsPromises.rename(tmpPath, dbBinPath);
+  } catch (error) {
+    try { await fsPromises.unlink(tmpPath); } catch (_) {}
+    throw {
+      title: "Migration write failed",
+      message: `Failed to write db.bin: ${error.message}`,
+    };
   }
 
   return jsonResponse(req, null);

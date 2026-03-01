@@ -166,6 +166,14 @@ async function main() {
       await status();
     });
 
+  dbCommand
+    .command("migrate")
+    .description("create a migration snapshot and stub for Db schema changes")
+    .action(async () => {
+      const { migrate } = await import("./commands/db.js");
+      await migrate();
+    });
+
   program.parse(process.argv);
 }
 

@@ -2,10 +2,13 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import * as crypto from "node:crypto";
 
 // We test the reset and init functions by calling them directly.
 // They use process.cwd() for file resolution, so we chdir into a temp dir.
-import { reset, init } from "../src/commands/db.js";
+import { reset, init, migrate } from "../src/commands/db.js";
+import { buildDbBin } from "../src/db-bin-format.js";
+import { writeSchemaVersion } from "../src/db-schema.js";
 
 let tmpDir;
 let originalCwd;
@@ -100,5 +103,85 @@ describe("elm-pages db init", () => {
 
     const content = fs.readFileSync(path.join(tmpDir, "src/Db.elm"), "utf8");
     expect(content).toBe("-- my custom Db");
+  });
+});
+
+describe("elm-pages db migrate", () => {
+  const dbSource = `module Db exposing (Db, init)
+
+type alias Db =
+    { counter : Int
+    }
+
+init : Db
+init =
+    { counter = 0
+    }
+`;
+
+  it("creates snapshot, stub, and MigrateChain.elm", async () => {
+    // Set up Db.elm
+    fs.mkdirSync(path.join(tmpDir, "script"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, "script/elm.json"),
+      JSON.stringify({ "source-directories": ["src"] })
+    );
+    fs.mkdirSync(path.join(tmpDir, "script/src"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "script/src/Db.elm"), dbSource);
+    await writeSchemaVersion(tmpDir, 1);
+
+    await migrate();
+
+    // Snapshot V1.elm
+    const snapshotPath = path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm");
+    expect(fs.existsSync(snapshotPath)).toBe(true);
+    const snapshotContent = fs.readFileSync(snapshotPath, "utf8");
+    expect(snapshotContent).toContain("module Db.V1 exposing");
+
+    // Migration stub V2.elm
+    const stubPath = path.join(
+      tmpDir,
+      ".elm-pages-db",
+      "Db",
+      "Migrate",
+      "V2.elm"
+    );
+    expect(fs.existsSync(stubPath)).toBe(true);
+
+    // MigrateChain.elm
+    const chainPath = path.join(tmpDir, ".elm-pages-db", "MigrateChain.elm");
+    expect(fs.existsSync(chainPath)).toBe(true);
+    const chainContent = fs.readFileSync(chainPath, "utf8");
+    expect(chainContent).toContain("module MigrateChain exposing (run)");
+
+    // Schema version bumped to 2
+    const versionPath = path.join(
+      tmpDir,
+      ".elm-pages-db",
+      "schema-version.json"
+    );
+    const versionData = JSON.parse(fs.readFileSync(versionPath, "utf8"));
+    expect(versionData.version).toBe(2);
+  });
+
+  it("refuses with pending migration", async () => {
+    const testHash = crypto.createHash("sha256").update("test").digest("hex");
+    // Set up Db.elm
+    fs.mkdirSync(path.join(tmpDir, "script"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, "script/elm.json"),
+      JSON.stringify({ "source-directories": ["src"] })
+    );
+    fs.mkdirSync(path.join(tmpDir, "script/src"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "script/src/Db.elm"), dbSource);
+
+    // Create pending migration: db.bin at V1, schema at V2
+    fs.writeFileSync(
+      path.join(tmpDir, "db.bin"),
+      buildDbBin(testHash, 1, Buffer.from([1, 2, 3]))
+    );
+    await writeSchemaVersion(tmpDir, 2);
+
+    await expect(migrate()).rejects.toThrow(/pending migration/i);
   });
 });
