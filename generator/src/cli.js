@@ -168,7 +168,7 @@ async function main() {
 
   dbCommand
     .command("migrate")
-    .description("create a migration snapshot and stub for Db schema changes")
+    .description("create or apply database migrations")
     .action(async () => {
       const { migrate } = await import("./commands/db.js");
       await migrate();

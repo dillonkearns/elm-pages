@@ -13,7 +13,7 @@
  * Does not compile actual Elm — tests the full JS slice end-to-end.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -490,14 +490,19 @@ db old =
 });
 
 describe("E2E: error cases", () => {
-  it("migrate refuses when migration is already pending", async () => {
+  it("migrate prints guidance when migration is already pending", async () => {
     setupProject(dbSourceV1);
     const hashV1 = crypto.createHash("sha256").update("v1").digest("hex");
     seedDbBin(hashV1, 1, Buffer.from([1, 2, 3]));
     // Schema already at V2 but db.bin still at V1
     await writeSchemaVersion(tmpDir, 2);
 
-    await expect(migrate()).rejects.toThrow(/pending migration/i);
+    const logSpy = vi.spyOn(console, "log");
+    await migrate();
+
+    const logOutput = logSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(logOutput).toContain("Pending migration");
+    logSpy.mockRestore();
   });
 
   it("validation fails when snapshot is missing", async () => {

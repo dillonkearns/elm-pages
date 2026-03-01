@@ -90,15 +90,6 @@ export async function checkPendingMigration(projectDir) {
  * @returns {Promise<void>}
  */
 export async function createSnapshot(projectDir, dbSource, currentVersion) {
-  // Guard: refuse if a migration is already pending
-  const pending = await checkPendingMigration(projectDir);
-  if (pending.pending) {
-    throw new Error(
-      `There is a pending migration from V${pending.dbBinVersion} to V${pending.schemaVersion}. ` +
-        `Apply it before creating a new snapshot.`
-    );
-  }
-
   const newVersion = currentVersion + 1;
   const dbDir = path.join(projectDir, ".elm-pages-db", "Db");
   const migrateDir = path.join(dbDir, "Migrate");
@@ -380,6 +371,143 @@ export async function validateMigrationChain(projectDir, fromVersion, toVersion)
     return { valid: false, missingFiles, unimplemented };
   }
   return { valid: true };
+}
+
+// --- copyMigrationElmFiles ---
+
+/**
+ * Recursively copy .elm files from srcDir to destDir.
+ * @param {string} srcDir - Source directory (e.g. .elm-pages-db)
+ * @param {string} destDir - Destination directory (e.g. .elm-pages source dir)
+ * @returns {string[]} List of copied file paths (for cleanup)
+ */
+export function copyMigrationElmFiles(srcDir, destDir) {
+  const copiedFiles = [];
+  function copyRecursive(src, dest) {
+    if (!fs.existsSync(src)) return;
+    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        copyRecursive(path.join(src, entry.name), path.join(dest, entry.name));
+      } else if (entry.name.endsWith(".elm")) {
+        const destPath = path.join(dest, entry.name);
+        fs.mkdirSync(dest, { recursive: true });
+        fs.copyFileSync(path.join(src, entry.name), destPath);
+        copiedFiles.push(destPath);
+      }
+    }
+  }
+  copyRecursive(srcDir, destDir);
+  return copiedFiles;
+}
+
+// --- applyMigration ---
+
+/**
+ * Compile and run MigrateChain.elm standalone to apply a pending migration.
+ * Bootstraps its own compilation environment.
+ * @param {string} cwd - Current working directory (project root)
+ * @param {number} fromVersion - Source schema version (in db.bin)
+ * @param {number} toVersion - Target schema version
+ * @returns {Promise<void>}
+ */
+export async function applyMigration(cwd, fromVersion, toVersion) {
+  // Dynamic imports to avoid circular dependency (shared.js imports from db-migrate.js)
+  const [
+    { generatorWrapperFile, requireElm, lamderaOrElmFallback },
+    { ensureDirSync, writeFileIfChanged, syncFilesToDirectory },
+    { rewriteElmJson },
+    globby,
+    { compileCliApp },
+    renderer,
+  ] = await Promise.all([
+    import("./commands/shared.js"),
+    import("./file-helpers.js"),
+    import("./rewrite-elm-json.js"),
+    import("globby"),
+    import("./compile-elm.js"),
+    import("./render.js"),
+  ]);
+
+  // Find project directory
+  const projectDirectory = findProjectDirectory(cwd);
+
+  const compileDir = path.join(projectDirectory, "elm-stuff", "elm-pages");
+  const elmPagesSourceDir = path.join(compileDir, ".elm-pages");
+
+  ensureDirSync(path.join(projectDirectory, "elm-stuff"));
+  ensureDirSync(elmPagesSourceDir);
+
+  // Generate MigrateChain.elm
+  await writeMigrateChain(cwd, toVersion);
+
+  // Set up compilation environment (same steps as compileElmForScript)
+  const executableName = await lamderaOrElmFallback();
+  const elmFiles = globby.globbySync(`${projectDirectory}/*.elm`);
+  await syncFilesToDirectory(
+    elmFiles,
+    `${projectDirectory}/elm-stuff/elm-pages/parentDirectory`,
+    (file) => path.basename(file)
+  );
+
+  await rewriteElmJson(
+    `${projectDirectory}/elm.json`,
+    `${projectDirectory}/elm-stuff/elm-pages/elm.json`,
+    { executableName }
+  );
+
+  // Copy migration files into compile source dir
+  const migrationDbDir = path.join(cwd, ".elm-pages-db");
+  const copiedFiles = copyMigrationElmFiles(migrationDbDir, elmPagesSourceDir);
+
+  try {
+    // Write ScriptMain wrapper for MigrateChain
+    await writeFileIfChanged(
+      path.join(elmPagesSourceDir, "ScriptMain.elm"),
+      generatorWrapperFile("MigrateChain")
+    );
+
+    // Compile
+    const elmEntrypointPath = path.join(elmPagesSourceDir, "ScriptMain.elm");
+    const migrateOutputPath = path.join(compileDir, "migrate-chain.js");
+    await compileCliApp(
+      { debug: true },
+      elmEntrypointPath,
+      migrateOutputPath,
+      compileDir,
+      migrateOutputPath
+    );
+
+    // Run the migration
+    const Elm = await requireElm(migrateOutputPath.replace(/\.js$/, ".cjs"));
+    await renderer.runGenerator([], null, Elm, "MigrateChain");
+  } finally {
+    // Clean up copied migration files
+    for (const filePath of copiedFiles) {
+      try { fs.unlinkSync(filePath); } catch (_) {}
+    }
+    try { fs.rmdirSync(path.join(elmPagesSourceDir, "Db", "Migrate")); } catch (_) {}
+    try { fs.rmdirSync(path.join(elmPagesSourceDir, "Db")); } catch (_) {}
+  }
+}
+
+/**
+ * Find the project directory (containing elm.json) from CWD.
+ * Checks script/elm.json first, then elm.json in CWD.
+ * @param {string} cwd
+ * @returns {string}
+ */
+function findProjectDirectory(cwd) {
+  const scriptElmJson = path.join(cwd, "script", "elm.json");
+  if (fs.existsSync(scriptElmJson)) {
+    return path.join(cwd, "script");
+  }
+  const rootElmJson = path.join(cwd, "elm.json");
+  if (fs.existsSync(rootElmJson)) {
+    return cwd;
+  }
+  throw new Error(
+    "Could not find elm.json in current directory or script/ subdirectory."
+  );
 }
 
 // --- C3: prepareMigrationSourceDirs ---

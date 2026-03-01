@@ -381,7 +381,7 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
     // Migration auto-apply: if db.bin version < schema version, run migration chain
     const {
       detectMigrationNeeded, validateMigrationChain,
-      writeMigrateChain,
+      writeMigrateChain, copyMigrationElmFiles,
     } = await import("../db-migrate.js");
 
     const migrationStatus = await detectMigrationNeeded(runtimeDir);
@@ -423,26 +423,7 @@ To start fresh (discard existing data):
       // instead of modifying elm.json (which triggers compiler cache invalidation
       // and can cause it to re-resolve the published elm-pages package).
       const migrationDbDir = path.join(runtimeDir, ".elm-pages-db");
-      const copiedMigrationFiles = [];
-
-      function copyMigrationElmFiles(srcDir, destDir) {
-        if (!fs.existsSync(srcDir)) return;
-        for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
-          if (entry.isDirectory()) {
-            copyMigrationElmFiles(
-              path.join(srcDir, entry.name),
-              path.join(destDir, entry.name)
-            );
-          } else if (entry.name.endsWith(".elm")) {
-            const dest = path.join(destDir, entry.name);
-            fs.mkdirSync(destDir, { recursive: true });
-            fs.copyFileSync(path.join(srcDir, entry.name), dest);
-            copiedMigrationFiles.push(dest);
-          }
-        }
-      }
-
-      copyMigrationElmFiles(migrationDbDir, elmPagesSourceDir);
+      const copiedMigrationFiles = copyMigrationElmFiles(migrationDbDir, elmPagesSourceDir);
 
       try {
         // Write migration wrapper

@@ -204,19 +204,6 @@ init =
     expect(versionData.version).toBe(2);
   });
 
-  it("refuses when a pending migration exists", async () => {
-    const testHash = crypto.createHash("sha256").update("test").digest("hex");
-    // db.bin at version 1, schema at version 2 = pending migration
-    fs.writeFileSync(
-      path.join(tmpDir, "db.bin"),
-      buildDbBin(testHash, 1, Buffer.from([1, 2, 3]))
-    );
-    await writeSchemaVersion(tmpDir, 2);
-
-    await expect(createSnapshot(tmpDir, dbSource, 2)).rejects.toThrow(
-      /pending migration/i
-    );
-  });
 });
 
 // --- Section B1-B2: generateMigrateChain ---

@@ -224,12 +224,18 @@ export async function status() {
 
 /**
  * elm-pages db migrate
- * Creates a version snapshot, migration stub, and MigrateChain.elm.
+ * Idempotent command that creates or applies database migrations based on state:
+ * - No pending migration → create scaffold (snapshot + stub)
+ * - Pending migration, stubs implemented → apply the migration
+ * - Pending migration, stubs not implemented → friendly guidance
  */
 export async function migrate() {
   const cwd = process.cwd();
   const { readSchemaVersion } = await import("../db-schema.js");
-  const { createSnapshot, writeMigrateChain } = await import("../db-migrate.js");
+  const {
+    createSnapshot, writeMigrateChain, detectMigrationNeeded,
+    validateMigrationChain, applyMigration,
+  } = await import("../db-migrate.js");
 
   // Find Db.elm
   const dbElmPath = await findDbElmForMigration(cwd);
@@ -242,21 +248,58 @@ export async function migrate() {
   const dbSource = fs.readFileSync(dbElmPath, "utf8");
   const currentVersion = await readSchemaVersion(cwd);
 
-  // createSnapshot guards against pending migrations
-  await createSnapshot(cwd, dbSource, currentVersion);
+  // Detect current state
+  const migrationStatus = await detectMigrationNeeded(cwd);
 
-  const newVersion = currentVersion + 1;
-  // Generate MigrateChain.elm
-  await writeMigrateChain(cwd, newVersion);
+  if (migrationStatus.action === "up-to-date" || migrationStatus.action === "no-db") {
+    // Path A: No pending migration → create scaffold
+    await createSnapshot(cwd, dbSource, currentVersion);
+    const newVersion = currentVersion + 1;
+    await writeMigrateChain(cwd, newVersion);
 
-  console.log(`\nCreated migration V${currentVersion} -> V${newVersion}:`);
-  console.log(`  Snapshot: .elm-pages-db/Db/V${currentVersion}.elm`);
-  console.log(`  Stub:     .elm-pages-db/Db/Migrate/V${newVersion}.elm`);
-  console.log(`  Chain:    .elm-pages-db/MigrateChain.elm`);
-  console.log(`\nNext steps:`);
-  console.log(`  1. Edit .elm-pages-db/Db/Migrate/V${newVersion}.elm to implement the migration`);
-  console.log(`  2. Replace the todo_implement_migration sentinel with your migration logic`);
-  console.log(`  3. Run your script — the migration will be applied automatically`);
+    console.log(`\nCreated migration V${currentVersion} -> V${newVersion}:`);
+    console.log(`  Snapshot: .elm-pages-db/Db/V${currentVersion}.elm`);
+    console.log(`  Stub:     .elm-pages-db/Db/Migrate/V${newVersion}.elm`);
+    console.log(`  Chain:    .elm-pages-db/MigrateChain.elm`);
+    console.log(`\nNext steps:`);
+    console.log(`  1. Edit .elm-pages-db/Db/Migrate/V${newVersion}.elm to implement the migration`);
+    console.log(`  2. Replace the todo_implement_migration sentinel with your migration logic`);
+    console.log(`  3. Run \`elm-pages db migrate\` again to apply the migration`);
+  } else if (migrationStatus.action === "migrate") {
+    // Pending migration: validate chain
+    const validation = await validateMigrationChain(
+      cwd,
+      migrationStatus.fromVersion,
+      migrationStatus.toVersion
+    );
+
+    if (validation.valid) {
+      // Path B: Stubs implemented → apply migration
+      await applyMigration(cwd, migrationStatus.fromVersion, migrationStatus.toVersion);
+      console.log(`\nMigration applied: V${migrationStatus.fromVersion} -> V${migrationStatus.toVersion}`);
+    } else {
+      // Path C: Stubs not implemented → friendly guidance
+      console.log(`\nPending migration: V${migrationStatus.fromVersion} -> V${migrationStatus.toVersion}`);
+      if (validation.missingFiles && validation.missingFiles.length > 0) {
+        console.log(`\nMissing files:`);
+        for (const f of validation.missingFiles) {
+          console.log(`  .elm-pages-db/${f}`);
+        }
+      }
+      if (validation.unimplemented && validation.unimplemented.length > 0) {
+        console.log(`\nUnimplemented migration stubs:`);
+        for (const f of validation.unimplemented) {
+          console.log(`  .elm-pages-db/${f}`);
+        }
+      }
+      console.log(`\nImplement the migration logic and run \`elm-pages db migrate\` again to apply.`);
+    }
+  } else if (migrationStatus.action === "error") {
+    throw new Error(
+      `db.bin is at a newer version than the schema. This should not happen.\n` +
+      `Run \`elm-pages db reset\` to start fresh, or restore your schema files.`
+    );
+  }
 }
 
 /**

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -164,7 +164,7 @@ init =
     expect(versionData.version).toBe(2);
   });
 
-  it("refuses with pending migration", async () => {
+  it("prints guidance with pending migration and unimplemented stubs", async () => {
     const testHash = crypto.createHash("sha256").update("test").digest("hex");
     // Set up Db.elm
     fs.mkdirSync(path.join(tmpDir, "script"), { recursive: true });
@@ -182,6 +182,11 @@ init =
     );
     await writeSchemaVersion(tmpDir, 2);
 
-    await expect(migrate()).rejects.toThrow(/pending migration/i);
+    const logSpy = vi.spyOn(console, "log");
+    await migrate();
+
+    const logOutput = logSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(logOutput).toContain("Pending migration");
+    logSpy.mockRestore();
   });
 });
