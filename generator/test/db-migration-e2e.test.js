@@ -18,6 +18,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import * as crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import { migrate, status } from "../src/commands/db.js";
 import {
@@ -40,6 +42,8 @@ import {
 
 let tmpDir;
 let originalCwd;
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+const cliPath = path.join(repoRoot, "generator", "src", "cli.js");
 
 const dbSourceV1 = `module Db exposing (Db, init)
 
@@ -120,6 +124,14 @@ function seedDbBin(schemaHash, version, wire3Data) {
   return dbBin;
 }
 
+function runElmPagesCli(args, cwd) {
+  return spawnSync(process.execPath, [cliPath, ...args], {
+    cwd,
+    encoding: "utf8",
+    env: { ...process.env, FORCE_COLOR: "0" },
+  });
+}
+
 beforeEach(async () => {
   tmpDir = await fs.promises.mkdtemp(
     path.join(os.tmpdir(), "db-e2e-test-")
@@ -131,6 +143,7 @@ beforeEach(async () => {
 afterEach(async () => {
   process.chdir(originalCwd);
   await fs.promises.rm(tmpDir, { recursive: true });
+  process.exitCode = undefined;
 });
 
 describe("E2E: single migration (V1 → V2)", () => {
@@ -490,6 +503,49 @@ db old =
 });
 
 describe("E2E: error cases", () => {
+  it("auto-recovers stale migrate scaffold from schema-history hash snapshot", async () => {
+    setupProject(dbSourceV1);
+    const dbElmPath = path.join(tmpDir, "script/src/Db.elm");
+
+    // Initial V1 persisted data
+    const hashV1 = await computeSchemaHash(dbElmPath);
+    seedDbBin(hashV1, 1, Buffer.from([0x01, 0x02]));
+    await writeSchemaVersion(tmpDir, 1);
+
+    // Simulate provenance captured from a prior write flow
+    const historyDir = path.join(tmpDir, ".elm-pages-db", "schema-history");
+    fs.mkdirSync(historyDir, { recursive: true });
+    fs.writeFileSync(path.join(historyDir, `${hashV1}.elm`), dbSourceV1);
+
+    // User edits Db.elm first (stale case)
+    fs.writeFileSync(dbElmPath, dbSourceV2);
+
+    const logSpy = vi.spyOn(console, "log");
+    await migrate();
+    const logOutput = logSpy.mock.calls.map((c) => c[0]).join("\n");
+    logSpy.mockRestore();
+
+    // Should scaffold successfully (not refuse stale)
+    expect(logOutput).toContain("Created migration V1 -> V2");
+    expect(process.exitCode).not.toBe(1);
+
+    // Snapshot must represent the old schema (from history), not current Db.elm
+    const snapshotPath = path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm");
+    expect(fs.existsSync(snapshotPath)).toBe(true);
+    const snapshotContent = fs.readFileSync(snapshotPath, "utf8");
+    expect(snapshotContent).toContain("module Db.V1 exposing (Db, init)");
+    expect(snapshotContent).toContain("{ counter : Int");
+    expect(snapshotContent).not.toContain(", name : String");
+
+    // Stub and chain should be created normally
+    expect(
+      fs.existsSync(path.join(tmpDir, ".elm-pages-db", "Db", "Migrate", "V2.elm"))
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".elm-pages-db", "MigrateChain.elm"))
+    ).toBe(true);
+  });
+
   it("migrate prints guidance when migration is already pending", async () => {
     setupProject(dbSourceV1);
     const hashV1 = crypto.createHash("sha256").update("v1").digest("hex");
@@ -775,3 +831,99 @@ describe("E2E: db-migrate-read and db-migrate-write handler simulation", () => {
   });
 });
 
+describe("E2E: real CLI flow with fixture project", () => {
+  it(
+    "captures schema history on write and auto-recovers stale migrate scaffold",
+    async () => {
+      const fixtureRoot = path.join(repoRoot, "examples", "end-to-end");
+      const fixtureParent = path.join(repoRoot, ".tmp-db-e2e");
+      await fs.promises.mkdir(fixtureParent, { recursive: true });
+      const fixtureCwd = await fs.promises.mkdtemp(
+        path.join(fixtureParent, "case-")
+      );
+
+      try {
+        // Keep fixture depth at repo/.tmp-db-e2e/case-xxxx so script/elm.json's
+        // "../../../src" still points to this repo's src directory.
+        fs.cpSync(path.join(fixtureRoot, "script"), path.join(fixtureCwd, "script"), {
+          recursive: true,
+        });
+        fs.cpSync(path.join(fixtureRoot, "codegen"), path.join(fixtureCwd, "codegen"), {
+          recursive: true,
+        });
+
+        const seed = runElmPagesCli(["run", "script/src/SeedDb.elm"], fixtureCwd);
+        if (seed.status !== 0) {
+          throw new Error(
+            `SeedDb failed (status ${seed.status})\nSTDOUT:\n${seed.stdout}\nSTDERR:\n${seed.stderr}`
+          );
+        }
+
+        expect(fs.existsSync(path.join(fixtureCwd, "db.bin"))).toBe(true);
+
+        const dbElmPath = path.join(fixtureCwd, "script", "src", "Db.elm");
+        const hashV1 = await computeSchemaHash(dbElmPath);
+        const historyPath = path.join(
+          fixtureCwd,
+          ".elm-pages-db",
+          "schema-history",
+          `${hashV1}.elm`
+        );
+        expect(fs.existsSync(historyPath)).toBe(true);
+
+        const staleDbSource = `module Db exposing (Db, Todo, init)
+
+
+type alias Db =
+    { todos : List Todo
+    , nextId : Int
+    }
+
+
+type alias Todo =
+    { id : Int
+    , title : String
+    , completed : Bool
+    , tags : List String
+    }
+
+
+init : Db
+init =
+    { todos = []
+    , nextId = 1
+    }
+`;
+        fs.writeFileSync(dbElmPath, staleDbSource);
+
+        const migrateResult = runElmPagesCli(["db", "migrate"], fixtureCwd);
+        const migrateOutput = `${migrateResult.stdout}\n${migrateResult.stderr}`;
+        if (migrateResult.status !== 0) {
+          throw new Error(
+            `db migrate failed (status ${migrateResult.status})\nOUTPUT:\n${migrateOutput}`
+          );
+        }
+
+        expect(migrateOutput).toContain(
+          "Detected stale Db.elm state; recovering old schema from .elm-pages-db/schema-history."
+        );
+        expect(migrateOutput).toContain("Created migration V1 -> V2");
+
+        const snapshotPath = path.join(
+          fixtureCwd,
+          ".elm-pages-db",
+          "Db",
+          "V1.elm"
+        );
+        expect(fs.existsSync(snapshotPath)).toBe(true);
+        const snapshotContent = fs.readFileSync(snapshotPath, "utf8");
+        expect(snapshotContent).toContain("module Db.V1 exposing (Db, Todo, init)");
+        expect(snapshotContent).toContain(", completed : Bool");
+        expect(snapshotContent).not.toContain(", tags : List String");
+      } finally {
+        await fs.promises.rm(fixtureCwd, { recursive: true, force: true });
+      }
+    },
+    120000
+  );
+});

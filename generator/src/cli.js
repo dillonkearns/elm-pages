@@ -169,9 +169,13 @@ async function main() {
   dbCommand
     .command("migrate")
     .description("create or apply database migrations")
-    .action(async () => {
+    .option(
+      "--force-stale-snapshot",
+      "allow snapshotting current Db.elm even when it differs from db.bin at the same schema version"
+    )
+    .action(async (options) => {
       const { migrate } = await import("./commands/db.js");
-      await migrate();
+      await migrate(options);
     });
 
   program.parse(process.argv);

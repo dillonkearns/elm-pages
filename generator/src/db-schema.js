@@ -19,6 +19,15 @@ import { spawnSync } from "node:child_process";
  */
 export async function computeSchemaHash(dbElmPath) {
   const dbSource = await fs.promises.readFile(dbElmPath, "utf8");
+  return computeSchemaHashFromSource(dbSource);
+}
+
+/**
+ * Compute a SHA-256 hash of Db source text.
+ * @param {string} dbSource
+ * @returns {string}
+ */
+export function computeSchemaHashFromSource(dbSource) {
   return crypto.createHash("sha256").update(dbSource).digest("hex");
 }
 
@@ -80,6 +89,7 @@ export async function saveSchemaMeta(projectDirectory, sourceHash, compiledHash)
 
 const SCHEMA_VERSION_DIR = ".elm-pages-db";
 const SCHEMA_VERSION_FILENAME = "schema-version.json";
+const SCHEMA_HISTORY_DIR = path.join(SCHEMA_VERSION_DIR, "schema-history");
 
 /**
  * Read the current schema version from .elm-pages-db/schema-version.json.
@@ -112,6 +122,61 @@ export async function writeSchemaVersion(projectDirectory, version) {
     versionPath,
     JSON.stringify({ version }, null, 2) + "\n"
   );
+}
+
+/**
+ * Path to the schema-history source file for a given schema hash.
+ * @param {string} projectDirectory
+ * @param {string} schemaHash
+ * @returns {string}
+ */
+export function schemaHistoryPath(projectDirectory, schemaHash) {
+  return path.join(projectDirectory, SCHEMA_HISTORY_DIR, `${schemaHash}.elm`);
+}
+
+/**
+ * Save schema source text for a hash (idempotent).
+ * @param {string} projectDirectory
+ * @param {string} schemaHash
+ * @param {string} dbSource
+ * @returns {Promise<void>}
+ */
+export async function saveSchemaSource(projectDirectory, schemaHash, dbSource) {
+  const historyDir = path.join(projectDirectory, SCHEMA_HISTORY_DIR);
+  await fs.promises.mkdir(historyDir, { recursive: true });
+  const sourcePath = schemaHistoryPath(projectDirectory, schemaHash);
+  if (!fs.existsSync(sourcePath)) {
+    await fs.promises.writeFile(sourcePath, dbSource);
+  }
+}
+
+/**
+ * Save schema source from Db.elm file (idempotent).
+ * @param {string} projectDirectory
+ * @param {string} dbElmPath
+ * @param {string | null} schemaHash
+ * @returns {Promise<string>} The schema hash used for persistence
+ */
+export async function saveSchemaSourceFromFile(projectDirectory, dbElmPath, schemaHash = null) {
+  const dbSource = await fs.promises.readFile(dbElmPath, "utf8");
+  const hash = schemaHash || computeSchemaHashFromSource(dbSource);
+  await saveSchemaSource(projectDirectory, hash, dbSource);
+  return hash;
+}
+
+/**
+ * Load schema source text for a stored schema hash.
+ * Returns null if not present.
+ * @param {string} projectDirectory
+ * @param {string} schemaHash
+ * @returns {Promise<string | null>}
+ */
+export async function loadSchemaSource(projectDirectory, schemaHash) {
+  try {
+    return await fs.promises.readFile(schemaHistoryPath(projectDirectory, schemaHash), "utf8");
+  } catch (_) {
+    return null;
+  }
 }
 
 // --- Deep compare ---

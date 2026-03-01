@@ -2,7 +2,6 @@
  * Run command - runs an elm-pages script.
  */
 
-import * as fs from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
 import * as esbuild from "esbuild";
@@ -17,6 +16,7 @@ import {
   requireElm,
   printCaughtError,
 } from "./shared.js";
+import { scriptUsesPagesDb } from "../db-usage.js";
 
 export async function run(elmModulePath, options, options2) {
   if (elmModulePath === "--help" || elmModulePath === "-h") {
@@ -31,11 +31,12 @@ export async function run(elmModulePath, options, options2) {
     const { moduleName, projectDirectory, sourceDirectory } =
       await resolveInputPathOrModuleName(elmModulePath);
 
-    // Detect if this script uses the built-in database
-    const splitModuleName = moduleName.split(".");
-    const scriptFilePath = path.join(sourceDirectory, `${splitModuleName.join("/")}.elm`);
-    const scriptSource = await fs.promises.readFile(scriptFilePath, "utf8");
-    const usesDb = /^\s*import\s+Pages\.Db\b/m.test(scriptSource);
+    // Detect if this script uses the built-in database directly or transitively.
+    const usesDb = await scriptUsesPagesDb({
+      projectDirectory,
+      sourceDirectory,
+      entryModuleName: moduleName,
+    });
 
     await compileElmForScript(elmModulePath, { moduleName, projectDirectory, sourceDirectory }, { usesDb });
 

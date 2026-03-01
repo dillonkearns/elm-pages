@@ -328,6 +328,7 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
     const {
       computeSchemaHash, compareSchemaHash, saveSchemaMeta,
       compileWitnessAndHash, readSchemaVersion, writeSchemaVersion,
+      saveSchemaSourceFromFile,
     } = await import("../db-schema.js");
     const { parseDbBinHeader, buildDbBin } = await import("../db-bin-format.js");
 
@@ -340,6 +341,11 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
 
     const dbElmPath = await findDbElm(projectDirectory, sourceDirectory);
     const schemaHash = await computeSchemaHash(dbElmPath);
+    try {
+      await saveSchemaSourceFromFile(runtimeDir, dbElmPath, schemaHash);
+    } catch (_) {
+      // Non-fatal: stale snapshot recovery won't be available without provenance.
+    }
 
     // Ensure schema version file exists
     const schemaVersion = await readSchemaVersion(runtimeDir);
@@ -410,7 +416,7 @@ To start fresh (discard existing data):
         if (validation.unimplemented && validation.unimplemented.length > 0) {
           issues.push(`Unimplemented migrations: ${validation.unimplemented.join(", ")}`);
         }
-        throw `Migration needed (V${migrationStatus.fromVersion} -> V${migrationStatus.toVersion}) but chain is invalid:\n  ${issues.join("\n  ")}\n\nImplement the migration stubs in .elm-pages-db/Db/Migrate/ and try again.`;
+        throw `Migration needed (V${migrationStatus.fromVersion} -> V${migrationStatus.toVersion}) but chain is invalid:\n  ${issues.join("\n  ")}\n\nImplement the migration stubs in .elm-pages-db/Db/Migrate/, then run \`elm-pages db migrate\` (or rerun your script for auto-apply).`;
       }
 
       // Generate MigrateChain.elm

@@ -239,15 +239,20 @@ export async function status() {
 }
 
 /**
- * elm-pages db migrate
+ * elm-pages db migrate [--force-stale-snapshot]
  * Idempotent command that creates or applies database migrations based on state:
  * - No pending migration → create scaffold (snapshot + stub)
  * - Pending migration, stubs implemented → apply the migration
  * - Pending migration, stubs not implemented → friendly guidance
  */
-export async function migrate() {
+export async function migrate(options = {}) {
   const cwd = process.cwd();
-  const { readSchemaVersion } = await import("../db-schema.js");
+  const {
+    readSchemaVersion,
+    computeSchemaHash,
+    loadSchemaSource,
+  } = await import("../db-schema.js");
+  const { parseDbBinHeader } = await import("../db-bin-format.js");
   const {
     createSnapshot, writeMigrateChain, detectMigrationNeeded,
     validateMigrationChain, applyMigration,
@@ -262,14 +267,63 @@ export async function migrate() {
   }
 
   const dbSource = fs.readFileSync(dbElmPath, "utf8");
+  const dbElmDisplayPath = path.relative(cwd, dbElmPath) || dbElmPath;
   const currentVersion = await readSchemaVersion(cwd);
 
   // Detect current state
   const migrationStatus = await detectMigrationNeeded(cwd);
 
   if (migrationStatus.action === "up-to-date" || migrationStatus.action === "no-db") {
+    let snapshotSource = dbSource;
+
+    // Guardrail: prevent stale snapshots when Db.elm was already edited
+    // while db.bin/schema-version are still at the old version.
+    if (migrationStatus.action === "up-to-date") {
+      const dbBinPath = path.resolve(cwd, "db.bin");
+      const dbBinContents = fs.readFileSync(dbBinPath);
+      const parsed = parseDbBinHeader(dbBinContents);
+      const currentHash = await computeSchemaHash(dbElmPath);
+
+      if (
+        parsed.schemaVersion === currentVersion &&
+        parsed.schemaHashHex !== currentHash
+      ) {
+        const historicalSource = await loadSchemaSource(cwd, parsed.schemaHashHex);
+        if (historicalSource) {
+          snapshotSource = historicalSource;
+          console.log("\nDetected stale Db.elm state; recovering old schema from .elm-pages-db/schema-history.");
+        } else if (!options.forceStaleSnapshot) {
+          console.log(`\nI can't create migration files yet.\n`);
+          console.log(`Reason: your current Db file was changed before the old schema snapshot was captured.`);
+          console.log(`\nI found:`);
+          console.log(`  - db.bin is at V${currentVersion}`);
+          console.log(`  - .elm-pages-db/schema-version.json is at V${currentVersion}`);
+          console.log(`  - ${dbElmDisplayPath} has a different schema hash`);
+          console.log(`  - Missing: .elm-pages-db/schema-history/${parsed.schemaHashHex}.elm`);
+          console.log(
+            `\nIf I continue now, .elm-pages-db/Db/V${currentVersion}.elm would contain your new schema (wrong snapshot).`
+          );
+          console.log(`\nDo this:`);
+          console.log(`  1. Restore ${dbElmDisplayPath} to the schema currently stored in db.bin`);
+          console.log(
+            `  2. Run \`elm-pages db migrate\` to create the V${currentVersion} snapshot + V${currentVersion + 1} stub`
+          );
+          console.log(
+            `  3. Re-apply your Db.elm changes and implement .elm-pages-db/Db/Migrate/V${currentVersion + 1}.elm`
+          );
+          console.log(`\nUnsafe override (not recommended):`);
+          console.log(`  elm-pages db migrate --force-stale-snapshot`);
+          console.log(
+            `\nTip: after any successful write, stale snapshot recovery can use .elm-pages-db/schema-history/<hash>.elm automatically.`
+          );
+          process.exitCode = 1;
+          return;
+        }
+      }
+    }
+
     // Path A: No pending migration → create scaffold
-    await createSnapshot(cwd, dbSource, currentVersion);
+    await createSnapshot(cwd, snapshotSource, currentVersion);
     const newVersion = currentVersion + 1;
     await writeMigrateChain(cwd, newVersion);
 

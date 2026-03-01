@@ -8,7 +8,7 @@ import * as crypto from "node:crypto";
 // They use process.cwd() for file resolution, so we chdir into a temp dir.
 import { reset, init, migrate, status } from "../src/commands/db.js";
 import { buildDbBin } from "../src/db-bin-format.js";
-import { writeSchemaVersion } from "../src/db-schema.js";
+import { writeSchemaVersion, computeSchemaHash } from "../src/db-schema.js";
 
 let tmpDir;
 let originalCwd;
@@ -189,6 +189,93 @@ init =
     const logOutput = logSpy.mock.calls.map((c) => c[0]).join("\n");
     expect(logOutput).toContain("Pending migration");
     logSpy.mockRestore();
+  });
+
+  it("refuses stale snapshot scaffold when Db.elm changed before snapshotting", async () => {
+    fs.mkdirSync(path.join(tmpDir, "script"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, "script/elm.json"),
+      JSON.stringify({ "source-directories": ["src"] })
+    );
+    fs.mkdirSync(path.join(tmpDir, "script/src"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "script/src/Db.elm"), dbSource);
+
+    const oldHash = await computeSchemaHash(path.join(tmpDir, "script/src/Db.elm"));
+    fs.writeFileSync(
+      path.join(tmpDir, "db.bin"),
+      buildDbBin(oldHash, 1, Buffer.from([1, 2, 3]))
+    );
+    await writeSchemaVersion(tmpDir, 1);
+
+    // User edits Db.elm before running db migrate
+    fs.writeFileSync(
+      path.join(tmpDir, "script/src/Db.elm"),
+      `module Db exposing (Db, init)
+
+type alias Db =
+    { counter : Int
+    , name : String
+    }
+
+init : Db
+init =
+    { counter = 0
+    , name = ""
+    }
+`
+    );
+
+    const logSpy = vi.spyOn(console, "log");
+    await migrate();
+
+    const logOutput = logSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(logOutput).toContain("I can't create migration files yet.");
+    expect(logOutput).toContain("Missing: .elm-pages-db/schema-history/");
+    expect(process.exitCode).toBe(1);
+    expect(fs.existsSync(path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm"))).toBe(false);
+    logSpy.mockRestore();
+  });
+
+  it("allows stale snapshot scaffold when --force-stale-snapshot is set", async () => {
+    fs.mkdirSync(path.join(tmpDir, "script"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, "script/elm.json"),
+      JSON.stringify({ "source-directories": ["src"] })
+    );
+    fs.mkdirSync(path.join(tmpDir, "script/src"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "script/src/Db.elm"), dbSource);
+
+    const oldHash = await computeSchemaHash(path.join(tmpDir, "script/src/Db.elm"));
+    fs.writeFileSync(
+      path.join(tmpDir, "db.bin"),
+      buildDbBin(oldHash, 1, Buffer.from([1, 2, 3]))
+    );
+    await writeSchemaVersion(tmpDir, 1);
+
+    fs.writeFileSync(
+      path.join(tmpDir, "script/src/Db.elm"),
+      `module Db exposing (Db, init)
+
+type alias Db =
+    { counter : Int
+    , name : String
+    }
+
+init : Db
+init =
+    { counter = 0
+    , name = ""
+    }
+`
+    );
+
+    await migrate({ forceStaleSnapshot: true });
+
+    const snapshotPath = path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm");
+    expect(fs.existsSync(snapshotPath)).toBe(true);
+    const snapshotContent = fs.readFileSync(snapshotPath, "utf8");
+    expect(snapshotContent).toContain(", name : String");
+    expect(process.exitCode).not.toBe(1);
   });
 });
 
