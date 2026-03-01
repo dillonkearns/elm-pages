@@ -146,7 +146,6 @@ export function generateMigrateChain(targetVersion) {
   const imports = [
     "import BackendTask exposing (BackendTask)",
     "import BackendTask.Http",
-    "import BackendTask.Internal.Request",
     "import Base64",
     "import Bytes exposing (Bytes)",
     "import Bytes.Decode",
@@ -225,6 +224,20 @@ ${caseBranches}
 ${migrateFunctions}
 
 
+internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
+internalRequest name body expect =
+    BackendTask.Http.request
+        { url = "elm-pages-internal://" ++ name
+        , method = "GET"
+        , headers = []
+        , body = body
+        , timeoutInMs = Nothing
+        , retries = Nothing
+        }
+        expect
+        |> BackendTask.allowFatal
+
+
 saveAndLog : Db.Db -> Int -> Int -> BackendTask FatalError ()
 saveAndLog newDb fromVersion toVersion =
     let
@@ -235,30 +248,26 @@ saveAndLog newDb fromVersion toVersion =
             Base64.fromBytes wire3Bytes
                 |> Maybe.withDefault ""
     in
-    BackendTask.Internal.Request.request
-        { name = "db-migrate-write"
-        , body =
-            BackendTask.Http.jsonBody
-                (Encode.object
-                    [ ( "data", Encode.string base64Data )
-                    ]
-                )
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
-        }
+    internalRequest "db-migrate-write"
+        (BackendTask.Http.jsonBody
+            (Encode.object
+                [ ( "data", Encode.string base64Data )
+                ]
+            )
+        )
+        (BackendTask.Http.expectJson (Decode.succeed ()))
 
 
 readDbBin : BackendTask FatalError { version : Int, bytes : Bytes }
 readDbBin =
-    BackendTask.Internal.Request.request
-        { name = "db-migrate-read"
-        , body = BackendTask.Http.jsonBody Encode.null
-        , expect =
-            BackendTask.Http.expectJson
-                (Decode.map2 (\\v d -> { version = v, rawData = d })
-                    (Decode.field "version" Decode.int)
-                    (Decode.field "data" Decode.string)
-                )
-        }
+    internalRequest "db-migrate-read"
+        (BackendTask.Http.jsonBody Encode.null)
+        (BackendTask.Http.expectJson
+            (Decode.map2 (\\v d -> { version = v, rawData = d })
+                (Decode.field "version" Decode.int)
+                (Decode.field "data" Decode.string)
+            )
+        )
         |> BackendTask.andThen
             (\\{ version, rawData } ->
                 case Base64.toBytes rawData of

@@ -816,7 +816,8 @@ describe("E2E: generateMigrateChain content verification", () => {
 
     // Required imports
     expect(chain).toContain("import BackendTask exposing (BackendTask)");
-    expect(chain).toContain("import BackendTask.Internal.Request");
+    expect(chain).toContain("BackendTask.allowFatal");
+    expect(chain).not.toContain("BackendTask.Internal.Request");
     expect(chain).toContain("import Base64");
     expect(chain).toContain("import Bytes exposing (Bytes)");
     expect(chain).toContain("import FatalError exposing (FatalError)");

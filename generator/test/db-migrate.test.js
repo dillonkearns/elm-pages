@@ -277,9 +277,12 @@ describe("generateMigrateChain — single migration", () => {
     expect(chain).toContain("Db.w3_encode_Db");
   });
 
-  it("uses BackendTask.Internal.Request for I/O, NOT LamderaDb", () => {
+  it("uses BackendTask.Http with elm-pages-internal:// URLs for I/O, NOT LamderaDb", () => {
     const chain = generateMigrateChain(2);
-    expect(chain).toContain("BackendTask.Internal.Request");
+    expect(chain).toContain("elm-pages-internal://");
+    expect(chain).toContain("BackendTask.Http.request");
+    expect(chain).toContain("BackendTask.allowFatal");
+    expect(chain).not.toContain("BackendTask.Internal.Request");
     expect(chain).not.toContain("LamderaDb");
   });
 

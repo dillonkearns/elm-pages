@@ -98,7 +98,6 @@ export function generatePagesDbModule(schemaHash) {
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
-import BackendTask.Internal.Request
 import Base64
 import Bytes exposing (Bytes)
 import Bytes.Decode
@@ -115,24 +114,36 @@ schemaHash =
     "${schemaHash}"
 
 
+internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
+internalRequest name body expect =
+    BackendTask.Http.request
+        { url = "elm-pages-internal://" ++ name
+        , method = "GET"
+        , headers = []
+        , body = body
+        , timeoutInMs = Nothing
+        , retries = Nothing
+        }
+        expect
+        |> BackendTask.allowFatal
+
+
 get : BackendTask FatalError Db.Db
 get =
-    BackendTask.Internal.Request.request
-        { name = "db-read"
-        , body = BackendTask.Http.jsonBody (Encode.string schemaHash)
-        , expect =
-            Bytes.Decode.signedInt32 Bytes.BE
-                |> Bytes.Decode.andThen
-                    (\\length ->
-                        if length <= 0 then
-                            Bytes.Decode.succeed Nothing
+    internalRequest "db-read"
+        (BackendTask.Http.jsonBody (Encode.string schemaHash))
+        (Bytes.Decode.signedInt32 Bytes.BE
+            |> Bytes.Decode.andThen
+                (\\length ->
+                    if length <= 0 then
+                        Bytes.Decode.succeed Nothing
 
-                        else
-                            Bytes.Decode.bytes length
-                                |> Bytes.Decode.map Just
-                    )
-                |> BackendTask.Http.expectBytes
-        }
+                    else
+                        Bytes.Decode.bytes length
+                            |> Bytes.Decode.map Just
+                )
+            |> BackendTask.Http.expectBytes
+        )
         |> BackendTask.andThen
             (\\maybeBytes ->
                 case maybeBytes of
@@ -198,35 +209,29 @@ write db =
             Base64.fromBytes wire3Bytes
                 |> Maybe.withDefault ""
     in
-    BackendTask.Internal.Request.request
-        { name = "db-write"
-        , body =
-            BackendTask.Http.jsonBody
-                (Encode.object
-                    [ ( "hash", Encode.string schemaHash )
-                    , ( "data", Encode.string base64Data )
-                    ]
-                )
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
-        }
+    internalRequest "db-write"
+        (BackendTask.Http.jsonBody
+            (Encode.object
+                [ ( "hash", Encode.string schemaHash )
+                , ( "data", Encode.string base64Data )
+                ]
+            )
+        )
+        (BackendTask.Http.expectJson (Decode.succeed ()))
 
 
 acquireLock : BackendTask FatalError String
 acquireLock =
-    BackendTask.Internal.Request.request
-        { name = "db-lock-acquire"
-        , body = BackendTask.Http.jsonBody Encode.null
-        , expect = BackendTask.Http.expectJson Decode.string
-        }
+    internalRequest "db-lock-acquire"
+        (BackendTask.Http.jsonBody Encode.null)
+        (BackendTask.Http.expectJson Decode.string)
 
 
 releaseLock : String -> BackendTask FatalError ()
 releaseLock token =
-    BackendTask.Internal.Request.request
-        { name = "db-lock-release"
-        , body = BackendTask.Http.jsonBody (Encode.string token)
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
-        }
+    internalRequest "db-lock-release"
+        (BackendTask.Http.jsonBody (Encode.string token))
+        (BackendTask.Http.expectJson (Decode.succeed ()))
 `;
 }
 
