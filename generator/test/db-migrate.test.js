@@ -36,7 +36,7 @@ afterEach(async () => {
 // --- Section A1: rewriteDbModuleToSnapshot ---
 
 describe("rewriteDbModuleToSnapshot", () => {
-  it("rewrites 'module Db exposing (Db, init)' to 'module Db.V1 exposing (Db, init)'", () => {
+  it("rewrites module declaration from Db to Db.V{N} and preserves body", () => {
     const source = `module Db exposing (Db, init)
 
 type alias Db =
@@ -48,60 +48,39 @@ init =
     { counter = 0
     }
 `;
-    const result = rewriteDbModuleToSnapshot(source, 1);
-    expect(result).toContain("module Db.V1 exposing (Db, init)");
-    // Body should be preserved
-    expect(result).toContain("type alias Db =");
-    expect(result).toContain("{ counter : Int");
-  });
-
-  it("rewrites 'module Db exposing (..)' variant", () => {
-    const source = `module Db exposing (..)
-
-type alias Db = { name : String }
-`;
-    const result = rewriteDbModuleToSnapshot(source, 1);
-    expect(result).toContain("module Db.V1 exposing (..)");
-  });
-
-  it("rewrites to V2 when version is 2", () => {
-    const source = `module Db exposing (Db, init)
-
-type alias Db = { x : Int }
-`;
-    const result = rewriteDbModuleToSnapshot(source, 2);
-    expect(result).toContain("module Db.V2 exposing (Db, init)");
-  });
-
-  it("preserves the body unchanged", () => {
-    const source = `module Db exposing (Db, Todo, init)
+    expect(rewriteDbModuleToSnapshot(source, 1)).toBe(`module Db.V1 exposing (Db, init)
 
 type alias Db =
-    { todos : List Todo
-    , nextId : Int
-    }
-
-type alias Todo =
-    { id : Int
-    , title : String
-    , completed : Bool
+    { counter : Int
     }
 
 init : Db
 init =
-    { todos = []
-    , nextId = 1
+    { counter = 0
     }
+`);
+  });
+
+  it("handles exposing (..) variant", () => {
+    const source = `module Db exposing (..)
+
+type alias Db = { name : String }
 `;
-    const result = rewriteDbModuleToSnapshot(source, 1);
-    // First line changed
-    expect(result.startsWith("module Db.V1 exposing (Db, Todo, init)")).toBe(
-      true
-    );
-    // Rest preserved
-    expect(result).toContain("type alias Todo =");
-    expect(result).toContain("{ id : Int");
-    expect(result).toContain("init : Db");
+    expect(rewriteDbModuleToSnapshot(source, 1)).toBe(`module Db.V1 exposing (..)
+
+type alias Db = { name : String }
+`);
+  });
+
+  it("uses the given version number", () => {
+    const source = `module Db exposing (Db, init)
+
+type alias Db = { x : Int }
+`;
+    expect(rewriteDbModuleToSnapshot(source, 2)).toBe(`module Db.V2 exposing (Db, init)
+
+type alias Db = { x : Int }
+`);
   });
 });
 
@@ -109,29 +88,29 @@ init =
 
 describe("generateMigrationStub", () => {
   it("generates V2 stub for V1 -> V2 migration", () => {
-    const stub = generateMigrationStub(1, 2);
-    expect(stub).toContain("module Db.Migrate.V2 exposing (db)");
-    expect(stub).toContain("import Db.V1");
-    expect(stub).toContain("import Db");
-    expect(stub).toContain("db : Db.V1.Db -> Db.Db");
-    expect(stub).toContain("todo_implement_migration_V1_to_V2");
+    expect(generateMigrationStub(1, 2)).toBe(`module Db.Migrate.V2 exposing (db)
+
+import Db
+import Db.V1
+
+
+db : Db.V1.Db -> Db.Db
+db old =
+    todo_implement_migration_V1_to_V2
+`);
   });
 
   it("generates V3 stub for V2 -> V3 migration", () => {
-    const stub = generateMigrationStub(2, 3);
-    expect(stub).toContain("module Db.Migrate.V3 exposing (db)");
-    expect(stub).toContain("import Db.V2");
-    expect(stub).toContain("import Db");
-    expect(stub).toContain("db : Db.V2.Db -> Db.Db");
-    expect(stub).toContain("todo_implement_migration_V2_to_V3");
-  });
+    expect(generateMigrationStub(2, 3)).toBe(`module Db.Migrate.V3 exposing (db)
 
-  it("produces valid Elm that would compile except for the sentinel", () => {
-    const stub = generateMigrationStub(1, 2);
-    // Should have proper Elm structure
-    expect(stub).toMatch(/^module Db\.Migrate\.V2 exposing/m);
-    // Should have a function body (not just a type signature)
-    expect(stub).toContain("db old =");
+import Db
+import Db.V2
+
+
+db : Db.V2.Db -> Db.Db
+db old =
+    todo_implement_migration_V2_to_V3
+`);
   });
 });
 
@@ -185,19 +164,17 @@ init =
     }
 `;
 
-  it("writes snapshot V1.elm with rewritten module", async () => {
+  it("writes snapshot V1.elm matching rewriteDbModuleToSnapshot output", async () => {
     await writeSchemaVersion(tmpDir, 1);
 
     await createSnapshot(tmpDir, dbSource, 1);
 
     const snapshotPath = path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm");
-    expect(fs.existsSync(snapshotPath)).toBe(true);
     const content = fs.readFileSync(snapshotPath, "utf8");
-    expect(content).toContain("module Db.V1 exposing (Db, init)");
-    expect(content).toContain("{ counter : Int");
+    expect(content).toBe(rewriteDbModuleToSnapshot(dbSource, 1));
   });
 
-  it("writes migration stub V2.elm", async () => {
+  it("writes migration stub V2.elm matching generateMigrationStub output", async () => {
     await writeSchemaVersion(tmpDir, 1);
 
     await createSnapshot(tmpDir, dbSource, 1);
@@ -209,11 +186,8 @@ init =
       "Migrate",
       "V2.elm"
     );
-    expect(fs.existsSync(stubPath)).toBe(true);
     const content = fs.readFileSync(stubPath, "utf8");
-    expect(content).toContain("module Db.Migrate.V2 exposing (db)");
-    expect(content).toContain("import Db.V1");
-    expect(content).toContain("todo_implement_migration_V1_to_V2");
+    expect(content).toBe(generateMigrationStub(1, 2));
   });
 
   it("bumps schema version from 1 to 2", async () => {
@@ -245,92 +219,31 @@ init =
   });
 });
 
-// --- Section B1: generateMigrateChain — single migration (V1→V2) ---
+// --- Section B1-B2: generateMigrateChain ---
 
-describe("generateMigrateChain — single migration", () => {
-  it("generates module MigrateChain exposing (run)", () => {
-    const chain = generateMigrateChain(2);
-    expect(chain).toContain("module MigrateChain exposing (run)");
+describe("generateMigrateChain", () => {
+  it("single migration (target V2) produces correct Elm module", () => {
+    expect(generateMigrateChain(2)).toMatchSnapshot();
   });
 
-  it("imports Db.V1, Db.Migrate.V2 as MigrateV2, Db, and Lamdera.Wire3", () => {
-    const chain = generateMigrateChain(2);
-    expect(chain).toContain("import Db.V1");
-    expect(chain).toContain("import Db.Migrate.V2 as MigrateV2");
-    expect(chain).toContain("import Db");
-    expect(chain).toContain("import Lamdera.Wire3 as Wire");
+  it("multi-step migration (target V3) produces correct Elm module", () => {
+    expect(generateMigrateChain(3)).toMatchSnapshot();
   });
 
-  it("has a case branch for version 1 that decodes with Db.V1.w3_decode_Db", () => {
-    const chain = generateMigrateChain(2);
-    expect(chain).toMatch(/1\s*->/);
-    expect(chain).toContain("Db.V1.w3_decode_Db");
-  });
-
-  it("applies MigrateV2.db in the migration chain", () => {
-    const chain = generateMigrateChain(2);
-    expect(chain).toContain("MigrateV2.db");
-  });
-
-  it("re-encodes with Db.w3_encode_Db for saving", () => {
-    const chain = generateMigrateChain(2);
-    expect(chain).toContain("Db.w3_encode_Db");
-  });
-
-  it("uses BackendTask.Http with elm-pages-internal:// URLs for I/O, NOT LamderaDb", () => {
-    const chain = generateMigrateChain(2);
-    expect(chain).toContain("elm-pages-internal://");
-    expect(chain).toContain("BackendTask.Http.request");
-    expect(chain).toContain("BackendTask.allowFatal");
-    expect(chain).not.toContain("BackendTask.Internal.Request");
-    expect(chain).not.toContain("LamderaDb");
-  });
-
-  it("uses db-migrate-read and db-migrate-write handlers", () => {
-    const chain = generateMigrateChain(2);
-    expect(chain).toContain("db-migrate-read");
-    expect(chain).toContain("db-migrate-write");
-  });
-});
-
-// --- Section B2: generateMigrateChain — multi-step (V1→V2→V3) ---
-
-describe("generateMigrateChain — multi-step migration", () => {
-  it("imports Db.V1, Db.V2, MigrateV2, MigrateV3", () => {
-    const chain = generateMigrateChain(3);
-    expect(chain).toContain("import Db.V1");
-    expect(chain).toContain("import Db.V2");
-    expect(chain).toContain("import Db.Migrate.V2 as MigrateV2");
-    expect(chain).toContain("import Db.Migrate.V3 as MigrateV3");
-  });
-
-  it("has case branches for both versions 1 and 2", () => {
-    const chain = generateMigrateChain(3);
-    expect(chain).toMatch(/1\s*->/);
-    expect(chain).toMatch(/2\s*->/);
-  });
-
-  it("chains V1→V2→V3: migrateFromV1 applies MigrateV2.db then feeds to migrateFromV2", () => {
-    const chain = generateMigrateChain(3);
-    // migrateFromV1 should call MigrateV2.db and then chain to migrateFromV2
-    expect(chain).toContain("migrateFromV1");
-    expect(chain).toContain("migrateFromV2");
-    // migrateFromV2 should apply MigrateV3.db
-    expect(chain).toContain("MigrateV3.db");
+  it("four-step migration (target V4) produces correct Elm module", () => {
+    expect(generateMigrateChain(4)).toMatchSnapshot();
   });
 });
 
 // --- Section B3: writeMigrateChain ---
 
 describe("writeMigrateChain", () => {
-  it("creates .elm-pages-db/MigrateChain.elm with correct content", async () => {
+  it("creates .elm-pages-db/MigrateChain.elm matching generateMigrateChain output", async () => {
     await writeMigrateChain(tmpDir, 2);
 
     const chainPath = path.join(tmpDir, ".elm-pages-db", "MigrateChain.elm");
-    expect(fs.existsSync(chainPath)).toBe(true);
     const content = fs.readFileSync(chainPath, "utf8");
-    expect(content).toContain("module MigrateChain exposing (run)");
-    expect(content).toContain("import Db.V1");
+    expect(content).toBe(generateMigrateChain(2));
   });
 });
 
