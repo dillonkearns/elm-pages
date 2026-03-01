@@ -28,44 +28,44 @@ run =
         |> BackendTask.andThen
             (\\{ version, bytes } ->
                 case version of
-            1 ->
-                case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
-                    Just model ->
-                        migrateFromV1 model
+                    1 ->
+                        case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
+                            Just model ->
+                                migrateFromV1 model
 
-                    Nothing ->
-                        BackendTask.fail
-                            (FatalError.build
-                                { title = "Migration decode failed"
-                                , body = "Could not decode db.bin as V1 data."
-                                }
-                            )
+                            Nothing ->
+                                BackendTask.fail
+                                    (FatalError.build
+                                        { title = "Migration decode failed"
+                                        , body = "Could not decode db.bin as V1 data."
+                                        }
+                                    )
 
-            2 ->
-                case Wire.bytesDecode Db.V2.w3_decode_Db bytes of
-                    Just model ->
-                        migrateFromV2 model
+                    2 ->
+                        case Wire.bytesDecode Db.V2.w3_decode_Db bytes of
+                            Just model ->
+                                migrateFromV2 model
 
-                    Nothing ->
-                        BackendTask.fail
-                            (FatalError.build
-                                { title = "Migration decode failed"
-                                , body = "Could not decode db.bin as V2 data."
-                                }
-                            )
+                            Nothing ->
+                                BackendTask.fail
+                                    (FatalError.build
+                                        { title = "Migration decode failed"
+                                        , body = "Could not decode db.bin as V2 data."
+                                        }
+                                    )
 
-            3 ->
-                case Wire.bytesDecode Db.V3.w3_decode_Db bytes of
-                    Just model ->
-                        migrateFromV3 model
+                    3 ->
+                        case Wire.bytesDecode Db.V3.w3_decode_Db bytes of
+                            Just model ->
+                                migrateFromV3 model
 
-                    Nothing ->
-                        BackendTask.fail
-                            (FatalError.build
-                                { title = "Migration decode failed"
-                                , body = "Could not decode db.bin as V3 data."
-                                }
-                            )
+                            Nothing ->
+                                BackendTask.fail
+                                    (FatalError.build
+                                        { title = "Migration decode failed"
+                                        , body = "Could not decode db.bin as V3 data."
+                                        }
+                                    )
 
                     other ->
                         BackendTask.fail
@@ -177,31 +177,31 @@ run =
         |> BackendTask.andThen
             (\\{ version, bytes } ->
                 case version of
-            1 ->
-                case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
-                    Just model ->
-                        migrateFromV1 model
+                    1 ->
+                        case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
+                            Just model ->
+                                migrateFromV1 model
 
-                    Nothing ->
-                        BackendTask.fail
-                            (FatalError.build
-                                { title = "Migration decode failed"
-                                , body = "Could not decode db.bin as V1 data."
-                                }
-                            )
+                            Nothing ->
+                                BackendTask.fail
+                                    (FatalError.build
+                                        { title = "Migration decode failed"
+                                        , body = "Could not decode db.bin as V1 data."
+                                        }
+                                    )
 
-            2 ->
-                case Wire.bytesDecode Db.V2.w3_decode_Db bytes of
-                    Just model ->
-                        migrateFromV2 model
+                    2 ->
+                        case Wire.bytesDecode Db.V2.w3_decode_Db bytes of
+                            Just model ->
+                                migrateFromV2 model
 
-                    Nothing ->
-                        BackendTask.fail
-                            (FatalError.build
-                                { title = "Migration decode failed"
-                                , body = "Could not decode db.bin as V2 data."
-                                }
-                            )
+                            Nothing ->
+                                BackendTask.fail
+                                    (FatalError.build
+                                        { title = "Migration decode failed"
+                                        , body = "Could not decode db.bin as V2 data."
+                                        }
+                                    )
 
                     other ->
                         BackendTask.fail
@@ -307,18 +307,18 @@ run =
         |> BackendTask.andThen
             (\\{ version, bytes } ->
                 case version of
-            1 ->
-                case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
-                    Just model ->
-                        migrateFromV1 model
+                    1 ->
+                        case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
+                            Just model ->
+                                migrateFromV1 model
 
-                    Nothing ->
-                        BackendTask.fail
-                            (FatalError.build
-                                { title = "Migration decode failed"
-                                , body = "Could not decode db.bin as V1 data."
-                                }
-                            )
+                            Nothing ->
+                                BackendTask.fail
+                                    (FatalError.build
+                                        { title = "Migration decode failed"
+                                        , body = "Could not decode db.bin as V1 data."
+                                        }
+                                    )
 
                     other ->
                         BackendTask.fail

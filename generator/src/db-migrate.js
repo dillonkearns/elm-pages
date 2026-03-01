@@ -164,18 +164,18 @@ export function generateMigrateChain(targetVersion) {
   // Generate case branches
   const caseBranches = snapshotVersions
     .map((v) => {
-      return `            ${v} ->
-                case Wire.bytesDecode Db.V${v}.w3_decode_Db bytes of
-                    Just model ->
-                        migrateFromV${v} model
+      return `                    ${v} ->
+                        case Wire.bytesDecode Db.V${v}.w3_decode_Db bytes of
+                            Just model ->
+                                migrateFromV${v} model
 
-                    Nothing ->
-                        BackendTask.fail
-                            (FatalError.build
-                                { title = "Migration decode failed"
-                                , body = "Could not decode db.bin as V${v} data."
-                                }
-                            )`;
+                            Nothing ->
+                                BackendTask.fail
+                                    (FatalError.build
+                                        { title = "Migration decode failed"
+                                        , body = "Could not decode db.bin as V${v} data."
+                                        }
+                                    )`;
     })
     .join("\n\n");
 
