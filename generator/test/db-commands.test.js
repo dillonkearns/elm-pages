@@ -6,7 +6,7 @@ import * as crypto from "node:crypto";
 
 // We test the reset and init functions by calling them directly.
 // They use process.cwd() for file resolution, so we chdir into a temp dir.
-import { reset, init, migrate } from "../src/commands/db.js";
+import { reset, init, migrate, status } from "../src/commands/db.js";
 import { buildDbBin } from "../src/db-bin-format.js";
 import { writeSchemaVersion } from "../src/db-schema.js";
 
@@ -22,6 +22,7 @@ beforeEach(async () => {
 afterEach(async () => {
   process.chdir(originalCwd);
   await fs.promises.rm(tmpDir, { recursive: true });
+  process.exitCode = undefined;
 });
 
 describe("elm-pages db reset", () => {
@@ -188,5 +189,162 @@ init =
     const logOutput = logSpy.mock.calls.map((c) => c[0]).join("\n");
     expect(logOutput).toContain("Pending migration");
     logSpy.mockRestore();
+  });
+});
+
+describe("elm-pages db status", () => {
+  const dbSource = `module Db exposing (Db, init)
+
+type alias Db =
+    { counter : Int
+    }
+
+init : Db
+init =
+    { counter = 0
+    }
+`;
+
+  function setupProject() {
+    fs.mkdirSync(path.join(tmpDir, "script"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, "script/elm.json"),
+      JSON.stringify({ "source-directories": ["src"] })
+    );
+    fs.mkdirSync(path.join(tmpDir, "script/src"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "script/src/Db.elm"), dbSource);
+  }
+
+  it("shows up-to-date when db.bin matches schema version", async () => {
+    setupProject();
+    const testHash = crypto.createHash("sha256").update("test").digest("hex");
+    fs.writeFileSync(
+      path.join(tmpDir, "db.bin"),
+      buildDbBin(testHash, 2, Buffer.from([1, 2, 3]))
+    );
+    await writeSchemaVersion(tmpDir, 2);
+
+    const logSpy = vi.spyOn(console, "log");
+    await status();
+
+    const logOutput = logSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(logOutput).toContain("up to date");
+    expect(process.exitCode).not.toBe(1);
+    logSpy.mockRestore();
+  });
+
+  it("shows pending migration chain with unimplemented stub", async () => {
+    setupProject();
+    const testHash = crypto.createHash("sha256").update("test").digest("hex");
+    fs.writeFileSync(
+      path.join(tmpDir, "db.bin"),
+      buildDbBin(testHash, 1, Buffer.from([1, 2, 3]))
+    );
+    await writeSchemaVersion(tmpDir, 2);
+
+    // Create snapshot and unimplemented stub
+    fs.mkdirSync(path.join(tmpDir, ".elm-pages-db", "Db", "Migrate"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm"),
+      "module Db.V1 exposing (Db)\ntype alias Db = { counter : Int }"
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, ".elm-pages-db", "Db", "Migrate", "V2.elm"),
+      "module Db.Migrate.V2 exposing (db)\ntodo_implement_migration"
+    );
+
+    const logSpy = vi.spyOn(console, "log");
+    await status();
+
+    const logOutput = logSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(logOutput).toMatch(/V1 → V2/);
+    expect(logOutput).toContain("pending");
+    expect(logOutput).toContain("unimplemented stub");
+    expect(logOutput).toContain("Implement the migration stubs");
+    logSpy.mockRestore();
+  });
+
+  it("does not show migration chain when schema version is 1", async () => {
+    setupProject();
+    await writeSchemaVersion(tmpDir, 1);
+
+    const logSpy = vi.spyOn(console, "log");
+    await status();
+
+    const logOutput = logSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(logOutput).not.toContain("Migration chain");
+    logSpy.mockRestore();
+  });
+});
+
+describe("exit codes", () => {
+  const dbSource = `module Db exposing (Db, init)
+
+type alias Db =
+    { counter : Int
+    }
+
+init : Db
+init =
+    { counter = 0
+    }
+`;
+
+  function setupProject() {
+    fs.mkdirSync(path.join(tmpDir, "script"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, "script/elm.json"),
+      JSON.stringify({ "source-directories": ["src"] })
+    );
+    fs.mkdirSync(path.join(tmpDir, "script/src"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "script/src/Db.elm"), dbSource);
+  }
+
+  it("db status exits 1 when migrations are pending", async () => {
+    setupProject();
+    const testHash = crypto.createHash("sha256").update("test").digest("hex");
+    fs.writeFileSync(
+      path.join(tmpDir, "db.bin"),
+      buildDbBin(testHash, 1, Buffer.from([1, 2, 3]))
+    );
+    await writeSchemaVersion(tmpDir, 2);
+
+    const logSpy = vi.spyOn(console, "log");
+    await status();
+    logSpy.mockRestore();
+
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("db status exits 0 when up-to-date", async () => {
+    setupProject();
+    const testHash = crypto.createHash("sha256").update("test").digest("hex");
+    fs.writeFileSync(
+      path.join(tmpDir, "db.bin"),
+      buildDbBin(testHash, 2, Buffer.from([1, 2, 3]))
+    );
+    await writeSchemaVersion(tmpDir, 2);
+
+    const logSpy = vi.spyOn(console, "log");
+    await status();
+    logSpy.mockRestore();
+
+    expect(process.exitCode).not.toBe(1);
+  });
+
+  it("db migrate Path C exits 1", async () => {
+    setupProject();
+    const testHash = crypto.createHash("sha256").update("test").digest("hex");
+    fs.writeFileSync(
+      path.join(tmpDir, "db.bin"),
+      buildDbBin(testHash, 1, Buffer.from([1, 2, 3]))
+    );
+    await writeSchemaVersion(tmpDir, 2);
+
+    const logSpy = vi.spyOn(console, "log");
+    await migrate();
+    logSpy.mockRestore();
+
+    expect(process.exitCode).toBe(1);
   });
 });

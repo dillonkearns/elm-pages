@@ -114,6 +114,9 @@ export async function status() {
   const cwd = process.cwd();
   const { parseDbBinHeader } = await import("../db-bin-format.js");
   const { readSchemaVersion, computeSchemaHash } = await import("../db-schema.js");
+  const { validateMigrationChain } = await import("../db-migrate.js");
+
+  let dbBinVersion = 0;
 
   // Find Db.elm
   let dbElmPath = null;
@@ -161,6 +164,7 @@ export async function status() {
     try {
       const contents = fs.readFileSync(dbBinPath);
       const parsed = parseDbBinHeader(contents);
+      dbBinVersion = parsed.schemaVersion;
 
       const formatLabel = parsed.formatVersion === 0 ? "v1 (legacy)" : `v${parsed.formatVersion}`;
       console.log(`  Format:          ${formatLabel}`);
@@ -178,9 +182,6 @@ export async function status() {
         }
       }
 
-      if (parsed.schemaVersion !== schemaVersion) {
-        console.log(`\n  Warning: stored schema version (${parsed.schemaVersion}) differs from current (${schemaVersion}).`);
-      }
     } catch (error) {
       console.log(`  Status:          ERROR - ${error.title || error.message || error}`);
     }
@@ -199,24 +200,39 @@ export async function status() {
     }
   }
 
-  // Migrations directory
-  const migrationsDir = path.resolve(cwd, ".elm-pages-db");
-  if (fs.existsSync(migrationsDir)) {
-    const entries = fs.readdirSync(migrationsDir);
-    const dbDir = path.join(migrationsDir, "Db");
-    if (fs.existsSync(dbDir)) {
-      const snapshots = fs.readdirSync(dbDir).filter(f => f.match(/^V\d+\.elm$/));
-      if (snapshots.length > 0) {
-        console.log(`  Snapshots:       ${snapshots.join(", ")}`);
-      }
-      const migrateDir = path.join(dbDir, "Migrate");
-      if (fs.existsSync(migrateDir)) {
-        const migrations = fs.readdirSync(migrateDir).filter(f => f.endsWith(".elm"));
-        if (migrations.length > 0) {
-          console.log(`  Migrations:      ${migrations.join(", ")}`);
+  // Migration chain
+  if (schemaVersion > 1) {
+    if (dbBinVersion >= schemaVersion) {
+      console.log("  Migration chain: up to date");
+    } else {
+      const validation = await validateMigrationChain(cwd, dbBinVersion || 1, schemaVersion);
+      console.log("  Migration chain:");
+      for (let v = 1; v < schemaVersion; v++) {
+        let label;
+        if (dbBinVersion >= v + 1) {
+          label = "applied";
+        } else if (validation.missingFiles && validation.missingFiles.includes(`Db/Migrate/V${v + 1}.elm`)) {
+          label = "missing";
+        } else if (validation.unimplemented && validation.unimplemented.includes(`Db/Migrate/V${v + 1}.elm`)) {
+          label = "pending          (unimplemented stub)";
+        } else {
+          label = "ready";
         }
+        console.log(`    V${v} → V${v + 1}    ${label}`);
+      }
+      if (validation.unimplemented && validation.unimplemented.length > 0) {
+        console.log(`\n  Implement the migration stubs, then run \`elm-pages db migrate\`.`);
+      } else if (validation.missingFiles && validation.missingFiles.length > 0) {
+        console.log(`\n  Run \`elm-pages db migrate\` to create missing migration files.`);
+      } else {
+        console.log(`\n  Run \`elm-pages db migrate\` to apply pending migrations.`);
       }
     }
+  }
+
+  // Exit code 1 when migrations are pending
+  if (schemaVersion > 1 && dbBinVersion > 0 && dbBinVersion < schemaVersion) {
+    process.exitCode = 1;
   }
 
   console.log("");
@@ -290,9 +306,15 @@ export async function migrate() {
         console.log(`\nUnimplemented migration stubs:`);
         for (const f of validation.unimplemented) {
           console.log(`  .elm-pages-db/${f}`);
+          const vMatch = f.match(/V(\d+)\.elm$/);
+          if (vMatch) {
+            const v = parseInt(vMatch[1], 10);
+            console.log(`  Expected: db : Db.V${v - 1}.Db -> Db.Db`);
+          }
         }
       }
       console.log(`\nImplement the migration logic and run \`elm-pages db migrate\` again to apply.`);
+      process.exitCode = 1;
     }
   } else if (migrationStatus.action === "error") {
     throw new Error(
