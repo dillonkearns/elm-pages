@@ -24,6 +24,7 @@ import { Readable, Writable } from "node:stream";
 import * as validateStream from "./validate-stream.js";
 import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 import mergeStreams from "@sindresorhus/merge-streams";
+import { parseDbBinHeader, buildDbBin } from "./db-bin-format.js";
 
 function detectColorSupport() {
   const env = process.env;
@@ -462,8 +463,25 @@ async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
       throw `Unexpected kind ${lookupResponse}`;
     }
   } catch (error) {
-    console.log("@@@ERROR", error);
-    // sendError(app, error);
+    const errorMessage =
+      typeof error === "string"
+        ? error
+        : error.message || String(error);
+
+    return [
+      requestHash,
+      {
+        request: requestToPerform,
+        response: {
+          statusCode: 500,
+          statusText: "Internal Error",
+          headers: {},
+          url: requestToPerform.url,
+          bodyKind: "string",
+          body: errorMessage,
+        },
+      },
+    ];
   }
 }
 
@@ -591,18 +609,35 @@ async function runInternalJob(
         )}`;
     }
   } catch (error) {
-    sendError(app, error);
+    // Format error message from structured {title, message} or plain strings
+    const errorMessage =
+      error.title && error.message
+        ? `-- ${error.title.toUpperCase()} --\n\n${error.message}`
+        : typeof error === "string"
+        ? error
+        : error.message || String(error);
+
+    // Return a proper [requestHash, response] pair so Object.fromEntries
+    // doesn't crash. The non-200 status causes BackendTask.Http to treat
+    // this as a BadStatus error, which becomes a FatalError in Elm.
+    return [
+      requestHash,
+      {
+        request: requestToPerform,
+        response: {
+          statusCode: 500,
+          statusText: "Internal Error",
+          headers: {},
+          url: requestToPerform.url,
+          bodyKind: "string",
+          body: errorMessage,
+        },
+      },
+    ];
   }
 }
 
 // --- Database handlers ---
-
-// db.bin binary format (Phase 1):
-// Offset 0:  4 bytes  - Magic: "EPDB" (0x45 0x50 0x44 0x42)
-// Offset 4:  32 bytes - Schema hash (SHA-256 raw bytes)
-// Offset 36: N bytes  - Wire3-encoded Db data
-const DB_MAGIC = Buffer.from("EPDB", "ascii");
-const DB_HEADER_SIZE = 4 + 32; // magic + hash
 
 // Track the current lock token for cleanup on process exit
 let dbLockToken = null;
@@ -615,27 +650,10 @@ async function runDbRead(req) {
 
   try {
     const fileContents = await fsPromises.readFile(dbBinPath);
-
-    // Validate magic bytes
-    if (fileContents.length < DB_HEADER_SIZE) {
-      throw {
-        title: "db.bin is corrupt",
-        message:
-          "The db.bin file is too small to contain a valid header. Run `elm-pages db reset` to start fresh.",
-      };
-    }
-
-    if (!fileContents.subarray(0, 4).equals(DB_MAGIC)) {
-      throw {
-        title: "db.bin is corrupt",
-        message:
-          "The db.bin file has invalid magic bytes. Run `elm-pages db reset` to start fresh.",
-      };
-    }
+    const parsed = parseDbBinHeader(fileContents);
 
     // Compare schema hash
-    const storedHashHex = fileContents.subarray(4, 36).toString("hex");
-    if (storedHashHex !== schemaHash) {
+    if (parsed.schemaHashHex !== schemaHash) {
       throw {
         title: "Schema mismatch",
         message:
@@ -644,15 +662,14 @@ async function runDbRead(req) {
     }
 
     // Return Wire3 data with length prefix
-    const wire3Data = fileContents.subarray(DB_HEADER_SIZE);
-    const buffer = new Uint8Array(4 + wire3Data.length);
+    const buffer = new Uint8Array(4 + parsed.wire3Data.length);
     const view = new DataView(
       buffer.buffer,
       buffer.byteOffset,
       buffer.byteLength
     );
-    view.setInt32(0, wire3Data.length);
-    wire3Data.copy(buffer, 4);
+    view.setInt32(0, parsed.wire3Data.length);
+    parsed.wire3Data.copy(buffer, 4);
 
     return bytesResponse(req, buffer);
   } catch (error) {
@@ -675,13 +692,19 @@ async function runDbWrite(req) {
   const dbBinPath = path.resolve(cwd, "db.bin");
 
   const wire3Data = Buffer.from(base64Data, "base64");
-  const hashBytes = Buffer.from(schemaHash, "hex");
 
-  // Construct the full db.bin contents
-  const fileBuffer = Buffer.alloc(DB_HEADER_SIZE + wire3Data.length);
-  DB_MAGIC.copy(fileBuffer, 0);
-  hashBytes.copy(fileBuffer, 4);
-  wire3Data.copy(fileBuffer, DB_HEADER_SIZE);
+  // Determine schema version: read from existing db.bin if present, else default to 1
+  let schemaVersion = 1;
+  try {
+    const existing = await fsPromises.readFile(dbBinPath);
+    const parsed = parseDbBinHeader(existing);
+    schemaVersion = parsed.schemaVersion;
+  } catch (_) {
+    // No existing file or unreadable — use default
+  }
+
+  // Always write Phase 2 format (auto-upgrades Phase 1 files)
+  const fileBuffer = buildDbBin(schemaHash, schemaVersion, wire3Data);
 
   // Atomic write: write to temp file then rename
   const tmpPath = `${dbBinPath}.tmp.${process.pid}`;

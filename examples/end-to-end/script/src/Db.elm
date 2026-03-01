@@ -1,14 +1,21 @@
-module Db exposing (Db, init)
+module Db exposing (Db, Todo, init)
 
 
 type alias Db =
-    { counter : Int
-    , name : String
+    { todos : List Todo
+    , nextId : Int
+    }
+
+
+type alias Todo =
+    { id : Int
+    , title : String
+    , completed : Bool
     }
 
 
 init : Db
 init =
-    { counter = 0
-    , name = ""
+    { todos = []
+    , nextId = 1
     }

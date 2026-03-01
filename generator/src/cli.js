@@ -158,6 +158,14 @@ async function main() {
       await init();
     });
 
+  dbCommand
+    .command("status")
+    .description("show database status and schema compatibility")
+    .action(async () => {
+      const { status } = await import("./commands/db.js");
+      await status();
+    });
+
   program.parse(process.argv);
 }
 

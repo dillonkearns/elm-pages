@@ -295,20 +295,6 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
   ensureDirSync(`${projectDirectory}/elm-stuff`);
   ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages`);
 
-  // Generate Pages.Db module if this script uses the database
-  if (options.usesDb) {
-    const { computeSchemaHash } = await import("../db-schema.js");
-    const dbElmPath = await findDbElm(projectDirectory, sourceDirectory);
-    const schemaHash = await computeSchemaHash(dbElmPath);
-    ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Pages`);
-    await writeFileIfChanged(
-      path.join(
-        `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Pages/Db.elm`
-      ),
-      generatePagesDbModule(schemaHash)
-    );
-  }
-
   await writeFileIfChanged(
     path.join(
       `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/ScriptMain.elm`
@@ -329,6 +315,64 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
     `${projectDirectory}/elm-stuff/elm-pages/elm.json`,
     { executableName }
   );
+
+  // Generate Pages.Db module if this script uses the database.
+  // This runs AFTER rewriteElmJson so that deep compare can compile
+  // a witness module using the prepared elm.json and source directories.
+  if (options.usesDb) {
+    const {
+      computeSchemaHash, compareSchemaHash, saveSchemaMeta,
+      compileWitnessAndHash, readSchemaVersion, writeSchemaVersion,
+    } = await import("../db-schema.js");
+    const { parseDbBinHeader, buildDbBin } = await import("../db-bin-format.js");
+
+    const dbElmPath = await findDbElm(projectDirectory, sourceDirectory);
+    const schemaHash = await computeSchemaHash(dbElmPath);
+
+    // Ensure schema version file exists
+    const schemaVersion = await readSchemaVersion(projectDirectory);
+    await writeSchemaVersion(projectDirectory, schemaVersion);
+
+    // Deep compare: if db.bin exists with a different hash, check if it's
+    // a cosmetic change (comments/formatting) vs a structural change.
+    const dbBinPath = path.join(projectDirectory, "db.bin");
+    if (fs.existsSync(dbBinPath)) {
+      const dbBinContents = fs.readFileSync(dbBinPath);
+      const parsed = parseDbBinHeader(dbBinContents);
+
+      if (parsed.schemaHashHex !== schemaHash) {
+        const result = await compareSchemaHash(
+          schemaHash, parsed.schemaHashHex, projectDirectory, executableName
+        );
+        if (result.compatible) {
+          // Cosmetic change only — update db.bin header with new source hash
+          const updatedBin = buildDbBin(schemaHash, parsed.schemaVersion, parsed.wire3Data);
+          const tmpPath = `${dbBinPath}.tmp.${process.pid}`;
+          fs.writeFileSync(tmpPath, updatedBin);
+          fs.renameSync(tmpPath, dbBinPath);
+        }
+        // If not compatible, don't throw here — let the runtime handler
+        // throw with the schema mismatch error when the script runs
+      }
+    } else {
+      // No existing db.bin — save initial compiled hash baseline for future deep compares
+      const compileDir = path.join(projectDirectory, "elm-stuff", "elm-pages");
+      try {
+        const compiledHash = await compileWitnessAndHash(compileDir, executableName);
+        await saveSchemaMeta(projectDirectory, schemaHash, compiledHash);
+      } catch (_) {
+        // Non-fatal: deep compare just won't be available until next successful compile
+      }
+    }
+
+    ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Pages`);
+    await writeFileIfChanged(
+      path.join(
+        `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Pages/Db.elm`
+      ),
+      generatePagesDbModule(schemaHash)
+    );
+  }
 }
 
 /**

@@ -107,6 +107,122 @@ init =
 }
 
 /**
+ * elm-pages db status
+ * Shows database status: Db module location, db.bin info, schema version, compatibility.
+ */
+export async function status() {
+  const cwd = process.cwd();
+  const { parseDbBinHeader } = await import("../db-bin-format.js");
+  const { readSchemaVersion, computeSchemaHash } = await import("../db-schema.js");
+
+  // Find Db.elm
+  let dbElmPath = null;
+  const elmJsonCandidates = [
+    path.resolve(cwd, "script/elm.json"),
+    path.resolve(cwd, "elm.json"),
+  ];
+  for (const elmJsonPath of elmJsonCandidates) {
+    if (fs.existsSync(elmJsonPath)) {
+      const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
+      const sourceDirs = elmJson["source-directories"] || [];
+      const base = path.dirname(elmJsonPath);
+      for (const dir of sourceDirs) {
+        const candidate = path.resolve(base, dir, "Db.elm");
+        if (fs.existsSync(candidate)) {
+          dbElmPath = candidate;
+          break;
+        }
+      }
+      if (dbElmPath) break;
+    }
+  }
+
+  console.log("elm-pages database status\n");
+
+  // Db module
+  if (dbElmPath) {
+    console.log(`  Db module:       ${path.relative(cwd, dbElmPath)}`);
+  } else {
+    console.log("  Db module:       not found");
+    console.log("                   Run 'elm-pages db init' to create one.");
+  }
+
+  // Schema version (from .elm-pages-db/schema-version.json)
+  const schemaVersion = await readSchemaVersion(cwd);
+  console.log(`  Schema version:  ${schemaVersion}`);
+
+  // db.bin
+  const dbBinPath = path.resolve(cwd, "db.bin");
+  if (fs.existsSync(dbBinPath)) {
+    const stat = fs.statSync(dbBinPath);
+    const sizeKb = (stat.size / 1024).toFixed(1);
+    console.log(`  db.bin:          ${sizeKb} KB`);
+
+    try {
+      const contents = fs.readFileSync(dbBinPath);
+      const parsed = parseDbBinHeader(contents);
+
+      const formatLabel = parsed.formatVersion === 0 ? "v1 (legacy)" : `v${parsed.formatVersion}`;
+      console.log(`  Format:          ${formatLabel}`);
+      console.log(`  Stored version:  ${parsed.schemaVersion}`);
+      console.log(`  Stored hash:     ${parsed.schemaHashHex.slice(0, 16)}...`);
+
+      // Compatibility check
+      if (dbElmPath) {
+        const currentHash = await computeSchemaHash(dbElmPath);
+        if (parsed.schemaHashHex === currentHash) {
+          console.log("  Compatibility:   matching");
+        } else {
+          console.log("  Compatibility:   MISMATCHED (source hash differs)");
+          console.log(`  Current hash:    ${currentHash.slice(0, 16)}...`);
+        }
+      }
+
+      if (parsed.schemaVersion !== schemaVersion) {
+        console.log(`\n  Warning: stored schema version (${parsed.schemaVersion}) differs from current (${schemaVersion}).`);
+      }
+    } catch (error) {
+      console.log(`  Status:          ERROR - ${error.title || error.message || error}`);
+    }
+  } else {
+    console.log("  db.bin:          not found (will be created on first write)");
+  }
+
+  // Lock file
+  const dbLockPath = path.resolve(cwd, "db.lock");
+  if (fs.existsSync(dbLockPath)) {
+    try {
+      const lockData = JSON.parse(fs.readFileSync(dbLockPath, "utf8"));
+      console.log(`  Lock:            held by PID ${lockData.pid} (since ${lockData.createdAt})`);
+    } catch (_) {
+      console.log("  Lock:            present (unreadable)");
+    }
+  }
+
+  // Migrations directory
+  const migrationsDir = path.resolve(cwd, ".elm-pages-db");
+  if (fs.existsSync(migrationsDir)) {
+    const entries = fs.readdirSync(migrationsDir);
+    const dbDir = path.join(migrationsDir, "Db");
+    if (fs.existsSync(dbDir)) {
+      const snapshots = fs.readdirSync(dbDir).filter(f => f.match(/^V\d+\.elm$/));
+      if (snapshots.length > 0) {
+        console.log(`  Snapshots:       ${snapshots.join(", ")}`);
+      }
+      const migrateDir = path.join(dbDir, "Migrate");
+      if (fs.existsSync(migrateDir)) {
+        const migrations = fs.readdirSync(migrateDir).filter(f => f.endsWith(".elm"));
+        if (migrations.length > 0) {
+          console.log(`  Migrations:      ${migrations.join(", ")}`);
+        }
+      }
+    }
+  }
+
+  console.log("");
+}
+
+/**
  * Prompt user for yes/no confirmation.
  * @param {string} message
  * @returns {Promise<boolean>}

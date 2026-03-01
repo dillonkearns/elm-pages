@@ -2,7 +2,7 @@ module DbTests exposing (run)
 
 {-| Integration tests for the Pages.Db built-in database.
 
-Run with: cd examples/end-to-end/script && npx elm-pages run DbTests
+Run with: cd examples/end-to-end && node ../../generator/src/cli.js run DbTests
 
 Requires lamdera on PATH (for Wire3 codec generation).
 
@@ -47,16 +47,16 @@ testGetReturnsInitWhenNoDbBin =
         |> BackendTask.andThen (\_ -> Pages.Db.get)
         |> BackendTask.andThen
             (\db ->
-                if db.counter == 0 && db.name == "" then
+                if List.isEmpty db.todos && db.nextId == 1 then
                     pass "get returns init"
 
                 else
                     fail "get returns init"
-                        ("Expected { counter = 0, name = \"\" } but got { counter = "
-                            ++ String.fromInt db.counter
-                            ++ ", name = \""
-                            ++ db.name
-                            ++ "\" }"
+                        ("Expected { todos = [], nextId = 1 } but got { todos = "
+                            ++ String.fromInt (List.length db.todos)
+                            ++ " items, nextId = "
+                            ++ String.fromInt db.nextId
+                            ++ " }"
                         )
             )
 
@@ -68,22 +68,29 @@ testUpdatePersistsData =
     Script.log "Test: update persists data"
         |> BackendTask.andThen
             (\_ ->
-                Pages.Db.update (\db -> { db | counter = 42, name = "test" })
+                Pages.Db.update
+                    (\db ->
+                        { db
+                            | todos = [ { id = 1, title = "Test todo", completed = False } ]
+                            , nextId = 2
+                        }
+                    )
             )
         |> BackendTask.andThen (\_ -> Pages.Db.get)
         |> BackendTask.andThen
             (\db ->
-                if db.counter == 42 && db.name == "test" then
-                    pass "update persists"
+                case db.todos of
+                    [ todo ] ->
+                        if todo.id == 1 && todo.title == "Test todo" && not todo.completed && db.nextId == 2 then
+                            pass "update persists"
 
-                else
-                    fail "update persists"
-                        ("Expected counter=42, name=\"test\" but got counter="
-                            ++ String.fromInt db.counter
-                            ++ ", name=\""
-                            ++ db.name
-                            ++ "\""
-                        )
+                        else
+                            fail "update persists"
+                                ("Expected id=1, title=\"Test todo\", completed=False, nextId=2")
+
+                    _ ->
+                        fail "update persists"
+                            ("Expected 1 todo but got " ++ String.fromInt (List.length db.todos))
             )
 
 
@@ -95,12 +102,18 @@ testGetReadsPersistedData =
         |> BackendTask.andThen (\_ -> Pages.Db.get)
         |> BackendTask.andThen
             (\db ->
-                if db.counter == 42 && db.name == "test" then
-                    pass "get reads persisted"
+                case db.todos of
+                    [ todo ] ->
+                        if todo.title == "Test todo" then
+                            pass "get reads persisted"
 
-                else
-                    fail "get reads persisted"
-                        ("Expected counter=42 but got counter=" ++ String.fromInt db.counter)
+                        else
+                            fail "get reads persisted"
+                                ("Expected title=\"Test todo\" but got \"" ++ todo.title ++ "\"")
+
+                    _ ->
+                        fail "get reads persisted"
+                            ("Expected 1 todo but got " ++ String.fromInt (List.length db.todos))
             )
 
 
@@ -111,17 +124,23 @@ testUpdateIsAdditive =
     Script.log "Test: update is additive"
         |> BackendTask.andThen
             (\_ ->
-                Pages.Db.update (\db -> { db | counter = db.counter + 1 })
+                Pages.Db.update
+                    (\db ->
+                        { db
+                            | todos = db.todos ++ [ { id = db.nextId, title = "Second todo", completed = True } ]
+                            , nextId = db.nextId + 1
+                        }
+                    )
             )
         |> BackendTask.andThen (\_ -> Pages.Db.get)
         |> BackendTask.andThen
             (\db ->
-                if db.counter == 43 then
+                if List.length db.todos == 2 then
                     pass "update additive"
 
                 else
                     fail "update additive"
-                        ("Expected counter=43 but got counter=" ++ String.fromInt db.counter)
+                        ("Expected 2 todos but got " ++ String.fromInt (List.length db.todos))
             )
 
 
@@ -135,33 +154,35 @@ testTransactionReturnsValue =
                 Pages.Db.transaction
                     (\db ->
                         let
-                            oldCounter =
-                                db.counter
+                            count =
+                                List.length db.todos
                         in
                         BackendTask.succeed
-                            ( { db | counter = db.counter + 10 }
-                            , "old=" ++ String.fromInt oldCounter
+                            ( { db
+                                | todos = db.todos ++ [ { id = db.nextId, title = "Third", completed = False } ]
+                                , nextId = db.nextId + 1
+                              }
+                            , "count=" ++ String.fromInt count
                             )
                     )
             )
         |> BackendTask.andThen
             (\result ->
-                if result == "old=43" then
-                    -- Also verify the db was updated
+                if result == "count=2" then
                     Pages.Db.get
                         |> BackendTask.andThen
                             (\db ->
-                                if db.counter == 53 then
+                                if List.length db.todos == 3 then
                                     pass "transaction returns value"
 
                                 else
                                     fail "transaction returns value"
-                                        ("Expected counter=53 but got counter=" ++ String.fromInt db.counter)
+                                        ("Expected 3 todos but got " ++ String.fromInt (List.length db.todos))
                             )
 
                 else
                     fail "transaction returns value"
-                        ("Expected result=\"old=43\" but got \"" ++ result ++ "\"")
+                        ("Expected result=\"count=2\" but got \"" ++ result ++ "\"")
             )
 
 
