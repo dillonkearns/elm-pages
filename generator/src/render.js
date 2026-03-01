@@ -577,6 +577,14 @@ async function runInternalJob(
         return [requestHash, runStartSpinner(requestToPerform)];
       case "elm-pages-internal://stop-spinner":
         return [requestHash, runStopSpinner(requestToPerform)];
+      case "elm-pages-internal://db-read":
+        return [requestHash, await runDbRead(requestToPerform)];
+      case "elm-pages-internal://db-write":
+        return [requestHash, await runDbWrite(requestToPerform)];
+      case "elm-pages-internal://db-lock-acquire":
+        return [requestHash, await runDbLockAcquire(requestToPerform)];
+      case "elm-pages-internal://db-lock-release":
+        return [requestHash, await runDbLockRelease(requestToPerform)];
       default:
         throw `Unexpected internal BackendTask request format: ${kleur.yellow(
           JSON.stringify(2, null, requestToPerform)
@@ -585,6 +593,218 @@ async function runInternalJob(
   } catch (error) {
     sendError(app, error);
   }
+}
+
+// --- Database handlers ---
+
+// db.bin binary format (Phase 1):
+// Offset 0:  4 bytes  - Magic: "EPDB" (0x45 0x50 0x44 0x42)
+// Offset 4:  32 bytes - Schema hash (SHA-256 raw bytes)
+// Offset 36: N bytes  - Wire3-encoded Db data
+const DB_MAGIC = Buffer.from("EPDB", "ascii");
+const DB_HEADER_SIZE = 4 + 32; // magic + hash
+
+// Track the current lock token for cleanup on process exit
+let dbLockToken = null;
+let dbLockCleanupRegistered = false;
+
+async function runDbRead(req) {
+  const cwd = path.resolve(...req.dir);
+  const schemaHash = req.body.args[0];
+  const dbBinPath = path.resolve(cwd, "db.bin");
+
+  try {
+    const fileContents = await fsPromises.readFile(dbBinPath);
+
+    // Validate magic bytes
+    if (fileContents.length < DB_HEADER_SIZE) {
+      throw {
+        title: "db.bin is corrupt",
+        message:
+          "The db.bin file is too small to contain a valid header. Run `elm-pages db reset` to start fresh.",
+      };
+    }
+
+    if (!fileContents.subarray(0, 4).equals(DB_MAGIC)) {
+      throw {
+        title: "db.bin is corrupt",
+        message:
+          "The db.bin file has invalid magic bytes. Run `elm-pages db reset` to start fresh.",
+      };
+    }
+
+    // Compare schema hash
+    const storedHashHex = fileContents.subarray(4, 36).toString("hex");
+    if (storedHashHex !== schemaHash) {
+      throw {
+        title: "Schema mismatch",
+        message:
+          "Your Db type has changed since db.bin was last written. Run `elm-pages db reset` to start fresh (this will delete existing data).",
+      };
+    }
+
+    // Return Wire3 data with length prefix
+    const wire3Data = fileContents.subarray(DB_HEADER_SIZE);
+    const buffer = new Uint8Array(4 + wire3Data.length);
+    const view = new DataView(
+      buffer.buffer,
+      buffer.byteOffset,
+      buffer.byteLength
+    );
+    view.setInt32(0, wire3Data.length);
+    wire3Data.copy(buffer, 4);
+
+    return bytesResponse(req, buffer);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      // File doesn't exist - return length=0 so Elm uses Db.init
+      // Must use DataView to write big-endian int32 (Buffer.from(Int32Array)
+      // copies values as bytes, not the underlying 4-byte representation)
+      const buffer = new Uint8Array(4);
+      new DataView(buffer.buffer).setInt32(0, 0); // big-endian 0
+      return bytesResponse(req, buffer);
+    }
+    // Re-throw structured errors from validation above
+    throw error;
+  }
+}
+
+async function runDbWrite(req) {
+  const cwd = path.resolve(...req.dir);
+  const { hash: schemaHash, data: base64Data } = req.body.args[0];
+  const dbBinPath = path.resolve(cwd, "db.bin");
+
+  const wire3Data = Buffer.from(base64Data, "base64");
+  const hashBytes = Buffer.from(schemaHash, "hex");
+
+  // Construct the full db.bin contents
+  const fileBuffer = Buffer.alloc(DB_HEADER_SIZE + wire3Data.length);
+  DB_MAGIC.copy(fileBuffer, 0);
+  hashBytes.copy(fileBuffer, 4);
+  wire3Data.copy(fileBuffer, DB_HEADER_SIZE);
+
+  // Atomic write: write to temp file then rename
+  const tmpPath = `${dbBinPath}.tmp.${process.pid}`;
+  try {
+    await fsPromises.writeFile(tmpPath, fileBuffer);
+    await fsPromises.rename(tmpPath, dbBinPath);
+  } catch (error) {
+    // Clean up temp file on error
+    try {
+      await fsPromises.unlink(tmpPath);
+    } catch (_) {}
+    throw {
+      title: "db.bin write failed",
+      message: `Failed to write db.bin: ${error.message}`,
+    };
+  }
+
+  return jsonResponse(req, null);
+}
+
+async function runDbLockAcquire(req) {
+  const cwd = path.resolve(...req.dir);
+  const lockPath = path.resolve(cwd, "db.lock");
+  const token = crypto.randomUUID();
+  const lockData = JSON.stringify({
+    pid: process.pid,
+    createdAt: new Date().toISOString(),
+    token,
+  });
+
+  const maxRetries = 50;
+  const retryDelay = 100; // ms
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Exclusive create - fails if file exists
+      await fsPromises.writeFile(lockPath, lockData, { flag: "wx" });
+
+      // Lock acquired
+      dbLockToken = token;
+
+      // Register process exit cleanup (once)
+      if (!dbLockCleanupRegistered) {
+        dbLockCleanupRegistered = true;
+        process.on("exit", () => {
+          if (dbLockToken) {
+            try {
+              const existing = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+              if (existing.token === dbLockToken) {
+                fs.unlinkSync(lockPath);
+              }
+            } catch (_) {}
+          }
+        });
+      }
+
+      return jsonResponse(req, token);
+    } catch (error) {
+      if (error.code !== "EEXIST") {
+        throw {
+          title: "Database lock error",
+          message: `Failed to create db.lock: ${error.message}`,
+        };
+      }
+
+      // Lock file exists - check if stale
+      try {
+        const existingLock = JSON.parse(
+          await fsPromises.readFile(lockPath, "utf8")
+        );
+
+        // Check if the PID is still alive
+        let pidAlive = false;
+        try {
+          process.kill(existingLock.pid, 0);
+          pidAlive = true;
+        } catch (_) {
+          pidAlive = false;
+        }
+
+        // Check if lock is older than 5 minutes
+        const lockAge = Date.now() - new Date(existingLock.createdAt).getTime();
+        const staleTimeout = 5 * 60 * 1000;
+
+        if (!pidAlive || lockAge > staleTimeout) {
+          // Stale lock - remove and retry
+          await fsPromises.unlink(lockPath);
+          continue;
+        }
+
+        // Lock is held by a live process - wait and retry
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      } catch (readError) {
+        // Lock file disappeared between check and read - retry immediately
+        continue;
+      }
+    }
+  }
+
+  throw {
+    title: "Database locked",
+    message: `db.bin is locked by another process. If you believe this is stale, delete db.lock and try again.`,
+  };
+}
+
+async function runDbLockRelease(req) {
+  const cwd = path.resolve(...req.dir);
+  const lockPath = path.resolve(cwd, "db.lock");
+  const token = req.body.args[0];
+
+  try {
+    const existing = JSON.parse(await fsPromises.readFile(lockPath, "utf8"));
+    if (existing.token === token) {
+      await fsPromises.unlink(lockPath);
+      if (dbLockToken === token) {
+        dbLockToken = null;
+      }
+    }
+  } catch (_) {
+    // Lock file already gone - that's fine
+  }
+
+  return jsonResponse(req, null);
 }
 
 /**

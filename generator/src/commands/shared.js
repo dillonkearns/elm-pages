@@ -88,6 +88,148 @@ port gotBatchSub : (Pages.Internal.Platform.GeneratorApplication.JsonValue -> ms
 `;
 }
 
+/**
+ * Generate the Pages.Db Elm module source code.
+ * @param {string} schemaHash - 64-character hex string of the Db.elm SHA-256 hash
+ * @returns {string} Elm source code for the Pages.Db module
+ */
+export function generatePagesDbModule(schemaHash) {
+  return `module Pages.Db exposing (get, update, transaction)
+
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import BackendTask.Internal.Request
+import Base64
+import Bytes exposing (Bytes)
+import Bytes.Decode
+import Bytes.Encode
+import Db
+import FatalError exposing (FatalError)
+import Json.Decode as Decode
+import Json.Encode as Encode
+import Lamdera.Wire3 as Wire
+
+
+schemaHash : String
+schemaHash =
+    "${schemaHash}"
+
+
+get : BackendTask FatalError Db.Db
+get =
+    BackendTask.Internal.Request.request
+        { name = "db-read"
+        , body = BackendTask.Http.jsonBody (Encode.string schemaHash)
+        , expect =
+            Bytes.Decode.signedInt32 Bytes.BE
+                |> Bytes.Decode.andThen
+                    (\\length ->
+                        if length <= 0 then
+                            Bytes.Decode.succeed Nothing
+
+                        else
+                            Bytes.Decode.bytes length
+                                |> Bytes.Decode.map Just
+                    )
+                |> BackendTask.Http.expectBytes
+        }
+        |> BackendTask.andThen
+            (\\maybeBytes ->
+                case maybeBytes of
+                    Nothing ->
+                        BackendTask.succeed Db.init
+
+                    Just bytes ->
+                        case Wire.bytesDecode Db.w3_decode_Db bytes of
+                            Just db ->
+                                BackendTask.succeed db
+
+                            Nothing ->
+                                BackendTask.fail
+                                    (FatalError.build
+                                        { title = "db.bin decode failed"
+                                        , body = "Data is corrupted. Run \`elm-pages db reset\`."
+                                        }
+                                    )
+            )
+
+
+update : (Db.Db -> Db.Db) -> BackendTask FatalError ()
+update fn =
+    transaction (\\db -> BackendTask.succeed ( fn db, () ))
+
+
+transaction : (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a
+transaction fn =
+    acquireLock
+        |> BackendTask.andThen
+            (\\token ->
+                get
+                    |> BackendTask.andThen (\\db -> fn db)
+                    |> BackendTask.andThen
+                        (\\( newDb, result ) ->
+                            write newDb
+                                |> BackendTask.map (\\_ -> result)
+                        )
+                    |> BackendTask.toResult
+                    |> BackendTask.andThen
+                        (\\result ->
+                            releaseLock token
+                                |> BackendTask.andThen
+                                    (\\_ ->
+                                        case result of
+                                            Ok value ->
+                                                BackendTask.succeed value
+
+                                            Err error ->
+                                                BackendTask.fail error
+                                    )
+                        )
+            )
+
+
+write : Db.Db -> BackendTask FatalError ()
+write db =
+    let
+        wire3Bytes =
+            Wire.bytesEncode (Db.w3_encode_Db db)
+
+        base64Data =
+            Base64.fromBytes wire3Bytes
+                |> Maybe.withDefault ""
+    in
+    BackendTask.Internal.Request.request
+        { name = "db-write"
+        , body =
+            BackendTask.Http.jsonBody
+                (Encode.object
+                    [ ( "hash", Encode.string schemaHash )
+                    , ( "data", Encode.string base64Data )
+                    ]
+                )
+        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        }
+
+
+acquireLock : BackendTask FatalError String
+acquireLock =
+    BackendTask.Internal.Request.request
+        { name = "db-lock-acquire"
+        , body = BackendTask.Http.jsonBody Encode.null
+        , expect = BackendTask.Http.expectJson Decode.string
+        }
+
+
+releaseLock : String -> BackendTask FatalError ()
+releaseLock token =
+    BackendTask.Internal.Request.request
+        { name = "db-lock-release"
+        , body = BackendTask.Http.jsonBody (Encode.string token)
+        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        }
+`;
+}
+
 export async function lamderaOrElmFallback() {
   // Return cached result if available
   if (cachedExecutableName) {
@@ -110,7 +252,7 @@ export async function lamderaOrElmFallback() {
   return cachedExecutableName;
 }
 
-export async function compileElmForScript(elmModulePath, resolved) {
+export async function compileElmForScript(elmModulePath, resolved, options = {}) {
   const [
     { ensureDirSync, writeFileIfChanged, syncFilesToDirectory },
     { needsCodegenInstall, updateCodegenMarker },
@@ -152,6 +294,21 @@ export async function compileElmForScript(elmModulePath, resolved) {
 
   ensureDirSync(`${projectDirectory}/elm-stuff`);
   ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages`);
+
+  // Generate Pages.Db module if this script uses the database
+  if (options.usesDb) {
+    const { computeSchemaHash } = await import("../db-schema.js");
+    const dbElmPath = await findDbElm(projectDirectory, sourceDirectory);
+    const schemaHash = await computeSchemaHash(dbElmPath);
+    ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Pages`);
+    await writeFileIfChanged(
+      path.join(
+        `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Pages/Db.elm`
+      ),
+      generatePagesDbModule(schemaHash)
+    );
+  }
+
   await writeFileIfChanged(
     path.join(
       `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/ScriptMain.elm`
@@ -172,4 +329,52 @@ export async function compileElmForScript(elmModulePath, resolved) {
     `${projectDirectory}/elm-stuff/elm-pages/elm.json`,
     { executableName }
   );
+}
+
+/**
+ * Find Db.elm in the project's source directories.
+ * @param {string} projectDirectory
+ * @param {string} sourceDirectory - The source directory where the script module was found
+ * @returns {Promise<string>} Absolute path to Db.elm
+ * @throws If Db.elm is not found
+ */
+async function findDbElm(projectDirectory, sourceDirectory) {
+  // First check the script's own source directory
+  const dbElmInSource = path.join(sourceDirectory, "Db.elm");
+  if (fs.existsSync(dbElmInSource)) {
+    return dbElmInSource;
+  }
+
+  // Also check all source directories from elm.json
+  const elmJsonPath = path.join(projectDirectory, "elm.json");
+  if (fs.existsSync(elmJsonPath)) {
+    const elmJson = JSON.parse(await fs.promises.readFile(elmJsonPath, "utf8"));
+    const sourceDirs = elmJson["source-directories"] || [];
+    for (const dir of sourceDirs) {
+      const candidate = path.resolve(projectDirectory, dir, "Db.elm");
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  throw `Missing Db module
+
+Your script imports Pages.Db, but I couldn't find a Db.elm module in your source directories.
+
+Create a file at ${dbElmInSource} with this template:
+
+    module Db exposing (Db, init)
+
+    type alias Db =
+        { counter : Int
+        }
+
+    init : Db
+    init =
+        { counter = 0
+        }
+
+The Db type alias defines the shape of your database, and init provides
+the initial value used when no db.bin file exists yet.`;
 }
