@@ -348,6 +348,7 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
     // Deep compare: if db.bin exists with a different hash, check if it's
     // a cosmetic change (comments/formatting) vs a structural change.
     const dbBinPath = path.join(runtimeDir, "db.bin");
+    let incompatibleSchemaChange = false;
     if (fs.existsSync(dbBinPath)) {
       const dbBinContents = fs.readFileSync(dbBinPath);
       const parsed = parseDbBinHeader(dbBinContents);
@@ -362,9 +363,9 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
           const tmpPath = `${dbBinPath}.tmp.${process.pid}`;
           fs.writeFileSync(tmpPath, updatedBin);
           fs.renameSync(tmpPath, dbBinPath);
+        } else {
+          incompatibleSchemaChange = true;
         }
-        // If not compatible, don't throw here — let the runtime handler
-        // throw with the schema mismatch error when the script runs
       }
     } else {
       // No existing db.bin — save initial compiled hash baseline for future deep compares
@@ -380,10 +381,21 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
     // Migration auto-apply: if db.bin version < schema version, run migration chain
     const {
       detectMigrationNeeded, validateMigrationChain,
-      prepareMigrationSourceDirs, writeMigrateChain,
+      writeMigrateChain,
     } = await import("../db-migrate.js");
 
     const migrationStatus = await detectMigrationNeeded(runtimeDir);
+    if (incompatibleSchemaChange && migrationStatus.action !== "migrate") {
+      throw `Schema change detected
+
+Your Db.elm type has changed structurally, but db.bin contains data with the old schema.
+
+To preserve your data, create a migration:
+  elm-pages db migrate
+
+To start fresh (discard existing data):
+  elm-pages db reset`;
+    }
     if (migrationStatus.action === "migrate") {
       const validation = await validateMigrationChain(
         runtimeDir,
@@ -405,20 +417,43 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
       await writeMigrateChain(runtimeDir, migrationStatus.toVersion);
 
       const compileDir = path.join(projectDirectory, "elm-stuff", "elm-pages");
+      const elmPagesSourceDir = path.join(compileDir, ".elm-pages");
 
-      // Add .elm-pages-db to source dirs for compilation
-      const restore = await prepareMigrationSourceDirs(compileDir, runtimeDir);
+      // Copy migration Elm files into the existing .elm-pages source directory
+      // instead of modifying elm.json (which triggers compiler cache invalidation
+      // and can cause it to re-resolve the published elm-pages package).
+      const migrationDbDir = path.join(runtimeDir, ".elm-pages-db");
+      const copiedMigrationFiles = [];
+
+      function copyMigrationElmFiles(srcDir, destDir) {
+        if (!fs.existsSync(srcDir)) return;
+        for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+          if (entry.isDirectory()) {
+            copyMigrationElmFiles(
+              path.join(srcDir, entry.name),
+              path.join(destDir, entry.name)
+            );
+          } else if (entry.name.endsWith(".elm")) {
+            const dest = path.join(destDir, entry.name);
+            fs.mkdirSync(destDir, { recursive: true });
+            fs.copyFileSync(path.join(srcDir, entry.name), dest);
+            copiedMigrationFiles.push(dest);
+          }
+        }
+      }
+
+      copyMigrationElmFiles(migrationDbDir, elmPagesSourceDir);
 
       try {
         // Write migration wrapper
         await writeFileIfChanged(
-          path.join(compileDir, ".elm-pages", "ScriptMain.elm"),
+          path.join(elmPagesSourceDir, "ScriptMain.elm"),
           generatorWrapperFile("MigrateChain")
         );
 
         // Compile MigrateChain
         const { compileCliApp } = await import("../compile-elm.js");
-        const elmEntrypointPath = path.join(compileDir, ".elm-pages", "ScriptMain.elm");
+        const elmEntrypointPath = path.join(elmPagesSourceDir, "ScriptMain.elm");
         const migrateOutputPath = path.join(compileDir, "migrate-chain.js");
         await compileCliApp(
           { debug: true },
@@ -435,10 +470,16 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
 
         console.log(`Migration applied: V${migrationStatus.fromVersion} -> V${migrationStatus.toVersion}`);
       } finally {
-        await restore();
+        // Clean up copied migration files
+        for (const filePath of copiedMigrationFiles) {
+          try { fs.unlinkSync(filePath); } catch (_) {}
+        }
+        // Remove migration directories if empty (won't remove if pre-existing files)
+        try { fs.rmdirSync(path.join(elmPagesSourceDir, "Db", "Migrate")); } catch (_) {}
+        try { fs.rmdirSync(path.join(elmPagesSourceDir, "Db")); } catch (_) {}
         // Restore the normal ScriptMain wrapper for the actual script
         await writeFileIfChanged(
-          path.join(compileDir, ".elm-pages", "ScriptMain.elm"),
+          path.join(elmPagesSourceDir, "ScriptMain.elm"),
           generatorWrapperFile(moduleName)
         );
       }
