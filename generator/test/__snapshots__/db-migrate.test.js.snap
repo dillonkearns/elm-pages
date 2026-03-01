@@ -20,61 +20,64 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Lamdera.Wire3 as Wire
+import Pages.Script as Script exposing (Script)
 
 
-run : BackendTask FatalError ()
+run : Script
 run =
-    readDbBin
-        |> BackendTask.andThen
-            (\\{ version, bytes } ->
-                case version of
-                    1 ->
-                        case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
-                            Just model ->
-                                migrateFromV1 model
+    Script.withoutCliOptions
+        (readDbBin
+            |> BackendTask.andThen
+                (\\{ version, bytes } ->
+                    case version of
+                        1 ->
+                            case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
+                                Just model ->
+                                    migrateFromV1 model
 
-                            Nothing ->
-                                BackendTask.fail
-                                    (FatalError.build
-                                        { title = "Migration decode failed"
-                                        , body = "Could not decode db.bin as V1 data."
-                                        }
-                                    )
+                                Nothing ->
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Migration decode failed"
+                                            , body = "Could not decode db.bin as V1 data."
+                                            }
+                                        )
 
-                    2 ->
-                        case Wire.bytesDecode Db.V2.w3_decode_Db bytes of
-                            Just model ->
-                                migrateFromV2 model
+                        2 ->
+                            case Wire.bytesDecode Db.V2.w3_decode_Db bytes of
+                                Just model ->
+                                    migrateFromV2 model
 
-                            Nothing ->
-                                BackendTask.fail
-                                    (FatalError.build
-                                        { title = "Migration decode failed"
-                                        , body = "Could not decode db.bin as V2 data."
-                                        }
-                                    )
+                                Nothing ->
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Migration decode failed"
+                                            , body = "Could not decode db.bin as V2 data."
+                                            }
+                                        )
 
-                    3 ->
-                        case Wire.bytesDecode Db.V3.w3_decode_Db bytes of
-                            Just model ->
-                                migrateFromV3 model
+                        3 ->
+                            case Wire.bytesDecode Db.V3.w3_decode_Db bytes of
+                                Just model ->
+                                    migrateFromV3 model
 
-                            Nothing ->
-                                BackendTask.fail
-                                    (FatalError.build
-                                        { title = "Migration decode failed"
-                                        , body = "Could not decode db.bin as V3 data."
-                                        }
-                                    )
+                                Nothing ->
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Migration decode failed"
+                                            , body = "Could not decode db.bin as V3 data."
+                                            }
+                                        )
 
-                    other ->
-                        BackendTask.fail
-                            (FatalError.build
-                                { title = "Unknown db.bin version"
-                                , body = "db.bin is at version " ++ String.fromInt other ++ " but I only know how to migrate from versions 1-3."
-                                }
-                            )
-            )
+                        other ->
+                            BackendTask.fail
+                                (FatalError.build
+                                    { title = "Unknown db.bin version"
+                                    , body = "db.bin is at version " ++ String.fromInt other ++ " but I only know how to migrate from versions 1-3."
+                                    }
+                                )
+                )
+        )
 
 
 migrateFromV1 : Db.V1.Db -> BackendTask FatalError ()
@@ -169,48 +172,51 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Lamdera.Wire3 as Wire
+import Pages.Script as Script exposing (Script)
 
 
-run : BackendTask FatalError ()
+run : Script
 run =
-    readDbBin
-        |> BackendTask.andThen
-            (\\{ version, bytes } ->
-                case version of
-                    1 ->
-                        case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
-                            Just model ->
-                                migrateFromV1 model
+    Script.withoutCliOptions
+        (readDbBin
+            |> BackendTask.andThen
+                (\\{ version, bytes } ->
+                    case version of
+                        1 ->
+                            case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
+                                Just model ->
+                                    migrateFromV1 model
 
-                            Nothing ->
-                                BackendTask.fail
-                                    (FatalError.build
-                                        { title = "Migration decode failed"
-                                        , body = "Could not decode db.bin as V1 data."
-                                        }
-                                    )
+                                Nothing ->
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Migration decode failed"
+                                            , body = "Could not decode db.bin as V1 data."
+                                            }
+                                        )
 
-                    2 ->
-                        case Wire.bytesDecode Db.V2.w3_decode_Db bytes of
-                            Just model ->
-                                migrateFromV2 model
+                        2 ->
+                            case Wire.bytesDecode Db.V2.w3_decode_Db bytes of
+                                Just model ->
+                                    migrateFromV2 model
 
-                            Nothing ->
-                                BackendTask.fail
-                                    (FatalError.build
-                                        { title = "Migration decode failed"
-                                        , body = "Could not decode db.bin as V2 data."
-                                        }
-                                    )
+                                Nothing ->
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Migration decode failed"
+                                            , body = "Could not decode db.bin as V2 data."
+                                            }
+                                        )
 
-                    other ->
-                        BackendTask.fail
-                            (FatalError.build
-                                { title = "Unknown db.bin version"
-                                , body = "db.bin is at version " ++ String.fromInt other ++ " but I only know how to migrate from versions 1-2."
-                                }
-                            )
-            )
+                        other ->
+                            BackendTask.fail
+                                (FatalError.build
+                                    { title = "Unknown db.bin version"
+                                    , body = "db.bin is at version " ++ String.fromInt other ++ " but I only know how to migrate from versions 1-2."
+                                    }
+                                )
+                )
+        )
 
 
 migrateFromV1 : Db.V1.Db -> BackendTask FatalError ()
@@ -299,35 +305,38 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Lamdera.Wire3 as Wire
+import Pages.Script as Script exposing (Script)
 
 
-run : BackendTask FatalError ()
+run : Script
 run =
-    readDbBin
-        |> BackendTask.andThen
-            (\\{ version, bytes } ->
-                case version of
-                    1 ->
-                        case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
-                            Just model ->
-                                migrateFromV1 model
+    Script.withoutCliOptions
+        (readDbBin
+            |> BackendTask.andThen
+                (\\{ version, bytes } ->
+                    case version of
+                        1 ->
+                            case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
+                                Just model ->
+                                    migrateFromV1 model
 
-                            Nothing ->
-                                BackendTask.fail
-                                    (FatalError.build
-                                        { title = "Migration decode failed"
-                                        , body = "Could not decode db.bin as V1 data."
-                                        }
-                                    )
+                                Nothing ->
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Migration decode failed"
+                                            , body = "Could not decode db.bin as V1 data."
+                                            }
+                                        )
 
-                    other ->
-                        BackendTask.fail
-                            (FatalError.build
-                                { title = "Unknown db.bin version"
-                                , body = "db.bin is at version " ++ String.fromInt other ++ " but I only know how to migrate from versions 1-1."
-                                }
-                            )
-            )
+                        other ->
+                            BackendTask.fail
+                                (FatalError.build
+                                    { title = "Unknown db.bin version"
+                                    , body = "db.bin is at version " ++ String.fromInt other ++ " but I only know how to migrate from versions 1-1."
+                                    }
+                                )
+                )
+        )
 
 
 migrateFromV1 : Db.V1.Db -> BackendTask FatalError ()

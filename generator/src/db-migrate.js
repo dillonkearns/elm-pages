@@ -159,23 +159,24 @@ export function generateMigrateChain(targetVersion) {
     "import Json.Decode as Decode",
     "import Json.Encode as Encode",
     "import Lamdera.Wire3 as Wire",
+    "import Pages.Script as Script exposing (Script)",
   ];
 
   // Generate case branches
   const caseBranches = snapshotVersions
     .map((v) => {
-      return `                    ${v} ->
-                        case Wire.bytesDecode Db.V${v}.w3_decode_Db bytes of
-                            Just model ->
-                                migrateFromV${v} model
+      return `                        ${v} ->
+                            case Wire.bytesDecode Db.V${v}.w3_decode_Db bytes of
+                                Just model ->
+                                    migrateFromV${v} model
 
-                            Nothing ->
-                                BackendTask.fail
-                                    (FatalError.build
-                                        { title = "Migration decode failed"
-                                        , body = "Could not decode db.bin as V${v} data."
-                                        }
-                                    )`;
+                                Nothing ->
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Migration decode failed"
+                                            , body = "Could not decode db.bin as V${v} data."
+                                            }
+                                        )`;
     })
     .join("\n\n");
 
@@ -204,22 +205,24 @@ migrateFromV${v} model =
 ${imports.join("\n")}
 
 
-run : BackendTask FatalError ()
+run : Script
 run =
-    readDbBin
-        |> BackendTask.andThen
-            (\\{ version, bytes } ->
-                case version of
+    Script.withoutCliOptions
+        (readDbBin
+            |> BackendTask.andThen
+                (\\{ version, bytes } ->
+                    case version of
 ${caseBranches}
 
-                    other ->
-                        BackendTask.fail
-                            (FatalError.build
-                                { title = "Unknown db.bin version"
-                                , body = "db.bin is at version " ++ String.fromInt other ++ " but I only know how to migrate from versions 1-${targetVersion - 1}."
-                                }
-                            )
-            )
+                        other ->
+                            BackendTask.fail
+                                (FatalError.build
+                                    { title = "Unknown db.bin version"
+                                    , body = "db.bin is at version " ++ String.fromInt other ++ " but I only know how to migrate from versions 1-${targetVersion - 1}."
+                                    }
+                                )
+                )
+        )
 
 ${migrateFunctions}
 

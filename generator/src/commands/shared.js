@@ -465,7 +465,7 @@ To start fresh (discard existing data):
 
         // Run the migration script
         const renderer = await import("../render.js");
-        const Elm = await requireElm(migrateOutputPath);
+        const Elm = await requireElm(migrateOutputPath.replace(/\.js$/, ".cjs"));
         await renderer.runGenerator([], null, Elm, "MigrateChain");
 
         console.log(`Migration applied: V${migrationStatus.fromVersion} -> V${migrationStatus.toVersion}`);
