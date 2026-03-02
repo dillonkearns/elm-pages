@@ -4,9 +4,9 @@ import * as path from "node:path";
 import * as os from "node:os";
 import * as crypto from "node:crypto";
 
-// We test the reset and init functions by calling them directly.
+// We test db command functions by calling them directly.
 // They use process.cwd() for file resolution, so we chdir into a temp dir.
-import { reset, init, migrate, status } from "../src/commands/db.js";
+import { init, migrate, status } from "../src/commands/db.js";
 import { buildDbBin } from "../src/db-bin-format.js";
 import { writeSchemaVersion, computeSchemaHash } from "../src/db-schema.js";
 
@@ -23,41 +23,6 @@ afterEach(async () => {
   process.chdir(originalCwd);
   await fs.promises.rm(tmpDir, { recursive: true });
   process.exitCode = undefined;
-});
-
-describe("elm-pages db reset", () => {
-  it("does nothing when no db.bin exists", async () => {
-    await reset({ force: true });
-    // Should not throw
-  });
-
-  it("deletes db.bin when it exists", async () => {
-    fs.writeFileSync(path.join(tmpDir, "db.bin"), "test data");
-    expect(fs.existsSync(path.join(tmpDir, "db.bin"))).toBe(true);
-
-    await reset({ force: true });
-
-    expect(fs.existsSync(path.join(tmpDir, "db.bin"))).toBe(false);
-  });
-
-  it("deletes db.lock when it exists", async () => {
-    fs.writeFileSync(path.join(tmpDir, "db.lock"), '{"pid":1}');
-    expect(fs.existsSync(path.join(tmpDir, "db.lock"))).toBe(true);
-
-    await reset({ force: true });
-
-    expect(fs.existsSync(path.join(tmpDir, "db.lock"))).toBe(false);
-  });
-
-  it("deletes both db.bin and db.lock together", async () => {
-    fs.writeFileSync(path.join(tmpDir, "db.bin"), "data");
-    fs.writeFileSync(path.join(tmpDir, "db.lock"), "lock");
-
-    await reset({ force: true });
-
-    expect(fs.existsSync(path.join(tmpDir, "db.bin"))).toBe(false);
-    expect(fs.existsSync(path.join(tmpDir, "db.lock"))).toBe(false);
-  });
 });
 
 describe("elm-pages db init", () => {

@@ -4,7 +4,6 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as readline from "readline";
 
 const DB_GITIGNORE_ENTRIES = ["db.bin", "db.lock"];
 
@@ -38,44 +37,6 @@ function ensureDbGitignoreEntries(cwd) {
   fs.writeFileSync(gitignorePath, next);
 
   return { path: gitignorePath, added: missing };
-}
-
-/**
- * elm-pages db reset [--force]
- * Deletes db.bin and db.lock to start fresh.
- */
-export async function reset(options) {
-  const cwd = process.cwd();
-  const dbBinPath = path.resolve(cwd, "db.bin");
-  const dbLockPath = path.resolve(cwd, "db.lock");
-
-  const dbBinExists = fs.existsSync(dbBinPath);
-  const dbLockExists = fs.existsSync(dbLockPath);
-
-  if (!dbBinExists && !dbLockExists) {
-    console.log("No db.bin or db.lock found. Nothing to reset.");
-    return;
-  }
-
-  if (!options.force) {
-    const confirmed = await confirm(
-      "This will delete your local database (db.bin). Are you sure?"
-    );
-    if (!confirmed) {
-      console.log("Aborted.");
-      return;
-    }
-  }
-
-  if (dbBinExists) {
-    fs.unlinkSync(dbBinPath);
-    console.log("Deleted db.bin");
-  }
-  if (dbLockExists) {
-    fs.unlinkSync(dbLockPath);
-    console.log("Deleted db.lock");
-  }
-  console.log("Database reset complete.");
 }
 
 /**
@@ -431,7 +392,7 @@ export async function migrate(options = {}) {
   } else if (migrationStatus.action === "error") {
     throw new Error(
       `db.bin is at a newer version than the schema. This should not happen.\n` +
-      `Run \`elm-pages db reset\` to start fresh, or restore your schema files.`
+      `Delete db.bin and db.lock to start fresh, or restore your schema files.`
     );
   }
 }
@@ -460,22 +421,4 @@ async function findDbElmForMigration(cwd) {
     }
   }
   return null;
-}
-
-/**
- * Prompt user for yes/no confirmation.
- * @param {string} message
- * @returns {Promise<boolean>}
- */
-function confirm(message) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  return new Promise((resolve) => {
-    rl.question(`${message} [y/N] `, (answer) => {
-      rl.close();
-      resolve(answer.toLowerCase() === "y" || answer.toLowerCase() === "yes");
-    });
-  });
 }

@@ -22,7 +22,7 @@ export function parseDbBinHeader(fileContents) {
     throw {
       title: "db.bin is corrupt",
       message:
-        "The db.bin file is too small to contain a valid header. Run `elm-pages db reset` to start fresh.",
+        "The db.bin file is too small to contain a valid header. Delete db.bin (and db.lock if present) to start fresh.",
     };
   }
 
@@ -30,7 +30,7 @@ export function parseDbBinHeader(fileContents) {
     throw {
       title: "db.bin is corrupt",
       message:
-        "The db.bin file has invalid magic bytes. Run `elm-pages db reset` to start fresh.",
+        "The db.bin file has invalid magic bytes. Delete db.bin (and db.lock if present) to start fresh.",
     };
   }
 

@@ -142,15 +142,6 @@ async function main() {
     .description("manage the local elm-pages database");
 
   dbCommand
-    .command("reset")
-    .description("delete db.bin and db.lock to start fresh")
-    .option("--force", "skip confirmation prompt")
-    .action(async (options) => {
-      const { reset } = await import("./commands/db.js");
-      await reset(options);
-    });
-
-  dbCommand
     .command("init")
     .description("generate a boilerplate Db.elm module")
     .action(async () => {

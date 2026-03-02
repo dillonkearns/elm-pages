@@ -88,7 +88,7 @@ describe("db.bin binary format", () => {
       parseDbBinHeader(Buffer.alloc(10));
     } catch (e) {
       expect(e.title).toBe("db.bin is corrupt");
-      expect(e.message).toContain("elm-pages db reset");
+      expect(e.message).toContain("Delete db.bin");
     }
   });
 

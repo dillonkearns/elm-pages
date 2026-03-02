@@ -712,7 +712,7 @@ async function runDbRead(req) {
       throw {
         title: "Schema mismatch",
         message:
-          "Your Db type has changed since db.bin was last written. Run `elm-pages db reset` to start fresh (this will delete existing data).",
+          "Your Db type has changed since db.bin was last written. Delete db.bin (and db.lock if present) to start fresh (this will delete existing data).",
       };
     }
 

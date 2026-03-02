@@ -303,6 +303,6 @@ Use that only if you understand the risk: it may snapshot the wrong schema as th
 # Show schema/db compatibility and migration status
 npx elm-pages db status
 
-# Reset local db.bin and db.lock
-npx elm-pages db reset
+# Delete default local DB files (if you want to start fresh)
+rm -f db.bin db.lock
 ```
