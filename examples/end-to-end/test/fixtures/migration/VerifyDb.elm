@@ -10,7 +10,7 @@ import Pages.Script as Script exposing (Script)
 run : Script
 run =
     Script.withoutCliOptions
-        (Pages.Db.get
+        (Pages.Db.get Pages.Db.default
             |> BackendTask.andThen
                 (\db ->
                     if List.length db.todos == 3 then

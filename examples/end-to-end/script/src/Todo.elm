@@ -14,7 +14,7 @@ run =
 
 loop : BackendTask FatalError ()
 loop =
-    Pages.Db.get
+    Pages.Db.get Pages.Db.default
         |> BackendTask.andThen
             (\db ->
                 printTodos db
@@ -64,7 +64,7 @@ handleInput key todos =
             Script.question "Title: "
                 |> BackendTask.andThen
                     (\title ->
-                        Pages.Db.update
+                        Pages.Db.update Pages.Db.default
                             (\db ->
                                 { db
                                     | todos =
@@ -87,7 +87,7 @@ handleInput key todos =
                     (\numKey ->
                         case String.toInt numKey |> Maybe.andThen idAtDisplayNum of
                             Just id ->
-                                Pages.Db.update
+                                Pages.Db.update Pages.Db.default
                                     (\db ->
                                         { db
                                             | todos =
@@ -116,7 +116,7 @@ handleInput key todos =
                     (\numKey ->
                         case String.toInt numKey |> Maybe.andThen idAtDisplayNum of
                             Just id ->
-                                Pages.Db.update
+                                Pages.Db.update Pages.Db.default
                                     (\db ->
                                         { db
                                             | todos =

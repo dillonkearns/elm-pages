@@ -1034,7 +1034,7 @@ seed old =
   );
 
   it(
-    "can write to a custom db path through Script.withDatabasePath",
+    "can write to a custom db path through Pages.Db.open",
     async () => {
       const fixtureRoot = path.join(repoRoot, "examples", "end-to-end");
       const fixtureParent = path.join(repoRoot, ".tmp-db-e2e");
@@ -1075,8 +1075,12 @@ dbPath =
 
 run : Script
 run =
+    let
+        session =
+            Pages.Db.open (FilePath.fromString dbPath)
+    in
     Script.withoutCliOptions
-        (Pages.Db.update
+        (Pages.Db.update session
             (\\db ->
                 { db
                     | todos =
@@ -1086,7 +1090,6 @@ run =
             )
             |> BackendTask.andThen (\\_ -> Script.log "Seeded custom path db.")
         )
-        |> Script.withDatabasePath (FilePath.fromString dbPath)
 `
         );
 

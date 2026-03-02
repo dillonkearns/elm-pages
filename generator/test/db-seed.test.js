@@ -12,21 +12,28 @@ describe("Pages.Db codegen", () => {
     expect(generated).not.toContain("BackendTask.succeed Db.init");
   });
 
-  it("exposes path-aware API variants for custom db file locations", () => {
+  it("exposes session-based API for custom db file locations", () => {
     const generated = generatePagesDbModule("abc123", 3);
     expect(generated).toContain(
-      "module Pages.Db exposing (get, update, transaction)"
+      "module Pages.Db exposing (Session, default, open, get, update, transaction)"
+    );
+    expect(generated).toContain("type Session");
+    expect(generated).toContain("open : FilePath -> Session");
+    expect(generated).toContain("default : Session");
+    expect(generated).toContain("get : Session -> BackendTask FatalError Db.Db");
+    expect(generated).toContain(
+      "update : Session -> (Db.Db -> Db.Db) -> BackendTask FatalError ()"
     );
     expect(generated).toContain('( "hash", Encode.string schemaHash )');
     expect(generated).toContain("internalRequest \"db-read-meta\"");
     expect(generated).toContain("internalRequest \"db-migrate-write\"");
     expect(generated).toContain("internalRequest \"db-lock-acquire\"");
-    expect(generated).toContain("BackendTask.Http.jsonBody Encode.null");
+    expect(generated).toContain("sessionFields : Session -> List ( String, Encode.Value )");
     expect(generated).not.toContain("getAt :");
     expect(generated).not.toContain("updateAt :");
     expect(generated).not.toContain("transactionAt :");
     expect(generated).toContain("migrateFromV1");
-    expect(generated).toContain("migrateFromVersion version bytes");
+    expect(generated).toContain("migrateFromVersion session version bytes");
   });
 });
 

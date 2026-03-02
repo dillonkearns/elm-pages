@@ -44,7 +44,7 @@ testGetReturnsInitWhenNoDbBin : BackendTask FatalError ()
 testGetReturnsInitWhenNoDbBin =
     Script.log "Test: get returns Db.init when no db.bin exists"
         |> BackendTask.andThen (\_ -> cleanup)
-        |> BackendTask.andThen (\_ -> Pages.Db.get)
+        |> BackendTask.andThen (\_ -> Pages.Db.get Pages.Db.default)
         |> BackendTask.andThen
             (\db ->
                 if List.isEmpty db.todos && db.nextId == 1 then
@@ -69,6 +69,7 @@ testUpdatePersistsData =
         |> BackendTask.andThen
             (\_ ->
                 Pages.Db.update
+                    Pages.Db.default
                     (\db ->
                         { db
                             | todos = [ { id = 1, title = "Test todo", completed = False } ]
@@ -76,7 +77,7 @@ testUpdatePersistsData =
                         }
                     )
             )
-        |> BackendTask.andThen (\_ -> Pages.Db.get)
+        |> BackendTask.andThen (\_ -> Pages.Db.get Pages.Db.default)
         |> BackendTask.andThen
             (\db ->
                 case db.todos of
@@ -99,7 +100,7 @@ testUpdatePersistsData =
 testGetReadsPersistedData : BackendTask FatalError ()
 testGetReadsPersistedData =
     Script.log "Test: get reads persisted data"
-        |> BackendTask.andThen (\_ -> Pages.Db.get)
+        |> BackendTask.andThen (\_ -> Pages.Db.get Pages.Db.default)
         |> BackendTask.andThen
             (\db ->
                 case db.todos of
@@ -125,6 +126,7 @@ testUpdateIsAdditive =
         |> BackendTask.andThen
             (\_ ->
                 Pages.Db.update
+                    Pages.Db.default
                     (\db ->
                         { db
                             | todos = db.todos ++ [ { id = db.nextId, title = "Second todo", completed = True } ]
@@ -132,7 +134,7 @@ testUpdateIsAdditive =
                         }
                     )
             )
-        |> BackendTask.andThen (\_ -> Pages.Db.get)
+        |> BackendTask.andThen (\_ -> Pages.Db.get Pages.Db.default)
         |> BackendTask.andThen
             (\db ->
                 if List.length db.todos == 2 then
@@ -152,6 +154,7 @@ testTransactionReturnsValue =
         |> BackendTask.andThen
             (\_ ->
                 Pages.Db.transaction
+                    Pages.Db.default
                     (\db ->
                         let
                             count =
@@ -169,7 +172,7 @@ testTransactionReturnsValue =
         |> BackendTask.andThen
             (\result ->
                 if result == "count=2" then
-                    Pages.Db.get
+                    Pages.Db.get Pages.Db.default
                         |> BackendTask.andThen
                             (\db ->
                                 if List.length db.todos == 3 then

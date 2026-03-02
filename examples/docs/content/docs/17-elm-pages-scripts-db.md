@@ -57,10 +57,15 @@ import Pages.Db
 import Pages.Script as Script exposing (Script)
 
 
+session : Pages.Db.Session
+session =
+    Pages.Db.open (FilePath.fromString ".elm-pages-data/prefs.db.bin")
+
+
 run : Script
 run =
     Script.withoutCliOptions
-        (Pages.Db.transaction
+        (Pages.Db.transaction session
             (\db ->
                 let
                     todoId =
@@ -78,7 +83,6 @@ run =
             )
             |> BackendTask.allowFatal
         )
-        |> Script.withDatabasePath (FilePath.fromString ".elm-pages-data/prefs.db.bin")
 ```
 
 Run it:
@@ -92,12 +96,18 @@ npx elm-pages run script/src/AddTodo.elm
 `Pages.Db` exposes:
 
 ```elm
-get : BackendTask FatalError Db.Db
-update : (Db.Db -> Db.Db) -> BackendTask FatalError ()
-transaction : (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a
+type Session
+
+default : Session
+open : FilePath -> Session
+
+get : Session -> BackendTask FatalError Db.Db
+update : Session -> (Db.Db -> Db.Db) -> BackendTask FatalError ()
+transaction : Session -> (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a
 ```
 
-Use `Script.withDatabasePath` once at the top level of your script to set where DB data is stored for that run.
+Use `Pages.Db.open` when your path comes from CLI options or environment values.
+Use `Pages.Db.default` for the default `db.bin` path.
 
 ## Migration Files
 

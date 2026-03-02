@@ -189,10 +189,11 @@ withCliOptions config execute =
         )
 
 
-{-| Configure the default database file path for `Pages.Db` calls in this script run.
+{-| Configure the default database file path for `Pages.Db.default` in this script run.
 
-This lets you define your DB location once at the top level instead of passing
-the path into each database call.
+Use this when you want the shared default session path.
+For explicit session-based paths (for example from CLI options),
+use `Pages.Db.open`.
 
     import FilePath
     import Pages.Db
@@ -201,7 +202,7 @@ the path into each database call.
     run : Script
     run =
         Script.withoutCliOptions
-            (Pages.Db.update (\db -> db)
+            (Pages.Db.update Pages.Db.default (\db -> db)
                 |> BackendTask.allowFatal
             )
             |> Script.withDatabasePath (FilePath.fromString ".elm-pages-data/prefs.db.bin")

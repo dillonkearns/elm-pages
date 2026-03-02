@@ -138,7 +138,7 @@ migrateFromV${fromVersion} old =
         return `        ${fromVersion} ->
             case Wire.bytesDecode Db.V${fromVersion}.w3_decode_Db bytes of
                 Just oldDb ->
-                    persistMigrated (migrateFromV${fromVersion} oldDb)
+                    persistMigrated session (migrateFromV${fromVersion} oldDb)
 
                 Nothing ->
                     BackendTask.fail
@@ -150,13 +150,14 @@ migrateFromV${fromVersion} old =
       }).join("\n\n")
     : "";
 
-  return `module Pages.Db exposing (get, update, transaction)
+  return `module Pages.Db exposing (Session, default, open, get, update, transaction)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import Base64
 import Bytes exposing (Bytes)
 import Db
+import FilePath exposing (FilePath)
 ${snapshotImports.join("\n")}
 ${migrationImports.join("\n")}
 import FatalError exposing (FatalError)
@@ -174,6 +175,29 @@ schemaHash =
 schemaVersion : Int
 schemaVersion =
     ${schemaVersion}
+
+
+type Session
+    = Session String
+
+
+default : Session
+default =
+    Session ""
+
+
+open : FilePath -> Session
+open dbPath =
+    Session (FilePath.toString dbPath)
+
+
+sessionFields : Session -> List ( String, Encode.Value )
+sessionFields (Session dbPath) =
+    if dbPath == "" then
+        []
+
+    else
+        [ ( "path", Encode.string dbPath ) ]
 
 
 type alias DbReadPayload =
@@ -211,19 +235,19 @@ internalRequest name body expect =
         |> BackendTask.allowFatal
 
 
-get : BackendTask FatalError Db.Db
-get =
-    loadDb
+get : Session -> BackendTask FatalError Db.Db
+get session =
+    loadDb session
 
 
-loadDb : BackendTask FatalError Db.Db
-loadDb =
-    readPayload
-        |> BackendTask.andThen resolveReadPayload
+loadDb : Session -> BackendTask FatalError Db.Db
+loadDb session =
+    readPayload session
+        |> BackendTask.andThen (resolveReadPayload session)
 
 
-resolveReadPayload : DbReadPayload -> BackendTask FatalError Db.Db
-resolveReadPayload payload =
+resolveReadPayload : Session -> DbReadPayload -> BackendTask FatalError Db.Db
+resolveReadPayload session payload =
     if payload.version <= 0 || payload.data == "" then
         BackendTask.succeed Pages.DbSeed.seedCurrent
 
@@ -252,21 +276,21 @@ resolveReadPayload payload =
 
             Just bytes ->
                 if payload.version == schemaVersion then
-                    decodeCurrent payload.hash bytes
+                    decodeCurrent session payload.hash bytes
 
                 else
-                    migrateFromVersion payload.version bytes
+                    migrateFromVersion session payload.version bytes
 
 
-decodeCurrent : String -> Bytes -> BackendTask FatalError Db.Db
-decodeCurrent storedHash bytes =
+decodeCurrent : Session -> String -> Bytes -> BackendTask FatalError Db.Db
+decodeCurrent session storedHash bytes =
     case Wire.bytesDecode Db.w3_decode_Db bytes of
         Just db ->
             if storedHash == schemaHash then
                 BackendTask.succeed db
 
             else
-                persistMigrated db
+                persistMigrated session db
 
         Nothing ->
             if storedHash == schemaHash then
@@ -286,8 +310,8 @@ decodeCurrent storedHash bytes =
                     )
 
 
-migrateFromVersion : Int -> Bytes -> BackendTask FatalError Db.Db
-migrateFromVersion version bytes =
+migrateFromVersion : Session -> Int -> Bytes -> BackendTask FatalError Db.Db
+migrateFromVersion session version bytes =
     case version of
 ${hasMigrations ? migrationBranches : ""}
 
@@ -300,15 +324,15 @@ ${hasMigrations ? migrationBranches : ""}
                 )
 
 
-readPayload : BackendTask FatalError DbReadPayload
-readPayload =
+readPayload : Session -> BackendTask FatalError DbReadPayload
+readPayload session =
     internalRequest "db-read-meta"
-        (BackendTask.Http.jsonBody Encode.null)
+        (BackendTask.Http.jsonBody (Encode.object (sessionFields session)))
         (BackendTask.Http.expectJson dbReadPayloadDecoder)
 
 
-persistMigrated : Db.Db -> BackendTask FatalError Db.Db
-persistMigrated db =
+persistMigrated : Session -> Db.Db -> BackendTask FatalError Db.Db
+persistMigrated session db =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db db)
@@ -320,8 +344,9 @@ persistMigrated db =
     internalRequest "db-migrate-write"
         (BackendTask.Http.jsonBody
             (Encode.object
-                [ ( "data", Encode.string base64Data )
-                ]
+                ([ ( "data", Encode.string base64Data ) ]
+                    ++ sessionFields session
+                )
             )
         )
         (BackendTask.Http.expectJson (Decode.succeed ()))
@@ -331,27 +356,27 @@ persistMigrated db =
 ${migrateFunctions}
 
 
-update : (Db.Db -> Db.Db) -> BackendTask FatalError ()
-update fn =
-    transaction (\\db -> BackendTask.succeed ( fn db, () ))
+update : Session -> (Db.Db -> Db.Db) -> BackendTask FatalError ()
+update session fn =
+    transaction session (\\db -> BackendTask.succeed ( fn db, () ))
 
 
-transaction : (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a
-transaction fn =
-    acquireLock
+transaction : Session -> (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a
+transaction session fn =
+    acquireLock session
         |> BackendTask.andThen
             (\\token ->
-                get
+                get session
                     |> BackendTask.andThen (\\db -> fn db)
                     |> BackendTask.andThen
                         (\\( newDb, result ) ->
-                            write newDb
+                            write session newDb
                                 |> BackendTask.map (\\_ -> result)
                         )
                     |> BackendTask.toResult
                     |> BackendTask.andThen
                         (\\result ->
-                            releaseLock token
+                            releaseLock session token
                                 |> BackendTask.andThen
                                     (\\_ ->
                                         case result of
@@ -365,8 +390,8 @@ transaction fn =
             )
 
 
-write : Db.Db -> BackendTask FatalError ()
-write db =
+write : Session -> Db.Db -> BackendTask FatalError ()
+write session db =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db db)
@@ -378,25 +403,33 @@ write db =
     internalRequest "db-write"
         (BackendTask.Http.jsonBody
             (Encode.object
-                [ ( "hash", Encode.string schemaHash )
-                , ( "data", Encode.string base64Data )
-                ]
+                ([ ( "hash", Encode.string schemaHash )
+                 , ( "data", Encode.string base64Data )
+                 ]
+                    ++ sessionFields session
+                )
             )
         )
         (BackendTask.Http.expectJson (Decode.succeed ()))
 
 
-acquireLock : BackendTask FatalError String
-acquireLock =
+acquireLock : Session -> BackendTask FatalError String
+acquireLock session =
     internalRequest "db-lock-acquire"
-        (BackendTask.Http.jsonBody Encode.null)
+        (BackendTask.Http.jsonBody (Encode.object (sessionFields session)))
         (BackendTask.Http.expectJson Decode.string)
 
 
-releaseLock : String -> BackendTask FatalError ()
-releaseLock token =
+releaseLock : Session -> String -> BackendTask FatalError ()
+releaseLock session token =
     internalRequest "db-lock-release"
-        (BackendTask.Http.jsonBody (Encode.string token))
+        (BackendTask.Http.jsonBody
+            (Encode.object
+                ([ ( "token", Encode.string token ) ]
+                    ++ sessionFields session
+                )
+            )
+        )
         (BackendTask.Http.expectJson (Decode.succeed ()))
 `;
 }

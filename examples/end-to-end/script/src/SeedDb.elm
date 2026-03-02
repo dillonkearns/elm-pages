@@ -9,7 +9,7 @@ import Pages.Script as Script exposing (Script)
 run : Script
 run =
     Script.withoutCliOptions
-        (Pages.Db.update
+        (Pages.Db.update Pages.Db.default
             (\db ->
                 { db
                     | todos =
