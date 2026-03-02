@@ -166,4 +166,4 @@ elm-pages bundle-script script/src/Stars.elm
 
 `elm-pages` Scripts can also use a typed local database with `Pages.Db`, including runtime migrations for bundled scripts.
 
-See [Local DB in `elm-pages` Scripts](17-elm-pages-scripts-db) for the full flow.
+See [Local DB in `elm-pages` Scripts](/docs/elm-pages-scripts-db) for the full flow.

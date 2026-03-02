@@ -189,7 +189,7 @@ withCliOptions config execute =
         )
 
 
-{-| Configure the default database file path for [`Pages.Db`](Pages-Db) calls in this script run.
+{-| Configure the default database file path for `Pages.Db` calls in this script run.
 
 This lets you define your DB location once at the top level instead of passing
 the path into each database call.
