@@ -26,7 +26,7 @@ afterEach(async () => {
 });
 
 describe("elm-pages db init", () => {
-  it("creates Db.elm in first source-directory from script/elm.json", async () => {
+  it("creates Db.elm and V1 migration in first source-directory from script/elm.json", async () => {
     // Set up a script/elm.json pointing to script/src
     fs.mkdirSync(path.join(tmpDir, "script"), { recursive: true });
     fs.writeFileSync(
@@ -42,7 +42,19 @@ describe("elm-pages db init", () => {
     const content = fs.readFileSync(dbElmPath, "utf8");
     expect(content).toContain("module Db exposing");
     expect(content).toContain("type alias Db");
-    expect(content).toContain("init : Db");
+    expect(content).not.toContain("init : Db");
+
+    // V1 migration file created
+    const v1Path = path.join(tmpDir, ".elm-pages-db", "Db", "Migrate", "V1.elm");
+    expect(fs.existsSync(v1Path)).toBe(true);
+    const v1Content = fs.readFileSync(v1Path, "utf8");
+    expect(v1Content).toContain("seed : () -> Db.Db");
+
+    // schema-version.json created
+    const versionPath = path.join(tmpDir, ".elm-pages-db", "schema-version.json");
+    expect(fs.existsSync(versionPath)).toBe(true);
+    const versionData = JSON.parse(fs.readFileSync(versionPath, "utf8"));
+    expect(versionData.version).toBe(1);
   });
 
   it("creates Db.elm in first source-directory from elm.json", async () => {
@@ -108,17 +120,35 @@ describe("elm-pages db init", () => {
 });
 
 describe("elm-pages db migrate", () => {
-  const dbSource = `module Db exposing (Db, init)
+  const dbSource = `module Db exposing (Db)
 
 type alias Db =
     { counter : Int
     }
+`;
 
-init : Db
-init =
+  function setupV1Migration() {
+    const migrateDir = path.join(tmpDir, ".elm-pages-db", "Db", "Migrate");
+    fs.mkdirSync(migrateDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(migrateDir, "V1.elm"),
+      `module Db.Migrate.V1 exposing (migrate, seed)
+
+import Db
+
+
+seed : () -> Db.Db
+seed () =
     { counter = 0
     }
-`;
+
+
+migrate : () -> Db.Db
+migrate =
+    seed
+`
+    );
+  }
 
   it("creates snapshot, stub, and MigrateChain.elm", async () => {
     // Set up Db.elm
@@ -130,6 +160,7 @@ init =
     fs.mkdirSync(path.join(tmpDir, "script/src"), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, "script/src/Db.elm"), dbSource);
     await writeSchemaVersion(tmpDir, 1);
+    setupV1Migration();
 
     await migrate();
 
@@ -175,6 +206,7 @@ init =
     );
     fs.mkdirSync(path.join(tmpDir, "script/src"), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, "script/src/Db.elm"), dbSource);
+    setupV1Migration();
 
     // Create pending migration: db.bin at V1, schema at V2
     fs.writeFileSync(
@@ -199,6 +231,7 @@ init =
     );
     fs.mkdirSync(path.join(tmpDir, "script/src"), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, "script/src/Db.elm"), dbSource);
+    setupV1Migration();
 
     const oldHash = await computeSchemaHash(path.join(tmpDir, "script/src/Db.elm"));
     fs.writeFileSync(
@@ -210,17 +243,11 @@ init =
     // User edits Db.elm before running db migrate
     fs.writeFileSync(
       path.join(tmpDir, "script/src/Db.elm"),
-      `module Db exposing (Db, init)
+      `module Db exposing (Db)
 
 type alias Db =
     { counter : Int
     , name : String
-    }
-
-init : Db
-init =
-    { counter = 0
-    , name = ""
     }
 `
     );
@@ -244,6 +271,7 @@ init =
     );
     fs.mkdirSync(path.join(tmpDir, "script/src"), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, "script/src/Db.elm"), dbSource);
+    setupV1Migration();
 
     const oldHash = await computeSchemaHash(path.join(tmpDir, "script/src/Db.elm"));
     fs.writeFileSync(
@@ -254,17 +282,11 @@ init =
 
     fs.writeFileSync(
       path.join(tmpDir, "script/src/Db.elm"),
-      `module Db exposing (Db, init)
+      `module Db exposing (Db)
 
 type alias Db =
     { counter : Int
     , name : String
-    }
-
-init : Db
-init =
-    { counter = 0
-    , name = ""
     }
 `
     );
@@ -280,15 +302,10 @@ init =
 });
 
 describe("elm-pages db status", () => {
-  const dbSource = `module Db exposing (Db, init)
+  const dbSource = `module Db exposing (Db)
 
 type alias Db =
     { counter : Int
-    }
-
-init : Db
-init =
-    { counter = 0
     }
 `;
 
@@ -365,15 +382,10 @@ init =
 });
 
 describe("exit codes", () => {
-  const dbSource = `module Db exposing (Db, init)
+  const dbSource = `module Db exposing (Db)
 
 type alias Db =
     { counter : Int
-    }
-
-init : Db
-init =
-    { counter = 0
     }
 `;
 

@@ -9,15 +9,11 @@ description: Use a local type-safe database in elm-pages scripts with type-safe 
 Think of it like `SQLite`, but with Elm types and type-safe migrations between versions of that Elm type.
 
 ```elm
-module Db exposing (Db, init)
+module Db exposing (Db)
 
 type alias Db =
     { todos : List { title : String, done : Bool }
     }
-
-init : Db
-init =
-    { todos = [] }
 ```
 
 This database API is **script-only**. Use it from `elm-pages run`, or CLIs that you bundle with `elm-pages bundle-script` (not from Route module, i.e. `preRender` or `serverRender`).
@@ -32,7 +28,7 @@ A big thank you to Mario Rogic for Lamdera and Evergreen Migrations. `elm-pages`
 
 ## Key Concepts
 
-- **`Db.elm`** -- You define your database schema as a plain Elm type alias. When you want to change the schema, you change this file.
+- **`Db.elm`** -- You define your database schema as a plain Elm type alias. When you want to change the schema, you change this file. The V1 seed (initial value for fresh installs) lives in `.elm-pages-db/Db/Migrate/V1.elm`.
 - **`Connection`** -- An opaque type that points to a database file on disk. Create one with `Pages.Db.default` (uses `./db.bin`) or `Pages.Db.open` (custom path).
 - **Migrations** -- When you change `Db.elm`, you also write a type-safe migration function (`Db.V1.Db -> Db.Db`) in `.elm-pages-db/Db/Migrate/V*.elm` so existing data is transformed to the new schema. Other generated files in `.elm-pages-db/` are scaffolding you generally don't need to think about.
 
@@ -47,17 +43,14 @@ npx elm-pages db init
 Modifying our `Db.elm` module with a simple counter app type:
 
 ```elm
-module Db exposing (Db, init)
+module Db exposing (Db)
 
 
 type alias Db =
     { count : Int }
-
-
-init : Db
-init =
-    { count = 0 }
 ```
+
+The `db init` command also creates `.elm-pages-db/Db/Migrate/V1.elm` with a `seed` function that provides the initial value for fresh installs.
 
 Use `Pages.Db` in a Script:
 
@@ -176,12 +169,13 @@ transaction :
 .
 ├── script/
 │   └── src/
-│       ├── Db.elm          # current schema + V1 seed (`init`)
+│       ├── Db.elm          # current schema (type only)
 │       └── Counter.elm     # script that reads/writes DB
 ├── .elm-pages-db/
 │   ├── schema-version.json # current schema version
 │   └── Db/
 │       └── Migrate/
+│           ├── V1.elm      # seed: () -> Db.Db
 │           ├── V2.elm      # migration: V1 -> V2
 │           └── V3.elm      # migration: V2 -> V3
 ├── db.bin                  # default DB file (`Pages.Db.default`)
@@ -220,19 +214,12 @@ npx elm-pages run script/src/Counter.elm
 Now change `Db.elm` to V2:
 
 ```elm
-module Db exposing (Db, init)
+module Db exposing (Db)
 
 
 type alias Db =
     { count : Int
     , step : Int
-    }
-
-
-init : Db
-init =
-    { count = 0
-    , step = 1
     }
 ```
 
@@ -288,10 +275,11 @@ Each migration module defines both:
 -- used when upgrading existing stored data.
 migrate : Db.VN.Db -> Db.Db
 
--- used for fresh installs that start from `Db.V1.init`
--- and apply each migration's `seed` function in order.
+-- used for fresh installs that start from `() |> V1.seed |> V2.seed |> ...`
 seed : Db.VN.Db -> Db.Db
 ```
+
+V1 is special: `seed : () -> Db.Db` takes unit since there is no previous version. V2+ take the previous version's `Db` type.
 
 Generated stubs default `seed old = migrate old`, which is the right choice most of the time. You only need a different `seed` when fresh installs should start with different data than what existing users get after migration.
 
@@ -374,7 +362,7 @@ rm -f db.bin.lock
 
 ### `db.bin` seems corrupt or can't be decoded
 
-Delete `db.bin` and let it be re-created from `Db.init` (or the seed chain if you have migrations):
+Delete `db.bin` and let it be re-created from the seed chain (`() |> V1.seed |> V2.seed |> ...`):
 
 ```shell
 rm -f db.bin db.bin.lock

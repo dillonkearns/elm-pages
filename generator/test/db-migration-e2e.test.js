@@ -45,51 +45,30 @@ let originalCwd;
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const cliPath = path.join(repoRoot, "generator", "src", "cli.js");
 
-const dbSourceV1 = `module Db exposing (Db, init)
+const dbSourceV1 = `module Db exposing (Db)
 
 
 type alias Db =
     { counter : Int
     }
-
-
-init : Db
-init =
-    { counter = 0
-    }
 `;
 
-const dbSourceV2 = `module Db exposing (Db, init)
+const dbSourceV2 = `module Db exposing (Db)
 
 
 type alias Db =
     { counter : Int
     , name : String
     }
-
-
-init : Db
-init =
-    { counter = 0
-    , name = ""
-    }
 `;
 
-const dbSourceV3 = `module Db exposing (Db, init)
+const dbSourceV3 = `module Db exposing (Db)
 
 
 type alias Db =
     { counter : Int
     , name : String
     , active : Bool
-    }
-
-
-init : Db
-init =
-    { counter = 0
-    , name = ""
-    , active = True
     }
 `;
 
@@ -113,6 +92,28 @@ function setupProject(dbSource) {
     })
   );
   fs.writeFileSync(path.join(srcDir, "Db.elm"), dbSource);
+
+  // Create V1 migration file
+  const migrateDir = path.join(tmpDir, ".elm-pages-db", "Db", "Migrate");
+  fs.mkdirSync(migrateDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(migrateDir, "V1.elm"),
+    `module Db.Migrate.V1 exposing (migrate, seed)
+
+import Db
+
+
+seed : () -> Db.Db
+seed () =
+    { counter = 0
+    }
+
+
+migrate : () -> Db.Db
+migrate =
+    seed
+`
+  );
 }
 
 /**
@@ -533,7 +534,7 @@ describe("E2E: error cases", () => {
     const snapshotPath = path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm");
     expect(fs.existsSync(snapshotPath)).toBe(true);
     const snapshotContent = fs.readFileSync(snapshotPath, "utf8");
-    expect(snapshotContent).toContain("module Db.V1 exposing (Db, init)");
+    expect(snapshotContent).toContain("module Db.V1 exposing (Db)");
     expect(snapshotContent).toContain("{ counter : Int");
     expect(snapshotContent).not.toContain(", name : String");
 
@@ -851,6 +852,9 @@ describe("E2E: real CLI flow with fixture project", () => {
         fs.cpSync(path.join(fixtureRoot, "codegen"), path.join(fixtureCwd, "codegen"), {
           recursive: true,
         });
+        fs.cpSync(path.join(fixtureRoot, ".elm-pages-db"), path.join(fixtureCwd, ".elm-pages-db"), {
+          recursive: true,
+        });
 
         const seed = runElmPagesCli(["run", "script/src/SeedDb.elm"], fixtureCwd);
         if (seed.status !== 0) {
@@ -871,7 +875,7 @@ describe("E2E: real CLI flow with fixture project", () => {
         );
         expect(fs.existsSync(historyPath)).toBe(true);
 
-        const staleDbSource = `module Db exposing (Db, Todo, init)
+        const staleDbSource = `module Db exposing (Db, Todo)
 
 
 type alias Db =
@@ -885,13 +889,6 @@ type alias Todo =
     , title : String
     , completed : Bool
     , tags : List String
-    }
-
-
-init : Db
-init =
-    { todos = []
-    , nextId = 1
     }
 `;
         fs.writeFileSync(dbElmPath, staleDbSource);
@@ -917,7 +914,7 @@ init =
         );
         expect(fs.existsSync(snapshotPath)).toBe(true);
         const snapshotContent = fs.readFileSync(snapshotPath, "utf8");
-        expect(snapshotContent).toContain("module Db.V1 exposing (Db, Todo, init)");
+        expect(snapshotContent).toContain("module Db.V1 exposing (Db, Todo)");
         expect(snapshotContent).toContain(", completed : Bool");
         expect(snapshotContent).not.toContain(", tags : List String");
       } finally {
@@ -928,7 +925,7 @@ init =
   );
 
   it(
-    "can initialize from V1 seed chain after removing current Db.init",
+    "can initialize from V1 seed chain at V2 schema",
     async () => {
       const fixtureRoot = path.join(repoRoot, "examples", "end-to-end");
       const fixtureParent = path.join(repoRoot, ".tmp-db-e2e");
@@ -942,6 +939,9 @@ init =
           recursive: true,
         });
         fs.cpSync(path.join(fixtureRoot, "codegen"), path.join(fixtureCwd, "codegen"), {
+          recursive: true,
+        });
+        fs.cpSync(path.join(fixtureRoot, ".elm-pages-db"), path.join(fixtureCwd, ".elm-pages-db"), {
           recursive: true,
         });
 
@@ -1016,7 +1016,7 @@ seed old =
         );
         if (seedFromChain.status !== 0) {
           throw new Error(
-            `SeedDb after removing Db.init failed (status ${seedFromChain.status})\nSTDOUT:\n${seedFromChain.stdout}\nSTDERR:\n${seedFromChain.stderr}`
+            `SeedDb at V2 schema failed (status ${seedFromChain.status})\nSTDOUT:\n${seedFromChain.stdout}\nSTDERR:\n${seedFromChain.stderr}`
           );
         }
 
@@ -1048,6 +1048,9 @@ seed old =
           recursive: true,
         });
         fs.cpSync(path.join(fixtureRoot, "codegen"), path.join(fixtureCwd, "codegen"), {
+          recursive: true,
+        });
+        fs.cpSync(path.join(fixtureRoot, ".elm-pages-db"), path.join(fixtureCwd, ".elm-pages-db"), {
           recursive: true,
         });
 
@@ -1141,6 +1144,9 @@ run =
           recursive: true,
         });
         fs.cpSync(path.join(fixtureRoot, "codegen"), path.join(fixtureCwd, "codegen"), {
+          recursive: true,
+        });
+        fs.cpSync(path.join(fixtureRoot, ".elm-pages-db"), path.join(fixtureCwd, ".elm-pages-db"), {
           recursive: true,
         });
 

@@ -34,6 +34,23 @@ export function rewriteDbModuleToSnapshot(source, version) {
  * @returns {string} Elm source for the migration stub
  */
 export function generateMigrationStub(fromVersion, toVersion) {
+  if (fromVersion === 0) {
+    return `module Db.Migrate.V1 exposing (migrate, seed)
+
+import Db
+
+
+seed : () -> Db.Db
+seed () =
+    todo_implement_seed_V1
+
+
+migrate : () -> Db.Db
+migrate =
+    seed
+`;
+  }
+
   return `module Db.Migrate.V${toVersion} exposing (migrate, seed)
 
 import Db
@@ -109,6 +126,15 @@ export async function createSnapshot(projectDir, dbSource, currentVersion) {
     snapshotSource
   );
 
+  // Freeze the current migration file: rewrite `Db.Db` → `Db.V{currentVersion}.Db`
+  // so the seed chain types remain correct after the schema advances.
+  const currentMigrationPath = path.join(migrateDir, `V${currentVersion}.elm`);
+  if (fs.existsSync(currentMigrationPath)) {
+    const migrationSource = await fs.promises.readFile(currentMigrationPath, "utf8");
+    const frozen = freezeMigrationReturnType(migrationSource, currentVersion);
+    await fs.promises.writeFile(currentMigrationPath, frozen);
+  }
+
   // Write migration stub
   const stubSource = generateMigrationStub(currentVersion, newVersion);
   await fs.promises.writeFile(
@@ -118,6 +144,34 @@ export async function createSnapshot(projectDir, dbSource, currentVersion) {
 
   // Bump schema version
   await writeSchemaVersion(projectDir, newVersion);
+}
+
+/**
+ * Rewrite a migration file's return type from `Db.Db` to `Db.V{version}.Db`.
+ * This "freezes" the migration so seed chains stay type-correct when the
+ * schema advances past this version.
+ *
+ * - Replaces `import Db` with `import Db.V{version}` (or adds it if missing)
+ * - Replaces `Db.Db` with `Db.V{version}.Db` in type annotations
+ *
+ * @param {string} source - The migration file source
+ * @param {number} version - The version to freeze to
+ * @returns {string} The rewritten source
+ */
+export function freezeMigrationReturnType(source, version) {
+  let result = source;
+
+  // Replace `import Db\n` with `import Db.V{version}\n`
+  // (only the bare `import Db` line, not `import Db.V1` etc.)
+  result = result.replace(
+    /^(import\s+)Db(\s*)$/m,
+    `$1Db.V${version}$2`
+  );
+
+  // Replace `Db.Db` with `Db.V{version}.Db` in type annotations
+  result = result.replace(/\bDb\.Db\b/g, `Db.V${version}.Db`);
+
+  return result;
 }
 
 // --- B1-B2: generateMigrateChain ---
@@ -351,7 +405,9 @@ export async function validateMigrationChain(projectDir, fromVersion, toVersion)
   const dbDir = path.join(projectDir, ".elm-pages-db");
 
   // Check snapshot files: V{i}.elm for i in [fromVersion..toVersion-1]
+  // Skip V0 since there is no snapshot for the virtual V0 (it's always `()`)
   for (let v = fromVersion; v < toVersion; v++) {
+    if (v === 0) continue;
     const snapshotPath = path.join(dbDir, "Db", `V${v}.elm`);
     if (!fs.existsSync(snapshotPath)) {
       missingFiles.push(`Db/V${v}.elm`);
@@ -366,7 +422,7 @@ export async function validateMigrationChain(projectDir, fromVersion, toVersion)
     } else {
       // Check for sentinel
       const content = fs.readFileSync(migrationPath, "utf8");
-      if (content.includes("todo_implement_migration")) {
+      if (content.includes("todo_implement_")) {
         unimplemented.push(`Db/Migrate/V${v}.elm`);
       }
     }

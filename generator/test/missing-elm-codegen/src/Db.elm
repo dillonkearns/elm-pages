@@ -1,12 +1,6 @@
-module Db exposing (Db, init)
+module Db exposing (Db)
 
 
 type alias Db =
     { counter : Int
-    }
-
-
-init : Db
-init =
-    { counter = 0
     }

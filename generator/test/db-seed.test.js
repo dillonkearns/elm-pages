@@ -40,19 +40,20 @@ describe("Pages.Db codegen", () => {
 });
 
 describe("Pages.DbSeed codegen", () => {
-  it("uses Db.init for schema V1", () => {
+  it("uses MigrateV1.seed () for schema V1", () => {
     const generated = generatePagesDbSeedModule(1);
     expect(generated).toContain("module Pages.DbSeed exposing (seedCurrent)");
     expect(generated).toContain("seedCurrent : Db.Db");
-    expect(generated).toContain("Db.init");
+    expect(generated).toContain("MigrateV1.seed ()");
+    expect(generated).not.toContain("Db.init");
   });
 
-  it("chains from Db.V1.init for schema V3 using seed functions", () => {
+  it("chains from MigrateV1.seed () for schema V3 using seed functions", () => {
     const generated = generatePagesDbSeedModule(3);
-    expect(generated).toContain("import Db.V1");
+    expect(generated).toContain("import Db.Migrate.V1 as MigrateV1");
     expect(generated).toContain("import Db.Migrate.V2 as MigrateV2");
     expect(generated).toContain("import Db.Migrate.V3 as MigrateV3");
-    expect(generated).toContain("Db.V1.init");
+    expect(generated).toContain("MigrateV1.seed ()");
     expect(generated).toContain("|> MigrateV2.seed");
     expect(generated).toContain("|> MigrateV3.seed");
   });

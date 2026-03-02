@@ -105,23 +105,48 @@ export async function init() {
     return;
   }
 
-  const template = `module Db exposing (Db, init)
+  const { writeSchemaVersion } = await import("../db-schema.js");
+
+  const dbTemplate = `module Db exposing (Db)
 
 
 type alias Db =
     { counter : Int
     }
+`;
+
+  const v1Template = `module Db.Migrate.V1 exposing (migrate, seed)
+
+import Db
 
 
-init : Db
-init =
+seed : () -> Db.Db
+seed () =
     { counter = 0
     }
+
+
+migrate : () -> Db.Db
+migrate =
+    seed
 `;
 
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-  fs.writeFileSync(targetPath, template);
+  fs.writeFileSync(targetPath, dbTemplate);
   console.log(`Created ${targetPath}`);
+
+  // Create V1 migration file
+  const runtimeDir = process.cwd();
+  const v1MigrationDir = path.join(runtimeDir, ".elm-pages-db", "Db", "Migrate");
+  const v1MigrationPath = path.join(v1MigrationDir, "V1.elm");
+  fs.mkdirSync(v1MigrationDir, { recursive: true });
+  fs.writeFileSync(v1MigrationPath, v1Template);
+  console.log(`Created ${v1MigrationPath}`);
+
+  // Create schema-version.json
+  await writeSchemaVersion(runtimeDir, 1);
+  console.log(`Created .elm-pages-db/schema-version.json`);
+
   if (gitignoreUpdate.added.length > 0) {
     console.log(
       `Updated ${path.relative(process.cwd(), gitignoreUpdate.path)} with: ${gitignoreUpdate.added.join(
@@ -133,7 +158,7 @@ init =
     "\nEdit the Db type alias to define your database schema, then import Pages.Db in your scripts."
   );
   console.log(
-    "Db.init is your V1 seed. After your first migration, fresh installs seed from Db.V1.init through the migration chain."
+    "The V1 seed in .elm-pages-db/Db/Migrate/V1.elm provides the initial value for fresh installs."
   );
 }
 
@@ -374,13 +399,8 @@ export async function migrate(options = {}) {
     console.log(`  Chain:    .elm-pages-db/MigrateChain.elm`);
     console.log(`\nNext steps:`);
     console.log(`  1. Edit .elm-pages-db/Db/Migrate/V${newVersion}.elm to implement the migration`);
-    console.log(`  2. Replace the todo_implement_migration sentinel with your migration logic`);
+    console.log(`  2. Replace the todo_implement_ sentinel with your migration logic`);
     console.log(`  3. Run \`elm-pages db migrate\` again to apply the migration`);
-    if (currentVersion === 1) {
-      console.log(
-        `\nAfter V1 -> V2 is in place, fresh installs seed from Db.V1.init through migrations, so current Db.init can be removed.`
-      );
-    }
   } else if (migrationStatus.action === "migrate") {
     // Pending migration: validate chain
     const validation = await validateMigrationChain(
@@ -409,7 +429,11 @@ export async function migrate(options = {}) {
           const vMatch = f.match(/V(\d+)\.elm$/);
           if (vMatch) {
             const v = parseInt(vMatch[1], 10);
-            console.log(`  Expected: migrate : Db.V${v - 1}.Db -> Db.Db`);
+            if (v === 1) {
+              console.log(`  Expected: seed : () -> Db.Db`);
+            } else {
+              console.log(`  Expected: migrate : Db.V${v - 1}.Db -> Db.Db`);
+            }
           }
         }
       }

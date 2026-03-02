@@ -1,4 +1,4 @@
-module Db exposing (Db, Todo, init)
+module Db exposing (Db, Todo)
 
 
 type alias Db =
@@ -12,11 +12,4 @@ type alias Todo =
     , title : String
     , completed : Bool
     , description : String
-    }
-
-
-init : Db
-init =
-    { todos = []
-    , nextId = 1
     }

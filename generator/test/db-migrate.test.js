@@ -87,6 +87,23 @@ type alias Db = { x : Int }
 // --- Section A2: generateMigrationStub ---
 
 describe("generateMigrationStub", () => {
+  it("generates V1 seed stub for V0 -> V1 migration", () => {
+    expect(generateMigrationStub(0, 1)).toBe(`module Db.Migrate.V1 exposing (migrate, seed)
+
+import Db
+
+
+seed : () -> Db.Db
+seed () =
+    todo_implement_seed_V1
+
+
+migrate : () -> Db.Db
+migrate =
+    seed
+`);
+  });
+
   it("generates V2 stub for V1 -> V2 migration", () => {
     expect(generateMigrationStub(1, 2)).toBe(`module Db.Migrate.V2 exposing (migrate, seed)
 
@@ -359,6 +376,33 @@ describe("validateMigrationChain", () => {
     const result = await validateMigrationChain(tmpDir, 1, 2);
     expect(result.valid).toBe(false);
     expect(result.unimplemented).toContain("Db/Migrate/V2.elm");
+  });
+
+  it("reports unimplemented V1 seed (todo_implement_seed sentinel)", async () => {
+    const migrateDir = path.join(tmpDir, ".elm-pages-db", "Db", "Migrate");
+    fs.mkdirSync(migrateDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(migrateDir, "V1.elm"),
+      "module Db.Migrate.V1 exposing (migrate, seed)\nseed () = todo_implement_seed_V1\nmigrate = seed\n"
+    );
+
+    const result = await validateMigrationChain(tmpDir, 0, 1);
+    expect(result.valid).toBe(false);
+    expect(result.unimplemented).toContain("Db/Migrate/V1.elm");
+  });
+
+  it("skips V0 snapshot check (virtual V0 has no file)", async () => {
+    const migrateDir = path.join(tmpDir, ".elm-pages-db", "Db", "Migrate");
+    fs.mkdirSync(migrateDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(migrateDir, "V1.elm"),
+      "module Db.Migrate.V1 exposing (migrate, seed)\nimport Db\nseed () = { counter = 0 }\nmigrate = seed\n"
+    );
+
+    const result = await validateMigrationChain(tmpDir, 0, 1);
+    expect(result.valid).toBe(true);
   });
 });
 

@@ -436,30 +436,17 @@ releaseLock connection token =
 
 /**
  * Generate the Pages.DbSeed module source code.
- * Uses Db.init for schema V1, and for V2+ bootstraps from Db.V1.init through
- * `seed` functions in each migration module.
+ * Always seeds from `Db.Migrate.V1.seed ()` through the migration chain.
  *
  * @param {number} schemaVersion
  * @returns {string}
  */
 export function generatePagesDbSeedModule(schemaVersion) {
-  if (schemaVersion <= 1) {
-    return `module Pages.DbSeed exposing (seedCurrent)
-
-import Db
-
-
-seedCurrent : Db.Db
-seedCurrent =
-    Db.init
-`;
-  }
-
   const imports = [
     "import Db",
-    "import Db.V1",
+    "import Db.Migrate.V1 as MigrateV1",
     ...Array.from(
-      { length: schemaVersion - 1 },
+      { length: Math.max(0, schemaVersion - 1) },
       (_, index) => {
         const version = index + 2;
         return `import Db.Migrate.V${version} as MigrateV${version}`;
@@ -468,13 +455,17 @@ seedCurrent =
   ];
 
   const pipeline = Array.from(
-    { length: schemaVersion - 1 },
+    { length: Math.max(0, schemaVersion - 1) },
     (_, index) => {
       const version = index + 2;
       return `|> MigrateV${version}.seed`;
     }
   )
     .join("\n        ");
+
+  const seedExpr = pipeline
+    ? `MigrateV1.seed ()\n        ${pipeline}`
+    : `MigrateV1.seed ()`;
 
   return `module Pages.DbSeed exposing (seedCurrent)
 
@@ -483,8 +474,7 @@ ${imports.join("\n")}
 
 seedCurrent : Db.Db
 seedCurrent =
-    Db.V1.init
-        ${pipeline}
+    ${seedExpr}
 `;
 }
 
@@ -606,37 +596,31 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
       ".elm-pages",
       "Db"
     );
-    if (schemaVersion > 1) {
-      // Seeding from scratch at V2+ replays V1 -> current using migration functions.
-      // Validate the full chain so fresh installs are deterministic and safe.
-      const seedValidation = await validateMigrationChain(
-        runtimeDir,
-        1,
-        schemaVersion
-      );
-      if (!seedValidation.valid) {
-        const issues = [];
-        if (seedValidation.missingFiles && seedValidation.missingFiles.length > 0) {
-          issues.push(`Missing files: ${seedValidation.missingFiles.join(", ")}`);
-        }
-        if (seedValidation.unimplemented && seedValidation.unimplemented.length > 0) {
-          issues.push(`Unimplemented migrations: ${seedValidation.unimplemented.join(", ")}`);
-        }
-        throw `Initial seed is incomplete for schema V${schemaVersion}.\n\nI need a valid V1 -> V${schemaVersion} migration chain so a fresh install (no db.bin) can initialize safely.\n\n${issues.join("\n")}\n\nImplement the migration stubs in .elm-pages-db/Db/Migrate/ and rerun your script.`;
+    // Validate the full seed chain (V0 → current) so fresh installs are
+    // deterministic and safe. V0 is virtual (`()`), so validation starts from 0.
+    const seedValidation = await validateMigrationChain(
+      runtimeDir,
+      0,
+      schemaVersion
+    );
+    if (!seedValidation.valid) {
+      const issues = [];
+      if (seedValidation.missingFiles && seedValidation.missingFiles.length > 0) {
+        issues.push(`Missing files: ${seedValidation.missingFiles.join(", ")}`);
       }
-
-      try {
-        fs.rmSync(compileDbDir, { recursive: true, force: true });
-      } catch (_) {}
-      copyMigrationElmFiles(
-        path.join(runtimeDir, ".elm-pages-db", "Db"),
-        compileDbDir
-      );
-    } else {
-      try {
-        fs.rmSync(compileDbDir, { recursive: true, force: true });
-      } catch (_) {}
+      if (seedValidation.unimplemented && seedValidation.unimplemented.length > 0) {
+        issues.push(`Unimplemented migrations: ${seedValidation.unimplemented.join(", ")}`);
+      }
+      throw `Initial seed is incomplete for schema V${schemaVersion}.\n\nI need a valid seed chain so a fresh install (no db.bin) can initialize safely.\n\n${issues.join("\n")}\n\nImplement the migration stubs in .elm-pages-db/Db/Migrate/ and rerun your script.`;
     }
+
+    try {
+      fs.rmSync(compileDbDir, { recursive: true, force: true });
+    } catch (_) {}
+    copyMigrationElmFiles(
+      path.join(runtimeDir, ".elm-pages-db", "Db"),
+      compileDbDir
+    );
 
     ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Pages`);
     await writeFileIfChanged(
@@ -685,23 +669,16 @@ async function findDbElm(projectDirectory, sourceDirectory) {
 
 Your script imports Pages.Db, but I couldn't find a Db.elm module in your source directories.
 
-Create a file at ${dbElmInSource} with this template:
+Run \`elm-pages db init\` to create Db.elm and the V1 seed migration, or
+create a file at ${dbElmInSource} with this template:
 
-    module Db exposing (Db, init)
+    module Db exposing (Db)
 
     type alias Db =
         { counter : Int
         }
 
-    init : Db
-    init =
-        { counter = 0
-        }
-
-The Db type alias defines the shape of your database, and init provides
-the initial value used when no db.bin file exists yet.
-
-After you create your first migration (V1 -> V2), new installs seed from
-Db.V1.init through the migration chain, so Db.init is no longer required in
-the current Db module.`;
+The Db type alias defines the shape of your database. The V1 seed in
+.elm-pages-db/Db/Migrate/V1.elm provides the initial value used when
+no db.bin file exists yet.`;
 }
