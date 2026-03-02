@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- `Pages.Script.withDatabasePath : FilePath -> Script -> Script` to configure the default database file path for `Pages.Db` calls once at the script level.
+
 ## [11.0.0] - 2026-02-15
 
 ### Added
