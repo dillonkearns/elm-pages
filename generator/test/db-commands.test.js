@@ -105,6 +105,41 @@ describe("elm-pages db init", () => {
     const content = fs.readFileSync(path.join(tmpDir, "src/Db.elm"), "utf8");
     expect(content).toBe("-- my custom Db");
   });
+
+  it("adds db.bin and db.lock to .gitignore", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "elm.json"),
+      JSON.stringify({ "source-directories": ["src"] })
+    );
+
+    await init();
+
+    const gitignorePath = path.join(tmpDir, ".gitignore");
+    expect(fs.existsSync(gitignorePath)).toBe(true);
+    const gitignore = fs.readFileSync(gitignorePath, "utf8");
+    expect(gitignore).toContain("db.bin");
+    expect(gitignore).toContain("db.lock");
+  });
+
+  it("does not duplicate db ignore entries", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "elm.json"),
+      JSON.stringify({ "source-directories": ["src"] })
+    );
+    fs.writeFileSync(path.join(tmpDir, ".gitignore"), "node_modules/\ndb.bin\n");
+
+    await init();
+    await init();
+
+    const lines = fs
+      .readFileSync(path.join(tmpDir, ".gitignore"), "utf8")
+      .split(/\r?\n/)
+      .filter(Boolean);
+    const dbBinCount = lines.filter((line) => line === "db.bin").length;
+    const dbLockCount = lines.filter((line) => line === "db.lock").length;
+    expect(dbBinCount).toBe(1);
+    expect(dbLockCount).toBe(1);
+  });
 });
 
 describe("elm-pages db migrate", () => {

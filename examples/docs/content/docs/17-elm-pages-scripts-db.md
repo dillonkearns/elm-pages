@@ -143,7 +143,7 @@ Usually ignore:
 - `db.lock`
 - `.elm-pages-db/schema-history/` (optional: commit this if you want stale-snapshot recovery shared across machines)
 
-`elm-pages db init` currently creates `Db.elm` only. It does **not** update `.gitignore` for you.
+`elm-pages db init` creates `Db.elm` and also adds `db.bin` / `db.lock` ignore entries to `.gitignore` (idempotent).
 
 ## Example: Run a Migration (V1 -> V2)
 

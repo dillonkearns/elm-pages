@@ -6,6 +6,40 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "readline";
 
+const DB_GITIGNORE_ENTRIES = ["db.bin", "db.lock"];
+
+function ensureDbGitignoreEntries(cwd) {
+  const dotGitignorePath = path.resolve(cwd, ".gitignore");
+  const legacyGitignorePath = path.resolve(cwd, "gitignore");
+  const gitignorePath = fs.existsSync(dotGitignorePath)
+    ? dotGitignorePath
+    : fs.existsSync(legacyGitignorePath)
+    ? legacyGitignorePath
+    : dotGitignorePath;
+
+  const existing = fs.existsSync(gitignorePath)
+    ? fs.readFileSync(gitignorePath, "utf8")
+    : "";
+  const lines = existing.split(/\r?\n/);
+  const existingEntries = new Set(lines.map((line) => line.trim()));
+  const missing = DB_GITIGNORE_ENTRIES.filter(
+    (entry) => !existingEntries.has(entry)
+  );
+
+  if (missing.length === 0) {
+    return { path: gitignorePath, added: [] };
+  }
+
+  let next = existing;
+  if (next.length > 0 && !next.endsWith("\n")) {
+    next += "\n";
+  }
+  next += missing.join("\n") + "\n";
+  fs.writeFileSync(gitignorePath, next);
+
+  return { path: gitignorePath, added: missing };
+}
+
 /**
  * elm-pages db reset [--force]
  * Deletes db.bin and db.lock to start fresh.
@@ -79,8 +113,17 @@ export async function init() {
     targetPath = candidates[0];
   }
 
+  const gitignoreUpdate = ensureDbGitignoreEntries(process.cwd());
+
   if (fs.existsSync(targetPath)) {
     console.log(`Db.elm already exists at ${targetPath}`);
+    if (gitignoreUpdate.added.length > 0) {
+      console.log(
+        `Updated ${path.relative(process.cwd(), gitignoreUpdate.path)} with: ${gitignoreUpdate.added.join(
+          ", "
+        )}`
+      );
+    }
     return;
   }
 
@@ -101,6 +144,13 @@ init =
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.writeFileSync(targetPath, template);
   console.log(`Created ${targetPath}`);
+  if (gitignoreUpdate.added.length > 0) {
+    console.log(
+      `Updated ${path.relative(process.cwd(), gitignoreUpdate.path)} with: ${gitignoreUpdate.added.join(
+        ", "
+      )}`
+    );
+  }
   console.log(
     "\nEdit the Db type alias to define your database schema, then import Pages.Db in your scripts."
   );
