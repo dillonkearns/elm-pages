@@ -1,16 +1,16 @@
 ---
-description: Use a typed local database in elm-pages scripts with runtime-safe migrations and seed data.
+description: Use a local type-safe database in elm-pages scripts with type-safe migrations.
 ---
 
-# Local DB in `elm-pages` Scripts
+# Local Type-Safe DB in `elm-pages` Scripts
 
-`elm-pages` Scripts can read and write a local binary database file (`db.bin`) through a typed Elm schema (`Db.elm`).
+`elm-pages` Scripts can read and write to **an Elm type** directly to a local database file using a `BackendTask`.
 
-The goals are:
+Think of it like `Sqlite`, but with Elm types and type-safe migrations between versions of that Elm type.
 
-- **Type-safe data access** from Elm
-- **Versioned schema changes** through migration modules
-- **Automatic runtime upgrades** when a script runs on a user's machine
+## Lamdera Inspiration
+
+A big thank you to Mario Rogic for Lamdera and Evergreen Migrations. `elm-pages` uses the Lamdera compiler for binary serialization of Elm values, and this local DB uses a pattern inspired by [Lamdera's `Evergreen` migrations](https://dashboard.lamdera.app/docs/evergreen).
 
 ## Quick Start
 
@@ -91,9 +91,11 @@ npx elm-pages run script/src/AddTodo.elm
 
 `Pages.Db` exposes:
 
-- `get : BackendTask FatalError Db.Db`
-- `update : (Db.Db -> Db.Db) -> BackendTask FatalError ()`
-- `transaction : (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a`
+```elm
+get : BackendTask FatalError Db.Db
+update : (Db.Db -> Db.Db) -> BackendTask FatalError ()
+transaction : (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a
+```
 
 Use `Script.withDatabasePath` once at the top level of your script to set where DB data is stored for that run.
 
