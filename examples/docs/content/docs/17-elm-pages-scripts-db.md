@@ -8,6 +8,9 @@ description: Use a local type-safe database in elm-pages scripts with type-safe 
 
 Think of it like `SQLite`, but with Elm types and type-safe migrations between versions of that Elm type.
 
+This database API is currently **Script-only**.
+Use it from `elm-pages run ...` or bundled scripts, not from Route modules (`preRender` or `serverRender`).
+
 ## Lamdera Inspiration
 
 A big thank you to Mario Rogic for Lamdera and Evergreen Migrations. `elm-pages` uses the Lamdera compiler for binary serialization of Elm values, and this local DB uses a pattern inspired by [Lamdera's `Evergreen` migrations](https://dashboard.lamdera.app/docs/evergreen).
@@ -23,72 +26,83 @@ npx elm-pages db init
 Example `Db.elm`:
 
 ```elm
-module Db exposing (Db, Todo, init)
-
-
-type alias Todo =
-    { id : Int
-    , title : String
-    , done : Bool
-    }
+module Db exposing (Db, init)
 
 
 type alias Db =
-    { todos : List Todo
-    , nextId : Int
-    }
+    { count : Int }
 
 
 init : Db
 init =
-    { todos = []
-    , nextId = 1
-    }
+    { count = 0 }
 ```
 
 Use `Pages.Db` in a Script:
 
 ```elm
-module AddTodo exposing (run)
+module Counter exposing (run)
 
 import BackendTask exposing (BackendTask)
+import FatalError exposing (FatalError)
 import FilePath
 import Pages.Db
 import Pages.Script as Script exposing (Script)
 
 
-connection : Pages.Db.Connection
-connection =
-    Pages.Db.open (FilePath.fromString ".elm-pages-data/prefs.db.bin")
-
-
 run : Script
 run =
-    Script.withoutCliOptions
-        (Pages.Db.transaction connection
-            (\db ->
-                let
-                    todoId =
-                        db.nextId
+    Script.withoutCliOptions loop
 
-                    updatedDb =
-                        { db
-                            | todos =
-                                db.todos
-                                    ++ [ { id = todoId, title = "Ship docs", done = False } ]
-                            , nextId = todoId + 1
-                        }
-                in
-                BackendTask.succeed ( updatedDb, () )
+
+connection : Pages.Db.Connection
+connection =
+    FilePath.fromString ".elm-pages-data/counter.db.bin"
+        |> Pages.Db.open
+
+
+prompt : String
+prompt =
+    [ "[+] increment", "[-] decrement", "[q] quit" ]
+        |> String.join ", "
+
+
+loop : BackendTask FatalError ()
+loop =
+    Pages.Db.get connection
+        |> BackendTask.andThen
+            (\db ->
+                Script.log
+                    ("\nCount: " ++ String.fromInt db.count)
+                    |> BackendTask.and (Script.log ("Press " ++ prompt ++ ": "))
+                    |> BackendTask.and Script.readKey
+                    |> BackendTask.andThen handleKey
             )
-            |> BackendTask.allowFatal
-        )
+
+
+handleKey : String -> BackendTask FatalError ()
+handleKey key =
+    case key of
+        "+" ->
+            Pages.Db.update connection (\db -> { db | count = db.count + 1 })
+                |> BackendTask.and loop
+
+        "-" ->
+            Pages.Db.update connection (\db -> { db | count = db.count - 1 })
+                |> BackendTask.and loop
+
+        "q" ->
+            Script.log "Goodbye!"
+
+        _ ->
+            Script.log ("Unknown key: " ++ key)
+                |> BackendTask.and loop
 ```
 
 Run it:
 
 ```shell
-npx elm-pages run script/src/AddTodo.elm
+npx elm-pages run script/src/Counter.elm
 ```
 
 ## `Pages.Db` API
@@ -103,11 +117,104 @@ open : FilePath -> Connection
 
 get : Connection -> BackendTask FatalError Db.Db
 update : Connection -> (Db.Db -> Db.Db) -> BackendTask FatalError ()
-transaction : Connection -> (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a
+transaction :
+    Connection
+    -> (Db.Db -> BackendTask FatalError ( Db.Db, a ))
+    -> BackendTask FatalError a
 ```
 
 Use `Pages.Db.open` when your path comes from CLI options or environment values.
-Use `Pages.Db.default` for the default `db.bin` path.
+Use `Pages.Db.default` for the default `db.bin` path at the current working directory (where the script is executed).
+Migration metadata and generated migration files live in `.elm-pages-db/`.
+
+## Git and `.gitignore`
+
+Recommended:
+
+- Commit `script/src/Db.elm` (or your `Db.elm` location).
+- Commit `.elm-pages-db/Db/V*.elm`.
+- Commit `.elm-pages-db/Db/Migrate/V*.elm`.
+- Commit `.elm-pages-db/MigrateChain.elm`.
+- Commit `.elm-pages-db/schema-version.json`.
+
+Usually ignore:
+
+- `db.bin`
+- `db.lock`
+- `.elm-pages-db/schema-history/` (optional: commit this if you want stale-snapshot recovery shared across machines)
+
+`elm-pages db init` currently creates `Db.elm` only. It does **not** update `.gitignore` for you.
+
+## Example: Run a Migration (V1 -> V2)
+
+Start from the V1 schema shown above (`{ count : Int }`), and run your script once so `db.bin` exists:
+
+```shell
+npx elm-pages run script/src/Counter.elm
+```
+
+Now change `Db.elm` to V2:
+
+```elm
+module Db exposing (Db, init)
+
+
+type alias Db =
+    { count : Int
+    , step : Int
+    }
+
+
+init : Db
+init =
+    { count = 0
+    , step = 1
+    }
+```
+
+Generate migration files:
+
+```shell
+npx elm-pages db migrate
+```
+
+```text
+Created migration V1 -> V2:
+  Snapshot: .elm-pages-db/Db/V1.elm
+  Stub:     .elm-pages-db/Db/Migrate/V2.elm
+  Chain:    .elm-pages-db/MigrateChain.elm
+```
+
+Implement `.elm-pages-db/Db/Migrate/V2.elm`:
+
+```elm
+module Db.Migrate.V2 exposing (migrate, seed)
+
+import Db
+import Db.V1
+
+
+migrate : Db.V1.Db -> Db.Db
+migrate old =
+    { count = old.count
+    , step = 1
+    }
+
+
+seed : Db.V1.Db -> Db.Db
+seed old =
+    migrate old
+```
+
+Apply the migration:
+
+```shell
+npx elm-pages db migrate
+```
+
+```text
+Migration applied: V1 -> V2
+```
 
 ## Migration Files
 
