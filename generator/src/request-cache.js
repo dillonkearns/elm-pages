@@ -9,21 +9,17 @@ const defaultHttpCachePath = "./.elm-pages/http-cache";
 
 /**
  * @param {string} mode
- * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body; }} rawRequest
+ * @param {{url: string; headers: {[x: string]: string;}; method: string; body: Body; quiet: boolean; }} rawRequest
  * @param {Record<string, unknown>} portsFile
  * @returns {Promise<Response>}
  */
-export function lookupOrPerform(
-  portsFile,
-  mode,
-  rawRequest
-) {
+export function lookupOrPerform(portsFile, mode, rawRequest) {
   const uniqueTimeId =
     Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  const timeStart = (message) => {
+  const timeStart = (/** @type {string} */ message) => {
     !rawRequest.quiet && console.time(`${message} ${uniqueTimeId}`);
   };
-  const timeEnd = (message) => {
+  const timeEnd = (/** @type {string} */ message) => {
     !rawRequest.quiet && console.timeEnd(`${message} ${uniqueTimeId}`);
   };
   const makeFetchHappen = makeFetchHappenOriginal.defaults({
@@ -319,13 +315,17 @@ function partsToFormData(parts) {
       case "bytes":
         formData.append(
           part.name,
-          new Blob([Buffer.from(part.content, "base64")], { type: part.mimeType })
+          new Blob([Buffer.from(part.content, "base64")], {
+            type: part.mimeType,
+          })
         );
         break;
       case "bytesWithFilename":
         formData.append(
           part.name,
-          new Blob([Buffer.from(part.content, "base64")], { type: part.mimeType }),
+          new Blob([Buffer.from(part.content, "base64")], {
+            type: part.mimeType,
+          }),
           part.filename
         );
         break;
@@ -347,12 +347,18 @@ async function readResponseBody(response, expectString) {
     } catch (error) {
       return { body: buf.toString("utf8"), bodyKind: "string" };
     }
-  } else if (expectString === "ExpectBytes" || expectString === "ExpectBytesResponse") {
+  } else if (
+    expectString === "ExpectBytes" ||
+    expectString === "ExpectBytesResponse"
+  ) {
     const buf = await responseBuffer(response);
     return { body: buf.toString("base64"), bodyKind: "bytes" };
   } else if (expectString === "ExpectWhatever") {
     return { body: null, bodyKind: "whatever" };
-  } else if (expectString === "ExpectResponse" || expectString === "ExpectString") {
+  } else if (
+    expectString === "ExpectResponse" ||
+    expectString === "ExpectString"
+  ) {
     return { body: await response.text(), bodyKind: "string" };
   } else {
     throw `Unexpected expectString ${expectString}`;

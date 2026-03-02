@@ -1,5 +1,8 @@
 // source: https://www.30secondsofcode.org/js/s/typecheck-nodejs-streams/
 
+/**
+ * @param {import('node:stream').Readable} val
+ */
 export function isReadableStream(val) {
   return (
     val !== null &&
@@ -9,7 +12,11 @@ export function isReadableStream(val) {
     typeof val._readableState === "object"
   );
 }
-
+/**
+ *
+ * @param {import('node:stream').Writable} val
+ * @returns
+ */
 export function isWritableStream(val) {
   return (
     val !== null &&
@@ -20,6 +27,9 @@ export function isWritableStream(val) {
   );
 }
 
+/**
+ * @param {import("node:stream").Duplex} val
+ */
 export function isDuplexStream(val) {
   return isReadableStream(val) && isWritableStream(val);
 }
