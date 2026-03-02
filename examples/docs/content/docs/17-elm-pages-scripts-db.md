@@ -8,8 +8,7 @@ description: Use a local type-safe database in elm-pages scripts with type-safe 
 
 Think of it like `SQLite`, but with Elm types and type-safe migrations between versions of that Elm type.
 
-This database API is currently **Script-only**.
-Use it from `elm-pages run ...` or bundled scripts, not from Route modules (`preRender` or `serverRender`).
+This database API is **script-only**. Use it from `elm-pages run`, or CLIs that you bundle with `elm-pages bundle-script` (not from Route module, i.e. `preRender` or `serverRender`).
 
 ## Lamdera Inspiration
 
@@ -17,13 +16,13 @@ A big thank you to Mario Rogic for Lamdera and Evergreen Migrations. `elm-pages`
 
 ## Quick Start
 
-Initialize a `Db.elm` file:
+Initialize the `Db.elm` file to create the scaffolding where you define the Elm type that you will be persisting in your database:
 
 ```shell
 npx elm-pages db init
 ```
 
-Example `Db.elm`:
+Modifying our `Db.elm` module with a simple counter app type:
 
 ```elm
 module Db exposing (Db, init)
@@ -69,6 +68,8 @@ prompt =
 
 loop : BackendTask FatalError ()
 loop =
+    -- Read your Db type from disk
+    -- You get typed data without writing any Decoders!
     Pages.Db.get connection
         |> BackendTask.andThen
             (\db ->
@@ -84,6 +85,8 @@ handleKey : String -> BackendTask FatalError ()
 handleKey key =
     case key of
         "+" ->
+            -- Write your Db type disk
+            -- Notice that we don't write any Encoders, either!
             Pages.Db.update connection (\db -> { db | count = db.count + 1 })
                 |> BackendTask.and loop
 
@@ -143,7 +146,7 @@ Usually ignore:
 - `db.lock`
 - `.elm-pages-db/schema-history/` (optional: commit this if you want stale-snapshot recovery shared across machines)
 
-`elm-pages db init` creates `Db.elm` and also adds `db.bin` / `db.lock` ignore entries to `.gitignore` (idempotent).
+`elm-pages db init` creates `Db.elm` and also adds `db.bin` / `db.lock` ignore entries to `.gitignore`.
 
 ## Example: Run a Migration (V1 -> V2)
 
