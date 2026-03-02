@@ -38,11 +38,11 @@ runAllTests =
 -- Test cases
 
 
-{-| When no db.bin exists, get should return Db.init.
+{-| When no db.bin exists, get should return the V1 seed value.
 -}
 testGetReturnsInitWhenNoDbBin : BackendTask FatalError ()
 testGetReturnsInitWhenNoDbBin =
-    Script.log "Test: get returns Db.init when no db.bin exists"
+    Script.log "Test: get returns seed value when no db.bin exists"
         |> BackendTask.andThen (\_ -> cleanup)
         |> BackendTask.andThen (\_ -> Pages.Db.get Pages.Db.default)
         |> BackendTask.andThen

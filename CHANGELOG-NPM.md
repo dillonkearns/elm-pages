@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Local DB runtime migration flow for `elm-pages` Scripts:
   - Generated `Pages.Db` now reads schema metadata (`version` + `hash`) and applies migration chains at script runtime.
-  - Fresh installs seed from `Db.V1.init` through migration `seed` functions.
+  - Fresh installs seed from `Db.Migrate.V1.seed` through migration `seed` functions.
   - Connection-based path configuration through `Pages.Db.open`/`Pages.Db.default`, with runtime path support in request payloads.
   - `Script.withDatabasePath` support in the JS runtime (`db-set-default-path`) now applies to `Pages.Db.default`.
   - `elm-pages db init` now idempotently adds `db.bin` and `db.lock` to `.gitignore`.
