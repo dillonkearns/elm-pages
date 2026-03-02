@@ -24,6 +24,7 @@ import { Readable, Writable } from "node:stream";
 import * as validateStream from "./validate-stream.js";
 import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 import mergeStreams from "@sindresorhus/merge-streams";
+import { parseDbBinHeader, buildDbBin } from "./db-bin-format.js";
 
 function detectColorSupport() {
   const env = process.env;
@@ -40,6 +41,7 @@ function detectColorSupport() {
 
 let verbosity = 2;
 const spinnies = new Spinnies();
+let configuredDbPath = "db.bin";
 
 process.on("unhandledRejection", (error) => {
   console.error(error);
@@ -77,6 +79,7 @@ export async function render(
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   global.XMLHttpRequest = {};
+  configuredDbPath = "db.bin";
   const result = await runElmApp(
     portsFile,
     basePath,
@@ -111,6 +114,7 @@ export async function runGenerator(
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   global.XMLHttpRequest = {};
+  configuredDbPath = "db.bin";
   try {
     const result = await runGeneratorAppHelp(
       cliOptions,
@@ -482,8 +486,25 @@ async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
       throw `Unexpected kind ${lookupResponse}`;
     }
   } catch (error) {
-    console.log("@@@ERROR", error);
-    // sendError(app, error);
+    const errorMessage =
+      typeof error === "string"
+        ? error
+        : error.message || String(error);
+
+    return [
+      requestHash,
+      {
+        request: requestToPerform,
+        response: {
+          statusCode: 500,
+          statusText: "Internal Error",
+          headers: {},
+          url: requestToPerform.url,
+          bodyKind: "string",
+          body: errorMessage,
+        },
+      },
+    ];
   }
 }
 
@@ -626,14 +647,544 @@ async function runInternalJob(
         return [requestHash, runStartSpinner(requestToPerform)];
       case "elm-pages-internal://stop-spinner":
         return [requestHash, runStopSpinner(requestToPerform)];
+      case "elm-pages-internal://db-read":
+        return [requestHash, await runDbRead(requestToPerform)];
+      case "elm-pages-internal://db-read-meta":
+        return [requestHash, await runDbReadMeta(requestToPerform)];
+      case "elm-pages-internal://db-write":
+        return [requestHash, await runDbWrite(requestToPerform)];
+      case "elm-pages-internal://db-set-default-path":
+        return [requestHash, await runDbSetDefaultPath(requestToPerform)];
+      case "elm-pages-internal://db-lock-acquire":
+        return [requestHash, await runDbLockAcquire(requestToPerform)];
+      case "elm-pages-internal://db-lock-release":
+        return [requestHash, await runDbLockRelease(requestToPerform)];
+      case "elm-pages-internal://db-migrate-read":
+        return [requestHash, await runDbMigrateRead(requestToPerform)];
+      case "elm-pages-internal://db-migrate-write":
+        return [requestHash, await runDbMigrateWrite(requestToPerform)];
       default:
         throw `Unexpected internal BackendTask request format: ${kleur.yellow(
           JSON.stringify(2, null, requestToPerform)
         )}`;
     }
   } catch (error) {
-    sendError(app, error);
+    // Format error message from structured {title, message} or plain strings
+    const errorMessage =
+      error.title && error.message
+        ? `-- ${error.title.toUpperCase()} --\n\n${error.message}`
+        : typeof error === "string"
+        ? error
+        : error.message || String(error);
+
+    // Return a proper [requestHash, response] pair so Object.fromEntries
+    // doesn't crash. The non-200 status causes BackendTask.Http to treat
+    // this as a BadStatus error, which becomes a FatalError in Elm.
+    return [
+      requestHash,
+      {
+        request: requestToPerform,
+        response: {
+          statusCode: 500,
+          statusText: "Internal Error",
+          headers: {},
+          url: requestToPerform.url,
+          bodyKind: "string",
+          body: errorMessage,
+        },
+      },
+    ];
   }
+}
+
+// --- Database handlers ---
+
+// Track lock tokens per lock file for cleanup on process exit
+const dbLockTokensByPath = new Map();
+let dbLockCleanupRegistered = false;
+
+function resolveDbBinPath(cwd, payload) {
+  const configuredPath =
+    payload &&
+    typeof payload === "object" &&
+    typeof payload.path === "string" &&
+    payload.path.length > 0
+      ? payload.path
+      : configuredDbPath;
+  return path.resolve(cwd, configuredPath);
+}
+
+function resolveDbLockPath(dbBinPath) {
+  return `${dbBinPath}.lock`;
+}
+
+/**
+ * Remove stale .tmp.{pid} files left behind by previous crashes.
+ * Only removes files matching the exact tmp pattern for the given dbBinPath.
+ */
+async function cleanStaleTmpFiles(dbBinPath) {
+  const dir = path.dirname(dbBinPath);
+  const base = path.basename(dbBinPath);
+  try {
+    const entries = await fsPromises.readdir(dir);
+    for (const entry of entries) {
+      if (entry.startsWith(`${base}.tmp.`)) {
+        try {
+          await fsPromises.unlink(path.join(dir, entry));
+        } catch (_) {}
+      }
+    }
+  } catch (_) {
+    // Directory may not exist yet — that's fine
+  }
+}
+
+function readPositiveIntEnv(name, fallback) {
+  const raw = process.env[name];
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function runDbSetDefaultPath(req) {
+  const payload = req.body.args[0];
+
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    typeof payload.path !== "string" ||
+    payload.path.length === 0
+  ) {
+    throw {
+      title: "Invalid db-set-default-path payload",
+      message: "Expected a non-empty path field.",
+    };
+  }
+
+  configuredDbPath = payload.path;
+  return jsonResponse(req, null);
+}
+
+async function runDbRead(req) {
+  const cwd = path.resolve(...req.dir);
+  const payload = req.body.args[0];
+  const schemaHash =
+    typeof payload === "string" ? payload : payload && payload.hash;
+  const dbBinPath = resolveDbBinPath(cwd, payload);
+  const lockPath = resolveDbLockPath(dbBinPath);
+  const dbBinDisplay = path.relative(cwd, dbBinPath) || dbBinPath;
+  const lockDisplay = path.relative(cwd, lockPath) || lockPath;
+
+  if (typeof schemaHash !== "string" || schemaHash.length === 0) {
+    throw {
+      title: "Invalid db-read payload",
+      message:
+        "Expected schema hash when reading from the database.",
+    };
+  }
+
+  try {
+    const fileContents = await fsPromises.readFile(dbBinPath);
+    const parsed = parseDbBinHeader(fileContents);
+
+    // Compare schema hash
+    if (parsed.schemaHashHex !== schemaHash) {
+      throw {
+        title: "Schema mismatch",
+        message:
+          `Your Db type has changed since ${dbBinDisplay} was last written. Delete ${dbBinDisplay} and ${lockDisplay} (if present) to start fresh (this will delete existing data).`,
+      };
+    }
+
+    // Return Wire3 data with length prefix
+    const buffer = new Uint8Array(4 + parsed.wire3Data.length);
+    const view = new DataView(
+      buffer.buffer,
+      buffer.byteOffset,
+      buffer.byteLength
+    );
+    view.setInt32(0, parsed.wire3Data.length);
+    parsed.wire3Data.copy(buffer, 4);
+
+    return bytesResponse(req, buffer);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      // File doesn't exist - return length=0 so Elm uses the generated seed path
+      // Must use DataView to write big-endian int32 (Buffer.from(Int32Array)
+      // copies values as bytes, not the underlying 4-byte representation)
+      const buffer = new Uint8Array(4);
+      new DataView(buffer.buffer).setInt32(0, 0); // big-endian 0
+      return bytesResponse(req, buffer);
+    }
+    // Re-throw structured errors from validation above
+    throw error;
+  }
+}
+
+async function runDbReadMeta(req) {
+  const cwd = path.resolve(...req.dir);
+  const payload = req.body.args[0];
+  const dbBinPath = resolveDbBinPath(cwd, payload);
+
+  try {
+    const fileContents = await fsPromises.readFile(dbBinPath);
+    const parsed = parseDbBinHeader(fileContents);
+    return jsonResponse(req, {
+      version: parsed.schemaVersion,
+      hash: parsed.schemaHashHex,
+      data: Buffer.from(parsed.wire3Data).toString("base64"),
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return jsonResponse(req, { version: 0, hash: "", data: "" });
+    }
+    throw error;
+  }
+}
+
+async function findCurrentDbElm(cwd) {
+  const candidates = [
+    path.resolve(cwd, "script/src/Db.elm"),
+    path.resolve(cwd, "src/Db.elm"),
+  ];
+
+  for (const elmJsonName of ["script/elm.json", "elm.json"]) {
+    const elmJsonPath = path.resolve(cwd, elmJsonName);
+    try {
+      const elmJson = JSON.parse(await fsPromises.readFile(elmJsonPath, "utf8"));
+      const base = path.dirname(elmJsonPath);
+      for (const dir of elmJson["source-directories"] || []) {
+        candidates.push(path.resolve(base, dir, "Db.elm"));
+      }
+    } catch (_) {}
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const source = await fsPromises.readFile(candidate, "utf8");
+      return { path: candidate, source };
+    } catch (_) {}
+  }
+
+  return null;
+}
+
+async function runDbWrite(req) {
+  const cwd = path.resolve(...req.dir);
+  const payload = req.body.args[0];
+  const schemaHash = payload && payload.hash;
+  const base64Data = payload && payload.data;
+  const dbBinPath = resolveDbBinPath(cwd, payload);
+
+  if (
+    typeof schemaHash !== "string" ||
+    schemaHash.length === 0 ||
+    typeof base64Data !== "string"
+  ) {
+    throw {
+      title: "Invalid db-write payload",
+      message:
+        "Expected hash and data fields when writing to the database.",
+    };
+  }
+
+  const wire3Data = Buffer.from(base64Data, "base64");
+
+  // Determine schema version: use current schema version by default.
+  // If header hash already matches, preserve existing schema version.
+  let schemaVersion = 1;
+  try {
+    const { readSchemaVersion } = await import("./db-schema.js");
+    schemaVersion = await readSchemaVersion(cwd);
+  } catch (_) {}
+
+  try {
+    const existing = await fsPromises.readFile(dbBinPath);
+    const parsed = parseDbBinHeader(existing);
+    if (parsed.schemaHashHex === schemaHash) {
+      schemaVersion = parsed.schemaVersion;
+    }
+  } catch (_) {
+    // No existing file or unreadable — use current schema version
+  }
+
+  // Always write Phase 2 format (auto-upgrades Phase 1 files)
+  const fileBuffer = buildDbBin(schemaHash, schemaVersion, wire3Data);
+
+  // Clean up stale tmp files from previous crashes
+  await cleanStaleTmpFiles(dbBinPath);
+
+  // Atomic write: write to temp file then rename
+  const tmpPath = `${dbBinPath}.tmp.${process.pid}`;
+  try {
+    await fsPromises.mkdir(path.dirname(dbBinPath), { recursive: true });
+    await fsPromises.writeFile(tmpPath, fileBuffer);
+    await fsPromises.rename(tmpPath, dbBinPath);
+  } catch (error) {
+    // Clean up temp file on error
+    try {
+      await fsPromises.unlink(tmpPath);
+    } catch (_) {}
+    throw {
+      title: "db.bin write failed",
+      message: `Failed to write db.bin: ${error.message}`,
+    };
+  }
+
+  // Best-effort provenance capture: persist Db.elm source for this schema hash.
+  try {
+    const { saveSchemaSource, computeSchemaHashFromSource } = await import("./db-schema.js");
+    const currentDb = await findCurrentDbElm(cwd);
+    if (currentDb) {
+      const currentHash = computeSchemaHashFromSource(currentDb.source);
+      if (currentHash === schemaHash) {
+        await saveSchemaSource(cwd, schemaHash, currentDb.source);
+      }
+    }
+  } catch (_) {}
+
+  return jsonResponse(req, null);
+}
+
+async function runDbLockAcquire(req) {
+  const cwd = path.resolve(...req.dir);
+  const payload = req.body.args[0];
+  const dbBinPath = resolveDbBinPath(cwd, payload);
+  const lockPath = resolveDbLockPath(dbBinPath);
+  const lockDisplay = path.relative(cwd, lockPath) || lockPath;
+  const token = crypto.randomUUID();
+  const lockData = JSON.stringify({
+    pid: process.pid,
+    createdAt: new Date().toISOString(),
+    token,
+  });
+
+  const lockWaitTimeoutMs = readPositiveIntEnv(
+    "ELM_PAGES_DB_LOCK_TIMEOUT_MS",
+    60000
+  );
+  const staleTimeoutMs = readPositiveIntEnv(
+    "ELM_PAGES_DB_STALE_LOCK_TIMEOUT_MS",
+    5 * 60 * 1000
+  );
+  const minRetryDelayMs = readPositiveIntEnv(
+    "ELM_PAGES_DB_LOCK_RETRY_MS",
+    50
+  );
+  const maxRetryDelayMs = readPositiveIntEnv(
+    "ELM_PAGES_DB_LOCK_MAX_RETRY_MS",
+    500
+  );
+  const lockWaitDeadline = Date.now() + lockWaitTimeoutMs;
+  let attempt = 0;
+
+  await fsPromises.mkdir(path.dirname(lockPath), { recursive: true });
+
+  while (Date.now() < lockWaitDeadline) {
+    try {
+      // Exclusive create - fails if file exists
+      await fsPromises.writeFile(lockPath, lockData, { flag: "wx" });
+
+      // Lock acquired
+      dbLockTokensByPath.set(lockPath, token);
+
+      // Register process exit cleanup (once)
+      if (!dbLockCleanupRegistered) {
+        dbLockCleanupRegistered = true;
+        process.on("exit", () => {
+          for (const [cleanupLockPath, cleanupToken] of dbLockTokensByPath) {
+            try {
+              const existing = JSON.parse(
+                fs.readFileSync(cleanupLockPath, "utf8")
+              );
+              if (existing.token === cleanupToken) {
+                fs.unlinkSync(cleanupLockPath);
+              }
+            } catch (_) {}
+          }
+          dbLockTokensByPath.clear();
+        });
+      }
+
+      return jsonResponse(req, token);
+    } catch (error) {
+      if (error.code !== "EEXIST") {
+        throw {
+          title: "Database lock error",
+          message: `Failed to create lock file ${lockDisplay}: ${error.message}`,
+        };
+      }
+
+      // Lock file exists - check if stale
+      try {
+        const existingLock = JSON.parse(
+          await fsPromises.readFile(lockPath, "utf8")
+        );
+
+        // Check if the PID is still alive
+        let pidAlive = false;
+        try {
+          process.kill(existingLock.pid, 0);
+          pidAlive = true;
+        } catch (_) {
+          pidAlive = false;
+        }
+
+        // Check if lock is older than stale timeout
+        const lockAge = Date.now() - new Date(existingLock.createdAt).getTime();
+
+        if (!pidAlive || lockAge > staleTimeoutMs) {
+          // Stale lock - remove and retry
+          await fsPromises.unlink(lockPath);
+          continue;
+        }
+
+        // Lock is held by a live process - wait with bounded backoff + jitter
+        const exponentialMs = Math.min(
+          maxRetryDelayMs,
+          minRetryDelayMs * 2 ** Math.min(attempt, 5)
+        );
+        const jitterMs = Math.floor(Math.random() * Math.max(1, minRetryDelayMs));
+        await new Promise((resolve) =>
+          setTimeout(resolve, exponentialMs + jitterMs)
+        );
+        attempt++;
+      } catch (readError) {
+        // Lock file disappeared between check and read - retry immediately
+        continue;
+      }
+    }
+  }
+
+  const timeoutSeconds = Math.ceil(lockWaitTimeoutMs / 1000);
+  throw {
+    title: "Database locked",
+    message: `The database lock ${lockDisplay} is still held by another process after ${timeoutSeconds}s. If you believe this lock is stale, delete ${lockDisplay} and try again.`,
+  };
+}
+
+async function runDbLockRelease(req) {
+  const cwd = path.resolve(...req.dir);
+  const payload = req.body.args[0];
+  const token =
+    typeof payload === "string" ? payload : payload && payload.token;
+  const dbBinPath =
+    typeof payload === "string"
+      ? resolveDbBinPath(cwd, null)
+      : resolveDbBinPath(cwd, payload);
+  const lockPath = resolveDbLockPath(dbBinPath);
+
+  if (typeof token !== "string" || token.length === 0) {
+    throw {
+      title: "Invalid db-lock-release payload",
+      message: "Expected token when releasing database lock.",
+    };
+  }
+
+  try {
+    const existing = JSON.parse(await fsPromises.readFile(lockPath, "utf8"));
+    if (existing.token === token) {
+      await fsPromises.unlink(lockPath);
+      dbLockTokensByPath.delete(lockPath);
+    }
+  } catch (_) {
+    // Lock file already gone - that's fine
+  }
+
+  return jsonResponse(req, null);
+}
+
+async function runDbMigrateRead(req) {
+  const cwd = path.resolve(...req.dir);
+  const payload = req.body.args[0];
+  const dbBinPath = resolveDbBinPath(cwd, payload);
+
+  try {
+    const fileContents = await fsPromises.readFile(dbBinPath);
+    const parsed = parseDbBinHeader(fileContents);
+
+    return jsonResponse(req, {
+      version: parsed.schemaVersion,
+      data: Buffer.from(parsed.wire3Data).toString("base64"),
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return jsonResponse(req, { version: 0, data: "" });
+    }
+    throw error;
+  }
+}
+
+async function runDbMigrateWrite(req) {
+  const cwd = path.resolve(...req.dir);
+  const payload = req.body.args[0];
+  const base64Data = payload && payload.data;
+  const dbBinPath = resolveDbBinPath(cwd, payload);
+
+  if (typeof base64Data !== "string") {
+    throw {
+      title: "Invalid db-migrate-write payload",
+      message: "Expected data field when writing migrated database data.",
+    };
+  }
+
+  const wire3Data = Buffer.from(base64Data, "base64");
+
+  // Read current schema hash from the current Db.elm source via schema-version.json
+  // The migration chain encodes with the NEW Db.w3_encode_Db,
+  // so we need the current schema hash for the new db.bin header.
+  const {
+    readSchemaVersion,
+    saveSchemaSource,
+    computeSchemaHashFromSource,
+  } = await import("./db-schema.js");
+
+  const schemaVersion = await readSchemaVersion(cwd);
+
+  // Compute hash from current Db.elm
+  let schemaHash;
+  try {
+    const currentDb = await findCurrentDbElm(cwd);
+    if (!currentDb) {
+      throw { title: "Migration write failed", message: "Could not find Db.elm to compute schema hash." };
+    }
+    schemaHash = computeSchemaHashFromSource(currentDb.source);
+    await saveSchemaSource(cwd, schemaHash, currentDb.source);
+  } catch (error) {
+    if (error.title) throw error;
+    throw { title: "Migration write failed", message: `Error computing schema hash: ${error.message}` };
+  }
+
+  // Create backup before writing
+  try {
+    await fsPromises.copyFile(dbBinPath, `${dbBinPath}.backup`);
+  } catch (_) {
+    // No existing file to back up — that's fine
+  }
+
+  const fileBuffer = buildDbBin(schemaHash, schemaVersion, wire3Data);
+
+  // Clean up stale tmp files from previous crashes
+  await cleanStaleTmpFiles(dbBinPath);
+
+  // Atomic write
+  const tmpPath = `${dbBinPath}.tmp.${process.pid}`;
+  try {
+    await fsPromises.mkdir(path.dirname(dbBinPath), { recursive: true });
+    await fsPromises.writeFile(tmpPath, fileBuffer);
+    await fsPromises.rename(tmpPath, dbBinPath);
+  } catch (error) {
+    try { await fsPromises.unlink(tmpPath); } catch (_) {}
+    throw {
+      title: "Migration write failed",
+      message: `Failed to write db.bin: ${error.message}`,
+    };
+  }
+
+  return jsonResponse(req, null);
 }
 
 /**

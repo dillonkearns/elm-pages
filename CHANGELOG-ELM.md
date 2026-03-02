@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- `Pages.Script.withDatabasePath : FilePath -> Script -> Script` to configure the default database file path for `Pages.Db.default` once at the script level.
+- Connection-based `Pages.Db` API for script-local database selection:
+  - `Pages.Db.open : FilePath -> Pages.Db.Connection`
+  - `Pages.Db.default : Pages.Db.Connection`
+  - `Pages.Db.get`, `Pages.Db.update`, and `Pages.Db.transaction` now take a `Connection` argument.
+
 ## [11.0.0] - 2026-02-15
 
 ### Added
