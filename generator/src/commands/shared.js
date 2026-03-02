@@ -91,18 +91,74 @@ port gotBatchSub : (Pages.Internal.Platform.GeneratorApplication.JsonValue -> ms
 /**
  * Generate the Pages.Db Elm module source code.
  * @param {string} schemaHash - 64-character hex string of the Db.elm SHA-256 hash
+ * @param {number} schemaVersion - Schema version from .elm-pages-db/schema-version.json
  * @returns {string} Elm source code for the Pages.Db module
  */
-export function generatePagesDbModule(schemaHash) {
-  return `module Pages.Db exposing (get, getAt, update, updateAt, transaction, transactionAt)
+export function generatePagesDbModule(schemaHash, schemaVersion) {
+  const hasMigrations = schemaVersion > 1;
+  const snapshotImports = hasMigrations
+    ? Array.from(
+        { length: schemaVersion - 1 },
+        (_, index) => `import Db.V${index + 1}`
+      )
+    : [];
+  const migrationImports = hasMigrations
+    ? Array.from(
+        { length: schemaVersion - 1 },
+        (_, index) => {
+          const version = index + 2;
+          return `import Db.Migrate.V${version} as MigrateV${version}`;
+        }
+      )
+    : [];
+
+  const migrateFunctions = hasMigrations
+    ? Array.from({ length: schemaVersion - 1 }, (_, index) => {
+        const fromVersion = index + 1;
+        const migrateSteps = Array.from(
+          { length: schemaVersion - fromVersion },
+          (_, stepIndex) => {
+            const version = fromVersion + stepIndex + 1;
+            return `|> MigrateV${version}.migrate`;
+          }
+        ).join("\n        ");
+
+        return `
+migrateFromV${fromVersion} : Db.V${fromVersion}.Db -> Db.Db
+migrateFromV${fromVersion} old =
+    old
+        ${migrateSteps}
+`;
+      }).join("\n")
+    : "";
+
+  const migrationBranches = hasMigrations
+    ? Array.from({ length: schemaVersion - 1 }, (_, index) => {
+        const fromVersion = index + 1;
+        return `        ${fromVersion} ->
+            case Wire.bytesDecode Db.V${fromVersion}.w3_decode_Db bytes of
+                Just oldDb ->
+                    persistMigrated (migrateFromV${fromVersion} oldDb)
+
+                Nothing ->
+                    BackendTask.fail
+                        (FatalError.build
+                            { title = "db.bin migration decode failed"
+                            , body = "Could not decode db.bin as V${fromVersion} data."
+                            }
+                        )`;
+      }).join("\n\n")
+    : "";
+
+  return `module Pages.Db exposing (get, update, transaction)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import Base64
 import Bytes exposing (Bytes)
-import Bytes.Decode
-import Bytes.Encode
 import Db
+${snapshotImports.join("\n")}
+${migrationImports.join("\n")}
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -113,6 +169,32 @@ import Pages.DbSeed
 schemaHash : String
 schemaHash =
     "${schemaHash}"
+
+
+schemaVersion : Int
+schemaVersion =
+    ${schemaVersion}
+
+
+type alias DbReadPayload =
+    { version : Int
+    , hash : String
+    , data : String
+    }
+
+
+dbReadPayloadDecoder : Decode.Decoder DbReadPayload
+dbReadPayloadDecoder =
+    Decode.map3
+        (\\version hash data ->
+            { version = version
+            , hash = hash
+            , data = data
+            }
+        )
+        (Decode.field "version" Decode.int)
+        (Decode.field "hash" Decode.string)
+        (Decode.field "data" Decode.string)
 
 
 internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
@@ -131,83 +213,145 @@ internalRequest name body expect =
 
 get : BackendTask FatalError Db.Db
 get =
-    getAt "db.bin"
+    loadDb
 
 
-getAt : String -> BackendTask FatalError Db.Db
-getAt dbPath =
-    internalRequest "db-read"
+loadDb : BackendTask FatalError Db.Db
+loadDb =
+    readPayload
+        |> BackendTask.andThen resolveReadPayload
+
+
+resolveReadPayload : DbReadPayload -> BackendTask FatalError Db.Db
+resolveReadPayload payload =
+    if payload.version <= 0 || payload.data == "" then
+        BackendTask.succeed Pages.DbSeed.seedCurrent
+
+    else if payload.version > schemaVersion then
+        BackendTask.fail
+            (FatalError.build
+                { title = "db.bin version is newer"
+                , body =
+                    "This script understands schema versions up to V"
+                        ++ String.fromInt schemaVersion
+                        ++ ", but db.bin is V"
+                        ++ String.fromInt payload.version
+                        ++ "."
+                }
+            )
+
+    else
+        case Base64.toBytes payload.data of
+            Nothing ->
+                BackendTask.fail
+                    (FatalError.build
+                        { title = "db.bin read failed"
+                        , body = "Could not decode base64 data from db.bin."
+                        }
+                    )
+
+            Just bytes ->
+                if payload.version == schemaVersion then
+                    decodeCurrent payload.hash bytes
+
+                else
+                    migrateFromVersion payload.version bytes
+
+
+decodeCurrent : String -> Bytes -> BackendTask FatalError Db.Db
+decodeCurrent storedHash bytes =
+    case Wire.bytesDecode Db.w3_decode_Db bytes of
+        Just db ->
+            if storedHash == schemaHash then
+                BackendTask.succeed db
+
+            else
+                persistMigrated db
+
+        Nothing ->
+            if storedHash == schemaHash then
+                BackendTask.fail
+                    (FatalError.build
+                        { title = "db.bin decode failed"
+                        , body = "Data is corrupted. Run \`elm-pages db reset\`."
+                        }
+                    )
+
+            else
+                BackendTask.fail
+                    (FatalError.build
+                        { title = "db.bin schema mismatch"
+                        , body = "The stored data uses an incompatible schema. Run \`elm-pages db migrate\` and implement migrations, or reset the database."
+                        }
+                    )
+
+
+migrateFromVersion : Int -> Bytes -> BackendTask FatalError Db.Db
+migrateFromVersion version bytes =
+    case version of
+${hasMigrations ? migrationBranches : ""}
+
+        _ ->
+            BackendTask.fail
+                (FatalError.build
+                    { title = "db.bin migration failed"
+                    , body = "No migration path exists from V" ++ String.fromInt version ++ " to V" ++ String.fromInt schemaVersion ++ "."
+                    }
+                )
+
+
+readPayload : BackendTask FatalError DbReadPayload
+readPayload =
+    internalRequest "db-read-meta"
+        (BackendTask.Http.jsonBody Encode.null)
+        (BackendTask.Http.expectJson dbReadPayloadDecoder)
+
+
+persistMigrated : Db.Db -> BackendTask FatalError Db.Db
+persistMigrated db =
+    let
+        wire3Bytes =
+            Wire.bytesEncode (Db.w3_encode_Db db)
+
+        base64Data =
+            Base64.fromBytes wire3Bytes
+                |> Maybe.withDefault ""
+    in
+    internalRequest "db-migrate-write"
         (BackendTask.Http.jsonBody
             (Encode.object
-                [ ( "hash", Encode.string schemaHash )
-                , ( "path", Encode.string dbPath )
+                [ ( "data", Encode.string base64Data )
                 ]
             )
         )
-        (Bytes.Decode.signedInt32 Bytes.BE
-            |> Bytes.Decode.andThen
-                (\\length ->
-                    if length <= 0 then
-                        Bytes.Decode.succeed Nothing
+        (BackendTask.Http.expectJson (Decode.succeed ()))
+        |> BackendTask.map (\\_ -> db)
 
-                    else
-                        Bytes.Decode.bytes length
-                            |> Bytes.Decode.map Just
-                )
-            |> BackendTask.Http.expectBytes
-        )
-        |> BackendTask.andThen
-            (\\maybeBytes ->
-                case maybeBytes of
-                    Nothing ->
-                        BackendTask.succeed Pages.DbSeed.seedCurrent
 
-                    Just bytes ->
-                        case Wire.bytesDecode Db.w3_decode_Db bytes of
-                            Just db ->
-                                BackendTask.succeed db
-
-                            Nothing ->
-                                BackendTask.fail
-                                    (FatalError.build
-                                        { title = "db.bin decode failed"
-                                        , body = "Data is corrupted. Run \`elm-pages db reset\`."
-                                        }
-                                    )
-            )
+${migrateFunctions}
 
 
 update : (Db.Db -> Db.Db) -> BackendTask FatalError ()
 update fn =
-    updateAt "db.bin" fn
-
-
-updateAt : String -> (Db.Db -> Db.Db) -> BackendTask FatalError ()
-updateAt dbPath fn =
-    transactionAt dbPath (\\db -> BackendTask.succeed ( fn db, () ))
+    transaction (\\db -> BackendTask.succeed ( fn db, () ))
 
 
 transaction : (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a
 transaction fn =
-    transactionAt "db.bin" fn
-
-
-transactionAt : String -> (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a
-transactionAt dbPath fn =
-    acquireLockAt dbPath
+    acquireLock
         |> BackendTask.andThen
             (\\token ->
-                getAt dbPath
+                get
                     |> BackendTask.andThen (\\db -> fn db)
                     |> BackendTask.andThen
                         (\\( newDb, result ) ->
-                            writeAt dbPath newDb
+                            write newDb
                                 |> BackendTask.map (\\_ -> result)
                         )
                     |> BackendTask.toResult
                     |> BackendTask.andThen
                         (\\result ->
-                            releaseLockAt dbPath token
+                            releaseLock token
                                 |> BackendTask.andThen
                                     (\\_ ->
                                         case result of
@@ -221,8 +365,8 @@ transactionAt dbPath fn =
             )
 
 
-writeAt : String -> Db.Db -> BackendTask FatalError ()
-writeAt dbPath db =
+write : Db.Db -> BackendTask FatalError ()
+write db =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db db)
@@ -236,35 +380,23 @@ writeAt dbPath db =
             (Encode.object
                 [ ( "hash", Encode.string schemaHash )
                 , ( "data", Encode.string base64Data )
-                , ( "path", Encode.string dbPath )
                 ]
             )
         )
         (BackendTask.Http.expectJson (Decode.succeed ()))
 
 
-acquireLockAt : String -> BackendTask FatalError String
-acquireLockAt dbPath =
+acquireLock : BackendTask FatalError String
+acquireLock =
     internalRequest "db-lock-acquire"
-        (BackendTask.Http.jsonBody
-            (Encode.object
-                [ ( "path", Encode.string dbPath )
-                ]
-            )
-        )
+        (BackendTask.Http.jsonBody Encode.null)
         (BackendTask.Http.expectJson Decode.string)
 
 
-releaseLockAt : String -> String -> BackendTask FatalError ()
-releaseLockAt dbPath token =
+releaseLock : String -> BackendTask FatalError ()
+releaseLock token =
     internalRequest "db-lock-release"
-        (BackendTask.Http.jsonBody
-            (Encode.object
-                [ ( "path", Encode.string dbPath )
-                , ( "token", Encode.string token )
-                ]
-            )
-        )
+        (BackendTask.Http.jsonBody (Encode.string token))
         (BackendTask.Http.expectJson (Decode.succeed ()))
 `;
 }
@@ -410,21 +542,16 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
   );
 
   // Generate Pages.Db module if this script uses the database.
-  // This runs AFTER rewriteElmJson so that deep compare can compile
-  // a witness module using the prepared elm.json and source directories.
+  // This runs AFTER rewriteElmJson so generated modules are available for compile.
   if (options.usesDb) {
     const {
-      computeSchemaHash, compareSchemaHash, saveSchemaMeta,
-      compileWitnessAndHash, readSchemaVersion, writeSchemaVersion,
+      computeSchemaHash, readSchemaVersion, writeSchemaVersion,
       saveSchemaSourceFromFile,
     } = await import("../db-schema.js");
-    const { parseDbBinHeader, buildDbBin } = await import("../db-bin-format.js");
+    const { validateMigrationChain, copyMigrationElmFiles } = await import("../db-migrate.js");
 
     // db.bin and .elm-pages-db live at the runtime CWD (where the user runs
-    // `elm-pages run`), NOT at projectDirectory. The render.js handlers resolve
-    // db.bin via path.resolve(...req.dir) which defaults to process.cwd().
-    // This function is called before any chdir in run.js, so process.cwd()
-    // matches the runtime CWD.
+    // `elm-pages run`), NOT at projectDirectory.
     const runtimeDir = process.cwd();
 
     const dbElmPath = await findDbElm(projectDirectory, sourceDirectory);
@@ -438,127 +565,6 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
     // Ensure schema version file exists
     const schemaVersion = await readSchemaVersion(runtimeDir);
     await writeSchemaVersion(runtimeDir, schemaVersion);
-
-    // Deep compare: if db.bin exists with a different hash, check if it's
-    // a cosmetic change (comments/formatting) vs a structural change.
-    const dbBinPath = path.join(runtimeDir, "db.bin");
-    let incompatibleSchemaChange = false;
-    if (fs.existsSync(dbBinPath)) {
-      const dbBinContents = fs.readFileSync(dbBinPath);
-      const parsed = parseDbBinHeader(dbBinContents);
-
-      if (parsed.schemaHashHex !== schemaHash) {
-        const result = await compareSchemaHash(
-          schemaHash, parsed.schemaHashHex, projectDirectory, executableName
-        );
-        if (result.compatible) {
-          // Cosmetic change only — update db.bin header with new source hash
-          const updatedBin = buildDbBin(schemaHash, parsed.schemaVersion, parsed.wire3Data);
-          const tmpPath = `${dbBinPath}.tmp.${process.pid}`;
-          fs.writeFileSync(tmpPath, updatedBin);
-          fs.renameSync(tmpPath, dbBinPath);
-        } else {
-          incompatibleSchemaChange = true;
-        }
-      }
-    } else {
-      // No existing db.bin — save initial compiled hash baseline for future deep compares
-      const compileDir = path.join(projectDirectory, "elm-stuff", "elm-pages");
-      try {
-        const compiledHash = await compileWitnessAndHash(compileDir, executableName);
-        await saveSchemaMeta(runtimeDir, schemaHash, compiledHash);
-      } catch (_) {
-        // Non-fatal: deep compare just won't be available until next successful compile
-      }
-    }
-
-    // Migration auto-apply: if db.bin version < schema version, run migration chain
-    const {
-      detectMigrationNeeded, validateMigrationChain,
-      writeMigrateChain, copyMigrationElmFiles,
-    } = await import("../db-migrate.js");
-
-    const migrationStatus = await detectMigrationNeeded(runtimeDir);
-    if (incompatibleSchemaChange && migrationStatus.action !== "migrate") {
-      throw `Schema change detected
-
-Your Db.elm type has changed structurally, but db.bin contains data with the old schema.
-
-To preserve your data, create a migration:
-  elm-pages db migrate
-
-To start fresh (discard existing data):
-  elm-pages db reset`;
-    }
-    if (migrationStatus.action === "migrate") {
-      const validation = await validateMigrationChain(
-        runtimeDir,
-        migrationStatus.fromVersion,
-        migrationStatus.toVersion
-      );
-      if (!validation.valid) {
-        const issues = [];
-        if (validation.missingFiles && validation.missingFiles.length > 0) {
-          issues.push(`Missing files: ${validation.missingFiles.join(", ")}`);
-        }
-        if (validation.unimplemented && validation.unimplemented.length > 0) {
-          issues.push(`Unimplemented migrations: ${validation.unimplemented.join(", ")}`);
-        }
-        throw `Migration needed (V${migrationStatus.fromVersion} -> V${migrationStatus.toVersion}) but chain is invalid:\n  ${issues.join("\n  ")}\n\nImplement the migration stubs in .elm-pages-db/Db/Migrate/, then run \`elm-pages db migrate\` (or rerun your script for auto-apply).`;
-      }
-
-      // Generate MigrateChain.elm
-      await writeMigrateChain(runtimeDir, migrationStatus.toVersion);
-
-      const compileDir = path.join(projectDirectory, "elm-stuff", "elm-pages");
-      const elmPagesSourceDir = path.join(compileDir, ".elm-pages");
-
-      // Copy migration Elm files into the existing .elm-pages source directory
-      // instead of modifying elm.json (which triggers compiler cache invalidation
-      // and can cause it to re-resolve the published elm-pages package).
-      const migrationDbDir = path.join(runtimeDir, ".elm-pages-db");
-      const copiedMigrationFiles = copyMigrationElmFiles(migrationDbDir, elmPagesSourceDir);
-
-      try {
-        // Write migration wrapper
-        await writeFileIfChanged(
-          path.join(elmPagesSourceDir, "ScriptMain.elm"),
-          generatorWrapperFile("MigrateChain")
-        );
-
-        // Compile MigrateChain
-        const { compileCliApp } = await import("../compile-elm.js");
-        const elmEntrypointPath = path.join(elmPagesSourceDir, "ScriptMain.elm");
-        const migrateOutputPath = path.join(compileDir, "migrate-chain.js");
-        await compileCliApp(
-          { debug: true },
-          elmEntrypointPath,
-          migrateOutputPath,
-          compileDir,
-          migrateOutputPath
-        );
-
-        // Run the migration script
-        const renderer = await import("../render.js");
-        const Elm = await requireElm(migrateOutputPath.replace(/\.js$/, ".cjs"));
-        await renderer.runGenerator([], null, Elm, "MigrateChain");
-
-        console.log(`Migration applied: V${migrationStatus.fromVersion} -> V${migrationStatus.toVersion}`);
-      } finally {
-        // Clean up copied migration files
-        for (const filePath of copiedMigrationFiles) {
-          try { fs.unlinkSync(filePath); } catch (_) {}
-        }
-        // Remove migration directories if empty (won't remove if pre-existing files)
-        try { fs.rmdirSync(path.join(elmPagesSourceDir, "Db", "Migrate")); } catch (_) {}
-        try { fs.rmdirSync(path.join(elmPagesSourceDir, "Db")); } catch (_) {}
-        // Restore the normal ScriptMain wrapper for the actual script
-        await writeFileIfChanged(
-          path.join(elmPagesSourceDir, "ScriptMain.elm"),
-          generatorWrapperFile(moduleName)
-        );
-      }
-    }
 
     const compileDbDir = path.join(
       projectDirectory,
@@ -610,7 +616,7 @@ To start fresh (discard existing data):
       path.join(
         `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Pages/Db.elm`
       ),
-      generatePagesDbModule(schemaHash)
+      generatePagesDbModule(schemaHash, schemaVersion)
     );
   }
 }

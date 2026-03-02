@@ -6,21 +6,27 @@ import {
 
 describe("Pages.Db codegen", () => {
   it("uses Pages.DbSeed for empty db.bin fallback", () => {
-    const generated = generatePagesDbModule("abc123");
+    const generated = generatePagesDbModule("abc123", 1);
     expect(generated).toContain("import Pages.DbSeed");
     expect(generated).toContain("BackendTask.succeed Pages.DbSeed.seedCurrent");
     expect(generated).not.toContain("BackendTask.succeed Db.init");
   });
 
   it("exposes path-aware API variants for custom db file locations", () => {
-    const generated = generatePagesDbModule("abc123");
+    const generated = generatePagesDbModule("abc123", 3);
     expect(generated).toContain(
-      "module Pages.Db exposing (get, getAt, update, updateAt, transaction, transactionAt)"
+      "module Pages.Db exposing (get, update, transaction)"
     );
-    expect(generated).toContain('getAt "db.bin"');
-    expect(generated).toContain('updateAt "db.bin" fn');
-    expect(generated).toContain('transactionAt "db.bin" fn');
-    expect(generated).toContain('( "path", Encode.string dbPath )');
+    expect(generated).toContain('( "hash", Encode.string schemaHash )');
+    expect(generated).toContain("internalRequest \"db-read-meta\"");
+    expect(generated).toContain("internalRequest \"db-migrate-write\"");
+    expect(generated).toContain("internalRequest \"db-lock-acquire\"");
+    expect(generated).toContain("BackendTask.Http.jsonBody Encode.null");
+    expect(generated).not.toContain("getAt :");
+    expect(generated).not.toContain("updateAt :");
+    expect(generated).not.toContain("transactionAt :");
+    expect(generated).toContain("migrateFromV1");
+    expect(generated).toContain("migrateFromVersion version bytes");
   });
 });
 

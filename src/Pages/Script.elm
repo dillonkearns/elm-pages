@@ -1,6 +1,6 @@
 module Pages.Script exposing
     ( Script
-    , withCliOptions, withoutCliOptions
+    , withCliOptions, withoutCliOptions, withDatabasePath
     , writeFile, removeFile, copyFile, move
     , makeDirectory, removeDirectory, makeTempDirectory
     , command, exec
@@ -17,7 +17,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 ## Defining Scripts
 
-@docs withCliOptions, withoutCliOptions
+@docs withCliOptions, withoutCliOptions, withDatabasePath
 
 
 ## Paths
@@ -187,6 +187,51 @@ withCliOptions config execute =
             config
                 |> Program.mapConfig execute
         )
+
+
+{-| Configure the default database file path for [`Pages.Db`](Pages-Db) calls in this script run.
+
+This lets you define your DB location once at the top level instead of passing
+the path into each database call.
+
+    import FilePath
+    import Pages.Db
+    import Pages.Script as Script
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Pages.Db.update (\db -> db)
+                |> BackendTask.allowFatal
+            )
+            |> Script.withDatabasePath (FilePath.fromString ".elm-pages-data/prefs.db.bin")
+
+-}
+withDatabasePath : FilePath -> Script -> Script
+withDatabasePath dbPath (Pages.Internal.Script.Script cliConfig) =
+    Pages.Internal.Script.Script
+        (\htmlToString ->
+            cliConfig htmlToString
+                |> Program.mapConfig
+                    (\task ->
+                        setDatabasePath dbPath
+                            |> BackendTask.andThen (\_ -> task)
+                    )
+        )
+
+
+setDatabasePath : FilePath -> BackendTask FatalError ()
+setDatabasePath dbPath =
+    BackendTask.Internal.Request.request
+        { name = "db-set-default-path"
+        , body =
+            BackendTask.Http.jsonBody
+                (Encode.object
+                    [ ( "path", dbPath |> FilePath.toString |> Encode.string )
+                    ]
+                )
+        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        }
 
 
 {-| Sleep for a number of milliseconds.

@@ -1022,6 +1022,10 @@ seed old =
 
         expect(seedFromChain.stdout).toContain("Seeded db.bin with 3 todos.");
         expect(fs.existsSync(path.join(fixtureCwd, "db.bin"))).toBe(true);
+        const parsedSeeded = parseDbBinHeader(
+          fs.readFileSync(path.join(fixtureCwd, "db.bin"))
+        );
+        expect(parsedSeeded.schemaVersion).toBe(2);
       } finally {
         await fs.promises.rm(fixtureCwd, { recursive: true, force: true });
       }
@@ -1030,7 +1034,7 @@ seed old =
   );
 
   it(
-    "can write to a custom db path through Pages.Db.updateAt",
+    "can write to a custom db path through Script.withDatabasePath",
     async () => {
       const fixtureRoot = path.join(repoRoot, "examples", "end-to-end");
       const fixtureParent = path.join(repoRoot, ".tmp-db-e2e");
@@ -1059,6 +1063,7 @@ seed old =
 
 import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
+import FilePath
 import Pages.Db
 import Pages.Script as Script exposing (Script)
 
@@ -1071,7 +1076,7 @@ dbPath =
 run : Script
 run =
     Script.withoutCliOptions
-        (Pages.Db.updateAt dbPath
+        (Pages.Db.update
             (\\db ->
                 { db
                     | todos =
@@ -1081,6 +1086,7 @@ run =
             )
             |> BackendTask.andThen (\\_ -> Script.log "Seeded custom path db.")
         )
+        |> Script.withDatabasePath (FilePath.fromString dbPath)
 `
         );
 
@@ -1110,6 +1116,129 @@ run =
         );
         expect(parsed.schemaVersion).toBe(1);
         expect(parsed.schemaHashHex).toBe(currentHash);
+      } finally {
+        await fs.promises.rm(fixtureCwd, { recursive: true, force: true });
+      }
+    },
+    120000
+  );
+
+  it(
+    "bundle-script does not mutate db.bin, but runtime execution auto-migrates it",
+    async () => {
+      const fixtureRoot = path.join(repoRoot, "examples", "end-to-end");
+      const fixtureParent = path.join(repoRoot, ".tmp-db-e2e");
+      await fs.promises.mkdir(fixtureParent, { recursive: true });
+      const fixtureCwd = await fs.promises.mkdtemp(
+        path.join(fixtureParent, "case-")
+      );
+
+      try {
+        fs.cpSync(path.join(fixtureRoot, "script"), path.join(fixtureCwd, "script"), {
+          recursive: true,
+        });
+        fs.cpSync(path.join(fixtureRoot, "codegen"), path.join(fixtureCwd, "codegen"), {
+          recursive: true,
+        });
+
+        const seedV1 = runElmPagesCli(["run", "script/src/SeedDb.elm"], fixtureCwd);
+        if (seedV1.status !== 0) {
+          throw new Error(
+            `Initial SeedDb failed (status ${seedV1.status})\nSTDOUT:\n${seedV1.stdout}\nSTDERR:\n${seedV1.stderr}`
+          );
+        }
+
+        const dbElmPath = path.join(fixtureCwd, "script", "src", "Db.elm");
+        const dbV2NoInit = `module Db exposing (Db, Todo)
+
+
+type alias Db =
+    { todos : List Todo
+    , nextId : Int
+    , ownerName : String
+    }
+
+
+type alias Todo =
+    { id : Int
+    , title : String
+    , completed : Bool
+    }
+`;
+        fs.writeFileSync(dbElmPath, dbV2NoInit);
+
+        const scaffold = runElmPagesCli(["db", "migrate"], fixtureCwd);
+        if (scaffold.status !== 0) {
+          throw new Error(
+            `db migrate scaffold failed (status ${scaffold.status})\nSTDOUT:\n${scaffold.stdout}\nSTDERR:\n${scaffold.stderr}`
+          );
+        }
+
+        const migrateStubPath = path.join(
+          fixtureCwd,
+          ".elm-pages-db",
+          "Db",
+          "Migrate",
+          "V2.elm"
+        );
+        fs.writeFileSync(
+          migrateStubPath,
+          `module Db.Migrate.V2 exposing (migrate, seed)
+
+import Db
+import Db.V1
+
+
+migrate : Db.V1.Db -> Db.Db
+migrate old =
+    { todos = old.todos
+    , nextId = old.nextId
+    , ownerName = ""
+    }
+
+
+seed : Db.V1.Db -> Db.Db
+seed old =
+    migrate old
+`
+        );
+
+        const beforeBundle = parseDbBinHeader(
+          fs.readFileSync(path.join(fixtureCwd, "db.bin"))
+        );
+        expect(beforeBundle.schemaVersion).toBe(1);
+
+        const bundleResult = runElmPagesCli(
+          ["bundle-script", "script/src/SeedDb.elm", "--output", "./bundled-seed.mjs"],
+          fixtureCwd
+        );
+        if (bundleResult.status !== 0) {
+          throw new Error(
+            `bundle-script failed (status ${bundleResult.status})\nSTDOUT:\n${bundleResult.stdout}\nSTDERR:\n${bundleResult.stderr}`
+          );
+        }
+
+        const afterBundle = parseDbBinHeader(
+          fs.readFileSync(path.join(fixtureCwd, "db.bin"))
+        );
+        expect(afterBundle.schemaVersion).toBe(1);
+
+        const runBundled = spawnSync(
+          process.execPath,
+          [path.join(fixtureCwd, "bundled-seed.mjs")],
+          { cwd: fixtureCwd, encoding: "utf8", env: { ...process.env, FORCE_COLOR: "0" } }
+        );
+        if (runBundled.status !== 0) {
+          throw new Error(
+            `bundled script run failed (status ${runBundled.status})\nSTDOUT:\n${runBundled.stdout}\nSTDERR:\n${runBundled.stderr}`
+          );
+        }
+        expect(runBundled.stdout).toContain("Seeded db.bin with 3 todos.");
+
+        const afterRuntime = parseDbBinHeader(
+          fs.readFileSync(path.join(fixtureCwd, "db.bin"))
+        );
+        expect(afterRuntime.schemaVersion).toBe(2);
       } finally {
         await fs.promises.rm(fixtureCwd, { recursive: true, force: true });
       }

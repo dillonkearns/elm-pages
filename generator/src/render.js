@@ -41,6 +41,7 @@ function detectColorSupport() {
 
 let verbosity = 2;
 const spinnies = new Spinnies();
+let configuredDbPath = "db.bin";
 
 process.on("unhandledRejection", (error) => {
   console.error(error);
@@ -73,6 +74,7 @@ export async function render(
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   global.XMLHttpRequest = {};
+  configuredDbPath = "db.bin";
   const result = await runElmApp(
     portsFile,
     basePath,
@@ -107,6 +109,7 @@ export async function runGenerator(
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   global.XMLHttpRequest = {};
+  configuredDbPath = "db.bin";
   try {
     const result = await runGeneratorAppHelp(
       cliOptions,
@@ -597,8 +600,12 @@ async function runInternalJob(
         return [requestHash, runStopSpinner(requestToPerform)];
       case "elm-pages-internal://db-read":
         return [requestHash, await runDbRead(requestToPerform)];
+      case "elm-pages-internal://db-read-meta":
+        return [requestHash, await runDbReadMeta(requestToPerform)];
       case "elm-pages-internal://db-write":
         return [requestHash, await runDbWrite(requestToPerform)];
+      case "elm-pages-internal://db-set-default-path":
+        return [requestHash, await runDbSetDefaultPath(requestToPerform)];
       case "elm-pages-internal://db-lock-acquire":
         return [requestHash, await runDbLockAcquire(requestToPerform)];
       case "elm-pages-internal://db-lock-release":
@@ -654,12 +661,31 @@ function resolveDbBinPath(cwd, payload) {
     typeof payload.path === "string" &&
     payload.path.length > 0
       ? payload.path
-      : "db.bin";
+      : configuredDbPath;
   return path.resolve(cwd, configuredPath);
 }
 
 function resolveDbLockPath(dbBinPath) {
   return `${dbBinPath}.lock`;
+}
+
+async function runDbSetDefaultPath(req) {
+  const payload = req.body.args[0];
+
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    typeof payload.path !== "string" ||
+    payload.path.length === 0
+  ) {
+    throw {
+      title: "Invalid db-set-default-path payload",
+      message: "Expected a non-empty path field.",
+    };
+  }
+
+  configuredDbPath = payload.path;
+  return jsonResponse(req, null);
 }
 
 async function runDbRead(req) {
@@ -715,6 +741,27 @@ async function runDbRead(req) {
   }
 }
 
+async function runDbReadMeta(req) {
+  const cwd = path.resolve(...req.dir);
+  const payload = req.body.args[0];
+  const dbBinPath = resolveDbBinPath(cwd, payload);
+
+  try {
+    const fileContents = await fsPromises.readFile(dbBinPath);
+    const parsed = parseDbBinHeader(fileContents);
+    return jsonResponse(req, {
+      version: parsed.schemaVersion,
+      hash: parsed.schemaHashHex,
+      data: Buffer.from(parsed.wire3Data).toString("base64"),
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return jsonResponse(req, { version: 0, hash: "", data: "" });
+    }
+    throw error;
+  }
+}
+
 async function findCurrentDbElm(cwd) {
   const candidates = [
     path.resolve(cwd, "script/src/Db.elm"),
@@ -763,14 +810,22 @@ async function runDbWrite(req) {
 
   const wire3Data = Buffer.from(base64Data, "base64");
 
-  // Determine schema version: read from existing db.bin if present, else default to 1
+  // Determine schema version: use current schema version by default.
+  // If header hash already matches, preserve existing schema version.
   let schemaVersion = 1;
+  try {
+    const { readSchemaVersion } = await import("./db-schema.js");
+    schemaVersion = await readSchemaVersion(cwd);
+  } catch (_) {}
+
   try {
     const existing = await fsPromises.readFile(dbBinPath);
     const parsed = parseDbBinHeader(existing);
-    schemaVersion = parsed.schemaVersion;
+    if (parsed.schemaHashHex === schemaHash) {
+      schemaVersion = parsed.schemaVersion;
+    }
   } catch (_) {
-    // No existing file or unreadable — use default
+    // No existing file or unreadable — use current schema version
   }
 
   // Always write Phase 2 format (auto-upgrades Phase 1 files)
