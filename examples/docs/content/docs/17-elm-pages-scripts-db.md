@@ -6,7 +6,7 @@ description: Use a local type-safe database in elm-pages scripts with type-safe 
 
 `elm-pages` Scripts can read and write to **an Elm type** directly to a local database file using a `BackendTask`.
 
-Think of it like `Sqlite`, but with Elm types and type-safe migrations between versions of that Elm type.
+Think of it like `SQLite`, but with Elm types and type-safe migrations between versions of that Elm type.
 
 ## Lamdera Inspiration
 
