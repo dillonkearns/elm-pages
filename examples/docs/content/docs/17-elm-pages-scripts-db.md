@@ -8,11 +8,33 @@ description: Use a local type-safe database in elm-pages scripts with type-safe 
 
 Think of it like `SQLite`, but with Elm types and type-safe migrations between versions of that Elm type.
 
+```elm
+module Db exposing (Db, init)
+
+type alias Db =
+    { todos : List { title : String, done : Bool }
+    }
+
+init : Db
+init =
+    { todos = [] }
+```
+
 This database API is **script-only**. Use it from `elm-pages run`, or CLIs that you bundle with `elm-pages bundle-script` (not from Route module, i.e. `preRender` or `serverRender`).
+
+## Prerequisites
+
+This feature requires the [Lamdera compiler](https://dashboard.lamdera.app/docs/download) (`lamdera` must be on your `PATH`). `elm-pages` uses Lamdera's binary serialization to read and write your Elm types without any hand-written encoders or decoders. You can add Lamdera to your package.json by running `npm install --save-dev lamdera@latest`.
 
 ## Lamdera Inspiration
 
 A big thank you to Mario Rogic for Lamdera and Evergreen Migrations. `elm-pages` uses the Lamdera compiler for binary serialization of Elm values, and this local DB uses a pattern inspired by [Lamdera's `Evergreen` migrations](https://dashboard.lamdera.app/docs/evergreen).
+
+## Key Concepts
+
+- **`Db.elm`** -- You define your database schema as a plain Elm type alias. When you want to change the schema, you change this file.
+- **`Connection`** -- An opaque type that points to a database file on disk. Create one with `Pages.Db.default` (uses `./db.bin`) or `Pages.Db.open` (custom path).
+- **Migrations** -- When you change `Db.elm`, you also write a type-safe migration function (`Db.V1.Db -> Db.Db`) in `.elm-pages-db/Db/Migrate/V*.elm` so existing data is transformed to the new schema. Other generated files in `.elm-pages-db/` are scaffolding you generally don't need to think about.
 
 ## Quick Start
 
@@ -129,10 +151,10 @@ Goodbye!
 -- The DB file this script will read/write from/to
 type Connection
 
--- The default path, ./db.bin, relative to the current working directory
+-- Uses ./db.bin in the current working directory (typically your project root)
 default : Connection
 
--- Choose a custom path for the DB file, like `FilePath.relative [ "config.bin" ]
+-- Choose a custom path for the DB file (relative to your project root)
 open : FilePath -> Connection
 
 -- Read the current DB value (initializes from seed if the file doesn't exist yet)
@@ -263,7 +285,7 @@ Migration applied: V1 -> V2
 Each migration module defines both:
 
 ```elm
--- used when upgrading existing stored data.  
+-- used when upgrading existing stored data.
 migrate : Db.VN.Db -> Db.Db
 
 -- used for fresh installs that start from `Db.V1.init`
@@ -271,7 +293,25 @@ migrate : Db.VN.Db -> Db.Db
 seed : Db.VN.Db -> Db.Db
 ```
 
-Generated stubs default `seed old = migrate old`, but you can override `seed` to choose a different from-scratch initialization path for new installs.
+Generated stubs default `seed old = migrate old`, which is the right choice most of the time. You only need a different `seed` when fresh installs should start with different data than what existing users get after migration.
+
+For example, suppose V1 had no `theme` field and V2 adds one. Existing users migrating from V1 should keep the old default (`"classic"`), but new users starting fresh should get the newer default (`"modern"`):
+
+```elm
+migrate : Db.V1.Db -> Db.Db
+migrate old =
+    { count = old.count
+    , theme = "classic"  -- safe default for existing data
+    }
+
+seed : Db.V1.Db -> Db.Db
+seed old =
+    { count = old.count
+    , theme = "modern"  -- better default for fresh installs
+    }
+```
+
+If you don't need this distinction, just leave `seed old = migrate old`.
 
 ## Bundled Scripts and End Users
 
@@ -303,6 +343,45 @@ Use that only if you understand the risk: it may snapshot the wrong schema as th
 # Show schema/db compatibility and migration status
 npx elm-pages db status
 
-# Delete default local DB files (if you want to start fresh)
+# Start fresh (delete the default local DB)
+rm -f db.bin db.bin.lock db.bin.backup
+```
+
+## Troubleshooting
+
+### "Schema hash mismatch" or "incompatible schema"
+
+Your `Db.elm` type has changed since `db.bin` was last written. You need a migration:
+
+1. Run `npx elm-pages db migrate` to scaffold migration files.
+2. Implement the migration in `.elm-pages-db/Db/Migrate/V*.elm`.
+3. Run `npx elm-pages db migrate` again to apply it.
+
+### "Stale snapshot" error during `db migrate`
+
+This happens when `Db.elm` was edited before the old schema was captured as a snapshot. If `.elm-pages-db/schema-history/` has the old source, `elm-pages` will auto-recover. Otherwise:
+
+- **Preferred:** Restore `Db.elm` to the old schema (e.g. via `git stash` or `git checkout`), run `elm-pages db migrate` to create the snapshot, then re-apply your changes.
+- **Escape hatch:** `npx elm-pages db migrate --force-stale-snapshot` -- only use this if you're sure the current `Db.elm` before your changes is the correct old schema.
+
+### Lock file is stuck / "database is locked"
+
+Lock files (`db.bin.lock`) automatically expire after 5 minutes if the process that created them is no longer running. If you're sure no other script is using the database, you can safely delete the lock file:
+
+```shell
+rm -f db.bin.lock
+```
+
+### `db.bin` seems corrupt or can't be decoded
+
+Delete `db.bin` and let it be re-created from `Db.init` (or the seed chain if you have migrations):
+
+```shell
 rm -f db.bin db.bin.lock
 ```
+
+If you had a backup: `cp db.bin.backup db.bin`
+
+### `lamdera` not found
+
+The local DB feature requires the Lamdera compiler for binary serialization. [Download it here](https://dashboard.lamdera.app/docs/download) and make sure `lamdera` is on your `PATH`.
