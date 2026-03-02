@@ -643,14 +643,39 @@ async function runInternalJob(
 
 // --- Database handlers ---
 
-// Track the current lock token for cleanup on process exit
-let dbLockToken = null;
+// Track lock tokens per lock file for cleanup on process exit
+const dbLockTokensByPath = new Map();
 let dbLockCleanupRegistered = false;
+
+function resolveDbBinPath(cwd, payload) {
+  const configuredPath =
+    payload &&
+    typeof payload === "object" &&
+    typeof payload.path === "string" &&
+    payload.path.length > 0
+      ? payload.path
+      : "db.bin";
+  return path.resolve(cwd, configuredPath);
+}
+
+function resolveDbLockPath(dbBinPath) {
+  return `${dbBinPath}.lock`;
+}
 
 async function runDbRead(req) {
   const cwd = path.resolve(...req.dir);
-  const schemaHash = req.body.args[0];
-  const dbBinPath = path.resolve(cwd, "db.bin");
+  const payload = req.body.args[0];
+  const schemaHash =
+    typeof payload === "string" ? payload : payload && payload.hash;
+  const dbBinPath = resolveDbBinPath(cwd, payload);
+
+  if (typeof schemaHash !== "string" || schemaHash.length === 0) {
+    throw {
+      title: "Invalid db-read payload",
+      message:
+        "Expected schema hash when reading from the database.",
+    };
+  }
 
   try {
     const fileContents = await fsPromises.readFile(dbBinPath);
@@ -678,7 +703,7 @@ async function runDbRead(req) {
     return bytesResponse(req, buffer);
   } catch (error) {
     if (error.code === "ENOENT") {
-      // File doesn't exist - return length=0 so Elm uses Db.init
+      // File doesn't exist - return length=0 so Elm uses the generated seed path
       // Must use DataView to write big-endian int32 (Buffer.from(Int32Array)
       // copies values as bytes, not the underlying 4-byte representation)
       const buffer = new Uint8Array(4);
@@ -719,8 +744,22 @@ async function findCurrentDbElm(cwd) {
 
 async function runDbWrite(req) {
   const cwd = path.resolve(...req.dir);
-  const { hash: schemaHash, data: base64Data } = req.body.args[0];
-  const dbBinPath = path.resolve(cwd, "db.bin");
+  const payload = req.body.args[0];
+  const schemaHash = payload && payload.hash;
+  const base64Data = payload && payload.data;
+  const dbBinPath = resolveDbBinPath(cwd, payload);
+
+  if (
+    typeof schemaHash !== "string" ||
+    schemaHash.length === 0 ||
+    typeof base64Data !== "string"
+  ) {
+    throw {
+      title: "Invalid db-write payload",
+      message:
+        "Expected hash and data fields when writing to the database.",
+    };
+  }
 
   const wire3Data = Buffer.from(base64Data, "base64");
 
@@ -740,6 +779,7 @@ async function runDbWrite(req) {
   // Atomic write: write to temp file then rename
   const tmpPath = `${dbBinPath}.tmp.${process.pid}`;
   try {
+    await fsPromises.mkdir(path.dirname(dbBinPath), { recursive: true });
     await fsPromises.writeFile(tmpPath, fileBuffer);
     await fsPromises.rename(tmpPath, dbBinPath);
   } catch (error) {
@@ -770,7 +810,9 @@ async function runDbWrite(req) {
 
 async function runDbLockAcquire(req) {
   const cwd = path.resolve(...req.dir);
-  const lockPath = path.resolve(cwd, "db.lock");
+  const payload = req.body.args[0];
+  const dbBinPath = resolveDbBinPath(cwd, payload);
+  const lockPath = resolveDbLockPath(dbBinPath);
   const token = crypto.randomUUID();
   const lockData = JSON.stringify({
     pid: process.pid,
@@ -781,26 +823,31 @@ async function runDbLockAcquire(req) {
   const maxRetries = 50;
   const retryDelay = 100; // ms
 
+  await fsPromises.mkdir(path.dirname(lockPath), { recursive: true });
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       // Exclusive create - fails if file exists
       await fsPromises.writeFile(lockPath, lockData, { flag: "wx" });
 
       // Lock acquired
-      dbLockToken = token;
+      dbLockTokensByPath.set(lockPath, token);
 
       // Register process exit cleanup (once)
       if (!dbLockCleanupRegistered) {
         dbLockCleanupRegistered = true;
         process.on("exit", () => {
-          if (dbLockToken) {
+          for (const [cleanupLockPath, cleanupToken] of dbLockTokensByPath) {
             try {
-              const existing = JSON.parse(fs.readFileSync(lockPath, "utf8"));
-              if (existing.token === dbLockToken) {
-                fs.unlinkSync(lockPath);
+              const existing = JSON.parse(
+                fs.readFileSync(cleanupLockPath, "utf8")
+              );
+              if (existing.token === cleanupToken) {
+                fs.unlinkSync(cleanupLockPath);
               }
             } catch (_) {}
           }
+          dbLockTokensByPath.clear();
         });
       }
 
@@ -855,16 +902,27 @@ async function runDbLockAcquire(req) {
 
 async function runDbLockRelease(req) {
   const cwd = path.resolve(...req.dir);
-  const lockPath = path.resolve(cwd, "db.lock");
-  const token = req.body.args[0];
+  const payload = req.body.args[0];
+  const token =
+    typeof payload === "string" ? payload : payload && payload.token;
+  const dbBinPath =
+    typeof payload === "string"
+      ? resolveDbBinPath(cwd, null)
+      : resolveDbBinPath(cwd, payload);
+  const lockPath = resolveDbLockPath(dbBinPath);
+
+  if (typeof token !== "string" || token.length === 0) {
+    throw {
+      title: "Invalid db-lock-release payload",
+      message: "Expected token when releasing database lock.",
+    };
+  }
 
   try {
     const existing = JSON.parse(await fsPromises.readFile(lockPath, "utf8"));
     if (existing.token === token) {
       await fsPromises.unlink(lockPath);
-      if (dbLockToken === token) {
-        dbLockToken = null;
-      }
+      dbLockTokensByPath.delete(lockPath);
     }
   } catch (_) {
     // Lock file already gone - that's fine
@@ -875,7 +933,8 @@ async function runDbLockRelease(req) {
 
 async function runDbMigrateRead(req) {
   const cwd = path.resolve(...req.dir);
-  const dbBinPath = path.resolve(cwd, "db.bin");
+  const payload = req.body.args[0];
+  const dbBinPath = resolveDbBinPath(cwd, payload);
 
   try {
     const fileContents = await fsPromises.readFile(dbBinPath);
@@ -895,8 +954,16 @@ async function runDbMigrateRead(req) {
 
 async function runDbMigrateWrite(req) {
   const cwd = path.resolve(...req.dir);
-  const { data: base64Data } = req.body.args[0];
-  const dbBinPath = path.resolve(cwd, "db.bin");
+  const payload = req.body.args[0];
+  const base64Data = payload && payload.data;
+  const dbBinPath = resolveDbBinPath(cwd, payload);
+
+  if (typeof base64Data !== "string") {
+    throw {
+      title: "Invalid db-migrate-write payload",
+      message: "Expected data field when writing migrated database data.",
+    };
+  }
 
   const wire3Data = Buffer.from(base64Data, "base64");
 
@@ -937,6 +1004,7 @@ async function runDbMigrateWrite(req) {
   // Atomic write
   const tmpPath = `${dbBinPath}.tmp.${process.pid}`;
   try {
+    await fsPromises.mkdir(path.dirname(dbBinPath), { recursive: true });
     await fsPromises.writeFile(tmpPath, fileBuffer);
     await fsPromises.rename(tmpPath, dbBinPath);
   } catch (error) {

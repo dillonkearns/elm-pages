@@ -82,15 +82,15 @@ run =
 
 migrateFromV1 : Db.V1.Db -> BackendTask FatalError ()
 migrateFromV1 model =
-    migrateFromV2 (MigrateV2.db model)
+    migrateFromV2 (MigrateV2.migrate model)
 
 migrateFromV2 : Db.V2.Db -> BackendTask FatalError ()
 migrateFromV2 model =
-    migrateFromV3 (MigrateV3.db model)
+    migrateFromV3 (MigrateV3.migrate model)
 
 migrateFromV3 : Db.V3.Db -> BackendTask FatalError ()
 migrateFromV3 model =
-    saveAndLog (MigrateV4.db model) 3 4
+    saveAndLog (MigrateV4.migrate model) 3 4
 
 
 internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
@@ -221,11 +221,11 @@ run =
 
 migrateFromV1 : Db.V1.Db -> BackendTask FatalError ()
 migrateFromV1 model =
-    migrateFromV2 (MigrateV2.db model)
+    migrateFromV2 (MigrateV2.migrate model)
 
 migrateFromV2 : Db.V2.Db -> BackendTask FatalError ()
 migrateFromV2 model =
-    saveAndLog (MigrateV3.db model) 2 3
+    saveAndLog (MigrateV3.migrate model) 2 3
 
 
 internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
@@ -341,7 +341,7 @@ run =
 
 migrateFromV1 : Db.V1.Db -> BackendTask FatalError ()
 migrateFromV1 model =
-    saveAndLog (MigrateV2.db model) 1 2
+    saveAndLog (MigrateV2.migrate model) 1 2
 
 
 internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a

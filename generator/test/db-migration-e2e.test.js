@@ -201,14 +201,14 @@ describe("E2E: single migration (V1 → V2)", () => {
     expect(validationBefore.unimplemented).toContain("Db/Migrate/V2.elm");
 
     // === Step 5: User implements the migration stub ===
-    const implementedMigration = `module Db.Migrate.V2 exposing (db)
+    const implementedMigration = `module Db.Migrate.V2 exposing (migrate)
 
 import Db
 import Db.V1
 
 
-db : Db.V1.Db -> Db.Db
-db old =
+migrate : Db.V1.Db -> Db.Db
+migrate old =
     { counter = old.counter
     , name = ""
     }
@@ -306,14 +306,14 @@ describe("E2E: multi-step migration (V1 → V2 → V3)", () => {
     // Implement V2 migration
     fs.writeFileSync(
       path.join(tmpDir, ".elm-pages-db", "Db", "Migrate", "V2.elm"),
-      `module Db.Migrate.V2 exposing (db)
+      `module Db.Migrate.V2 exposing (migrate)
 
 import Db
 import Db.V1
 
 
-db : Db.V1.Db -> Db.Db
-db old =
+migrate : Db.V1.Db -> Db.Db
+migrate old =
     { counter = old.counter
     , name = "migrated"
     }
@@ -359,14 +359,14 @@ db old =
     // === Step 4: Implement V3 migration ===
     fs.writeFileSync(
       path.join(tmpDir, ".elm-pages-db", "Db", "Migrate", "V3.elm"),
-      `module Db.Migrate.V3 exposing (db)
+      `module Db.Migrate.V3 exposing (migrate)
 
 import Db
 import Db.V2
 
 
-db : Db.V2.Db -> Db.Db
-db old =
+migrate : Db.V2.Db -> Db.Db
+migrate old =
     { counter = old.counter
     , name = old.name
     , active = True
@@ -430,14 +430,14 @@ init =
 
     fs.writeFileSync(
       path.join(migrateDir, "V2.elm"),
-      `module Db.Migrate.V2 exposing (db)
+      `module Db.Migrate.V2 exposing (migrate)
 
 import Db.V1
 import Db.V2
 
 
-db : Db.V1.Db -> Db.V2.Db
-db old =
+migrate : Db.V1.Db -> Db.V2.Db
+migrate old =
     { counter = old.counter
     , name = ""
     }
@@ -446,14 +446,14 @@ db old =
 
     fs.writeFileSync(
       path.join(migrateDir, "V3.elm"),
-      `module Db.Migrate.V3 exposing (db)
+      `module Db.Migrate.V3 exposing (migrate)
 
 import Db
 import Db.V2
 
 
-db : Db.V2.Db -> Db.Db
-db old =
+migrate : Db.V2.Db -> Db.Db
+migrate old =
     { counter = old.counter
     , name = old.name
     , active = True
@@ -577,10 +577,10 @@ describe("E2E: error cases", () => {
     fs.mkdirSync(migrateDir, { recursive: true });
     fs.writeFileSync(
       path.join(migrateDir, "V2.elm"),
-      `module Db.Migrate.V2 exposing (db)
+      `module Db.Migrate.V2 exposing (migrate)
 import Db
 import Db.V1
-db old = { counter = old.counter, name = "" }
+migrate old = { counter = old.counter, name = "" }
 `
     );
 
@@ -605,14 +605,14 @@ db old = { counter = old.counter, name = "" }
     );
     fs.writeFileSync(
       path.join(migrateDir, "V2.elm"),
-      `module Db.Migrate.V2 exposing (db)
+      `module Db.Migrate.V2 exposing (migrate)
 
 import Db
 import Db.V1
 
 
-db : Db.V1.Db -> Db.Db
-db old =
+migrate : Db.V1.Db -> Db.Db
+migrate old =
     todo_implement_migration_V1_to_V2
 `
     );
@@ -920,6 +920,196 @@ init =
         expect(snapshotContent).toContain("module Db.V1 exposing (Db, Todo, init)");
         expect(snapshotContent).toContain(", completed : Bool");
         expect(snapshotContent).not.toContain(", tags : List String");
+      } finally {
+        await fs.promises.rm(fixtureCwd, { recursive: true, force: true });
+      }
+    },
+    120000
+  );
+
+  it(
+    "can initialize from V1 seed chain after removing current Db.init",
+    async () => {
+      const fixtureRoot = path.join(repoRoot, "examples", "end-to-end");
+      const fixtureParent = path.join(repoRoot, ".tmp-db-e2e");
+      await fs.promises.mkdir(fixtureParent, { recursive: true });
+      const fixtureCwd = await fs.promises.mkdtemp(
+        path.join(fixtureParent, "case-")
+      );
+
+      try {
+        fs.cpSync(path.join(fixtureRoot, "script"), path.join(fixtureCwd, "script"), {
+          recursive: true,
+        });
+        fs.cpSync(path.join(fixtureRoot, "codegen"), path.join(fixtureCwd, "codegen"), {
+          recursive: true,
+        });
+
+        const seedV1 = runElmPagesCli(["run", "script/src/SeedDb.elm"], fixtureCwd);
+        if (seedV1.status !== 0) {
+          throw new Error(
+            `Initial SeedDb failed (status ${seedV1.status})\nSTDOUT:\n${seedV1.stdout}\nSTDERR:\n${seedV1.stderr}`
+          );
+        }
+
+        const dbElmPath = path.join(fixtureCwd, "script", "src", "Db.elm");
+        const dbV2NoInit = `module Db exposing (Db, Todo)
+
+
+type alias Db =
+    { todos : List Todo
+    , nextId : Int
+    , ownerName : String
+    }
+
+
+type alias Todo =
+    { id : Int
+    , title : String
+    , completed : Bool
+    }
+`;
+        fs.writeFileSync(dbElmPath, dbV2NoInit);
+
+        const scaffold = runElmPagesCli(["db", "migrate"], fixtureCwd);
+        if (scaffold.status !== 0) {
+          throw new Error(
+            `db migrate scaffold failed (status ${scaffold.status})\nSTDOUT:\n${scaffold.stdout}\nSTDERR:\n${scaffold.stderr}`
+          );
+        }
+
+        const migrateStubPath = path.join(
+          fixtureCwd,
+          ".elm-pages-db",
+          "Db",
+          "Migrate",
+          "V2.elm"
+        );
+        fs.writeFileSync(
+          migrateStubPath,
+          `module Db.Migrate.V2 exposing (migrate, seed)
+
+import Db
+import Db.V1
+
+
+migrate : Db.V1.Db -> Db.Db
+migrate old =
+    { todos = old.todos
+    , nextId = old.nextId
+    , ownerName = ""
+    }
+
+
+seed : Db.V1.Db -> Db.Db
+seed old =
+    migrate old
+`
+        );
+
+        // Simulate a new install at V2: no local db.bin exists yet.
+        await fs.promises.rm(path.join(fixtureCwd, "db.bin"), { force: true });
+
+        const seedFromChain = runElmPagesCli(
+          ["run", "script/src/SeedDb.elm"],
+          fixtureCwd
+        );
+        if (seedFromChain.status !== 0) {
+          throw new Error(
+            `SeedDb after removing Db.init failed (status ${seedFromChain.status})\nSTDOUT:\n${seedFromChain.stdout}\nSTDERR:\n${seedFromChain.stderr}`
+          );
+        }
+
+        expect(seedFromChain.stdout).toContain("Seeded db.bin with 3 todos.");
+        expect(fs.existsSync(path.join(fixtureCwd, "db.bin"))).toBe(true);
+      } finally {
+        await fs.promises.rm(fixtureCwd, { recursive: true, force: true });
+      }
+    },
+    120000
+  );
+
+  it(
+    "can write to a custom db path through Pages.Db.updateAt",
+    async () => {
+      const fixtureRoot = path.join(repoRoot, "examples", "end-to-end");
+      const fixtureParent = path.join(repoRoot, ".tmp-db-e2e");
+      await fs.promises.mkdir(fixtureParent, { recursive: true });
+      const fixtureCwd = await fs.promises.mkdtemp(
+        path.join(fixtureParent, "case-")
+      );
+
+      try {
+        fs.cpSync(path.join(fixtureRoot, "script"), path.join(fixtureCwd, "script"), {
+          recursive: true,
+        });
+        fs.cpSync(path.join(fixtureRoot, "codegen"), path.join(fixtureCwd, "codegen"), {
+          recursive: true,
+        });
+
+        const customScriptPath = path.join(
+          fixtureCwd,
+          "script",
+          "src",
+          "SeedCustomDbPath.elm"
+        );
+        fs.writeFileSync(
+          customScriptPath,
+          `module SeedCustomDbPath exposing (run)
+
+import BackendTask exposing (BackendTask)
+import FatalError exposing (FatalError)
+import Pages.Db
+import Pages.Script as Script exposing (Script)
+
+
+dbPath : String
+dbPath =
+    ".elm-pages-data/prefs.db.bin"
+
+
+run : Script
+run =
+    Script.withoutCliOptions
+        (Pages.Db.updateAt dbPath
+            (\\db ->
+                { db
+                    | todos =
+                        [ { id = 1, title = "Custom path", completed = False } ]
+                    , nextId = 2
+                }
+            )
+            |> BackendTask.andThen (\\_ -> Script.log "Seeded custom path db.")
+        )
+`
+        );
+
+        const runResult = runElmPagesCli(
+          ["run", "script/src/SeedCustomDbPath.elm"],
+          fixtureCwd
+        );
+        if (runResult.status !== 0) {
+          throw new Error(
+            `SeedCustomDbPath failed (status ${runResult.status})\nSTDOUT:\n${runResult.stdout}\nSTDERR:\n${runResult.stderr}`
+          );
+        }
+
+        expect(runResult.stdout).toContain("Seeded custom path db.");
+
+        const customDbPath = path.join(
+          fixtureCwd,
+          ".elm-pages-data",
+          "prefs.db.bin"
+        );
+        expect(fs.existsSync(customDbPath)).toBe(true);
+        expect(fs.existsSync(path.join(fixtureCwd, "db.bin"))).toBe(false);
+
+        const parsed = parseDbBinHeader(fs.readFileSync(customDbPath));
+        const currentHash = await computeSchemaHash(
+          path.join(fixtureCwd, "script", "src", "Db.elm")
+        );
+        expect(parsed.schemaVersion).toBe(1);
+        expect(parsed.schemaHashHex).toBe(currentHash);
       } finally {
         await fs.promises.rm(fixtureCwd, { recursive: true, force: true });
       }

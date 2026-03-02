@@ -337,7 +337,7 @@ init =
     );
     fs.writeFileSync(
       path.join(tmpDir, ".elm-pages-db", "Db", "Migrate", "V2.elm"),
-      "module Db.Migrate.V2 exposing (db)\ntodo_implement_migration"
+      "module Db.Migrate.V2 exposing (migrate)\ntodo_implement_migration"
     );
 
     const logSpy = vi.spyOn(console, "log");

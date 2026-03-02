@@ -94,7 +94,7 @@ port gotBatchSub : (Pages.Internal.Platform.GeneratorApplication.JsonValue -> ms
  * @returns {string} Elm source code for the Pages.Db module
  */
 export function generatePagesDbModule(schemaHash) {
-  return `module Pages.Db exposing (get, update, transaction)
+  return `module Pages.Db exposing (get, getAt, update, updateAt, transaction, transactionAt)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
@@ -107,6 +107,7 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Lamdera.Wire3 as Wire
+import Pages.DbSeed
 
 
 schemaHash : String
@@ -130,8 +131,19 @@ internalRequest name body expect =
 
 get : BackendTask FatalError Db.Db
 get =
+    getAt "db.bin"
+
+
+getAt : String -> BackendTask FatalError Db.Db
+getAt dbPath =
     internalRequest "db-read"
-        (BackendTask.Http.jsonBody (Encode.string schemaHash))
+        (BackendTask.Http.jsonBody
+            (Encode.object
+                [ ( "hash", Encode.string schemaHash )
+                , ( "path", Encode.string dbPath )
+                ]
+            )
+        )
         (Bytes.Decode.signedInt32 Bytes.BE
             |> Bytes.Decode.andThen
                 (\\length ->
@@ -148,7 +160,7 @@ get =
             (\\maybeBytes ->
                 case maybeBytes of
                     Nothing ->
-                        BackendTask.succeed Db.init
+                        BackendTask.succeed Pages.DbSeed.seedCurrent
 
                     Just bytes ->
                         case Wire.bytesDecode Db.w3_decode_Db bytes of
@@ -167,25 +179,35 @@ get =
 
 update : (Db.Db -> Db.Db) -> BackendTask FatalError ()
 update fn =
-    transaction (\\db -> BackendTask.succeed ( fn db, () ))
+    updateAt "db.bin" fn
+
+
+updateAt : String -> (Db.Db -> Db.Db) -> BackendTask FatalError ()
+updateAt dbPath fn =
+    transactionAt dbPath (\\db -> BackendTask.succeed ( fn db, () ))
 
 
 transaction : (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a
 transaction fn =
-    acquireLock
+    transactionAt "db.bin" fn
+
+
+transactionAt : String -> (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a
+transactionAt dbPath fn =
+    acquireLockAt dbPath
         |> BackendTask.andThen
             (\\token ->
-                get
+                getAt dbPath
                     |> BackendTask.andThen (\\db -> fn db)
                     |> BackendTask.andThen
                         (\\( newDb, result ) ->
-                            write newDb
+                            writeAt dbPath newDb
                                 |> BackendTask.map (\\_ -> result)
                         )
                     |> BackendTask.toResult
                     |> BackendTask.andThen
                         (\\result ->
-                            releaseLock token
+                            releaseLockAt dbPath token
                                 |> BackendTask.andThen
                                     (\\_ ->
                                         case result of
@@ -199,8 +221,8 @@ transaction fn =
             )
 
 
-write : Db.Db -> BackendTask FatalError ()
-write db =
+writeAt : String -> Db.Db -> BackendTask FatalError ()
+writeAt dbPath db =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db db)
@@ -214,24 +236,90 @@ write db =
             (Encode.object
                 [ ( "hash", Encode.string schemaHash )
                 , ( "data", Encode.string base64Data )
+                , ( "path", Encode.string dbPath )
                 ]
             )
         )
         (BackendTask.Http.expectJson (Decode.succeed ()))
 
 
-acquireLock : BackendTask FatalError String
-acquireLock =
+acquireLockAt : String -> BackendTask FatalError String
+acquireLockAt dbPath =
     internalRequest "db-lock-acquire"
-        (BackendTask.Http.jsonBody Encode.null)
+        (BackendTask.Http.jsonBody
+            (Encode.object
+                [ ( "path", Encode.string dbPath )
+                ]
+            )
+        )
         (BackendTask.Http.expectJson Decode.string)
 
 
-releaseLock : String -> BackendTask FatalError ()
-releaseLock token =
+releaseLockAt : String -> String -> BackendTask FatalError ()
+releaseLockAt dbPath token =
     internalRequest "db-lock-release"
-        (BackendTask.Http.jsonBody (Encode.string token))
+        (BackendTask.Http.jsonBody
+            (Encode.object
+                [ ( "path", Encode.string dbPath )
+                , ( "token", Encode.string token )
+                ]
+            )
+        )
         (BackendTask.Http.expectJson (Decode.succeed ()))
+`;
+}
+
+/**
+ * Generate the Pages.DbSeed module source code.
+ * Uses Db.init for schema V1, and for V2+ bootstraps from Db.V1.init through
+ * `seed` functions in each migration module.
+ *
+ * @param {number} schemaVersion
+ * @returns {string}
+ */
+export function generatePagesDbSeedModule(schemaVersion) {
+  if (schemaVersion <= 1) {
+    return `module Pages.DbSeed exposing (seedCurrent)
+
+import Db
+
+
+seedCurrent : Db.Db
+seedCurrent =
+    Db.init
+`;
+  }
+
+  const imports = [
+    "import Db",
+    "import Db.V1",
+    ...Array.from(
+      { length: schemaVersion - 1 },
+      (_, index) => {
+        const version = index + 2;
+        return `import Db.Migrate.V${version} as MigrateV${version}`;
+      }
+    ),
+  ];
+
+  const pipeline = Array.from(
+    { length: schemaVersion - 1 },
+    (_, index) => {
+      const version = index + 2;
+      return `|> MigrateV${version}.seed`;
+    }
+  )
+    .join("\n        ");
+
+  return `module Pages.DbSeed exposing (seedCurrent)
+
+${imports.join("\n")}
+
+
+seedCurrent : Db.Db
+seedCurrent =
+    Db.V1.init
+        ${pipeline}
 `;
 }
 
@@ -472,7 +560,52 @@ To start fresh (discard existing data):
       }
     }
 
+    const compileDbDir = path.join(
+      projectDirectory,
+      "elm-stuff",
+      "elm-pages",
+      ".elm-pages",
+      "Db"
+    );
+    if (schemaVersion > 1) {
+      // Seeding from scratch at V2+ replays V1 -> current using migration functions.
+      // Validate the full chain so fresh installs are deterministic and safe.
+      const seedValidation = await validateMigrationChain(
+        runtimeDir,
+        1,
+        schemaVersion
+      );
+      if (!seedValidation.valid) {
+        const issues = [];
+        if (seedValidation.missingFiles && seedValidation.missingFiles.length > 0) {
+          issues.push(`Missing files: ${seedValidation.missingFiles.join(", ")}`);
+        }
+        if (seedValidation.unimplemented && seedValidation.unimplemented.length > 0) {
+          issues.push(`Unimplemented migrations: ${seedValidation.unimplemented.join(", ")}`);
+        }
+        throw `Initial seed is incomplete for schema V${schemaVersion}.\n\nI need a valid V1 -> V${schemaVersion} migration chain so a fresh install (no db.bin) can initialize safely.\n\n${issues.join("\n")}\n\nImplement the migration stubs in .elm-pages-db/Db/Migrate/ and rerun your script.`;
+      }
+
+      try {
+        fs.rmSync(compileDbDir, { recursive: true, force: true });
+      } catch (_) {}
+      copyMigrationElmFiles(
+        path.join(runtimeDir, ".elm-pages-db", "Db"),
+        compileDbDir
+      );
+    } else {
+      try {
+        fs.rmSync(compileDbDir, { recursive: true, force: true });
+      } catch (_) {}
+    }
+
     ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Pages`);
+    await writeFileIfChanged(
+      path.join(
+        `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Pages/DbSeed.elm`
+      ),
+      generatePagesDbSeedModule(schemaVersion)
+    );
     await writeFileIfChanged(
       path.join(
         `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Pages/Db.elm`
@@ -527,5 +660,9 @@ Create a file at ${dbElmInSource} with this template:
         }
 
 The Db type alias defines the shape of your database, and init provides
-the initial value used when no db.bin file exists yet.`;
+the initial value used when no db.bin file exists yet.
+
+After you create your first migration (V1 -> V2), new installs seed from
+Db.V1.init through the migration chain, so Db.init is no longer required in
+the current Db module.`;
 }

@@ -104,6 +104,9 @@ init =
   console.log(
     "\nEdit the Db type alias to define your database schema, then import Pages.Db in your scripts."
   );
+  console.log(
+    "Db.init is your V1 seed. After your first migration, fresh installs seed from Db.V1.init through the migration chain."
+  );
 }
 
 /**
@@ -335,6 +338,11 @@ export async function migrate(options = {}) {
     console.log(`  1. Edit .elm-pages-db/Db/Migrate/V${newVersion}.elm to implement the migration`);
     console.log(`  2. Replace the todo_implement_migration sentinel with your migration logic`);
     console.log(`  3. Run \`elm-pages db migrate\` again to apply the migration`);
+    if (currentVersion === 1) {
+      console.log(
+        `\nAfter V1 -> V2 is in place, fresh installs seed from Db.V1.init through migrations, so current Db.init can be removed.`
+      );
+    }
   } else if (migrationStatus.action === "migrate") {
     // Pending migration: validate chain
     const validation = await validateMigrationChain(
@@ -363,7 +371,7 @@ export async function migrate(options = {}) {
           const vMatch = f.match(/V(\d+)\.elm$/);
           if (vMatch) {
             const v = parseInt(vMatch[1], 10);
-            console.log(`  Expected: db : Db.V${v - 1}.Db -> Db.Db`);
+            console.log(`  Expected: migrate : Db.V${v - 1}.Db -> Db.Db`);
           }
         }
       }

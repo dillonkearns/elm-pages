@@ -88,28 +88,38 @@ type alias Db = { x : Int }
 
 describe("generateMigrationStub", () => {
   it("generates V2 stub for V1 -> V2 migration", () => {
-    expect(generateMigrationStub(1, 2)).toBe(`module Db.Migrate.V2 exposing (db)
+    expect(generateMigrationStub(1, 2)).toBe(`module Db.Migrate.V2 exposing (migrate, seed)
 
 import Db
 import Db.V1
 
 
-db : Db.V1.Db -> Db.Db
-db old =
+migrate : Db.V1.Db -> Db.Db
+migrate old =
     todo_implement_migration_V1_to_V2
+
+
+seed : Db.V1.Db -> Db.Db
+seed old =
+    migrate old
 `);
   });
 
   it("generates V3 stub for V2 -> V3 migration", () => {
-    expect(generateMigrationStub(2, 3)).toBe(`module Db.Migrate.V3 exposing (db)
+    expect(generateMigrationStub(2, 3)).toBe(`module Db.Migrate.V3 exposing (migrate, seed)
 
 import Db
 import Db.V2
 
 
-db : Db.V2.Db -> Db.Db
-db old =
+migrate : Db.V2.Db -> Db.Db
+migrate old =
     todo_implement_migration_V2_to_V3
+
+
+seed : Db.V2.Db -> Db.Db
+seed old =
+    migrate old
 `);
   });
 });
@@ -298,7 +308,7 @@ describe("validateMigrationChain", () => {
     // Migration V2 (implemented, no sentinel)
     fs.writeFileSync(
       path.join(migrateDir, "V2.elm"),
-      "module Db.Migrate.V2 exposing (db)\nimport Db\nimport Db.V1\ndb old = { x = old.x + 1 }\n"
+      "module Db.Migrate.V2 exposing (migrate, seed)\nimport Db\nimport Db.V1\nmigrate old = { x = old.x + 1 }\nseed old = migrate old\n"
     );
 
     const result = await validateMigrationChain(tmpDir, 1, 2);
@@ -316,7 +326,7 @@ describe("validateMigrationChain", () => {
     // Migration V2 exists but snapshot V1 does not
     fs.writeFileSync(
       path.join(migrateDir, "V2.elm"),
-      "module Db.Migrate.V2 exposing (db)\ndb old = { x = 0 }\n"
+      "module Db.Migrate.V2 exposing (migrate, seed)\nmigrate old = { x = 0 }\nseed old = migrate old\n"
     );
 
     const result = await validateMigrationChain(tmpDir, 1, 2);
@@ -343,7 +353,7 @@ describe("validateMigrationChain", () => {
     fs.writeFileSync(path.join(dbDir, "V1.elm"), "module Db.V1 exposing (Db)");
     fs.writeFileSync(
       path.join(migrateDir, "V2.elm"),
-      "module Db.Migrate.V2 exposing (db)\ndb old = todo_implement_migration_V1_to_V2\n"
+      "module Db.Migrate.V2 exposing (migrate, seed)\nmigrate old = todo_implement_migration_V1_to_V2\nseed old = migrate old\n"
     );
 
     const result = await validateMigrationChain(tmpDir, 1, 2);
@@ -407,7 +417,7 @@ describe("migration detection + validation integration", () => {
     );
     fs.writeFileSync(
       path.join(migrateDir, "V2.elm"),
-      "module Db.Migrate.V2 exposing (db)\nimport Db\nimport Db.V1\ndb old = { counter = old.counter, name = \"\" }\n"
+      "module Db.Migrate.V2 exposing (migrate, seed)\nimport Db\nimport Db.V1\nmigrate old = { counter = old.counter, name = \"\" }\nseed old = migrate old\n"
     );
 
     const detection = await detectMigrationNeeded(tmpDir);
@@ -440,7 +450,7 @@ describe("migration detection + validation integration", () => {
     );
     fs.writeFileSync(
       path.join(migrateDir, "V2.elm"),
-      "module Db.Migrate.V2 exposing (db)\ndb old = todo_implement_migration_V1_to_V2\n"
+      "module Db.Migrate.V2 exposing (migrate, seed)\nmigrate old = todo_implement_migration_V1_to_V2\nseed old = migrate old\n"
     );
 
     const detection = await detectMigrationNeeded(tmpDir);

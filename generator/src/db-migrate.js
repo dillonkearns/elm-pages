@@ -34,15 +34,20 @@ export function rewriteDbModuleToSnapshot(source, version) {
  * @returns {string} Elm source for the migration stub
  */
 export function generateMigrationStub(fromVersion, toVersion) {
-  return `module Db.Migrate.V${toVersion} exposing (db)
+  return `module Db.Migrate.V${toVersion} exposing (migrate, seed)
 
 import Db
 import Db.V${fromVersion}
 
 
-db : Db.V${fromVersion}.Db -> Db.Db
-db old =
+migrate : Db.V${fromVersion}.Db -> Db.Db
+migrate old =
     todo_implement_migration_V${fromVersion}_to_V${toVersion}
+
+
+seed : Db.V${fromVersion}.Db -> Db.Db
+seed old =
+    migrate old
 `;
 }
 
@@ -120,7 +125,7 @@ export async function createSnapshot(projectDir, dbSource, currentVersion) {
 /**
  * Generate the MigrateChain.elm source for applying a chain of migrations.
  *
- * For targetVersion=2 (V1→V2): reads V1 data, applies MigrateV2.db, writes new Db.
+ * For targetVersion=2 (V1→V2): reads V1 data, applies MigrateV2.migrate, writes new Db.
  * For targetVersion=3 (V1→V2→V3): reads V1 or V2 data, chains through all migrations.
  *
  * @param {number} targetVersion - The target schema version (>= 2)
@@ -172,8 +177,8 @@ export function generateMigrateChain(targetVersion) {
     .join("\n\n");
 
   // Generate migrateFromV{n} functions
-  // migrateFromV{last} applies MigrateV{last+1}.db then saves
-  // migrateFromV{earlier} applies MigrateV{earlier+1}.db then chains to migrateFromV{earlier+1}
+  // migrateFromV{last} applies MigrateV{last+1}.migrate then saves
+  // migrateFromV{earlier} applies MigrateV{earlier+1}.migrate then chains to migrateFromV{earlier+1}
   const migrateFunctions = snapshotVersions
     .map((v) => {
       const isLast = v === targetVersion - 1;
@@ -181,12 +186,12 @@ export function generateMigrateChain(targetVersion) {
         return `
 migrateFromV${v} : Db.V${v}.Db -> BackendTask FatalError ()
 migrateFromV${v} model =
-    saveAndLog (MigrateV${v + 1}.db model) ${v} ${targetVersion}`;
+    saveAndLog (MigrateV${v + 1}.migrate model) ${v} ${targetVersion}`;
       } else {
         return `
 migrateFromV${v} : Db.V${v}.Db -> BackendTask FatalError ()
 migrateFromV${v} model =
-    migrateFromV${v + 1} (MigrateV${v + 1}.db model)`;
+    migrateFromV${v + 1} (MigrateV${v + 1}.migrate model)`;
       }
     })
     .join("\n");

@@ -14,6 +14,7 @@ import {
   compileElmForScript,
   printCaughtError,
 } from "./shared.js";
+import { scriptUsesPagesDb } from "../db-usage.js";
 
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,7 +22,12 @@ const __dirname = path.dirname(__filename);
 export async function run(elmModulePath, options) {
   const resolved = await resolveInputPathOrModuleName(elmModulePath);
   const { moduleName, projectDirectory, sourceDirectory } = resolved;
-  await compileElmForScript(elmModulePath, resolved);
+  const usesDb = await scriptUsesPagesDb({
+    projectDirectory,
+    sourceDirectory,
+    entryModuleName: moduleName,
+  });
+  await compileElmForScript(elmModulePath, resolved, { usesDb });
 
   const cwd = process.cwd();
   process.chdir(projectDirectory);
