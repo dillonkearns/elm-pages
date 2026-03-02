@@ -87,7 +87,7 @@ testUpdatePersistsData =
 
                         else
                             fail "update persists"
-                                ("Expected id=1, title=\"Test todo\", completed=False, nextId=2")
+                                "Expected id=1, title=\"Test todo\", completed=False, nextId=2"
 
                     _ ->
                         fail "update persists"
@@ -210,4 +210,4 @@ fail label message =
 
 cleanup : BackendTask FatalError ()
 cleanup =
-    Script.exec "rm" [ "-f", "db.bin", "db.lock" ]
+    Script.exec "rm" [ "-f", "db.bin", "db.bin.lock", "db.lock" ]

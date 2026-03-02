@@ -175,7 +175,7 @@ describe("db-write atomic write pattern", () => {
 
 describe("db-lock lifecycle", () => {
   it("creates lock file with exclusive flag", async () => {
-    const lockPath = path.join(tmpDir, "db.lock");
+    const lockPath = path.join(tmpDir, "db.bin.lock");
     const token = crypto.randomUUID();
     const lockData = JSON.stringify({
       pid: process.pid,
@@ -192,7 +192,7 @@ describe("db-lock lifecycle", () => {
   });
 
   it("lock file contains pid, timestamp, and token", async () => {
-    const lockPath = path.join(tmpDir, "db.lock");
+    const lockPath = path.join(tmpDir, "db.bin.lock");
     const token = crypto.randomUUID();
     const lockData = JSON.stringify({
       pid: process.pid,
@@ -209,7 +209,7 @@ describe("db-lock lifecycle", () => {
   });
 
   it("release deletes lock only if token matches", async () => {
-    const lockPath = path.join(tmpDir, "db.lock");
+    const lockPath = path.join(tmpDir, "db.bin.lock");
     const correctToken = crypto.randomUUID();
     const wrongToken = crypto.randomUUID();
     const lockData = JSON.stringify({
@@ -233,7 +233,7 @@ describe("db-lock lifecycle", () => {
   });
 
   it("detects stale lock from dead PID", async () => {
-    const lockPath = path.join(tmpDir, "db.lock");
+    const lockPath = path.join(tmpDir, "db.bin.lock");
     const lockData = JSON.stringify({
       pid: 999999,
       createdAt: new Date().toISOString(),
@@ -256,7 +256,7 @@ describe("db-lock lifecycle", () => {
   });
 
   it("detects stale lock from old timestamp", async () => {
-    const lockPath = path.join(tmpDir, "db.lock");
+    const lockPath = path.join(tmpDir, "db.bin.lock");
     const staleTime = new Date(Date.now() - 10 * 60 * 1000);
     const lockData = JSON.stringify({
       pid: process.pid,

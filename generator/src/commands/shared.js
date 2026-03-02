@@ -297,7 +297,7 @@ decodeCurrent connection storedHash bytes =
                 BackendTask.fail
                     (FatalError.build
                         { title = "db.bin decode failed"
-                        , body = "Data is corrupted. Delete db.bin (and db.lock if present) to start fresh."
+                        , body = "Data is corrupted. Delete db.bin and its matching .lock file to start fresh."
                         }
                     )
 

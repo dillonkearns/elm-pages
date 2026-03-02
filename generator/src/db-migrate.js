@@ -490,8 +490,7 @@ export async function applyMigration(cwd, fromVersion, toVersion) {
     for (const filePath of copiedFiles) {
       try { fs.unlinkSync(filePath); } catch (_) {}
     }
-    try { fs.rmdirSync(path.join(elmPagesSourceDir, "Db", "Migrate")); } catch (_) {}
-    try { fs.rmdirSync(path.join(elmPagesSourceDir, "Db")); } catch (_) {}
+    try { fs.rmSync(path.join(elmPagesSourceDir, "Db"), { recursive: true, force: true }); } catch (_) {}
   }
 }
 

@@ -154,7 +154,7 @@ saveState =
             (\backupDir ->
                 cp "script/src/Db.elm" (backupDir ++ "/Db.elm")
                     |> BackendTask.andThen (\_ -> cpIfExists "db.bin" (backupDir ++ "/db.bin"))
-                    |> BackendTask.andThen (\_ -> cpIfExists "db.lock" (backupDir ++ "/db.lock"))
+                    |> BackendTask.andThen (\_ -> cpIfExists "db.bin.lock" (backupDir ++ "/db.bin.lock"))
                     |> BackendTask.andThen (\_ -> cpDirIfExists ".elm-pages-db" (backupDir ++ "/.elm-pages-db"))
                     |> BackendTask.map (\_ -> backupDir)
             )
@@ -163,7 +163,7 @@ saveState =
 cleanState : BackendTask FatalError ()
 cleanState =
     Script.log "Cleaning state..."
-        |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-f", "db.bin", "db.lock" ])
+        |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-f", "db.bin", "db.bin.lock", "db.lock" ])
         |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-rf", ".elm-pages-db" ])
 
 
@@ -173,11 +173,11 @@ restoreState backupDir =
         -- Restore Db.elm (always exists in backup)
         |> BackendTask.andThen (\_ -> cp (backupDir ++ "/Db.elm") "script/src/Db.elm")
         -- Clean test artifacts
-        |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-f", "db.bin", "db.lock" ])
+        |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-f", "db.bin", "db.bin.lock", "db.lock" ])
         |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-rf", ".elm-pages-db" ])
         -- Restore optional files
         |> BackendTask.andThen (\_ -> cpIfExists (backupDir ++ "/db.bin") "db.bin")
-        |> BackendTask.andThen (\_ -> cpIfExists (backupDir ++ "/db.lock") "db.lock")
+        |> BackendTask.andThen (\_ -> cpIfExists (backupDir ++ "/db.bin.lock") "db.bin.lock")
         |> BackendTask.andThen (\_ -> cpDirIfExists (backupDir ++ "/.elm-pages-db") ".elm-pages-db")
         -- Clean up VerifyDb.elm if left behind
         |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-f", "script/src/VerifyDb.elm" ])

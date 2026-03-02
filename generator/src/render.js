@@ -669,6 +669,37 @@ function resolveDbLockPath(dbBinPath) {
   return `${dbBinPath}.lock`;
 }
 
+/**
+ * Remove stale .tmp.{pid} files left behind by previous crashes.
+ * Only removes files matching the exact tmp pattern for the given dbBinPath.
+ */
+async function cleanStaleTmpFiles(dbBinPath) {
+  const dir = path.dirname(dbBinPath);
+  const base = path.basename(dbBinPath);
+  try {
+    const entries = await fsPromises.readdir(dir);
+    for (const entry of entries) {
+      if (entry.startsWith(`${base}.tmp.`)) {
+        try {
+          await fsPromises.unlink(path.join(dir, entry));
+        } catch (_) {}
+      }
+    }
+  } catch (_) {
+    // Directory may not exist yet — that's fine
+  }
+}
+
+function readPositiveIntEnv(name, fallback) {
+  const raw = process.env[name];
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 async function runDbSetDefaultPath(req) {
   const payload = req.body.args[0];
 
@@ -694,6 +725,9 @@ async function runDbRead(req) {
   const schemaHash =
     typeof payload === "string" ? payload : payload && payload.hash;
   const dbBinPath = resolveDbBinPath(cwd, payload);
+  const lockPath = resolveDbLockPath(dbBinPath);
+  const dbBinDisplay = path.relative(cwd, dbBinPath) || dbBinPath;
+  const lockDisplay = path.relative(cwd, lockPath) || lockPath;
 
   if (typeof schemaHash !== "string" || schemaHash.length === 0) {
     throw {
@@ -712,7 +746,7 @@ async function runDbRead(req) {
       throw {
         title: "Schema mismatch",
         message:
-          "Your Db type has changed since db.bin was last written. Delete db.bin (and db.lock if present) to start fresh (this will delete existing data).",
+          `Your Db type has changed since ${dbBinDisplay} was last written. Delete ${dbBinDisplay} and ${lockDisplay} (if present) to start fresh (this will delete existing data).`,
       };
     }
 
@@ -831,6 +865,9 @@ async function runDbWrite(req) {
   // Always write Phase 2 format (auto-upgrades Phase 1 files)
   const fileBuffer = buildDbBin(schemaHash, schemaVersion, wire3Data);
 
+  // Clean up stale tmp files from previous crashes
+  await cleanStaleTmpFiles(dbBinPath);
+
   // Atomic write: write to temp file then rename
   const tmpPath = `${dbBinPath}.tmp.${process.pid}`;
   try {
@@ -868,6 +905,7 @@ async function runDbLockAcquire(req) {
   const payload = req.body.args[0];
   const dbBinPath = resolveDbBinPath(cwd, payload);
   const lockPath = resolveDbLockPath(dbBinPath);
+  const lockDisplay = path.relative(cwd, lockPath) || lockPath;
   const token = crypto.randomUUID();
   const lockData = JSON.stringify({
     pid: process.pid,
@@ -875,12 +913,28 @@ async function runDbLockAcquire(req) {
     token,
   });
 
-  const maxRetries = 50;
-  const retryDelay = 100; // ms
+  const lockWaitTimeoutMs = readPositiveIntEnv(
+    "ELM_PAGES_DB_LOCK_TIMEOUT_MS",
+    60000
+  );
+  const staleTimeoutMs = readPositiveIntEnv(
+    "ELM_PAGES_DB_STALE_LOCK_TIMEOUT_MS",
+    5 * 60 * 1000
+  );
+  const minRetryDelayMs = readPositiveIntEnv(
+    "ELM_PAGES_DB_LOCK_RETRY_MS",
+    50
+  );
+  const maxRetryDelayMs = readPositiveIntEnv(
+    "ELM_PAGES_DB_LOCK_MAX_RETRY_MS",
+    500
+  );
+  const lockWaitDeadline = Date.now() + lockWaitTimeoutMs;
+  let attempt = 0;
 
   await fsPromises.mkdir(path.dirname(lockPath), { recursive: true });
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+  while (Date.now() < lockWaitDeadline) {
     try {
       // Exclusive create - fails if file exists
       await fsPromises.writeFile(lockPath, lockData, { flag: "wx" });
@@ -911,7 +965,7 @@ async function runDbLockAcquire(req) {
       if (error.code !== "EEXIST") {
         throw {
           title: "Database lock error",
-          message: `Failed to create db.lock: ${error.message}`,
+          message: `Failed to create lock file ${lockDisplay}: ${error.message}`,
         };
       }
 
@@ -930,18 +984,25 @@ async function runDbLockAcquire(req) {
           pidAlive = false;
         }
 
-        // Check if lock is older than 5 minutes
+        // Check if lock is older than stale timeout
         const lockAge = Date.now() - new Date(existingLock.createdAt).getTime();
-        const staleTimeout = 5 * 60 * 1000;
 
-        if (!pidAlive || lockAge > staleTimeout) {
+        if (!pidAlive || lockAge > staleTimeoutMs) {
           // Stale lock - remove and retry
           await fsPromises.unlink(lockPath);
           continue;
         }
 
-        // Lock is held by a live process - wait and retry
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        // Lock is held by a live process - wait with bounded backoff + jitter
+        const exponentialMs = Math.min(
+          maxRetryDelayMs,
+          minRetryDelayMs * 2 ** Math.min(attempt, 5)
+        );
+        const jitterMs = Math.floor(Math.random() * Math.max(1, minRetryDelayMs));
+        await new Promise((resolve) =>
+          setTimeout(resolve, exponentialMs + jitterMs)
+        );
+        attempt++;
       } catch (readError) {
         // Lock file disappeared between check and read - retry immediately
         continue;
@@ -949,9 +1010,10 @@ async function runDbLockAcquire(req) {
     }
   }
 
+  const timeoutSeconds = Math.ceil(lockWaitTimeoutMs / 1000);
   throw {
     title: "Database locked",
-    message: `db.bin is locked by another process. If you believe this is stale, delete db.lock and try again.`,
+    message: `The database lock ${lockDisplay} is still held by another process after ${timeoutSeconds}s. If you believe this lock is stale, delete ${lockDisplay} and try again.`,
   };
 }
 
@@ -1055,6 +1117,9 @@ async function runDbMigrateWrite(req) {
   }
 
   const fileBuffer = buildDbBin(schemaHash, schemaVersion, wire3Data);
+
+  // Clean up stale tmp files from previous crashes
+  await cleanStaleTmpFiles(dbBinPath);
 
   // Atomic write
   const tmpPath = `${dbBinPath}.tmp.${process.pid}`;

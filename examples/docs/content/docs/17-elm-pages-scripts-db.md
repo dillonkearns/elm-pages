@@ -167,7 +167,7 @@ transaction :
     └── counter.db.bin      # custom DB file (`Pages.Db.open`)
 ```
 
-Internal/transient files omitted (for example `.elm-pages-db/MigrateChain.elm`, `.elm-pages-db/Db/V*.elm`, `db.lock`, `.elm-pages-db/schema-history/`).
+Internal/transient files omitted (for example `.elm-pages-db/MigrateChain.elm`, `.elm-pages-db/Db/V*.elm`, `db.bin.lock`, `.elm-pages-db/schema-history/`).
 
 ## Git and `.gitignore`
 
@@ -182,10 +182,10 @@ Recommended:
 Usually ignore:
 
 - `db.bin`
-- `db.lock`
+- `db.bin.lock`
 - `.elm-pages-db/schema-history/` (optional: commit this if you want stale-snapshot recovery shared across machines)
 
-`elm-pages db init` creates `Db.elm` and also adds `db.bin` / `db.lock` ignore entries to `.gitignore`.
+`elm-pages db init` creates `Db.elm` and also adds `db.bin` / `db.bin.lock` ignore entries to `.gitignore`.
 
 ## Example: Run a Migration (V1 -> V2)
 
@@ -304,5 +304,5 @@ Use that only if you understand the risk: it may snapshot the wrong schema as th
 npx elm-pages db status
 
 # Delete default local DB files (if you want to start fresh)
-rm -f db.bin db.lock
+rm -f db.bin db.bin.lock
 ```

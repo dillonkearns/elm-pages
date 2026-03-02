@@ -5,7 +5,24 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const DB_GITIGNORE_ENTRIES = ["db.bin", "db.lock"];
+const DB_GITIGNORE_ENTRIES = ["db.bin", "db.bin.lock"];
+
+/**
+ * Safely parse a JSON file, throwing a structured error on failure.
+ * @param {string} filePath
+ * @returns {any}
+ */
+function readJsonFile(filePath) {
+  const raw = fs.readFileSync(filePath, "utf8");
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    throw {
+      title: "Invalid JSON",
+      message: `Failed to parse ${filePath}: ${e.message}`,
+    };
+  }
+}
 
 function ensureDbGitignoreEntries(cwd) {
   const dotGitignorePath = path.resolve(cwd, ".gitignore");
@@ -57,13 +74,13 @@ export async function init() {
   let targetPath = null;
 
   if (fs.existsSync(scriptElmJsonPath)) {
-    const elmJson = JSON.parse(fs.readFileSync(scriptElmJsonPath, "utf8"));
+    const elmJson = readJsonFile(scriptElmJsonPath);
     const sourceDirs = elmJson["source-directories"] || [];
     if (sourceDirs.length > 0) {
       targetPath = path.resolve("script", sourceDirs[0], "Db.elm");
     }
   } else if (fs.existsSync(elmJsonPath)) {
-    const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
+    const elmJson = readJsonFile(elmJsonPath);
     const sourceDirs = elmJson["source-directories"] || [];
     if (sourceDirs.length > 0) {
       targetPath = path.resolve(sourceDirs[0], "Db.elm");
@@ -140,7 +157,7 @@ export async function status() {
   ];
   for (const elmJsonPath of elmJsonCandidates) {
     if (fs.existsSync(elmJsonPath)) {
-      const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
+      const elmJson = readJsonFile(elmJsonPath);
       const sourceDirs = elmJson["source-directories"] || [];
       const base = path.dirname(elmJsonPath);
       for (const dir of sourceDirs) {
@@ -203,14 +220,24 @@ export async function status() {
     console.log("  db.bin:          not found (will be created on first write)");
   }
 
-  // Lock file
-  const dbLockPath = path.resolve(cwd, "db.lock");
-  if (fs.existsSync(dbLockPath)) {
+  // Lock file (default path, with legacy fallback)
+  const lockPathCandidates = [
+    path.resolve(cwd, "db.bin.lock"),
+    path.resolve(cwd, "db.lock"),
+  ];
+  const dbLockPath = lockPathCandidates.find((candidate) =>
+    fs.existsSync(candidate)
+  );
+  if (dbLockPath) {
     try {
       const lockData = JSON.parse(fs.readFileSync(dbLockPath, "utf8"));
-      console.log(`  Lock:            held by PID ${lockData.pid} (since ${lockData.createdAt})`);
+      console.log(
+        `  Lock:            held by PID ${lockData.pid} (since ${lockData.createdAt}, ${path.basename(
+          dbLockPath
+        )})`
+      );
     } catch (_) {
-      console.log("  Lock:            present (unreadable)");
+      console.log(`  Lock:            present (${path.basename(dbLockPath)}, unreadable)`);
     }
   }
 
@@ -392,7 +419,7 @@ export async function migrate(options = {}) {
   } else if (migrationStatus.action === "error") {
     throw new Error(
       `db.bin is at a newer version than the schema. This should not happen.\n` +
-      `Delete db.bin and db.lock to start fresh, or restore your schema files.`
+      `Delete db.bin and db.bin.lock to start fresh, or restore your schema files.`
     );
   }
 }
@@ -409,7 +436,7 @@ async function findDbElmForMigration(cwd) {
   ];
   for (const elmJsonPath of elmJsonCandidates) {
     if (fs.existsSync(elmJsonPath)) {
-      const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
+      const elmJson = readJsonFile(elmJsonPath);
       const sourceDirs = elmJson["source-directories"] || [];
       const base = path.dirname(elmJsonPath);
       for (const dir of sourceDirs) {
