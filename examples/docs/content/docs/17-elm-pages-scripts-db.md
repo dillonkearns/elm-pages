@@ -85,7 +85,7 @@ handleKey : String -> BackendTask FatalError ()
 handleKey key =
     case key of
         "+" ->
-            -- Write your Db type disk
+            -- Write your Db type to disk
             -- Notice that we don't write any Encoders, either!
             Pages.Db.update connection (\db -> { db | count = db.count + 1 })
                 |> BackendTask.and loop
@@ -106,6 +106,19 @@ Run it:
 
 ```shell
 npx elm-pages run script/src/Counter.elm
+
+Count: 0
+Press [+] increment, [-] decrement, [q] quit: +
+
+Count: 1
+Press [+] increment, [-] decrement, [q] quit: +
+
+Count: 2
+Press [+] increment, [-] decrement, [q] quit: -
+
+Count: 1
+Press [+] increment, [-] decrement, [q] quit: q
+Goodbye!
 ```
 
 ## `Pages.Db` API
@@ -113,29 +126,55 @@ npx elm-pages run script/src/Counter.elm
 `Pages.Db` exposes:
 
 ```elm
+-- The DB file this script will read/write from/to
 type Connection
 
+-- The default path, ./db.bin, relative to the current working directory
 default : Connection
+
+-- Choose a custom path for the DB file, like `FilePath.relative [ "config.bin" ]
 open : FilePath -> Connection
 
+-- Read the current DB value (initializes from seed if the file doesn't exist yet)
 get : Connection -> BackendTask FatalError Db.Db
+
+-- Transform and persist the DB value
 update : Connection -> (Db.Db -> Db.Db) -> BackendTask FatalError ()
+
+-- Run a read/modify/write step under a lock. You can pass a value back to the continuation via the tuple.
 transaction :
     Connection
     -> (Db.Db -> BackendTask FatalError ( Db.Db, a ))
     -> BackendTask FatalError a
 ```
 
-Use `Pages.Db.open` when your path comes from CLI options or environment values.
-Use `Pages.Db.default` for the default `db.bin` path at the current working directory (where the script is executed).
-Migration metadata and generated migration files live in `.elm-pages-db/`.
+## Directory Structure
+
+```text
+.
+├── script/
+│   └── src/
+│       ├── Db.elm          # current schema + V1 seed (`init`)
+│       └── Counter.elm     # script that reads/writes DB
+├── .elm-pages-db/
+│   ├── schema-version.json # current schema version
+│   └── Db/
+│       └── Migrate/
+│           ├── V2.elm      # migration: V1 -> V2
+│           └── V3.elm      # migration: V2 -> V3
+├── db.bin                  # default DB file (`Pages.Db.default`)
+└── .elm-pages-data/
+    └── counter.db.bin      # custom DB file (`Pages.Db.open`)
+```
+
+Internal/transient files omitted (for example `.elm-pages-db/MigrateChain.elm`, `.elm-pages-db/Db/V*.elm`, `db.lock`, `.elm-pages-db/schema-history/`).
 
 ## Git and `.gitignore`
 
 Recommended:
 
 - Commit `script/src/Db.elm` (or your `Db.elm` location).
-- Commit `.elm-pages-db/Db/V*.elm`.
+- Commit `.elm-pages-db/Db/V*.elm` (generated snapshots; usually not edited directly).
 - Commit `.elm-pages-db/Db/Migrate/V*.elm`.
 - Commit `.elm-pages-db/MigrateChain.elm`.
 - Commit `.elm-pages-db/schema-version.json`.
@@ -219,52 +258,29 @@ npx elm-pages db migrate
 Migration applied: V1 -> V2
 ```
 
-## Migration Files
-
-When your schema changes, `elm-pages db migrate` manages migration scaffolding in `.elm-pages-db/`:
-
-- `.elm-pages-db/Db/V1.elm`, `.elm-pages-db/Db/V2.elm`, ... (schema snapshots)
-- `.elm-pages-db/Db/Migrate/V2.elm`, `.elm-pages-db/Db/Migrate/V3.elm`, ... (migration modules)
-- `.elm-pages-db/schema-version.json` (current schema version)
-
-Typical flow:
-
-1. Edit `Db.elm`.
-2. Run `npx elm-pages db migrate` to scaffold snapshot + migration stub.
-3. Implement the stub.
-4. Run `npx elm-pages db migrate` again to apply it to local `db.bin`.
-
-Example scaffold output:
-
-```text
-Created migration V1 -> V2:
-  Snapshot: .elm-pages-db/Db/V1.elm
-  Stub:     .elm-pages-db/Db/Migrate/V2.elm
-  Chain:    .elm-pages-db/MigrateChain.elm
-```
-
 ## `migrate` and `seed`
 
 Each migration module defines both:
 
-- `migrate : Db.VN.Db -> Db.Db`
-- `seed : Db.VN.Db -> Db.Db`
+```elm
+-- used when upgrading existing stored data.  
+migrate : Db.VN.Db -> Db.Db
 
-`migrate` is used when upgrading existing stored data.  
-`seed` is used for fresh installs that start from `Db.V1.init` and apply each migration's `seed` function in order.
+-- used for fresh installs that start from `Db.V1.init`
+-- and apply each migration's `seed` function in order.
+seed : Db.VN.Db -> Db.Db
+```
 
 Generated stubs default `seed old = migrate old`, but you can override `seed` to choose a different from-scratch initialization path for new installs.
 
 ## Bundled Scripts and End Users
 
-`elm-pages bundle-script` does **not** migrate or mutate the developer's local `db.bin`.
+You can also use the Local DB functionality from `elm-pages bundle-script`! Migrations run when the bundled script executes on the end user's machine:
 
-Migrations run when the bundled script executes on the user's machine:
-
-1. Developer bundles and publishes CLI JS.
-2. User installs package.
-3. User runs command.
-4. First DB access initializes or migrates user-local DB automatically (using configured path).
+1. Developer bundles and publishes CLI JS
+2. User installs package
+3. User runs the CLI
+4. First DB access initializes or migrates user-local DB automatically (using the path defined by the `Connection`)
 
 So end users usually do not see migration steps. They just get the latest schema behavior when the command runs.
 
