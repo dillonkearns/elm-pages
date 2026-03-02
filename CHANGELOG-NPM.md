@@ -14,14 +14,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Local DB runtime migration flow for `elm-pages` Scripts:
   - Generated `Pages.Db` now reads schema metadata (`version` + `hash`) and applies migration chains at script runtime.
   - Fresh installs seed from `Db.V1.init` through migration `seed` functions.
-  - Session-based path configuration through `Pages.Db.open`/`Pages.Db.default`, with runtime path support in request payloads.
+  - Connection-based path configuration through `Pages.Db.open`/`Pages.Db.default`, with runtime path support in request payloads.
   - `Script.withDatabasePath` support in the JS runtime (`db-set-default-path`) now applies to `Pages.Db.default`.
 - New docs page for script DB usage and migration behavior: `examples/docs/content/docs/17-elm-pages-scripts-db.md`.
 
 ### Changed
 
 - `elm-pages bundle-script` no longer mutates or auto-applies local DB migrations during bundling. Migrations are applied when the bundled script runs on the target machine.
-- Removed generated `Pages.Db` `*At` APIs (`getAt`, `updateAt`, `transactionAt`) in favor of session-based DB access (`Pages.Db.open` + `Session`).
+- Removed generated `Pages.Db` `*At` APIs (`getAt`, `updateAt`, `transactionAt`) in favor of connection-based DB access (`Pages.Db.open` + `Connection`).
 
 ### Fixed
 

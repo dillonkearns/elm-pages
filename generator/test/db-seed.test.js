@@ -12,28 +12,30 @@ describe("Pages.Db codegen", () => {
     expect(generated).not.toContain("BackendTask.succeed Db.init");
   });
 
-  it("exposes session-based API for custom db file locations", () => {
+  it("exposes connection-based API for custom db file locations", () => {
     const generated = generatePagesDbModule("abc123", 3);
     expect(generated).toContain(
-      "module Pages.Db exposing (Session, default, open, get, update, transaction)"
+      "module Pages.Db exposing (Connection, default, open, get, update, transaction)"
     );
-    expect(generated).toContain("type Session");
-    expect(generated).toContain("open : FilePath -> Session");
-    expect(generated).toContain("default : Session");
-    expect(generated).toContain("get : Session -> BackendTask FatalError Db.Db");
+    expect(generated).toContain("type Connection");
+    expect(generated).toContain("open : FilePath -> Connection");
+    expect(generated).toContain("default : Connection");
+    expect(generated).toContain("get : Connection -> BackendTask FatalError Db.Db");
     expect(generated).toContain(
-      "update : Session -> (Db.Db -> Db.Db) -> BackendTask FatalError ()"
+      "update : Connection -> (Db.Db -> Db.Db) -> BackendTask FatalError ()"
     );
     expect(generated).toContain('( "hash", Encode.string schemaHash )');
     expect(generated).toContain("internalRequest \"db-read-meta\"");
     expect(generated).toContain("internalRequest \"db-migrate-write\"");
     expect(generated).toContain("internalRequest \"db-lock-acquire\"");
-    expect(generated).toContain("sessionFields : Session -> List ( String, Encode.Value )");
+    expect(generated).toContain(
+      "connectionFields : Connection -> List ( String, Encode.Value )"
+    );
     expect(generated).not.toContain("getAt :");
     expect(generated).not.toContain("updateAt :");
     expect(generated).not.toContain("transactionAt :");
     expect(generated).toContain("migrateFromV1");
-    expect(generated).toContain("migrateFromVersion session version bytes");
+    expect(generated).toContain("migrateFromVersion connection version bytes");
   });
 });
 

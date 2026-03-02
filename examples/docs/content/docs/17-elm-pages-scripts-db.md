@@ -57,15 +57,15 @@ import Pages.Db
 import Pages.Script as Script exposing (Script)
 
 
-session : Pages.Db.Session
-session =
+connection : Pages.Db.Connection
+connection =
     Pages.Db.open (FilePath.fromString ".elm-pages-data/prefs.db.bin")
 
 
 run : Script
 run =
     Script.withoutCliOptions
-        (Pages.Db.transaction session
+        (Pages.Db.transaction connection
             (\db ->
                 let
                     todoId =
@@ -96,14 +96,14 @@ npx elm-pages run script/src/AddTodo.elm
 `Pages.Db` exposes:
 
 ```elm
-type Session
+type Connection
 
-default : Session
-open : FilePath -> Session
+default : Connection
+open : FilePath -> Connection
 
-get : Session -> BackendTask FatalError Db.Db
-update : Session -> (Db.Db -> Db.Db) -> BackendTask FatalError ()
-transaction : Session -> (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a
+get : Connection -> BackendTask FatalError Db.Db
+update : Connection -> (Db.Db -> Db.Db) -> BackendTask FatalError ()
+transaction : Connection -> (Db.Db -> BackendTask FatalError ( Db.Db, a )) -> BackendTask FatalError a
 ```
 
 Use `Pages.Db.open` when your path comes from CLI options or environment values.

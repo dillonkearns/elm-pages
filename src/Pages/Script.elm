@@ -191,8 +191,8 @@ withCliOptions config execute =
 
 {-| Configure the default database file path for `Pages.Db.default` in this script run.
 
-Use this when you want the shared default session path.
-For explicit session-based paths (for example from CLI options),
+Use this when you want the shared default connection path.
+For explicit connection-based paths (for example from CLI options),
 use `Pages.Db.open`.
 
     import FilePath
