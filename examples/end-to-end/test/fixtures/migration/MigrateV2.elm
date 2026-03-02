@@ -1,11 +1,11 @@
-module Db.Migrate.V2 exposing (db)
+module Db.Migrate.V2 exposing (migrate, seed)
 
 import Db
 import Db.V1
 
 
-db : Db.V1.Db -> Db.Db
-db old =
+migrate : Db.V1.Db -> Db.Db
+migrate old =
     { todos =
         List.map
             (\t ->
@@ -18,3 +18,8 @@ db old =
             old.todos
     , nextId = old.nextId
     }
+
+
+seed : Db.V1.Db -> Db.Db
+seed old =
+    migrate old
