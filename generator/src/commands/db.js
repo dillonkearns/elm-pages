@@ -94,12 +94,10 @@ export async function init() {
   const gitignoreUpdate = ensureDbGitignoreEntries(process.cwd());
 
   if (fs.existsSync(targetPath)) {
-    console.log(`Db.elm already exists at ${targetPath}`);
+    console.log(`Db.elm already exists at ${path.relative(process.cwd(), targetPath) || targetPath}.`);
     if (gitignoreUpdate.added.length > 0) {
       console.log(
-        `Updated ${path.relative(process.cwd(), gitignoreUpdate.path)} with: ${gitignoreUpdate.added.join(
-          ", "
-        )}`
+        `Updated ${path.relative(process.cwd(), gitignoreUpdate.path)} with: ${gitignoreUpdate.added.join(", ")}`
       );
     }
     return;
@@ -131,7 +129,6 @@ migrate =
 
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.writeFileSync(targetPath, dbTemplate);
-  console.log(`Created ${targetPath}`);
 
   // Create V1 migration file
   const runtimeDir = process.cwd();
@@ -139,20 +136,27 @@ migrate =
   const v1MigrationPath = path.join(v1MigrationDir, "V1.elm");
   fs.mkdirSync(v1MigrationDir, { recursive: true });
   fs.writeFileSync(v1MigrationPath, v1Template);
-  console.log(`Created ${v1MigrationPath}`);
+
+  console.log(`\nCreated:`);
+  console.log(`  ${path.relative(process.cwd(), targetPath)}`);
+  console.log(`  ${path.relative(process.cwd(), v1MigrationPath)}`);
 
   if (gitignoreUpdate.added.length > 0) {
     console.log(
-      `Updated ${path.relative(process.cwd(), gitignoreUpdate.path)} with: ${gitignoreUpdate.added.join(
-        ", "
-      )}`
+      `\nUpdated ${path.relative(process.cwd(), gitignoreUpdate.path)} with: ${gitignoreUpdate.added.join(", ")}`
     );
   }
   console.log(
-    "\nEdit the Db type alias to define your database schema, then import Pages.Db in your scripts."
+    "\nNext steps:"
   );
   console.log(
-    "The V1 seed in db/Db/Migrate/V1.elm provides the initial value for fresh installs."
+    "  1. Edit the Db type alias to define your database schema"
+  );
+  console.log(
+    "  2. Update the V1 seed in db/Db/Migrate/V1.elm to provide the initial value"
+  );
+  console.log(
+    "  3. Import Pages.Db in your scripts to read and write data"
   );
 }
 
@@ -353,17 +357,17 @@ export async function migrate(options = {}) {
           snapshotSource = historicalSource;
           console.log("\nDetected stale Db.elm state; recovering old schema from db/schema-history.");
         } else if (!options.forceStaleSnapshot) {
-          console.log(`\nI can't create migration files yet.\n`);
-          console.log(`Reason: your current Db file was changed before the old schema snapshot was captured.`);
-          console.log(`\nI found:`);
-          console.log(`  - db.bin is at V${currentVersion}`);
-          console.log(`  - Schema version (from migration files) is V${currentVersion}`);
-          console.log(`  - ${dbElmDisplayPath} has a different schema hash`);
-          console.log(`  - Missing: db/schema-history/${parsed.schemaHashHex}.elm`);
+          console.log(`\nCannot create migration files yet.`);
+          console.log(`\n${dbElmDisplayPath} was changed before the old schema snapshot was captured.`);
+          console.log(`\nCurrent state:`);
+          console.log(`  db.bin is at V${currentVersion}`);
+          console.log(`  Schema version (from migration files) is V${currentVersion}`);
+          console.log(`  ${dbElmDisplayPath} has a different schema hash`);
+          console.log(`  Missing: db/schema-history/${parsed.schemaHashHex}.elm`);
           console.log(
-            `\nIf I continue now, db/Db/V${currentVersion}.elm would contain your new schema (wrong snapshot).`
+            `\nContinuing now would snapshot the wrong schema into db/Db/V${currentVersion}.elm.`
           );
-          console.log(`\nDo this:`);
+          console.log(`\nTo fix:`);
           console.log(`  1. Restore ${dbElmDisplayPath} to the schema currently stored in db.bin`);
           console.log(
             `  2. Run \`elm-pages db migrate\` to create the V${currentVersion} snapshot + V${currentVersion + 1} stub`
@@ -371,10 +375,10 @@ export async function migrate(options = {}) {
           console.log(
             `  3. Re-apply your Db.elm changes and implement db/Db/Migrate/V${currentVersion + 1}.elm`
           );
-          console.log(`\nUnsafe override (not recommended):`);
+          console.log(`\nOverride (not recommended):`);
           console.log(`  elm-pages db migrate --force-stale-snapshot`);
           console.log(
-            `\nTip: after any successful write, stale snapshot recovery can use db/schema-history/<hash>.elm automatically.`
+            `\nTip: after any successful write, stale snapshot recovery uses db/schema-history/<hash>.elm automatically.`
           );
           process.exitCode = 1;
           return;
@@ -422,9 +426,9 @@ export async function migrate(options = {}) {
           if (vMatch) {
             const v = parseInt(vMatch[1], 10);
             if (v === 1) {
-              console.log(`  Expected: seed : () -> Db.Db`);
+              console.log(`    Expected signature: seed : () -> Db.Db`);
             } else {
-              console.log(`  Expected: migrate : Db.V${v - 1}.Db -> Db.Db`);
+              console.log(`    Expected signature: migrate : Db.V${v - 1}.Db -> Db.Db`);
             }
           }
         }

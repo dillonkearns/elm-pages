@@ -251,7 +251,7 @@ type alias Db =
     await migrate();
 
     const logOutput = logSpy.mock.calls.map((c) => c[0]).join("\n");
-    expect(logOutput).toContain("I can't create migration files yet.");
+    expect(logOutput).toContain("Cannot create migration files yet.");
     expect(logOutput).toContain("Missing: db/schema-history/");
     expect(process.exitCode).toBe(1);
     expect(fs.existsSync(path.join(tmpDir, "db", "Db", "V1.elm"))).toBe(false);
