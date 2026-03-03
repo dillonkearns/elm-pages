@@ -45,10 +45,16 @@ function rewriteElmJsonHelp(elmJson, options) {
       return pathPrefix + item;
     }
   });
-  elmJson["dependencies"]["direct"]["lamdera/codecs"] = "1.0.0";
+  addDirectDependency(elmJson, "lamdera/codecs", "1.0.0");
+  addDirectDependency(elmJson, "elm/bytes", "1.0.8");
   // 3. add our own secret My.elm module 😈
   elmJson["source-directories"].push(".elm-pages");
   return elmJson;
+}
+
+function addDirectDependency(elmJson, pkg, version) {
+  elmJson["dependencies"]["direct"][pkg] = version;
+  delete elmJson["dependencies"]["indirect"][pkg];
 }
 
 async function writeFileIfChanged(filePath, content) {

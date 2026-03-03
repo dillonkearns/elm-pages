@@ -23,8 +23,8 @@ export async function rewriteElmJson(
   );
 
   let modifiedElmJson = modifyElmJson(elmJson);
-  // always add `lamdera/codecs` dependency
-  modifiedElmJson["dependencies"]["direct"]["lamdera/codecs"] = "1.0.0";
+  addDirectDependency(modifiedElmJson, "lamdera/codecs", "1.0.0");
+  addDirectDependency(modifiedElmJson, "elm/bytes", "1.0.8");
 
   // write new elm.json
   await writeFileIfChanged(
@@ -37,6 +37,11 @@ export async function rewriteElmJson(
  * @param {fs.PathLike | fs.promises.FileHandle} filePath
  * @param {string | NodeJS.ArrayBufferView | Iterable<string | NodeJS.ArrayBufferView> | AsyncIterable<string | NodeJS.ArrayBufferView> | import("stream").Stream} content
  */
+function addDirectDependency(elmJson, pkg, version) {
+  elmJson["dependencies"]["direct"][pkg] = version;
+  delete elmJson["dependencies"]["indirect"][pkg];
+}
+
 async function writeFileIfChanged(filePath, content) {
   if (
     !(await fileExists(filePath)) ||
