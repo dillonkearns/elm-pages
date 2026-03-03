@@ -1053,7 +1053,14 @@ async function runDbLockAcquire(req) {
         );
         attempt++;
       } catch (readError) {
-        // Lock file disappeared between check and read - retry immediately
+        if (readError.code === "ENOENT") {
+          // Lock file disappeared between check and read - retry immediately
+          continue;
+        }
+        // Corrupted lock file (e.g. invalid JSON) - remove and retry
+        try {
+          await fsPromises.unlink(lockPath);
+        } catch (_) {}
         continue;
       }
     }
