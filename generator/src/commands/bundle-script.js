@@ -109,7 +109,6 @@ await(async()=>{let{dirname:e}=await import("path"),{fileURLToPath:i}=await impo
         "A9",
         "F2",
         "F3",
-        "F3",
         "F4",
         "F5",
         "F6",
