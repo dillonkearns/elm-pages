@@ -164,7 +164,7 @@ cleanState : BackendTask FatalError ()
 cleanState =
     Script.log "Cleaning state..."
         |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-f", "db.bin", "db.bin.lock", "db.lock" ])
-        |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-rf", "db" ])
+        |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-rf", "db/schema-history" ])
 
 
 restoreState : String -> BackendTask FatalError ()
