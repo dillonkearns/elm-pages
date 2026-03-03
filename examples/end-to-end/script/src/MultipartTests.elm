@@ -4,6 +4,8 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import BackendTask.Http
 import BackendTaskTest exposing (testScript)
+import Bytes exposing (Bytes)
+import Bytes.Decode
 import Bytes.Encode
 import Expect
 import FatalError exposing (FatalError)
@@ -152,9 +154,13 @@ parseWith label parts =
             BackendTask.Http.multipartBody parts
     in
     case multipartResult of
-        MultipartBody partsJson _ ->
+        MultipartBody partsJson bytesParts ->
             BackendTask.Custom.run "buildAndParseMultipart"
-                (Encode.list identity partsJson)
+                (Encode.object
+                    [ ( "parts", Encode.list identity partsJson )
+                    , ( "bytesMap", encodeBytesMap bytesParts )
+                    ]
+                )
                 parsedMultipartDecoder
                 |> try
 
@@ -182,10 +188,11 @@ checkRawBytes label parts =
             BackendTask.Http.multipartBody parts
     in
     case multipartResult of
-        MultipartBody partsJson _ ->
+        MultipartBody partsJson bytesParts ->
             BackendTask.Custom.run "buildAndCheckRawBytes"
                 (Encode.object
                     [ ( "parts", Encode.list identity partsJson )
+                    , ( "bytesMap", encodeBytesMap bytesParts )
                     , ( "searchFor", Encode.string "\r\nEvil-Header:" )
                     ]
                 )
@@ -246,6 +253,42 @@ test name toExpectation task =
                 Test.test name <|
                     \() -> toExpectation data
             )
+
+
+encodeBytesMap : List ( String, Bytes ) -> Encode.Value
+encodeBytesMap bytesParts =
+    bytesParts
+        |> List.map
+            (\( key, bytes ) ->
+                ( key, bytesToIntList bytes |> Encode.list Encode.int )
+            )
+        |> Encode.object
+
+
+bytesToIntList : Bytes -> List Int
+bytesToIntList bytes =
+    let
+        width : Int
+        width =
+            Bytes.width bytes
+    in
+    Bytes.Decode.decode
+        (bytesToIntListLoop width [])
+        bytes
+        |> Maybe.withDefault []
+
+
+bytesToIntListLoop : Int -> List Int -> Bytes.Decode.Decoder (List Int)
+bytesToIntListLoop remaining acc =
+    if remaining <= 0 then
+        Bytes.Decode.succeed (List.reverse acc)
+
+    else
+        Bytes.Decode.unsignedInt8
+            |> Bytes.Decode.andThen
+                (\byte ->
+                    bytesToIntListLoop (remaining - 1) (byte :: acc)
+                )
 
 
 try : BackendTask { error | fatal : FatalError } data -> BackendTask FatalError data

@@ -38,10 +38,10 @@ export async function customWrite(input) {
  * as request-cache.js), then parse it with busboy to verify the round-trip.
  */
 export async function buildAndParseMultipart(
-  parts: Array<{ type: string; name: string; value?: string; mimeType?: string; filename?: string; content?: string }>
+  { parts, bytesMap }: { parts: Array<any>; bytesMap: Record<string, number[]> }
 ) {
   const { default: Busboy } = await import("busboy");
-  const formData = partsToFormData(parts);
+  const formData = partsToFormData(parts, bytesMap);
   const req = new Request("http://localhost", { method: "POST", body: formData });
   const contentType = req.headers.get("content-type")!;
   const body = Buffer.from(await req.arrayBuffer());
@@ -89,35 +89,43 @@ export async function buildAndParseMultipart(
  * Build a multipart body from structured parts using FormData, then check
  * whether the raw bytes contain a specific string (for header injection tests).
  */
-export async function buildAndCheckRawBytes({ parts, searchFor }: { parts: Array<any>; searchFor: string }) {
-  const formData = partsToFormData(parts);
+export async function buildAndCheckRawBytes(
+  { parts, bytesMap, searchFor }: { parts: Array<any>; bytesMap: Record<string, number[]>; searchFor: string }
+) {
+  const formData = partsToFormData(parts, bytesMap);
   const req = new Request("http://localhost", { method: "POST", body: formData });
   const body = Buffer.from(await req.arrayBuffer());
   return body.toString("utf-8").includes(searchFor);
 }
 
 function partsToFormData(
-  parts: Array<{ type: string; name: string; value?: string; mimeType?: string; filename?: string; content?: string }>
+  parts: Array<{ type: string; name: string; value?: string; mimeType?: string; filename?: string; content?: number }>,
+  bytesMap: Record<string, number[]>
 ): FormData {
   const formData = new FormData();
-  for (const part of parts) {
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
     switch (part.type) {
       case "string":
         formData.append(part.name, part.value!);
         break;
-      case "bytes":
+      case "bytes": {
+        const buf = Buffer.from(bytesMap[String(i)] || []);
         formData.append(
           part.name,
-          new Blob([Buffer.from(part.content!, "base64")], { type: part.mimeType })
+          new Blob([buf], { type: part.mimeType })
         );
         break;
-      case "bytesWithFilename":
+      }
+      case "bytesWithFilename": {
+        const buf = Buffer.from(bytesMap[String(i)] || []);
         formData.append(
           part.name,
-          new Blob([Buffer.from(part.content!, "base64")], { type: part.mimeType }),
+          new Blob([buf], { type: part.mimeType }),
           part.filename
         );
         break;
+      }
     }
   }
   return formData;
