@@ -881,6 +881,7 @@ jsonBody jsonString =
 encodeBatchEntry : ( Request.Request, ResponseBody ) -> Encode.Value
 encodeBatchEntry ( req, response ) =
     let
+        key : String
         key =
             Request.hash (req |> withInternalHeader response)
     in

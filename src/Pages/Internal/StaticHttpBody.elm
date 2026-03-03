@@ -101,19 +101,23 @@ hashBytes bytes =
 
 bytesLoop : Int -> Int -> Bytes.Decode.Decoder Int
 bytesLoop remaining hash =
+    Bytes.Decode.loop ( remaining, hash ) bytesLoopStep
+
+
+bytesLoopStep : ( Int, Int ) -> Bytes.Decode.Decoder (Bytes.Decode.Step ( Int, Int ) Int)
+bytesLoopStep ( remaining, hash ) =
     if remaining <= 0 then
-        Bytes.Decode.succeed hash
+        Bytes.Decode.succeed (Bytes.Decode.Done hash)
 
     else
-        Bytes.Decode.unsignedInt8
-            |> Bytes.Decode.andThen
-                (\byte ->
-                    bytesLoop (remaining - 1)
-                        (Bitwise.xor hash byte
-                            |> (\h -> h * 0x01000193)
-                            |> Bitwise.and 0xFFFFFFFF
-                        )
-                )
+        Bytes.Decode.map
+            (\byte ->
+                Bytes.Decode.Loop
+                    ( remaining - 1
+                    , Bitwise.and 0xFFFFFFFF (Bitwise.xor hash byte * 0x01000193)
+                    )
+            )
+            Bytes.Decode.unsignedInt8
 
 
 extractAllBytes : String -> Body -> List { key : String, data : Bytes }

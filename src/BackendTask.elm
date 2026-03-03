@@ -112,7 +112,6 @@ of a `BackendTask` at any point before you pass it to and it will be applied whe
 
 import Dict
 import FatalError exposing (FatalError)
-import Json.Encode
 import List.Chunks
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending

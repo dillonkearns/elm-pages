@@ -219,6 +219,7 @@ perform site renderRequest config effect =
 
         Effect.FetchHttp requests ->
             let
+                requestsWithHashes : List ( String, Pages.StaticHttp.Request.Request )
                 requestsWithHashes =
                     requests
                         |> List.map
@@ -226,6 +227,7 @@ perform site renderRequest config effect =
                                 ( Pages.StaticHttp.Request.hash request, request )
                             )
 
+                bytesPayloads : List { key : String, data : Bytes }
                 bytesPayloads =
                     requestsWithHashes
                         |> List.concatMap
@@ -233,6 +235,7 @@ perform site renderRequest config effect =
                                 Pages.Internal.StaticHttpBody.extractAllBytes hash request.body
                             )
 
+                jsonPayload : Json.Encode.Value
                 jsonPayload =
                     requestsWithHashes
                         |> ToJsPayload.DoHttp
@@ -633,6 +636,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                     toRedirectResponse config serverRequestPayload includeHtml serverResponse responseMetadata
                                                                                         |> Maybe.withDefault
                                                                                             (let
+                                                                                                apiResponse : ToJsPayload.ToJsSuccessPayloadNewCombined
                                                                                                 apiResponse =
                                                                                                     { body = serverResponse |> PageServerResponse.toJson
                                                                                                     , staticHttpCache = Dict.empty

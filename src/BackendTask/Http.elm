@@ -193,9 +193,11 @@ avoids any possibility of boundary collisions with part content.
 multipartBody : List Part -> Body
 multipartBody parts =
     let
+        encodedParts : List Encode.Value
         encodedParts =
             List.indexedMap encodePart parts
 
+        bytesParts : List ( String, Bytes )
         bytesParts =
             List.indexedMap extractPartBytes parts
                 |> List.filterMap identity
@@ -204,7 +206,7 @@ multipartBody parts =
 
 
 encodePart : Int -> Part -> Encode.Value
-encodePart index part =
+encodePart _ part =
     case part of
         StringPart name value ->
             Encode.object

@@ -167,7 +167,7 @@ init :
     -> Url
     -> Maybe Browser.Navigation.Key
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
-init config flags url key =
+init _ flags url key =
     -- Page data will arrive via the pageDataFromJs port immediately after init.
     -- Set pendingFrozenViewsUrl so FrozenViewsReady can handle the incoming bytes.
     ( { key = key
@@ -976,7 +976,7 @@ update config appMsg model =
                             -- Bytes decode failed
                             ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
 
-                ( Just pageDataBytes, Just pendingUrl, Err _ ) ->
+                ( Just pageDataBytes, Just _, Err _ ) ->
                     -- Initial page load — page data arriving via port
                     let
                         pageDataResult : Maybe (InitKind sharedData pageData actionData errorPage)

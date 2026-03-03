@@ -198,6 +198,7 @@ perform config effect =
 
         Effect.FetchHttp requests ->
             let
+                requestsWithHashes : List ( String, Pages.StaticHttp.Request.Request )
                 requestsWithHashes =
                     requests
                         |> List.map
@@ -205,6 +206,7 @@ perform config effect =
                                 ( Pages.StaticHttp.Request.hash request, request )
                             )
 
+                bytesPayloads : List { key : String, data : Bytes }
                 bytesPayloads =
                     requestsWithHashes
                         |> List.concatMap
@@ -212,6 +214,7 @@ perform config effect =
                                 Pages.Internal.StaticHttpBody.extractAllBytes hash request.body
                             )
 
+                jsonPayload : Encode.Value
                 jsonPayload =
                     requestsWithHashes
                         |> ToJsPayload.DoHttp
