@@ -257,13 +257,17 @@ function toRequest(elmRequest) {
     url: elmRequest.url,
     method: elmRequest.method,
     headers,
-    body: toBody(elmRequest.body),
+    body: toBody(elmRequest.body, elmRequest.__rawBytes),
   };
 }
 /**
  * @param {Body} body
  */
-function toBody(body) {
+/**
+ * @param {Body} body
+ * @param {Buffer} [rawBytes] - Raw bytes from port, used instead of base64 for BytesBody
+ */
+function toBody(body, rawBytes) {
   switch (body.tag) {
     case "EmptyBody": {
       return null;
@@ -272,7 +276,8 @@ function toBody(body) {
       return body.args[1];
     }
     case "BytesBody": {
-      return Buffer.from(body.args[1], "base64");
+      // Prefer raw bytes from port if available (avoids base64 decode)
+      return rawBytes || Buffer.from(body.args[1], "base64");
     }
     case "JsonBody": {
       return JSON.stringify(body.args[0]);

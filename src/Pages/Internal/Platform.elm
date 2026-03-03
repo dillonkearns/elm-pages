@@ -1255,27 +1255,30 @@ perform config model effect =
             Http.cancel (String.fromInt transitionKey)
 
         FetchFrozenViews { path, query, body } ->
-            Json.Encode.object
-                [ ( "tag", Json.Encode.string "FetchFrozenViews" )
-                , ( "path", Json.Encode.string path )
-                , ( "query"
-                  , case query of
-                        Just q ->
-                            Json.Encode.string q
+            config.toJsPort
+                { json =
+                    Json.Encode.object
+                        [ ( "tag", Json.Encode.string "FetchFrozenViews" )
+                        , ( "path", Json.Encode.string path )
+                        , ( "query"
+                          , case query of
+                                Just q ->
+                                    Json.Encode.string q
 
-                        Nothing ->
-                            Json.Encode.null
-                  )
-                , ( "body"
-                  , case body of
-                        Just b ->
-                            Json.Encode.string b
+                                Nothing ->
+                                    Json.Encode.null
+                          )
+                        , ( "body"
+                          , case body of
+                                Just b ->
+                                    Json.Encode.string b
 
-                        Nothing ->
-                            Json.Encode.null
-                  )
-                ]
-                |> config.toJsPort
+                                Nothing ->
+                                    Json.Encode.null
+                          )
+                        ]
+                , bytes = []
+                }
                 |> Cmd.map never
 
 

@@ -5,7 +5,6 @@ exports[`generateMigrateChain > four-step migration (target V4) produces correct
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
-import Base64
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
@@ -112,18 +111,9 @@ saveAndLog newDb fromVersion toVersion =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db newDb)
-
-        base64Data =
-            Base64.fromBytes wire3Bytes
-                |> Maybe.withDefault ""
     in
     internalRequest "db-migrate-write"
-        (BackendTask.Http.jsonBody
-            (Encode.object
-                [ ( "data", Encode.string base64Data )
-                ]
-            )
-        )
+        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
         (BackendTask.Http.expectJson (Decode.succeed ()))
 
 
@@ -157,7 +147,6 @@ exports[`generateMigrateChain > multi-step migration (target V3) produces correc
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
-import Base64
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
@@ -245,18 +234,9 @@ saveAndLog newDb fromVersion toVersion =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db newDb)
-
-        base64Data =
-            Base64.fromBytes wire3Bytes
-                |> Maybe.withDefault ""
     in
     internalRequest "db-migrate-write"
-        (BackendTask.Http.jsonBody
-            (Encode.object
-                [ ( "data", Encode.string base64Data )
-                ]
-            )
-        )
+        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
         (BackendTask.Http.expectJson (Decode.succeed ()))
 
 
@@ -290,7 +270,6 @@ exports[`generateMigrateChain > single migration (target V2) produces correct El
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
-import Base64
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
@@ -359,18 +338,9 @@ saveAndLog newDb fromVersion toVersion =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db newDb)
-
-        base64Data =
-            Base64.fromBytes wire3Bytes
-                |> Maybe.withDefault ""
     in
     internalRequest "db-migrate-write"
-        (BackendTask.Http.jsonBody
-            (Encode.object
-                [ ( "data", Encode.string base64Data )
-                ]
-            )
-        )
+        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
         (BackendTask.Http.expectJson (Decode.succeed ()))
 
 

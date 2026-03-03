@@ -192,7 +192,7 @@ export function generateMigrateChain(targetVersion) {
   const imports = [
     "import BackendTask exposing (BackendTask)",
     "import BackendTask.Http",
-    "import Base64",
+    // Base64 no longer needed — raw bytes sent through port
     "import Bytes exposing (Bytes)",
     "import Bytes.Decode",
     "import Bytes.Encode",
@@ -292,18 +292,9 @@ saveAndLog newDb fromVersion toVersion =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db newDb)
-
-        base64Data =
-            Base64.fromBytes wire3Bytes
-                |> Maybe.withDefault ""
     in
     internalRequest "db-migrate-write"
-        (BackendTask.Http.jsonBody
-            (Encode.object
-                [ ( "data", Encode.string base64Data )
-                ]
-            )
-        )
+        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
         (BackendTask.Http.expectJson (Decode.succeed ()))
 
 

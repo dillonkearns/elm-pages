@@ -27,7 +27,9 @@ function loadContentAndInitializeApp() {
     },
   });
 
-  app.ports.toJsPort.subscribe(async (fromElm) => {
+  app.ports.toJsPort.subscribe(async (portData) => {
+    // toJsPort now sends { json, bytes } — unwrap the json payload
+    const fromElm = portData.json;
     if (fromElm.tag === "FetchFrozenViews") {
       // Fetch content.dat which contains both frozen views and page data
       const options = fromElm.body ? { body: fromElm.body } : {};

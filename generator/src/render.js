@@ -189,7 +189,9 @@ function runGeneratorAppHelp(
     };
 
     async function portHandler(/** @type { FromElm } */ newThing) {
-      let fromElm = newThing;
+      // toJsPort now sends { json, bytes } where bytes carries raw Bytes data
+      let fromElm = newThing.json;
+      const outgoingBytes = newThing.bytes || [];
       let contentDatPayload;
 
       if (fromElm.command === "log") {
@@ -220,8 +222,20 @@ function runGeneratorAppHelp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
+        // Build a map of request hash → raw bytes from the port's bytes field
+        const outgoingBytesMap = new Map(
+          outgoingBytes.map(({ key, data }) => [
+            key,
+            dataViewToBuffer(data),
+          ])
+        );
         const results = await Promise.all(
           fromElm.args[0].map(async ([requestHash, requestToPerform]) => {
+            // Inject raw bytes into the request if available (for BytesBody)
+            const reqBytes = outgoingBytesMap.get(requestHash);
+            if (reqBytes) {
+              requestToPerform.__rawBytes = reqBytes;
+            }
             let result;
             if (
               requestToPerform.url !== "elm-pages-internal://port" &&
@@ -321,9 +335,15 @@ function runElmApp(
     async function portHandler(/** @type { FromElm }  */ newThing) {
       let fromElm;
       let contentDatPayload;
+      let outgoingBytes = [];
       if ("oldThing" in newThing) {
+        // sendPageData port
         fromElm = newThing.oldThing;
         contentDatPayload = newThing.binaryPageData;
+      } else if ("json" in newThing) {
+        // toJsPort with new { json, bytes } format
+        fromElm = newThing.json;
+        outgoingBytes = newThing.bytes || [];
       } else {
         fromElm = newThing;
       }
@@ -360,8 +380,20 @@ function runElmApp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
+        // Build a map of request hash → raw bytes from the port's bytes field
+        const outgoingBytesMap = new Map(
+          outgoingBytes.map(({ key, data }) => [
+            key,
+            dataViewToBuffer(data),
+          ])
+        );
         const results = await Promise.all(
           fromElm.args[0].map(async ([requestHash, requestToPerform]) => {
+            // Inject raw bytes into the request if available (for BytesBody)
+            const reqBytes = outgoingBytesMap.get(requestHash);
+            if (reqBytes) {
+              requestToPerform.__rawBytes = reqBytes;
+            }
             let result;
             if (
               requestToPerform.url !== "elm-pages-internal://port" &&
@@ -555,6 +587,13 @@ function bufferToDataView(buf) {
 }
 
 /**
+ * Convert a DataView (received from Lamdera port Bytes) to a Node.js Buffer.
+ */
+function dataViewToBuffer(dv) {
+  return Buffer.from(dv.buffer, dv.byteOffset, dv.byteLength);
+}
+
+/**
  * @template U
  * @template A
  * @typedef {{ url: U; body: { args: A }; dir: string[]; quiet: boolean; env: { [key:string]: string; } }} InternalJobWith<U,A>
@@ -719,15 +758,30 @@ async function runInternalJob(
 const dbLockTokensByPath = new Map();
 let dbLockCleanupRegistered = false;
 
-function resolveDbBinPath(cwd, payload) {
-  const configuredPath =
-    payload &&
-    typeof payload === "object" &&
-    typeof payload.path === "string" &&
-    payload.path.length > 0
-      ? payload.path
-      : configuredDbPath;
-  return path.resolve(cwd, configuredPath);
+function resolveDbBinPath(cwd, payloadOrHeaders) {
+  let customPath;
+  if (
+    payloadOrHeaders &&
+    typeof payloadOrHeaders === "object" &&
+    typeof payloadOrHeaders.path === "string" &&
+    payloadOrHeaders.path.length > 0
+  ) {
+    // Legacy: path from JSON payload
+    customPath = payloadOrHeaders.path;
+  } else if (typeof payloadOrHeaders === "string" && payloadOrHeaders.length > 0) {
+    // New: path passed directly (from x-db-path header)
+    customPath = payloadOrHeaders;
+  }
+  return path.resolve(cwd, customPath || configuredDbPath);
+}
+
+/**
+ * Extract the x-db-path header value from request headers.
+ * Headers are stored as an array of [key, value] pairs.
+ */
+function getDbPathHeader(req) {
+  const entry = req.headers.find(([k]) => k === "x-db-path");
+  return entry ? entry[1] : null;
 }
 
 function resolveDbLockPath(dbBinPath) {
@@ -894,15 +948,31 @@ async function findCurrentDbElm(cwd) {
 
 async function runDbWrite(req) {
   const cwd = path.resolve(...req.dir);
-  const payload = req.body.args[0];
-  const schemaHash = payload && payload.hash;
-  const base64Data = payload && payload.data;
-  const dbBinPath = resolveDbBinPath(cwd, payload);
+
+  // Read raw bytes from port (BytesBody) or fall back to base64 in JSON body
+  let wire3Data;
+  let schemaHash;
+  let dbBinPath;
+
+  if (req.__rawBytes) {
+    // New path: raw bytes from port, metadata in headers
+    wire3Data = req.__rawBytes;
+    const headerEntry = req.headers.find(([k]) => k === "x-schema-hash");
+    schemaHash = headerEntry ? headerEntry[1] : null;
+    dbBinPath = resolveDbBinPath(cwd, getDbPathHeader(req));
+  } else {
+    // Legacy path: base64 in JSON body
+    const payload = req.body.args[0];
+    schemaHash = payload && payload.hash;
+    const base64Data = payload && payload.data;
+    dbBinPath = resolveDbBinPath(cwd, payload);
+    wire3Data = typeof base64Data === "string" ? Buffer.from(base64Data, "base64") : null;
+  }
 
   if (
     typeof schemaHash !== "string" ||
     schemaHash.length === 0 ||
-    typeof base64Data !== "string"
+    !wire3Data
   ) {
     throw {
       title: "Invalid db-write payload",
@@ -910,8 +980,6 @@ async function runDbWrite(req) {
         "Expected hash and data fields when writing to the database.",
     };
   }
-
-  const wire3Data = Buffer.from(base64Data, "base64");
 
   // Determine schema version: use current schema version by default.
   // If header hash already matches, preserve existing schema version.
@@ -1149,18 +1217,29 @@ async function runDbMigrateRead(req) {
 
 async function runDbMigrateWrite(req) {
   const cwd = path.resolve(...req.dir);
-  const payload = req.body.args[0];
-  const base64Data = payload && payload.data;
-  const dbBinPath = resolveDbBinPath(cwd, payload);
 
-  if (typeof base64Data !== "string") {
+  // Read raw bytes from port (BytesBody) or fall back to base64 in JSON body
+  let wire3Data;
+  let dbBinPath;
+
+  if (req.__rawBytes) {
+    // New path: raw bytes from port, path in headers
+    wire3Data = req.__rawBytes;
+    dbBinPath = resolveDbBinPath(cwd, getDbPathHeader(req));
+  } else {
+    // Legacy path: base64 in JSON body
+    const payload = req.body.args[0];
+    const base64Data = payload && payload.data;
+    dbBinPath = resolveDbBinPath(cwd, payload);
+    wire3Data = typeof base64Data === "string" ? Buffer.from(base64Data, "base64") : null;
+  }
+
+  if (!wire3Data) {
     throw {
       title: "Invalid db-migrate-write payload",
       message: "Expected data field when writing migrated database data.",
     };
   }
-
-  const wire3Data = Buffer.from(base64Data, "base64");
 
   // Read current schema hash from the current Db.elm source
   // The migration chain encodes with the NEW Db.w3_encode_Db,

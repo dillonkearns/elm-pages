@@ -29,6 +29,7 @@ import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.ResponseSketch as ResponseSketch
+import Pages.Internal.StaticHttpBody
 import Pages.ProgramConfig
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request
@@ -217,14 +218,28 @@ perform site renderRequest config effect =
             flatten site renderRequest config list
 
         Effect.FetchHttp requests ->
-            requests
-                |> List.map
-                    (\request ->
-                        ( Pages.StaticHttp.Request.hash request, request )
-                    )
-                |> ToJsPayload.DoHttp
-                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
-                |> config.toJsPort
+            let
+                requestsWithHashes =
+                    requests
+                        |> List.map
+                            (\request ->
+                                ( Pages.StaticHttp.Request.hash request, request )
+                            )
+
+                bytesPayloads =
+                    requestsWithHashes
+                        |> List.filterMap
+                            (\( hash, request ) ->
+                                Pages.Internal.StaticHttpBody.extractBytes request.body
+                                    |> Maybe.map (\bytes -> { key = hash, data = bytes })
+                            )
+
+                jsonPayload =
+                    requestsWithHashes
+                        |> ToJsPayload.DoHttp
+                        |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
+            in
+            config.toJsPort { json = jsonPayload, bytes = bytesPayloads }
                 |> Cmd.map never
 
         Effect.SendSinglePage info ->
@@ -238,9 +253,10 @@ perform site renderRequest config effect =
                         _ ->
                             ""
             in
-            info
-                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
-                |> config.toJsPort
+            config.toJsPort
+                { json = info |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
+                , bytes = []
+                }
                 |> Cmd.map never
 
         Effect.SendSinglePageNew rawBytes info ->

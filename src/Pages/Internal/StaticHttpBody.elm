@@ -1,4 +1,4 @@
-module Pages.Internal.StaticHttpBody exposing (Body(..), codec, encode)
+module Pages.Internal.StaticHttpBody exposing (Body(..), codec, encode, extractBytes)
 
 import Base64
 import Bytes exposing (Bytes)
@@ -83,7 +83,9 @@ codec =
 
 bytesCodec : Codec Bytes
 bytesCodec =
-    Codec.build (Base64.fromBytes >> Maybe.withDefault "" >> Encode.string)
+    Codec.build
+        -- Encode as empty placeholder; real bytes are sent through the port's bytes field
+        (\_ -> Encode.string "")
         (Json.Decode.string
             |> Json.Decode.map Base64.toBytes
             |> Json.Decode.andThen
@@ -96,3 +98,13 @@ bytesCodec =
                             Json.Decode.fail "Couldn't parse bytes."
                 )
         )
+
+
+extractBytes : Body -> Maybe Bytes
+extractBytes body =
+    case body of
+        BytesBody _ bytes ->
+            Just bytes
+
+        _ ->
+            Nothing

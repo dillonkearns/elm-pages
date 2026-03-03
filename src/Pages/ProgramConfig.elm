@@ -75,7 +75,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
     , site : Maybe SiteConfig
-    , toJsPort : Json.Encode.Value -> Cmd Never
+    , toJsPort : { json : Json.Encode.Value, bytes : List { key : String, data : Bytes } } -> Cmd Never
     , fromJsPort : Sub Decode.Value
     , gotBatchSub : Sub (List { key : String, json : Decode.Value, bytes : Maybe Bytes })
     , hotReloadData : Sub Bytes

@@ -24,9 +24,9 @@ describe("Pages.Db codegen", () => {
     expect(generated).toContain(
       "update : Connection -> (Db.Db -> Db.Db) -> BackendTask FatalError ()"
     );
-    expect(generated).toContain('( "hash", Encode.string schemaHash )');
+    expect(generated).toContain('( "x-schema-hash", schemaHash )');
     expect(generated).toContain("internalRequest \"db-read-meta\"");
-    expect(generated).toContain("internalRequest \"db-migrate-write\"");
+    expect(generated).toContain("internalRequestWithHeaders \"db-migrate-write\"");
     expect(generated).toContain("internalRequest \"db-lock-acquire\"");
     expect(generated).toContain(
       "connectionFields : Connection -> List ( String, Encode.Value )"

@@ -80,7 +80,7 @@ main =
         }
 
 
-port toJsPort : Pages.Internal.Platform.GeneratorApplication.JsonValue -> Cmd msg
+port toJsPort : { json : Pages.Internal.Platform.GeneratorApplication.JsonValue, bytes : List { key : String, data : Bytes } } -> Cmd msg
 
 
 port fromJsPort : (Pages.Internal.Platform.GeneratorApplication.JsonValue -> msg) -> Sub msg
@@ -156,7 +156,6 @@ migrateFromV${fromVersion} old =
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
-import Base64
 import Bytes exposing (Bytes)
 import Bytes.Decode as BD
 import Db
@@ -201,6 +200,15 @@ connectionFields (Connection dbPath) =
 
     else
         [ ( "path", Encode.string dbPath ) ]
+
+
+connectionHeaders : Connection -> List ( String, String )
+connectionHeaders (Connection dbPath) =
+    if dbPath == "" then
+        []
+
+    else
+        [ ( "x-db-path", dbPath ) ]
 
 
 type alias DbReadPayload =
@@ -292,10 +300,15 @@ hexDigit n =
 
 internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
 internalRequest name body expect =
+    internalRequestWithHeaders name [] body expect
+
+
+internalRequestWithHeaders : String -> List ( String, String ) -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
+internalRequestWithHeaders name headers body expect =
     BackendTask.Http.request
         { url = "elm-pages-internal://" ++ name
         , method = "GET"
-        , headers = []
+        , headers = headers
         , body = body
         , timeoutInMs = Nothing
         , retries = Nothing
@@ -394,19 +407,10 @@ persistMigrated connection db =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db db)
-
-        base64Data =
-            Base64.fromBytes wire3Bytes
-                |> Maybe.withDefault ""
     in
-    internalRequest "db-migrate-write"
-        (BackendTask.Http.jsonBody
-            (Encode.object
-                ([ ( "data", Encode.string base64Data ) ]
-                    ++ connectionFields connection
-                )
-            )
-        )
+    internalRequestWithHeaders "db-migrate-write"
+        (connectionHeaders connection)
+        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
         (BackendTask.Http.expectJson (Decode.succeed ()))
         |> BackendTask.map (\\_ -> db)
 
@@ -453,21 +457,10 @@ write connection db =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db db)
-
-        base64Data =
-            Base64.fromBytes wire3Bytes
-                |> Maybe.withDefault ""
     in
-    internalRequest "db-write"
-        (BackendTask.Http.jsonBody
-            (Encode.object
-                ([ ( "hash", Encode.string schemaHash )
-                 , ( "data", Encode.string base64Data )
-                 ]
-                    ++ connectionFields connection
-                )
-            )
-        )
+    internalRequestWithHeaders "db-write"
+        (( "x-schema-hash", schemaHash ) :: connectionHeaders connection)
+        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
         (BackendTask.Http.expectJson (Decode.succeed ()))
 
 
