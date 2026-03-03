@@ -62,7 +62,7 @@ type alias Model route =
 
 {-| -}
 type Msg
-    = GotDataBatch Decode.Value
+    = GotDataBatch (List { key : String, json : Decode.Value, bytes : Maybe Bytes })
     | GotBuildError BuildError
 
 
@@ -278,7 +278,7 @@ flagsDecoder =
             }
         )
         -- TODO remove hardcoding and decode staticHttpCache here
-        (Decode.succeed (Json.Encode.object []))
+        (Decode.succeed RequestsAndPending.empty)
         (Decode.field "mode" Decode.string |> Decode.map (\mode -> mode == "dev-server"))
         (Decode.field "compatibilityKey" Decode.int)
 
@@ -856,7 +856,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
             , isDevServer = isDevServer
             }
     in
-    StaticResponses.nextStep (Json.Encode.object []) initialModel.staticResponses initialModel
+    StaticResponses.nextStep RequestsAndPending.empty initialModel.staticResponses initialModel
         |> nextStepToEffect
             initialModel
 
@@ -865,7 +865,7 @@ updateAndSendPortIfDone :
     Model route
     -> ( Model route, Effect )
 updateAndSendPortIfDone model =
-    StaticResponses.nextStep (Json.Encode.object [])
+    StaticResponses.nextStep RequestsAndPending.empty
         model.staticResponses
         model
         |> nextStepToEffect model
@@ -878,7 +878,17 @@ update :
     -> ( Model route, Effect )
 update msg model =
     case msg of
-        GotDataBatch batch ->
+        GotDataBatch entries ->
+            let
+                batch : RequestsAndPending
+                batch =
+                    { json = Json.Encode.object (List.map (\e -> ( e.key, e.json )) entries)
+                    , rawBytes =
+                        entries
+                            |> List.filterMap (\e -> Maybe.map (\b -> ( e.key, b )) e.bytes)
+                            |> Dict.fromList
+                    }
+            in
             StaticResponses.nextStep batch
                 model.staticResponses
                 model
@@ -893,7 +903,7 @@ update msg model =
                             buildError :: model.errors
                     }
             in
-            StaticResponses.nextStep (Json.Encode.object [])
+            StaticResponses.nextStep RequestsAndPending.empty
                 updatedModel.staticResponses
                 updatedModel
                 |> nextStepToEffect updatedModel

@@ -311,26 +311,24 @@ readDbBin : BackendTask FatalError { version : Int, bytes : Bytes }
 readDbBin =
     internalRequest "db-migrate-read"
         (BackendTask.Http.jsonBody Encode.null)
-        (BackendTask.Http.expectJson
-            (Decode.map2 (\\v d -> { version = v, rawData = d })
-                (Decode.field "version" Decode.int)
-                (Decode.field "data" Decode.string)
+        (BackendTask.Http.expectBytes
+            (Bytes.Decode.unsignedInt32 Bytes.BE
+                |> Bytes.Decode.andThen
+                    (\\version ->
+                        Bytes.Decode.unsignedInt32 Bytes.BE
+                            |> Bytes.Decode.andThen
+                                (\\wire3Len ->
+                                    Bytes.Decode.bytes wire3Len
+                                        |> Bytes.Decode.map
+                                            (\\wire3 ->
+                                                { version = version
+                                                , bytes = wire3
+                                                }
+                                            )
+                                )
+                    )
             )
         )
-        |> BackendTask.andThen
-            (\\{ version, rawData } ->
-                case Base64.toBytes rawData of
-                    Just bytes ->
-                        BackendTask.succeed { version = version, bytes = bytes }
-
-                    Nothing ->
-                        BackendTask.fail
-                            (FatalError.build
-                                { title = "Migration read failed"
-                                , body = "Could not decode base64 data from db.bin."
-                                }
-                            )
-            )
 `;
 }
 

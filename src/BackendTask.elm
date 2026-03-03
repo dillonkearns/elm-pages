@@ -115,6 +115,7 @@ import FatalError exposing (FatalError)
 import Json.Encode
 import List.Chunks
 import Pages.StaticHttpRequest exposing (RawRequest(..))
+import RequestsAndPending
 
 
 {-| A BackendTask represents data that will be gathered at build time. Multiple `BackendTask`s can be combined together using the `mapN` functions,
@@ -511,7 +512,7 @@ andThen fn requestInfo =
 
         Request urls lookupFn ->
             if List.isEmpty urls then
-                andThen fn (lookupFn Nothing (Json.Encode.object []))
+                andThen fn (lookupFn Nothing RequestsAndPending.empty)
 
             else
                 Request urls
@@ -562,7 +563,7 @@ onError fromError backendTask =
 
         Request urls lookupFn ->
             if List.isEmpty urls then
-                onError fromError (lookupFn Nothing (Json.Encode.object []))
+                onError fromError (lookupFn Nothing RequestsAndPending.empty)
 
             else
                 Request urls

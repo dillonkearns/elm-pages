@@ -220,33 +220,36 @@ function runGeneratorAppHelp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
-        app.ports.gotBatchSub.send(
-          Object.fromEntries(
-            await Promise.all(
-              fromElm.args[0].map(([requestHash, requestToPerform]) => {
-                if (
-                  requestToPerform.url !== "elm-pages-internal://port" &&
-                  requestToPerform.url.startsWith("elm-pages-internal://")
-                ) {
-                  return runInternalJob(
-                    requestHash,
-                    app,
-                    requestToPerform,
-                    patternsToWatch,
-                    portsFile
-                  );
-                } else {
-                  return runHttpJob(
-                    requestHash,
-                    portsFile,
-                    mode,
-                    requestToPerform
-                  );
-                }
-              })
-            )
-          )
+        const results = await Promise.all(
+          fromElm.args[0].map(async ([requestHash, requestToPerform]) => {
+            let result;
+            if (
+              requestToPerform.url !== "elm-pages-internal://port" &&
+              requestToPerform.url.startsWith("elm-pages-internal://")
+            ) {
+              [, result] = await runInternalJob(
+                requestHash,
+                app,
+                requestToPerform,
+                patternsToWatch,
+                portsFile
+              );
+            } else {
+              [, result] = await runHttpJob(
+                requestHash,
+                portsFile,
+                mode,
+                requestToPerform
+              );
+            }
+            return {
+              key: requestHash,
+              json: { request: result.request, response: result.response },
+              bytes: result.rawBytes ? bufferToDataView(result.rawBytes) : null,
+            };
+          })
         );
+        app.ports.gotBatchSub.send(results);
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
         spinnies.stopAll();
@@ -357,33 +360,36 @@ function runElmApp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
-        app.ports.gotBatchSub.send(
-          Object.fromEntries(
-            await Promise.all(
-              fromElm.args[0].map(([requestHash, requestToPerform]) => {
-                if (
-                  requestToPerform.url !== "elm-pages-internal://port" &&
-                  requestToPerform.url.startsWith("elm-pages-internal://")
-                ) {
-                  return runInternalJob(
-                    requestHash,
-                    app,
-                    requestToPerform,
-                    patternsToWatch,
-                    portsFile
-                  );
-                } else {
-                  return runHttpJob(
-                    requestHash,
-                    portsFile,
-                    mode,
-                    requestToPerform
-                  );
-                }
-              })
-            )
-          )
+        const results = await Promise.all(
+          fromElm.args[0].map(async ([requestHash, requestToPerform]) => {
+            let result;
+            if (
+              requestToPerform.url !== "elm-pages-internal://port" &&
+              requestToPerform.url.startsWith("elm-pages-internal://")
+            ) {
+              [, result] = await runInternalJob(
+                requestHash,
+                app,
+                requestToPerform,
+                patternsToWatch,
+                portsFile
+              );
+            } else {
+              [, result] = await runHttpJob(
+                requestHash,
+                portsFile,
+                mode,
+                requestToPerform
+              );
+            }
+            return {
+              key: requestHash,
+              json: { request: result.request, response: result.response },
+              bytes: result.rawBytes ? bufferToDataView(result.rawBytes) : null,
+            };
+          })
         );
+        app.ports.gotBatchSub.send(results);
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
         spinnies.stopAll();
@@ -480,6 +486,7 @@ async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
         {
           request: requestToPerform,
           response: lookupResponse.value,
+          rawBytes: lookupResponse.rawBytes || null,
         },
       ];
     } else {
@@ -526,16 +533,25 @@ function jsonResponse(request, json) {
  * @template B
  * @param {InternalJobWith<string, B>} request
  * @param {Uint8Array | Int32Array} buffer
- * @returns {{ request: InternalJobWith<string, B>; response: { bodyKind: "bytes"; body: string; }}}
+ * @returns {{ request: InternalJobWith<string, B>; response: { bodyKind: "bytes"; body: null; }; rawBytes: Buffer; }}
  */
 function bytesResponse(request, buffer) {
   return {
     request,
     response: {
       bodyKind: "bytes",
-      body: Buffer.from(buffer).toString("base64"),
+      body: null,
     },
+    rawBytes: Buffer.from(buffer),
   };
+}
+
+/**
+ * Convert a Node.js Buffer to a DataView, which is what Lamdera's port
+ * system expects for Bytes values.
+ */
+function bufferToDataView(buf) {
+  return new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
 }
 
 /**
@@ -832,14 +848,18 @@ async function runDbReadMeta(req) {
   try {
     const fileContents = await fsPromises.readFile(dbBinPath);
     const parsed = parseDbBinHeader(fileContents);
-    return jsonResponse(req, {
-      version: parsed.schemaVersion,
-      hash: parsed.schemaHashHex,
-      data: Buffer.from(parsed.wire3Data).toString("base64"),
-    });
+    // [4 bytes version_u32_be][32 bytes hash_raw][4 bytes wire3_length_u32_be][N bytes wire3]
+    const hashBytes = Buffer.from(parsed.schemaHashHex, "hex");
+    const buf = Buffer.alloc(4 + 32 + 4 + parsed.wire3Data.length);
+    buf.writeUInt32BE(parsed.schemaVersion, 0);
+    hashBytes.copy(buf, 4);
+    buf.writeUInt32BE(parsed.wire3Data.length, 36);
+    parsed.wire3Data.copy(buf, 40);
+    return bytesResponse(req, buf);
   } catch (error) {
     if (error.code === "ENOENT") {
-      return jsonResponse(req, { version: 0, hash: "", data: "" });
+      // [4 bytes: version=0][32 bytes: zero hash][4 bytes: wire3_length=0]
+      return bytesResponse(req, Buffer.alloc(40));
     }
     throw error;
   }
@@ -1112,14 +1132,16 @@ async function runDbMigrateRead(req) {
   try {
     const fileContents = await fsPromises.readFile(dbBinPath);
     const parsed = parseDbBinHeader(fileContents);
-
-    return jsonResponse(req, {
-      version: parsed.schemaVersion,
-      data: Buffer.from(parsed.wire3Data).toString("base64"),
-    });
+    // [4 bytes version_u32_be][4 bytes wire3_length_u32_be][N bytes wire3]
+    const buf = Buffer.alloc(4 + 4 + parsed.wire3Data.length);
+    buf.writeUInt32BE(parsed.schemaVersion, 0);
+    buf.writeUInt32BE(parsed.wire3Data.length, 4);
+    parsed.wire3Data.copy(buf, 8);
+    return bytesResponse(req, buf);
   } catch (error) {
     if (error.code === "ENOENT") {
-      return jsonResponse(req, { version: 0, data: "" });
+      // [4 bytes: version=0][4 bytes: wire3_length=0]
+      return bytesResponse(req, Buffer.alloc(8));
     }
     throw error;
   }

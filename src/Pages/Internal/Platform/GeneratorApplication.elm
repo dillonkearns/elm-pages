@@ -8,6 +8,7 @@ module Pages.Internal.Platform.GeneratorApplication exposing (Program, Flags, Mo
 
 import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
+import Bytes exposing (Bytes)
 import Cli.Program as Program exposing (FlagsIncludingArgv)
 import Codec
 import Dict
@@ -22,6 +23,7 @@ import Pages.Internal.Platform.StaticResponses as StaticResponses
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.Script
 import Pages.StaticHttp.Request
+import RequestsAndPending
 import TerminalText as Terminal
 
 
@@ -50,7 +52,7 @@ type alias Model =
 
 {-| -}
 type Msg
-    = GotDataBatch Decode.Value
+    = GotDataBatch (List { key : String, json : Decode.Value, bytes : Maybe Bytes })
     | GotBuildError BuildError
 
 
@@ -307,7 +309,7 @@ initLegacy execute =
             , errors = []
             }
     in
-    StaticResponses.nextStep (Encode.object []) initialModel.staticResponses initialModel
+    StaticResponses.nextStep RequestsAndPending.empty initialModel.staticResponses initialModel
         |> nextStepToEffect
             initialModel
 
@@ -316,7 +318,7 @@ updateAndSendPortIfDone :
     Model
     -> ( Model, Effect )
 updateAndSendPortIfDone model =
-    StaticResponses.nextStep (Encode.object [])
+    StaticResponses.nextStep RequestsAndPending.empty
         model.staticResponses
         model
         |> nextStepToEffect model
@@ -329,7 +331,17 @@ update :
     -> ( Model, Effect )
 update msg model =
     case msg of
-        GotDataBatch batch ->
+        GotDataBatch entries ->
+            let
+                batch : RequestsAndPending.RequestsAndPending
+                batch =
+                    { json = Encode.object (List.map (\e -> ( e.key, e.json )) entries)
+                    , rawBytes =
+                        entries
+                            |> List.filterMap (\e -> Maybe.map (\b -> ( e.key, b )) e.bytes)
+                            |> Dict.fromList
+                    }
+            in
             StaticResponses.nextStep batch
                 model.staticResponses
                 model
@@ -344,7 +356,7 @@ update msg model =
                             buildError :: model.errors
                     }
             in
-            StaticResponses.nextStep (Encode.object [])
+            StaticResponses.nextStep RequestsAndPending.empty
                 updatedModel.staticResponses
                 updatedModel
                 |> nextStepToEffect updatedModel

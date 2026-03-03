@@ -176,7 +176,7 @@ export function lookupOrPerform(portsFile, mode, rawRequest) {
         }
 
         timeEnd(`fetch ${request.url}`);
-        const { body, bodyKind } = await readResponseBody(
+        const { body, bodyKind, rawBytes } = await readResponseBody(
           response,
           request.headers["elm-pages-internal"]
         );
@@ -191,6 +191,7 @@ export function lookupOrPerform(portsFile, mode, rawRequest) {
             url: response.url,
             statusText: response.statusText,
           },
+          rawBytes: rawBytes || null,
         });
       } catch (error) {
         if (error.code === "ECONNREFUSED") {
@@ -352,7 +353,7 @@ async function readResponseBody(response, expectString) {
     expectString === "ExpectBytesResponse"
   ) {
     const buf = await responseBuffer(response);
-    return { body: buf.toString("base64"), bodyKind: "bytes" };
+    return { body: null, bodyKind: "bytes", rawBytes: buf };
   } else if (expectString === "ExpectWhatever") {
     return { body: null, bodyKind: "whatever" };
   } else if (

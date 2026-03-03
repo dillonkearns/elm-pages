@@ -141,7 +141,7 @@ expectRequestChain expectedValue expectedChain request =
         )
         []
         request
-        (Encode.object [])
+        RequestsAndPending.empty
         { errors = []
         }
 
@@ -152,7 +152,7 @@ expectRequestChainHelp :
     -> List (List ( Request, Encode.Value ))
     -> List (List Request)
     -> BackendTask FatalError a
-    -> Encode.Value
+    -> RequestsAndPending.RequestsAndPending
     ->
         { errors : List BuildError
         }
@@ -184,23 +184,26 @@ expectRequestChainHelp expectedValue fullExpectedChain expectedChain chainSoFar 
             case expectedChain of
                 first :: rest ->
                     let
-                        thing : Encode.Value
+                        thing : RequestsAndPending.RequestsAndPending
                         thing =
-                            first
-                                |> List.map
-                                    (\( request, response ) ->
-                                        ( Request.hash request
-                                        , Encode.object
-                                            [ ( "response"
-                                              , Encode.object
-                                                    [ ( "body", response )
-                                                    , ( "bodyKind", Encode.string "json" )
-                                                    ]
-                                              )
-                                            ]
+                            { json =
+                                first
+                                    |> List.map
+                                        (\( request, response ) ->
+                                            ( Request.hash request
+                                            , Encode.object
+                                                [ ( "response"
+                                                  , Encode.object
+                                                        [ ( "body", response )
+                                                        , ( "bodyKind", Encode.string "json" )
+                                                        ]
+                                                  )
+                                                ]
+                                            )
                                         )
-                                    )
-                                |> Encode.object
+                                    |> Encode.object
+                            , rawBytes = Dict.empty
+                            }
                     in
                     expectRequestChainHelp expectedValue
                         fullExpectedChain

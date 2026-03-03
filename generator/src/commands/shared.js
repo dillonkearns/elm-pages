@@ -63,6 +63,8 @@ export async function requireElm(compiledElmPath) {
 export function generatorWrapperFile(moduleName) {
   return `port module ScriptMain exposing (main)
 
+import Bytes exposing (Bytes)
+import Json.Decode
 import Pages.Internal.Platform.GeneratorApplication
 import ${moduleName}
 
@@ -84,7 +86,7 @@ port toJsPort : Pages.Internal.Platform.GeneratorApplication.JsonValue -> Cmd ms
 port fromJsPort : (Pages.Internal.Platform.GeneratorApplication.JsonValue -> msg) -> Sub msg
 
 
-port gotBatchSub : (Pages.Internal.Platform.GeneratorApplication.JsonValue -> msg) -> Sub msg
+port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe Bytes } -> msg) -> Sub msg
 `;
 }
 
@@ -156,6 +158,7 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import Base64
 import Bytes exposing (Bytes)
+import Bytes.Decode as BD
 import Db
 import FilePath exposing (FilePath)
 ${snapshotImports.join("\n")}
@@ -203,22 +206,88 @@ connectionFields (Connection dbPath) =
 type alias DbReadPayload =
     { version : Int
     , hash : String
-    , data : String
+    , data : Bytes
     }
 
 
-dbReadPayloadDecoder : Decode.Decoder DbReadPayload
-dbReadPayloadDecoder =
-    Decode.map3
-        (\\version hash data ->
-            { version = version
-            , hash = hash
-            , data = data
-            }
-        )
-        (Decode.field "version" Decode.int)
-        (Decode.field "hash" Decode.string)
-        (Decode.field "data" Decode.string)
+dbReadPayloadBytesDecoder : BD.Decoder DbReadPayload
+dbReadPayloadBytesDecoder =
+    BD.unsignedInt32 Bytes.BE
+        |> BD.andThen
+            (\\version ->
+                BD.bytes 32
+                    |> BD.andThen
+                        (\\hashBytes ->
+                            BD.unsignedInt32 Bytes.BE
+                                |> BD.andThen
+                                    (\\wire3Len ->
+                                        BD.bytes wire3Len
+                                            |> BD.map
+                                                (\\wire3 ->
+                                                    { version = version
+                                                    , hash = bytesToHexString hashBytes
+                                                    , data = wire3
+                                                    }
+                                                )
+                                    )
+                        )
+            )
+
+
+bytesToHexString : Bytes -> String
+bytesToHexString bytes =
+    BD.decode (bytesToHexDecoder (Bytes.width bytes)) bytes
+        |> Maybe.withDefault ""
+
+
+bytesToHexDecoder : Int -> BD.Decoder String
+bytesToHexDecoder len =
+    bytesToHexHelp len []
+
+
+bytesToHexHelp : Int -> List String -> BD.Decoder String
+bytesToHexHelp remaining acc =
+    if remaining <= 0 then
+        BD.succeed (String.join "" (List.reverse acc))
+    else
+        BD.unsignedInt8
+            |> BD.andThen
+                (\\byte ->
+                    bytesToHexHelp (remaining - 1) (byteToHex byte :: acc)
+                )
+
+
+byteToHex : Int -> String
+byteToHex byte =
+    let
+        hi =
+            byte // 16
+
+        lo =
+            modBy 16 byte
+    in
+    String.fromList [ hexDigit hi, hexDigit lo ]
+
+
+hexDigit : Int -> Char
+hexDigit n =
+    case n of
+        0 -> '0'
+        1 -> '1'
+        2 -> '2'
+        3 -> '3'
+        4 -> '4'
+        5 -> '5'
+        6 -> '6'
+        7 -> '7'
+        8 -> '8'
+        9 -> '9'
+        10 -> 'a'
+        11 -> 'b'
+        12 -> 'c'
+        13 -> 'd'
+        14 -> 'e'
+        _ -> 'f'
 
 
 internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
@@ -248,7 +317,7 @@ loadDb connection =
 
 resolveReadPayload : Connection -> DbReadPayload -> BackendTask FatalError Db.Db
 resolveReadPayload connection payload =
-    if payload.version <= 0 || payload.data == "" then
+    if payload.version <= 0 || Bytes.width payload.data == 0 then
         BackendTask.succeed Pages.DbSeed.seedCurrent
 
     else if payload.version > schemaVersion then
@@ -264,22 +333,11 @@ resolveReadPayload connection payload =
                 }
             )
 
+    else if payload.version == schemaVersion then
+        decodeCurrent connection payload.hash payload.data
+
     else
-        case Base64.toBytes payload.data of
-            Nothing ->
-                BackendTask.fail
-                    (FatalError.build
-                        { title = "db.bin read failed"
-                        , body = "Could not decode base64 data from db.bin."
-                        }
-                    )
-
-            Just bytes ->
-                if payload.version == schemaVersion then
-                    decodeCurrent connection payload.hash bytes
-
-                else
-                    migrateFromVersion connection payload.version bytes
+        migrateFromVersion connection payload.version payload.data
 
 
 decodeCurrent : Connection -> String -> Bytes -> BackendTask FatalError Db.Db
@@ -328,7 +386,7 @@ readPayload : Connection -> BackendTask FatalError DbReadPayload
 readPayload connection =
     internalRequest "db-read-meta"
         (BackendTask.Http.jsonBody (Encode.object (connectionFields connection)))
-        (BackendTask.Http.expectJson dbReadPayloadDecoder)
+        (BackendTask.Http.expectBytes dbReadPayloadBytesDecoder)
 
 
 persistMigrated : Connection -> Db.Db -> BackendTask FatalError Db.Db

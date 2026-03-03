@@ -220,18 +220,18 @@ migrate old =
     expect(validationAfter.valid).toBe(true);
 
     // === Step 7: Simulate migration execution via render.js handler pattern ===
-    // db-migrate-read: read old db.bin
+    // db-migrate-read: read old db.bin — handler now returns raw bytes
     const dbBinContents = fs.readFileSync(path.join(tmpDir, "db.bin"));
     const parsed = parseDbBinHeader(dbBinContents);
-    const migrateReadResponse = {
-      version: parsed.schemaVersion,
-      data: Buffer.from(parsed.wire3Data).toString("base64"),
-    };
-    expect(migrateReadResponse.version).toBe(1);
 
-    // Verify base64 round-trip of wire3 data
-    const decodedWire3 = Buffer.from(migrateReadResponse.data, "base64");
-    expect([...decodedWire3]).toEqual([0x01, 0x02, 0x03, 0x04]);
+    // Simulate new binary format: [version_u32_be][wire3_length_u32_be][wire3]
+    const migrateReadBuf = Buffer.alloc(4 + 4 + parsed.wire3Data.length);
+    migrateReadBuf.writeUInt32BE(parsed.schemaVersion, 0);
+    migrateReadBuf.writeUInt32BE(parsed.wire3Data.length, 4);
+    parsed.wire3Data.copy(migrateReadBuf, 8);
+
+    expect(migrateReadBuf.readUInt32BE(0)).toBe(1);
+    expect([...migrateReadBuf.subarray(8)]).toEqual([0x01, 0x02, 0x03, 0x04]);
 
     // === Step 8: Simulate migration write (db-migrate-write handler pattern) ===
     // After Elm migration chain runs, it would encode new data and call db-migrate-write
@@ -735,39 +735,40 @@ describe("E2E: prepareMigrationSourceDirs with project structure", () => {
 });
 
 describe("E2E: db-migrate-read and db-migrate-write handler simulation", () => {
-  it("read handler returns version and base64 data from db.bin", async () => {
+  it("read handler returns raw bytes [version_u32_be][wire3_length_u32_be][wire3] from db.bin", async () => {
     setupProject(dbSourceV1);
     const hashV1 = crypto.createHash("sha256").update("v1").digest("hex");
     const wire3Data = Buffer.from([0x10, 0x20, 0x30, 0x40, 0x50]);
     seedDbBin(hashV1, 2, wire3Data);
 
-    // Simulate runDbMigrateRead handler
+    // Simulate runDbMigrateRead handler (now returns raw bytes)
     const dbBinPath = path.resolve(tmpDir, "db.bin");
     const fileContents = fs.readFileSync(dbBinPath);
     const parsed = parseDbBinHeader(fileContents);
 
-    const response = {
-      version: parsed.schemaVersion,
-      data: Buffer.from(parsed.wire3Data).toString("base64"),
-    };
+    const buf = Buffer.alloc(4 + 4 + parsed.wire3Data.length);
+    buf.writeUInt32BE(parsed.schemaVersion, 0);
+    buf.writeUInt32BE(parsed.wire3Data.length, 4);
+    parsed.wire3Data.copy(buf, 8);
 
-    expect(response.version).toBe(2);
-    const decoded = Buffer.from(response.data, "base64");
-    expect([...decoded]).toEqual([0x10, 0x20, 0x30, 0x40, 0x50]);
+    expect(buf.readUInt32BE(0)).toBe(2);
+    expect(buf.readUInt32BE(4)).toBe(5);
+    expect([...buf.subarray(8)]).toEqual([0x10, 0x20, 0x30, 0x40, 0x50]);
   });
 
-  it("read handler returns {version: 0, data: ''} when no db.bin", () => {
-    // Simulate no db.bin case
+  it("read handler returns 8 zero bytes when no db.bin", () => {
+    // Simulate no db.bin case: [version=0][wire3_length=0]
     const dbBinPath = path.resolve(tmpDir, "db.bin");
-    let response;
+    let buf;
     try {
       fs.readFileSync(dbBinPath);
     } catch (error) {
       if (error.code === "ENOENT") {
-        response = { version: 0, data: "" };
+        buf = Buffer.alloc(8);
       }
     }
-    expect(response).toEqual({ version: 0, data: "" });
+    expect(buf.readUInt32BE(0)).toBe(0);
+    expect(buf.readUInt32BE(4)).toBe(0);
   });
 
   it("write handler creates db.bin with backup", async () => {

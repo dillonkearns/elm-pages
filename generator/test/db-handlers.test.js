@@ -108,7 +108,7 @@ describe("db.bin binary format", () => {
 });
 
 describe("db-read response format", () => {
-  it("encodes no-data response as 4 big-endian zero bytes", () => {
+  it("encodes no-data response as 4 big-endian zero bytes (raw bytes, no base64)", () => {
     const buffer = new Uint8Array(4);
     new DataView(buffer.buffer).setInt32(0, 0);
 
@@ -117,11 +117,10 @@ describe("db-read response format", () => {
     const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
     expect(view.getInt32(0, false)).toBe(0);
 
-    // Verify base64 round-trip (how bytesResponse transmits it)
-    const base64 = Buffer.from(buffer).toString("base64");
-    const decoded = Buffer.from(base64, "base64");
-    expect(decoded.length).toBe(4);
-    expect(new DataView(decoded.buffer, decoded.byteOffset, decoded.byteLength).getInt32(0, false)).toBe(0);
+    // Raw bytes are sent directly through the port (no base64 encoding)
+    const rawBytes = Buffer.from(buffer);
+    expect(rawBytes.length).toBe(4);
+    expect(rawBytes.readInt32BE(0)).toBe(0);
   });
 
   it("encodes success response as length-prefixed Wire3 data", () => {
@@ -301,28 +300,27 @@ describe("schema hash validation", () => {
 describe("db-migrate-read response format", () => {
   const testHash = crypto.createHash("sha256").update("test").digest("hex");
 
-  it("returns JSON { version, data } from db.bin", () => {
+  it("returns raw bytes [version_u32_be][wire3_length_u32_be][wire3] from db.bin", () => {
     const wire3Data = Buffer.from([0xDE, 0xAD, 0xBE, 0xEF]);
     const dbBin = buildDbBin(testHash, 3, wire3Data);
     const parsed = parseDbBinHeader(dbBin);
 
-    // Simulate what the handler does: extract version + base64 data
-    const response = {
-      version: parsed.schemaVersion,
-      data: Buffer.from(parsed.wire3Data).toString("base64"),
-    };
+    // Simulate what the handler does: pack into binary format
+    const buf = Buffer.alloc(4 + 4 + parsed.wire3Data.length);
+    buf.writeUInt32BE(parsed.schemaVersion, 0);
+    buf.writeUInt32BE(parsed.wire3Data.length, 4);
+    parsed.wire3Data.copy(buf, 8);
 
-    expect(response.version).toBe(3);
-    // Verify base64 round-trip
-    const decoded = Buffer.from(response.data, "base64");
-    expect([...decoded]).toEqual([0xDE, 0xAD, 0xBE, 0xEF]);
+    expect(buf.readUInt32BE(0)).toBe(3);
+    expect(buf.readUInt32BE(4)).toBe(4);
+    expect([...buf.subarray(8)]).toEqual([0xDE, 0xAD, 0xBE, 0xEF]);
   });
 
-  it("returns { version: 0, data: '' } when no db.bin exists", () => {
-    // Simulate no-file case
-    const response = { version: 0, data: "" };
-    expect(response.version).toBe(0);
-    expect(response.data).toBe("");
+  it("returns 8 zero bytes when no db.bin exists", () => {
+    // Simulate no-file case: [version=0][wire3_length=0]
+    const buf = Buffer.alloc(8);
+    expect(buf.readUInt32BE(0)).toBe(0);
+    expect(buf.readUInt32BE(4)).toBe(0);
   });
 });
 

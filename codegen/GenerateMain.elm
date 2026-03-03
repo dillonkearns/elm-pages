@@ -2260,7 +2260,14 @@ otherFile routes phaseString routesWithEphemeral =
         , Elm.portIncoming "fromJsPort"
             Gen.Json.Decode.annotation_.value
         , Elm.portIncoming "gotBatchSub"
-            Gen.Json.Decode.annotation_.value
+            (Type.list
+                (Type.record
+                    [ ( "key", Type.string )
+                    , ( "json", Gen.Json.Decode.annotation_.value )
+                    , ( "bytes", Type.maybe Gen.Bytes.annotation_.bytes )
+                    ]
+                )
+            )
         ]
 
 
