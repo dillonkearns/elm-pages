@@ -4,7 +4,7 @@ module FilePath exposing
     , toString, toPosixString, toWindowsString
     , segments, isAbsolute
     , append, join
-    , dirname, filename, filenameWithExtension, filenameWithoutExtension, extension
+    , dirname, filename, filenameWithoutExtension, extension
     , relativeTo
     )
 
@@ -23,7 +23,7 @@ implementation details.
 
 @docs append, join
 
-@docs dirname, filename, filenameWithExtension, filenameWithoutExtension, extension
+@docs dirname, filename, filenameWithoutExtension, extension
 
 @docs relativeTo
 
@@ -248,13 +248,6 @@ filename filePath =
     segments filePath
         |> List.reverse
         |> List.head
-
-
-{-| Alias of [`filename`](#filename).
--}
-filenameWithExtension : FilePath -> Maybe String
-filenameWithExtension =
-    filename
 
 
 {-| Filename without extension.
