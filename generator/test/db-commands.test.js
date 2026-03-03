@@ -91,7 +91,7 @@ describe("elm-pages db init", () => {
     expect(content).toBe("-- my custom Db");
   });
 
-  it("adds db.bin and db.bin.lock to .gitignore", async () => {
+  it("adds db artifacts to .gitignore", async () => {
     fs.writeFileSync(
       path.join(tmpDir, "elm.json"),
       JSON.stringify({ "source-directories": ["src"] })
@@ -104,6 +104,8 @@ describe("elm-pages db init", () => {
     const gitignore = fs.readFileSync(gitignorePath, "utf8");
     expect(gitignore).toContain("db.bin");
     expect(gitignore).toContain("db.bin.lock");
+    expect(gitignore).toContain("db.bin.backup");
+    expect(gitignore).toContain("db/schema-history/");
   });
 
   it("does not duplicate db ignore entries", async () => {
@@ -122,8 +124,12 @@ describe("elm-pages db init", () => {
       .filter(Boolean);
     const dbBinCount = lines.filter((line) => line === "db.bin").length;
     const dbLockCount = lines.filter((line) => line === "db.bin.lock").length;
+    const dbBackupCount = lines.filter((line) => line === "db.bin.backup").length;
+    const schemaHistoryCount = lines.filter((line) => line === "db/schema-history/").length;
     expect(dbBinCount).toBe(1);
     expect(dbLockCount).toBe(1);
+    expect(dbBackupCount).toBe(1);
+    expect(schemaHistoryCount).toBe(1);
   });
 });
 

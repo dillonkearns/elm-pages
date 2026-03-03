@@ -75,6 +75,8 @@ jobs:
 
       - name: Setup for cypress
         run: (cd examples/end-to-end && rm -f formatted-elm.txt && npm install && npx elm-tooling install && rm -rf elm-stuff && npx elm-pages gen && lamdera make app/Route/Index.elm)
+      - name: DB migration E2E test
+        run: cd examples/end-to-end && node ../../generator/src/cli.js run TestMigration
       - name: Cypress tests
         uses: cypress-io/github-action@v6
         with:

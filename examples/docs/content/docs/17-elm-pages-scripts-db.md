@@ -192,13 +192,12 @@ Recommended:
 - Commit `db/Db/V*.elm` (generated snapshots; usually not edited directly).
 - Commit `db/Db/Migrate/V*.elm`.
 
-Usually ignore:
+Usually ignore (added to `.gitignore` automatically by `elm-pages db init`):
 
 - `db.bin`
 - `db.bin.lock`
-- `db/schema-history/` (optional: commit this if you want stale-snapshot recovery shared across machines)
-
-`elm-pages db init` creates `Db.elm` and also adds `db.bin` / `db.bin.lock` ignore entries to `.gitignore`.
+- `db.bin.backup`
+- `db/schema-history/` (remove this line from `.gitignore` if you want stale-snapshot recovery shared across machines)
 
 ## Example: Run a Migration (V1 -> V2)
 
@@ -333,7 +332,7 @@ rm -f db.bin db.bin.lock db.bin.backup
 
 ## Troubleshooting
 
-### "Schema hash mismatch" or "incompatible schema"
+### "db.bin schema mismatch"
 
 Your `Db.elm` type has changed since `db.bin` was last written. You need a migration:
 
@@ -341,9 +340,9 @@ Your `Db.elm` type has changed since `db.bin` was last written. You need a migra
 2. Implement the migration in `db/Db/Migrate/V*.elm`.
 3. Run `npx elm-pages db migrate` again to apply it.
 
-### "Stale snapshot" error during `db migrate`
+### "Detected stale Db.elm state" during `db migrate`
 
-This happens when `Db.elm` was edited before the old schema was captured as a snapshot. If `db/schema-history/` has the old source, `elm-pages` will auto-recover. Otherwise:
+This happens when `Db.elm` was edited before the old schema was captured as a snapshot. If `db/schema-history/` has the old source, `elm-pages` will auto-recover automatically. Otherwise:
 
 - **Preferred:** Restore `Db.elm` to the old schema (e.g. via `git stash` or `git checkout`), run `elm-pages db migrate` to create the snapshot, then re-apply your changes.
 - **Escape hatch:** `npx elm-pages db migrate --force-stale-snapshot` -- only use this if you're sure the current `Db.elm` before your changes is the correct old schema.

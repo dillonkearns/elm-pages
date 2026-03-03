@@ -5,7 +5,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const DB_GITIGNORE_ENTRIES = ["db.bin", "db.bin.lock", "db.bin.backup"];
+const DB_GITIGNORE_ENTRIES = ["db.bin", "db.bin.lock", "db.bin.backup", "db/schema-history/"];
 
 /**
  * Safely parse a JSON file, throwing a structured error on failure.
