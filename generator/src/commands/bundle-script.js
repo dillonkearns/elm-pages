@@ -31,12 +31,16 @@ export async function run(elmModulePath, options) {
 
   const cwd = process.cwd();
   process.chdir(projectDirectory);
-  // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
+
+  if (options.debug && options.optimize) {
+    console.error("Error: --debug and --optimize cannot be used together.");
+    process.exit(1);
+  }
 
   const elmEntrypointPath = path.join(projectDirectory, "elm-stuff/elm-pages/.elm-pages/ScriptMain.elm");
   const elmOutputPath = path.join(projectDirectory, "elm-stuff/elm-pages/elm.js");
   await compileCliApp(
-    { debug: options.debug },
+    { debug: options.debug, optimize: options.optimize },
     elmEntrypointPath,
     elmOutputPath,
     path.join(projectDirectory, "elm-stuff/elm-pages"),

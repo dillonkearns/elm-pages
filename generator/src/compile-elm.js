@@ -143,9 +143,8 @@ return forceThunks(html);
  */
 async function compileElm(options, elmEntrypointPath, outputPath, cwd) {
   await spawnElmMake(options, elmEntrypointPath, outputPath, cwd);
-  if (!options.debug) {
-    // TODO maybe pass in a boolean argument for whether it's build or dev server, and only do eol2 for build
-    // await elmOptimizeLevel2(outputPath, cwd);
+  if (options.optimize) {
+    await elmOptimizeLevel2(outputPath, cwd);
   }
 }
 
@@ -165,8 +164,8 @@ async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
         elmEntrypointPath,
         "--output",
         outputPath,
-        // TODO use --optimize for prod build
         ...(options.debug ? ["--debug"] : []),
+        ...(options.optimize ? ["--optimize"] : []),
         "--report",
         "json",
       ],
@@ -373,7 +372,6 @@ function elmOptimizeLevel2(outputPath, cwd) {
     subprocess.on("close", async (code) => {
       if (
         code === 0 &&
-        commandOutput === "" &&
         (await fsHelpers.fileExists(optimizedOutputPath))
       ) {
         await fs.promises.copyFile(optimizedOutputPath, outputPath);

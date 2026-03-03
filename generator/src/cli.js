@@ -106,7 +106,11 @@ async function main() {
     .description("bundle an elm-pages script")
     .option(
       "--debug",
-      "Skip elm-optimize-level-2 and run elm make with --debug"
+      "Run elm make with --debug (skip optimizations)"
+    )
+    .option(
+      "--optimize",
+      "Run elm make with --optimize and apply elm-optimize-level-2"
     )
     .option(
       "--output <path>",
