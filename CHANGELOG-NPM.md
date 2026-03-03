@@ -11,23 +11,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
-- Local DB runtime migration flow for `elm-pages` Scripts:
-  - Generated `Pages.Db` now reads schema metadata (`version` + `hash`) and applies migration chains at script runtime.
-  - Fresh installs seed from `Db.Migrate.V1.seed` through migration `seed` functions.
+- Local DB for `elm-pages` Scripts — a type-safe, file-based database with automatic migrations:
+  - `elm-pages db init` — scaffolds `Db.elm` and `db/Db/Migrate/V1.elm`, adds artifacts to `.gitignore`.
+  - `elm-pages db status` — shows schema version, db.bin compatibility, and migration chain status. Exits with code 1 when migrations are pending.
+  - `elm-pages db migrate` — creates migration scaffolds (snapshot + stub) or applies pending migrations. Supports `--force-stale-snapshot` for edge cases.
+  - Generated `Pages.Db` reads schema metadata (`version` + `hash`) and applies migration chains at script runtime.
+  - Fresh installs seed from `Db.Migrate.V1.seed` through the migration `seed` chain.
   - Connection-based path configuration through `Pages.Db.open`/`Pages.Db.default`, with runtime path support in request payloads.
-  - `Script.withDatabasePath` support in the JS runtime (`db-set-default-path`) now applies to `Pages.Db.default`.
-  - `elm-pages db init` now idempotently adds `db.bin` and `db.lock` to `.gitignore`.
+  - `Script.withDatabasePath` support in the JS runtime now applies to `Pages.Db.default`.
+  - Stale snapshot auto-recovery from `db/schema-history/<hash>.elm` when `Db.elm` changed before the old schema was captured.
+  - Schema version derived from `db/Db/Migrate/V*.elm` files — no separate version tracking file needed.
 - New docs page for script DB usage and migration behavior: `examples/docs/content/docs/17-elm-pages-scripts-db.md`.
 
 ### Changed
 
 - `elm-pages bundle-script` no longer mutates or auto-applies local DB migrations during bundling. Migrations are applied when the bundled script runs on the target machine.
 - Removed generated `Pages.Db` `*At` APIs (`getAt`, `updateAt`, `transactionAt`) in favor of connection-based DB access (`Pages.Db.open` + `Connection`).
-
-### Fixed
-
-- Stale snapshot recovery in `elm-pages db migrate` now auto-recovers from `db/schema-history/<hash>.elm` when available.
-- Added guardrails and clearer stale-state guidance when `Db.elm` changed before the previous schema snapshot was captured.
 
 ## [3.1.5] - 2026-02-23
 
