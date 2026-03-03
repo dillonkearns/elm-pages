@@ -46,7 +46,7 @@ run =
             cliOptions
                 |> createFile
                 |> (\{ path, body } ->
-                        Script.writeFile (FilePath.fromString path) body
+                        Script.writeFile path body
                    )
                 |> BackendTask.allowFatal
                 |> BackendTask.map (\_ -> ())
@@ -63,7 +63,7 @@ program =
             )
 
 
-createFile : CliOptions -> { path : String, body : String }
+createFile : CliOptions -> { path : FilePath, body : String }
 createFile { moduleName, fields } =
     let
         formHelpers :

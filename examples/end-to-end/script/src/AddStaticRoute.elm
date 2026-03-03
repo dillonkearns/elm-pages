@@ -94,6 +94,6 @@ createFile { moduleName } =
                         Custom [ Elm.variant "NoOp" ]
                     }
     in
-    ( FilePath.fromString generatedFile.path
+    ( generatedFile.path
     , generatedFile.body
     )
