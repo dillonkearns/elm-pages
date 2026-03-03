@@ -152,7 +152,7 @@ parseWith label parts =
             BackendTask.Http.multipartBody parts
     in
     case multipartResult of
-        MultipartBody partsJson ->
+        MultipartBody partsJson _ ->
             BackendTask.Custom.run "buildAndParseMultipart"
                 (Encode.list identity partsJson)
                 parsedMultipartDecoder
@@ -182,7 +182,7 @@ checkRawBytes label parts =
             BackendTask.Http.multipartBody parts
     in
     case multipartResult of
-        MultipartBody partsJson ->
+        MultipartBody partsJson _ ->
             BackendTask.Custom.run "buildAndCheckRawBytes"
                 (Encode.object
                     [ ( "parts", Encode.list identity partsJson )
