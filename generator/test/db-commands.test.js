@@ -8,7 +8,7 @@ import * as crypto from "node:crypto";
 // They use process.cwd() for file resolution, so we chdir into a temp dir.
 import { init, migrate, status } from "../src/commands/db.js";
 import { buildDbBin } from "../src/db-bin-format.js";
-import { writeSchemaVersion, computeSchemaHash } from "../src/db-schema.js";
+import { computeSchemaHash, readSchemaVersion } from "../src/db-schema.js";
 
 let tmpDir;
 let originalCwd;
@@ -24,6 +24,16 @@ afterEach(async () => {
   await fs.promises.rm(tmpDir, { recursive: true });
   process.exitCode = undefined;
 });
+
+function setupSchemaVersion(dir, version) {
+  const migrateDir = path.join(dir, "db", "Db", "Migrate");
+  fs.mkdirSync(migrateDir, { recursive: true });
+  for (let v = 1; v <= version; v++) {
+    const p = path.join(migrateDir, `V${v}.elm`);
+    if (!fs.existsSync(p))
+      fs.writeFileSync(p, `module Db.Migrate.V${v} exposing (..)\nstub = ()\n`);
+  }
+}
 
 describe("elm-pages db init", () => {
   it("creates Db.elm and V1 migration in first source-directory from script/elm.json", async () => {
@@ -45,16 +55,14 @@ describe("elm-pages db init", () => {
     expect(content).not.toContain("init : Db");
 
     // V1 migration file created
-    const v1Path = path.join(tmpDir, ".elm-pages-db", "Db", "Migrate", "V1.elm");
+    const v1Path = path.join(tmpDir, "db", "Db", "Migrate", "V1.elm");
     expect(fs.existsSync(v1Path)).toBe(true);
     const v1Content = fs.readFileSync(v1Path, "utf8");
     expect(v1Content).toContain("seed : () -> Db.Db");
 
-    // schema-version.json created
-    const versionPath = path.join(tmpDir, ".elm-pages-db", "schema-version.json");
-    expect(fs.existsSync(versionPath)).toBe(true);
-    const versionData = JSON.parse(fs.readFileSync(versionPath, "utf8"));
-    expect(versionData.version).toBe(1);
+    // Schema version derived from V1.elm
+    const version = await readSchemaVersion(tmpDir);
+    expect(version).toBe(1);
   });
 
   it("creates Db.elm in first source-directory from elm.json", async () => {
@@ -128,7 +136,7 @@ type alias Db =
 `;
 
   function setupV1Migration() {
-    const migrateDir = path.join(tmpDir, ".elm-pages-db", "Db", "Migrate");
+    const migrateDir = path.join(tmpDir, "db", "Db", "Migrate");
     fs.mkdirSync(migrateDir, { recursive: true });
     fs.writeFileSync(
       path.join(migrateDir, "V1.elm"),
@@ -150,7 +158,7 @@ migrate =
     );
   }
 
-  it("creates snapshot, stub, and MigrateChain.elm", async () => {
+  it("creates snapshot and stub", async () => {
     // Set up Db.elm
     fs.mkdirSync(path.join(tmpDir, "script"), { recursive: true });
     fs.writeFileSync(
@@ -159,41 +167,23 @@ migrate =
     );
     fs.mkdirSync(path.join(tmpDir, "script/src"), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, "script/src/Db.elm"), dbSource);
-    await writeSchemaVersion(tmpDir, 1);
     setupV1Migration();
 
     await migrate();
 
     // Snapshot V1.elm
-    const snapshotPath = path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm");
+    const snapshotPath = path.join(tmpDir, "db", "Db", "V1.elm");
     expect(fs.existsSync(snapshotPath)).toBe(true);
     const snapshotContent = fs.readFileSync(snapshotPath, "utf8");
     expect(snapshotContent).toContain("module Db.V1 exposing");
 
     // Migration stub V2.elm
-    const stubPath = path.join(
-      tmpDir,
-      ".elm-pages-db",
-      "Db",
-      "Migrate",
-      "V2.elm"
-    );
+    const stubPath = path.join(tmpDir, "db", "Db", "Migrate", "V2.elm");
     expect(fs.existsSync(stubPath)).toBe(true);
 
-    // MigrateChain.elm
-    const chainPath = path.join(tmpDir, ".elm-pages-db", "MigrateChain.elm");
-    expect(fs.existsSync(chainPath)).toBe(true);
-    const chainContent = fs.readFileSync(chainPath, "utf8");
-    expect(chainContent).toContain("module MigrateChain exposing (run)");
-
-    // Schema version bumped to 2
-    const versionPath = path.join(
-      tmpDir,
-      ".elm-pages-db",
-      "schema-version.json"
-    );
-    const versionData = JSON.parse(fs.readFileSync(versionPath, "utf8"));
-    expect(versionData.version).toBe(2);
+    // Schema version bumped to 2 (V2.elm now exists)
+    const version = await readSchemaVersion(tmpDir);
+    expect(version).toBe(2);
   });
 
   it("prints guidance with pending migration and unimplemented stubs", async () => {
@@ -213,7 +203,7 @@ migrate =
       path.join(tmpDir, "db.bin"),
       buildDbBin(testHash, 1, Buffer.from([1, 2, 3]))
     );
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     const logSpy = vi.spyOn(console, "log");
     await migrate();
@@ -238,7 +228,6 @@ migrate =
       path.join(tmpDir, "db.bin"),
       buildDbBin(oldHash, 1, Buffer.from([1, 2, 3]))
     );
-    await writeSchemaVersion(tmpDir, 1);
 
     // User edits Db.elm before running db migrate
     fs.writeFileSync(
@@ -257,9 +246,9 @@ type alias Db =
 
     const logOutput = logSpy.mock.calls.map((c) => c[0]).join("\n");
     expect(logOutput).toContain("I can't create migration files yet.");
-    expect(logOutput).toContain("Missing: .elm-pages-db/schema-history/");
+    expect(logOutput).toContain("Missing: db/schema-history/");
     expect(process.exitCode).toBe(1);
-    expect(fs.existsSync(path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm"))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, "db", "Db", "V1.elm"))).toBe(false);
     logSpy.mockRestore();
   });
 
@@ -278,7 +267,6 @@ type alias Db =
       path.join(tmpDir, "db.bin"),
       buildDbBin(oldHash, 1, Buffer.from([1, 2, 3]))
     );
-    await writeSchemaVersion(tmpDir, 1);
 
     fs.writeFileSync(
       path.join(tmpDir, "script/src/Db.elm"),
@@ -293,7 +281,7 @@ type alias Db =
 
     await migrate({ forceStaleSnapshot: true });
 
-    const snapshotPath = path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm");
+    const snapshotPath = path.join(tmpDir, "db", "Db", "V1.elm");
     expect(fs.existsSync(snapshotPath)).toBe(true);
     const snapshotContent = fs.readFileSync(snapshotPath, "utf8");
     expect(snapshotContent).toContain(", name : String");
@@ -326,7 +314,7 @@ type alias Db =
       path.join(tmpDir, "db.bin"),
       buildDbBin(testHash, 2, Buffer.from([1, 2, 3]))
     );
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     const logSpy = vi.spyOn(console, "log");
     await status();
@@ -344,16 +332,19 @@ type alias Db =
       path.join(tmpDir, "db.bin"),
       buildDbBin(testHash, 1, Buffer.from([1, 2, 3]))
     );
-    await writeSchemaVersion(tmpDir, 2);
 
     // Create snapshot and unimplemented stub
-    fs.mkdirSync(path.join(tmpDir, ".elm-pages-db", "Db", "Migrate"), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, "db", "Db", "Migrate"), { recursive: true });
     fs.writeFileSync(
-      path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm"),
+      path.join(tmpDir, "db", "Db", "V1.elm"),
       "module Db.V1 exposing (Db)\ntype alias Db = { counter : Int }"
     );
     fs.writeFileSync(
-      path.join(tmpDir, ".elm-pages-db", "Db", "Migrate", "V2.elm"),
+      path.join(tmpDir, "db", "Db", "Migrate", "V1.elm"),
+      "module Db.Migrate.V1 exposing (..)\nstub = ()\n"
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, "db", "Db", "Migrate", "V2.elm"),
       "module Db.Migrate.V2 exposing (migrate)\ntodo_implement_migration"
     );
 
@@ -370,7 +361,7 @@ type alias Db =
 
   it("does not show migration chain when schema version is 1", async () => {
     setupProject();
-    await writeSchemaVersion(tmpDir, 1);
+    setupSchemaVersion(tmpDir, 1);
 
     const logSpy = vi.spyOn(console, "log");
     await status();
@@ -406,7 +397,7 @@ type alias Db =
       path.join(tmpDir, "db.bin"),
       buildDbBin(testHash, 1, Buffer.from([1, 2, 3]))
     );
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     const logSpy = vi.spyOn(console, "log");
     await status();
@@ -422,7 +413,7 @@ type alias Db =
       path.join(tmpDir, "db.bin"),
       buildDbBin(testHash, 2, Buffer.from([1, 2, 3]))
     );
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     const logSpy = vi.spyOn(console, "log");
     await status();
@@ -438,7 +429,7 @@ type alias Db =
       path.join(tmpDir, "db.bin"),
       buildDbBin(testHash, 1, Buffer.from([1, 2, 3]))
     );
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     const logSpy = vi.spyOn(console, "log");
     await migrate();

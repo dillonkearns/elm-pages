@@ -18,7 +18,7 @@ import {
   DB_FORMAT_VERSION,
   DB_HEADER_SIZE,
 } from "../src/db-bin-format.js";
-import { writeSchemaVersion } from "../src/db-schema.js";
+import { readSchemaVersion } from "../src/db-schema.js";
 
 let tmpDir;
 
@@ -331,11 +331,15 @@ describe("db-migrate-read response format", () => {
 describe("db-migrate-write handler pattern", () => {
   const testHash = crypto.createHash("sha256").update("test").digest("hex");
 
-  it("writes db.bin with correct header from schema-version.json hash and base64 data", async () => {
+  it("writes db.bin with correct header from schema version and base64 data", async () => {
     const dbBinPath = path.join(tmpDir, "db.bin");
 
-    // Set up schema version
-    await writeSchemaVersion(tmpDir, 3);
+    // Set up schema version via migration files
+    const migrateDir = path.join(tmpDir, "db", "Db", "Migrate");
+    fs.mkdirSync(migrateDir, { recursive: true });
+    for (let v = 1; v <= 3; v++) {
+      fs.writeFileSync(path.join(migrateDir, `V${v}.elm`), `module Db.Migrate.V${v} exposing (..)\nstub = ()\n`);
+    }
 
     // Simulate what handler does: receive base64 data + hash, build db.bin
     const wire3Data = Buffer.from([10, 20, 30, 40]);

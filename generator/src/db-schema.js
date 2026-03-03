@@ -87,41 +87,31 @@ export async function saveSchemaMeta(projectDirectory, sourceHash, compiledHash)
 
 // --- Schema version tracking ---
 
-const SCHEMA_VERSION_DIR = ".elm-pages-db";
-const SCHEMA_VERSION_FILENAME = "schema-version.json";
-const SCHEMA_HISTORY_DIR = path.join(SCHEMA_VERSION_DIR, "schema-history");
+export const DB_DIR = "db";
+const SCHEMA_HISTORY_DIR = path.join(DB_DIR, "schema-history");
 
 /**
- * Read the current schema version from .elm-pages-db/schema-version.json.
- * Returns 1 if the file doesn't exist (initial version).
+ * Read the current schema version by scanning db/Db/Migrate/V*.elm files.
+ * Returns the highest N found, or 1 if no files exist.
  * @param {string} projectDirectory
  * @returns {Promise<number>}
  */
 export async function readSchemaVersion(projectDirectory) {
-  const versionPath = path.join(projectDirectory, SCHEMA_VERSION_DIR, SCHEMA_VERSION_FILENAME);
+  const migrateDir = path.join(projectDirectory, DB_DIR, "Db", "Migrate");
   try {
-    const content = await fs.promises.readFile(versionPath, "utf8");
-    const parsed = JSON.parse(content);
-    return parsed.version || 1;
+    const entries = await fs.promises.readdir(migrateDir);
+    let maxVersion = 0;
+    for (const entry of entries) {
+      const match = entry.match(/^V(\d+)\.elm$/);
+      if (match) {
+        const v = parseInt(match[1], 10);
+        if (v > maxVersion) maxVersion = v;
+      }
+    }
+    return maxVersion > 0 ? maxVersion : 1;
   } catch (_) {
     return 1;
   }
-}
-
-/**
- * Write the schema version to .elm-pages-db/schema-version.json.
- * Creates the directory if needed.
- * @param {string} projectDirectory
- * @param {number} version
- */
-export async function writeSchemaVersion(projectDirectory, version) {
-  const dir = path.join(projectDirectory, SCHEMA_VERSION_DIR);
-  await fs.promises.mkdir(dir, { recursive: true });
-  const versionPath = path.join(dir, SCHEMA_VERSION_FILENAME);
-  await fs.promises.writeFile(
-    versionPath,
-    JSON.stringify({ version }, null, 2) + "\n"
-  );
 }
 
 /**

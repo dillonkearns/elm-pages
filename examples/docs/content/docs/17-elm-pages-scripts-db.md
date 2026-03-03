@@ -28,9 +28,9 @@ A big thank you to Mario Rogic for Lamdera and Evergreen Migrations. `elm-pages`
 
 ## Key Concepts
 
-- **`Db.elm`** -- You define your database schema as a plain Elm type alias. When you want to change the schema, you change this file. The V1 seed (initial value for fresh installs) lives in `.elm-pages-db/Db/Migrate/V1.elm`.
+- **`Db.elm`** -- You define your database schema as a plain Elm type alias. When you want to change the schema, you change this file. The V1 seed (initial value for fresh installs) lives in `db/Db/Migrate/V1.elm`.
 - **`Connection`** -- An opaque type that points to a database file on disk. Create one with `Pages.Db.default` (uses `./db.bin`) or `Pages.Db.open` (custom path).
-- **Migrations** -- When you change `Db.elm`, you also write a type-safe migration function (`Db.V1.Db -> Db.Db`) in `.elm-pages-db/Db/Migrate/V*.elm` so existing data is transformed to the new schema. Other generated files in `.elm-pages-db/` are scaffolding you generally don't need to think about.
+- **Migrations** -- When you change `Db.elm`, you also write a type-safe migration function (`Db.V1.Db -> Db.Db`) in `db/Db/Migrate/V*.elm` so existing data is transformed to the new schema. Other generated files in `db/` are scaffolding you generally don't need to think about.
 
 ## Quick Start
 
@@ -50,7 +50,34 @@ type alias Db =
     { count : Int }
 ```
 
-The `db init` command also creates `.elm-pages-db/Db/Migrate/V1.elm` with a `seed` function that provides the initial value for fresh installs.
+The `db init` command also creates `db/Db/Migrate/V1.elm` with a `seed` function that provides the initial value for fresh installs.
+
+## `Pages.Db` API
+
+`Pages.Db` exposes:
+
+```elm
+-- The DB file this script will read/write from/to
+type Connection
+
+-- Uses ./db.bin in the current working directory (typically your project root)
+default : Connection
+
+-- Choose a custom path for the DB file (relative to your project root)
+open : FilePath -> Connection
+
+-- Read the current DB value (initializes from seed if the file doesn't exist yet)
+get : Connection -> BackendTask FatalError Db.Db
+
+-- Transform and persist the DB value
+update : Connection -> (Db.Db -> Db.Db) -> BackendTask FatalError ()
+
+-- Run a read/modify/write step under a lock. You can pass a value back to the continuation via the tuple.
+transaction :
+    Connection
+    -> (Db.Db -> BackendTask FatalError ( Db.Db, a ))
+    -> BackendTask FatalError a
+```
 
 Use `Pages.Db` in a Script:
 
@@ -136,33 +163,6 @@ Press [+] increment, [-] decrement, [q] quit: q
 Goodbye!
 ```
 
-## `Pages.Db` API
-
-`Pages.Db` exposes:
-
-```elm
--- The DB file this script will read/write from/to
-type Connection
-
--- Uses ./db.bin in the current working directory (typically your project root)
-default : Connection
-
--- Choose a custom path for the DB file (relative to your project root)
-open : FilePath -> Connection
-
--- Read the current DB value (initializes from seed if the file doesn't exist yet)
-get : Connection -> BackendTask FatalError Db.Db
-
--- Transform and persist the DB value
-update : Connection -> (Db.Db -> Db.Db) -> BackendTask FatalError ()
-
--- Run a read/modify/write step under a lock. You can pass a value back to the continuation via the tuple.
-transaction :
-    Connection
-    -> (Db.Db -> BackendTask FatalError ( Db.Db, a ))
-    -> BackendTask FatalError a
-```
-
 ## Directory Structure
 
 ```text
@@ -171,8 +171,7 @@ transaction :
 │   └── src/
 │       ├── Db.elm          # current schema (type only)
 │       └── Counter.elm     # script that reads/writes DB
-├── .elm-pages-db/
-│   ├── schema-version.json # current schema version
+├── db/
 │   └── Db/
 │       └── Migrate/
 │           ├── V1.elm      # seed: () -> Db.Db
@@ -183,23 +182,21 @@ transaction :
     └── counter.db.bin      # custom DB file (`Pages.Db.open`)
 ```
 
-Internal/transient files omitted (for example `.elm-pages-db/MigrateChain.elm`, `.elm-pages-db/Db/V*.elm`, `db.bin.lock`, `.elm-pages-db/schema-history/`).
+Internal/transient files omitted (for example `db/Db/V*.elm` snapshots, `db.bin.lock`, `db/schema-history/`).
 
 ## Git and `.gitignore`
 
 Recommended:
 
 - Commit `script/src/Db.elm` (or your `Db.elm` location).
-- Commit `.elm-pages-db/Db/V*.elm` (generated snapshots; usually not edited directly).
-- Commit `.elm-pages-db/Db/Migrate/V*.elm`.
-- Commit `.elm-pages-db/MigrateChain.elm`.
-- Commit `.elm-pages-db/schema-version.json`.
+- Commit `db/Db/V*.elm` (generated snapshots; usually not edited directly).
+- Commit `db/Db/Migrate/V*.elm`.
 
 Usually ignore:
 
 - `db.bin`
 - `db.bin.lock`
-- `.elm-pages-db/schema-history/` (optional: commit this if you want stale-snapshot recovery shared across machines)
+- `db/schema-history/` (optional: commit this if you want stale-snapshot recovery shared across machines)
 
 `elm-pages db init` creates `Db.elm` and also adds `db.bin` / `db.bin.lock` ignore entries to `.gitignore`.
 
@@ -231,12 +228,11 @@ npx elm-pages db migrate
 
 ```text
 Created migration V1 -> V2:
-  Snapshot: .elm-pages-db/Db/V1.elm
-  Stub:     .elm-pages-db/Db/Migrate/V2.elm
-  Chain:    .elm-pages-db/MigrateChain.elm
+  Snapshot: db/Db/V1.elm
+  Stub:     db/Db/Migrate/V2.elm
 ```
 
-Implement `.elm-pages-db/Db/Migrate/V2.elm`:
+Implement `db/Db/Migrate/V2.elm`:
 
 ```elm
 module Db.Migrate.V2 exposing (migrate, seed)
@@ -316,7 +312,7 @@ So end users usually do not see migration steps. They just get the latest schema
 
 If `Db.elm` was edited before the old schema snapshot was captured, `elm-pages db migrate` will stop and explain how to recover safely.
 
-If schema history is available, it can auto-recover the old snapshot source.  
+If schema history is available, it can auto-recover the old snapshot source.
 There is also an escape hatch:
 
 ```shell
@@ -342,12 +338,12 @@ rm -f db.bin db.bin.lock db.bin.backup
 Your `Db.elm` type has changed since `db.bin` was last written. You need a migration:
 
 1. Run `npx elm-pages db migrate` to scaffold migration files.
-2. Implement the migration in `.elm-pages-db/Db/Migrate/V*.elm`.
+2. Implement the migration in `db/Db/Migrate/V*.elm`.
 3. Run `npx elm-pages db migrate` again to apply it.
 
 ### "Stale snapshot" error during `db migrate`
 
-This happens when `Db.elm` was edited before the old schema was captured as a snapshot. If `.elm-pages-db/schema-history/` has the old source, `elm-pages` will auto-recover. Otherwise:
+This happens when `Db.elm` was edited before the old schema was captured as a snapshot. If `db/schema-history/` has the old source, `elm-pages` will auto-recover. Otherwise:
 
 - **Preferred:** Restore `Db.elm` to the old schema (e.g. via `git stash` or `git checkout`), run `elm-pages db migrate` to create the snapshot, then re-apply your changes.
 - **Escape hatch:** `npx elm-pages db migrate --force-stale-snapshot` -- only use this if you're sure the current `Db.elm` before your changes is the correct old schema.

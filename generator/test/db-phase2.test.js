@@ -12,7 +12,6 @@ import {
   loadSchemaMeta,
   saveSchemaMeta,
   readSchemaVersion,
-  writeSchemaVersion,
 } from "../src/db-schema.js";
 import {
   parseDbBinHeader,
@@ -32,41 +31,28 @@ afterEach(async () => {
   await fs.promises.rm(tmpDir, { recursive: true });
 });
 
+function setupSchemaVersion(dir, version) {
+  const migrateDir = path.join(dir, "db", "Db", "Migrate");
+  fs.mkdirSync(migrateDir, { recursive: true });
+  for (let v = 1; v <= version; v++) {
+    const p = path.join(migrateDir, `V${v}.elm`);
+    if (!fs.existsSync(p))
+      fs.writeFileSync(p, `module Db.Migrate.V${v} exposing (..)\nstub = ()\n`);
+  }
+}
+
 // --- Schema version tracking ---
 
 describe("schema version tracking", () => {
-  it("returns 1 when no schema-version.json exists", async () => {
+  it("returns 1 when no migration files exist", async () => {
     const version = await readSchemaVersion(tmpDir);
     expect(version).toBe(1);
   });
 
-  it("writes and reads schema version", async () => {
-    await writeSchemaVersion(tmpDir, 3);
+  it("reads schema version from highest V*.elm file", async () => {
+    setupSchemaVersion(tmpDir, 3);
     const version = await readSchemaVersion(tmpDir);
     expect(version).toBe(3);
-  });
-
-  it("creates .elm-pages-db directory if needed", async () => {
-    await writeSchemaVersion(tmpDir, 1);
-    const dirExists = fs.existsSync(path.join(tmpDir, ".elm-pages-db"));
-    expect(dirExists).toBe(true);
-  });
-
-  it("writes valid JSON", async () => {
-    await writeSchemaVersion(tmpDir, 5);
-    const content = await fs.promises.readFile(
-      path.join(tmpDir, ".elm-pages-db", "schema-version.json"),
-      "utf8"
-    );
-    const parsed = JSON.parse(content);
-    expect(parsed).toEqual({ version: 5 });
-  });
-
-  it("overwrites existing version", async () => {
-    await writeSchemaVersion(tmpDir, 1);
-    await writeSchemaVersion(tmpDir, 2);
-    const version = await readSchemaVersion(tmpDir);
-    expect(version).toBe(2);
   });
 });
 
@@ -169,7 +155,7 @@ describe("db.bin format versioning", () => {
 
 describe("db status command", () => {
   it("readSchemaVersion + parseDbBinHeader give consistent version info", async () => {
-    await writeSchemaVersion(tmpDir, 3);
+    setupSchemaVersion(tmpDir, 3);
     const version = await readSchemaVersion(tmpDir);
 
     const testHash = crypto.createHash("sha256").update("x").digest("hex");
@@ -180,8 +166,8 @@ describe("db status command", () => {
     expect(parsed.schemaVersion).toBe(3);
   });
 
-  it("detects version mismatch between schema-version.json and db.bin", async () => {
-    await writeSchemaVersion(tmpDir, 5);
+  it("detects version mismatch between migration files and db.bin", async () => {
+    setupSchemaVersion(tmpDir, 5);
     const currentVersion = await readSchemaVersion(tmpDir);
 
     const testHash = crypto.createHash("sha256").update("x").digest("hex");

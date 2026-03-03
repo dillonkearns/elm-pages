@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
-- Stale snapshot recovery in `elm-pages db migrate` now auto-recovers from `.elm-pages-db/schema-history/<hash>.elm` when available.
+- Stale snapshot recovery in `elm-pages db migrate` now auto-recovers from `db/schema-history/<hash>.elm` when available.
 - Added guardrails and clearer stale-state guidance when `Db.elm` changed before the previous schema snapshot was captured.
 
 ## [3.1.5] - 2026-02-23
