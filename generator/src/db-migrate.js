@@ -458,7 +458,7 @@ export function copyMigrationElmFiles(srcDir, destDir) {
 export async function applyMigration(cwd, fromVersion, toVersion) {
   // Dynamic imports to avoid circular dependency (shared.js imports from db-migrate.js)
   const [
-    { generatorWrapperFile, requireElm, lamderaOrElmFallback },
+    { generatorWrapperFile, requireElm, requireLamdera },
     { ensureDirSync, writeFileIfChanged, syncFilesToDirectory },
     { rewriteElmJson },
     globby,
@@ -486,7 +486,7 @@ export async function applyMigration(cwd, fromVersion, toVersion) {
   await writeMigrateChain(elmPagesSourceDir, toVersion);
 
   // Set up compilation environment (same steps as compileElmForScript)
-  const executableName = await lamderaOrElmFallback();
+  const executableName = await requireLamdera();
   const elmFiles = globby.globbySync(`${projectDirectory}/*.elm`);
   await syncFilesToDirectory(
     elmFiles,
@@ -497,7 +497,7 @@ export async function applyMigration(cwd, fromVersion, toVersion) {
   await rewriteElmJson(
     `${projectDirectory}/elm.json`,
     `${projectDirectory}/elm-stuff/elm-pages/elm.json`,
-    { executableName }
+    {}
   );
 
   // Copy migration files into compile source dir

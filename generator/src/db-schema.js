@@ -195,7 +195,7 @@ main =
  * Compile a witness module and return the SHA-256 hash of the compiled JS.
  *
  * @param {string} compileDir - Directory with elm.json to compile in
- * @param {string} executableName - "lamdera" or "elm"
+ * @param {string} executableName - "lamdera"
  * @returns {Promise<string>} SHA-256 hex hash of compiled JS
  */
 export async function compileWitnessAndHash(compileDir, executableName) {
@@ -241,7 +241,7 @@ export async function compileWitnessAndHash(compileDir, executableName) {
  * @param {string} currentSourceHash - SHA-256 of current Db.elm source
  * @param {string} storedHash - Schema hash from db.bin header
  * @param {string} projectDirectory - Project directory path
- * @param {string} executableName - "lamdera" or "elm"
+ * @param {string} executableName - "lamdera"
  * @returns {Promise<{ compatible: boolean, needsMetaUpdate: boolean }>}
  */
 export async function compareSchemaHash(currentSourceHash, storedHash, projectDirectory, executableName) {

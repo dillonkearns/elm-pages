@@ -6,8 +6,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
 
-// Cache for lamdera/elm executable name to avoid repeated which() calls
-let cachedExecutableName = null;
+// Cache for lamdera executable check
+let lamderaVerified = false;
 
 /**
  * @param {string} rawPagePath
@@ -529,26 +529,20 @@ seedCurrent =
 `;
 }
 
-export async function lamderaOrElmFallback() {
-  // Return cached result if available
-  if (cachedExecutableName) {
-    return cachedExecutableName;
+export async function requireLamdera() {
+  if (lamderaVerified) {
+    return "lamdera";
   }
   const { default: which } = await import("which");
   try {
     await which("lamdera");
-    cachedExecutableName = "lamdera";
+    lamderaVerified = true;
   } catch (error) {
-    try {
-      await which("elm");
-      cachedExecutableName = "elm";
-    } catch (elmError) {
-      throw new Error(
-        "I couldn't find lamdera or elm on the PATH. Please ensure one of them is installed and available.\nhttps://lamdera.com\nhttps://guide.elm-lang.org/install/elm.html"
-      );
-    }
+    throw new Error(
+      "I couldn't find lamdera on the PATH. elm-pages requires the lamdera compiler.\nhttps://lamdera.com"
+    );
   }
-  return cachedExecutableName;
+  return "lamdera";
 }
 
 export async function compileElmForScript(elmModulePath, resolved, options = {}) {
@@ -600,7 +594,7 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
     ),
     generatorWrapperFile(moduleName)
   );
-  const executableName = await lamderaOrElmFallback();
+  const executableName = await requireLamdera();
   // Copy .elm files from project root to parentDirectory, preserving mtimes
   const elmFiles = globby.globbySync(`${projectDirectory}/*.elm`);
   await syncFilesToDirectory(
@@ -612,7 +606,7 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
   await rewriteElmJson(
     `${projectDirectory}/elm.json`,
     `${projectDirectory}/elm-stuff/elm-pages/elm.json`,
-    { executableName }
+    {}
   );
 
   // Generate Pages.Db module if this script uses the database.

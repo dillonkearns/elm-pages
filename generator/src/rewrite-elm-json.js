@@ -45,12 +45,7 @@ function rewriteElmJsonHelp(elmJson, options) {
       return pathPrefix + item;
     }
   });
-  if (options && options.executableName === "elm") {
-    // elm, don't add lamdera/codecs
-  } else {
-    // lamdera, add codecs dependency
-    elmJson["dependencies"]["direct"]["lamdera/codecs"] = "1.0.0";
-  }
+  elmJson["dependencies"]["direct"]["lamdera/codecs"] = "1.0.0";
   // 3. add our own secret My.elm module 😈
   elmJson["source-directories"].push(".elm-pages");
   return elmJson;
