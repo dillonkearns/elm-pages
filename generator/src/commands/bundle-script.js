@@ -91,13 +91,15 @@ await(async()=>{let{dirname:e}=await import("path"),{fileURLToPath:i}=await impo
     await esbuild.build({
       format: "esm",
       platform: "node",
+      target: "node18",
       stdin: { contents: scriptRunner, resolveDir: __dirname },
       bundle: true,
-      // TODO do I need to make the outfile joined with the current working directory?
-
       outfile: path.resolve(cwd, options.output),
       external: ["node:*", ...options.external],
       minify: true,
+      legalComments: "none",
+      drop: ["debugger"],
+      charset: "utf8",
       pure: [
         "A2",
         "A3",
