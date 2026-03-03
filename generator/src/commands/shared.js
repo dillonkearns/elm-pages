@@ -91,7 +91,7 @@ port gotBatchSub : (Pages.Internal.Platform.GeneratorApplication.JsonValue -> ms
 /**
  * Generate the Pages.Db Elm module source code.
  * @param {string} schemaHash - 64-character hex string of the Db.elm SHA-256 hash
- * @param {number} schemaVersion - Schema version from .elm-pages-db/schema-version.json
+ * @param {number} schemaVersion - Schema version derived from db/Db/Migrate/V*.elm files
  * @returns {string} Elm source code for the Pages.Db module
  */
 export function generatePagesDbModule(schemaHash, schemaVersion) {
@@ -568,12 +568,12 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
   // This runs AFTER rewriteElmJson so generated modules are available for compile.
   if (options.usesDb) {
     const {
-      computeSchemaHash, readSchemaVersion, writeSchemaVersion,
+      computeSchemaHash, readSchemaVersion,
       saveSchemaSourceFromFile,
     } = await import("../db-schema.js");
     const { validateMigrationChain, copyMigrationElmFiles } = await import("../db-migrate.js");
 
-    // db.bin and .elm-pages-db live at the runtime CWD (where the user runs
+    // db.bin and db live at the runtime CWD (where the user runs
     // `elm-pages run`), NOT at projectDirectory.
     const runtimeDir = process.cwd();
 
@@ -585,9 +585,7 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
       // Non-fatal: stale snapshot recovery won't be available without provenance.
     }
 
-    // Ensure schema version file exists
     const schemaVersion = await readSchemaVersion(runtimeDir);
-    await writeSchemaVersion(runtimeDir, schemaVersion);
 
     const compileDbDir = path.join(
       projectDirectory,
@@ -611,14 +609,14 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
       if (seedValidation.unimplemented && seedValidation.unimplemented.length > 0) {
         issues.push(`Unimplemented migrations: ${seedValidation.unimplemented.join(", ")}`);
       }
-      throw `Initial seed is incomplete for schema V${schemaVersion}.\n\nI need a valid seed chain so a fresh install (no db.bin) can initialize safely.\n\n${issues.join("\n")}\n\nImplement the migration stubs in .elm-pages-db/Db/Migrate/ and rerun your script.`;
+      throw `Initial seed is incomplete for schema V${schemaVersion}.\n\nI need a valid seed chain so a fresh install (no db.bin) can initialize safely.\n\n${issues.join("\n")}\n\nImplement the migration stubs in db/Db/Migrate/ and rerun your script.`;
     }
 
     try {
       fs.rmSync(compileDbDir, { recursive: true, force: true });
     } catch (_) {}
     copyMigrationElmFiles(
-      path.join(runtimeDir, ".elm-pages-db", "Db"),
+      path.join(runtimeDir, "db", "Db"),
       compileDbDir
     );
 
@@ -679,6 +677,6 @@ create a file at ${dbElmInSource} with this template:
         }
 
 The Db type alias defines the shape of your database. The V1 seed in
-.elm-pages-db/Db/Migrate/V1.elm provides the initial value used when
+db/Db/Migrate/V1.elm provides the initial value used when
 no db.bin file exists yet.`;
 }

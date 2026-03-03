@@ -1133,7 +1133,7 @@ async function runDbMigrateWrite(req) {
 
   const wire3Data = Buffer.from(base64Data, "base64");
 
-  // Read current schema hash from the current Db.elm source via schema-version.json
+  // Read current schema hash from the current Db.elm source
   // The migration chain encodes with the NEW Db.w3_encode_Db,
   // so we need the current schema hash for the new db.bin header.
   const {

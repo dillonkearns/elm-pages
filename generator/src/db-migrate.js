@@ -8,7 +8,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parseDbBinHeader, buildDbBin } from "./db-bin-format.js";
-import { readSchemaVersion, writeSchemaVersion } from "./db-schema.js";
+import { readSchemaVersion } from "./db-schema.js";
 
 // --- A1: rewriteDbModuleToSnapshot ---
 
@@ -102,9 +102,8 @@ export async function checkPendingMigration(projectDir) {
 
 /**
  * Create a version snapshot and migration stub.
- * - Writes `.elm-pages-db/Db/V{currentVersion}.elm` (frozen snapshot)
- * - Writes `.elm-pages-db/Db/Migrate/V{currentVersion+1}.elm` (migration stub)
- * - Bumps schema-version.json to currentVersion + 1
+ * - Writes `db/Db/V{currentVersion}.elm` (frozen snapshot)
+ * - Writes `db/Db/Migrate/V{currentVersion+1}.elm` (migration stub)
  *
  * @param {string} projectDir - Project root directory
  * @param {string} dbSource - Current Db.elm source text
@@ -113,7 +112,7 @@ export async function checkPendingMigration(projectDir) {
  */
 export async function createSnapshot(projectDir, dbSource, currentVersion) {
   const newVersion = currentVersion + 1;
-  const dbDir = path.join(projectDir, ".elm-pages-db", "Db");
+  const dbDir = path.join(projectDir, "db", "Db");
   const migrateDir = path.join(dbDir, "Migrate");
 
   // Create directories
@@ -141,9 +140,6 @@ export async function createSnapshot(projectDir, dbSource, currentVersion) {
     path.join(migrateDir, `V${newVersion}.elm`),
     stubSource
   );
-
-  // Bump schema version
-  await writeSchemaVersion(projectDir, newVersion);
 }
 
 /**
@@ -341,17 +337,16 @@ readDbBin =
 // --- B3: writeMigrateChain ---
 
 /**
- * Write MigrateChain.elm to .elm-pages-db/.
- * @param {string} projectDir - Project root directory
+ * Write MigrateChain.elm to the given directory.
+ * @param {string} targetDir - Directory to write MigrateChain.elm into
  * @param {number} targetVersion - The target schema version
  * @returns {Promise<void>}
  */
-export async function writeMigrateChain(projectDir, targetVersion) {
-  const dbDir = path.join(projectDir, ".elm-pages-db");
-  await fs.promises.mkdir(dbDir, { recursive: true });
+export async function writeMigrateChain(targetDir, targetVersion) {
+  await fs.promises.mkdir(targetDir, { recursive: true });
   const chainSource = generateMigrateChain(targetVersion);
   await fs.promises.writeFile(
-    path.join(dbDir, "MigrateChain.elm"),
+    path.join(targetDir, "MigrateChain.elm"),
     chainSource
   );
 }
@@ -402,7 +397,7 @@ export async function detectMigrationNeeded(projectDir) {
 export async function validateMigrationChain(projectDir, fromVersion, toVersion) {
   const missingFiles = [];
   const unimplemented = [];
-  const dbDir = path.join(projectDir, ".elm-pages-db");
+  const dbDir = path.join(projectDir, "db");
 
   // Check snapshot files: V{i}.elm for i in [fromVersion..toVersion-1]
   // Skip V0 since there is no snapshot for the virtual V0 (it's always `()`)
@@ -438,7 +433,7 @@ export async function validateMigrationChain(projectDir, fromVersion, toVersion)
 
 /**
  * Recursively copy .elm files from srcDir to destDir.
- * @param {string} srcDir - Source directory (e.g. .elm-pages-db)
+ * @param {string} srcDir - Source directory (e.g. db)
  * @param {string} destDir - Destination directory (e.g. .elm-pages source dir)
  * @returns {string[]} List of copied file paths (for cleanup)
  */
@@ -498,8 +493,8 @@ export async function applyMigration(cwd, fromVersion, toVersion) {
   ensureDirSync(path.join(projectDirectory, "elm-stuff"));
   ensureDirSync(elmPagesSourceDir);
 
-  // Generate MigrateChain.elm
-  await writeMigrateChain(cwd, toVersion);
+  // Generate MigrateChain.elm directly into compile source dir
+  await writeMigrateChain(elmPagesSourceDir, toVersion);
 
   // Set up compilation environment (same steps as compileElmForScript)
   const executableName = await lamderaOrElmFallback();
@@ -517,7 +512,7 @@ export async function applyMigration(cwd, fromVersion, toVersion) {
   );
 
   // Copy migration files into compile source dir
-  const migrationDbDir = path.join(cwd, ".elm-pages-db");
+  const migrationDbDir = path.join(cwd, "db");
   const copiedFiles = copyMigrationElmFiles(migrationDbDir, elmPagesSourceDir);
 
   try {
@@ -573,7 +568,7 @@ function findProjectDirectory(cwd) {
 // --- C3: prepareMigrationSourceDirs ---
 
 /**
- * Add .elm-pages-db to the compile directory's elm.json source-directories.
+ * Add db to the compile directory's elm.json source-directories.
  * Returns a restore function that removes it.
  * @param {string} compileDir - The elm compilation directory
  * @param {string} projectDir - The project root directory
@@ -585,10 +580,10 @@ export async function prepareMigrationSourceDirs(compileDir, projectDir) {
   const elmJson = JSON.parse(original);
   const originalSourceDirs = [...elmJson["source-directories"]];
 
-  // Add path to .elm-pages-db relative to compile dir
+  // Add path to db relative to compile dir
   const migrationDir = path.relative(
     compileDir,
-    path.join(projectDir, ".elm-pages-db")
+    path.join(projectDir, "db")
   );
   elmJson["source-directories"].push(migrationDir);
 

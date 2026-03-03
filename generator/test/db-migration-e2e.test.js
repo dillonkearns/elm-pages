@@ -36,7 +36,6 @@ import {
 } from "../src/db-bin-format.js";
 import {
   readSchemaVersion,
-  writeSchemaVersion,
   computeSchemaHash,
 } from "../src/db-schema.js";
 
@@ -72,6 +71,16 @@ type alias Db =
     }
 `;
 
+function setupSchemaVersion(dir, version) {
+  const migrateDir = path.join(dir, "db", "Db", "Migrate");
+  fs.mkdirSync(migrateDir, { recursive: true });
+  for (let v = 1; v <= version; v++) {
+    const p = path.join(migrateDir, `V${v}.elm`);
+    if (!fs.existsSync(p))
+      fs.writeFileSync(p, `module Db.Migrate.V${v} exposing (..)\nstub = ()\n`);
+  }
+}
+
 /**
  * Set up a minimal project structure that mirrors a real elm-pages project.
  * CWD is set to tmpDir (simulating user running from project root).
@@ -94,7 +103,7 @@ function setupProject(dbSource) {
   fs.writeFileSync(path.join(srcDir, "Db.elm"), dbSource);
 
   // Create V1 migration file
-  const migrateDir = path.join(tmpDir, ".elm-pages-db", "Db", "Migrate");
+  const migrateDir = path.join(tmpDir, "db", "Db", "Migrate");
   fs.mkdirSync(migrateDir, { recursive: true });
   fs.writeFileSync(
     path.join(migrateDir, "V1.elm"),
@@ -157,7 +166,6 @@ describe("E2E: single migration (V1 → V2)", () => {
     );
     const wire3DataV1 = Buffer.from([0x01, 0x02, 0x03, 0x04]);
     seedDbBin(hashV1, 1, wire3DataV1);
-    await writeSchemaVersion(tmpDir, 1);
 
     // Verify initial state
     const initialDbBin = parseDbBinHeader(
@@ -170,21 +178,12 @@ describe("E2E: single migration (V1 → V2)", () => {
     // === Step 2: User runs `elm-pages db migrate` ===
     await migrate();
 
-    // Verify snapshot, stub, and chain files created
-    const snapshotPath = path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm");
+    // Verify snapshot, stub files created
+    const snapshotPath = path.join(tmpDir, "db", "Db", "V1.elm");
     expect(fs.existsSync(snapshotPath)).toBe(true);
 
-    const stubPath = path.join(
-      tmpDir,
-      ".elm-pages-db",
-      "Db",
-      "Migrate",
-      "V2.elm"
-    );
+    const stubPath = path.join(tmpDir, "db", "Db", "Migrate", "V2.elm");
     expect(fs.existsSync(stubPath)).toBe(true);
-
-    const chainPath = path.join(tmpDir, ".elm-pages-db", "MigrateChain.elm");
-    expect(fs.existsSync(chainPath)).toBe(true);
 
     // Verify schema version bumped
     const schemaVersion = await readSchemaVersion(tmpDir);
@@ -275,7 +274,6 @@ migrate old =
     expect([...backupDbBin.wire3Data]).toEqual([0x01, 0x02, 0x03, 0x04]);
 
     // Verify migration is no longer needed
-    // Update schema version to match db.bin (handler does this)
     const finalDetection = await detectMigrationNeeded(tmpDir);
     expect(finalDetection.action).toBe("up-to-date");
   });
@@ -289,24 +287,23 @@ describe("E2E: multi-step migration (V1 → V2 → V3)", () => {
       path.join(tmpDir, "script/src/Db.elm")
     );
     seedDbBin(hashV1, 1, Buffer.from([0xAA, 0xBB]));
-    await writeSchemaVersion(tmpDir, 1);
 
     // === Step 2: First migration (V1 → V2) ===
     await migrate();
 
     expect(await readSchemaVersion(tmpDir)).toBe(2);
     expect(
-      fs.existsSync(path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm"))
+      fs.existsSync(path.join(tmpDir, "db", "Db", "V1.elm"))
     ).toBe(true);
     expect(
       fs.existsSync(
-        path.join(tmpDir, ".elm-pages-db", "Db", "Migrate", "V2.elm")
+        path.join(tmpDir, "db", "Db", "Migrate", "V2.elm")
       )
     ).toBe(true);
 
     // Implement V2 migration
     fs.writeFileSync(
-      path.join(tmpDir, ".elm-pages-db", "Db", "Migrate", "V2.elm"),
+      path.join(tmpDir, "db", "Db", "Migrate", "V2.elm"),
       `module Db.Migrate.V2 exposing (migrate)
 
 import Db
@@ -344,22 +341,22 @@ migrate old =
 
     expect(await readSchemaVersion(tmpDir)).toBe(3);
     expect(
-      fs.existsSync(path.join(tmpDir, ".elm-pages-db", "Db", "V2.elm"))
+      fs.existsSync(path.join(tmpDir, "db", "Db", "V2.elm"))
     ).toBe(true);
     expect(
       fs.existsSync(
-        path.join(tmpDir, ".elm-pages-db", "Db", "Migrate", "V3.elm")
+        path.join(tmpDir, "db", "Db", "Migrate", "V3.elm")
       )
     ).toBe(true);
 
     // V1 snapshot should still exist
     expect(
-      fs.existsSync(path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm"))
+      fs.existsSync(path.join(tmpDir, "db", "Db", "V1.elm"))
     ).toBe(true);
 
     // === Step 4: Implement V3 migration ===
     fs.writeFileSync(
-      path.join(tmpDir, ".elm-pages-db", "Db", "Migrate", "V3.elm"),
+      path.join(tmpDir, "db", "Db", "Migrate", "V3.elm"),
       `module Db.Migrate.V3 exposing (migrate)
 
 import Db
@@ -390,10 +387,9 @@ describe("E2E: migration from stale db.bin (V1 data, schema at V3)", () => {
     setupProject(dbSourceV3);
     const hashV1 = crypto.createHash("sha256").update("v1-schema").digest("hex");
     seedDbBin(hashV1, 1, Buffer.from([0x11, 0x22]));
-    await writeSchemaVersion(tmpDir, 3);
 
     // Set up complete chain V1 → V2 → V3
-    const dbDir = path.join(tmpDir, ".elm-pages-db", "Db");
+    const dbDir = path.join(tmpDir, "db", "Db");
     const migrateDir = path.join(dbDir, "Migrate");
     fs.mkdirSync(migrateDir, { recursive: true });
 
@@ -462,8 +458,9 @@ migrate old =
 `
     );
 
-    // Generate chain
-    await writeMigrateChain(tmpDir, 3);
+    // Generate chain to a temp dir (writeMigrateChain now takes targetDir)
+    const chainDir = path.join(tmpDir, "db");
+    await writeMigrateChain(chainDir, 3);
 
     // Detection
     const detection = await detectMigrationNeeded(tmpDir);
@@ -511,10 +508,9 @@ describe("E2E: error cases", () => {
     // Initial V1 persisted data
     const hashV1 = await computeSchemaHash(dbElmPath);
     seedDbBin(hashV1, 1, Buffer.from([0x01, 0x02]));
-    await writeSchemaVersion(tmpDir, 1);
 
     // Simulate provenance captured from a prior write flow
-    const historyDir = path.join(tmpDir, ".elm-pages-db", "schema-history");
+    const historyDir = path.join(tmpDir, "db", "schema-history");
     fs.mkdirSync(historyDir, { recursive: true });
     fs.writeFileSync(path.join(historyDir, `${hashV1}.elm`), dbSourceV1);
 
@@ -531,19 +527,16 @@ describe("E2E: error cases", () => {
     expect(process.exitCode).not.toBe(1);
 
     // Snapshot must represent the old schema (from history), not current Db.elm
-    const snapshotPath = path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm");
+    const snapshotPath = path.join(tmpDir, "db", "Db", "V1.elm");
     expect(fs.existsSync(snapshotPath)).toBe(true);
     const snapshotContent = fs.readFileSync(snapshotPath, "utf8");
     expect(snapshotContent).toContain("module Db.V1 exposing (Db)");
     expect(snapshotContent).toContain("{ counter : Int");
     expect(snapshotContent).not.toContain(", name : String");
 
-    // Stub and chain should be created normally
+    // Stub should be created normally
     expect(
-      fs.existsSync(path.join(tmpDir, ".elm-pages-db", "Db", "Migrate", "V2.elm"))
-    ).toBe(true);
-    expect(
-      fs.existsSync(path.join(tmpDir, ".elm-pages-db", "MigrateChain.elm"))
+      fs.existsSync(path.join(tmpDir, "db", "Db", "Migrate", "V2.elm"))
     ).toBe(true);
   });
 
@@ -552,7 +545,7 @@ describe("E2E: error cases", () => {
     const hashV1 = crypto.createHash("sha256").update("v1").digest("hex");
     seedDbBin(hashV1, 1, Buffer.from([1, 2, 3]));
     // Schema already at V2 but db.bin still at V1
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     const logSpy = vi.spyOn(console, "log");
     await migrate();
@@ -566,15 +559,10 @@ describe("E2E: error cases", () => {
     setupProject(dbSourceV2);
     const hashV1 = crypto.createHash("sha256").update("v1").digest("hex");
     seedDbBin(hashV1, 1, Buffer.from([1, 2, 3]));
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     // Create migration stub but NOT the snapshot
-    const migrateDir = path.join(
-      tmpDir,
-      ".elm-pages-db",
-      "Db",
-      "Migrate"
-    );
+    const migrateDir = path.join(tmpDir, "db", "Db", "Migrate");
     fs.mkdirSync(migrateDir, { recursive: true });
     fs.writeFileSync(
       path.join(migrateDir, "V2.elm"),
@@ -594,9 +582,9 @@ migrate old = { counter = old.counter, name = "" }
     setupProject(dbSourceV2);
     const hashV1 = crypto.createHash("sha256").update("v1").digest("hex");
     seedDbBin(hashV1, 1, Buffer.from([1, 2, 3]));
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
-    const dbDir = path.join(tmpDir, ".elm-pages-db", "Db");
+    const dbDir = path.join(tmpDir, "db", "Db");
     const migrateDir = path.join(dbDir, "Migrate");
     fs.mkdirSync(migrateDir, { recursive: true });
 
@@ -627,7 +615,7 @@ migrate old =
     setupProject(dbSourceV1);
     const hash = crypto.createHash("sha256").update("future").digest("hex");
     seedDbBin(hash, 5, Buffer.from([1, 2, 3]));
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     const detection = await detectMigrationNeeded(tmpDir);
     expect(detection.action).toBe("error");
@@ -635,7 +623,6 @@ migrate old =
 
   it("detectMigrationNeeded returns no-db when db.bin does not exist", async () => {
     setupProject(dbSourceV1);
-    await writeSchemaVersion(tmpDir, 1);
     // No db.bin created
 
     const detection = await detectMigrationNeeded(tmpDir);
@@ -645,17 +632,11 @@ migrate old =
 
 describe("E2E: path consistency", () => {
   it("CLI migrate and detectMigrationNeeded use same paths (CWD)", async () => {
-    // This test verifies that the path mismatch bug is fixed:
-    // - CLI commands use process.cwd() for db.bin and .elm-pages-db
-    // - detectMigrationNeeded should also use the same directory
-    // - db.bin should be at CWD, not at projectDirectory
-
     setupProject(dbSourceV1);
     const hashV1 = await computeSchemaHash(
       path.join(tmpDir, "script/src/Db.elm")
     );
     seedDbBin(hashV1, 1, Buffer.from([0xFF]));
-    await writeSchemaVersion(tmpDir, 1);
 
     // Verify db.bin is at CWD (tmpDir), NOT at script/
     expect(fs.existsSync(path.join(tmpDir, "db.bin"))).toBe(true);
@@ -664,15 +645,15 @@ describe("E2E: path consistency", () => {
     // Run migrate (uses CWD)
     await migrate();
 
-    // Verify .elm-pages-db is at CWD (tmpDir), NOT at script/
+    // Verify db dir is at CWD (tmpDir), NOT at script/
     expect(
       fs.existsSync(
-        path.join(tmpDir, ".elm-pages-db", "schema-version.json")
+        path.join(tmpDir, "db", "Db", "Migrate", "V2.elm")
       )
     ).toBe(true);
     expect(
       fs.existsSync(
-        path.join(tmpDir, "script", ".elm-pages-db", "schema-version.json")
+        path.join(tmpDir, "script", "db", "Db", "Migrate", "V2.elm")
       )
     ).toBe(false);
 
@@ -707,7 +688,7 @@ describe("E2E: path consistency", () => {
 });
 
 describe("E2E: prepareMigrationSourceDirs with project structure", () => {
-  it("adds .elm-pages-db from CWD to compile dir source-directories", async () => {
+  it("adds db from CWD to compile dir source-directories", async () => {
     setupProject(dbSourceV1);
 
     // Set up a compile dir with elm.json (simulating elm-stuff/elm-pages)
@@ -721,11 +702,10 @@ describe("E2E: prepareMigrationSourceDirs with project structure", () => {
       })
     );
 
-    // Create .elm-pages-db at CWD (not at projectDirectory)
-    await writeSchemaVersion(tmpDir, 1);
+    // Run migrate to create scaffold files
     await migrate();
 
-    // prepareMigrationSourceDirs should resolve .elm-pages-db relative to compileDir
+    // prepareMigrationSourceDirs should resolve db relative to compileDir
     const restore = await prepareMigrationSourceDirs(compileDir, tmpDir);
 
     const elmJson = JSON.parse(
@@ -733,11 +713,11 @@ describe("E2E: prepareMigrationSourceDirs with project structure", () => {
     );
     const sourceDirs = elmJson["source-directories"];
     expect(sourceDirs.length).toBe(3);
-    expect(sourceDirs.some((d) => d.includes(".elm-pages-db"))).toBe(true);
+    expect(sourceDirs.some((d) => d.includes("db"))).toBe(true);
 
-    // The .elm-pages-db path should be resolvable from compileDir
+    // The db path should be resolvable from compileDir
     const migrationDirRelative = sourceDirs.find((d) =>
-      d.includes(".elm-pages-db")
+      d.includes("db")
     );
     const migrationDirAbsolute = path.resolve(compileDir, migrationDirRelative);
     expect(fs.existsSync(migrationDirAbsolute)).toBe(true);
@@ -852,7 +832,7 @@ describe("E2E: real CLI flow with fixture project", () => {
         fs.cpSync(path.join(fixtureRoot, "codegen"), path.join(fixtureCwd, "codegen"), {
           recursive: true,
         });
-        fs.cpSync(path.join(fixtureRoot, ".elm-pages-db"), path.join(fixtureCwd, ".elm-pages-db"), {
+        fs.cpSync(path.join(fixtureRoot, "db"), path.join(fixtureCwd, "db"), {
           recursive: true,
         });
 
@@ -869,7 +849,7 @@ describe("E2E: real CLI flow with fixture project", () => {
         const hashV1 = await computeSchemaHash(dbElmPath);
         const historyPath = path.join(
           fixtureCwd,
-          ".elm-pages-db",
+          "db",
           "schema-history",
           `${hashV1}.elm`
         );
@@ -902,13 +882,13 @@ type alias Todo =
         }
 
         expect(migrateOutput).toContain(
-          "Detected stale Db.elm state; recovering old schema from .elm-pages-db/schema-history."
+          "Detected stale Db.elm state; recovering old schema from db/schema-history."
         );
         expect(migrateOutput).toContain("Created migration V1 -> V2");
 
         const snapshotPath = path.join(
           fixtureCwd,
-          ".elm-pages-db",
+          "db",
           "Db",
           "V1.elm"
         );
@@ -941,7 +921,7 @@ type alias Todo =
         fs.cpSync(path.join(fixtureRoot, "codegen"), path.join(fixtureCwd, "codegen"), {
           recursive: true,
         });
-        fs.cpSync(path.join(fixtureRoot, ".elm-pages-db"), path.join(fixtureCwd, ".elm-pages-db"), {
+        fs.cpSync(path.join(fixtureRoot, "db"), path.join(fixtureCwd, "db"), {
           recursive: true,
         });
 
@@ -980,7 +960,7 @@ type alias Todo =
 
         const migrateStubPath = path.join(
           fixtureCwd,
-          ".elm-pages-db",
+          "db",
           "Db",
           "Migrate",
           "V2.elm"
@@ -1050,7 +1030,7 @@ seed old =
         fs.cpSync(path.join(fixtureRoot, "codegen"), path.join(fixtureCwd, "codegen"), {
           recursive: true,
         });
-        fs.cpSync(path.join(fixtureRoot, ".elm-pages-db"), path.join(fixtureCwd, ".elm-pages-db"), {
+        fs.cpSync(path.join(fixtureRoot, "db"), path.join(fixtureCwd, "db"), {
           recursive: true,
         });
 
@@ -1146,7 +1126,7 @@ run =
         fs.cpSync(path.join(fixtureRoot, "codegen"), path.join(fixtureCwd, "codegen"), {
           recursive: true,
         });
-        fs.cpSync(path.join(fixtureRoot, ".elm-pages-db"), path.join(fixtureCwd, ".elm-pages-db"), {
+        fs.cpSync(path.join(fixtureRoot, "db"), path.join(fixtureCwd, "db"), {
           recursive: true,
         });
 
@@ -1185,7 +1165,7 @@ type alias Todo =
 
         const migrateStubPath = path.join(
           fixtureCwd,
-          ".elm-pages-db",
+          "db",
           "Db",
           "Migrate",
           "V2.elm"

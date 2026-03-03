@@ -19,7 +19,7 @@ import {
   prepareMigrationSourceDirs,
 } from "../src/db-migrate.js";
 import { buildDbBin } from "../src/db-bin-format.js";
-import { writeSchemaVersion } from "../src/db-schema.js";
+import { readSchemaVersion } from "../src/db-schema.js";
 
 let tmpDir;
 
@@ -32,6 +32,16 @@ beforeEach(async () => {
 afterEach(async () => {
   await fs.promises.rm(tmpDir, { recursive: true });
 });
+
+function setupSchemaVersion(dir, version) {
+  const migrateDir = path.join(dir, "db", "Db", "Migrate");
+  fs.mkdirSync(migrateDir, { recursive: true });
+  for (let v = 1; v <= version; v++) {
+    const p = path.join(migrateDir, `V${v}.elm`);
+    if (!fs.existsSync(p))
+      fs.writeFileSync(p, `module Db.Migrate.V${v} exposing (..)\nstub = ()\n`);
+  }
+}
 
 // --- Section A1: rewriteDbModuleToSnapshot ---
 
@@ -151,7 +161,7 @@ describe("checkPendingMigration", () => {
     const dbBin = buildDbBin(testHash, 1, Buffer.from([1, 2, 3]));
     fs.writeFileSync(path.join(tmpDir, "db.bin"), dbBin);
     // Set schema version to 2
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     const result = await checkPendingMigration(tmpDir);
     expect(result.pending).toBe(true);
@@ -162,14 +172,14 @@ describe("checkPendingMigration", () => {
   it("returns pending:false when versions match", async () => {
     const dbBin = buildDbBin(testHash, 2, Buffer.from([1, 2, 3]));
     fs.writeFileSync(path.join(tmpDir, "db.bin"), dbBin);
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     const result = await checkPendingMigration(tmpDir);
     expect(result.pending).toBe(false);
   });
 
   it("returns pending:false when no db.bin exists", async () => {
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     const result = await checkPendingMigration(tmpDir);
     expect(result.pending).toBe(false);
@@ -192,45 +202,34 @@ init =
 `;
 
   it("writes snapshot V1.elm matching rewriteDbModuleToSnapshot output", async () => {
-    await writeSchemaVersion(tmpDir, 1);
+    setupSchemaVersion(tmpDir, 1);
 
     await createSnapshot(tmpDir, dbSource, 1);
 
-    const snapshotPath = path.join(tmpDir, ".elm-pages-db", "Db", "V1.elm");
+    const snapshotPath = path.join(tmpDir, "db", "Db", "V1.elm");
     const content = fs.readFileSync(snapshotPath, "utf8");
     expect(content).toBe(rewriteDbModuleToSnapshot(dbSource, 1));
   });
 
   it("writes migration stub V2.elm matching generateMigrationStub output", async () => {
-    await writeSchemaVersion(tmpDir, 1);
+    setupSchemaVersion(tmpDir, 1);
 
     await createSnapshot(tmpDir, dbSource, 1);
 
-    const stubPath = path.join(
-      tmpDir,
-      ".elm-pages-db",
-      "Db",
-      "Migrate",
-      "V2.elm"
-    );
+    const stubPath = path.join(tmpDir, "db", "Db", "Migrate", "V2.elm");
     const content = fs.readFileSync(stubPath, "utf8");
     expect(content).toBe(generateMigrationStub(1, 2));
   });
 
-  it("bumps schema version from 1 to 2", async () => {
-    await writeSchemaVersion(tmpDir, 1);
+  it("schema version is 2 after creating snapshot from V1", async () => {
+    setupSchemaVersion(tmpDir, 1);
 
     await createSnapshot(tmpDir, dbSource, 1);
 
-    const versionPath = path.join(
-      tmpDir,
-      ".elm-pages-db",
-      "schema-version.json"
-    );
-    const versionData = JSON.parse(fs.readFileSync(versionPath, "utf8"));
-    expect(versionData.version).toBe(2);
+    // V2.elm was written by createSnapshot, so readSchemaVersion returns 2
+    const version = await readSchemaVersion(tmpDir);
+    expect(version).toBe(2);
   });
-
 });
 
 // --- Section B1-B2: generateMigrateChain ---
@@ -252,10 +251,11 @@ describe("generateMigrateChain", () => {
 // --- Section B3: writeMigrateChain ---
 
 describe("writeMigrateChain", () => {
-  it("creates .elm-pages-db/MigrateChain.elm matching generateMigrateChain output", async () => {
-    await writeMigrateChain(tmpDir, 2);
+  it("creates MigrateChain.elm in the given directory matching generateMigrateChain output", async () => {
+    const targetDir = path.join(tmpDir, "output");
+    await writeMigrateChain(targetDir, 2);
 
-    const chainPath = path.join(tmpDir, ".elm-pages-db", "MigrateChain.elm");
+    const chainPath = path.join(targetDir, "MigrateChain.elm");
     const content = fs.readFileSync(chainPath, "utf8");
     expect(content).toBe(generateMigrateChain(2));
   });
@@ -271,7 +271,7 @@ describe("detectMigrationNeeded", () => {
       path.join(tmpDir, "db.bin"),
       buildDbBin(testHash, 2, Buffer.from([1, 2, 3]))
     );
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     const result = await detectMigrationNeeded(tmpDir);
     expect(result.action).toBe("up-to-date");
@@ -282,7 +282,7 @@ describe("detectMigrationNeeded", () => {
       path.join(tmpDir, "db.bin"),
       buildDbBin(testHash, 1, Buffer.from([1, 2, 3]))
     );
-    await writeSchemaVersion(tmpDir, 3);
+    setupSchemaVersion(tmpDir, 3);
 
     const result = await detectMigrationNeeded(tmpDir);
     expect(result.action).toBe("migrate");
@@ -291,7 +291,7 @@ describe("detectMigrationNeeded", () => {
   });
 
   it("returns no-db when no db.bin exists", async () => {
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     const result = await detectMigrationNeeded(tmpDir);
     expect(result.action).toBe("no-db");
@@ -302,7 +302,7 @@ describe("detectMigrationNeeded", () => {
       path.join(tmpDir, "db.bin"),
       buildDbBin(testHash, 5, Buffer.from([1, 2, 3]))
     );
-    await writeSchemaVersion(tmpDir, 2);
+    setupSchemaVersion(tmpDir, 2);
 
     const result = await detectMigrationNeeded(tmpDir);
     expect(result.action).toBe("error");
@@ -313,7 +313,7 @@ describe("detectMigrationNeeded", () => {
 
 describe("validateMigrationChain", () => {
   it("returns valid:true when all files exist and have no sentinel", async () => {
-    const dbDir = path.join(tmpDir, ".elm-pages-db", "Db");
+    const dbDir = path.join(tmpDir, "db", "Db");
     const migrateDir = path.join(dbDir, "Migrate");
     fs.mkdirSync(migrateDir, { recursive: true });
 
@@ -333,12 +333,7 @@ describe("validateMigrationChain", () => {
   });
 
   it("reports missing snapshot files", async () => {
-    const migrateDir = path.join(
-      tmpDir,
-      ".elm-pages-db",
-      "Db",
-      "Migrate"
-    );
+    const migrateDir = path.join(tmpDir, "db", "Db", "Migrate");
     fs.mkdirSync(migrateDir, { recursive: true });
     // Migration V2 exists but snapshot V1 does not
     fs.writeFileSync(
@@ -352,7 +347,7 @@ describe("validateMigrationChain", () => {
   });
 
   it("reports missing migration files", async () => {
-    const dbDir = path.join(tmpDir, ".elm-pages-db", "Db");
+    const dbDir = path.join(tmpDir, "db", "Db");
     fs.mkdirSync(dbDir, { recursive: true });
     // Snapshot V1 exists but migration V2 does not
     fs.writeFileSync(path.join(dbDir, "V1.elm"), "module Db.V1 exposing (Db)");
@@ -363,7 +358,7 @@ describe("validateMigrationChain", () => {
   });
 
   it("reports unimplemented migrations (sentinel present)", async () => {
-    const dbDir = path.join(tmpDir, ".elm-pages-db", "Db");
+    const dbDir = path.join(tmpDir, "db", "Db");
     const migrateDir = path.join(dbDir, "Migrate");
     fs.mkdirSync(migrateDir, { recursive: true });
 
@@ -379,7 +374,7 @@ describe("validateMigrationChain", () => {
   });
 
   it("reports unimplemented V1 seed (todo_implement_seed sentinel)", async () => {
-    const migrateDir = path.join(tmpDir, ".elm-pages-db", "Db", "Migrate");
+    const migrateDir = path.join(tmpDir, "db", "Db", "Migrate");
     fs.mkdirSync(migrateDir, { recursive: true });
 
     fs.writeFileSync(
@@ -393,7 +388,7 @@ describe("validateMigrationChain", () => {
   });
 
   it("skips V0 snapshot check (virtual V0 has no file)", async () => {
-    const migrateDir = path.join(tmpDir, ".elm-pages-db", "Db", "Migrate");
+    const migrateDir = path.join(tmpDir, "db", "Db", "Migrate");
     fs.mkdirSync(migrateDir, { recursive: true });
 
     fs.writeFileSync(
@@ -409,7 +404,7 @@ describe("validateMigrationChain", () => {
 // --- Section C3: prepareMigrationSourceDirs ---
 
 describe("prepareMigrationSourceDirs", () => {
-  it("adds .elm-pages-db to elm.json source-directories", async () => {
+  it("adds db to elm.json source-directories", async () => {
     const compileDir = path.join(tmpDir, "compile");
     fs.mkdirSync(compileDir, { recursive: true });
     fs.writeFileSync(
@@ -425,9 +420,9 @@ describe("prepareMigrationSourceDirs", () => {
     const elmJson = JSON.parse(
       fs.readFileSync(path.join(compileDir, "elm.json"), "utf8")
     );
-    // Should include a path to .elm-pages-db relative to the compile dir
+    // Should include a path to db relative to the compile dir
     const sourceDirs = elmJson["source-directories"];
-    expect(sourceDirs.some((d) => d.includes(".elm-pages-db"))).toBe(true);
+    expect(sourceDirs.some((d) => d.includes("db"))).toBe(true);
 
     // Restore should remove it
     await restore();
@@ -449,15 +444,19 @@ describe("migration detection + validation integration", () => {
       path.join(tmpDir, "db.bin"),
       buildDbBin(testHash, 1, Buffer.from([1, 2, 3]))
     );
-    await writeSchemaVersion(tmpDir, 2);
 
     // Create valid chain files
-    const dbDir = path.join(tmpDir, ".elm-pages-db", "Db");
+    const dbDir = path.join(tmpDir, "db", "Db");
     const migrateDir = path.join(dbDir, "Migrate");
     fs.mkdirSync(migrateDir, { recursive: true });
     fs.writeFileSync(
       path.join(dbDir, "V1.elm"),
       "module Db.V1 exposing (Db)\ntype alias Db = { counter : Int }\n"
+    );
+    // V1 migration stub for readSchemaVersion to find
+    fs.writeFileSync(
+      path.join(migrateDir, "V1.elm"),
+      "module Db.Migrate.V1 exposing (..)\nstub = ()\n"
     );
     fs.writeFileSync(
       path.join(migrateDir, "V2.elm"),
@@ -482,15 +481,18 @@ describe("migration detection + validation integration", () => {
       path.join(tmpDir, "db.bin"),
       buildDbBin(testHash, 1, Buffer.from([1, 2, 3]))
     );
-    await writeSchemaVersion(tmpDir, 2);
 
     // Create chain files with unimplemented sentinel
-    const dbDir = path.join(tmpDir, ".elm-pages-db", "Db");
+    const dbDir = path.join(tmpDir, "db", "Db");
     const migrateDir = path.join(dbDir, "Migrate");
     fs.mkdirSync(migrateDir, { recursive: true });
     fs.writeFileSync(
       path.join(dbDir, "V1.elm"),
       "module Db.V1 exposing (Db)\ntype alias Db = { counter : Int }\n"
+    );
+    fs.writeFileSync(
+      path.join(migrateDir, "V1.elm"),
+      "module Db.Migrate.V1 exposing (..)\nstub = ()\n"
     );
     fs.writeFileSync(
       path.join(migrateDir, "V2.elm"),

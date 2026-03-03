@@ -105,8 +105,6 @@ export async function init() {
     return;
   }
 
-  const { writeSchemaVersion } = await import("../db-schema.js");
-
   const dbTemplate = `module Db exposing (Db)
 
 
@@ -137,15 +135,11 @@ migrate =
 
   // Create V1 migration file
   const runtimeDir = process.cwd();
-  const v1MigrationDir = path.join(runtimeDir, ".elm-pages-db", "Db", "Migrate");
+  const v1MigrationDir = path.join(runtimeDir, "db", "Db", "Migrate");
   const v1MigrationPath = path.join(v1MigrationDir, "V1.elm");
   fs.mkdirSync(v1MigrationDir, { recursive: true });
   fs.writeFileSync(v1MigrationPath, v1Template);
   console.log(`Created ${v1MigrationPath}`);
-
-  // Create schema-version.json
-  await writeSchemaVersion(runtimeDir, 1);
-  console.log(`Created .elm-pages-db/schema-version.json`);
 
   if (gitignoreUpdate.added.length > 0) {
     console.log(
@@ -158,7 +152,7 @@ migrate =
     "\nEdit the Db type alias to define your database schema, then import Pages.Db in your scripts."
   );
   console.log(
-    "The V1 seed in .elm-pages-db/Db/Migrate/V1.elm provides the initial value for fresh installs."
+    "The V1 seed in db/Db/Migrate/V1.elm provides the initial value for fresh installs."
   );
 }
 
@@ -206,7 +200,7 @@ export async function status() {
     console.log("                   Run 'elm-pages db init' to create one.");
   }
 
-  // Schema version (from .elm-pages-db/schema-version.json)
+  // Schema version (derived from db/Db/Migrate/V*.elm files)
   const schemaVersion = await readSchemaVersion(cwd);
   console.log(`  Schema version:  ${schemaVersion}`);
 
@@ -320,7 +314,7 @@ export async function migrate(options = {}) {
   } = await import("../db-schema.js");
   const { parseDbBinHeader } = await import("../db-bin-format.js");
   const {
-    createSnapshot, writeMigrateChain, detectMigrationNeeded,
+    createSnapshot, detectMigrationNeeded,
     validateMigrationChain, applyMigration,
   } = await import("../db-migrate.js");
 
@@ -357,17 +351,17 @@ export async function migrate(options = {}) {
         const historicalSource = await loadSchemaSource(cwd, parsed.schemaHashHex);
         if (historicalSource) {
           snapshotSource = historicalSource;
-          console.log("\nDetected stale Db.elm state; recovering old schema from .elm-pages-db/schema-history.");
+          console.log("\nDetected stale Db.elm state; recovering old schema from db/schema-history.");
         } else if (!options.forceStaleSnapshot) {
           console.log(`\nI can't create migration files yet.\n`);
           console.log(`Reason: your current Db file was changed before the old schema snapshot was captured.`);
           console.log(`\nI found:`);
           console.log(`  - db.bin is at V${currentVersion}`);
-          console.log(`  - .elm-pages-db/schema-version.json is at V${currentVersion}`);
+          console.log(`  - Schema version (from migration files) is V${currentVersion}`);
           console.log(`  - ${dbElmDisplayPath} has a different schema hash`);
-          console.log(`  - Missing: .elm-pages-db/schema-history/${parsed.schemaHashHex}.elm`);
+          console.log(`  - Missing: db/schema-history/${parsed.schemaHashHex}.elm`);
           console.log(
-            `\nIf I continue now, .elm-pages-db/Db/V${currentVersion}.elm would contain your new schema (wrong snapshot).`
+            `\nIf I continue now, db/Db/V${currentVersion}.elm would contain your new schema (wrong snapshot).`
           );
           console.log(`\nDo this:`);
           console.log(`  1. Restore ${dbElmDisplayPath} to the schema currently stored in db.bin`);
@@ -375,12 +369,12 @@ export async function migrate(options = {}) {
             `  2. Run \`elm-pages db migrate\` to create the V${currentVersion} snapshot + V${currentVersion + 1} stub`
           );
           console.log(
-            `  3. Re-apply your Db.elm changes and implement .elm-pages-db/Db/Migrate/V${currentVersion + 1}.elm`
+            `  3. Re-apply your Db.elm changes and implement db/Db/Migrate/V${currentVersion + 1}.elm`
           );
           console.log(`\nUnsafe override (not recommended):`);
           console.log(`  elm-pages db migrate --force-stale-snapshot`);
           console.log(
-            `\nTip: after any successful write, stale snapshot recovery can use .elm-pages-db/schema-history/<hash>.elm automatically.`
+            `\nTip: after any successful write, stale snapshot recovery can use db/schema-history/<hash>.elm automatically.`
           );
           process.exitCode = 1;
           return;
@@ -391,14 +385,12 @@ export async function migrate(options = {}) {
     // Path A: No pending migration → create scaffold
     await createSnapshot(cwd, snapshotSource, currentVersion);
     const newVersion = currentVersion + 1;
-    await writeMigrateChain(cwd, newVersion);
 
     console.log(`\nCreated migration V${currentVersion} -> V${newVersion}:`);
-    console.log(`  Snapshot: .elm-pages-db/Db/V${currentVersion}.elm`);
-    console.log(`  Stub:     .elm-pages-db/Db/Migrate/V${newVersion}.elm`);
-    console.log(`  Chain:    .elm-pages-db/MigrateChain.elm`);
+    console.log(`  Snapshot: db/Db/V${currentVersion}.elm`);
+    console.log(`  Stub:     db/Db/Migrate/V${newVersion}.elm`);
     console.log(`\nNext steps:`);
-    console.log(`  1. Edit .elm-pages-db/Db/Migrate/V${newVersion}.elm to implement the migration`);
+    console.log(`  1. Edit db/Db/Migrate/V${newVersion}.elm to implement the migration`);
     console.log(`  2. Replace the todo_implement_ sentinel with your migration logic`);
     console.log(`  3. Run \`elm-pages db migrate\` again to apply the migration`);
   } else if (migrationStatus.action === "migrate") {
@@ -419,13 +411,13 @@ export async function migrate(options = {}) {
       if (validation.missingFiles && validation.missingFiles.length > 0) {
         console.log(`\nMissing files:`);
         for (const f of validation.missingFiles) {
-          console.log(`  .elm-pages-db/${f}`);
+          console.log(`  db/${f}`);
         }
       }
       if (validation.unimplemented && validation.unimplemented.length > 0) {
         console.log(`\nUnimplemented migration stubs:`);
         for (const f of validation.unimplemented) {
-          console.log(`  .elm-pages-db/${f}`);
+          console.log(`  db/${f}`);
           const vMatch = f.match(/V(\d+)\.elm$/);
           if (vMatch) {
             const v = parseInt(vMatch[1], 10);

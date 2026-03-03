@@ -82,7 +82,7 @@ phase3ImplementStub =
     Script.log "\n--- Phase 3: Update schema to V2 and implement migration ---"
         |> BackendTask.andThen (\_ -> cp "test/fixtures/migration/DbV2.elm" "script/src/Db.elm")
         |> BackendTask.andThen (\_ -> Script.log "  Copied V2 Db.elm.")
-        |> BackendTask.andThen (\_ -> cp "test/fixtures/migration/MigrateV2.elm" ".elm-pages-db/Db/Migrate/V2.elm")
+        |> BackendTask.andThen (\_ -> cp "test/fixtures/migration/MigrateV2.elm" "db/Db/Migrate/V2.elm")
         |> BackendTask.andThen (\_ -> Script.log "  Copied implemented migration.")
 
 
@@ -155,7 +155,7 @@ saveState =
                 cp "script/src/Db.elm" (backupDir ++ "/Db.elm")
                     |> BackendTask.andThen (\_ -> cpIfExists "db.bin" (backupDir ++ "/db.bin"))
                     |> BackendTask.andThen (\_ -> cpIfExists "db.bin.lock" (backupDir ++ "/db.bin.lock"))
-                    |> BackendTask.andThen (\_ -> cpDirIfExists ".elm-pages-db" (backupDir ++ "/.elm-pages-db"))
+                    |> BackendTask.andThen (\_ -> cpDirIfExists "db" (backupDir ++ "/db"))
                     |> BackendTask.map (\_ -> backupDir)
             )
 
@@ -164,7 +164,7 @@ cleanState : BackendTask FatalError ()
 cleanState =
     Script.log "Cleaning state..."
         |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-f", "db.bin", "db.bin.lock", "db.lock" ])
-        |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-rf", ".elm-pages-db" ])
+        |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-rf", "db" ])
 
 
 restoreState : String -> BackendTask FatalError ()
@@ -174,11 +174,11 @@ restoreState backupDir =
         |> BackendTask.andThen (\_ -> cp (backupDir ++ "/Db.elm") "script/src/Db.elm")
         -- Clean test artifacts
         |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-f", "db.bin", "db.bin.lock", "db.lock" ])
-        |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-rf", ".elm-pages-db" ])
+        |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-rf", "db" ])
         -- Restore optional files
         |> BackendTask.andThen (\_ -> cpIfExists (backupDir ++ "/db.bin") "db.bin")
         |> BackendTask.andThen (\_ -> cpIfExists (backupDir ++ "/db.bin.lock") "db.bin.lock")
-        |> BackendTask.andThen (\_ -> cpDirIfExists (backupDir ++ "/.elm-pages-db") ".elm-pages-db")
+        |> BackendTask.andThen (\_ -> cpDirIfExists (backupDir ++ "/db") "db")
         -- Clean up VerifyDb.elm if left behind
         |> BackendTask.andThen (\_ -> Script.exec "rm" [ "-f", "script/src/VerifyDb.elm" ])
         -- Remove backup directory
