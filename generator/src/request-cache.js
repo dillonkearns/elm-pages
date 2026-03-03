@@ -153,7 +153,7 @@ export function lookupOrPerform(portsFile, mode, rawRequest) {
           // Use built-in fetch with FormData for streaming multipart
           // bodies — no intermediate Buffer, and the boundary is
           // generated automatically by undici.
-          const formData = partsToFormData(rawRequest.body.args[0]);
+          const formData = partsToFormData(rawRequest.body.args[0], rawRequest.__multipartBytes);
           const elmHeaders = Object.fromEntries(rawRequest.headers);
           response = await fetch(request.url, {
             method: request.method,
@@ -311,30 +311,41 @@ function toContentType(body) {
  * @param {Array<{type: string, name: string, value?: string, mimeType?: string, filename?: string, content?: string}>} parts
  * @returns {FormData}
  */
-function partsToFormData(parts) {
+function partsToFormData(parts, multipartBytes) {
   const formData = new FormData();
-  for (const part of parts) {
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
     switch (part.type) {
       case "string":
         formData.append(part.name, part.value);
         break;
-      case "bytes":
+      case "bytes": {
+        const buf = multipartBytes?.get(i);
+        if (!buf) {
+          throw new Error(`Missing raw bytes for multipart part ${i}`);
+        }
         formData.append(
           part.name,
-          new Blob([Buffer.from(part.content, "base64")], {
+          new Blob([buf], {
             type: part.mimeType,
           })
         );
         break;
-      case "bytesWithFilename":
+      }
+      case "bytesWithFilename": {
+        const buf = multipartBytes?.get(i);
+        if (!buf) {
+          throw new Error(`Missing raw bytes for multipart part ${i}`);
+        }
         formData.append(
           part.name,
-          new Blob([Buffer.from(part.content, "base64")], {
+          new Blob([buf], {
             type: part.mimeType,
           }),
           part.filename
         );
         break;
+      }
     }
   }
   return formData;

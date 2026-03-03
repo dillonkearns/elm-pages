@@ -95,7 +95,6 @@ You can use `withHeader` and `withStatusCode` to customize either type of Respon
 
 -}
 
-import Base64
 import Bytes exposing (Bytes)
 import Json.Encode
 import PageServerResponse exposing (PageServerResponse(..))
@@ -147,6 +146,7 @@ plainText string =
     { statusCode = 200
     , headers = [ ( "Content-Type", "text/plain" ) ]
     , body = Just string
+    , bodyBytes = Nothing
     , isBase64Encoded = False
     }
         |> ServerResponse
@@ -182,6 +182,7 @@ emptyBody =
     { statusCode = 200
     , headers = []
     , body = Nothing
+    , bodyBytes = Nothing
     , isBase64Encoded = False
     }
         |> ServerResponse
@@ -194,6 +195,7 @@ body body_ =
     { statusCode = 200
     , headers = []
     , body = Just body_
+    , bodyBytes = Nothing
     , isBase64Encoded = False
     }
         |> ServerResponse
@@ -211,6 +213,7 @@ base64Body base64String =
     { statusCode = 200
     , headers = []
     , body = Just base64String
+    , bodyBytes = Nothing
     , isBase64Encoded = True
     }
         |> ServerResponse
@@ -218,7 +221,7 @@ base64Body base64String =
 
 {-| Build a `Response` with a `Bytes`.
 
-Under the hood, it will be converted to a base64 encoded String with `isBase64Encoded = True`.
+The raw bytes will be sent through the port and base64-encoded on the JavaScript side.
 Your adapter will need to handle `isBase64Encoded` to turn it into the appropriate response.
 
 -}
@@ -226,7 +229,8 @@ bytesBody : Bytes -> Response data error
 bytesBody bytes =
     { statusCode = 200
     , headers = []
-    , body = bytes |> Base64.fromBytes
+    , body = Nothing
+    , bodyBytes = Just bytes
     , isBase64Encoded = True
     }
         |> ServerResponse
@@ -251,6 +255,7 @@ json jsonValue =
         jsonValue
             |> Json.Encode.encode 0
             |> Just
+    , bodyBytes = Nothing
     , isBase64Encoded = False
     }
         |> ServerResponse
@@ -275,6 +280,7 @@ permanentRedirect url =
     , headers =
         [ ( "Location", url )
         ]
+    , bodyBytes = Nothing
     , isBase64Encoded = False
     }
         |> ServerResponse
@@ -288,6 +294,7 @@ temporaryRedirect url =
     , headers =
         [ ( "Location", url )
         ]
+    , bodyBytes = Nothing
     , isBase64Encoded = False
     }
         |> ServerResponse

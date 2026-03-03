@@ -207,10 +207,9 @@ perform config effect =
 
                 bytesPayloads =
                     requestsWithHashes
-                        |> List.filterMap
+                        |> List.concatMap
                             (\( hash, request ) ->
-                                Pages.Internal.StaticHttpBody.extractBytes request.body
-                                    |> Maybe.map (\bytes -> { key = hash, data = bytes })
+                                Pages.Internal.StaticHttpBody.extractAllBytes hash request.body
                             )
 
                 jsonPayload =

@@ -236,6 +236,18 @@ function runGeneratorAppHelp(
             if (reqBytes) {
               requestToPerform.__rawBytes = reqBytes;
             }
+            // Collect multipart bytes from port (keyed as "hash:multipart:index")
+            const multipartPrefix = requestHash + ":multipart:";
+            const multipartBytes = new Map();
+            for (const [key, buf] of outgoingBytesMap) {
+              if (key.startsWith(multipartPrefix)) {
+                const idx = parseInt(key.slice(multipartPrefix.length));
+                multipartBytes.set(idx, buf);
+              }
+            }
+            if (multipartBytes.size > 0) {
+              requestToPerform.__multipartBytes = multipartBytes;
+            }
             let result;
             if (
               requestToPerform.url !== "elm-pages-internal://port" &&
@@ -351,12 +363,15 @@ function runElmApp(
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
         const args = fromElm.args[0];
+        const resolvedBody = contentDatPayload
+          ? { ...args.body, body: Buffer.from(dataViewToBuffer(contentDatPayload)).toString("base64") }
+          : args.body;
 
         resolve({
           kind: "api-response",
           is404: args.is404,
           statusCode: args.statusCode,
-          body: args.body,
+          body: resolvedBody,
         });
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
@@ -393,6 +408,18 @@ function runElmApp(
             const reqBytes = outgoingBytesMap.get(requestHash);
             if (reqBytes) {
               requestToPerform.__rawBytes = reqBytes;
+            }
+            // Collect multipart bytes from port (keyed as "hash:multipart:index")
+            const multipartPrefix = requestHash + ":multipart:";
+            const multipartBytes = new Map();
+            for (const [key, buf] of outgoingBytesMap) {
+              if (key.startsWith(multipartPrefix)) {
+                const idx = parseInt(key.slice(multipartPrefix.length));
+                multipartBytes.set(idx, buf);
+              }
+            }
+            if (multipartBytes.size > 0) {
+              requestToPerform.__multipartBytes = multipartBytes;
             }
             let result;
             if (

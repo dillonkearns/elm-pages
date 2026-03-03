@@ -244,7 +244,7 @@ import BackendTask exposing (BackendTask)
 import FilePath exposing (FilePath)
 import BackendTask.Http exposing (Body)
 import BackendTask.Internal.Request
-import Base64
+import Bytes
 import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
@@ -1134,7 +1134,7 @@ toBadResponse maybeResponse body =
                             , statusText = response.statusText
                             , headers = response.headers
                             }
-                            (Base64.fromBytes bytes |> Maybe.withDefault "")
+                            ("<" ++ String.fromInt (Bytes.width bytes) ++ " bytes>")
                             |> Just
 
                     RequestsAndPending.JsonBody value ->

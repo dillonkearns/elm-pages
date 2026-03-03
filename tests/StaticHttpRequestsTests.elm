@@ -555,6 +555,7 @@ config apiRoutes pages =
     , sendPageData = \_ -> Cmd.none
     , encodeResponse = \_ -> Bytes.Encode.signedInt8 0
     , hotReloadData = Sub.none
+    , pageDataFromJs = Sub.none
     , decodeResponse = Bytes.Decode.fail
     , byteEncodePageData = \_ -> Bytes.Encode.signedInt8 0
     , gotBatchSub = Sub.none

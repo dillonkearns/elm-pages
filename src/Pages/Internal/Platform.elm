@@ -12,11 +12,9 @@ module Pages.Internal.Platform exposing
 -}
 
 import AriaLiveAnnouncer
-import Base64
 import Browser
 import Browser.Dom as Dom
 import Browser.Navigation
-import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Dict exposing (Dict)
@@ -36,7 +34,6 @@ import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
 import Pages.Navigation
 import Pages.ProgramConfig
-import Pages.StaticHttpRequest as StaticHttpRequest
 import PagesMsg exposing (PagesMsg)
 import QueryParams
 import Task
@@ -171,155 +168,25 @@ init :
     -> Maybe Browser.Navigation.Key
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
 init config flags url key =
-    let
-        pageDataResult : Result BuildError (InitKind sharedData pageData actionData errorPage)
-        pageDataResult =
-            flags
-                |> Decode.decodeValue (Decode.field "pageDataBase64" Decode.string)
-                |> Result.toMaybe
-                |> Maybe.andThen Base64.toBytes
-                |> Maybe.andThen
-                    (\justBytes ->
-                        case
-                            Bytes.Decode.decode
-                                -- TODO should this use byteDecodePageData, or should it be decoding ResponseSketch data?
-                                config.decodeResponse
-                                justBytes
-                        of
-                            Just (ResponseSketch.RenderPage _ _) ->
-                                Nothing
-
-                            Just (ResponseSketch.HotUpdate pageData shared actionData) ->
-                                OkPage shared pageData actionData
-                                    |> Just
-
-                            Just (ResponseSketch.NotFound notFound) ->
-                                NotFound notFound
-                                    |> Just
-
-                            _ ->
-                                Nothing
-                    )
-                |> Result.fromMaybe
-                    (StaticHttpRequest.DecoderError "Bytes decode error"
-                        |> StaticHttpRequest.toBuildError url.path
-                    )
-    in
-    case pageDataResult of
-        Ok (OkPage sharedData pageData actionData) ->
-            let
-                urls : { currentUrl : Url, basePath : List String }
-                urls =
-                    { currentUrl = url
-                    , basePath = config.basePath
-                    }
-
-                pagePath : UrlPath
-                pagePath =
-                    urlsToPagePath urls
-
-                userFlags : Pages.Flags.Flags
-                userFlags =
-                    flags
-                        |> Decode.decodeValue
-                            (Decode.field "userFlags" Decode.value)
-                        |> Result.withDefault Json.Encode.null
-                        |> Pages.Flags.BrowserFlags
-
-                ( userModel, userCmd ) =
-                    Just
-                        { path =
-                            { path = pagePath
-                            , query = url.query
-                            , fragment = url.fragment
-                            }
-                        , metadata = config.urlToRoute url
-                        , pageUrl =
-                            Just
-                                { protocol = url.protocol
-                                , host = url.host
-                                , port_ = url.port_
-                                , path = pagePath
-                                , query = url.query |> Maybe.map QueryParams.fromString |> Maybe.withDefault Dict.empty
-                                , fragment = url.fragment
-                                }
-                        }
-                        |> config.init userFlags sharedData pageData actionData
-
-                cmd : Effect userMsg pageData actionData sharedData userEffect errorPage
-                cmd =
-                    UserCmd userCmd
-
-                initialModel : Model userModel pageData actionData sharedData
-                initialModel =
-                    { key = key
-                    , url = url
-                    , currentPath = url.path
-                    , pageData =
-                        Ok
-                            { pageData = pageData
-                            , sharedData = sharedData
-                            , userModel = userModel
-                            , actionData = actionData
-                            }
-                    , ariaNavigationAnnouncement = ""
-                    , userFlags = flags
-                    , notFound = Nothing
-                    , transition = Nothing
-                    , nextTransitionKey = 0
-                    , inFlightFetchers = Dict.empty
-                    , pageFormState = Dict.empty
-                    , pendingRedirect = False
-                    , pendingData = Nothing
-                    , pendingFrozenViewsUrl = Nothing
-                    }
-            in
-            ( { initialModel
-                | ariaNavigationAnnouncement = mainView config initialModel |> .title
-              }
-            , cmd
-            )
-
-        Ok (NotFound info) ->
-            ( { key = key
-              , url = url
-              , currentPath = url.path
-              , pageData = Err "Not found"
-              , ariaNavigationAnnouncement = "Page Not Found" -- TODO use error page title for announcement?
-              , userFlags = flags
-              , notFound = Just info
-              , transition = Nothing
-              , nextTransitionKey = 0
-              , inFlightFetchers = Dict.empty
-              , pageFormState = Dict.empty
-              , pendingRedirect = False
-              , pendingData = Nothing
-              , pendingFrozenViewsUrl = Nothing
-              }
-            , NoEffect
-            )
-
-        Err error ->
-            ( { key = key
-              , url = url
-              , currentPath = url.path
-              , pageData =
-                    error
-                        |> BuildError.errorToString
-                        |> Err
-              , ariaNavigationAnnouncement = "Error"
-              , userFlags = flags
-              , notFound = Nothing
-              , transition = Nothing
-              , nextTransitionKey = 0
-              , inFlightFetchers = Dict.empty
-              , pageFormState = Dict.empty
-              , pendingRedirect = False
-              , pendingData = Nothing
-              , pendingFrozenViewsUrl = Nothing
-              }
-            , NoEffect
-            )
+    -- Page data will arrive via the pageDataFromJs port immediately after init.
+    -- Set pendingFrozenViewsUrl so FrozenViewsReady can handle the incoming bytes.
+    ( { key = key
+      , url = url
+      , currentPath = url.path
+      , pageData = Err ""
+      , ariaNavigationAnnouncement = ""
+      , userFlags = flags
+      , notFound = Nothing
+      , transition = Nothing
+      , nextTransitionKey = 0
+      , inFlightFetchers = Dict.empty
+      , pageFormState = Dict.empty
+      , pendingRedirect = False
+      , pendingData = Nothing
+      , pendingFrozenViewsUrl = Just url
+      }
+    , NoEffect
+    )
 
 
 {-| -}
@@ -336,7 +203,7 @@ type Msg userMsg pageData actionData sharedData errorPage
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ProcessFetchResponse Int (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
-    | FrozenViewsReady (Maybe String)
+    | FrozenViewsReady (Maybe Bytes)
     | NoOp
 
 
@@ -923,200 +790,288 @@ update config appMsg model =
             , NoEffect
             )
 
-        FrozenViewsReady maybePageDataBase64 ->
-            case ( maybePageDataBase64, model.pendingFrozenViewsUrl, model.pageData ) of
-                ( Just pageDataBase64, Just pendingUrl, Ok previousPageData ) ->
-                    -- Static regions and page data received from JS
-                    case Base64.toBytes pageDataBase64 of
-                        Just pageDataBytes ->
-                            case Bytes.Decode.decode config.decodeResponse pageDataBytes of
-                                Just decodedResponse ->
+        FrozenViewsReady maybePageDataBytes ->
+            case ( maybePageDataBytes, model.pendingFrozenViewsUrl, model.pageData ) of
+                ( Just pageDataBytes, Just pendingUrl, Ok previousPageData ) ->
+                    -- Raw bytes received from JS via pageDataFromJs port
+                    case Bytes.Decode.decode config.decodeResponse pageDataBytes of
+                        Just decodedResponse ->
+                            let
+                                clearedModel : Model userModel pageData actionData sharedData
+                                clearedModel =
+                                    { model
+                                        | pendingData = Nothing
+                                        , pendingFrozenViewsUrl = Nothing
+                                    }
+                            in
+                            case decodedResponse of
+                                ResponseSketch.Redirect redirectTo ->
+                                    ( { clearedModel | pendingRedirect = True }
+                                    , NoEffect
+                                    )
+                                        |> startNewGetLoad (currentUrlWithPath redirectTo model)
+
+                                ResponseSketch.RenderPage pageData actionData ->
                                     let
-                                        clearedModel : Model userModel pageData actionData sharedData
-                                        clearedModel =
-                                            { model
-                                                | pendingData = Nothing
-                                                , pendingFrozenViewsUrl = Nothing
+                                        stayingOnSamePath : Bool
+                                        stayingOnSamePath =
+                                            pendingUrl.path == model.url.path
+
+                                        isSubmission : Bool
+                                        isSubmission =
+                                            case model.transition of
+                                                Just ( _, Pages.Navigation.Submitting _ ) ->
+                                                    True
+
+                                                _ ->
+                                                    False
+
+                                        newUrl : Url
+                                        newUrl =
+                                            pendingUrl
+
+                                        updatedPageData : { userModel : userModel, sharedData : sharedData, actionData : Maybe actionData, pageData : pageData }
+                                        updatedPageData =
+                                            { userModel = userModel
+                                            , sharedData = previousPageData.sharedData
+                                            , pageData = pageData
+                                            , actionData = actionData
                                             }
+
+                                        ( userModel, userEffect ) =
+                                            if stayingOnSamePath then
+                                                ( previousPageData.userModel, NoEffect )
+
+                                            else
+                                                config.update model.pageFormState
+                                                    (model.inFlightFetchers |> toFetcherState)
+                                                    (model.transition |> Maybe.map Tuple.second)
+                                                    previousPageData.sharedData
+                                                    pageData
+                                                    model.key
+                                                    (config.onPageChange
+                                                        { protocol = model.url.protocol
+                                                        , host = model.url.host
+                                                        , port_ = model.url.port_
+                                                        , path = urlPathToPath newUrl
+                                                        , query = newUrl.query
+                                                        , fragment = newUrl.fragment
+                                                        , metadata = config.urlToRoute newUrl
+                                                        }
+                                                    )
+                                                    previousPageData.userModel
+                                                    |> Tuple.mapSecond UserCmd
+
+                                        updatedModel : Model userModel pageData actionData sharedData
+                                        updatedModel =
+                                            { clearedModel
+                                                | url = newUrl
+                                                , pageData = Ok updatedPageData
+                                                , transition = Nothing
+                                            }
+
+                                        onActionMsg : Maybe userMsg
+                                        onActionMsg =
+                                            actionData |> Maybe.andThen config.onActionData
                                     in
-                                    case decodedResponse of
-                                        ResponseSketch.Redirect redirectTo ->
-                                            ( { clearedModel | pendingRedirect = True }
-                                            , NoEffect
-                                            )
-                                                |> startNewGetLoad (currentUrlWithPath redirectTo model)
+                                    ( { updatedModel
+                                        | ariaNavigationAnnouncement = mainView config updatedModel |> .title
+                                        , currentPath = newUrl.path
+                                      }
+                                    , if not isSubmission && not stayingOnSamePath then
+                                        Batch [ ScrollToTop, userEffect ]
 
-                                        ResponseSketch.RenderPage pageData actionData ->
-                                            let
-                                                stayingOnSamePath : Bool
-                                                stayingOnSamePath =
-                                                    pendingUrl.path == model.url.path
+                                      else
+                                        userEffect
+                                    )
+                                        |> (case onActionMsg of
+                                                Just actionMsg ->
+                                                    withUserMsg config actionMsg
 
-                                                isSubmission : Bool
-                                                isSubmission =
-                                                    case model.transition of
-                                                        Just ( _, Pages.Navigation.Submitting _ ) ->
-                                                            True
+                                                Nothing ->
+                                                    identity
+                                           )
 
-                                                        _ ->
-                                                            False
+                                ResponseSketch.HotUpdate pageData sharedData actionData ->
+                                    let
+                                        stayingOnSamePath_ : Bool
+                                        stayingOnSamePath_ =
+                                            pendingUrl.path == model.url.path
 
-                                                newUrl : Url
-                                                newUrl =
-                                                    pendingUrl
+                                        isSubmission_ : Bool
+                                        isSubmission_ =
+                                            case model.transition of
+                                                Just ( _, Pages.Navigation.Submitting _ ) ->
+                                                    True
 
-                                                updatedPageData : { userModel : userModel, sharedData : sharedData, actionData : Maybe actionData, pageData : pageData }
-                                                updatedPageData =
-                                                    { userModel = userModel
-                                                    , sharedData = previousPageData.sharedData
-                                                    , pageData = pageData
-                                                    , actionData = actionData
-                                                    }
+                                                _ ->
+                                                    False
 
-                                                ( userModel, userEffect ) =
-                                                    if stayingOnSamePath then
-                                                        ( previousPageData.userModel, NoEffect )
+                                        updatedPageData_ : { userModel : userModel, sharedData : sharedData, actionData : Maybe actionData, pageData : pageData }
+                                        updatedPageData_ =
+                                            { userModel = userModel_
+                                            , sharedData = sharedData
+                                            , pageData = pageData
+                                            , actionData = actionData
+                                            }
 
-                                                    else
-                                                        config.update model.pageFormState
-                                                            (model.inFlightFetchers |> toFetcherState)
-                                                            (model.transition |> Maybe.map Tuple.second)
-                                                            previousPageData.sharedData
-                                                            pageData
-                                                            model.key
-                                                            (config.onPageChange
-                                                                { protocol = model.url.protocol
-                                                                , host = model.url.host
-                                                                , port_ = model.url.port_
-                                                                , path = urlPathToPath newUrl
-                                                                , query = newUrl.query
-                                                                , fragment = newUrl.fragment
-                                                                , metadata = config.urlToRoute newUrl
-                                                                }
-                                                            )
-                                                            previousPageData.userModel
-                                                            |> Tuple.mapSecond UserCmd
+                                        ( userModel_, userEffect_ ) =
+                                            if stayingOnSamePath_ then
+                                                ( previousPageData.userModel, NoEffect )
 
-                                                updatedModel : Model userModel pageData actionData sharedData
-                                                updatedModel =
-                                                    { clearedModel
-                                                        | url = newUrl
-                                                        , pageData = Ok updatedPageData
-                                                        , transition = Nothing
-                                                    }
+                                            else
+                                                config.update model.pageFormState
+                                                    (model.inFlightFetchers |> toFetcherState)
+                                                    (model.transition |> Maybe.map Tuple.second)
+                                                    sharedData
+                                                    pageData
+                                                    model.key
+                                                    (config.onPageChange
+                                                        { protocol = model.url.protocol
+                                                        , host = model.url.host
+                                                        , port_ = model.url.port_
+                                                        , path = urlPathToPath pendingUrl
+                                                        , query = pendingUrl.query
+                                                        , fragment = pendingUrl.fragment
+                                                        , metadata = config.urlToRoute pendingUrl
+                                                        }
+                                                    )
+                                                    previousPageData.userModel
+                                                    |> Tuple.mapSecond UserCmd
 
-                                                onActionMsg : Maybe userMsg
-                                                onActionMsg =
-                                                    actionData |> Maybe.andThen config.onActionData
-                                            in
-                                            ( { updatedModel
-                                                | ariaNavigationAnnouncement = mainView config updatedModel |> .title
-                                                , currentPath = newUrl.path
-                                              }
-                                            , if not isSubmission && not stayingOnSamePath then
-                                                Batch [ ScrollToTop, userEffect ]
+                                        updatedModel_ : Model userModel pageData actionData sharedData
+                                        updatedModel_ =
+                                            { clearedModel
+                                                | url = pendingUrl
+                                                , pageData = Ok updatedPageData_
+                                                , transition = Nothing
+                                            }
 
-                                              else
-                                                userEffect
-                                            )
-                                                |> (case onActionMsg of
-                                                        Just actionMsg ->
-                                                            withUserMsg config actionMsg
+                                        onActionMsg_ : Maybe userMsg
+                                        onActionMsg_ =
+                                            actionData |> Maybe.andThen config.onActionData
+                                    in
+                                    ( { updatedModel_
+                                        | ariaNavigationAnnouncement = mainView config updatedModel_ |> .title
+                                        , currentPath = pendingUrl.path
+                                      }
+                                    , if not isSubmission_ && not stayingOnSamePath_ then
+                                        Batch [ ScrollToTop, userEffect_ ]
 
-                                                        Nothing ->
-                                                            identity
-                                                   )
+                                      else
+                                        userEffect_
+                                    )
+                                        |> (case onActionMsg_ of
+                                                Just actionMsg_ ->
+                                                    withUserMsg config actionMsg_
 
-                                        ResponseSketch.HotUpdate pageData sharedData actionData ->
-                                            let
-                                                stayingOnSamePath_ : Bool
-                                                stayingOnSamePath_ =
-                                                    pendingUrl.path == model.url.path
+                                                Nothing ->
+                                                    identity
+                                           )
 
-                                                isSubmission_ : Bool
-                                                isSubmission_ =
-                                                    case model.transition of
-                                                        Just ( _, Pages.Navigation.Submitting _ ) ->
-                                                            True
-
-                                                        _ ->
-                                                            False
-
-                                                updatedPageData_ : { userModel : userModel, sharedData : sharedData, actionData : Maybe actionData, pageData : pageData }
-                                                updatedPageData_ =
-                                                    { userModel = userModel_
-                                                    , sharedData = sharedData
-                                                    , pageData = pageData
-                                                    , actionData = actionData
-                                                    }
-
-                                                ( userModel_, userEffect_ ) =
-                                                    if stayingOnSamePath_ then
-                                                        ( previousPageData.userModel, NoEffect )
-
-                                                    else
-                                                        config.update model.pageFormState
-                                                            (model.inFlightFetchers |> toFetcherState)
-                                                            (model.transition |> Maybe.map Tuple.second)
-                                                            sharedData
-                                                            pageData
-                                                            model.key
-                                                            (config.onPageChange
-                                                                { protocol = model.url.protocol
-                                                                , host = model.url.host
-                                                                , port_ = model.url.port_
-                                                                , path = urlPathToPath pendingUrl
-                                                                , query = pendingUrl.query
-                                                                , fragment = pendingUrl.fragment
-                                                                , metadata = config.urlToRoute pendingUrl
-                                                                }
-                                                            )
-                                                            previousPageData.userModel
-                                                            |> Tuple.mapSecond UserCmd
-
-                                                updatedModel_ : Model userModel pageData actionData sharedData
-                                                updatedModel_ =
-                                                    { clearedModel
-                                                        | url = pendingUrl
-                                                        , pageData = Ok updatedPageData_
-                                                        , transition = Nothing
-                                                    }
-
-                                                onActionMsg_ : Maybe userMsg
-                                                onActionMsg_ =
-                                                    actionData |> Maybe.andThen config.onActionData
-                                            in
-                                            ( { updatedModel_
-                                                | ariaNavigationAnnouncement = mainView config updatedModel_ |> .title
-                                                , currentPath = pendingUrl.path
-                                              }
-                                            , if not isSubmission_ && not stayingOnSamePath_ then
-                                                Batch [ ScrollToTop, userEffect_ ]
-
-                                              else
-                                                userEffect_
-                                            )
-                                                |> (case onActionMsg_ of
-                                                        Just actionMsg_ ->
-                                                            withUserMsg config actionMsg_
-
-                                                        Nothing ->
-                                                            identity
-                                                   )
-
-                                        _ ->
-                                            ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
-
-                                Nothing ->
-                                    -- Decode failed
+                                _ ->
                                     ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
 
                         Nothing ->
-                            -- Base64 decode failed
+                            -- Bytes decode failed
+                            ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
+
+                ( Just pageDataBytes, Just pendingUrl, Err _ ) ->
+                    -- Initial page load — page data arriving via port
+                    let
+                        pageDataResult : Maybe (InitKind sharedData pageData actionData errorPage)
+                        pageDataResult =
+                            case Bytes.Decode.decode config.decodeResponse pageDataBytes of
+                                Just (ResponseSketch.RenderPage _ _) ->
+                                    Nothing
+
+                                Just (ResponseSketch.HotUpdate pageData shared actionData) ->
+                                    OkPage shared pageData actionData
+                                        |> Just
+
+                                Just (ResponseSketch.NotFound notFound) ->
+                                    NotFound notFound
+                                        |> Just
+
+                                _ ->
+                                    Nothing
+                    in
+                    case pageDataResult of
+                        Just (OkPage sharedData pageData actionData) ->
+                            let
+                                urls : { currentUrl : Url, basePath : List String }
+                                urls =
+                                    { currentUrl = model.url
+                                    , basePath = config.basePath
+                                    }
+
+                                pagePath : UrlPath
+                                pagePath =
+                                    urlsToPagePath urls
+
+                                userFlags : Pages.Flags.Flags
+                                userFlags =
+                                    model.userFlags
+                                        |> Decode.decodeValue
+                                            (Decode.field "userFlags" Decode.value)
+                                        |> Result.withDefault Json.Encode.null
+                                        |> Pages.Flags.BrowserFlags
+
+                                ( userModel, userCmd ) =
+                                    Just
+                                        { path =
+                                            { path = pagePath
+                                            , query = model.url.query
+                                            , fragment = model.url.fragment
+                                            }
+                                        , metadata = config.urlToRoute model.url
+                                        , pageUrl =
+                                            Just
+                                                { protocol = model.url.protocol
+                                                , host = model.url.host
+                                                , port_ = model.url.port_
+                                                , path = pagePath
+                                                , query = model.url.query |> Maybe.map QueryParams.fromString |> Maybe.withDefault Dict.empty
+                                                , fragment = model.url.fragment
+                                                }
+                                        }
+                                        |> config.init userFlags sharedData pageData actionData
+
+                                initialModel : Model userModel pageData actionData sharedData
+                                initialModel =
+                                    { model
+                                        | pageData =
+                                            Ok
+                                                { userModel = userModel
+                                                , sharedData = sharedData
+                                                , pageData = pageData
+                                                , actionData = actionData
+                                                }
+                                        , notFound = Nothing
+                                        , pendingFrozenViewsUrl = Nothing
+                                    }
+                            in
+                            ( { initialModel
+                                | ariaNavigationAnnouncement = mainView config initialModel |> .title
+                              }
+                            , UserCmd userCmd
+                            )
+
+                        Just (NotFound info) ->
+                            ( { model
+                                | pageData = Err "Not found"
+                                , ariaNavigationAnnouncement = "Page Not Found"
+                                , notFound = Just info
+                                , pendingFrozenViewsUrl = Nothing
+                              }
+                            , NoEffect
+                            )
+
+                        _ ->
                             ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
 
                 _ ->
-                    -- No page data, no pending path, or page not loaded - just clear the pending flag
+                    -- No page data, no pending path - just clear the pending flag
                     ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
 
         NoOp ->
@@ -1480,27 +1435,10 @@ application config =
         , subscriptions =
             \model ->
                 let
-                    fromJsSub : Sub (Msg userMsg pageData actionData sharedData errorPage)
-                    fromJsSub =
-                        config.fromJsPort
-                            |> Sub.map
-                                (\json ->
-                                    case Decode.decodeValue (Decode.field "tag" Decode.string) json of
-                                        Ok "FrozenViewsReady" ->
-                                            let
-                                                pageDataBase64 : Maybe String
-                                                pageDataBase64 =
-                                                    Decode.decodeValue
-                                                        (Decode.field "pageDataBase64" (Decode.nullable Decode.string))
-                                                        json
-                                                        |> Result.withDefault Nothing
-                                            in
-                                            FrozenViewsReady pageDataBase64
-
-                                        _ ->
-                                            -- Ignore unknown messages
-                                            NoOp
-                                )
+                    pageDataSub : Sub (Msg userMsg pageData actionData sharedData errorPage)
+                    pageDataSub =
+                        config.pageDataFromJs
+                            |> Sub.map (\bytes -> FrozenViewsReady (Just bytes))
                 in
                 case model.pageData of
                     Ok pageData ->
@@ -1516,14 +1454,14 @@ application config =
                                 |> Sub.map (Pages.Internal.Msg.UserMsg >> UserMsg)
                             , config.hotReloadData
                                 |> Sub.map HotReloadCompleteNew
-                            , fromJsSub
+                            , pageDataSub
                             ]
 
                     Err _ ->
                         Sub.batch
                             [ config.hotReloadData
                                 |> Sub.map HotReloadCompleteNew
-                            , fromJsSub
+                            , pageDataSub
                             ]
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked

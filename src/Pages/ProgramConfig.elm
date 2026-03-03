@@ -79,6 +79,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , fromJsPort : Sub Decode.Value
     , gotBatchSub : Sub (List { key : String, json : Decode.Value, bytes : Maybe Bytes })
     , hotReloadData : Sub Bytes
+    , pageDataFromJs : Sub Bytes
     , onPageChange :
         { protocol : Url.Protocol
         , host : String

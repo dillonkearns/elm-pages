@@ -104,7 +104,6 @@ For production builds, the default caching will ignore both the implicit and exp
 -}
 
 import BackendTask exposing (BackendTask)
-import Base64
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Dict exposing (Dict)
@@ -193,11 +192,19 @@ avoids any possibility of boundary collisions with part content.
 -}
 multipartBody : List Part -> Body
 multipartBody parts =
-    Body.MultipartBody (List.map encodePart parts)
+    let
+        encodedParts =
+            List.indexedMap encodePart parts
+
+        bytesParts =
+            List.indexedMap extractPartBytes parts
+                |> List.filterMap identity
+    in
+    Body.MultipartBody encodedParts bytesParts
 
 
-encodePart : Part -> Encode.Value
-encodePart part =
+encodePart : Int -> Part -> Encode.Value
+encodePart index part =
     case part of
         StringPart name value ->
             Encode.object
@@ -211,11 +218,7 @@ encodePart part =
                 [ ( "type", Encode.string "bytes" )
                 , ( "name", Encode.string name )
                 , ( "mimeType", Encode.string mimeType )
-                , ( "content"
-                  , Base64.fromBytes bytes
-                        |> Maybe.withDefault ""
-                        |> Encode.string
-                  )
+                , ( "content", Encode.int (Bytes.width bytes) )
                 ]
 
         BytesPartWithFilename name mimeType filename bytes ->
@@ -224,12 +227,21 @@ encodePart part =
                 , ( "name", Encode.string name )
                 , ( "mimeType", Encode.string mimeType )
                 , ( "filename", Encode.string filename )
-                , ( "content"
-                  , Base64.fromBytes bytes
-                        |> Maybe.withDefault ""
-                        |> Encode.string
-                  )
+                , ( "content", Encode.int (Bytes.width bytes) )
                 ]
+
+
+extractPartBytes : Int -> Part -> Maybe ( String, Bytes )
+extractPartBytes index part =
+    case part of
+        BytesPart _ _ bytes ->
+            Just ( String.fromInt index, bytes )
+
+        BytesPartWithFilename _ _ _ bytes ->
+            Just ( String.fromInt index, bytes )
+
+        _ ->
+            Nothing
 
 
 {-| Builds a string body for a BackendTask.Http request. See [elm/http's `Http.stringBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#stringBody).
@@ -653,7 +665,7 @@ requestRaw request__ expect =
                                                         , statusText = response.statusText
                                                         , headers = response.headers
                                                         }
-                                                        (Base64.fromBytes bytes |> Maybe.withDefault "")
+                                                        ("<" ++ String.fromInt (Bytes.width bytes) ++ " bytes>")
                                                         |> Just
 
                                                 RequestsAndPending.JsonBody value ->

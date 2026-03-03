@@ -1,6 +1,5 @@
 module RequestsAndPending exposing (HttpError(..), RawResponse, RequestsAndPending, Response(..), ResponseBody(..), bodyEncoder, empty, get, responseDecoder)
 
-import Base64
 import Bytes exposing (Bytes)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder)
@@ -46,18 +45,7 @@ bodyDecoder maybeBytes =
                                 Decode.succeed (BytesBody b)
 
                             Nothing ->
-                                Decode.field "body"
-                                    (Decode.string
-                                        |> Decode.andThen
-                                            (\base64String ->
-                                                case Base64.toBytes base64String of
-                                                    Just bytes ->
-                                                        Decode.succeed (BytesBody bytes)
-
-                                                    Nothing ->
-                                                        Decode.fail "Couldn't parse base64 string into Bytes."
-                                            )
-                                    )
+                                Decode.fail "Bytes responses must be sent through the port's bytes field."
 
                     "string" ->
                         Decode.field "body" (Decode.string |> Decode.map StringBody)

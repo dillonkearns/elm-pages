@@ -228,10 +228,9 @@ perform site renderRequest config effect =
 
                 bytesPayloads =
                     requestsWithHashes
-                        |> List.filterMap
+                        |> List.concatMap
                             (\( hash, request ) ->
-                                Pages.Internal.StaticHttpBody.extractBytes request.body
-                                    |> Maybe.map (\bytes -> { key = hash, data = bytes })
+                                Pages.Internal.StaticHttpBody.extractAllBytes hash request.body
                             )
 
                 jsonPayload =
@@ -633,12 +632,20 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                     in
                                                                                     toRedirectResponse config serverRequestPayload includeHtml serverResponse responseMetadata
                                                                                         |> Maybe.withDefault
-                                                                                            ({ body = serverResponse |> PageServerResponse.toJson
-                                                                                             , staticHttpCache = Dict.empty
-                                                                                             , statusCode = serverResponse.statusCode
-                                                                                             }
-                                                                                                |> ToJsPayload.SendApiResponse
-                                                                                                |> Effect.SendSinglePage
+                                                                                            (let
+                                                                                                apiResponse =
+                                                                                                    { body = serverResponse |> PageServerResponse.toJson
+                                                                                                    , staticHttpCache = Dict.empty
+                                                                                                    , statusCode = serverResponse.statusCode
+                                                                                                    }
+                                                                                                        |> ToJsPayload.SendApiResponse
+                                                                                             in
+                                                                                             case serverResponse.bodyBytes of
+                                                                                                Just rawBytes ->
+                                                                                                    Effect.SendSinglePageNew rawBytes apiResponse
+
+                                                                                                Nothing ->
+                                                                                                    Effect.SendSinglePage apiResponse
                                                                                             )
 
                                                                                 PageServerResponse.ErrorPage error record ->

@@ -142,6 +142,8 @@ otherFile routes phaseString routesWithEphemeral =
                         applyIdentityTo (Elm.val "gotBatchSub")
             , hotReloadData =
                 applyIdentityTo (Elm.val "hotReloadData")
+            , pageDataFromJs =
+                applyIdentityTo (Elm.val "pageDataFromJs")
             , onPageChange = Elm.val "OnPageChange"
             , apiRoutes =
                 Elm.fn (Elm.Arg.var "htmlToString")
@@ -2255,6 +2257,8 @@ otherFile routes phaseString routesWithEphemeral =
         , decodeResponse.declaration
         , Elm.portIncoming "hotReloadData"
             Gen.Bytes.annotation_.bytes
+        , Elm.portIncoming "pageDataFromJs"
+            Gen.Bytes.annotation_.bytes
         , Elm.portOutgoing "toJsPort"
             (Type.record
                 [ ( "json", Gen.Json.Encode.annotation_.value )
@@ -2464,6 +2468,7 @@ make_ :
     , fromJsPort : Elm.Expression
     , gotBatchSub : Elm.Expression
     , hotReloadData : Elm.Expression
+    , pageDataFromJs : Elm.Expression
     , onPageChange : Elm.Expression
     , apiRoutes : Elm.Expression
     , pathPatterns : Elm.Expression
@@ -2509,6 +2514,9 @@ make_ programConfig_args =
         , Tuple.pair
             "hotReloadData"
             programConfig_args.hotReloadData
+        , Tuple.pair
+            "pageDataFromJs"
+            programConfig_args.pageDataFromJs
         , Tuple.pair "onPageChange" programConfig_args.onPageChange
         , Tuple.pair "apiRoutes" programConfig_args.apiRoutes
         , Tuple.pair "pathPatterns" programConfig_args.pathPatterns
