@@ -1,7 +1,7 @@
 module FilePath exposing
     ( FilePath
     , fromString, relative, absolute
-    , toString, toPosixString, toWindowsString
+    , toString
     , segments, isAbsolute
     , append, join
     , dirname, filename, filenameWithoutExtension, extension
@@ -17,7 +17,7 @@ implementation details.
 
 @docs fromString, relative, absolute
 
-@docs toString, toPosixString, toWindowsString
+@docs toString
 
 @docs segments, isAbsolute
 
@@ -103,27 +103,6 @@ toString : FilePath -> String
 toString (FilePath rawPath) =
     rawPath
 
-
-{-| Convert a path to a POSIX-style string.
--}
-toPosixString : FilePath -> String
-toPosixString =
-    toString
-
-
-{-| Convert a path to a Windows-style string (`\\` separators).
--}
-toWindowsString : FilePath -> String
-toWindowsString filePath =
-    toString filePath
-        |> String.map
-            (\char ->
-                if char == '/' then
-                    '\\'
-
-                else
-                    char
-            )
 
 
 {-| Return path segments without root markers.
