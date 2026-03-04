@@ -378,6 +378,57 @@ view users =
     ]);
   });
 
+  it("excludes helper importers when helper module is excluded by unsupported route usage", async () => {
+    const projectDir = createTempProject(["app", "lib"]);
+    writeProjectFile(
+      projectDir,
+      "app/Route/Index.elm",
+      `module Route.Index exposing (view)
+
+import Ui.FrozenHelper as FrozenHelper
+
+view users =
+    users |> List.map FrozenHelper.summaryCard
+`
+    );
+    writeProjectFile(
+      projectDir,
+      "app/Shared.elm",
+      `module Shared exposing (view)
+
+import Ui.FrozenHelper as FrozenHelper
+
+view =
+    FrozenHelper.summaryCard { name = "Shared" }
+`
+    );
+    writeProjectFile(
+      projectDir,
+      "lib/Ui/FrozenHelper.elm",
+      `module Ui.FrozenHelper exposing (summaryCard)
+
+summaryCard user =
+    user
+`
+    );
+
+    const issue = makeIssue(
+      projectDir,
+      "app/Route/Index.elm",
+      "FrozenHelper.summaryCard"
+    );
+    const excluded = await __testHelpers.computeUnsupportedFixExclusionPaths(
+      projectDir,
+      [issue]
+    );
+
+    expect(excluded).toEqual([
+      "app/Route/Index.elm",
+      "app/Shared.elm",
+      "lib/Ui/FrozenHelper.elm",
+    ]);
+  });
+
   it("keeps only issue file when unqualified import is ambiguous", async () => {
     const projectDir = createTempProject(["app", "lib"]);
     const issuePath = "app/Route/Index.elm";

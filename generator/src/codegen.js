@@ -629,6 +629,7 @@ async function computeUnsupportedFixExclusionPaths(cwdPath, issues) {
   const sourceDirectories = await readWorkspaceSourceDirectories(cwdPath);
   const excludedPaths = new Set();
   const importingFilesCache = new Map();
+  const moduleNameByLocalPathCache = new Map();
 
   for (const issue of issues) {
     const localPath =
@@ -651,6 +652,28 @@ async function computeUnsupportedFixExclusionPaths(cwdPath, issues) {
       );
     if (referencedHelperPath) {
       excludedPaths.add(referencedHelperPath);
+
+      const helperModuleName = await readModuleNameForLocalPath(
+        cwdPath,
+        referencedHelperPath,
+        moduleNameByLocalPathCache
+      );
+      if (helperModuleName) {
+        if (!importingFilesCache.has(helperModuleName)) {
+          importingFilesCache.set(
+            helperModuleName,
+            await findImportingFilesForModule(
+              cwdPath,
+              sourceDirectories,
+              helperModuleName
+            )
+          );
+        }
+
+        for (const importingPath of importingFilesCache.get(helperModuleName) || []) {
+          excludedPaths.add(importingPath);
+        }
+      }
     }
 
     if (
@@ -677,6 +700,30 @@ async function computeUnsupportedFixExclusionPaths(cwdPath, issues) {
   }
 
   return Array.from(excludedPaths).sort();
+}
+
+/**
+ * @param {string} cwdPath
+ * @param {string} localPath
+ * @param {Map<string, string | null>} cache
+ * @returns {Promise<string | null>}
+ */
+async function readModuleNameForLocalPath(cwdPath, localPath, cache) {
+  if (cache.has(localPath)) {
+    return cache.get(localPath) || null;
+  }
+
+  const absolutePath = path.join(cwdPath, localPath);
+  let moduleName = null;
+  try {
+    const fileContent = await fs.promises.readFile(absolutePath, "utf8");
+    moduleName = parseModuleNameFromElmFile(fileContent);
+  } catch (_error) {
+    moduleName = null;
+  }
+
+  cache.set(localPath, moduleName);
+  return moduleName;
 }
 
 /**

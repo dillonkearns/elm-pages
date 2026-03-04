@@ -515,6 +515,49 @@ function assertRouteLocalMixedCallsiteFallback(caseId: string): void {
   expect(serverRoute).not.toContain("data-static");
 }
 
+function assertSharedAndRouteUnsupportedImporterFallback(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const output = relevantBuildOutput(result.stdout, result.stderr);
+  expect(output).toContain("unsupported helper usage detected");
+  expect(output).toContain(
+    "Frozen view codemod: unsupported helper function value or partial application"
+  );
+
+  const indexHtmlPath = join(result.projectDir, "dist", "index.html");
+  const contentDatPath = join(result.projectDir, "dist", "content.dat");
+  const indexHtml = readFileSync(indexHtmlPath, "utf8");
+  const contentDatBytes = readFileSync(contentDatPath);
+
+  const extractedFromHtml = extractFrozenViews(indexHtml);
+  const contentDatDecoded = parseFrozenViewsPrefixFromBytes(contentDatBytes);
+
+  // Cross-module fallback should not produce seeded frozen IDs in this matrix case.
+  expect(extractedFromHtml).toEqual({});
+  expect(contentDatDecoded.regions).toEqual({});
+
+  const clientWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "client");
+  const serverWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "server");
+  const clientShared = readFileSync(join(clientWorkspace, "app", "Shared.elm"), "utf8");
+  const serverShared = readFileSync(join(serverWorkspace, "app", "Shared.elm"), "utf8");
+  const clientRoute = readFileSync(join(clientWorkspace, "app", "Route", "Index.elm"), "utf8");
+  const serverRoute = readFileSync(join(serverWorkspace, "app", "Route", "Index.elm"), "utf8");
+  const clientHelper = readFileSync(
+    join(clientWorkspace, "app", "FrozenHelper.elm"),
+    "utf8"
+  );
+
+  expect(clientShared).toContain('FrozenHelper.summaryCard { name = "Shared A" }');
+  expect(clientShared).not.toContain('FrozenHelper.summaryCard "shared:');
+  expect(clientRoute).toContain("List.map FrozenHelper.summaryCard app.data.users");
+  expect(clientRoute).toContain('FrozenHelper.summaryCard { name = "Route static" }');
+  expect(clientRoute).not.toContain('FrozenHelper.summaryCard "');
+  expect(serverRoute).not.toContain('data-static"');
+  expect(serverShared).not.toContain('data-static"');
+  expect(clientHelper).toContain("summaryCard user =");
+}
+
 describe.sequential("frozen helper seeding CLI behavior", () => {
   const caseIds = listFixtureCaseIds();
 
@@ -608,6 +651,16 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
     () => {
       assertRouteLocalMixedCallsiteFallback(
         "matrix-route-local-helper-mixed-static-and-map"
+      );
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "matrix-shared-route-unsupported-helper-importer-fallback keeps shared/route helper callsites de-optimized",
+    () => {
+      assertSharedAndRouteUnsupportedImporterFallback(
+        "matrix-shared-route-unsupported-helper-importer-fallback"
       );
     },
     integrationTestTimeoutMs
