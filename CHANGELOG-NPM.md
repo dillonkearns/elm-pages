@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 
+- **Breaking:** Scripts now require the `lamdera` compiler. The `elm` binary is no longer supported as a fallback.
 - `elm-pages bundle-script` no longer mutates or auto-applies local DB migrations during bundling. Migrations are applied when the bundled script runs on the target machine.
 - Removed generated `Pages.Db` `*At` APIs (`getAt`, `updateAt`, `transactionAt`) in favor of connection-based DB access (`Pages.Db.open` + `Connection`).
 
