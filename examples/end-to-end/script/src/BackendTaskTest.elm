@@ -1,4 +1,4 @@
-module BackendTaskTest exposing (run, testScript)
+module BackendTaskTest exposing (describe, run, test, testScript)
 
 import Array exposing (Array)
 import BackendTask exposing (BackendTask)
@@ -13,11 +13,30 @@ import Test.Runner exposing (getFailureReason)
 import Test.Runner.Failure exposing (InvalidReason, Reason(..))
 
 
+{-| Group BackendTask-based tests under a describe label.
+-}
+describe : String -> List (BackendTask FatalError Test.Test) -> BackendTask FatalError Test.Test
+describe name tests =
+    BackendTask.sequence tests
+        |> BackendTask.map (Test.describe name)
+
+
+{-| Define a single test case. The thunk returns a BackendTask that resolves to an Expectation.
+-}
+test : String -> (() -> BackendTask FatalError Expect.Expectation) -> BackendTask FatalError Test.Test
+test name toTask =
+    BackendTask.succeed ()
+        |> BackendTask.andThen (\() -> toTask ())
+        |> BackendTask.map
+            (\expectation ->
+                Test.test name <|
+                    \() -> expectation
+            )
+
+
 testScript : String -> List (BackendTask FatalError Test.Test) -> Script
 testScript suiteName testCases =
-    testCases
-        |> BackendTask.sequence
-        |> BackendTask.map (Test.describe suiteName)
+    describe suiteName testCases
         |> run
         |> Script.withoutCliOptions
 
@@ -115,8 +134,8 @@ toFailures tests =
         resultsWithLabels : List ( String, Expectation )
         resultsWithLabels =
             List.Extra.zip
-                (tests |> List.concatMap (\test -> test.labels))
-                (tests |> List.concatMap (\test -> test.run ()))
+                (tests |> List.concatMap (\t -> t.labels))
+                (tests |> List.concatMap (\t -> t.run ()))
 
         failures : List ( String, Maybe String )
         failures =

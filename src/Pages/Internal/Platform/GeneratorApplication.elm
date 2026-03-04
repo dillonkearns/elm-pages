@@ -8,6 +8,7 @@ module Pages.Internal.Platform.GeneratorApplication exposing (Program, Flags, Mo
 
 import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
+import Bytes exposing (Bytes)
 import Cli.Program as Program exposing (FlagsIncludingArgv)
 import Codec
 import Dict
@@ -21,7 +22,9 @@ import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.Script
+import Pages.Internal.StaticHttpBody
 import Pages.StaticHttp.Request
+import RequestsAndPending
 import TerminalText as Terminal
 
 
@@ -50,7 +53,7 @@ type alias Model =
 
 {-| -}
 type Msg
-    = GotDataBatch Decode.Value
+    = GotDataBatch (List { key : String, json : Decode.Value, bytes : Maybe Bytes })
     | GotBuildError BuildError
 
 
@@ -135,9 +138,9 @@ app config =
                       }
                     ]
                     |> Codec.encodeToValue (ToJsPayload.successCodecNew2 "" "")
-                    |> config.toJsPort
+                    |> (\json -> config.toJsPort { json = json, bytes = [] })
                     |> Cmd.map never
-        , printAndExitSuccess = \string -> config.toJsPort (Encode.string string) |> Cmd.map never
+        , printAndExitSuccess = \string -> config.toJsPort { json = Encode.string string, bytes = [] } |> Cmd.map never
         }
 
 
@@ -194,14 +197,30 @@ perform config effect =
             flatten config list
 
         Effect.FetchHttp requests ->
-            requests
-                |> List.map
-                    (\request ->
-                        ( Pages.StaticHttp.Request.hash request, request )
-                    )
-                |> ToJsPayload.DoHttp
-                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
-                |> config.toJsPort
+            let
+                requestsWithHashes : List ( String, Pages.StaticHttp.Request.Request )
+                requestsWithHashes =
+                    requests
+                        |> List.map
+                            (\request ->
+                                ( Pages.StaticHttp.Request.hash request, request )
+                            )
+
+                bytesPayloads : List { key : String, data : Bytes }
+                bytesPayloads =
+                    requestsWithHashes
+                        |> List.concatMap
+                            (\( hash, request ) ->
+                                Pages.Internal.StaticHttpBody.extractAllBytes hash request.body
+                            )
+
+                jsonPayload : Encode.Value
+                jsonPayload =
+                    requestsWithHashes
+                        |> ToJsPayload.DoHttp
+                        |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
+            in
+            config.toJsPort { json = jsonPayload, bytes = bytesPayloads }
                 |> Cmd.map never
 
         Effect.SendSinglePage info ->
@@ -215,9 +234,10 @@ perform config effect =
                         _ ->
                             ""
             in
-            info
-                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
-                |> config.toJsPort
+            config.toJsPort
+                { json = info |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
+                , bytes = []
+                }
                 |> Cmd.map never
 
         Effect.SendSinglePageNew rawBytes info ->
@@ -307,7 +327,7 @@ initLegacy execute =
             , errors = []
             }
     in
-    StaticResponses.nextStep (Encode.object []) initialModel.staticResponses initialModel
+    StaticResponses.nextStep RequestsAndPending.empty initialModel.staticResponses initialModel
         |> nextStepToEffect
             initialModel
 
@@ -316,7 +336,7 @@ updateAndSendPortIfDone :
     Model
     -> ( Model, Effect )
 updateAndSendPortIfDone model =
-    StaticResponses.nextStep (Encode.object [])
+    StaticResponses.nextStep RequestsAndPending.empty
         model.staticResponses
         model
         |> nextStepToEffect model
@@ -329,7 +349,17 @@ update :
     -> ( Model, Effect )
 update msg model =
     case msg of
-        GotDataBatch batch ->
+        GotDataBatch entries ->
+            let
+                batch : RequestsAndPending.RequestsAndPending
+                batch =
+                    { json = Encode.object (List.map (\e -> ( e.key, e.json )) entries)
+                    , rawBytes =
+                        entries
+                            |> List.filterMap (\e -> Maybe.map (\b -> ( e.key, b )) e.bytes)
+                            |> Dict.fromList
+                    }
+            in
             StaticResponses.nextStep batch
                 model.staticResponses
                 model
@@ -344,7 +374,7 @@ update msg model =
                             buildError :: model.errors
                     }
             in
-            StaticResponses.nextStep (Encode.object [])
+            StaticResponses.nextStep RequestsAndPending.empty
                 updatedModel.staticResponses
                 updatedModel
                 |> nextStepToEffect updatedModel

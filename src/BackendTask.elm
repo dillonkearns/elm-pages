@@ -2,11 +2,12 @@ module BackendTask exposing
     ( BackendTask
     , map, succeed, fail
     , fromResult
-    , andThen, resolve, combine
+    , andThen, and, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
     , allowFatal, mapError, onError, toResult
     , do, doEach, sequence, failIf
+    , finally
     , inDir, quiet, withEnv
     )
 
@@ -75,7 +76,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 ## Chaining Requests
 
-@docs andThen, resolve, combine
+@docs andThen, and, resolve, combine
 
 @docs andMap
 
@@ -86,6 +87,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 @docs allowFatal, mapError, onError, toResult
 
+@docs finally
 
 ## Scripting
 
@@ -110,9 +112,9 @@ of a `BackendTask` at any point before you pass it to and it will be applied whe
 
 import Dict
 import FatalError exposing (FatalError)
-import Json.Encode
 import List.Chunks
 import Pages.StaticHttpRequest exposing (RawRequest(..))
+import RequestsAndPending
 
 
 {-| A BackendTask represents data that will be gathered at build time. Multiple `BackendTask`s can be combined together using the `mapN` functions,
@@ -509,7 +511,7 @@ andThen fn requestInfo =
 
         Request urls lookupFn ->
             if List.isEmpty urls then
-                andThen fn (lookupFn Nothing (Json.Encode.object []))
+                andThen fn (lookupFn Nothing RequestsAndPending.empty)
 
             else
                 Request urls
@@ -517,6 +519,29 @@ andThen fn requestInfo =
                         lookupFn maybeMockResolver responses
                             |> andThen fn
                     )
+
+
+{-| Chain two `BackendTask`s sequentially.
+The task on the left side of `|>` runs first. If it succeeds, `next` runs.
+The left-side result is discarded.
+
+Analogous to `&&` in shell scripts.
+
+Use `andThen` when you need the previous result, `and` when you just need sequencing.
+
+    step1
+        |> BackendTask.and step2
+    -- equivalent to: step1 |> BackendTask.andThen (\_ -> step2)
+
+    createSnapshot n typesContent
+        |> BackendTask.and (rewriteMigrationImports n)
+        |> BackendTask.and (createMigrationStub n k)
+        |> BackendTask.and (writeSchemaVersion k)
+
+-}
+and : BackendTask error b -> BackendTask error a -> BackendTask error b
+and next previous =
+    previous |> andThen (\_ -> next)
 
 
 {-| -}
@@ -537,7 +562,7 @@ onError fromError backendTask =
 
         Request urls lookupFn ->
             if List.isEmpty urls then
-                onError fromError (lookupFn Nothing (Json.Encode.object []))
+                onError fromError (lookupFn Nothing RequestsAndPending.empty)
 
             else
                 Request urls
@@ -776,3 +801,33 @@ failIf condition fatalError =
 
     else
         succeed ()
+
+
+{-| Run a cleanup task after the main task completes, regardless of whether the main task succeeded or failed.
+If cleanup fails, its error is propagated.
+
+When both the main task and cleanup fail, the cleanup error takes precedence (matching `try/finally` behavior in many languages).
+
+This is useful for resource cleanup, similar to `try/finally` in other languages or `trap cleanup EXIT` in bash.
+
+    import BackendTask exposing (BackendTask)
+    import Pages.Script as Script
+
+    Script.makeTempDirectory "build-"
+        |> BackendTask.andThen
+            (\tmpDir ->
+                doWork tmpDir
+                    |> BackendTask.finally
+                        (Script.removeDirectory { recursive = True } tmpDir)
+            )
+
+-}
+finally : BackendTask error () -> BackendTask error a -> BackendTask error a
+finally cleanup task =
+    task
+        |> toResult
+        |> andThen
+            (\result ->
+                cleanup
+                    |> andThen (\() -> fromResult result)
+            )

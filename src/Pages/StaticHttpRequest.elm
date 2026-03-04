@@ -2,7 +2,6 @@ module Pages.StaticHttpRequest exposing (Error(..), MockResolver, RawRequest(..)
 
 import BuildError exposing (BuildError)
 import FatalError exposing (FatalError)
-import Json.Encode
 import Pages.Internal.FatalError
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
@@ -67,7 +66,7 @@ mockResolve onInternalError request mockResolver =
             let
                 nextRequest : RawRequest error value
                 nextRequest =
-                    lookupFn (Just mockResolver) (Json.Encode.object [])
+                    lookupFn (Just mockResolver) RequestsAndPending.empty
             in
             mockResolve onInternalError nextRequest mockResolver
 

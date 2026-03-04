@@ -16,6 +16,7 @@ import {
   requireElm,
   printCaughtError,
 } from "./shared.js";
+import { scriptUsesPagesDb } from "../db-usage.js";
 
 export async function run(elmModulePath, options, options2) {
   if (elmModulePath === "--help" || elmModulePath === "-h") {
@@ -29,7 +30,15 @@ export async function run(elmModulePath, options, options2) {
   try {
     const { moduleName, projectDirectory, sourceDirectory } =
       await resolveInputPathOrModuleName(elmModulePath);
-    await compileElmForScript(elmModulePath, { moduleName, projectDirectory, sourceDirectory });
+
+    // Detect if this script uses the built-in database directly or transitively.
+    const usesDb = await scriptUsesPagesDb({
+      projectDirectory,
+      sourceDirectory,
+      entryModuleName: moduleName,
+    });
+
+    await compileElmForScript(elmModulePath, { moduleName, projectDirectory, sourceDirectory }, { usesDb });
 
     // Check if custom-backend-task needs recompilation
     const portsCheck = await needsPortsRecompilation(projectDirectory);

@@ -9,7 +9,7 @@ import { fileURLToPath } from "url";
 import { rewriteElmJson } from "./rewrite-elm-json-help.js";
 import { ensureDirSync } from "./file-helpers.js";
 import { patchFrozenViews } from "./frozen-view-codemod.js";
-import { lamderaOrElmFallback } from "./commands/shared.js";
+import { requireLamdera } from "./commands/shared.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -143,14 +143,13 @@ return forceThunks(html);
  */
 async function compileElm(options, elmEntrypointPath, outputPath, cwd) {
   await spawnElmMake(options, elmEntrypointPath, outputPath, cwd);
-  if (!options.debug) {
-    // TODO maybe pass in a boolean argument for whether it's build or dev server, and only do eol2 for build
-    // await elmOptimizeLevel2(outputPath, cwd);
+  if (options.optimize) {
+    await elmOptimizeLevel2(outputPath, cwd);
   }
 }
 
 async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
-  const executableName = await lamderaOrElmFallback();
+  const executableName = await requireLamdera();
   try {
     await fsPromises.unlink(outputPath);
   } catch (e) {
@@ -165,8 +164,8 @@ async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
         elmEntrypointPath,
         "--output",
         outputPath,
-        // TODO use --optimize for prod build
         ...(options.debug ? ["--debug"] : []),
+        ...(options.optimize ? ["--optimize"] : []),
         "--report",
         "json",
       ],
@@ -207,7 +206,7 @@ async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
  * @param {{ debug: boolean; }} options
  */
 async function runElm(options, elmEntrypointPath, outputPath, cwd) {
-  const executableName = await lamderaOrElmFallback();
+  const executableName = await requireLamdera();
   const startTime = Date.now();
   return new Promise((resolve, reject) => {
     const child = spawnCallback(
@@ -373,7 +372,6 @@ function elmOptimizeLevel2(outputPath, cwd) {
     subprocess.on("close", async (code) => {
       if (
         code === 0 &&
-        commandOutput === "" &&
         (await fsHelpers.fileExists(optimizedOutputPath))
       ) {
         await fs.promises.copyFile(optimizedOutputPath, outputPath);

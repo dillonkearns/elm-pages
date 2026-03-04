@@ -161,3 +161,9 @@ You can compile your script (options parsing and all) to a single minified and o
 ```shell
 elm-pages bundle-script script/src/Stars.elm
 ```
+
+## Local DB in Scripts
+
+`elm-pages` Scripts can also use a typed local database with `Pages.Db`, including runtime migrations for bundled scripts.
+
+See [Local DB in `elm-pages` Scripts](/docs/elm-pages-scripts-db) for the full flow.

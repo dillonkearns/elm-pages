@@ -1,5 +1,6 @@
 module PageServerResponse exposing (PageServerResponse(..), Response, toJson, toRedirect)
 
+import Bytes exposing (Bytes)
 import Dict
 import Json.Encode
 import List.Extra
@@ -39,6 +40,7 @@ type alias Response =
     { statusCode : Int
     , headers : List ( String, String )
     , body : Maybe String
+    , bodyBytes : Maybe Bytes
     , isBase64Encoded : Bool
     }
 

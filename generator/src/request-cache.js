@@ -9,21 +9,17 @@ const defaultHttpCachePath = "./.elm-pages/http-cache";
 
 /**
  * @param {string} mode
- * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body; }} rawRequest
+ * @param {{url: string; headers: {[x: string]: string;}; method: string; body: Body; quiet: boolean; }} rawRequest
  * @param {Record<string, unknown>} portsFile
  * @returns {Promise<Response>}
  */
-export function lookupOrPerform(
-  portsFile,
-  mode,
-  rawRequest
-) {
+export function lookupOrPerform(portsFile, mode, rawRequest) {
   const uniqueTimeId =
     Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  const timeStart = (message) => {
+  const timeStart = (/** @type {string} */ message) => {
     !rawRequest.quiet && console.time(`${message} ${uniqueTimeId}`);
   };
-  const timeEnd = (message) => {
+  const timeEnd = (/** @type {string} */ message) => {
     !rawRequest.quiet && console.timeEnd(`${message} ${uniqueTimeId}`);
   };
   const makeFetchHappen = makeFetchHappenOriginal.defaults({
@@ -157,7 +153,7 @@ export function lookupOrPerform(
           // Use built-in fetch with FormData for streaming multipart
           // bodies — no intermediate Buffer, and the boundary is
           // generated automatically by undici.
-          const formData = partsToFormData(rawRequest.body.args[0]);
+          const formData = partsToFormData(rawRequest.body.args[0], rawRequest.__multipartBytes);
           const elmHeaders = Object.fromEntries(rawRequest.headers);
           response = await fetch(request.url, {
             method: request.method,
@@ -180,7 +176,7 @@ export function lookupOrPerform(
         }
 
         timeEnd(`fetch ${request.url}`);
-        const { body, bodyKind } = await readResponseBody(
+        const { body, bodyKind, rawBytes } = await readResponseBody(
           response,
           request.headers["elm-pages-internal"]
         );
@@ -195,6 +191,7 @@ export function lookupOrPerform(
             url: response.url,
             statusText: response.statusText,
           },
+          rawBytes: rawBytes || null,
         });
       } catch (error) {
         if (error.code === "ECONNREFUSED") {
@@ -260,13 +257,17 @@ function toRequest(elmRequest) {
     url: elmRequest.url,
     method: elmRequest.method,
     headers,
-    body: toBody(elmRequest.body),
+    body: toBody(elmRequest.body, elmRequest.__rawBytes),
   };
 }
 /**
  * @param {Body} body
  */
-function toBody(body) {
+/**
+ * @param {Body} body
+ * @param {Buffer} [rawBytes] - Raw bytes from port, used instead of base64 for BytesBody
+ */
+function toBody(body, rawBytes) {
   switch (body.tag) {
     case "EmptyBody": {
       return null;
@@ -275,7 +276,8 @@ function toBody(body) {
       return body.args[1];
     }
     case "BytesBody": {
-      return Buffer.from(body.args[1], "base64");
+      // Prefer raw bytes from port if available (avoids base64 decode)
+      return rawBytes || Buffer.from(body.args[1], "base64");
     }
     case "JsonBody": {
       return JSON.stringify(body.args[0]);
@@ -309,26 +311,41 @@ function toContentType(body) {
  * @param {Array<{type: string, name: string, value?: string, mimeType?: string, filename?: string, content?: string}>} parts
  * @returns {FormData}
  */
-function partsToFormData(parts) {
+function partsToFormData(parts, multipartBytes) {
   const formData = new FormData();
-  for (const part of parts) {
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
     switch (part.type) {
       case "string":
         formData.append(part.name, part.value);
         break;
-      case "bytes":
+      case "bytes": {
+        const buf = multipartBytes?.get(i);
+        if (!buf) {
+          throw new Error(`Missing raw bytes for multipart part ${i}`);
+        }
         formData.append(
           part.name,
-          new Blob([Buffer.from(part.content, "base64")], { type: part.mimeType })
+          new Blob([buf], {
+            type: part.mimeType,
+          })
         );
         break;
-      case "bytesWithFilename":
+      }
+      case "bytesWithFilename": {
+        const buf = multipartBytes?.get(i);
+        if (!buf) {
+          throw new Error(`Missing raw bytes for multipart part ${i}`);
+        }
         formData.append(
           part.name,
-          new Blob([Buffer.from(part.content, "base64")], { type: part.mimeType }),
+          new Blob([buf], {
+            type: part.mimeType,
+          }),
           part.filename
         );
         break;
+      }
     }
   }
   return formData;
@@ -347,12 +364,18 @@ async function readResponseBody(response, expectString) {
     } catch (error) {
       return { body: buf.toString("utf8"), bodyKind: "string" };
     }
-  } else if (expectString === "ExpectBytes" || expectString === "ExpectBytesResponse") {
+  } else if (
+    expectString === "ExpectBytes" ||
+    expectString === "ExpectBytesResponse"
+  ) {
     const buf = await responseBuffer(response);
-    return { body: buf.toString("base64"), bodyKind: "bytes" };
+    return { body: null, bodyKind: "bytes", rawBytes: buf };
   } else if (expectString === "ExpectWhatever") {
     return { body: null, bodyKind: "whatever" };
-  } else if (expectString === "ExpectResponse" || expectString === "ExpectString") {
+  } else if (
+    expectString === "ExpectResponse" ||
+    expectString === "ExpectString"
+  ) {
     return { body: await response.text(), bodyKind: "string" };
   } else {
     throw `Unexpected expectString ${expectString}`;

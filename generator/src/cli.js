@@ -106,7 +106,11 @@ async function main() {
     .description("bundle an elm-pages script")
     .option(
       "--debug",
-      "Skip elm-optimize-level-2 and run elm make with --debug"
+      "Run elm make with --debug (skip optimizations)"
+    )
+    .option(
+      "--optimize",
+      "Run elm make with --optimize and apply elm-optimize-level-2"
     )
     .option(
       "--output <path>",
@@ -135,6 +139,38 @@ async function main() {
     .action(async (options) => {
       const { run } = await import("./commands/docs.js");
       await run(options);
+    });
+
+  const dbCommand = program
+    .command("db")
+    .description("manage the local elm-pages database");
+
+  dbCommand
+    .command("init")
+    .description("generate a boilerplate Db.elm module")
+    .action(async () => {
+      const { init } = await import("./commands/db.js");
+      await init();
+    });
+
+  dbCommand
+    .command("status")
+    .description("show database status and schema compatibility")
+    .action(async () => {
+      const { status } = await import("./commands/db.js");
+      await status();
+    });
+
+  dbCommand
+    .command("migrate")
+    .description("create or apply database migrations")
+    .option(
+      "--force-stale-snapshot",
+      "allow snapshotting current Db.elm even when it differs from db.bin at the same schema version"
+    )
+    .action(async (options) => {
+      const { migrate } = await import("./commands/db.js");
+      await migrate(options);
     });
 
   program.parse(process.argv);

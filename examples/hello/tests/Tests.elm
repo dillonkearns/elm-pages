@@ -1,18 +1,16 @@
 module Tests exposing (suite)
 
-import Base64
+import Bytes exposing (Bytes)
 import Bytes.Encode
 import Expect
 import Json.Encode as Encode
 import Main exposing (config)
 import PageServerResponse
-import Pages.Flags exposing (Flags(..))
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform as Platform
 import Pages.Internal.ResponseSketch as ResponseSketch
 import Pages.StaticHttp.Request
 import Pages.StaticHttpRequest
-import Path
 import ProgramTest
 import RequestsAndPending
 import Route
@@ -20,9 +18,10 @@ import Shared
 import SimulatedEffect.Cmd
 import SimulatedEffect.Navigation
 import SimulatedEffect.Task
-import Test exposing (Test, describe, only, test)
+import Test exposing (Test, describe, test)
 import Test.Html.Selector exposing (text)
 import Url exposing (Url)
+import UrlPath
 
 
 suite : Test
@@ -78,14 +77,6 @@ type alias BackendTaskSimulator =
     Pages.StaticHttp.Request.Request -> Maybe RequestsAndPending.Response
 
 
-start :
-    String
-    -> BackendTaskSimulator
-    ->
-        ProgramTest.ProgramTest
-            (Platform.Model Main.Model Main.PageData Shared.Data)
-            (Platform.Msg Main.Msg Main.PageData Shared.Data)
-            (Platform.Effect Main.Msg Main.PageData Shared.Data)
 start initialPath backendTaskSimulator =
     let
         resolvedSharedData : Shared.Data
@@ -94,29 +85,6 @@ start initialPath backendTaskSimulator =
                 Shared.template.data
                 backendTaskSimulator
                 |> expectOk
-
-        flagsWithData =
-            Encode.object
-                [ ( "pageDataBase64"
-                  , (case initialRouteNotFoundReason of
-                        Just notFoundReason ->
-                            { reason = notFoundReason
-                            , path = Path.fromString initialPath
-                            }
-                                |> ResponseSketch.NotFound
-
-                        Nothing ->
-                            ResponseSketch.HotUpdate
-                                responseSketchData
-                                resolvedSharedData
-                    )
-                        |> Main.encodeResponse
-                        |> Bytes.Encode.encode
-                        |> Base64.fromBytes
-                        |> expectJust
-                        |> Encode.string
-                  )
-                ]
 
         initialRoute : Maybe Route.Route
         initialRoute =
@@ -129,13 +97,11 @@ start initialPath backendTaskSimulator =
                 backendTaskSimulator
                 |> expectOk
 
-        newDataMock : Result Pages.StaticHttpRequest.Error (PageServerResponse.PageServerResponse Main.PageData)
         newDataMock =
             Pages.StaticHttpRequest.mockResolve
                 (Main.config.data initialRoute)
                 backendTaskSimulator
 
-        responseSketchData : Main.PageData
         responseSketchData =
             case newDataMock of
                 Ok (PageServerResponse.RenderPage info newPageData) ->
@@ -143,13 +109,38 @@ start initialPath backendTaskSimulator =
 
                 _ ->
                     Debug.todo "Unhandled"
+
+        pageDataBytes : Bytes
+        pageDataBytes =
+            (case initialRouteNotFoundReason of
+                Just notFoundReason ->
+                    { reason = notFoundReason
+                    , path = UrlPath.fromString initialPath
+                    }
+                        |> ResponseSketch.NotFound
+
+                Nothing ->
+                    ResponseSketch.HotUpdate
+                        responseSketchData
+                        resolvedSharedData
+                        Nothing
+            )
+                |> Main.config.encodeResponse
+                |> Bytes.Encode.encode
     in
     ProgramTest.createApplication
         { onUrlRequest = Platform.LinkClicked
         , onUrlChange = Platform.UrlChanged
         , init =
             \flags url () ->
-                Platform.init Main.config flags url Nothing
+                let
+                    ( model, initEffect ) =
+                        Platform.init Main.config flags url Nothing
+
+                    ( readyModel, readyEffect ) =
+                        Platform.update Main.config (Platform.FrozenViewsReady (Just pageDataBytes)) model
+                in
+                ( readyModel, Platform.Batch [ initEffect, readyEffect ] )
         , update =
             \msg model ->
                 Platform.update Main.config msg model
@@ -159,13 +150,9 @@ start initialPath backendTaskSimulator =
         }
         |> ProgramTest.withBaseUrl ("https://localhost:1234" ++ initialPath)
         |> ProgramTest.withSimulatedEffects (perform backendTaskSimulator)
-        |> ProgramTest.start flagsWithData
+        |> ProgramTest.start (Encode.object [])
 
 
-perform :
-    BackendTaskSimulator
-    -> Platform.Effect userMsg Main.PageData Shared.Data
-    -> ProgramTest.SimulatedEffect (Platform.Msg userMsg Main.PageData Shared.Data)
 perform backendTaskSimulator effect =
     case effect of
         Platform.NoEffect ->
@@ -180,53 +167,52 @@ perform backendTaskSimulator effect =
         Platform.BrowserPushUrl url ->
             SimulatedEffect.Navigation.pushUrl url
 
+        Platform.BrowserReplaceUrl _ ->
+            SimulatedEffect.Cmd.none
+
         Platform.Batch effects ->
             effects
                 |> List.map (perform backendTaskSimulator)
                 |> SimulatedEffect.Cmd.batch
 
-        Platform.FetchPageData maybeRequestInfo url toMsg ->
+        Platform.FetchFrozenViews { path } ->
             let
-                newRoute : Maybe Route.Route
                 newRoute =
-                    Main.config.urlToRoute url
+                    Main.config.urlToRoute { path = path }
 
-                newDataMock : Result Pages.StaticHttpRequest.Error (PageServerResponse.PageServerResponse Main.PageData)
                 newDataMock =
                     Pages.StaticHttpRequest.mockResolve
                         (Main.config.data newRoute)
                         backendTaskSimulator
 
-                responseSketchData : ResponseSketch.ResponseSketch Main.PageData shared
-                responseSketchData =
-                    case newDataMock of
-                        Ok (PageServerResponse.RenderPage info newPageData) ->
-                            ResponseSketch.RenderPage newPageData
+                encodedBytes =
+                    (case newDataMock of
+                        Ok (PageServerResponse.RenderPage _ newPageData) ->
+                            ResponseSketch.RenderPage newPageData Nothing
 
                         _ ->
                             Debug.todo "Unhandled"
-
-                msg : Result error ( Url, ResponseSketch.ResponseSketch Main.PageData shared )
-                msg =
-                    Ok ( url, responseSketchData )
+                    )
+                        |> Main.config.encodeResponse
+                        |> Bytes.Encode.encode
             in
-            SimulatedEffect.Task.succeed msg
-                |> SimulatedEffect.Task.perform toMsg
+            SimulatedEffect.Task.succeed (Platform.FrozenViewsReady (Just encodedBytes))
+                |> SimulatedEffect.Task.perform identity
 
-        Platform.UserCmd cmd ->
-            -- TODO need to turn this into an `Effect` defined by user - this is a temporary intermediary step to get there
-            -- TODO need to expose a way for the user to simulate their own Effect type (similar to elm-program-test's withSimulatedEffects)
+        Platform.UserCmd _ ->
             SimulatedEffect.Cmd.none
 
+        Platform.Submit _ ->
+            SimulatedEffect.Cmd.none
 
-expectJust : Maybe a -> a
-expectJust maybeValue =
-    case maybeValue of
-        Just justThing ->
-            justThing
+        Platform.SubmitFetcher _ _ _ ->
+            SimulatedEffect.Cmd.none
 
-        Nothing ->
-            Debug.todo "Expected Just but got Nothing"
+        Platform.CancelRequest _ ->
+            SimulatedEffect.Cmd.none
+
+        Platform.RunCmd _ ->
+            SimulatedEffect.Cmd.none
 
 
 expectOk : Result error a -> a

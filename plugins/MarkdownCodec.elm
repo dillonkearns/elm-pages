@@ -80,7 +80,7 @@ noteTitle filePath =
                                             )
                                         |> BackendTask.fromResult
                                 )
-                        )
+            )
             )
 
 

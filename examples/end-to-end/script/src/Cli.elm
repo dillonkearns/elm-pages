@@ -33,6 +33,7 @@ run =
                 , body = file.contents
                 }
                 |> BackendTask.allowFatal
+                |> BackendTask.map (\_ -> ())
         )
 
 

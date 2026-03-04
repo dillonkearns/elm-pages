@@ -14,6 +14,7 @@ import {
   compileElmForScript,
   printCaughtError,
 } from "./shared.js";
+import { scriptUsesPagesDb } from "../db-usage.js";
 
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,16 +22,25 @@ const __dirname = path.dirname(__filename);
 export async function run(elmModulePath, options) {
   const resolved = await resolveInputPathOrModuleName(elmModulePath);
   const { moduleName, projectDirectory, sourceDirectory } = resolved;
-  await compileElmForScript(elmModulePath, resolved);
+  const usesDb = await scriptUsesPagesDb({
+    projectDirectory,
+    sourceDirectory,
+    entryModuleName: moduleName,
+  });
+  await compileElmForScript(elmModulePath, resolved, { usesDb });
 
   const cwd = process.cwd();
   process.chdir(projectDirectory);
-  // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
+
+  if (options.debug && options.optimize) {
+    console.error("Error: --debug and --optimize cannot be used together.");
+    process.exit(1);
+  }
 
   const elmEntrypointPath = path.join(projectDirectory, "elm-stuff/elm-pages/.elm-pages/ScriptMain.elm");
   const elmOutputPath = path.join(projectDirectory, "elm-stuff/elm-pages/elm.js");
   await compileCliApp(
-    { debug: options.debug },
+    { debug: options.debug, optimize: options.optimize },
     elmEntrypointPath,
     elmOutputPath,
     path.join(projectDirectory, "elm-stuff/elm-pages"),
@@ -81,13 +91,15 @@ await(async()=>{let{dirname:e}=await import("path"),{fileURLToPath:i}=await impo
     await esbuild.build({
       format: "esm",
       platform: "node",
+      target: "node18",
       stdin: { contents: scriptRunner, resolveDir: __dirname },
       bundle: true,
-      // TODO do I need to make the outfile joined with the current working directory?
-
       outfile: path.resolve(cwd, options.output),
       external: ["node:*", ...options.external],
       minify: true,
+      legalComments: "none",
+      drop: ["debugger"],
+      charset: "utf8",
       pure: [
         "A2",
         "A3",
@@ -98,7 +110,6 @@ await(async()=>{let{dirname:e}=await import("path"),{fileURLToPath:i}=await impo
         "A8",
         "A9",
         "F2",
-        "F3",
         "F3",
         "F4",
         "F5",

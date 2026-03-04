@@ -1,9 +1,9 @@
 module Page.Slide.Number_ exposing (Data, Model, Msg, page)
 
-import Browser.Events
-import Browser.Navigation
 import BackendTask
 import BackendTask.File
+import Browser.Events
+import Browser.Navigation
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
@@ -14,7 +14,7 @@ import Markdown.Parser
 import Markdown.Renderer
 import MarkdownRenderer
 import OptimizedDecoder
-import RouteBuilder exposing (Page, App)
+import RouteBuilder exposing (App, Page)
 import Shared
 import Tailwind.Utilities as Tw
 import View exposing (View)

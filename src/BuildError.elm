@@ -1,4 +1,4 @@
-module BuildError exposing (BuildError, encode, errorToString, errorsToString, internal)
+module BuildError exposing (BuildError, encode, errorsToString, internal)
 
 import Json.Encode as Encode
 import TerminalText as Terminal

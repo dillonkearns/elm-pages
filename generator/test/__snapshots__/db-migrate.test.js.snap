@@ -1,0 +1,370 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`generateMigrateChain > four-step migration (target V4) produces correct Elm module 1`] = `
+"module MigrateChain exposing (run)
+
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import Bytes exposing (Bytes)
+import Bytes.Decode
+import Bytes.Encode
+import Db
+import Db.V1
+import Db.V2
+import Db.V3
+import Db.Migrate.V2 as MigrateV2
+import Db.Migrate.V3 as MigrateV3
+import Db.Migrate.V4 as MigrateV4
+import FatalError exposing (FatalError)
+import Json.Decode as Decode
+import Json.Encode as Encode
+import Lamdera.Wire3 as Wire
+import Pages.Script as Script exposing (Script)
+
+
+run : Script
+run =
+    Script.withoutCliOptions
+        (readDbBin
+            |> BackendTask.andThen
+                (\\{ version, bytes } ->
+                    case version of
+                        1 ->
+                            case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
+                                Just model ->
+                                    migrateFromV1 model
+
+                                Nothing ->
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Migration decode failed"
+                                            , body = "Could not decode db.bin as V1 data."
+                                            }
+                                        )
+
+                        2 ->
+                            case Wire.bytesDecode Db.V2.w3_decode_Db bytes of
+                                Just model ->
+                                    migrateFromV2 model
+
+                                Nothing ->
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Migration decode failed"
+                                            , body = "Could not decode db.bin as V2 data."
+                                            }
+                                        )
+
+                        3 ->
+                            case Wire.bytesDecode Db.V3.w3_decode_Db bytes of
+                                Just model ->
+                                    migrateFromV3 model
+
+                                Nothing ->
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Migration decode failed"
+                                            , body = "Could not decode db.bin as V3 data."
+                                            }
+                                        )
+
+                        other ->
+                            BackendTask.fail
+                                (FatalError.build
+                                    { title = "Unknown db.bin version"
+                                    , body = "db.bin is at version " ++ String.fromInt other ++ " but I only know how to migrate from versions 1-3."
+                                    }
+                                )
+                )
+        )
+
+
+migrateFromV1 : Db.V1.Db -> BackendTask FatalError ()
+migrateFromV1 model =
+    migrateFromV2 (MigrateV2.migrate model)
+
+migrateFromV2 : Db.V2.Db -> BackendTask FatalError ()
+migrateFromV2 model =
+    migrateFromV3 (MigrateV3.migrate model)
+
+migrateFromV3 : Db.V3.Db -> BackendTask FatalError ()
+migrateFromV3 model =
+    saveAndLog (MigrateV4.migrate model) 3 4
+
+
+internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
+internalRequest name body expect =
+    BackendTask.Http.request
+        { url = "elm-pages-internal://" ++ name
+        , method = "GET"
+        , headers = []
+        , body = body
+        , timeoutInMs = Nothing
+        , retries = Nothing
+        }
+        expect
+        |> BackendTask.allowFatal
+
+
+saveAndLog : Db.Db -> Int -> Int -> BackendTask FatalError ()
+saveAndLog newDb fromVersion toVersion =
+    let
+        wire3Bytes =
+            Wire.bytesEncode (Db.w3_encode_Db newDb)
+    in
+    internalRequest "db-migrate-write"
+        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
+        (BackendTask.Http.expectJson (Decode.succeed ()))
+
+
+readDbBin : BackendTask FatalError { version : Int, bytes : Bytes }
+readDbBin =
+    internalRequest "db-migrate-read"
+        (BackendTask.Http.jsonBody Encode.null)
+        (BackendTask.Http.expectBytes
+            (Bytes.Decode.unsignedInt32 Bytes.BE
+                |> Bytes.Decode.andThen
+                    (\\version ->
+                        Bytes.Decode.unsignedInt32 Bytes.BE
+                            |> Bytes.Decode.andThen
+                                (\\wire3Len ->
+                                    Bytes.Decode.bytes wire3Len
+                                        |> Bytes.Decode.map
+                                            (\\wire3 ->
+                                                { version = version
+                                                , bytes = wire3
+                                                }
+                                            )
+                                )
+                    )
+            )
+        )
+"
+`;
+
+exports[`generateMigrateChain > multi-step migration (target V3) produces correct Elm module 1`] = `
+"module MigrateChain exposing (run)
+
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import Bytes exposing (Bytes)
+import Bytes.Decode
+import Bytes.Encode
+import Db
+import Db.V1
+import Db.V2
+import Db.Migrate.V2 as MigrateV2
+import Db.Migrate.V3 as MigrateV3
+import FatalError exposing (FatalError)
+import Json.Decode as Decode
+import Json.Encode as Encode
+import Lamdera.Wire3 as Wire
+import Pages.Script as Script exposing (Script)
+
+
+run : Script
+run =
+    Script.withoutCliOptions
+        (readDbBin
+            |> BackendTask.andThen
+                (\\{ version, bytes } ->
+                    case version of
+                        1 ->
+                            case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
+                                Just model ->
+                                    migrateFromV1 model
+
+                                Nothing ->
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Migration decode failed"
+                                            , body = "Could not decode db.bin as V1 data."
+                                            }
+                                        )
+
+                        2 ->
+                            case Wire.bytesDecode Db.V2.w3_decode_Db bytes of
+                                Just model ->
+                                    migrateFromV2 model
+
+                                Nothing ->
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Migration decode failed"
+                                            , body = "Could not decode db.bin as V2 data."
+                                            }
+                                        )
+
+                        other ->
+                            BackendTask.fail
+                                (FatalError.build
+                                    { title = "Unknown db.bin version"
+                                    , body = "db.bin is at version " ++ String.fromInt other ++ " but I only know how to migrate from versions 1-2."
+                                    }
+                                )
+                )
+        )
+
+
+migrateFromV1 : Db.V1.Db -> BackendTask FatalError ()
+migrateFromV1 model =
+    migrateFromV2 (MigrateV2.migrate model)
+
+migrateFromV2 : Db.V2.Db -> BackendTask FatalError ()
+migrateFromV2 model =
+    saveAndLog (MigrateV3.migrate model) 2 3
+
+
+internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
+internalRequest name body expect =
+    BackendTask.Http.request
+        { url = "elm-pages-internal://" ++ name
+        , method = "GET"
+        , headers = []
+        , body = body
+        , timeoutInMs = Nothing
+        , retries = Nothing
+        }
+        expect
+        |> BackendTask.allowFatal
+
+
+saveAndLog : Db.Db -> Int -> Int -> BackendTask FatalError ()
+saveAndLog newDb fromVersion toVersion =
+    let
+        wire3Bytes =
+            Wire.bytesEncode (Db.w3_encode_Db newDb)
+    in
+    internalRequest "db-migrate-write"
+        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
+        (BackendTask.Http.expectJson (Decode.succeed ()))
+
+
+readDbBin : BackendTask FatalError { version : Int, bytes : Bytes }
+readDbBin =
+    internalRequest "db-migrate-read"
+        (BackendTask.Http.jsonBody Encode.null)
+        (BackendTask.Http.expectBytes
+            (Bytes.Decode.unsignedInt32 Bytes.BE
+                |> Bytes.Decode.andThen
+                    (\\version ->
+                        Bytes.Decode.unsignedInt32 Bytes.BE
+                            |> Bytes.Decode.andThen
+                                (\\wire3Len ->
+                                    Bytes.Decode.bytes wire3Len
+                                        |> Bytes.Decode.map
+                                            (\\wire3 ->
+                                                { version = version
+                                                , bytes = wire3
+                                                }
+                                            )
+                                )
+                    )
+            )
+        )
+"
+`;
+
+exports[`generateMigrateChain > single migration (target V2) produces correct Elm module 1`] = `
+"module MigrateChain exposing (run)
+
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import Bytes exposing (Bytes)
+import Bytes.Decode
+import Bytes.Encode
+import Db
+import Db.V1
+import Db.Migrate.V2 as MigrateV2
+import FatalError exposing (FatalError)
+import Json.Decode as Decode
+import Json.Encode as Encode
+import Lamdera.Wire3 as Wire
+import Pages.Script as Script exposing (Script)
+
+
+run : Script
+run =
+    Script.withoutCliOptions
+        (readDbBin
+            |> BackendTask.andThen
+                (\\{ version, bytes } ->
+                    case version of
+                        1 ->
+                            case Wire.bytesDecode Db.V1.w3_decode_Db bytes of
+                                Just model ->
+                                    migrateFromV1 model
+
+                                Nothing ->
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Migration decode failed"
+                                            , body = "Could not decode db.bin as V1 data."
+                                            }
+                                        )
+
+                        other ->
+                            BackendTask.fail
+                                (FatalError.build
+                                    { title = "Unknown db.bin version"
+                                    , body = "db.bin is at version " ++ String.fromInt other ++ " but I only know how to migrate from versions 1-1."
+                                    }
+                                )
+                )
+        )
+
+
+migrateFromV1 : Db.V1.Db -> BackendTask FatalError ()
+migrateFromV1 model =
+    saveAndLog (MigrateV2.migrate model) 1 2
+
+
+internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
+internalRequest name body expect =
+    BackendTask.Http.request
+        { url = "elm-pages-internal://" ++ name
+        , method = "GET"
+        , headers = []
+        , body = body
+        , timeoutInMs = Nothing
+        , retries = Nothing
+        }
+        expect
+        |> BackendTask.allowFatal
+
+
+saveAndLog : Db.Db -> Int -> Int -> BackendTask FatalError ()
+saveAndLog newDb fromVersion toVersion =
+    let
+        wire3Bytes =
+            Wire.bytesEncode (Db.w3_encode_Db newDb)
+    in
+    internalRequest "db-migrate-write"
+        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
+        (BackendTask.Http.expectJson (Decode.succeed ()))
+
+
+readDbBin : BackendTask FatalError { version : Int, bytes : Bytes }
+readDbBin =
+    internalRequest "db-migrate-read"
+        (BackendTask.Http.jsonBody Encode.null)
+        (BackendTask.Http.expectBytes
+            (Bytes.Decode.unsignedInt32 Bytes.BE
+                |> Bytes.Decode.andThen
+                    (\\version ->
+                        Bytes.Decode.unsignedInt32 Bytes.BE
+                            |> Bytes.Decode.andThen
+                                (\\wire3Len ->
+                                    Bytes.Decode.bytes wire3Len
+                                        |> Bytes.Decode.map
+                                            (\\wire3 ->
+                                                { version = version
+                                                , bytes = wire3
+                                                }
+                                            )
+                                )
+                    )
+            )
+        )
+"
+`;

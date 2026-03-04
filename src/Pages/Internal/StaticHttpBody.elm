@@ -1,7 +1,8 @@
-module Pages.Internal.StaticHttpBody exposing (Body(..), codec, encode)
+module Pages.Internal.StaticHttpBody exposing (Body(..), codec, encode, extractAllBytes)
 
-import Base64
+import Bitwise
 import Bytes exposing (Bytes)
+import Bytes.Decode
 import Codec exposing (Codec)
 import Json.Decode
 import Json.Encode as Encode
@@ -12,7 +13,7 @@ type Body
     | StringBody String String
     | JsonBody Encode.Value
     | BytesBody String Bytes
-    | MultipartBody (List Encode.Value)
+    | MultipartBody (List Encode.Value) (List ( String, Bytes ))
 
 
 encode : Body -> Encode.Value
@@ -33,14 +34,10 @@ encode body =
 
         BytesBody _ content ->
             encodeWithType "bytes"
-                [ ( "content"
-                  , Base64.fromBytes content
-                        |> Maybe.withDefault ""
-                        |> Encode.string
-                  )
+                [ ( "content", Encode.int (hashBytes content) )
                 ]
 
-        MultipartBody parts ->
+        MultipartBody parts _ ->
             encodeWithType "multipart"
                 [ ( "parts", Encode.list identity parts )
                 ]
@@ -70,29 +67,71 @@ codec =
                 BytesBody contentType body ->
                     vBytes contentType body
 
-                MultipartBody parts ->
+                MultipartBody parts _ ->
                     vMultipart parts
         )
         |> Codec.variant0 "EmptyBody" EmptyBody
         |> Codec.variant2 "StringBody" StringBody Codec.string Codec.string
         |> Codec.variant1 "JsonBody" JsonBody Codec.value
         |> Codec.variant2 "BytesBody" BytesBody Codec.string bytesCodec
-        |> Codec.variant1 "MultipartBody" MultipartBody (Codec.list Codec.value)
+        |> Codec.variant1 "MultipartBody" (\parts -> MultipartBody parts []) (Codec.list Codec.value)
         |> Codec.buildCustom
 
 
 bytesCodec : Codec Bytes
 bytesCodec =
-    Codec.build (Base64.fromBytes >> Maybe.withDefault "" >> Encode.string)
-        (Json.Decode.string
-            |> Json.Decode.map Base64.toBytes
-            |> Json.Decode.andThen
-                (\decodedBytes ->
-                    case decodedBytes of
-                        Just bytes ->
-                            Json.Decode.succeed bytes
+    Codec.build
+        -- Encode as empty placeholder; real bytes are sent through the port's bytes field
+        (\_ -> Encode.string "")
+        (Json.Decode.fail "Bytes are sent through the port's bytes field, not JSON.")
 
-                        Nothing ->
-                            Json.Decode.fail "Couldn't parse bytes."
-                )
-        )
+
+hashBytes : Bytes -> Int
+hashBytes bytes =
+    let
+        width : Int
+        width =
+            Bytes.width bytes
+    in
+    Bytes.Decode.decode
+        (bytesLoop width 0x811C9DC5)
+        bytes
+        |> Maybe.withDefault 0
+
+
+bytesLoop : Int -> Int -> Bytes.Decode.Decoder Int
+bytesLoop remaining hash =
+    Bytes.Decode.loop ( remaining, hash ) bytesLoopStep
+
+
+bytesLoopStep : ( Int, Int ) -> Bytes.Decode.Decoder (Bytes.Decode.Step ( Int, Int ) Int)
+bytesLoopStep ( remaining, hash ) =
+    if remaining <= 0 then
+        Bytes.Decode.succeed (Bytes.Decode.Done hash)
+
+    else
+        Bytes.Decode.map
+            (\byte ->
+                Bytes.Decode.Loop
+                    ( remaining - 1
+                    , Bitwise.and 0xFFFFFFFF (Bitwise.xor hash byte * 0x01000193)
+                    )
+            )
+            Bytes.Decode.unsignedInt8
+
+
+extractAllBytes : String -> Body -> List { key : String, data : Bytes }
+extractAllBytes requestHash body =
+    case body of
+        BytesBody _ bytes ->
+            [ { key = requestHash, data = bytes } ]
+
+        MultipartBody _ multipartBytes ->
+            multipartBytes
+                |> List.map
+                    (\( partKey, bytes ) ->
+                        { key = requestHash ++ ":multipart:" ++ partKey, data = bytes }
+                    )
+
+        _ ->
+            []

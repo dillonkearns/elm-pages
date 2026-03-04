@@ -44,6 +44,7 @@ run =
                 |> createFile
                 |> Script.writeFile
                 |> BackendTask.allowFatal
+                |> BackendTask.map (\_ -> ())
         )
 
 

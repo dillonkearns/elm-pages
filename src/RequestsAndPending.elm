@@ -1,6 +1,5 @@
-module RequestsAndPending exposing (HttpError(..), RawResponse, RequestsAndPending, Response(..), ResponseBody(..), bodyEncoder, get, responseDecoder)
+module RequestsAndPending exposing (HttpError(..), RawResponse, RequestsAndPending, Response(..), ResponseBody(..), bodyEncoder, empty, get, responseDecoder)
 
-import Base64
 import Bytes exposing (Bytes)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder)
@@ -8,7 +7,16 @@ import Json.Encode as Encode
 
 
 type alias RequestsAndPending =
-    Decode.Value
+    { json : Decode.Value
+    , rawBytes : Dict String Bytes
+    }
+
+
+empty : RequestsAndPending
+empty =
+    { json = Encode.object []
+    , rawBytes = Dict.empty
+    }
 
 
 type ResponseBody
@@ -18,44 +26,38 @@ type ResponseBody
     | WhateverBody
 
 
-decoder : Decoder Response
-decoder =
+decoder : Maybe Bytes -> Decoder Response
+decoder maybeBytes =
     Decode.map2 Response
         (Decode.maybe responseDecoder)
-        bodyDecoder
+        (bodyDecoder maybeBytes)
 
 
-bodyDecoder : Decoder ResponseBody
-bodyDecoder =
+bodyDecoder : Maybe Bytes -> Decoder ResponseBody
+bodyDecoder maybeBytes =
     Decode.field "bodyKind" Decode.string
         |> Decode.andThen
             (\bodyKind ->
-                Decode.field "body"
-                    (case bodyKind of
-                        "bytes" ->
-                            Decode.string
-                                |> Decode.andThen
-                                    (\base64String ->
-                                        case Base64.toBytes base64String of
-                                            Just bytes ->
-                                                Decode.succeed (BytesBody bytes)
+                case bodyKind of
+                    "bytes" ->
+                        case maybeBytes of
+                            Just b ->
+                                Decode.succeed (BytesBody b)
 
-                                            Nothing ->
-                                                Decode.fail "Couldn't parse base64 string into Bytes."
-                                    )
+                            Nothing ->
+                                Decode.fail "Bytes responses must be sent through the port's bytes field."
 
-                        "string" ->
-                            Decode.string |> Decode.map StringBody
+                    "string" ->
+                        Decode.field "body" (Decode.string |> Decode.map StringBody)
 
-                        "json" ->
-                            Decode.value |> Decode.map JsonBody
+                    "json" ->
+                        Decode.field "body" (Decode.value |> Decode.map JsonBody)
 
-                        "whatever" ->
-                            Decode.succeed WhateverBody
+                    "whatever" ->
+                        Decode.field "body" (Decode.succeed WhateverBody)
 
-                        _ ->
-                            Decode.fail "Unexpected bodyKind."
-                    )
+                    _ ->
+                        Decode.fail "Unexpected bodyKind."
             )
 
 
@@ -105,17 +107,22 @@ responseDecoder =
 
 get : String -> RequestsAndPending -> Maybe (Result HttpError Response)
 get key requestsAndPending =
+    let
+        maybeBytes : Maybe Bytes
+        maybeBytes =
+            Dict.get key requestsAndPending.rawBytes
+    in
     Decode.decodeValue
         (Decode.field key
             (Decode.field "response"
                 (Decode.oneOf
                     [ Decode.field "elm-pages-internal-error" errorDecoder |> Decode.map Err
-                    , decoder |> Decode.map Ok
+                    , decoder maybeBytes |> Decode.map Ok
                     ]
                 )
             )
         )
-        requestsAndPending
+        requestsAndPending.json
         |> Result.toMaybe
 
 

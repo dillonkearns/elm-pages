@@ -52,6 +52,8 @@ readType =
     Stream.fileRead zipFile
         |> Stream.pipe Stream.unzip
         |> Stream.readJson (Decode.field "type" Decode.string)
+        |> BackendTask.allowFatal
+        |> BackendTask.map .body
 
 
 zip =
@@ -73,7 +75,7 @@ unzip =
         |> Stream.run
 
 
-zipFile : String.String
+zipFile : String
 zipFile =
     "elm-review-report.gz.json"
 
@@ -98,7 +100,7 @@ example2 =
         Stream.stdout
 
 
-formatFile : Stream { read : (), write : fromWriteable } -> Stream { read : anything, write : () } -> BackendTask FatalError ()
+formatFile : Stream error1 metadata1 { read : (), write : fromWriteable } -> Stream error2 metadata2 { read : toReadable, write : () } -> BackendTask FatalError ()
 formatFile source destination =
     source
         |> Stream.pipe (Stream.command "elm-format" [ "--stdin" ])

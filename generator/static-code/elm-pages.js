@@ -14,6 +14,8 @@ function loadContentAndInitializeApp() {
   if (!path.endsWith("/")) {
     path = path + "/";
   }
+  // Decode the base64-encoded page data in JS and send raw bytes through port
+  const pageDataBase64 = document.getElementById("__ELM_PAGES_BYTES_DATA__").innerHTML;
   const app = Elm.Main.init({
     flags: {
       secrets: null,
@@ -21,27 +23,34 @@ function loadContentAndInitializeApp() {
       isDevServer: false,
       isElmDebugMode: false,
       contentJson: {},
-      pageDataBase64: document.getElementById("__ELM_PAGES_BYTES_DATA__")
-        .innerHTML,
       userFlags: userInit.flags(),
     },
   });
 
-  app.ports.toJsPort.subscribe(async (fromElm) => {
+  // Send initial page data as raw bytes through the port
+  // Port messages are processed synchronously before the browser paints
+  if (pageDataBase64) {
+    const binaryString = atob(pageDataBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const dataView = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    app.ports.pageDataFromJs.send(dataView);
+  }
+
+  app.ports.toJsPort.subscribe(async (portData) => {
+    // toJsPort now sends { json, bytes } — unwrap the json payload
+    const fromElm = portData.json;
     if (fromElm.tag === "FetchFrozenViews") {
       // Fetch content.dat which contains both frozen views and page data
       const options = fromElm.body ? { body: fromElm.body } : {};
       const result = await fetchContentWithFrozenViews(fromElm.path, fromElm.query, options);
       if (result && result.rawBytes) {
-        // Send the FULL content.dat bytes (with prefix) to Elm
+        // Send raw bytes directly to Elm via the pageDataFromJs port
         // The Elm decoder (skipFrozenViewsPrefix) expects this format
-        const contentDatBase64 = uint8ArrayToBase64(result.rawBytes);
-        app.ports.fromJsPort.send({
-          tag: "FrozenViewsReady",
-          pageDataBase64: contentDatBase64
-        });
-      } else {
-        app.ports.fromJsPort.send({ tag: "FrozenViewsReady", pageDataBase64: null });
+        const dataView = new DataView(result.rawBytes.buffer, result.rawBytes.byteOffset, result.rawBytes.byteLength);
+        app.ports.pageDataFromJs.send(dataView);
       }
     } else {
       loadNamedAnchor();
@@ -125,19 +134,6 @@ export function setup() {
 function find_anchor(node) {
   while (node && node.nodeName.toUpperCase() !== "A") node = node.parentNode; // SVG <a> elements have a lowercase name
   return /** @type {HTMLAnchorElement} */ (node);
-}
-
-/**
- * Convert Uint8Array to base64 string for transmission to Elm
- * @param {Uint8Array} bytes
- * @returns {string}
- */
-function uint8ArrayToBase64(bytes) {
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
 }
 
 // only run in modern browsers to prevent exception: https://github.com/dillonkearns/elm-pages/issues/427

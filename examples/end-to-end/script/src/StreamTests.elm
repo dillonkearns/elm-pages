@@ -394,6 +394,6 @@ try =
     BackendTask.allowFatal
 
 
-zipFile : String.String
+zipFile : String
 zipFile =
     "elm-review-report.gz.json"

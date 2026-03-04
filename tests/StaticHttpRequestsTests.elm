@@ -548,13 +548,14 @@ config apiRoutes pages =
     , subscriptions = \_ _ _ -> Sub.none
     , routeToPath = \(Route route) -> route |> String.split "/"
     , sharedData = BackendTask.succeed ()
-    , onPageChange = \_ -> GotDataBatch (Encode.object [])
+    , onPageChange = \_ -> GotDataBatch []
     , apiRoutes = \_ -> apiRoutes
     , pathPatterns = []
     , byteDecodePageData = \_ -> Bytes.Decode.fail
     , sendPageData = \_ -> Cmd.none
     , encodeResponse = \_ -> Bytes.Encode.signedInt8 0
     , hotReloadData = Sub.none
+    , pageDataFromJs = Sub.none
     , decodeResponse = Bytes.Decode.fail
     , byteEncodePageData = \_ -> Bytes.Encode.signedInt8 0
     , gotBatchSub = Sub.none
@@ -790,7 +791,14 @@ simulateSubscriptions : a -> ProgramTest.SimulatedSub Msg
 simulateSubscriptions _ =
     -- TODO handle build errors or not needed?
     SimulatedEffect.Ports.subscribe "gotBatchSub"
-        (JD.value |> JD.map GotDataBatch)
+        (JD.list
+            (JD.map2
+                (\key json -> { key = key, json = json, bytes = Nothing })
+                (JD.field "key" JD.string)
+                (JD.field "json" JD.value)
+            )
+            |> JD.map GotDataBatch
+        )
         identity
 
 
@@ -837,7 +845,7 @@ simulateHttp request response program =
                                 ++ Debug.toString actualPorts
             )
         |> ProgramTest.simulateIncomingPort "gotBatchSub"
-            (Encode.object [ encodeBatchEntry ( request, response ) ])
+            (Encode.list encodeBatchEntry [ ( request, response ) ])
 
 
 simulateMultipleHttp : List ( Request.Request, ResponseBody ) -> ProgramTest model msg effect -> ProgramTest model msg effect
@@ -858,10 +866,7 @@ simulateMultipleHttp requests program =
                                 ++ Debug.toString actualPorts
             )
         |> ProgramTest.simulateIncomingPort "gotBatchSub"
-            (requests
-                |> List.map encodeBatchEntry
-                |> Encode.object
-            )
+            (Encode.list encodeBatchEntry requests)
 
 
 jsonBody : String -> ResponseBody
@@ -873,19 +878,27 @@ jsonBody jsonString =
         )
 
 
-encodeBatchEntry : ( Request.Request, ResponseBody ) -> ( String, Encode.Value )
+encodeBatchEntry : ( Request.Request, ResponseBody ) -> Encode.Value
 encodeBatchEntry ( req, response ) =
-    ( Request.hash (req |> withInternalHeader response)
-    , Encode.object
-        [ ( "request"
-          , Codec.encodeToValue Request.codec
-                (withInternalHeader response req)
-          )
-        , ( "response"
-          , RequestsAndPending.bodyEncoder response
+    let
+        key : String
+        key =
+            Request.hash (req |> withInternalHeader response)
+    in
+    Encode.object
+        [ ( "key", Encode.string key )
+        , ( "json"
+          , Encode.object
+                [ ( "request"
+                  , Codec.encodeToValue Request.codec
+                        (withInternalHeader response req)
+                  )
+                , ( "response"
+                  , RequestsAndPending.bodyEncoder response
+                  )
+                ]
           )
         ]
-    )
 
 
 withInternalHeader : ResponseBody -> { a | headers : List ( String, String ) } -> { a | headers : List ( String, String ) }

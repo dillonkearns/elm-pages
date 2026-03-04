@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Local DB for `elm-pages` Scripts — a type-safe, file-based database with automatic migrations:
+  - `elm-pages db init` — scaffolds `Db.elm` and `db/Db/Migrate/V1.elm`, adds artifacts to `.gitignore`.
+  - `elm-pages db status` — shows schema version, db.bin compatibility, and migration chain status. Exits with code 1 when migrations are pending.
+  - `elm-pages db migrate` — creates migration scaffolds (snapshot + stub) or applies pending migrations. Supports `--force-stale-snapshot` for edge cases.
+  - Generated `Pages.Db` reads schema metadata (`version` + `hash`) and applies migration chains at script runtime.
+  - Fresh installs seed from `Db.Migrate.V1.seed` through the migration `seed` chain.
+  - Connection-based path configuration through `Pages.Db.open`/`Pages.Db.default`, with runtime path support in request payloads.
+  - `Script.withDatabasePath` support in the JS runtime now applies to `Pages.Db.default`.
+  - Stale snapshot auto-recovery from `db/schema-history/<hash>.elm` when `Db.elm` changed before the old schema was captured.
+  - Schema version derived from `db/Db/Migrate/V*.elm` files — no separate version tracking file needed.
+- New docs page for script DB usage and migration behavior: `examples/docs/content/docs/17-elm-pages-scripts-db.md`.
+
+### Changed
+
+- **Breaking:** Scripts now require the `lamdera` compiler. The `elm` binary is no longer supported as a fallback.
+- `elm-pages bundle-script` no longer mutates or auto-applies local DB migrations during bundling. Migrations are applied when the bundled script runs on the target machine.
+- Removed generated `Pages.Db` `*At` APIs (`getAt`, `updateAt`, `transactionAt`) in favor of connection-based DB access (`Pages.Db.open` + `Connection`).
+
 ## [3.1.5] - 2026-02-23
 
 ### Fixed

@@ -6,6 +6,7 @@ import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
 import Elm
 import Elm.Annotation as Type
+import Elm.Arg
 import Elm.Case
 import Gen.BackendTask
 import Gen.Effect as Effect
@@ -29,6 +30,7 @@ run =
                 |> createFile
                 |> Script.writeFile
                 |> BackendTask.allowFatal
+                |> BackendTask.map (\_ -> ())
         )
 
 
@@ -44,44 +46,45 @@ program =
 createFile : CliOptions -> { path : String, body : String }
 createFile { moduleName } =
     Scaffold.Route.preRender
-        { moduleName = moduleName
-        , pages =
-            Gen.BackendTask.succeed
-                (Elm.list [])
-        , data =
-            ( Alias (Type.record [])
-            , \routeParams ->
-                Gen.BackendTask.succeed (Elm.record [])
-            )
-        , head = \app -> Elm.list []
-        }
-        |> Scaffold.Route.buildWithLocalState
-            { view =
-                \{ shared, model, app } ->
-                    Gen.View.make_.view
-                        { title = moduleName |> String.join "." |> Elm.string
-                        , body =
-                            Elm.list
-                                [ Html.h2 [] [ Html.text "New Page" ]
+                { moduleName = moduleName
+                , pages =
+                    Gen.BackendTask.succeed
+                        (Elm.list [])
+                , data =
+                    ( Alias (Type.record [])
+                    , \routeParams ->
+                        Gen.BackendTask.succeed (Elm.record [])
+                    )
+                , head = \app -> Elm.list []
+                }
+                |> Scaffold.Route.buildWithLocalState
+                    { view =
+                        \{ shared, model, app } ->
+                            Gen.View.make_.view
+                                { title = moduleName |> String.join "." |> Elm.string
+                                , body =
+                                    Elm.list
+                                        [ Html.h2 [] [ Html.text "New Page" ]
+                                        ]
+                                }
+                    , update =
+                        \{ shared, app, msg, model } ->
+                            Elm.Case.custom msg
+                                (Type.named [] "Msg")
+                                [ Elm.Case.branch (Elm.Arg.customType "NoOp" ())
+                                    (\() ->
+                                        Elm.tuple model
+                                            Effect.none
+                                    )
                                 ]
-                        }
-            , update =
-                \{ shared, app, msg, model } ->
-                    Elm.Case.custom msg
-                        (Type.named [] "Msg")
-                        [ Elm.Case.branch0 "NoOp"
-                            (Elm.tuple model
-                                Effect.none
-                            )
-                        ]
-            , init =
-                \{ shared, app } ->
-                    Elm.tuple (Elm.record []) Effect.none
-            , subscriptions =
-                \{ routeParams, path, shared, model } ->
-                    Gen.Platform.Sub.none
-            , model =
-                Alias (Type.record [])
-            , msg =
-                Custom [ Elm.variant "NoOp" ]
-            }
+                    , init =
+                        \{ shared, app } ->
+                            Elm.tuple (Elm.record []) Effect.none
+                    , subscriptions =
+                        \{ routeParams, path, shared, model } ->
+                            Gen.Platform.Sub.none
+                    , model =
+                        Alias (Type.record [])
+                    , msg =
+                        Custom [ Elm.variant "NoOp" ]
+                    }

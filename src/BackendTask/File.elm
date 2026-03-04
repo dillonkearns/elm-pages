@@ -1,6 +1,7 @@
 module BackendTask.File exposing
     ( bodyWithFrontmatter, bodyWithoutFrontmatter, onlyFrontmatter
     , jsonFile, rawFile, binaryFile
+    , exists, optional
     , FileReadError(..)
     )
 
@@ -43,6 +44,11 @@ plain old JSON in Elm.
 @docs jsonFile, rawFile, binaryFile
 
 
+## Checking Files
+
+@docs exists, optional
+
+
 ## FatalErrors
 
 @docs FileReadError
@@ -56,6 +62,7 @@ import Bytes exposing (Bytes)
 import Bytes.Decode
 import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 import TerminalText
 
 
@@ -132,7 +139,7 @@ It's common to parse the body with a markdown parser or other format.
                     )
             )
             "foo.md"
-                |> BackendTask.allowFatal
+            |> BackendTask.allowFatal
 
     markdownToView :
         String
@@ -467,3 +474,50 @@ fileNotFound filePath =
                 |> TerminalText.toString
         }
         FileDoesntExist
+
+
+{-| Check if a file or directory exists at the given path. Never fails — returns `True` if the path exists, `False` otherwise.
+
+    import BackendTask exposing (BackendTask)
+    import BackendTask.File as File
+
+    checkConfig : BackendTask error Bool
+    checkConfig =
+        File.exists "config.json"
+
+-}
+exists : String -> BackendTask error Bool
+exists filePath =
+    BackendTask.Internal.Request.request
+        { name = "file-exists"
+        , body = BackendTask.Http.jsonBody (Encode.string filePath)
+        , expect = BackendTask.Http.expectJson Decode.bool
+        }
+
+
+{-| Convert a file reading `BackendTask` into one that returns `Maybe`. If the file doesn't exist, the result is `Nothing`.
+Other errors (decoding errors, permission errors, etc.) are re-thrown as fatal errors.
+
+    import BackendTask exposing (BackendTask)
+    import BackendTask.File as File
+    import FatalError exposing (FatalError)
+
+    readOptionalConfig : BackendTask FatalError (Maybe String)
+    readOptionalConfig =
+        File.rawFile "config.txt"
+            |> File.optional
+
+-}
+optional : BackendTask { fatal : FatalError, recoverable : FileReadError decoderError } a -> BackendTask FatalError (Maybe a)
+optional task =
+    task
+        |> BackendTask.map Just
+        |> BackendTask.onError
+            (\{ fatal, recoverable } ->
+                case recoverable of
+                    FileDoesntExist ->
+                        BackendTask.succeed Nothing
+
+                    _ ->
+                        BackendTask.fail fatal
+            )

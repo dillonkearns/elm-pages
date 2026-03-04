@@ -29,6 +29,7 @@ import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.ResponseSketch as ResponseSketch
+import Pages.Internal.StaticHttpBody
 import Pages.ProgramConfig
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request
@@ -62,7 +63,7 @@ type alias Model route =
 
 {-| -}
 type Msg
-    = GotDataBatch Decode.Value
+    = GotDataBatch (List { key : String, json : Decode.Value, bytes : Maybe Bytes })
     | GotBuildError BuildError
 
 
@@ -217,14 +218,30 @@ perform site renderRequest config effect =
             flatten site renderRequest config list
 
         Effect.FetchHttp requests ->
-            requests
-                |> List.map
-                    (\request ->
-                        ( Pages.StaticHttp.Request.hash request, request )
-                    )
-                |> ToJsPayload.DoHttp
-                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
-                |> config.toJsPort
+            let
+                requestsWithHashes : List ( String, Pages.StaticHttp.Request.Request )
+                requestsWithHashes =
+                    requests
+                        |> List.map
+                            (\request ->
+                                ( Pages.StaticHttp.Request.hash request, request )
+                            )
+
+                bytesPayloads : List { key : String, data : Bytes }
+                bytesPayloads =
+                    requestsWithHashes
+                        |> List.concatMap
+                            (\( hash, request ) ->
+                                Pages.Internal.StaticHttpBody.extractAllBytes hash request.body
+                            )
+
+                jsonPayload : Json.Encode.Value
+                jsonPayload =
+                    requestsWithHashes
+                        |> ToJsPayload.DoHttp
+                        |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
+            in
+            config.toJsPort { json = jsonPayload, bytes = bytesPayloads }
                 |> Cmd.map never
 
         Effect.SendSinglePage info ->
@@ -238,9 +255,10 @@ perform site renderRequest config effect =
                         _ ->
                             ""
             in
-            info
-                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
-                |> config.toJsPort
+            config.toJsPort
+                { json = info |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl currentPagePath)
+                , bytes = []
+                }
                 |> Cmd.map never
 
         Effect.SendSinglePageNew rawBytes info ->
@@ -278,7 +296,7 @@ flagsDecoder =
             }
         )
         -- TODO remove hardcoding and decode staticHttpCache here
-        (Decode.succeed (Json.Encode.object []))
+        (Decode.succeed RequestsAndPending.empty)
         (Decode.field "mode" Decode.string |> Decode.map (\mode -> mode == "dev-server"))
         (Decode.field "compatibilityKey" Decode.int)
 
@@ -617,12 +635,21 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                     in
                                                                                     toRedirectResponse config serverRequestPayload includeHtml serverResponse responseMetadata
                                                                                         |> Maybe.withDefault
-                                                                                            ({ body = serverResponse |> PageServerResponse.toJson
-                                                                                             , staticHttpCache = Dict.empty
-                                                                                             , statusCode = serverResponse.statusCode
-                                                                                             }
-                                                                                                |> ToJsPayload.SendApiResponse
-                                                                                                |> Effect.SendSinglePage
+                                                                                            (let
+                                                                                                apiResponse : ToJsPayload.ToJsSuccessPayloadNewCombined
+                                                                                                apiResponse =
+                                                                                                    { body = serverResponse |> PageServerResponse.toJson
+                                                                                                    , staticHttpCache = Dict.empty
+                                                                                                    , statusCode = serverResponse.statusCode
+                                                                                                    }
+                                                                                                        |> ToJsPayload.SendApiResponse
+                                                                                             in
+                                                                                             case serverResponse.bodyBytes of
+                                                                                                Just rawBytes ->
+                                                                                                    Effect.SendSinglePageNew rawBytes apiResponse
+
+                                                                                                Nothing ->
+                                                                                                    Effect.SendSinglePage apiResponse
                                                                                             )
 
                                                                                 PageServerResponse.ErrorPage error record ->
@@ -856,7 +883,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
             , isDevServer = isDevServer
             }
     in
-    StaticResponses.nextStep (Json.Encode.object []) initialModel.staticResponses initialModel
+    StaticResponses.nextStep RequestsAndPending.empty initialModel.staticResponses initialModel
         |> nextStepToEffect
             initialModel
 
@@ -865,7 +892,7 @@ updateAndSendPortIfDone :
     Model route
     -> ( Model route, Effect )
 updateAndSendPortIfDone model =
-    StaticResponses.nextStep (Json.Encode.object [])
+    StaticResponses.nextStep RequestsAndPending.empty
         model.staticResponses
         model
         |> nextStepToEffect model
@@ -878,7 +905,17 @@ update :
     -> ( Model route, Effect )
 update msg model =
     case msg of
-        GotDataBatch batch ->
+        GotDataBatch entries ->
+            let
+                batch : RequestsAndPending
+                batch =
+                    { json = Json.Encode.object (List.map (\e -> ( e.key, e.json )) entries)
+                    , rawBytes =
+                        entries
+                            |> List.filterMap (\e -> Maybe.map (\b -> ( e.key, b )) e.bytes)
+                            |> Dict.fromList
+                    }
+            in
             StaticResponses.nextStep batch
                 model.staticResponses
                 model
@@ -893,7 +930,7 @@ update msg model =
                             buildError :: model.errors
                     }
             in
-            StaticResponses.nextStep (Json.Encode.object [])
+            StaticResponses.nextStep RequestsAndPending.empty
                 updatedModel.staticResponses
                 updatedModel
                 |> nextStepToEffect updatedModel
