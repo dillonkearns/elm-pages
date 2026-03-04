@@ -558,6 +558,51 @@ function assertSharedAndRouteUnsupportedImporterFallback(caseId: string): void {
   expect(clientHelper).toContain("summaryCard user =");
 }
 
+function assertSharedAndRouteSupportedHelperIdSeparation(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const indexHtmlPath = join(result.projectDir, "dist", "index.html");
+  const contentDatPath = join(result.projectDir, "dist", "content.dat");
+  const indexHtml = readFileSync(indexHtmlPath, "utf8");
+  const contentDatBytes = readFileSync(contentDatPath);
+
+  const extractedFromHtml = extractFrozenViews(indexHtml);
+  const contentDatDecoded = parseFrozenViewsPrefixFromBytes(contentDatBytes);
+
+  expect(Object.keys(contentDatDecoded.regions).sort()).toEqual([
+    "0:0",
+    "1:0",
+    "shared:0:0",
+  ]);
+  expect(contentDatDecoded.regions).toEqual(extractedFromHtml);
+  expect(contentDatDecoded.regions["0:0"]).toContain("Route user: Alice");
+  expect(contentDatDecoded.regions["1:0"]).toContain("Route user: Bob");
+  expect(contentDatDecoded.regions["shared:0:0"]).toContain("Shared user: Shared");
+
+  const clientWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "client");
+  const serverWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "server");
+  const clientRoute = readFileSync(join(clientWorkspace, "app", "Route", "Index.elm"), "utf8");
+  const serverRoute = readFileSync(join(serverWorkspace, "app", "Route", "Index.elm"), "utf8");
+  const clientShared = readFileSync(join(clientWorkspace, "app", "Shared.elm"), "utf8");
+  const serverShared = readFileSync(join(serverWorkspace, "app", "Shared.elm"), "utf8");
+  const clientHelper = readFileSync(join(clientWorkspace, "app", "FrozenHelper.elm"), "utf8");
+  const serverHelper = readFileSync(join(serverWorkspace, "app", "FrozenHelper.elm"), "utf8");
+
+  expect(clientRoute).toContain('FrozenHelper.routeCard "0" app.data.alice');
+  expect(clientRoute).toContain('FrozenHelper.routeCard "1" app.data.bob');
+  expect(serverRoute).toContain('FrozenHelper.routeCard "0" app.data.alice');
+  expect(serverRoute).toContain('FrozenHelper.routeCard "1" app.data.bob');
+
+  expect(clientShared).toContain('FrozenHelper.sharedCard "shared:0" { name = "Shared" }');
+  expect(serverShared).toContain('FrozenHelper.sharedCard "shared:0" { name = "Shared" }');
+
+  expect(clientHelper).toContain("routeCard : String -> { name : String } -> Html msg");
+  expect(serverHelper).toContain("routeCard : String -> { name : String } -> Html msg");
+  expect(clientHelper).toContain("sharedCard : String -> { name : String } -> Html msg");
+  expect(serverHelper).toContain("sharedCard : String -> { name : String } -> Html msg");
+}
+
 describe.sequential("frozen helper seeding CLI behavior", () => {
   const caseIds = listFixtureCaseIds();
 
@@ -661,6 +706,16 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
     () => {
       assertSharedAndRouteUnsupportedImporterFallback(
         "matrix-shared-route-unsupported-helper-importer-fallback"
+      );
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "matrix-shared-and-route-supported-helper-id-space keeps route and shared ID spaces aligned",
+    () => {
+      assertSharedAndRouteSupportedHelperIdSeparation(
+        "matrix-shared-and-route-supported-helper-id-space"
       );
     },
     integrationTestTimeoutMs
