@@ -603,6 +603,44 @@ function assertSharedAndRouteSupportedHelperIdSeparation(caseId: string): void {
   expect(serverHelper).toContain("sharedCard : String -> { name : String } -> Html msg");
 }
 
+function assertZeroArgHelperMultiCallDeOptimized(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const indexHtmlPath = join(result.projectDir, "dist", "index.html");
+  const contentDatPath = join(result.projectDir, "dist", "content.dat");
+  const indexHtml = readFileSync(indexHtmlPath, "utf8");
+  const contentDatBytes = readFileSync(contentDatPath);
+
+  const extractedFromHtml = extractFrozenViews(indexHtml);
+  const contentDatDecoded = parseFrozenViewsPrefixFromBytes(contentDatBytes);
+
+  // Zero-arg helper calls cannot be seeded per invocation, so this case should de-opt.
+  expect(extractedFromHtml).toEqual({});
+  expect(contentDatDecoded.regions).toEqual({});
+
+  const clientWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "client");
+  const serverWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "server");
+  const clientHelper = readFileSync(join(clientWorkspace, "app", "FrozenHelper.elm"), "utf8");
+  const serverHelper = readFileSync(join(serverWorkspace, "app", "FrozenHelper.elm"), "utf8");
+  const clientRoute = readFileSync(join(clientWorkspace, "app", "Route", "Index.elm"), "utf8");
+  const serverRoute = readFileSync(join(serverWorkspace, "app", "Route", "Index.elm"), "utf8");
+  const clientShared = readFileSync(join(clientWorkspace, "app", "Shared.elm"), "utf8");
+  const serverShared = readFileSync(join(serverWorkspace, "app", "Shared.elm"), "utf8");
+
+  expect(clientHelper).toContain("routeBanner : Html msg");
+  expect(serverHelper).toContain("routeBanner : Html msg");
+  expect(clientHelper).toContain("sharedBanner : Html msg");
+  expect(serverHelper).toContain("sharedBanner : Html msg");
+  expect(clientHelper).not.toContain("__ELM_PAGES_STATIC__");
+  expect(serverHelper).not.toContain("data-static");
+
+  expect(clientRoute).toContain("FrozenHelper.routeBanner");
+  expect(serverRoute).toContain("FrozenHelper.routeBanner");
+  expect(clientShared).toContain("FrozenHelper.sharedBanner");
+  expect(serverShared).toContain("FrozenHelper.sharedBanner");
+}
+
 describe.sequential("frozen helper seeding CLI behavior", () => {
   const caseIds = listFixtureCaseIds();
 
@@ -716,6 +754,16 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
     () => {
       assertSharedAndRouteSupportedHelperIdSeparation(
         "matrix-shared-and-route-supported-helper-id-space"
+      );
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "matrix-zero-arg-helper-multi-call de-optimizes zero-arg helper freeze calls",
+    () => {
+      assertZeroArgHelperMultiCallDeOptimized(
+        "matrix-zero-arg-helper-multi-call"
       );
     },
     integrationTestTimeoutMs

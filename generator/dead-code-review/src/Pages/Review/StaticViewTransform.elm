@@ -2206,6 +2206,10 @@ handleViewFreezeCall functionNode freezeArg node context =
             -- A single static ID cannot represent multiple runtime invocations.
             else if context.lambdaDepth > 0 then
                 ( [ emitDeOptimizationCount (Node.range node) "repeated_context" ], context )
+            -- Zero-arg helper/value declarations have no call-site seed channel.
+            -- Keep these untransformed to avoid unstable placeholder remapping.
+            else if currentFunctionHasZeroArguments context then
+                ( [ emitDeOptimizationCount (Node.range node) "zero_arg_helper" ], context )
             -- Fourth check: are we inside a tainted conditional (if/case that depends on model)?
             -- If so, skip transformation to avoid server/client mismatch
             else if context.taintedContextDepth > 0 then
@@ -2353,6 +2357,22 @@ usesHelperFrozenIds context =
 
         Nothing ->
             False
+
+
+currentFunctionHasZeroArguments : Context -> Bool
+currentFunctionHasZeroArguments context =
+    if PersistentFieldTracking.isRouteModule context.moduleName || PersistentFieldTracking.isSharedModule context.moduleName then
+        False
+
+    else
+        case currentFunctionName context of
+            Just functionName ->
+                Dict.get functionName context.functionDeclarationInfo
+                    |> Maybe.map (\info -> info.argumentCount == 0)
+                    |> Maybe.withDefault False
+
+            Nothing ->
+                False
 
 
 recordTransformedFreezeInCurrentFunction : Context -> Context

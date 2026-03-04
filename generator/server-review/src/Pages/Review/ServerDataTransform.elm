@@ -1303,6 +1303,11 @@ handleViewFreezeWrapping applicationNode functionNode args context =
         -- Inside nested freeze - skip transformation (no-op)
         ( [], context )
 
+    else if currentFunctionHasZeroArguments context then
+        -- Zero-arg helper/value declarations have no call-site seed channel.
+        -- Keep these untransformed to avoid unstable placeholder remapping.
+        ( [], context )
+
     else
         case args of
             argNode :: [] ->
@@ -1527,6 +1532,22 @@ usesHelperFrozenIds context =
 
         Nothing ->
             False
+
+
+currentFunctionHasZeroArguments : Context -> Bool
+currentFunctionHasZeroArguments context =
+    if PersistentFieldTracking.isRouteModule context.moduleName || PersistentFieldTracking.isSharedModule context.moduleName then
+        False
+
+    else
+        case currentFunctionName context of
+            Just functionName ->
+                Dict.get functionName context.functionDeclarationInfo
+                    |> Maybe.map (\info -> info.argumentCount == 0)
+                    |> Maybe.withDefault False
+
+            Nothing ->
+                False
 
 
 recordTransformedFreezeInCurrentFunction : Context -> Context
