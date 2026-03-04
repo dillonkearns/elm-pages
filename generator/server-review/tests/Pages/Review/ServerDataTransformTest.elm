@@ -1436,6 +1436,148 @@ view app =
                                 ]
                               )
                             ]
+            , test "adds helper ID parameter for route-local helper and rewrites local call sites" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import Html
+import View
+
+view app =
+    { body =
+        [ card app.data.alice
+        , card app.data.bob
+        ]
+    }
+
+card user =
+    View.freeze (Html.text user.name)
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Server codemod: wrap freeze argument with data-static"
+                                    , details =
+                                        [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                        ]
+                                    , under = "View.freeze (Html.text user.name)"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Html
+import View
+import Html.Attributes
+
+view app =
+    { body =
+        [ card app.data.alice
+        , card app.data.bob
+        ]
+    }
+
+card elmPagesFid_route_index_card user =
+    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" (elmPagesFid_route_index_card ++ ":0") ] [ View.freezableToHtml (Html.text user.name) ]))
+"""
+                                , Review.Test.error
+                                    { message = "Server codemod: pass frozen ID to helper call"
+                                    , details =
+                                        [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze."
+                                        ]
+                                    , under = "card app.data.alice"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Html
+import View
+
+view app =
+    { body =
+        [ card "0" app.data.alice
+        , card app.data.bob
+        ]
+    }
+
+card user =
+    View.freeze (Html.text user.name)
+"""
+                                , Review.Test.error
+                                    { message = "Server codemod: pass frozen ID to helper call"
+                                    , details =
+                                        [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze."
+                                        ]
+                                    , under = "card app.data.bob"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Html
+import View
+
+view app =
+    { body =
+        [ card app.data.alice
+        , card "1" app.data.bob
+        ]
+    }
+
+card user =
+    View.freeze (Html.text user.name)
+"""
+                                ]
+                              )
+                            ]
+            , test "keeps zero-argument route-local helper as root-static transform (no helper ID injection)" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import Html
+import View
+
+view app =
+    { body =
+        [ card
+        , card
+        ]
+    }
+
+card =
+    View.freeze (Html.text "hello")
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Server codemod: wrap freeze argument with data-static"
+                                    , details =
+                                        [ "Wrapping View.freeze argument with data-static attribute for frozen view extraction."
+                                        ]
+                                    , under = "View.freeze (Html.text \"hello\")"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Html
+import View
+import Html.Attributes
+
+view app =
+    { body =
+        [ card
+        , card
+        ]
+    }
+
+card =
+    View.freeze (View.htmlToFreezable (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ View.freezableToHtml (Html.text "hello") ]))
+"""
+                                ]
+                              )
+                            ]
             , test "propagates helper IDs through transitive helper call chains" <|
                 \() ->
                     [ """module Card exposing (view)

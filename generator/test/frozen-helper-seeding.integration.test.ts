@@ -389,6 +389,50 @@ function assertDirectRepeatedFreezeDeOptimized(caseId: string): void {
   expect(clientRoute).not.toContain("__ELM_PAGES_STATIC__");
 }
 
+function assertRouteLocalHelperSeedingAgreement(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const indexHtmlPath = join(result.projectDir, "dist", "index.html");
+  const contentDatPath = join(result.projectDir, "dist", "content.dat");
+  const indexHtml = readFileSync(indexHtmlPath, "utf8");
+  const contentDatBytes = readFileSync(contentDatPath);
+
+  const extractedFromHtml = extractFrozenViews(indexHtml);
+  const contentDatDecoded = parseFrozenViewsPrefixFromBytes(contentDatBytes);
+
+  expect(Object.keys(contentDatDecoded.regions).sort()).toEqual(["0:0", "1:0"]);
+  expect(contentDatDecoded.regions).toEqual(extractedFromHtml);
+  expect(contentDatDecoded.regions["0:0"]).toContain("User: Alice");
+  expect(contentDatDecoded.regions["1:0"]).toContain("User: Bob");
+
+  const clientWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "client");
+  const serverWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "server");
+  const clientRoutePath = findModuleFileInWorkspace(
+    clientWorkspace,
+    join("Route", "Index.elm")
+  );
+  const serverRoutePath = findModuleFileInWorkspace(
+    serverWorkspace,
+    join("Route", "Index.elm")
+  );
+  const clientRoute = readFileSync(clientRoutePath, "utf8");
+  const serverRoute = readFileSync(serverRoutePath, "utf8");
+
+  expect(clientRoute).toContain('card "0" app.data.alice');
+  expect(clientRoute).toContain('card "1" app.data.bob');
+  expect(serverRoute).toContain('card "0" app.data.alice');
+  expect(serverRoute).toContain('card "1" app.data.bob');
+  expect(clientRoute).toContain("card elmPagesFid_route_index_card");
+  expect(serverRoute).toContain("card elmPagesFid_route_index_card");
+  expect(clientRoute).toContain(
+    '__ELM_PAGES_STATIC__" ++ elmPagesFid_route_index_card ++ ":0"'
+  );
+  expect(serverRoute).toContain(
+    'data-static" (elmPagesFid_route_index_card ++ ":0")'
+  );
+}
+
 describe.sequential("frozen helper seeding CLI behavior", () => {
   const caseIds = listFixtureCaseIds();
 
@@ -453,6 +497,16 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
     "direct-repeated-freeze-route de-optimizes direct repeated freeze callsites",
     () => {
       assertDirectRepeatedFreezeDeOptimized("direct-repeated-freeze-route");
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "supported-route-local-helper-two-sites seeds route-local helper calls and keeps client/server payloads in sync",
+    () => {
+      assertRouteLocalHelperSeedingAgreement(
+        "supported-route-local-helper-two-sites"
+      );
     },
     integrationTestTimeoutMs
   );

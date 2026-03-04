@@ -427,12 +427,8 @@ shouldSeedHelperCallIds config =
         Nothing ->
             False
 
-        Just functionName ->
-            if config.isRouteModule config.moduleName || config.isSharedModule config.moduleName then
-                functionName == "view"
-
-            else
-                True
+        Just _ ->
+            True
 
 
 unwrapParenthesizedExpression : Node Expression -> Node Expression

@@ -72,6 +72,15 @@ type alias FunctionDeclarationInfo =
     }
 
 
+type alias DeferredHelperCall =
+    { callRange : Range
+    , functionRange : Range
+    , firstArgRange : Maybe Range
+    , callerFunctionName : String
+    , calleeFunctionId : ( ModuleName, String )
+    }
+
+
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
@@ -128,6 +137,7 @@ type alias Context =
     -- Stack of let-bound local functions that directly call helpers requiring frozen ID seeding.
     -- Used to flag unsupported function-value/partial usage like `List.map renderItem`.
     , localLetFunctionsNeedingSeed : List (Set String)
+    , deferredHelperCalls : List DeferredHelperCall
     }
 
 
@@ -244,6 +254,7 @@ fromProjectToModule =
             , lastImportRow = 0
             , lambdaDepth = 0
             , localLetFunctionsNeedingSeed = []
+            , deferredHelperCalls = []
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -797,13 +808,52 @@ rewriteHelperCallWithFrozenId node context =
                                 )
 
                         else
-                            ( [], context )
+                            case recordDeferredLocalHelperCall node functionNode args context of
+                                Just deferredContext ->
+                                    ( [], deferredContext )
+
+                                Nothing ->
+                                    ( [], context )
 
             else
                 ( [], context )
 
         _ ->
             ( [], context )
+
+
+recordDeferredLocalHelperCall : Node Expression -> Node Expression -> List (Node Expression) -> Context -> Maybe Context
+recordDeferredLocalHelperCall node functionNode args context =
+    case ( currentFunctionName context, resolveCalledFunctionId functionNode context ) of
+        ( Just callerFunctionName, Just calleeFunctionId ) ->
+            let
+                ( calleeModuleName, calleeFunctionName ) =
+                    calleeFunctionId
+            in
+            if calleeModuleName /= context.moduleName then
+                Nothing
+
+            else if Dict.member calleeFunctionName context.functionDeclarationInfo then
+                Nothing
+
+            else if callAlreadyHasFrozenIdSeed args then
+                Nothing
+
+            else
+                Just
+                    { context
+                        | deferredHelperCalls =
+                            { callRange = Node.range node
+                            , functionRange = Node.range functionNode
+                            , firstArgRange = List.head args |> Maybe.map Node.range
+                            , callerFunctionName = callerFunctionName
+                            , calleeFunctionId = calleeFunctionId
+                            }
+                                :: context.deferredHelperCalls
+                    }
+
+        _ ->
+            Nothing
 
 
 shouldSeedHelperCallIds : Context -> Bool
@@ -1336,27 +1386,52 @@ generatedFidParamName moduleName functionName =
     frozenIdParamPrefix ++ "_" ++ suffix
 
 
+currentFunctionFidParamNameFor : Context -> String -> String
+currentFunctionFidParamNameFor context functionName =
+    case Dict.get functionName context.functionDeclarationInfo of
+        Just info ->
+            info.fidParamName
+                |> Maybe.withDefault (generatedFidParamName context.moduleName functionName)
+
+        Nothing ->
+            generatedFidParamName context.moduleName functionName
+
+
 currentFunctionFidParamName : Context -> String
 currentFunctionFidParamName context =
     case currentFunctionName context of
-        Just fnName ->
-            case Dict.get fnName context.functionDeclarationInfo of
-                Just info ->
-                    info.fidParamName
-                        |> Maybe.withDefault (generatedFidParamName context.moduleName fnName)
-
-                Nothing ->
-                    generatedFidParamName context.moduleName fnName
+        Just functionName ->
+            currentFunctionFidParamNameFor context functionName
 
         Nothing ->
             frozenIdParamPrefix
 
 
+usesHelperFrozenIdsForFunction : Context -> String -> Bool
+usesHelperFrozenIdsForFunction context functionName =
+    let
+        hasExistingArguments =
+            Dict.get functionName context.functionDeclarationInfo
+                |> Maybe.map (\info -> info.argumentCount > 0)
+                |> Maybe.withDefault True
+    in
+    hasExistingArguments
+        && (if PersistentFieldTracking.isRouteModule context.moduleName || PersistentFieldTracking.isSharedModule context.moduleName then
+                functionName /= "view"
+
+            else
+                True
+           )
+
+
 usesHelperFrozenIds : Context -> Bool
 usesHelperFrozenIds context =
-    (not (PersistentFieldTracking.isRouteModule context.moduleName))
-        && (not (PersistentFieldTracking.isSharedModule context.moduleName))
-        && Maybe.withDefault False (Maybe.map (\_ -> True) (currentFunctionName context))
+    case currentFunctionName context of
+        Just functionName ->
+            usesHelperFrozenIdsForFunction context functionName
+
+        Nothing ->
+            False
 
 
 recordTransformedFreezeInCurrentFunction : Context -> Context
@@ -1421,68 +1496,73 @@ nextRootDataStaticIdExpression context =
 
 helperFidInjectionFixes : Context -> List Review.Fix.Fix
 helperFidInjectionFixes context =
-    if not (usesHelperFrozenIds context) then
+    case currentFunctionName context of
+        Just functionName ->
+            if Set.member functionName context.injectedFidFunctions then
+                []
+
+            else
+                helperFidInjectionFixesForFunction context functionName
+
+        Nothing ->
+            []
+
+
+helperFidInjectionFixesForFunction : Context -> String -> List Review.Fix.Fix
+helperFidInjectionFixesForFunction context functionName =
+    if not (usesHelperFrozenIdsForFunction context functionName) then
         []
 
     else
-        case currentFunctionName context of
+        case Dict.get functionName context.functionDeclarationInfo of
             Nothing ->
                 []
 
-            Just fnName ->
-                if Set.member fnName context.injectedFidFunctions then
-                    []
+            Just info ->
+                let
+                    fidParamName =
+                        generatedFidParamName context.moduleName functionName
 
-                else
-                    case Dict.get fnName context.functionDeclarationInfo of
-                        Nothing ->
+                    declarationFixes =
+                        if info.hasFidParam then
                             []
 
-                        Just info ->
-                            let
-                                fidParamName =
-                                    generatedFidParamName context.moduleName fnName
+                        else
+                            [ case info.firstArgRange of
+                                Just firstArgRange ->
+                                    Review.Fix.insertAt firstArgRange.start (fidParamName ++ " ")
 
-                                declarationFixes =
-                                    if info.hasFidParam then
-                                        []
+                                Nothing ->
+                                    Review.Fix.insertAt info.functionNameRange.end (" " ++ fidParamName)
+                            ]
 
-                                    else
-                                        [ case info.firstArgRange of
-                                            Just firstArgRange ->
-                                                Review.Fix.insertAt firstArgRange.start (fidParamName ++ " ")
+                    signatureFixes =
+                        if info.hasFidTypeAnnotation then
+                            []
 
-                                            Nothing ->
-                                                Review.Fix.insertAt info.functionNameRange.end (" " ++ fidParamName)
-                                        ]
+                        else
+                            case info.signatureTypeRange of
+                                Just signatureTypeRange ->
+                                    [ Review.Fix.insertAt signatureTypeRange.start "String -> " ]
 
-                                signatureFixes =
-                                    if info.hasFidTypeAnnotation then
-                                        []
-
-                                    else
-                                        case info.signatureTypeRange of
-                                            Just signatureTypeRange ->
-                                                [ Review.Fix.insertAt signatureTypeRange.start "String -> " ]
-
-                                            Nothing ->
-                                                []
-                            in
-                            declarationFixes ++ signatureFixes
+                                Nothing ->
+                                    []
+                in
+                declarationFixes ++ signatureFixes
 
 
 markCurrentFunctionFidInjected : Context -> Context
 markCurrentFunctionFidInjected context =
-    if not (usesHelperFrozenIds context) then
-        context
+    case currentFunctionName context of
+        Just functionName ->
+            if usesHelperFrozenIdsForFunction context functionName then
+                { context | injectedFidFunctions = Set.insert functionName context.injectedFidFunctions }
 
-    else
-        case currentFunctionName context of
-            Just fnName ->
-                { context | injectedFidFunctions = Set.insert fnName context.injectedFidFunctions }
-
-            Nothing ->
+            else
                 context
+
+        Nothing ->
+            context
 
 
 fidParamNameFromPattern : Node Pattern -> Maybe String
@@ -1863,6 +1943,79 @@ rangeContains outer inner =
     outerStartsBefore && outerEndsAfter
 
 
+deferredHelperCallSeedingErrors : Context -> List (Error {})
+deferredHelperCallSeedingErrors context =
+    let
+        orderedDeferredCalls =
+            List.reverse context.deferredHelperCalls
+
+        freezeKnowledgeAtEnd =
+            freezeKnowledge context
+
+        step deferredCall ( nextSeedIndex, injectedFunctions, errors ) =
+            if FreezeHelperPlanning.functionContainsFreeze freezeKnowledgeAtEnd deferredCall.calleeFunctionId then
+                let
+                    ( seedExpression, nextSeedIndexAfter ) =
+                        if usesHelperFrozenIdsForFunction context deferredCall.callerFunctionName then
+                            ( "("
+                                ++ currentFunctionFidParamNameFor context deferredCall.callerFunctionName
+                                ++ " ++ \":"
+                                ++ String.fromInt nextSeedIndex
+                                ++ "\")"
+                            , nextSeedIndex + 1
+                            )
+
+                        else
+                            let
+                                seedPrefix =
+                                    getStaticPrefix context.moduleName
+                            in
+                            ( "\"" ++ seedPrefix ++ String.fromInt nextSeedIndex ++ "\""
+                            , nextSeedIndex + 1
+                            )
+
+                    insertionFix =
+                        case deferredCall.firstArgRange of
+                            Just firstArgRange ->
+                                Review.Fix.insertAt firstArgRange.start (seedExpression ++ " ")
+
+                            Nothing ->
+                                Review.Fix.insertAt deferredCall.functionRange.end (" " ++ seedExpression)
+
+                    declarationFixes =
+                        if usesHelperFrozenIdsForFunction context deferredCall.callerFunctionName
+                            && not (Set.member deferredCall.callerFunctionName injectedFunctions) then
+                            helperFidInjectionFixesForFunction context deferredCall.callerFunctionName
+
+                        else
+                            []
+
+                    nextInjectedFunctions =
+                        if List.isEmpty declarationFixes then
+                            injectedFunctions
+
+                        else
+                            Set.insert deferredCall.callerFunctionName injectedFunctions
+                in
+                ( nextSeedIndexAfter
+                , nextInjectedFunctions
+                , Rule.errorWithFix
+                    { message = "Server codemod: pass frozen ID to helper call"
+                    , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                    }
+                    deferredCall.callRange
+                    (insertionFix :: declarationFixes)
+                    :: errors
+                )
+
+            else
+                ( nextSeedIndex, injectedFunctions, errors )
+    in
+    orderedDeferredCalls
+        |> List.foldl step ( context.helperCallSeedIndex, context.injectedFidFunctions, [] )
+        |> (\( _, _, errors ) -> List.reverse errors)
+
+
 {-| Final evaluation - generate Ephemeral/Data split and ephemeralToData function.
 
 The formula is: ephemeral = allFields - clientUsedFields
@@ -1875,210 +2028,213 @@ mark all fields as persistent (safe fallback).
 -}
 finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
-    let
-        -- Only apply transformations to Route modules (Route.Index, Route.Blog.Slug_, etc.)
-        -- Uses shared function to ensure agreement with StaticViewTransform
-        isRouteModule =
-            PersistentFieldTracking.isRouteModule context.moduleName
-    in
-    -- Skip non-Route modules (Site.elm, Shared.elm, etc.) to avoid disagreement with client transform
-    if not isRouteModule then
-        []
+    deferredHelperCallSeedingErrors context
+        ++
+            (let
+                -- Only apply transformations to Route modules (Route.Index, Route.Blog.Slug_, etc.)
+                -- Uses shared function to ensure agreement with StaticViewTransform
+                isRouteModule =
+                    PersistentFieldTracking.isRouteModule context.moduleName
+             in
+             -- Skip non-Route modules (Site.elm, Shared.elm, etc.) to avoid disagreement with client transform
+             if not isRouteModule then
+                 []
 
-    else if context.hasEphemeralType then
-        -- Skip if transformation was already applied (Ephemeral type exists)
-        []
+             else if context.hasEphemeralType then
+                 -- Skip if transformation was already applied (Ephemeral type exists)
+                 []
 
-    else
-        case context.dataTypeRange of
-            Nothing ->
-                []
+             else
+                 case context.dataTypeRange of
+                     Nothing ->
+                         []
 
-            Just range ->
-                let
-                    -- All field names from the Data type
-                    allFieldNames =
-                        PersistentFieldTracking.extractFieldNames context.sharedState.dataTypeFields
+                     Just range ->
+                         let
+                             -- All field names from the Data type
+                             allFieldNames =
+                                 PersistentFieldTracking.extractFieldNames context.sharedState.dataTypeFields
 
-                    -- Compute head function fields for non-conventional naming correction
-                    -- This uses the same logic as StaticViewTransform to ensure agreement
-                    headFunctionFields =
-                        PersistentFieldTracking.computeHeadFunctionFields context.sharedState
+                             -- Compute head function fields for non-conventional naming correction
+                             -- This uses the same logic as StaticViewTransform to ensure agreement
+                             headFunctionFields =
+                                 PersistentFieldTracking.computeHeadFunctionFields context.sharedState
 
-                    -- Compute ephemeral fields using shared logic with correction
-                    -- This ensures agreement with StaticViewTransform's field computation
-                    ephemeralResult =
-                        PersistentFieldTracking.computeEphemeralFieldsWithCorrection
-                            { allFieldNames = allFieldNames
-                            , clientUsedFields = context.sharedState.clientUsedFields
-                            , pendingHelperCalls = context.sharedState.pendingHelperCalls
-                            , helperFunctions = context.sharedState.helperFunctions
-                            , headFunctionFields = headFunctionFields
-                            , markAllFieldsAsUsed = context.sharedState.markAllFieldsAsUsed
-                            }
+                             -- Compute ephemeral fields using shared logic with correction
+                             -- This ensures agreement with StaticViewTransform's field computation
+                             ephemeralResult =
+                                 PersistentFieldTracking.computeEphemeralFieldsWithCorrection
+                                     { allFieldNames = allFieldNames
+                                     , clientUsedFields = context.sharedState.clientUsedFields
+                                     , pendingHelperCalls = context.sharedState.pendingHelperCalls
+                                     , helperFunctions = context.sharedState.helperFunctions
+                                     , headFunctionFields = headFunctionFields
+                                     , markAllFieldsAsUsed = context.sharedState.markAllFieldsAsUsed
+                                     }
 
-                    ephemeralFields =
-                        ephemeralResult.ephemeralFields
+                             ephemeralFields =
+                                 ephemeralResult.ephemeralFields
 
-                    -- Persistent fields for the new Data type
-                    persistentFieldDefs =
-                        context.sharedState.dataTypeFields
-                            |> List.filter (\( name, _ ) -> not (Set.member name ephemeralFields))
-                in
-                if Set.isEmpty ephemeralFields then
-                    -- No ephemeral fields, nothing to transform
-                    []
+                             -- Persistent fields for the new Data type
+                             persistentFieldDefs =
+                                 context.sharedState.dataTypeFields
+                                     |> List.filter (\( name, _ ) -> not (Set.member name ephemeralFields))
+                         in
+                         if Set.isEmpty ephemeralFields then
+                             -- No ephemeral fields, nothing to transform
+                             []
 
-                else
-                    -- Generate the transformation:
-                    -- 1. Rename Data to Ephemeral
-                    -- 2. Add new Data type with only persistent fields
-                    -- 3. Add ephemeralToData function
-                    let
-                        -- Generate Ephemeral type alias (same as original Data)
-                        ephemeralTypeAlias =
-                            "type alias Ephemeral =\n    { "
-                                ++ (context.sharedState.dataTypeFields
-                                        |> List.map
-                                            (\( name, typeNode ) ->
-                                                name ++ " : " ++ PersistentFieldTracking.typeAnnotationToString (Node.value typeNode)
+                         else
+                             -- Generate the transformation:
+                             -- 1. Rename Data to Ephemeral
+                             -- 2. Add new Data type with only persistent fields
+                             -- 3. Add ephemeralToData function
+                             let
+                                 -- Generate Ephemeral type alias (same as original Data)
+                                 ephemeralTypeAlias =
+                                     "type alias Ephemeral =\n    { "
+                                         ++ (context.sharedState.dataTypeFields
+                                                 |> List.map
+                                                     (\( name, typeNode ) ->
+                                                         name ++ " : " ++ PersistentFieldTracking.typeAnnotationToString (Node.value typeNode)
+                                                     )
+                                                 |> String.join "\n    , "
                                             )
-                                        |> String.join "\n    , "
-                                   )
-                                ++ "\n    }"
+                                         ++ "\n    }"
 
-                        -- Generate new Data type alias (persistent fields only)
-                        newDataTypeAlias =
-                            if List.isEmpty persistentFieldDefs then
-                                "type alias Data =\n    {}"
+                                 -- Generate new Data type alias (persistent fields only)
+                                 newDataTypeAlias =
+                                     if List.isEmpty persistentFieldDefs then
+                                         "type alias Data =\n    {}"
 
-                            else
-                                "type alias Data =\n    { "
-                                    ++ (persistentFieldDefs
-                                            |> List.map
-                                                (\( name, typeNode ) ->
-                                                    name ++ " : " ++ PersistentFieldTracking.typeAnnotationToString (Node.value typeNode)
+                                     else
+                                         "type alias Data =\n    { "
+                                             ++ (persistentFieldDefs
+                                                     |> List.map
+                                                         (\( name, typeNode ) ->
+                                                             name ++ " : " ++ PersistentFieldTracking.typeAnnotationToString (Node.value typeNode)
+                                                         )
+                                                     |> String.join "\n    , "
                                                 )
-                                            |> String.join "\n    , "
-                                       )
-                                    ++ "\n    }"
+                                             ++ "\n    }"
 
-                        -- Generate ephemeralToData function
-                        ephemeralToDataFn =
-                            if List.isEmpty persistentFieldDefs then
-                                "ephemeralToData : Ephemeral -> Data\nephemeralToData _ =\n    {}"
+                                 -- Generate ephemeralToData function
+                                 ephemeralToDataFn =
+                                     if List.isEmpty persistentFieldDefs then
+                                         "ephemeralToData : Ephemeral -> Data\nephemeralToData _ =\n    {}"
 
-                            else
-                                "ephemeralToData : Ephemeral -> Data\nephemeralToData ephemeral =\n    { "
-                                    ++ (persistentFieldDefs
-                                            |> List.map (\( name, _ ) -> name ++ " = ephemeral." ++ name)
-                                            |> String.join "\n    , "
-                                       )
-                                    ++ "\n    }"
+                                     else
+                                         "ephemeralToData : Ephemeral -> Data\nephemeralToData ephemeral =\n    { "
+                                             ++ (persistentFieldDefs
+                                                     |> List.map (\( name, _ ) -> name ++ " = ephemeral." ++ name)
+                                                     |> String.join "\n    , "
+                                                )
+                                             ++ "\n    }"
 
-                        -- Full replacement: Ephemeral + Data + ephemeralToData
-                        fullReplacement =
-                            ephemeralTypeAlias
-                                ++ "\n\n\n"
-                                ++ newDataTypeAlias
-                                ++ "\n\n\n"
-                                ++ ephemeralToDataFn
+                                 -- Full replacement: Ephemeral + Data + ephemeralToData
+                                 fullReplacement =
+                                     ephemeralTypeAlias
+                                         ++ "\n\n\n"
+                                         ++ newDataTypeAlias
+                                         ++ "\n\n\n"
+                                         ++ ephemeralToDataFn
 
-                        -- Update data function signature: Data -> Ephemeral
-                        dataSignatureFixes =
-                            case ( context.dataFunctionSignatureRange, context.dataFunctionSignature ) of
-                                ( Just sigRange, Just sigStr ) ->
-                                    -- Replace "Data" with "Ephemeral" in the signature
-                                    -- The data function returns BackendTask ... Data, we need it to return Ephemeral
-                                    let
-                                        updatedSig =
-                                            String.replace " Data" " Ephemeral" sigStr
-                                    in
-                                    if updatedSig /= sigStr then
-                                        [ Review.Fix.replaceRangeBy sigRange updatedSig ]
+                                 -- Update data function signature: Data -> Ephemeral
+                                 dataSignatureFixes =
+                                     case ( context.dataFunctionSignatureRange, context.dataFunctionSignature ) of
+                                         ( Just sigRange, Just sigStr ) ->
+                                             -- Replace "Data" with "Ephemeral" in the signature
+                                             -- The data function returns BackendTask ... Data, we need it to return Ephemeral
+                                             let
+                                                 updatedSig =
+                                                     String.replace " Data" " Ephemeral" sigStr
+                                             in
+                                             if updatedSig /= sigStr then
+                                                 [ Review.Fix.replaceRangeBy sigRange updatedSig ]
 
-                                    else
-                                        []
+                                             else
+                                                 []
 
-                                _ ->
-                                    []
+                                         _ ->
+                                             []
 
-                        -- Fix Data constructor uses (e.g., map4 Data -> map4 Ephemeral)
-                        dataConstructorFixes =
-                            context.dataConstructorRanges
-                                |> List.map
-                                    (\constructorRange ->
-                                        Review.Fix.replaceRangeBy constructorRange "Ephemeral"
-                                    )
+                                 -- Fix Data constructor uses (e.g., map4 Data -> map4 Ephemeral)
+                                 dataConstructorFixes =
+                                     context.dataConstructorRanges
+                                         |> List.map
+                                             (\constructorRange ->
+                                                 Review.Fix.replaceRangeBy constructorRange "Ephemeral"
+                                             )
 
-                        -- Fix Data type references in function signatures (e.g., App Data -> App Ephemeral)
-                        -- Exclude references that fall within the data function's signature range,
-                        -- since that range is already handled by dataSignatureFixes (which replaces
-                        -- the entire annotation). Including both would create overlapping fix ranges
-                        -- that elm-review rejects.
-                        dataTypeReferenceFixes =
-                            context.dataTypeReferenceRanges
-                                |> List.filter
-                                    (\refRange ->
-                                        case context.dataFunctionSignatureRange of
-                                            Just sigRange ->
-                                                not (rangeContains sigRange refRange)
+                                 -- Fix Data type references in function signatures (e.g., App Data -> App Ephemeral)
+                                 -- Exclude references that fall within the data function's signature range,
+                                 -- since that range is already handled by dataSignatureFixes (which replaces
+                                 -- the entire annotation). Including both would create overlapping fix ranges
+                                 -- that elm-review rejects.
+                                 dataTypeReferenceFixes =
+                                     context.dataTypeReferenceRanges
+                                         |> List.filter
+                                             (\refRange ->
+                                                 case context.dataFunctionSignatureRange of
+                                                     Just sigRange ->
+                                                         not (rangeContains sigRange refRange)
 
-                                            Nothing ->
-                                                True
-                                    )
-                                |> List.map
-                                    (\refRange ->
-                                        Review.Fix.replaceRangeBy refRange "Ephemeral"
-                                    )
+                                                     Nothing ->
+                                                         True
+                                             )
+                                         |> List.map
+                                             (\refRange ->
+                                                 Review.Fix.replaceRangeBy refRange "Ephemeral"
+                                             )
 
-                        -- Fix module exports to include Ephemeral
-                        exportFixes =
-                            case context.dataExportRange of
-                                Just exportRange ->
-                                    -- Insert ", Ephemeral" after "Data" in exports
-                                    [ Review.Fix.insertAt exportRange.end ", Ephemeral, ephemeralToData" ]
+                                 -- Fix module exports to include Ephemeral
+                                 exportFixes =
+                                     case context.dataExportRange of
+                                         Just exportRange ->
+                                             -- Insert ", Ephemeral" after "Data" in exports
+                                             [ Review.Fix.insertAt exportRange.end ", Ephemeral, ephemeralToData" ]
 
-                                Nothing ->
-                                    []
+                                         Nothing ->
+                                             []
 
-                        -- Combine ALL fixes into a single errorWithFix so they are applied
-                        -- atomically by elm-review. If fixes are split across multiple errors,
-                        -- elm-review applies one fix at a time and re-analyzes between each.
-                        -- After the Data type split is applied, hasEphemeralType becomes True
-                        -- on re-analysis, which would prevent the remaining fixes (exports,
-                        -- constructors, signatures) from ever being generated.
-                        allFixes =
-                            [ Review.Fix.replaceRangeBy range fullReplacement ]
-                                ++ dataSignatureFixes
-                                ++ dataConstructorFixes
-                                ++ dataTypeReferenceFixes
-                                ++ exportFixes
+                                 -- Combine ALL fixes into a single errorWithFix so they are applied
+                                 -- atomically by elm-review. If fixes are split across multiple errors,
+                                 -- elm-review applies one fix at a time and re-analyzes between each.
+                                 -- After the Data type split is applied, hasEphemeralType becomes True
+                                 -- on re-analysis, which would prevent the remaining fixes (exports,
+                                 -- constructors, signatures) from ever being generated.
+                                 allFixes =
+                                     [ Review.Fix.replaceRangeBy range fullReplacement ]
+                                         ++ dataSignatureFixes
+                                         ++ dataConstructorFixes
+                                         ++ dataTypeReferenceFixes
+                                         ++ exportFixes
 
-                        -- Emit EPHEMERAL_FIELDS_JSON for the codegen to pick up
-                        ephemeralFieldsJson =
-                            "EPHEMERAL_FIELDS_JSON:{\"module\":\""
-                                ++ String.join "." context.moduleName
-                                ++ "\",\"ephemeralFields\":["
-                                ++ (ephemeralFields |> Set.toList |> List.map (\f -> "\"" ++ f ++ "\"") |> String.join ",")
-                                ++ "]}"
+                                 -- Emit EPHEMERAL_FIELDS_JSON for the codegen to pick up
+                                 ephemeralFieldsJson =
+                                     "EPHEMERAL_FIELDS_JSON:{\"module\":\""
+                                         ++ String.join "." context.moduleName
+                                         ++ "\",\"ephemeralFields\":["
+                                         ++ (ephemeralFields |> Set.toList |> List.map (\f -> "\"" ++ f ++ "\"") |> String.join ",")
+                                         ++ "]}"
 
-                        ephemeralFieldsError =
-                            Rule.error
-                                { message = ephemeralFieldsJson
-                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
-                                }
-                                range
-                    in
-                    [ ephemeralFieldsError
-                    , Rule.errorWithFix
-                            { message = "Server codemod: split Data into Ephemeral and Data"
-                            , details =
-                                [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
-                                , "Ephemeral fields: " ++ String.join ", " (Set.toList ephemeralFields)
-                                , "Generating ephemeralToData conversion function for wire encoding."
-                                ]
-                            }
-                            range
-                            allFixes
-                    ]
+                                 ephemeralFieldsError =
+                                     Rule.error
+                                         { message = ephemeralFieldsJson
+                                         , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                         }
+                                         range
+                             in
+                             [ ephemeralFieldsError
+                             , Rule.errorWithFix
+                                     { message = "Server codemod: split Data into Ephemeral and Data"
+                                     , details =
+                                         [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                         , "Ephemeral fields: " ++ String.join ", " (Set.toList ephemeralFields)
+                                         , "Generating ephemeralToData conversion function for wire encoding."
+                                         ]
+                                     }
+                                     range
+                                     allFixes
+                             ]
+            )

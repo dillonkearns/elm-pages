@@ -6113,6 +6113,142 @@ view app =
                                 ]
                               )
                             ]
+            , test "adds helper ID parameter for route-local helper and rewrites local call sites" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import Html.Styled as Html
+import View
+
+view app =
+    { body =
+        [ card app.data.alice
+        , card app.data.bob
+        ]
+    }
+
+card user =
+    View.freeze (Html.text user.name)
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                    , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                    , under = "View.freeze (Html.text user.name)"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view app =
+    { body =
+        [ card app.data.alice
+        , card app.data.bob
+        ]
+    }
+
+card elmPagesFid_route_index_card user =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid_route_index_card ++ ":0") |> View.htmlToFreezable |> View.freeze)
+"""
+                                , Review.Test.error
+                                    { message = "Frozen view codemod: pass frozen ID to helper call"
+                                    , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                                    , under = "card app.data.alice"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Html.Styled as Html
+import View
+
+view app =
+    { body =
+        [ card "0" app.data.alice
+        , card app.data.bob
+        ]
+    }
+
+card user =
+    View.freeze (Html.text user.name)
+"""
+                                , Review.Test.error
+                                    { message = "Frozen view codemod: pass frozen ID to helper call"
+                                    , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                                    , under = "card app.data.bob"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Html.Styled as Html
+import View
+
+view app =
+    { body =
+        [ card app.data.alice
+        , card "1" app.data.bob
+        ]
+    }
+
+card user =
+    View.freeze (Html.text user.name)
+"""
+                                ]
+                              )
+                            ]
+            , test "keeps zero-argument route-local helper as root-static transform (no helper ID injection)" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import Html.Styled as Html
+import View
+
+view app =
+    { body =
+        [ card
+        , card
+        ]
+    }
+
+card =
+    View.freeze (Html.text "hello")
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                    , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                    , under = "View.freeze (Html.text \"hello\")"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view app =
+    { body =
+        [ card
+        , card
+        ]
+    }
+
+card =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze)
+"""
+                                ]
+                              )
+                            ]
             , test "propagates helper IDs through transitive helper call chains" <|
                 \() ->
                     [ """module Card exposing (view)

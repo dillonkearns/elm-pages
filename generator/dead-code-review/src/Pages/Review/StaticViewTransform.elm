@@ -94,6 +94,15 @@ type alias FunctionDeclarationInfo =
     }
 
 
+type alias DeferredHelperCall =
+    { callRange : Range
+    , functionRange : Range
+    , firstArgRange : Maybe Range
+    , callerFunctionName : String
+    , calleeFunctionId : ( ModuleName, String )
+    }
+
+
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
@@ -187,6 +196,7 @@ type alias Context =
     -- Ranges where "Data" appears in helper type annotations (maps function name -> list of ranges)
     -- Used to replace Data with Ephemeral for freeze-only helpers
     , helperDataTypeRanges : Dict String (List Range)
+    , deferredHelperCalls : List DeferredHelperCall
     }
 
 
@@ -267,6 +277,7 @@ fromProjectToModule =
             , narrowedDataExists = False
             , helpersCalledInFreeze = Set.empty
             , helperDataTypeRanges = Dict.empty
+            , deferredHelperCalls = []
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -1820,13 +1831,52 @@ rewriteHelperCallWithFrozenId node context =
                                 )
 
                         else
-                            ( [], context )
+                            case recordDeferredLocalHelperCall node functionNode args context of
+                                Just deferredContext ->
+                                    ( [], deferredContext )
+
+                                Nothing ->
+                                    ( [], context )
 
             else
                 ( [], context )
 
         _ ->
             ( [], context )
+
+
+recordDeferredLocalHelperCall : Node Expression -> Node Expression -> List (Node Expression) -> Context -> Maybe Context
+recordDeferredLocalHelperCall node functionNode args context =
+    case ( currentFunctionName context, resolveCalledFunctionId functionNode context ) of
+        ( Just callerFunctionName, Just calleeFunctionId ) ->
+            let
+                ( calleeModuleName, calleeFunctionName ) =
+                    calleeFunctionId
+            in
+            if calleeModuleName /= context.moduleName then
+                Nothing
+
+            else if Dict.member calleeFunctionName context.functionDeclarationInfo then
+                Nothing
+
+            else if callAlreadyHasFrozenIdSeed args then
+                Nothing
+
+            else
+                Just
+                    { context
+                        | deferredHelperCalls =
+                            { callRange = Node.range node
+                            , functionRange = Node.range functionNode
+                            , firstArgRange = List.head args |> Maybe.map Node.range
+                            , callerFunctionName = callerFunctionName
+                            , calleeFunctionId = calleeFunctionId
+                            }
+                                :: context.deferredHelperCalls
+                    }
+
+        _ ->
+            Nothing
 
 
 shouldSeedHelperCallIds : Context -> Bool
@@ -2162,27 +2212,52 @@ generatedFidParamName moduleName functionName =
     frozenIdParamPrefix ++ "_" ++ suffix
 
 
+currentFunctionFidParamNameFor : Context -> String -> String
+currentFunctionFidParamNameFor context functionName =
+    case Dict.get functionName context.functionDeclarationInfo of
+        Just info ->
+            info.fidParamName
+                |> Maybe.withDefault (generatedFidParamName context.moduleName functionName)
+
+        Nothing ->
+            generatedFidParamName context.moduleName functionName
+
+
 currentFunctionFidParamName : Context -> String
 currentFunctionFidParamName context =
     case currentFunctionName context of
-        Just fnName ->
-            case Dict.get fnName context.functionDeclarationInfo of
-                Just info ->
-                    info.fidParamName
-                        |> Maybe.withDefault (generatedFidParamName context.moduleName fnName)
-
-                Nothing ->
-                    generatedFidParamName context.moduleName fnName
+        Just functionName ->
+            currentFunctionFidParamNameFor context functionName
 
         Nothing ->
             frozenIdParamPrefix
 
 
+usesHelperFrozenIdsForFunction : Context -> String -> Bool
+usesHelperFrozenIdsForFunction context functionName =
+    let
+        hasExistingArguments =
+            Dict.get functionName context.functionDeclarationInfo
+                |> Maybe.map (\info -> info.argumentCount > 0)
+                |> Maybe.withDefault True
+    in
+    hasExistingArguments
+        && (if PersistentFieldTracking.isRouteModule context.moduleName || PersistentFieldTracking.isSharedModule context.moduleName then
+                functionName /= "view"
+
+            else
+                True
+           )
+
+
 usesHelperFrozenIds : Context -> Bool
 usesHelperFrozenIds context =
-    (not (PersistentFieldTracking.isRouteModule context.moduleName))
-        && (not (PersistentFieldTracking.isSharedModule context.moduleName))
-        && Maybe.withDefault False (Maybe.map (\_ -> True) (currentFunctionName context))
+    case currentFunctionName context of
+        Just functionName ->
+            usesHelperFrozenIdsForFunction context functionName
+
+        Nothing ->
+            False
 
 
 recordTransformedFreezeInCurrentFunction : Context -> Context
@@ -2255,68 +2330,73 @@ nextRootStaticIdExpression context =
 
 helperFidInjectionFixes : Context -> List Review.Fix.Fix
 helperFidInjectionFixes context =
-    if not (usesHelperFrozenIds context) then
+    case currentFunctionName context of
+        Just functionName ->
+            if Set.member functionName context.injectedFidFunctions then
+                []
+
+            else
+                helperFidInjectionFixesForFunction context functionName
+
+        Nothing ->
+            []
+
+
+helperFidInjectionFixesForFunction : Context -> String -> List Review.Fix.Fix
+helperFidInjectionFixesForFunction context functionName =
+    if not (usesHelperFrozenIdsForFunction context functionName) then
         []
 
     else
-        case currentFunctionName context of
+        case Dict.get functionName context.functionDeclarationInfo of
             Nothing ->
                 []
 
-            Just fnName ->
-                if Set.member fnName context.injectedFidFunctions then
-                    []
+            Just info ->
+                let
+                    fidParamName =
+                        generatedFidParamName context.moduleName functionName
 
-                else
-                    case Dict.get fnName context.functionDeclarationInfo of
-                        Nothing ->
+                    declarationFixes =
+                        if info.hasFidParam then
                             []
 
-                        Just info ->
-                            let
-                                fidParamName =
-                                    generatedFidParamName context.moduleName fnName
+                        else
+                            [ case info.firstArgRange of
+                                Just firstArgRange ->
+                                    Review.Fix.insertAt firstArgRange.start (fidParamName ++ " ")
 
-                                declarationFixes =
-                                    if info.hasFidParam then
-                                        []
+                                Nothing ->
+                                    Review.Fix.insertAt info.functionNameRange.end (" " ++ fidParamName)
+                            ]
 
-                                    else
-                                        [ case info.firstArgRange of
-                                            Just firstArgRange ->
-                                                Review.Fix.insertAt firstArgRange.start (fidParamName ++ " ")
+                    signatureFixes =
+                        if info.hasFidTypeAnnotation then
+                            []
 
-                                            Nothing ->
-                                                Review.Fix.insertAt info.functionNameRange.end (" " ++ fidParamName)
-                                        ]
+                        else
+                            case info.signatureTypeRange of
+                                Just signatureTypeRange ->
+                                    [ Review.Fix.insertAt signatureTypeRange.start "String -> " ]
 
-                                signatureFixes =
-                                    if info.hasFidTypeAnnotation then
-                                        []
-
-                                    else
-                                        case info.signatureTypeRange of
-                                            Just signatureTypeRange ->
-                                                [ Review.Fix.insertAt signatureTypeRange.start "String -> " ]
-
-                                            Nothing ->
-                                                []
-                            in
-                            declarationFixes ++ signatureFixes
+                                Nothing ->
+                                    []
+                in
+                declarationFixes ++ signatureFixes
 
 
 markCurrentFunctionFidInjected : Context -> Context
 markCurrentFunctionFidInjected context =
-    if not (usesHelperFrozenIds context) then
-        context
+    case currentFunctionName context of
+        Just functionName ->
+            if usesHelperFrozenIdsForFunction context functionName then
+                { context | injectedFidFunctions = Set.insert functionName context.injectedFidFunctions }
 
-    else
-        case currentFunctionName context of
-            Just fnName ->
-                { context | injectedFidFunctions = Set.insert fnName context.injectedFidFunctions }
-
-            Nothing ->
+            else
                 context
+
+        Nothing ->
+            context
 
 
 fidParamNameFromPattern : Node Pattern -> Maybe String
@@ -2500,6 +2580,83 @@ inlinedLazyThunk context staticIdExpression =
     "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> " ++ htmlPrefix ++ ".text \"\") " ++ staticIdExpression ++ " |> View.htmlToFreezable |> View.freeze)"
 
 
+deferredHelperCallSeedingErrors : Context -> List (Error {})
+deferredHelperCallSeedingErrors context =
+    let
+        orderedDeferredCalls =
+            List.reverse context.deferredHelperCalls
+
+        freezeKnowledgeAtEnd =
+            freezeKnowledge context
+
+        step deferredCall ( nextSeedIndex, injectedFunctions, errors ) =
+            if FreezeHelperPlanning.functionContainsFreeze freezeKnowledgeAtEnd deferredCall.calleeFunctionId then
+                let
+                    ( seedExpression, nextSeedIndexAfter ) =
+                        if usesHelperFrozenIdsForFunction context deferredCall.callerFunctionName then
+                            ( "("
+                                ++ currentFunctionFidParamNameFor context deferredCall.callerFunctionName
+                                ++ " ++ \":"
+                                ++ String.fromInt nextSeedIndex
+                                ++ "\")"
+                            , nextSeedIndex + 1
+                            )
+
+                        else
+                            let
+                                seedPrefix =
+                                    if context.moduleName == [ "Shared" ] then
+                                        "shared:"
+
+                                    else
+                                        ""
+                            in
+                            ( "\"" ++ seedPrefix ++ String.fromInt nextSeedIndex ++ "\""
+                            , nextSeedIndex + 1
+                            )
+
+                    insertionFix =
+                        case deferredCall.firstArgRange of
+                            Just firstArgRange ->
+                                Review.Fix.insertAt firstArgRange.start (seedExpression ++ " ")
+
+                            Nothing ->
+                                Review.Fix.insertAt deferredCall.functionRange.end (" " ++ seedExpression)
+
+                    declarationFixes =
+                        if usesHelperFrozenIdsForFunction context deferredCall.callerFunctionName
+                            && not (Set.member deferredCall.callerFunctionName injectedFunctions) then
+                            helperFidInjectionFixesForFunction context deferredCall.callerFunctionName
+
+                        else
+                            []
+
+                    nextInjectedFunctions =
+                        if List.isEmpty declarationFixes then
+                            injectedFunctions
+
+                        else
+                            Set.insert deferredCall.callerFunctionName injectedFunctions
+                in
+                ( nextSeedIndexAfter
+                , nextInjectedFunctions
+                , Rule.errorWithFix
+                    { message = "Frozen view codemod: pass frozen ID to helper call"
+                    , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                    }
+                    deferredCall.callRange
+                    (insertionFix :: declarationFixes)
+                    :: errors
+                )
+
+            else
+                ( nextSeedIndex, injectedFunctions, errors )
+    in
+    orderedDeferredCalls
+        |> List.foldl step ( context.helperCallSeedIndex, context.injectedFidFunctions, [] )
+        |> (\( _, _, errors ) -> List.reverse errors)
+
+
 {-| Final evaluation - emit Data type transformation if there are removable fields.
 
 The model is:
@@ -2522,269 +2679,272 @@ False positives (breaking code) are NOT acceptable.
 -}
 finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
-    let
-        -- Only apply transformations to Route modules (Route.Index, Route.Blog.Slug_, etc.)
-        -- Uses shared function to ensure agreement with ServerDataTransform
-        isRouteModule =
-            PersistentFieldTracking.isRouteModule context.moduleName
+    deferredHelperCallSeedingErrors context
+        ++
+            (let
+                -- Only apply transformations to Route modules (Route.Index, Route.Blog.Slug_, etc.)
+                -- Uses shared function to ensure agreement with ServerDataTransform
+                isRouteModule =
+                    PersistentFieldTracking.isRouteModule context.moduleName
 
-        -- Fields to subtract from clientUsedFields because they were accessed in the head function
-        -- This handles the case where the head function is defined BEFORE RouteBuilder is seen,
-        -- so we initially tracked its field accesses as client-used. Now we correct that.
-        -- Uses shared computation to ensure agreement with ServerDataTransform.
-        headFunctionFields =
-            PersistentFieldTracking.computeHeadFunctionFields context.sharedState
-    in
-    -- Conservative: skip transformation in these cases:
-    -- 1. Not a Route module (Site.elm, Shared.elm, etc.)
-    -- 2. Data is used as a constructor in CLIENT code (changing type would break it)
-    --    Note: usage in the `data` function is SAFE (DCE'd on client, server renames to Ephemeral)
-    -- 3. NarrowedData type alias already exists (fix was already applied)
-    -- Note: markAllFieldsAsClientUsed is handled via effectiveClientUsedFields fallback below
-    if not isRouteModule then
-        -- Not a Route module, no transformation needed (this is expected for Site.elm, Shared.elm, etc.)
-        []
+                -- Fields to subtract from clientUsedFields because they were accessed in the head function
+                -- This handles the case where the head function is defined BEFORE RouteBuilder is seen,
+                -- so we initially tracked its field accesses as client-used. Now we correct that.
+                -- Uses shared computation to ensure agreement with ServerDataTransform.
+                headFunctionFields =
+                    PersistentFieldTracking.computeHeadFunctionFields context.sharedState
+             in
+             -- Conservative: skip transformation in these cases:
+             -- 1. Not a Route module (Site.elm, Shared.elm, etc.)
+             -- 2. Data is used as a constructor in CLIENT code (changing type would break it)
+             --    Note: usage in the `data` function is SAFE (DCE'd on client, server renames to Ephemeral)
+             -- 3. NarrowedData type alias already exists (fix was already applied)
+             -- Note: markAllFieldsAsClientUsed is handled via effectiveClientUsedFields fallback below
+             if not isRouteModule then
+                 -- Not a Route module, no transformation needed (this is expected for Site.elm, Shared.elm, etc.)
+                 []
 
-    else if context.narrowedDataExists then
-        -- Already transformed, skip
-        []
+             else if context.narrowedDataExists then
+                 -- Already transformed, skip
+                 []
 
-    else if context.dataUsedAsConstructor then
-        -- Data is used as a constructor in CLIENT code (outside the data function)
-        -- We can't narrow the type without breaking the constructor call
-        --
-        -- NOTE: Data constructor usage INSIDE the `data` function is safe because:
-        -- 1. The `data` function is DCE'd on the client
-        -- 2. The server transform renames Data -> Ephemeral in constructor usage
-        -- We only skip when the constructor is used in CLIENT code (view, init, update, etc.)
-        []
+             else if context.dataUsedAsConstructor then
+                 -- Data is used as a constructor in CLIENT code (outside the data function)
+                 -- We can't narrow the type without breaking the constructor call
+                 --
+                 -- NOTE: Data constructor usage INSIDE the `data` function is safe because:
+                 -- 1. The `data` function is DCE'd on the client
+                 -- 2. The server transform renames Data -> Ephemeral in constructor usage
+                 -- We only skip when the constructor is used in CLIENT code (view, init, update, etc.)
+                 []
 
-    else
-        case context.dataTypeRange of
-            Nothing ->
-                -- No Data type found - nothing to optimize
-                []
+             else
+                 case context.dataTypeRange of
+                     Nothing ->
+                         -- No Data type found - nothing to optimize
+                         []
 
-            Just range ->
-                let
-                    -- All field names from the Data type
-                    allFieldNames =
-                        PersistentFieldTracking.extractFieldNames context.sharedState.dataTypeFields
+                     Just range ->
+                         let
+                             -- All field names from the Data type
+                             allFieldNames =
+                                 PersistentFieldTracking.extractFieldNames context.sharedState.dataTypeFields
 
-                    -- Compute ephemeral fields using shared logic
-                    -- This ensures agreement with ServerDataTransform's field computation
-                    ephemeralResult =
-                        PersistentFieldTracking.computeEphemeralFieldsWithCorrection
-                            { allFieldNames = allFieldNames
-                            , clientUsedFields = context.sharedState.clientUsedFields
-                            , pendingHelperCalls = context.sharedState.pendingHelperCalls
-                            , helperFunctions = context.sharedState.helperFunctions
-                            , headFunctionFields = headFunctionFields
-                            , markAllFieldsAsUsed = context.sharedState.markAllFieldsAsUsed
-                            }
+                             -- Compute ephemeral fields using shared logic
+                             -- This ensures agreement with ServerDataTransform's field computation
+                             ephemeralResult =
+                                 PersistentFieldTracking.computeEphemeralFieldsWithCorrection
+                                     { allFieldNames = allFieldNames
+                                     , clientUsedFields = context.sharedState.clientUsedFields
+                                     , pendingHelperCalls = context.sharedState.pendingHelperCalls
+                                     , helperFunctions = context.sharedState.helperFunctions
+                                     , headFunctionFields = headFunctionFields
+                                     , markAllFieldsAsUsed = context.sharedState.markAllFieldsAsUsed
+                                     }
 
-                    -- Removable fields: fields that are NOT used in client context (ephemeral)
-                    removableFields =
-                        ephemeralResult.ephemeralFields
+                             -- Removable fields: fields that are NOT used in client context (ephemeral)
+                             removableFields =
+                                 ephemeralResult.ephemeralFields
 
-                    -- Client-used fields: these MUST be kept in the Data type (persistent)
-                    clientUsedFieldDefs =
-                        context.sharedState.dataTypeFields
-                            |> List.filter (\( name, _ ) -> not (Set.member name removableFields))
+                             -- Client-used fields: these MUST be kept in the Data type (persistent)
+                             clientUsedFieldDefs =
+                                 context.sharedState.dataTypeFields
+                                     |> List.filter (\( name, _ ) -> not (Set.member name removableFields))
 
-                    -- Skip reason for diagnostics
-                    skipReason =
-                        ephemeralResult.skipReason
-                in
-                if Set.isEmpty removableFields then
-                    -- No removable fields - emit diagnostic if there was a specific reason
-                    case skipReason of
-                        Just reason ->
-                            [ emitDiagnostic context.moduleName
-                                "all_fields_client_used"
-                                ("No fields could be removed from Data type. " ++ reason)
-                            ]
+                             -- Skip reason for diagnostics
+                             skipReason =
+                                 ephemeralResult.skipReason
+                         in
+                         if Set.isEmpty removableFields then
+                             -- No removable fields - emit diagnostic if there was a specific reason
+                             case skipReason of
+                                 Just reason ->
+                                     [ emitDiagnostic context.moduleName
+                                         "all_fields_client_used"
+                                         ("No fields could be removed from Data type. " ++ reason)
+                                     ]
 
-                        Nothing ->
-                            -- All fields are legitimately used in client context - no diagnostic needed
-                            []
+                                 Nothing ->
+                                     -- All fields are legitimately used in client context - no diagnostic needed
+                                     []
 
-                else
-                    -- Generate fix to rewrite Data type alias
-                    -- Use single-line format for simplicity
-                    let
-                        newTypeAnnotation =
-                            if List.isEmpty clientUsedFieldDefs then
-                                "{}"
+                         else
+                             -- Generate fix to rewrite Data type alias
+                             -- Use single-line format for simplicity
+                             let
+                                 newTypeAnnotation =
+                                     if List.isEmpty clientUsedFieldDefs then
+                                         "{}"
 
-                            else
-                                "{ "
-                                    ++ (clientUsedFieldDefs
-                                            |> List.map (\( name, typeNode ) -> name ++ " : " ++ PersistentFieldTracking.typeAnnotationToString (Node.value typeNode))
-                                            |> String.join ", "
-                                       )
-                                    ++ " }"
+                                     else
+                                         "{ "
+                                             ++ (clientUsedFieldDefs
+                                                     |> List.map (\( name, typeNode ) -> name ++ " : " ++ PersistentFieldTracking.typeAnnotationToString (Node.value typeNode))
+                                                     |> String.join ", "
+                                                )
+                                             ++ " }"
 
-                        -- Always stub out head when removing fields
-                        -- The head function never runs on client, so we replace body with []
-                        headStubFix =
-                            case context.headFunctionBodyRange of
-                                Just headRange ->
-                                    [ Rule.errorWithFix
-                                        { message = "Head function codemod: stub out for client bundle"
-                                        , details =
-                                            [ "Replacing head function body with [] because Data fields are being removed."
-                                            , "The head function never runs on the client (it's for SEO at build time), so stubbing it out allows DCE."
-                                            ]
-                                        }
-                                        headRange
-                                        [ Review.Fix.replaceRangeBy headRange "[]" ]
-                                    ]
+                                 -- Always stub out head when removing fields
+                                 -- The head function never runs on client, so we replace body with []
+                                 headStubFix =
+                                     case context.headFunctionBodyRange of
+                                         Just headRange ->
+                                             [ Rule.errorWithFix
+                                                 { message = "Head function codemod: stub out for client bundle"
+                                                 , details =
+                                                     [ "Replacing head function body with [] because Data fields are being removed."
+                                                     , "The head function never runs on the client (it's for SEO at build time), so stubbing it out allows DCE."
+                                                     ]
+                                                 }
+                                                 headRange
+                                                 [ Review.Fix.replaceRangeBy headRange "[]" ]
+                                             ]
 
-                                Nothing ->
-                                    []
+                                         Nothing ->
+                                             []
 
-                        -- Always stub out the data function when transforming Data type
-                        -- The data function constructs Data records and never runs on client
-                        -- Stub it with BackendTask.fail which works regardless of arity
-                        dataStubFix =
-                            case context.dataFunctionBodyRange of
-                                Just dataRange ->
-                                    [ Rule.errorWithFix
-                                        { message = "Data function codemod: stub out for client bundle"
-                                        , details =
-                                            [ "Replacing data function body because Data fields are being removed."
-                                            , "The data function never runs on the client (it's for build-time data fetching), so stubbing it out allows DCE."
-                                            ]
-                                        }
-                                        dataRange
-                                        [ Review.Fix.replaceRangeBy dataRange "BackendTask.fail (FatalError.fromString \"\")" ]
-                                    ]
+                                 -- Always stub out the data function when transforming Data type
+                                 -- The data function constructs Data records and never runs on client
+                                 -- Stub it with BackendTask.fail which works regardless of arity
+                                 dataStubFix =
+                                     case context.dataFunctionBodyRange of
+                                         Just dataRange ->
+                                             [ Rule.errorWithFix
+                                                 { message = "Data function codemod: stub out for client bundle"
+                                                 , details =
+                                                     [ "Replacing data function body because Data fields are being removed."
+                                                     , "The data function never runs on the client (it's for build-time data fetching), so stubbing it out allows DCE."
+                                                     ]
+                                                 }
+                                                 dataRange
+                                                 [ Review.Fix.replaceRangeBy dataRange "BackendTask.fail (FatalError.fromString \"\")" ]
+                                             ]
 
-                                Nothing ->
-                                    []
+                                         Nothing ->
+                                             []
 
-                        -- Find helpers that are ONLY called from freeze context (not from client)
-                        -- These need their type annotations updated from Data to Ephemeral
-                        helpersCalledInClientContext =
-                            context.sharedState.pendingHelperCalls
-                                |> List.filterMap identity
-                                |> List.filterMap (\pendingCall -> PersistentFieldTracking.helperKeyToLocalNameInModule context.moduleName pendingCall.functionKey)
-                                |> Set.fromList
+                                 -- Find helpers that are ONLY called from freeze context (not from client)
+                                 -- These need their type annotations updated from Data to Ephemeral
+                                 helpersCalledInClientContext =
+                                     context.sharedState.pendingHelperCalls
+                                         |> List.filterMap identity
+                                         |> List.filterMap (\pendingCall -> PersistentFieldTracking.helperKeyToLocalNameInModule context.moduleName pendingCall.functionKey)
+                                         |> Set.fromList
 
-                        freezeOnlyHelpers =
-                            context.helpersCalledInFreeze
-                                |> Set.filter (\name -> not (Set.member name helpersCalledInClientContext))
+                                 freezeOnlyHelpers =
+                                     context.helpersCalledInFreeze
+                                         |> Set.filter (\name -> not (Set.member name helpersCalledInClientContext))
 
-                        -- Find freeze-only helpers that have Data in their type annotation
-                        -- These need Data replaced with Ephemeral to continue type-checking
-                        helpersNeedingEphemeral =
-                            freezeOnlyHelpers
-                                |> Set.filter (\name -> Dict.member name context.helperDataTypeRanges)
+                                 -- Find freeze-only helpers that have Data in their type annotation
+                                 -- These need Data replaced with Ephemeral to continue type-checking
+                                 helpersNeedingEphemeral =
+                                     freezeOnlyHelpers
+                                         |> Set.filter (\name -> Dict.member name context.helperDataTypeRanges)
 
-                        -- Narrow the Data type directly by replacing the record definition
-                        -- with only client-used fields
-                        removableFieldsList =
-                            Set.toList removableFields
+                                 -- Narrow the Data type directly by replacing the record definition
+                                 -- with only client-used fields
+                                 removableFieldsList =
+                                     Set.toList removableFields
 
-                        -- Collect all helper annotation Data->Ephemeral replacements
-                        helperAnnotationReplacements =
-                            helpersNeedingEphemeral
-                                |> Set.toList
-                                |> List.concatMap
-                                    (\helperName ->
-                                        case Dict.get helperName context.helperDataTypeRanges of
-                                            Just dataRanges ->
-                                                dataRanges
-                                                    |> List.map
-                                                        (\dataRange ->
-                                                            Review.Fix.replaceRangeBy dataRange "Ephemeral"
+                                 -- Collect all helper annotation Data->Ephemeral replacements
+                                 helperAnnotationReplacements =
+                                     helpersNeedingEphemeral
+                                         |> Set.toList
+                                         |> List.concatMap
+                                             (\helperName ->
+                                                 case Dict.get helperName context.helperDataTypeRanges of
+                                                     Just dataRanges ->
+                                                         dataRanges
+                                                             |> List.map
+                                                                 (\dataRange ->
+                                                                     Review.Fix.replaceRangeBy dataRange "Ephemeral"
+                                                                 )
+
+                                                     Nothing ->
+                                                         []
+                                             )
+
+                                 -- Generate Ephemeral type insertion if needed
+                                 ephemeralTypeInsertion =
+                                     if Set.isEmpty helpersNeedingEphemeral then
+                                         []
+
+                                     else
+                                         let
+                                             fullTypeAnnotation =
+                                                 "{ "
+                                                     ++ (context.sharedState.dataTypeFields
+                                                             |> List.map (\( name, typeNode ) -> name ++ " : " ++ PersistentFieldTracking.typeAnnotationToString (Node.value typeNode))
+                                                             |> String.join ", "
                                                         )
+                                                     ++ " }"
 
-                                            Nothing ->
-                                                []
-                                    )
+                                             insertPosition =
+                                                 { row = context.dataTypeDeclarationEndRow + 1, column = 1 }
+                                         in
+                                         [ Review.Fix.insertAt insertPosition
+                                             ("\n\ntype alias Ephemeral =\n    " ++ fullTypeAnnotation ++ "\n")
+                                         ]
 
-                        -- Generate Ephemeral type insertion if needed
-                        ephemeralTypeInsertion =
-                            if Set.isEmpty helpersNeedingEphemeral then
-                                []
+                                 -- Combine all fixes into a single error (Data narrowing + Ephemeral generation + annotation updates)
+                                 allDataTypeFixes =
+                                     [ Review.Fix.replaceRangeBy range newTypeAnnotation ]
+                                         ++ ephemeralTypeInsertion
+                                         ++ helperAnnotationReplacements
 
-                            else
-                                let
-                                    fullTypeAnnotation =
-                                        "{ "
-                                            ++ (context.sharedState.dataTypeFields
-                                                    |> List.map (\( name, typeNode ) -> name ++ " : " ++ PersistentFieldTracking.typeAnnotationToString (Node.value typeNode))
-                                                    |> String.join ", "
-                                               )
-                                            ++ " }"
+                                 dataTypeNarrowFix =
+                                     Rule.errorWithFix
+                                         { message = "Data type codemod: remove non-client-used fields"
+                                         , details =
+                                             [ "Removing fields from Data type: " ++ String.join ", " removableFieldsList
+                                             , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                             ]
+                                                 ++ (if Set.isEmpty helpersNeedingEphemeral then
+                                                         []
 
-                                    insertPosition =
-                                        { row = context.dataTypeDeclarationEndRow + 1, column = 1 }
-                                in
-                                [ Review.Fix.insertAt insertPosition
-                                    ("\n\ntype alias Ephemeral =\n    " ++ fullTypeAnnotation ++ "\n")
-                                ]
+                                                     else
+                                                         [ "Generating Ephemeral type alias and updating helper annotations for: "
+                                                             ++ String.join ", " (Set.toList helpersNeedingEphemeral)
+                                                         ]
+                                                    )
+                                         }
+                                         range
+                                         allDataTypeFixes
 
-                        -- Combine all fixes into a single error (Data narrowing + Ephemeral generation + annotation updates)
-                        allDataTypeFixes =
-                            [ Review.Fix.replaceRangeBy range newTypeAnnotation ]
-                                ++ ephemeralTypeInsertion
-                                ++ helperAnnotationReplacements
+                                 -- JSON output for the build system to consume
+                                 -- This is parsed by generate-template-module-connector.js
+                                 jsonMessage =
+                                     "EPHEMERAL_FIELDS_JSON:{\"module\":\""
+                                         ++ String.join "." context.moduleName
+                                         ++ "\",\"ephemeralFields\":["
+                                         ++ (removableFieldsList |> List.map (\f -> "\"" ++ f ++ "\"") |> String.join ",")
+                                         ++ "],\"newDataType\":\""
+                                         ++ escapeJsonString newTypeAnnotation
+                                         ++ "\",\"range\":{\"start\":{\"row\":"
+                                         ++ String.fromInt range.start.row
+                                         ++ ",\"column\":"
+                                         ++ String.fromInt range.start.column
+                                         ++ "},\"end\":{\"row\":"
+                                         ++ String.fromInt range.end.row
+                                         ++ ",\"column\":"
+                                         ++ String.fromInt range.end.column
+                                         ++ "}}}"
 
-                        dataTypeNarrowFix =
-                            Rule.errorWithFix
-                                { message = "Data type codemod: remove non-client-used fields"
-                                , details =
-                                    [ "Removing fields from Data type: " ++ String.join ", " removableFieldsList
-                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
-                                    ]
-                                        ++ (if Set.isEmpty helpersNeedingEphemeral then
-                                                []
+                                 jsonOutputRange =
+                                     { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
 
-                                            else
-                                                [ "Generating Ephemeral type alias and updating helper annotations for: "
-                                                    ++ String.join ", " (Set.toList helpersNeedingEphemeral)
-                                                ]
-                                           )
-                                }
-                                range
-                                allDataTypeFixes
-
-                        -- JSON output for the build system to consume
-                        -- This is parsed by generate-template-module-connector.js
-                        jsonMessage =
-                            "EPHEMERAL_FIELDS_JSON:{\"module\":\""
-                                ++ String.join "." context.moduleName
-                                ++ "\",\"ephemeralFields\":["
-                                ++ (removableFieldsList |> List.map (\f -> "\"" ++ f ++ "\"") |> String.join ",")
-                                ++ "],\"newDataType\":\""
-                                ++ escapeJsonString newTypeAnnotation
-                                ++ "\",\"range\":{\"start\":{\"row\":"
-                                ++ String.fromInt range.start.row
-                                ++ ",\"column\":"
-                                ++ String.fromInt range.start.column
-                                ++ "},\"end\":{\"row\":"
-                                ++ String.fromInt range.end.row
-                                ++ ",\"column\":"
-                                ++ String.fromInt range.end.column
-                                ++ "}}}"
-
-                        jsonOutputRange =
-                            { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
-
-                        jsonOutputError =
-                            Rule.error
-                                { message = jsonMessage
-                                , details = [ "This is machine-readable output for the build system." ]
-                                }
-                                jsonOutputRange
-                    in
-                    [ dataTypeNarrowFix ]
-                        ++ headStubFix
-                        ++ dataStubFix
-                        ++ [ jsonOutputError ]
+                                 jsonOutputError =
+                                     Rule.error
+                                         { message = jsonMessage
+                                         , details = [ "This is machine-readable output for the build system." ]
+                                         }
+                                         jsonOutputRange
+                             in
+                             [ dataTypeNarrowFix ]
+                                 ++ headStubFix
+                                 ++ dataStubFix
+                                 ++ [ jsonOutputError ]
+            )
 
 
 {-| Escape a string for use in a JSON string value.
