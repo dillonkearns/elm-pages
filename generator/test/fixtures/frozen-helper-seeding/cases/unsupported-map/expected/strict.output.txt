@@ -1,3 +1,4 @@
 Build failed: unsupported helper usage for frozen ID seeding detected.
 - app/Route/Index.elm: Frozen view codemod: unsupported helper function value or partial application
+- app/Route/Index.elm: Server codemod: unsupported helper function value or partial application
 Refactor these call sites (or build without --strict to continue with de-optimized frozen views).

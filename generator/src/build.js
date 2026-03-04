@@ -215,33 +215,7 @@ export async function run(options) {
     const clientUnsupportedHelperIssues =
       clientResult.unsupportedHelperSeedingIssues || [];
 
-    if (clientUnsupportedHelperIssues.length > 0) {
-      const formattedIssues = formatUnsupportedHelperIssues(
-        clientUnsupportedHelperIssues
-      );
-
-      if (options.strict) {
-        console.error(
-          "\nBuild failed: unsupported helper usage for frozen ID seeding detected.\n"
-        );
-        console.error(formattedIssues.lines);
-        console.error(
-          "\nRefactor these call sites (or build without --strict to continue with de-optimized frozen views).\n"
-        );
-        process.exitCode = 1;
-        return;
-      } else {
-        console.warn(
-          `\n\x1b[33mView.freeze warnings:\x1b[0m unsupported helper usage detected in ${formattedIssues.uniqueCount} location(s).`
-        );
-        console.warn(formattedIssues.lines);
-        console.warn(
-          "\nFalling back to de-optimized frozen views for this build target (codemod fixes were skipped).\n"
-        );
-      }
-    }
-
-    if (deOptCount > 0 && validationResult.errors.length > 0) {
+    if (deOptCount > 0) {
       console.warn(`\n\x1b[33m${deOptCount} View.freeze call(s) de-optimized (code still works, just without DCE).\x1b[0m\n`);
     }
 
@@ -334,12 +308,13 @@ export async function run(options) {
 
       const serverUnsupportedHelperIssues =
         serverResult.unsupportedHelperSeedingIssues || [];
-      if (
-        clientUnsupportedHelperIssues.length === 0 &&
-        serverUnsupportedHelperIssues.length > 0
-      ) {
+      const allUnsupportedHelperIssues = [
+        ...clientUnsupportedHelperIssues,
+        ...serverUnsupportedHelperIssues,
+      ];
+      if (allUnsupportedHelperIssues.length > 0) {
         const formattedIssues = formatUnsupportedHelperIssues(
-          serverUnsupportedHelperIssues
+          allUnsupportedHelperIssues
         );
         if (options.strict) {
           console.error(

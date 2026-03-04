@@ -641,6 +641,27 @@ function assertZeroArgHelperMultiCallDeOptimized(caseId: string): void {
   expect(serverShared).toContain("FrozenHelper.sharedBanner");
 }
 
+function assertDeOptimizationWarningAlwaysVisible(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const output = stripAnsi(`${result.stdout}\n${result.stderr}`);
+  expect(output).toContain("View.freeze call(s) de-optimized");
+}
+
+function assertUnsupportedDiagnosticsIncludeClientAndServer(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const output = stripAnsi(`${result.stdout}\n${result.stderr}`);
+  expect(output).toContain(
+    "Frozen view codemod: unsupported helper function value or partial application"
+  );
+  expect(output).toContain(
+    "Server codemod: unsupported helper function value or partial application"
+  );
+}
+
 describe.sequential("frozen helper seeding CLI behavior", () => {
   const caseIds = listFixtureCaseIds();
 
@@ -764,6 +785,24 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
     () => {
       assertZeroArgHelperMultiCallDeOptimized(
         "matrix-zero-arg-helper-multi-call"
+      );
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "direct-repeated-freeze-route always reports de-optimization count",
+    () => {
+      assertDeOptimizationWarningAlwaysVisible("direct-repeated-freeze-route");
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "unsupported-map-lib-module reports both client and server unsupported helper diagnostics",
+    () => {
+      assertUnsupportedDiagnosticsIncludeClientAndServer(
+        "unsupported-map-lib-module"
       );
     },
     integrationTestTimeoutMs
