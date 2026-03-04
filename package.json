@@ -37,7 +37,7 @@
     "connect": "^3.7.0",
     "cookie-signature": "^1.2.2",
     "cross-spawn": "7.0.6",
-    "devcert": "^1.2.2",
+    "devcert": "^1.2.3",
     "elm-doc-preview": "^6.0.1",
     "elm-hot": "^1.1.6",
     "esbuild": "^0.27.3",
