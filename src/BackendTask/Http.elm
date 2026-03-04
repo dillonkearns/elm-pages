@@ -131,7 +131,8 @@ bytesBody =
     Body.BytesBody
 
 
-{-| A single part of a multipart body. -}
+{-| A single part of a multipart body.
+-}
 type Part
     = StringPart String String
     | BytesPart String String Bytes

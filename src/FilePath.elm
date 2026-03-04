@@ -59,6 +59,7 @@ This normalizes the path to a stable representation:
   - Removes trailing separators (except for roots)
 
 It accepts both relative and absolute paths.
+
 -}
 fromString : String -> FilePath
 fromString rawPath =
@@ -112,7 +113,6 @@ absolute pathSegments =
 toString : FilePath -> String
 toString (FilePath rawPath) =
     rawPath
-
 
 
 {-| Return path segments without root markers.
@@ -322,7 +322,6 @@ parse (FilePath rawPath) =
             |> String.split "/"
             |> normalizePathSegments (FilePath.Internal.isAbsolute root)
     }
-
 
 
 normalizePathSegments : Bool -> List String -> List String

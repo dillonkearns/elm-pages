@@ -6,8 +6,8 @@ module BackendTask exposing
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
     , allowFatal, mapError, onError, toResult
-    , do, doEach, sequence, failIf
     , finally
+    , do, doEach, sequence, failIf
     , inDir, quiet, withEnv
     )
 
@@ -88,6 +88,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 @docs allowFatal, mapError, onError, toResult
 
 @docs finally
+
 
 ## Scripting
 
@@ -531,8 +532,8 @@ Use `andThen` when you need the previous result, `and` when you just need sequen
 
     step1
         |> BackendTask.and step2
-    -- equivalent to: step1 |> BackendTask.andThen (\_ -> step2)
 
+    -- equivalent to: step1 |> BackendTask.andThen (\_ -> step2)
     createSnapshot n typesContent
         |> BackendTask.and (rewriteMigrationImports n)
         |> BackendTask.and (createMigrationStub n k)
