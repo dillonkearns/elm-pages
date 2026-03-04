@@ -18,7 +18,7 @@ describe("Pages.Db codegen", () => {
       "module Pages.Db exposing (Connection, default, open, get, update, transaction)"
     );
     expect(generated).toContain("type Connection");
-    expect(generated).toContain("open : FilePath -> Connection");
+    expect(generated).toContain("open : String -> Connection");
     expect(generated).toContain("default : Connection");
     expect(generated).toContain("get : Connection -> BackendTask FatalError Db.Db");
     expect(generated).toContain(

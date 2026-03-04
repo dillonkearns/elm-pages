@@ -1047,7 +1047,6 @@ seed old =
 
 import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
-import FilePath
 import Pages.Db
 import Pages.Script as Script exposing (Script)
 
@@ -1061,7 +1060,7 @@ run : Script
 run =
     let
         session =
-            Pages.Db.open (FilePath.fromString dbPath)
+            Pages.Db.open dbPath
     in
     Script.withoutCliOptions
         (Pages.Db.update session
