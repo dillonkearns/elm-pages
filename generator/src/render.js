@@ -695,6 +695,8 @@ async function runInternalJob(
         return [requestHash, jsonResponse(requestToPerform, Date.now())];
       case "elm-pages-internal://env":
         return [requestHash, await runEnvJob(requestToPerform)];
+      case "elm-pages-internal://resolve-path":
+        return [requestHash, runResolvePath(requestToPerform)];
       case "elm-pages-internal://encrypt":
         return [requestHash, await runEncryptJob(requestToPerform)];
       case "elm-pages-internal://decrypt":
@@ -2220,6 +2222,13 @@ async function runLogJob(req) {
     console.log(`Error performing log '${JSON.stringify(req.body)}'`);
     throw e;
   }
+}
+
+function runResolvePath(req) {
+  const filePath = req.body.args[0];
+  const cwd = path.resolve(...req.dir);
+  const resolvedPath = path.resolve(cwd, filePath);
+  return jsonResponse(req, resolvedPath);
 }
 
 /**

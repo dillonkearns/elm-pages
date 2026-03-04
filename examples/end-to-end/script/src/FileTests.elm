@@ -2,10 +2,11 @@ module FileTests exposing (run)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File as File
-import FilePath exposing (FilePath)
 import BackendTaskTest exposing (describe, test, testScript)
 import Expect
 import FatalError exposing (FatalError)
+import FilePath exposing (FilePath)
+import FilePath.Internal
 import Pages.Script as Script exposing (Script)
 
 
@@ -85,11 +86,11 @@ runTests =
         , test "absolute detection handles POSIX, UNC, and Windows" <|
             \() ->
                 Expect.all
-                    [ \_ -> Expect.equal True (FilePath.fromString "/foo" |> FilePath.isAbsolute)
-                    , \_ -> Expect.equal True (FilePath.fromString "//server/share" |> FilePath.isAbsolute)
-                    , \_ -> Expect.equal True (FilePath.fromString "C:/foo" |> FilePath.isAbsolute)
-                    , \_ -> Expect.equal False (FilePath.fromString "C:foo" |> FilePath.isAbsolute)
-                    , \_ -> Expect.equal False (FilePath.fromString "../foo" |> FilePath.isAbsolute)
+                    [ \_ -> Expect.equal True (FilePath.fromString "/foo" |> FilePath.Internal.isAbsolute)
+                    , \_ -> Expect.equal True (FilePath.fromString "//server/share" |> FilePath.Internal.isAbsolute)
+                    , \_ -> Expect.equal True (FilePath.fromString "C:/foo" |> FilePath.Internal.isAbsolute)
+                    , \_ -> Expect.equal False (FilePath.fromString "C:foo" |> FilePath.Internal.isAbsolute)
+                    , \_ -> Expect.equal False (FilePath.fromString "../foo" |> FilePath.Internal.isAbsolute)
                     ]
                     ()
                     |> BackendTask.succeed
@@ -361,6 +362,52 @@ runTests =
                                 |> BackendTask.andThen (\_ -> File.exists tmpDir)
                         )
                     |> BackendTask.map (Expect.equal False)
+        ]
+    , describe "FilePath.resolve"
+        [ test "idempotent - resolving an already-resolved path returns the same path" <|
+            \() ->
+                FilePath.fromString "src/Main.elm"
+                    |> FilePath.resolve
+                    |> BackendTask.andThen FilePath.resolve
+                    |> BackendTask.andThen
+                        (\resolvedTwice ->
+                            FilePath.fromString "src/Main.elm"
+                                |> FilePath.resolve
+                                |> BackendTask.map
+                                    (\resolvedOnce ->
+                                        Expect.equal
+                                            (FilePath.toString resolvedOnce)
+                                            (FilePath.toString resolvedTwice)
+                                    )
+                        )
+        , test "parent traversal - foo/../bar resolves same as bar" <|
+            \() ->
+                BackendTask.map2
+                    (\withParent direct ->
+                        Expect.equal
+                            (FilePath.toString direct)
+                            (FilePath.toString withParent)
+                    )
+                    (FilePath.fromString "foo/../bar"
+                        |> FilePath.resolve
+                    )
+                    (FilePath.fromString "bar"
+                        |> FilePath.resolve
+                    )
+        , test "dot and empty resolve to the same path" <|
+            \() ->
+                BackendTask.map2
+                    (\dotResolved emptyResolved ->
+                        Expect.equal
+                            (FilePath.toString emptyResolved)
+                            (FilePath.toString dotResolved)
+                    )
+                    (FilePath.fromString "."
+                        |> FilePath.resolve
+                    )
+                    (FilePath.fromString ""
+                        |> FilePath.resolve
+                    )
         ]
     ]
         |> BackendTaskTest.describe "File"

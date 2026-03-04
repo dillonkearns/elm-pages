@@ -2,10 +2,11 @@ module FilePath exposing
     ( FilePath
     , fromString, relative, absolute
     , toString
-    , segments, isAbsolute
+    , segments
     , append, join
     , dirname, filename, filenameWithoutExtension, extension
     , relativeTo
+    , resolve
     )
 
 {-| Cross-platform file path utilities for `BackendTask.File` and `Pages.Script`.
@@ -19,7 +20,7 @@ implementation details.
 
 @docs toString
 
-@docs segments, isAbsolute
+@docs segments
 
 @docs append, join
 
@@ -27,9 +28,17 @@ implementation details.
 
 @docs relativeTo
 
+@docs resolve
+
 -}
 
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import BackendTask.Internal.Request
 import Char
+import FatalError exposing (FatalError)
+import Json.Decode as Decode
+import Json.Encode as Encode
 
 
 {-| Opaque file path type.
@@ -110,29 +119,6 @@ toString (FilePath rawPath) =
 segments : FilePath -> List String
 segments filePath =
     (parse filePath).pathSegments
-
-
-{-| Whether this path is absolute.
--}
-isAbsolute : FilePath -> Bool
-isAbsolute filePath =
-    let
-        root : String
-        root =
-            (parse filePath).root
-    in
-    case root of
-        "" ->
-            False
-
-        "/" ->
-            True
-
-        "//" ->
-            True
-
-        _ ->
-            String.endsWith ":/" root
 
 
 {-| Append a path to a base path.
@@ -286,6 +272,31 @@ relativeTo basePath targetPath =
 
         else
             Just (relative relativeSegments)
+
+
+{-| Resolve a file path to an absolute path using the OS-aware `path.resolve` from Node.js.
+
+Relative paths are resolved against the current working directory.
+
+    import BackendTask exposing (BackendTask)
+    import FatalError exposing (FatalError)
+    import FilePath
+
+    resolveExample : BackendTask FatalError FilePath
+    resolveExample =
+        FilePath.fromString "src/Main.elm"
+            |> FilePath.resolve
+
+-}
+resolve : FilePath -> BackendTask FatalError FilePath
+resolve filePath =
+    BackendTask.Internal.Request.request
+        { name = "resolve-path"
+        , body = BackendTask.Http.jsonBody (Encode.string (toString filePath))
+        , expect =
+            BackendTask.Http.expectJson
+                (Decode.string |> Decode.map fromString)
+        }
 
 
 type alias ParsedPath =
