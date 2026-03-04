@@ -662,6 +662,28 @@ function assertUnsupportedDiagnosticsIncludeClientAndServer(caseId: string): voi
   );
 }
 
+function assertMultiFileUnsupportedDiagnosticsAreAggregated(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const output = stripAnsi(`${result.stdout}\n${result.stderr}`);
+  expect(output).toContain(
+    "View.freeze warnings: unsupported helper usage detected in 4 location(s)."
+  );
+  expect(output).toContain(
+    "- app/Route/Index.elm: Frozen view codemod: unsupported helper function value or partial application"
+  );
+  expect(output).toContain(
+    "- lib/Ui/ListView.elm: Frozen view codemod: unsupported helper function value or partial application"
+  );
+  expect(output).toContain(
+    "- app/Route/Index.elm: Server codemod: unsupported helper function value or partial application"
+  );
+  expect(output).toContain(
+    "- lib/Ui/ListView.elm: Server codemod: unsupported helper function value or partial application"
+  );
+}
+
 describe.sequential("frozen helper seeding CLI behavior", () => {
   const caseIds = listFixtureCaseIds();
 
@@ -803,6 +825,16 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
     () => {
       assertUnsupportedDiagnosticsIncludeClientAndServer(
         "unsupported-map-lib-module"
+      );
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "matrix-unsupported-multi-file-diagnostics reports aggregated unsupported helper diagnostics across files and targets",
+    () => {
+      assertMultiFileUnsupportedDiagnosticsAreAggregated(
+        "matrix-unsupported-multi-file-diagnostics"
       );
     },
     integrationTestTimeoutMs
