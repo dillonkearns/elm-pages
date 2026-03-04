@@ -1,26 +1,20 @@
 module FilePath.Internal exposing (isAbsolute)
 
 import Char
-import FilePath exposing (FilePath)
 
 
-{-| Whether this path is absolute. Package-internal only — not exposed to consumers.
+{-| Whether a path string represents an absolute path. Package-internal only — not
+exposed to consumers.
 
-Checks the normalized string prefix, which is equivalent to checking the parsed root
-since `FilePath.fromString` guarantees consistent formatting:
+Works on the normalized string form produced by `FilePath.toString`:
 
   - `/...` → POSIX absolute
   - `//...` → UNC absolute
   - `X:/...` → Windows drive absolute
 
 -}
-isAbsolute : FilePath -> Bool
-isAbsolute filePath =
-    let
-        str : String
-        str =
-            FilePath.toString filePath
-    in
+isAbsolute : String -> Bool
+isAbsolute str =
     String.startsWith "/" str
         || hasAbsoluteDriveRoot str
 

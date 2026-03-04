@@ -37,6 +37,7 @@ import BackendTask.Http
 import BackendTask.Internal.Request
 import Char
 import FatalError exposing (FatalError)
+import FilePath.Internal
 import Json.Decode as Decode
 import Json.Encode as Encode
 
@@ -151,7 +152,7 @@ append basePath nextPath =
                 { root = baseParsed.root
                 , pathSegments =
                     normalizePathSegments
-                        (isAbsoluteRoot baseParsed.root)
+                        (FilePath.Internal.isAbsolute baseParsed.root)
                         (baseParsed.pathSegments ++ nextParsed.pathSegments)
                 }
             )
@@ -319,21 +320,9 @@ parse (FilePath rawPath) =
     , pathSegments =
         withoutRoot
             |> String.split "/"
-            |> normalizePathSegments (isAbsoluteRoot root)
+            |> normalizePathSegments (FilePath.Internal.isAbsolute root)
     }
 
-
-isAbsoluteRoot : String -> Bool
-isAbsoluteRoot root =
-    case root of
-        "/" ->
-            True
-
-        "//" ->
-            True
-
-        _ ->
-            String.endsWith ":/" root
 
 
 normalizePathSegments : Bool -> List String -> List String

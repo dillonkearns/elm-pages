@@ -86,11 +86,11 @@ runTests =
         , test "absolute detection handles POSIX, UNC, and Windows" <|
             \() ->
                 Expect.all
-                    [ \_ -> Expect.equal True (FilePath.fromString "/foo" |> FilePath.Internal.isAbsolute)
-                    , \_ -> Expect.equal True (FilePath.fromString "//server/share" |> FilePath.Internal.isAbsolute)
-                    , \_ -> Expect.equal True (FilePath.fromString "C:/foo" |> FilePath.Internal.isAbsolute)
-                    , \_ -> Expect.equal False (FilePath.fromString "C:foo" |> FilePath.Internal.isAbsolute)
-                    , \_ -> Expect.equal False (FilePath.fromString "../foo" |> FilePath.Internal.isAbsolute)
+                    [ \_ -> Expect.equal True (FilePath.fromString "/foo" |> FilePath.toString |> FilePath.Internal.isAbsolute)
+                    , \_ -> Expect.equal True (FilePath.fromString "//server/share" |> FilePath.toString |> FilePath.Internal.isAbsolute)
+                    , \_ -> Expect.equal True (FilePath.fromString "C:/foo" |> FilePath.toString |> FilePath.Internal.isAbsolute)
+                    , \_ -> Expect.equal False (FilePath.fromString "C:foo" |> FilePath.toString |> FilePath.Internal.isAbsolute)
+                    , \_ -> Expect.equal False (FilePath.fromString "../foo" |> FilePath.toString |> FilePath.Internal.isAbsolute)
                     ]
                     ()
                     |> BackendTask.succeed
