@@ -2,7 +2,6 @@ module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, route)
 
 import Article
 import BackendTask exposing (BackendTask)
-import FilePath exposing (FilePath)
 import Cloudinary
 import Data.Author as Author exposing (Author)
 import Date exposing (Date)
@@ -207,7 +206,7 @@ data routeParams =
         )
         frontmatterDecoder
         TailwindMarkdownRenderer.renderer
-        (FilePath.relative [ "content", "blog", routeParams.slug ++ ".md" ])
+        ("content/blog/" ++ routeParams.slug ++ ".md")
 
 
 type alias ArticleMetadata =

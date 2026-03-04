@@ -2,7 +2,6 @@ module Route.Escaping exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
-import FilePath exposing (FilePath)
 import Css exposing (..)
 import Css.Global
 import FatalError exposing (FatalError)
@@ -56,7 +55,7 @@ type alias Data =
 
 data : BackendTask FatalError Data
 data =
-    BackendTask.File.rawFile (FilePath.fromString "unsafe-script-tag.txt")
+    BackendTask.File.rawFile "unsafe-script-tag.txt"
         |> BackendTask.allowFatal
 
 

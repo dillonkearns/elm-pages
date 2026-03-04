@@ -65,6 +65,7 @@ export function generatorWrapperFile(moduleName) {
 
 import Bytes exposing (Bytes)
 import Json.Decode
+import Json.Encode
 import Pages.Internal.Platform.GeneratorApplication
 import ${moduleName}
 
@@ -80,10 +81,10 @@ main =
         }
 
 
-port toJsPort : { json : Pages.Internal.Platform.GeneratorApplication.JsonValue, bytes : List { key : String, data : Bytes } } -> Cmd msg
+port toJsPort : { json : Json.Encode.Value, bytes : List { key : String, data : Bytes } } -> Cmd msg
 
 
-port fromJsPort : (Pages.Internal.Platform.GeneratorApplication.JsonValue -> msg) -> Sub msg
+port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
 
 
 port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe Bytes } -> msg) -> Sub msg
@@ -159,7 +160,6 @@ import BackendTask.Http
 import Bytes exposing (Bytes)
 import Bytes.Decode as BD
 import Db
-import FilePath exposing (FilePath)
 ${snapshotImports.join("\n")}
 ${migrationImports.join("\n")}
 import FatalError exposing (FatalError)
@@ -188,9 +188,9 @@ default =
     Connection ""
 
 
-open : FilePath -> Connection
+open : String -> Connection
 open dbPath =
-    Connection (FilePath.toString dbPath)
+    Connection dbPath
 
 
 connectionFields : Connection -> List ( String, Encode.Value )

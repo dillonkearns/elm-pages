@@ -5,7 +5,6 @@ module BackendTask.Internal.Glob exposing
     , toPattern
     )
 
-import FilePath exposing (FilePath)
 import List.Extra
 import Time
 
@@ -16,7 +15,7 @@ type Glob a
 
 
 type alias FileStats =
-    { fullPath : FilePath
+    { fullPath : String
     , sizeInBytes : Int
     , lastContentChange : Time.Posix
     , lastAccess : Time.Posix

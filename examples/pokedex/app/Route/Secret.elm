@@ -2,7 +2,6 @@ module Route.Secret exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
-import FilePath exposing (FilePath)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Head
@@ -63,7 +62,7 @@ data routeParams request =
             username
                 |> LoggedInInfo
                 |> BackendTask.succeed
-                |> BackendTask.andMap (BackendTask.File.rawFile (FilePath.fromString "examples/pokedex/content/secret-note.txt") |> BackendTask.allowFatal)
+                |> BackendTask.andMap (BackendTask.File.rawFile "examples/pokedex/content/secret-note.txt" |> BackendTask.allowFatal)
                 |> BackendTask.map LoggedIn
                 |> BackendTask.map Response.render
 

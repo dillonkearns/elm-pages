@@ -1,7 +1,6 @@
 module AddRoute exposing (run)
 
 import BackendTask
-import FilePath exposing (FilePath)
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
@@ -45,9 +44,7 @@ run =
         (\cliOptions ->
             cliOptions
                 |> createFile
-                |> (\{ path, body } ->
-                        Script.writeFile path body
-                   )
+                |> Script.writeFile
                 |> BackendTask.allowFatal
                 |> BackendTask.map (\_ -> ())
         )
@@ -63,7 +60,7 @@ program =
             )
 
 
-createFile : CliOptions -> { path : FilePath, body : String }
+createFile : CliOptions -> { path : String, body : String }
 createFile { moduleName, fields } =
     let
         formHelpers :

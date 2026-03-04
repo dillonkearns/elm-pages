@@ -2,7 +2,6 @@ module Route.Docs.Section__ exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
-import FilePath exposing (FilePath)
 import BackendTask.Glob as Glob exposing (Glob)
 import DocsSection exposing (Section)
 import FatalError exposing (FatalError)
@@ -102,9 +101,9 @@ data routeParams =
         )
 
 
-filePathToEditUrl : FilePath -> String
+filePathToEditUrl : String -> String
 filePathToEditUrl filePath =
-    "https://github.com/dillonkearns/elm-pages/edit/master/examples/docs/" ++ FilePath.toString filePath
+    "https://github.com/dillonkearns/elm-pages/edit/master/examples/docs/" ++ filePath
 
 
 previousAndNextData : RouteParams -> BackendTask FatalError { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
@@ -255,7 +254,7 @@ renderStaticContent pageData =
         )
 
 
-filePathBackendTask : RouteParams -> BackendTask FatalError FilePath
+filePathBackendTask : RouteParams -> BackendTask FatalError String
 filePathBackendTask routeParams =
     let
         slug : String
@@ -275,7 +274,7 @@ pageBody routeParams =
             (MarkdownCodec.withoutFrontmatter TailwindMarkdownRenderer.renderer)
 
 
-findBySlug : String -> Glob FilePath
+findBySlug : String -> Glob String
 findBySlug slug =
     Glob.succeed identity
         |> Glob.captureFilePath

@@ -1,7 +1,6 @@
 module AddForm exposing (run)
 
 import BackendTask
-import FilePath exposing (FilePath)
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
@@ -49,12 +48,9 @@ run =
                     createFile (cliOptions.moduleName |> String.split ".") (List.map parseFields cliOptions.rest)
             in
             Script.writeFile
-                (FilePath.join
-                    [ FilePath.fromString "app"
-                    , FilePath.fromString file.path
-                    ]
-                )
-                file.contents
+                { path = "app/" ++ file.path
+                , body = file.contents
+                }
                 |> BackendTask.allowFatal
                 |> BackendTask.map (\_ -> ())
         )

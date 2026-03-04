@@ -2,7 +2,6 @@ module Page.Slide.Number_ exposing (Data, Model, Msg, page)
 
 import BackendTask
 import BackendTask.File
-import FilePath exposing (FilePath)
 import Browser.Events
 import Browser.Navigation
 import Head
@@ -124,7 +123,7 @@ data routeParams =
 slideBody : RouteParams -> BackendTask.BackendTask (List (Html.Html Msg))
 slideBody route =
     BackendTask.File.read
-        (FilePath.fromString "slides.md")
+        "slides.md"
         (BackendTask.File.body
             |> OptimizedDecoder.andThen
                 (\rawBody ->
@@ -149,7 +148,7 @@ slideBody route =
 
 slideCount : BackendTask.BackendTask Int
 slideCount =
-    BackendTask.File.read (FilePath.fromString "slides.md")
+    BackendTask.File.read "slides.md"
         (BackendTask.File.body
             |> OptimizedDecoder.andThen
                 (\rawBody ->

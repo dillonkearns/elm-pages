@@ -20,11 +20,6 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 @docs withCliOptions, withoutCliOptions, withDatabasePath
 
 
-## Paths
-
-File system APIs in this module use [`FilePath`](FilePath#FilePath).
-
-
 ## File System Utilities
 
 @docs writeFile, removeFile, copyFile, move
@@ -49,7 +44,6 @@ File system APIs in this module use [`FilePath`](FilePath#FilePath).
 -}
 
 import BackendTask exposing (BackendTask)
-import FilePath exposing (FilePath)
 import BackendTask.Http
 import BackendTask.Internal.Request
 import BackendTask.Stream as Stream exposing (defaultCommandOptions)
@@ -76,43 +70,38 @@ type Error
 
 
 {-| Write a file to the file system.
-Returns the absolute resolved path to the written file for chaining.
 
 File paths are relative to the root of your `elm-pages` project (next to the `elm.json` file and `src/` directory), or you can pass in absolute paths beginning with a `/`.
 
     module MyScript exposing (run)
 
     import BackendTask
-    import FilePath exposing (FilePath)
     import Pages.Script as Script
 
     run =
         Script.withoutCliOptions
             (Script.writeFile
-                (FilePath.fromString "hello.json")
-                """{ "message": "Hello, World!" }"""
+                { path = "hello.json"
+                , body = """{ "message": "Hello, World!" }"""
+                }
                 |> BackendTask.allowFatal
-                |> BackendTask.andThen
-                    (\writtenPath ->
-                        Script.log ("Wrote " ++ FilePath.toString writtenPath)
-                    )
             )
 
 -}
-writeFile : FilePath -> String -> BackendTask { fatal : FatalError, recoverable : Error } FilePath
-writeFile filePath body =
+writeFile : { path : String, body : String } -> BackendTask { fatal : FatalError, recoverable : Error } ()
+writeFile { path, body } =
     BackendTask.Internal.Request.request
         { name = "write-file"
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "path", filePath |> FilePath.toString |> Encode.string )
+                    [ ( "path", Encode.string path )
                     , ( "body", Encode.string body )
                     ]
                 )
         , expect =
             -- TODO decode possible error details here
-            BackendTask.Http.expectJson (Decode.map FilePath.fromString Decode.string)
+            BackendTask.Http.expectJson (Decode.succeed ())
         }
 
 
@@ -195,7 +184,6 @@ Use this when you want the shared default connection path.
 For explicit connection-based paths (for example from CLI options),
 use `Pages.Db.open`.
 
-    import FilePath
     import Pages.Db
     import Pages.Script as Script
 
@@ -205,10 +193,10 @@ use `Pages.Db.open`.
             (Pages.Db.update Pages.Db.default (\db -> db)
                 |> BackendTask.allowFatal
             )
-            |> Script.withDatabasePath (FilePath.fromString ".elm-pages-data/prefs.db.bin")
+            |> Script.withDatabasePath ".elm-pages-data/prefs.db.bin"
 
 -}
-withDatabasePath : FilePath -> Script -> Script
+withDatabasePath : String -> Script -> Script
 withDatabasePath dbPath (Pages.Internal.Script.Script cliConfig) =
     Pages.Internal.Script.Script
         (\htmlToString ->
@@ -221,14 +209,14 @@ withDatabasePath dbPath (Pages.Internal.Script.Script cliConfig) =
         )
 
 
-setDatabasePath : FilePath -> BackendTask FatalError ()
+setDatabasePath : String -> BackendTask FatalError ()
 setDatabasePath dbPath =
     BackendTask.Internal.Request.request
         { name = "db-set-default-path"
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "path", dbPath |> FilePath.toString |> Encode.string )
+                    [ ( "path", Encode.string dbPath )
                     ]
                 )
         , expect = BackendTask.Http.expectJson (Decode.succeed ())
@@ -446,21 +434,19 @@ readKeyWithDefault default =
 
 {-| Remove a file. Silently succeeds if the file doesn't exist (like `rm -f`).
 
-    import FilePath exposing (FilePath)
-
-    Script.writeFile (FilePath.fromString "temp.txt") "..."
+    Script.writeFile { path = "temp.txt", body = "..." }
         |> BackendTask.allowFatal
-        |> BackendTask.andThen (\_ -> Script.removeFile (FilePath.fromString "temp.txt"))
+        |> BackendTask.andThen (\_ -> Script.removeFile "temp.txt")
 
 -}
-removeFile : FilePath -> BackendTask FatalError ()
+removeFile : String -> BackendTask FatalError ()
 removeFile filePath =
     BackendTask.Internal.Request.request
         { name = "delete-file"
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "path", filePath |> FilePath.toString |> Encode.string )
+                    [ ( "path", Encode.string filePath )
                     ]
                 )
         , expect = BackendTask.Http.expectJson (Decode.succeed ())
@@ -468,78 +454,68 @@ removeFile filePath =
 
 
 {-| Copy a single file. Auto-creates parent directories of the destination (matching `writeFile` behavior).
-Returns the absolute resolved destination path for chaining.
 
-    import FilePath exposing (FilePath)
-
-    FilePath.fromString "src/config.json"
-        |> Script.copyFile { to = FilePath.fromString "dist/config.json" }
+    Script.copyFile { from = "src/config.json", to = "dist/config.json" }
 
 -}
-copyFile : { to : FilePath } -> FilePath -> BackendTask FatalError FilePath
-copyFile { to } from =
+copyFile : { from : String, to : String } -> BackendTask FatalError ()
+copyFile { from, to } =
     BackendTask.Internal.Request.request
         { name = "copy-file"
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "from", from |> FilePath.toString |> Encode.string )
-                    , ( "to", to |> FilePath.toString |> Encode.string )
+                    [ ( "from", Encode.string from )
+                    , ( "to", Encode.string to )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson (Decode.map FilePath.fromString Decode.string)
+        , expect = BackendTask.Http.expectJson (Decode.succeed ())
         }
 
 
 {-| Move (rename) a file or directory. Atomic on the same filesystem. Auto-creates parent directories of the destination.
-Returns the absolute resolved destination path for chaining.
 
-    import FilePath exposing (FilePath)
-
-    FilePath.fromString "build/output.js"
-        |> Script.move { to = FilePath.fromString "dist/app.js" }
+    Script.move { from = "build/output.js", to = "dist/app.js" }
 
 -}
-move : { to : FilePath } -> FilePath -> BackendTask FatalError FilePath
-move { to } from =
+move : { from : String, to : String } -> BackendTask FatalError ()
+move { from, to } =
     BackendTask.Internal.Request.request
         { name = "move"
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "from", from |> FilePath.toString |> Encode.string )
-                    , ( "to", to |> FilePath.toString |> Encode.string )
+                    [ ( "from", Encode.string from )
+                    , ( "to", Encode.string to )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson (Decode.map FilePath.fromString Decode.string)
+        , expect = BackendTask.Http.expectJson (Decode.succeed ())
         }
 
 
-{-| Create a directory. Returns the absolute resolved path.
+{-| Create a directory.
 
 The `{ recursive : Bool }` flag controls whether parent directories are created (like `mkdir -p`).
 
-    import FilePath exposing (FilePath)
-
     -- Create nested directories
-    Script.makeDirectory { recursive = True } (FilePath.fromString "dist/assets/images")
+    Script.makeDirectory { recursive = True } "dist/assets/images"
 
     -- Create a single directory (parent must exist)
-    Script.makeDirectory { recursive = False } (FilePath.fromString "output")
+    Script.makeDirectory { recursive = False } "output"
 
 -}
-makeDirectory : { recursive : Bool } -> FilePath -> BackendTask FatalError FilePath
+makeDirectory : { recursive : Bool } -> String -> BackendTask FatalError ()
 makeDirectory { recursive } dirPath =
     BackendTask.Internal.Request.request
         { name = "make-directory"
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "path", dirPath |> FilePath.toString |> Encode.string )
+                    [ ( "path", Encode.string dirPath )
                     , ( "recursive", Encode.bool recursive )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson (Decode.map FilePath.fromString Decode.string)
+        , expect = BackendTask.Http.expectJson (Decode.succeed ())
         }
 
 
@@ -548,23 +524,21 @@ makeDirectory { recursive } dirPath =
 The `{ recursive : Bool }` flag only controls whether non-empty directories can be removed (`rm -r` behavior).
 It does not control force semantics.
 
-    import FilePath exposing (FilePath)
-
     -- Remove a directory and all its contents
-    Script.removeDirectory { recursive = True } (FilePath.fromString "build")
+    Script.removeDirectory { recursive = True } "build"
 
     -- Remove only if empty
-    Script.removeDirectory { recursive = False } (FilePath.fromString "empty-dir")
+    Script.removeDirectory { recursive = False } "empty-dir"
 
 -}
-removeDirectory : { recursive : Bool } -> FilePath -> BackendTask FatalError ()
+removeDirectory : { recursive : Bool } -> String -> BackendTask FatalError ()
 removeDirectory { recursive } dirPath =
     BackendTask.Internal.Request.request
         { name = "remove-directory"
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "path", dirPath |> FilePath.toString |> Encode.string )
+                    [ ( "path", Encode.string dirPath )
                     , ( "recursive", Encode.bool recursive )
                     ]
                 )
@@ -576,8 +550,6 @@ removeDirectory { recursive } dirPath =
 
 Pairs naturally with `BackendTask.finally` for cleanup:
 
-    import FilePath exposing (FilePath)
-
     Script.makeTempDirectory "my-build-"
         |> BackendTask.andThen
             (\tmpDir ->
@@ -587,12 +559,12 @@ Pairs naturally with `BackendTask.finally` for cleanup:
             )
 
 -}
-makeTempDirectory : String -> BackendTask FatalError FilePath
+makeTempDirectory : String -> BackendTask FatalError String
 makeTempDirectory prefix =
     BackendTask.Internal.Request.request
         { name = "make-temp-directory"
         , body = BackendTask.Http.jsonBody (Encode.string prefix)
-        , expect = BackendTask.Http.expectJson (Decode.map FilePath.fromString Decode.string)
+        , expect = BackendTask.Http.expectJson Decode.string
         }
 
 

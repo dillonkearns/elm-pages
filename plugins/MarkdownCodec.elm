@@ -2,7 +2,6 @@ module MarkdownCodec exposing (isPlaceholder, noteTitle, titleAndDescription, wi
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File as StaticFile
-import FilePath exposing (FilePath)
 import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra
@@ -13,7 +12,7 @@ import Markdown.Renderer
 import MarkdownExtra
 
 
-isPlaceholder : FilePath -> BackendTask FatalError (Maybe ())
+isPlaceholder : String -> BackendTask FatalError (Maybe ())
 isPlaceholder filePath =
     filePath
         |> StaticFile.bodyWithoutFrontmatter
@@ -48,7 +47,7 @@ isPlaceholder filePath =
             )
 
 
-noteTitle : FilePath -> BackendTask FatalError String
+noteTitle : String -> BackendTask FatalError String
 noteTitle filePath =
     titleFromFrontmatter filePath
         |> BackendTask.andThen
@@ -77,7 +76,7 @@ noteTitle filePath =
                                             )
                                         |> Result.andThen
                                             (Result.fromMaybe <|
-                                                FatalError.fromString ("Expected to find an H1 heading for page " ++ FilePath.toString filePath)
+                                                FatalError.fromString ("Expected to find an H1 heading for page " ++ filePath)
                                             )
                                         |> BackendTask.fromResult
                                 )
@@ -85,7 +84,7 @@ noteTitle filePath =
             )
 
 
-titleAndDescription : FilePath -> BackendTask FatalError { title : String, description : String }
+titleAndDescription : String -> BackendTask FatalError { title : String, description : String }
 titleAndDescription filePath =
     filePath
         |> StaticFile.onlyFrontmatter
@@ -129,7 +128,7 @@ titleAndDescription filePath =
                                                             findH1 blocks
                                                     )
                                             )
-                                        |> Result.andThen (Result.fromMaybe <| FatalError.fromString <| "Expected to find an H1 heading for page " ++ FilePath.toString filePath)
+                                        |> Result.andThen (Result.fromMaybe <| FatalError.fromString <| "Expected to find an H1 heading for page " ++ filePath)
                                         |> BackendTask.fromResult
                                 )
                         )
@@ -165,7 +164,7 @@ findDescription blocks =
         |> Maybe.withDefault ""
 
 
-titleFromFrontmatter : FilePath -> BackendTask FatalError (Maybe String)
+titleFromFrontmatter : String -> BackendTask FatalError (Maybe String)
 titleFromFrontmatter filePath =
     StaticFile.onlyFrontmatter
         (Json.Decode.Extra.optionalField "title" Decode.string)
@@ -175,7 +174,7 @@ titleFromFrontmatter filePath =
 
 withoutFrontmatter :
     Markdown.Renderer.Renderer view
-    -> FilePath
+    -> String
     -> BackendTask FatalError (List Block)
 withoutFrontmatter renderer filePath =
     (filePath
@@ -205,7 +204,7 @@ withFrontmatter :
     (frontmatter -> List Block -> value)
     -> Decoder frontmatter
     -> Markdown.Renderer.Renderer view
-    -> FilePath
+    -> String
     -> BackendTask FatalError value
 withFrontmatter constructor frontmatterDecoder_ renderer filePath =
     BackendTask.map2 constructor

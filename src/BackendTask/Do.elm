@@ -33,7 +33,7 @@ You can see more discussion of continuation style in Elm in this Discourse post:
 
 `do` is also helpful for building your own continuation-style utilities. For example, here is how [`glob`](#glob) is defined:
 
-    glob : String -> (List FilePath -> BackendTask FatalError a) -> BackendTask FatalError a
+    glob : String -> (List String -> BackendTask FatalError a) -> BackendTask FatalError a
     glob pattern =
         do <| Glob.fromString pattern
 
@@ -66,7 +66,6 @@ recognize it as a continuation chain.
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Env as Env
-import FilePath exposing (FilePath)
 import BackendTask.Glob as Glob
 import FatalError exposing (FatalError)
 import Pages.Script as Script
@@ -129,14 +128,13 @@ noop =
     import BackendTask exposing (BackendTask)
     import FatalError exposing (FatalError)
     import BackendTask.File as BackendTask.File
-    import FilePath exposing (FilePath)
     import BackendTask.Do exposing (allowFatal, do)
 
     example : BackendTask FatalError ()
     example =
-        do (BackendTask.File.rawFile (FilePath.fromString "post-1.md") |> BackendTask.allowFatal) <|
+        do (BackendTask.File.rawFile "post-1.md" |> BackendTask.allowFatal) <|
             \post1 ->
-                allowFatal (BackendTask.File.rawFile (FilePath.fromString "post-2.md")) <|
+                allowFatal (BackendTask.File.rawFile "post-2.md") <|
                     \post2 ->
                         Script.log (post1 ++ "\n\n" ++ post2)
 
@@ -160,12 +158,12 @@ This example passes a list of matching file paths along to an `rm -f` command.
             \elmFiles ->
                 log ("Going to delete " ++ String.fromInt (List.length elmFiles) ++ " Elm files") <|
                     \() ->
-                        exec "rm" ("-f" :: List.map FilePath.toString elmFiles) <|
+                        exec "rm" ("-f" :: elmFiles) <|
                             \() ->
                                 noop
 
 -}
-glob : String -> (List FilePath -> BackendTask FatalError a) -> BackendTask FatalError a
+glob : String -> (List String -> BackendTask FatalError a) -> BackendTask FatalError a
 glob pattern =
     do <| Glob.fromString pattern
 
@@ -178,7 +176,7 @@ glob pattern =
             \elmFiles ->
                 each elmFiles
                     (\elmFile ->
-                        Shell.sh "elm" [ "make", elmFile |> FilePath.toString, "--output", "/dev/null" ]
+                        Shell.sh "elm" [ "make", elmFile, "--output", "/dev/null" ]
                             |> BackendTask.quiet
                     )
                 <|

@@ -2,7 +2,6 @@ module Route.Slide.Number_ exposing (ActionData, Data, Model, Msg, StaticData, r
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
-import FilePath exposing (FilePath)
 import Browser.Events
 import Effect
 import FatalError exposing (FatalError)
@@ -100,7 +99,7 @@ data routeParams =
 
 slideBody : RouteParams -> BackendTask FatalError String
 slideBody route_ =
-    BackendTask.File.bodyWithoutFrontmatter (FilePath.fromString "slides.md")
+    BackendTask.File.bodyWithoutFrontmatter "slides.md"
         |> BackendTask.allowFatal
 
 

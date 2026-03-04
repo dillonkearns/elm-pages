@@ -2,7 +2,6 @@ module Article exposing (..)
 
 import BackendTask
 import BackendTask.File as File
-import FilePath exposing (FilePath)
 import BackendTask.Glob as Glob
 import Cloudinary
 import Date exposing (Date)
@@ -14,7 +13,7 @@ import UnsplashImage
 
 
 type alias BlogPost =
-    { filePath : FilePath
+    { filePath : String
     , slug : String
     }
 

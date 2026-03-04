@@ -1,7 +1,6 @@
 module AddStaticRoute exposing (run)
 
 import BackendTask
-import FilePath exposing (FilePath)
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
@@ -29,9 +28,7 @@ run =
         (\cliOptions ->
             cliOptions
                 |> createFile
-                |> (\( filePath, body ) ->
-                        Script.writeFile filePath body
-                   )
+                |> Script.writeFile
                 |> BackendTask.allowFatal
                 |> BackendTask.map (\_ -> ())
         )
@@ -46,11 +43,9 @@ program =
             )
 
 
-createFile : CliOptions -> ( FilePath, String )
+createFile : CliOptions -> { path : String, body : String }
 createFile { moduleName } =
-    let
-        generatedFile =
-            Scaffold.Route.preRender
+    Scaffold.Route.preRender
                 { moduleName = moduleName
                 , pages =
                     Gen.BackendTask.succeed
@@ -93,7 +88,3 @@ createFile { moduleName } =
                     , msg =
                         Custom [ Elm.variant "NoOp" ]
                     }
-    in
-    ( generatedFile.path
-    , generatedFile.body
-    )

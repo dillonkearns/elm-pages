@@ -1,13 +1,12 @@
 module DocsSection exposing (Section, all)
 
 import BackendTask exposing (BackendTask)
-import FilePath exposing (FilePath)
 import BackendTask.Glob as Glob
 import BuildError exposing (BuildError)
 
 
 type alias Section =
-    { filePath : FilePath
+    { filePath : String
     , order : Int
     , slug : String
     }

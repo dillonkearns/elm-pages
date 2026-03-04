@@ -18,7 +18,6 @@ Follows the lamdera-db script/Test.elm pattern:
 import BackendTask exposing (BackendTask)
 import BackendTask.Stream as Stream
 import FatalError exposing (FatalError)
-import FilePath exposing (FilePath)
 import Pages.Script as Script exposing (Script)
 
 

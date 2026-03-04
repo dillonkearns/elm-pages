@@ -241,7 +241,6 @@ export async function customWriteStream(input, { cwd, env, quiet }) {
 -}
 
 import BackendTask exposing (BackendTask)
-import FilePath exposing (FilePath)
 import BackendTask.Http exposing (Body)
 import BackendTask.Internal.Request
 import Bytes
@@ -385,10 +384,10 @@ stderr =
 If you want to read a file but don't need to use any of the other Stream functions, you can use [`BackendTask.File.read`](BackendTask-File#rawFile) instead.
 
 -}
-fileRead : FilePath -> Stream () () { read : (), write : Never }
+fileRead : String -> Stream () () { read : (), write : Never }
 fileRead path =
     -- TODO revisit the error type instead of ()?
-    single unit "fileRead" [ ( "path", Encode.string (FilePath.toString path) ) ]
+    single unit "fileRead" [ ( "path", Encode.string path ) ]
 
 
 {-| Write a Stream to a file.
@@ -408,9 +407,9 @@ fileRead path =
             )
 
 -}
-fileWrite : FilePath -> Stream () () { read : Never, write : () }
+fileWrite : String -> Stream () () { read : Never, write : () }
 fileWrite path =
-    single unit "fileWrite" [ ( "path", Encode.string (FilePath.toString path) ) ]
+    single unit "fileWrite" [ ( "path", Encode.string path ) ]
 
 
 {-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `ReadableStream` it returns.

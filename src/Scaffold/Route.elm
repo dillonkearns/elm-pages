@@ -53,7 +53,6 @@ import Elm.Annotation
 import Elm.Arg
 import Elm.Declare
 import Elm.Op
-import FilePath exposing (FilePath)
 import Pages.Internal.RoutePattern as RoutePattern
 
 
@@ -192,7 +191,7 @@ buildNoState :
     { view : { shared : Elm.Expression, app : Elm.Expression } -> Elm.Expression
     }
     -> Builder
-    -> { path : FilePath, body : String }
+    -> { path : String, body : String }
 buildNoState definitions builder_ =
     case builder_ of
         ServerRender declarations builder ->
@@ -283,7 +282,7 @@ buildWithLocalState :
     , model : Type
     }
     -> Builder
-    -> { path : FilePath, body : String }
+    -> { path : String, body : String }
 buildWithLocalState definitions builder_ =
     case builder_ of
         ServerRender declarations builder ->
@@ -411,7 +410,7 @@ buildWithSharedState :
     , model : Type
     }
     -> Builder
-    -> { path : FilePath, body : String }
+    -> { path : String, body : String }
 buildWithSharedState definitions builder_ =
     case builder_ of
         ServerRender declarations builder ->
@@ -540,7 +539,7 @@ userFunction :
         , types : { model : Type, msg : Type, data : Type, actionData : Type }
         , declarations : List Elm.Declaration
         }
-    -> { path : FilePath, body : String }
+    -> { path : String, body : String }
 userFunction moduleName definitions =
     let
         viewFn : Elm.Declare.Function (Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression)
@@ -893,7 +892,7 @@ userFunction moduleName definitions =
             ++ definitions.declarations
         )
         |> (\{ path, contents } ->
-                { path = FilePath.fromString ("app/" ++ path)
+                { path = "app/" ++ path
                 , body = contents
                 }
            )
