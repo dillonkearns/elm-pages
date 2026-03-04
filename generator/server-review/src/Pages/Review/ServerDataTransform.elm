@@ -81,6 +81,13 @@ type alias DeferredHelperCall =
     }
 
 
+type alias DeferredUnsupportedFunctionValueUsage =
+    { callerFunctionName : String
+    , calleeFunctionId : ( ModuleName, String )
+    , argumentNode : Node Expression
+    }
+
+
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
@@ -138,6 +145,7 @@ type alias Context =
     -- Used to flag unsupported function-value/partial usage like `List.map renderItem`.
     , localLetFunctionsNeedingSeed : List (Set String)
     , deferredHelperCalls : List DeferredHelperCall
+    , deferredUnsupportedFunctionValueUsages : List DeferredUnsupportedFunctionValueUsage
     }
 
 
@@ -255,6 +263,7 @@ fromProjectToModule =
             , lambdaDepth = 0
             , localLetFunctionsNeedingSeed = []
             , deferredHelperCalls = []
+            , deferredUnsupportedFunctionValueUsages = []
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -735,17 +744,21 @@ rewriteHelperCallWithFrozenId node context =
     case Node.value node of
         Expression.Application (functionNode :: args) ->
             if shouldSeedHelperCallIds context then
-                case findUnsupportedHelperFunctionValueOrPartialArg args context of
+                let
+                    contextWithDeferredUnsupported =
+                        recordDeferredUnsupportedFunctionValueUsages args context
+                in
+                case findUnsupportedHelperFunctionValueOrPartialArg args contextWithDeferredUnsupported of
                     Just unsupportedArg ->
                         ( [ unsupportedHelperFunctionValueOrPartialError "Server codemod: unsupported helper function value or partial application" unsupportedArg ]
-                        , context
+                        , contextWithDeferredUnsupported
                         )
 
                     Nothing ->
-                        if helperCallNeedsFrozenId functionNode context then
+                        if helperCallNeedsFrozenId functionNode contextWithDeferredUnsupported then
                             let
                                 contextWithFreezePresence =
-                                    recordTransformedFreezeInCurrentFunction context
+                                    recordTransformedFreezeInCurrentFunction contextWithDeferredUnsupported
                             in
                             if isPartialHelperCall functionNode args contextWithFreezePresence then
                                 ( [ unsupportedHelperFunctionValueOrPartialError "Server codemod: unsupported helper function value or partial application" node ]
@@ -808,18 +821,100 @@ rewriteHelperCallWithFrozenId node context =
                                 )
 
                         else
-                            case recordDeferredLocalHelperCall node functionNode args context of
+                            case recordDeferredLocalHelperCall node functionNode args contextWithDeferredUnsupported of
                                 Just deferredContext ->
                                     ( [], deferredContext )
 
                                 Nothing ->
-                                    ( [], context )
+                                    ( [], contextWithDeferredUnsupported )
 
             else
                 ( [], context )
 
         _ ->
             ( [], context )
+
+
+recordDeferredUnsupportedFunctionValueUsages : List (Node Expression) -> Context -> Context
+recordDeferredUnsupportedFunctionValueUsages args context =
+    case currentFunctionName context of
+        Nothing ->
+            context
+
+        Just callerFunctionName ->
+            let
+                deferredUsages =
+                    args
+                        |> List.filterMap
+                            (\arg ->
+                                deferredUnsupportedFunctionValueUsageCandidate callerFunctionName arg context
+                            )
+            in
+            if List.isEmpty deferredUsages then
+                context
+
+            else
+                { context
+                    | deferredUnsupportedFunctionValueUsages =
+                        deferredUsages ++ context.deferredUnsupportedFunctionValueUsages
+                }
+
+
+deferredUnsupportedFunctionValueUsageCandidate :
+    String
+    -> Node Expression
+    -> Context
+    -> Maybe DeferredUnsupportedFunctionValueUsage
+deferredUnsupportedFunctionValueUsageCandidate callerFunctionName argumentNode context =
+    case deferredUnsupportedFunctionValueCalleeId argumentNode context of
+        Just calleeFunctionId ->
+            let
+                ( calleeModuleName, calleeFunctionName ) =
+                    calleeFunctionId
+            in
+            if calleeModuleName /= context.moduleName then
+                Nothing
+
+            else if Dict.member calleeFunctionName context.functionDeclarationInfo then
+                Nothing
+
+            else if FreezeHelperPlanning.functionContainsFreeze (freezeKnowledge context) calleeFunctionId then
+                Nothing
+
+            else
+                Just
+                    { callerFunctionName = callerFunctionName
+                    , calleeFunctionId = calleeFunctionId
+                    , argumentNode = argumentNode
+                    }
+
+        Nothing ->
+            Nothing
+
+
+deferredUnsupportedFunctionValueCalleeId :
+    Node Expression
+    -> Context
+    -> Maybe ( ModuleName, String )
+deferredUnsupportedFunctionValueCalleeId argumentNode context =
+    let
+        unwrappedArgument =
+            unwrapParenthesizedExpression argumentNode
+    in
+    case Node.value unwrappedArgument of
+        Expression.FunctionOrValue [] calleeFunctionName ->
+            Just ( context.moduleName, calleeFunctionName )
+
+        Expression.Application (firstExpression :: _) ->
+            case Node.value (unwrapParenthesizedExpression firstExpression) of
+                Expression.FunctionOrValue [] calleeFunctionName ->
+                    Just ( context.moduleName, calleeFunctionName )
+
+                _ ->
+                    Nothing
+
+        _ ->
+            Nothing
 
 
 recordDeferredLocalHelperCall : Node Expression -> Node Expression -> List (Node Expression) -> Context -> Maybe Context
@@ -1949,11 +2044,32 @@ deferredHelperCallSeedingErrors context =
         orderedDeferredCalls =
             List.reverse context.deferredHelperCalls
 
+        orderedDeferredUnsupportedUsages =
+            List.reverse context.deferredUnsupportedFunctionValueUsages
+
         freezeKnowledgeAtEnd =
             freezeKnowledge context
 
+        ( blockedDeferredPairs, deferredUnsupportedErrors ) =
+            orderedDeferredUnsupportedUsages
+                |> List.foldl
+                    (\usage ( blockedPairs, errors ) ->
+                        if FreezeHelperPlanning.functionContainsFreeze freezeKnowledgeAtEnd usage.calleeFunctionId then
+                            ( Set.insert ( usage.callerFunctionName, usage.calleeFunctionId ) blockedPairs
+                            , unsupportedHelperFunctionValueOrPartialError
+                                "Server codemod: unsupported helper function value or partial application"
+                                usage.argumentNode
+                                :: errors
+                            )
+
+                        else
+                            ( blockedPairs, errors )
+                    )
+                    ( Set.empty, [] )
+
         step deferredCall ( nextSeedIndex, injectedFunctions, errors ) =
-            if FreezeHelperPlanning.functionContainsFreeze freezeKnowledgeAtEnd deferredCall.calleeFunctionId then
+            if FreezeHelperPlanning.functionContainsFreeze freezeKnowledgeAtEnd deferredCall.calleeFunctionId
+                && not (Set.member ( deferredCall.callerFunctionName, deferredCall.calleeFunctionId ) blockedDeferredPairs) then
                 let
                     ( seedExpression, nextSeedIndexAfter ) =
                         if usesHelperFrozenIdsForFunction context deferredCall.callerFunctionName then
@@ -2013,7 +2129,7 @@ deferredHelperCallSeedingErrors context =
     in
     orderedDeferredCalls
         |> List.foldl step ( context.helperCallSeedIndex, context.injectedFidFunctions, [] )
-        |> (\( _, _, errors ) -> List.reverse errors)
+        |> (\( _, _, errors ) -> List.reverse deferredUnsupportedErrors ++ List.reverse errors)
 
 
 

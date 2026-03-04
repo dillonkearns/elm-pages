@@ -433,6 +433,88 @@ function assertRouteLocalHelperSeedingAgreement(caseId: string): void {
   );
 }
 
+function assertSharedLocalHelperSeedingAgreement(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const indexHtmlPath = join(result.projectDir, "dist", "index.html");
+  const contentDatPath = join(result.projectDir, "dist", "content.dat");
+  const indexHtml = readFileSync(indexHtmlPath, "utf8");
+  const contentDatBytes = readFileSync(contentDatPath);
+
+  const extractedFromHtml = extractFrozenViews(indexHtml);
+  const contentDatDecoded = parseFrozenViewsPrefixFromBytes(contentDatBytes);
+
+  expect(Object.keys(contentDatDecoded.regions).sort()).toEqual([
+    "shared:0:0",
+    "shared:1:0",
+  ]);
+  expect(contentDatDecoded.regions).toEqual(extractedFromHtml);
+  expect(contentDatDecoded.regions["shared:0:0"]).toContain("Shared user: Alice");
+  expect(contentDatDecoded.regions["shared:1:0"]).toContain("Shared user: Bob");
+
+  const clientWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "client");
+  const serverWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "server");
+  const clientShared = readFileSync(join(clientWorkspace, "app", "Shared.elm"), "utf8");
+  const serverShared = readFileSync(join(serverWorkspace, "app", "Shared.elm"), "utf8");
+
+  expect(clientShared).toContain("sharedCard : String -> { name : String } -> Html msg");
+  expect(serverShared).toContain("sharedCard : String -> { name : String } -> Html msg");
+  expect(clientShared).toContain('sharedCard "shared:0" { name = "Alice" }');
+  expect(clientShared).toContain('sharedCard "shared:1" { name = "Bob" }');
+  expect(serverShared).toContain('sharedCard "shared:0" { name = "Alice" }');
+  expect(serverShared).toContain('sharedCard "shared:1" { name = "Bob" }');
+  expect(clientShared).toContain("sharedCard elmPagesFid_shared_sharedcard user");
+  expect(serverShared).toContain("sharedCard elmPagesFid_shared_sharedcard user");
+  expect(clientShared).toContain(
+    '__ELM_PAGES_STATIC__" ++ elmPagesFid_shared_sharedcard ++ ":0"'
+  );
+  expect(serverShared).toContain(
+    'data-static" (elmPagesFid_shared_sharedcard ++ ":0")'
+  );
+}
+
+function assertRouteLocalMixedCallsiteFallback(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const output = relevantBuildOutput(result.stdout, result.stderr);
+  expect(output).toContain("unsupported helper usage detected");
+  expect(output).toContain(
+    "Frozen view codemod: unsupported helper function value or partial application"
+  );
+
+  const indexHtmlPath = join(result.projectDir, "dist", "index.html");
+  const contentDatPath = join(result.projectDir, "dist", "content.dat");
+  const indexHtml = readFileSync(indexHtmlPath, "utf8");
+  const contentDatBytes = readFileSync(contentDatPath);
+
+  const extractedFromHtml = extractFrozenViews(indexHtml);
+  const contentDatDecoded = parseFrozenViewsPrefixFromBytes(contentDatBytes);
+
+  // Current fallback strategy excludes the route file when unsupported helper call forms exist.
+  expect(contentDatDecoded.regions).toEqual({});
+  expect(extractedFromHtml).toEqual({});
+
+  const clientWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "client");
+  const serverWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "server");
+  const clientRoutePath = findModuleFileInWorkspace(
+    clientWorkspace,
+    join("Route", "Index.elm")
+  );
+  const serverRoutePath = findModuleFileInWorkspace(
+    serverWorkspace,
+    join("Route", "Index.elm")
+  );
+  const clientRoute = readFileSync(clientRoutePath, "utf8");
+  const serverRoute = readFileSync(serverRoutePath, "utf8");
+
+  expect(clientRoute).toContain("List.map card");
+  expect(clientRoute).toContain("card app.data.alice");
+  expect(clientRoute).not.toContain("__ELM_PAGES_STATIC__");
+  expect(serverRoute).not.toContain("data-static");
+}
+
 describe.sequential("frozen helper seeding CLI behavior", () => {
   const caseIds = listFixtureCaseIds();
 
@@ -506,6 +588,26 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
     () => {
       assertRouteLocalHelperSeedingAgreement(
         "supported-route-local-helper-two-sites"
+      );
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "supported-shared-local-helper-two-sites seeds shared-local helper calls and keeps client/server payloads in sync",
+    () => {
+      assertSharedLocalHelperSeedingAgreement(
+        "supported-shared-local-helper-two-sites"
+      );
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "matrix-route-local-helper-mixed-static-and-map captures fallback behavior for mixed callsite shapes",
+    () => {
+      assertRouteLocalMixedCallsiteFallback(
+        "matrix-route-local-helper-mixed-static-and-map"
       );
     },
     integrationTestTimeoutMs
