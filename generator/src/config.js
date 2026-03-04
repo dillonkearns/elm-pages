@@ -3,7 +3,7 @@ import { pathToFileURL } from "url";
 
 export async function resolveConfig() {
   const configPath = path.join(process.cwd(), "elm-pages.config.mjs");
-  const initialConfig = await await import(
+  const initialConfig = await import(
     pathToFileURL(configPath)
   )
     .then(async (elmPagesConfig) => {
