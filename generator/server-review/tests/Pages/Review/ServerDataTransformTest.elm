@@ -821,6 +821,165 @@ renderContent data =
                                 }
                             ]
             ]
+        , describe "All fields ephemeral (empty Data)"
+            [ test "all fields used only inside freeze - head does not access app.data" <|
+                \() ->
+                    -- Route.Index pattern: head doesn't access app.data at all,
+                    -- view accesses all Data fields only inside freeze.
+                    -- All fields should be ephemeral, resulting in Data = {}
+                    """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { body : String
+    , highlights : String
+    }
+
+head app =
+    []
+
+view app =
+    { title = "Test"
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body, Html.text app.data.highlights ]) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body, highlights"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { body : String
+    , highlights : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Ephemeral =
+    { body : String
+    , highlights : String
+    }
+
+
+type alias Data =
+    {}
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData _ =
+    {}
+
+head app =
+    []
+
+view app =
+    { title = "Test"
+    , body = [ View.freeze (Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body, Html.text app.data.highlights ]) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"highlights\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { body : String
+    , highlights : String
+    }"""
+                                }
+                            ]
+            , test "all fields ephemeral via pipe chain to freeze" <|
+                \() ->
+                    -- Pattern from real Route.Index: pipe chain ending in freeze.
+                    -- body is accessed in freeze context, highlights is not accessed at all.
+                    -- Both are ephemeral (neither is used in a persistent context).
+                    -- Note: freeze argument is pre-wrapped with data-static to focus on Data/Ephemeral transform
+                    """module Route.Test exposing (Data, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Data =
+    { body : String
+    , highlights : String
+    }
+
+head app =
+    []
+
+view app =
+    { title = "Test"
+    , body =
+        [ Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]
+            |> View.freeze
+        ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body, highlights"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { body : String
+    , highlights : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import Html
+import Html.Attributes
+import View
+
+type alias Ephemeral =
+    { body : String
+    , highlights : String
+    }
+
+
+type alias Data =
+    {}
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData _ =
+    {}
+
+head app =
+    []
+
+view app =
+    { title = "Test"
+    , body =
+        [ Html.div [ Html.Attributes.attribute "data-static" "__STATIC__" ] [ Html.text app.data.body ]
+            |> View.freeze
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"highlights\"]}"
+                                , details = [ "Parsed by codegen to determine routes with ephemeral fields." ]
+                                , under = """type alias Data =
+    { body : String
+    , highlights : String
+    }"""
+                                }
+                            ]
+            ]
         , describe "Non-conventional head function naming"
             [ test "head = seoTags correctly identifies seoTags as head function" <|
                 \() ->

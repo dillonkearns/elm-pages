@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.1.5] - 2026-02-23
+
+### Fixed
+
+- Fix build failures caused by stale codemod-transformed files not being overwritten on subsequent builds. `copyDirIfNewer` skipped re-copying app files because the codemod had modified them (making their mtime newer than the source), so elm-review analysis ran on already-transformed code and found no ephemeral fields.
+- Fix server-side elm-review codemod failing to create Ephemeral types on clean builds (e.g. Netlify CI) by pre-generating Route.elm, Pages.elm, and Fetcher modules in the server folder before the codemod runs.
+
+
 ## [3.1.4] - 2026-02-23
 
 ### Fixed

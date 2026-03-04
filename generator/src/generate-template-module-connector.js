@@ -76,7 +76,7 @@ async function analyzeEphemeralFields() {
 /**
  * @param {string} basePath
  * @param {'browser' | 'cli'} phase
- * @param {{ skipEphemeralAnalysis?: boolean }} [options]
+ * @param {{ skipEphemeralAnalysis?: boolean, routesWithEphemeral?: string[] }} [options]
  */
 export async function generateTemplateModuleConnector(basePath, phase, options = {}) {
   const templates = globby
@@ -115,7 +115,13 @@ export async function generateTemplateModuleConnector(basePath, phase, options =
   // Skip in dev mode since the server-review codemod that creates Ephemeral types isn't run
   let routesWithEphemeral = [];
   if (phase === "cli" && !options.skipEphemeralAnalysis) {
-    routesWithEphemeral = await analyzeEphemeralFields();
+    if (options.routesWithEphemeral) {
+      // Use pre-computed results from the server codemod's analysis.
+      // This ensures Main.elm only references Ephemeral types that the codemod actually created.
+      routesWithEphemeral = options.routesWithEphemeral;
+    } else {
+      routesWithEphemeral = await analyzeEphemeralFields();
+    }
   }
 
   let elmCodegenFiles = null;

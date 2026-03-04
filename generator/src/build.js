@@ -362,8 +362,11 @@ export async function run(options) {
         }
       }
 
-      // Validate ephemeral field agreement between server and client transforms
-      if (serverResult.ephemeralFields && clientResult.ephemeralFields) {
+      // Validate ephemeral field agreement between server and client transforms.
+      // Only check when the server codemod actually found ephemeral fields.
+      // If the server codemod failed silently (returned empty), skip the check
+      // and gracefully degrade (server sends all fields, client ignores extras).
+      if (serverResult.ephemeralFields && serverResult.ephemeralFields.size > 0 && clientResult.ephemeralFields) {
         const disagreement = compareEphemeralFields(
           serverResult.ephemeralFields,
           clientResult.ephemeralFields

@@ -266,6 +266,10 @@ export async function generateClientFolder(basePath) {
     "./elm-stuff/elm-pages/client"
   );
   await rewriteClientElmJson({ localSourceDirectories });
+  // Force-copy app files (not copyDirIfNewer) because the codemod modifies these files,
+  // making their mtime newer than the source. On subsequent builds, copyDirIfNewer would
+  // skip copying and the analysis would run on already-transformed files.
+  await fsExtra.copy("./app", "./elm-stuff/elm-pages/client/app", { overwrite: true });
 
   await writeFileIfChanged(
     "./elm-stuff/elm-pages/client/.elm-pages/Main.elm",
@@ -288,6 +292,45 @@ export async function generateClientFolder(basePath) {
     unsupportedHelperSeedingIssues:
       result.unsupportedHelperSeedingIssues || [],
   };
+}
+
+/**
+ * Scan route files to find which ones actually contain `type alias Ephemeral`.
+ * This is the ground truth — regardless of what elm-review's analysis reported,
+ * we only reference Ephemeral in Main.elm if it actually exists in the file.
+ * @param {string} routeDir - path to the Route directory (e.g., "./elm-stuff/elm-pages/server/app/Route")
+ * @returns {Promise<string[]>} - module names like "Route.Index", "Route.Page_"
+ */
+async function verifyEphemeralTypesExist(routeDir) {
+  const result = [];
+
+  async function scanDir(dir, modulePrefix) {
+    let entries;
+    try {
+      entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    } catch (e) {
+      return;
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await scanDir(fullPath, modulePrefix + entry.name + ".");
+      } else if (entry.name.endsWith(".elm")) {
+        const moduleName = modulePrefix + entry.name.slice(0, -4);
+        try {
+          const content = await fs.promises.readFile(fullPath, "utf8");
+          if (content.includes("type alias Ephemeral")) {
+            result.push(moduleName);
+          }
+        } catch (e) {
+          // Skip unreadable files
+        }
+      }
+    }
+  }
+
+  await scanDir(routeDir, "Route.");
+  return result;
 }
 
 /**
@@ -324,6 +367,29 @@ export async function generateServerFolder(basePath) {
     localSourceDirectories,
   });
 
+  // Force-copy app files (not copyDirIfNewer) because the codemod modifies these files,
+  // making their mtime newer than the source. On subsequent builds, copyDirIfNewer would
+  // skip copying and the analysis would run on already-transformed files.
+  await fsExtra.copy("./app", "./elm-stuff/elm-pages/server/app", { overwrite: true });
+
+  // Generate temporary Route.elm, Pages.elm, and Fetcher modules BEFORE the codemod.
+  // elm-review needs to compile the project to set up ModuleNameLookupTable, and many
+  // app modules (Shared.elm, Route modules, etc.) import the generated Route module.
+  // Without these files, elm-review silently fails to apply Ephemeral type fixes.
+  const tempBrowserCode = await generateTemplateModuleConnector(basePath, "browser");
+  await writeFileIfChanged(
+    "./elm-stuff/elm-pages/server/.elm-pages/Route.elm",
+    tempBrowserCode.routesModule
+  );
+  await writeFileIfChanged(
+    "./elm-stuff/elm-pages/server/.elm-pages/Pages.elm",
+    elmPagesCliFile()
+  );
+  await writeFetcherModules(
+    "./elm-stuff/elm-pages/server/.elm-pages",
+    tempBrowserCode.fetcherModules
+  );
+
   // Run server-specific elm-review codemod FIRST
   // This creates the Ephemeral type alias in Route files
   // Must run before generateTemplateModuleConnector so Main.elm can reference Ephemeral
@@ -341,14 +407,24 @@ export async function generateServerFolder(basePath) {
   // When helper seeding is unsupported, server codemod fixes are skipped and
   // route modules may not expose Ephemeral aliases. Skip CLI ephemeral analysis
   // so generated Main.elm does not reference missing Route.*.Ephemeral types.
-  const cliCode = await generateTemplateModuleConnector(basePath, "cli", {
-    skipEphemeralAnalysis: shouldSkipCliEphemeralAnalysis,
-  });
+  // Otherwise, verify which route files ACTUALLY have the Ephemeral type after
+  // the codemod — don't trust analysis output alone since fix-application may
+  // fail silently.
+  let cliOptions;
+  if (shouldSkipCliEphemeralAnalysis) {
+    cliOptions = { skipEphemeralAnalysis: true };
+  } else {
+    const routesWithEphemeral = await verifyEphemeralTypesExist(
+      "./elm-stuff/elm-pages/server/app/Route"
+    );
+    if (serverResult.ephemeralFields.size > 0 && routesWithEphemeral.length === 0) {
+      console.log(`[elm-pages] WARNING: elm-review analysis found ${serverResult.ephemeralFields.size} routes with ephemeral fields, but no Ephemeral types were found in the output files. The Ephemeral type optimization will be skipped.`);
+    }
+    cliOptions = { routesWithEphemeral };
+  }
+  const cliCode = await generateTemplateModuleConnector(basePath, "cli", cliOptions);
 
-  // Generate browser code to get Fetcher modules (needed for route modules that import Fetchers)
-  const browserCode = await generateTemplateModuleConnector(basePath, "browser");
-
-  // Write generated Main.elm, Route.elm, Pages.elm
+  // Write final generated Main.elm, Route.elm, Pages.elm (overwriting the temporary ones)
   await writeFileIfChanged(
     "./elm-stuff/elm-pages/server/.elm-pages/Main.elm",
     cliCode.mainModule
@@ -365,7 +441,7 @@ export async function generateServerFolder(basePath) {
   // Write Fetcher modules to server folder (needed for route modules that import Fetchers)
   await writeFetcherModules(
     "./elm-stuff/elm-pages/server/.elm-pages",
-    browserCode.fetcherModules
+    cliCode.fetcherModules
   );
 
   return {
@@ -373,6 +449,26 @@ export async function generateServerFolder(basePath) {
     unsupportedHelperSeedingIssues:
       serverResult.unsupportedHelperSeedingIssues || [],
   };
+}
+
+/**
+ * Resolve the path to elm-format, checking PATH then node_modules/.bin/.
+ * @returns {Promise<string|null>}
+ */
+async function resolveElmFormat() {
+  try {
+    return await which("elm-format");
+  } catch (e) {
+    // Not on PATH — check node_modules/.bin/ as fallback
+    // (elm-tooling installs here, but it may not be on PATH in all environments)
+    const localPath = path.join(process.cwd(), "node_modules", ".bin", "elm-format");
+    try {
+      await fs.promises.access(localPath, fs.constants.X_OK);
+      return localPath;
+    } catch (e2) {
+      return null;
+    }
+  }
 }
 
 /**
@@ -394,9 +490,11 @@ export async function runElmReviewCodemod(cwd, target = "client", options = {}) 
 
   const cwdPath = path.join(process.cwd(), cwd || ".");
   const lamderaPath = await which("lamdera");
+  const elmFormatPath = await resolveElmFormat();
 
-  // Run elm-review without fixes first to capture EPHEMERAL_FIELDS_JSON for analysis
-  const analysisOutput = await runElmReviewCommand(cwdPath, configPath, lamderaPath, false);
+  // Run elm-review without fixes first to capture EPHEMERAL_FIELDS_JSON for analysis.
+  // This step does not require elm-format.
+  const analysisOutput = await runElmReviewCommand(cwdPath, configPath, lamderaPath, elmFormatPath, false);
   const ephemeralFields = parseEphemeralFieldsWithFields(analysisOutput);
   const deOptimizationCount = parseDeOptimizationCount(analysisOutput);
   const localToSourceDirectories = buildLocalToSourceDirectoriesLookup(
@@ -414,36 +512,45 @@ export async function runElmReviewCodemod(cwd, target = "client", options = {}) 
     ),
   }));
 
-  if (unsupportedHelperSeedingIssues.length > 0) {
-    const partialFallbackWorkspace = await createPartialFallbackConfigWorkspace(
-      target,
-      partialFallbackConfigPath
-    );
-    try {
-      await syncFallbackRuleModules(target, partialFallbackWorkspace.configPath);
-      const excludedPaths = await computeUnsupportedFixExclusionPaths(
-        cwdPath,
-        unsupportedHelperSeedingIssues
-      );
-      await writePartialFallbackReviewConfig(
-        partialFallbackWorkspace.configPath,
+  // Apply fixes. elm-review requires elm-format for this step.
+  if (elmFormatPath) {
+    if (unsupportedHelperSeedingIssues.length > 0) {
+      const partialFallbackWorkspace = await createPartialFallbackConfigWorkspace(
         target,
-        excludedPaths
+        partialFallbackConfigPath
       );
-      await runElmReviewCommand(
-        cwdPath,
-        partialFallbackWorkspace.configPath,
-        lamderaPath,
-        true
-      );
-    } finally {
-      await fs.promises.rm(partialFallbackWorkspace.rootPath, {
-        recursive: true,
-        force: true,
-      });
+      try {
+        await syncFallbackRuleModules(target, partialFallbackWorkspace.configPath);
+        const excludedPaths = await computeUnsupportedFixExclusionPaths(
+          cwdPath,
+          unsupportedHelperSeedingIssues
+        );
+        await writePartialFallbackReviewConfig(
+          partialFallbackWorkspace.configPath,
+          target,
+          excludedPaths
+        );
+        await runElmReviewCommand(
+          cwdPath,
+          partialFallbackWorkspace.configPath,
+          lamderaPath,
+          elmFormatPath,
+          true
+        );
+      } finally {
+        await fs.promises.rm(partialFallbackWorkspace.rootPath, {
+          recursive: true,
+          force: true,
+        });
+      }
+    } else {
+      await runElmReviewCommand(cwdPath, configPath, lamderaPath, elmFormatPath, true);
     }
   } else {
-    await runElmReviewCommand(cwdPath, configPath, lamderaPath, true);
+    console.log(
+      `[elm-pages] elm-format not found. Skipping Ephemeral type optimization.\n` +
+      `Install elm-format (e.g., via elm-tooling) to enable this optimization.`
+    );
   }
 
   return {
@@ -1195,7 +1302,7 @@ export const __testHelpers = {
  * @param {string} lamderaPath
  * @param {boolean} applyFixes
  */
-async function runElmReviewCommand(cwdPath, configPath, lamderaPath, applyFixes) {
+async function runElmReviewCommand(cwdPath, configPath, lamderaPath, elmFormatPath, applyFixes) {
   const args = [
     "--report", "json",
     "--namespace", "elm-pages",
@@ -1203,6 +1310,9 @@ async function runElmReviewCommand(cwdPath, configPath, lamderaPath, applyFixes)
     "--elmjson", "elm.json",
     "--compiler", lamderaPath,
   ];
+  if (elmFormatPath) {
+    args.push("--elm-format-path", elmFormatPath);
+  }
   if (applyFixes) {
     args.unshift("--fix-all-without-prompt");
   }
@@ -1254,17 +1364,23 @@ async function runElmReviewCommand(cwdPath, configPath, lamderaPath, applyFixes)
         // For analysis-only run, exit code 1 is expected (review errors found)
         resolve(output);
       } else {
-        // When applying fixes, elm-review returns non-zero when fixes are
-        // already applied ("failing fix"), which is expected.
-        // Reject only on real parse/compile/config failures.
-        const hasRealError = combined.includes("PARSING ERROR") ||
-          combined.includes("COMPILE ERROR") ||
-          combined.includes("CONFIGURATION ERROR") ||
-          combined.includes("\"type\":\"compile-errors\"") ||
-          combined.includes("\"type\":\"error\"");
-        if (hasRealError) {
+        // Non-zero exit during fix application. Check if it's a real elm-review
+        // error (type: "error") or just a benign failing fix (type: "review-errors").
+        let isRealError = false;
+        try {
+          const parsed = JSON.parse(output);
+          // elm-review uses type: "error" for tool-level failures
+          // (e.g., ELM-FORMAT NOT FOUND, CONFIGURATION ERROR)
+          // and type: "review-errors" for rule results (including failing fixes).
+          isRealError = parsed.type === "error";
+        } catch (e) {
+          // Couldn't parse JSON — treat unparseable output as a real error
+          isRealError = true;
+        }
+        if (isRealError) {
           reject(combined);
         } else {
+          // Benign: fix already applied or no fixes needed
           resolve(output);
         }
       }
