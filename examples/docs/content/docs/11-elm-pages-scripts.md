@@ -162,6 +162,12 @@ You can compile your script (options parsing and all) to a single minified and o
 elm-pages bundle-script script/src/Stars.elm
 ```
 
+You can control the optimization level with the `--optimize` flag:
+
+- `--optimize 0` — no optimization
+- `--optimize 1` — Elm compiler optimizations only
+- `--optimize 2` — elm-optimize-level-2 (the default)
+
 ## Local DB in Scripts
 
 `elm-pages` Scripts can also use a typed local database with `Pages.Db`, including runtime migrations for bundled scripts.

@@ -16,7 +16,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   - `Pages.Db.open : String -> Pages.Db.Connection`
   - `Pages.Db.default : Pages.Db.Connection`
   - `Pages.Db.get`, `Pages.Db.update`, and `Pages.Db.transaction` now take a `Connection` argument.
-- `FilePath` module with opaque type for type-safe path manipulation (joining, dirname, extension, relative-to, cross-platform support).
+- `FilePath` module with opaque type for type-safe path manipulation (joining, dirname, extension, relative-to, cross-platform support). See [#574](https://github.com/dillonkearns/elm-pages/pull/574).
+  - `FilePath.resolve` to resolve a path to an absolute path using Node.js `path.resolve`.
 - New file system utilities in `Pages.Script`: `removeFile`, `copyFile`, `move`, `makeDirectory`, `removeDirectory`, `makeTempDirectory`.
 - `BackendTask.and` sequencing helper.
 - `BackendTask.finally` for guaranteed cleanup.
@@ -24,6 +25,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 
 - Scripts now require the `lamdera` compiler. The `elm` binary is no longer supported as a fallback.
+
+### Removed
+
+- `FilePath.toPosixString` (was an alias for `toString`) and `FilePath.toWindowsString`.
+- `FilePath.isAbsolute` from the public API.
+- `FilePath.filenameWithExtension` (was an alias for `filename`).
 
 ## [11.0.0] - 2026-02-15
 

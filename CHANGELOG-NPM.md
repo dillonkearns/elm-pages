@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
-- Local DB for `elm-pages` Scripts — a type-safe, file-based database with automatic migrations:
+- Local DB for `elm-pages` Scripts — a type-safe, file-based database with automatic migrations (see [#576](https://github.com/dillonkearns/elm-pages/pull/576)):
   - `elm-pages db init` — scaffolds `Db.elm` and `db/Db/Migrate/V1.elm`, adds artifacts to `.gitignore`.
   - `elm-pages db status` — shows schema version, db.bin compatibility, and migration chain status. Exits with code 1 when migrations are pending.
   - `elm-pages db migrate` — creates migration scaffolds (snapshot + stub) or applies pending migrations. Supports `--force-stale-snapshot` for edge cases.
@@ -22,12 +22,23 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   - Stale snapshot auto-recovery from `db/schema-history/<hash>.elm` when `Db.elm` changed before the old schema was captured.
   - Schema version derived from `db/Db/Migrate/V*.elm` files — no separate version tracking file needed.
 - New docs page for script DB usage and migration behavior: `examples/docs/content/docs/17-elm-pages-scripts-db.md`.
+- `--optimize` flag for `elm-pages bundle-script`, with levels `0` (no optimization), `1` (Elm compiler optimizations), or `2` (elm-optimize-level-2, the default).
 
 ### Changed
 
 - **Breaking:** Scripts now require the `lamdera` compiler. The `elm` binary is no longer supported as a fallback.
+- **Breaking:** JS↔Elm ports now pass `Bytes` directly instead of Base64-encoded strings. This removes the `base64` dependency and reduces client bundle size. If you have custom port code that was consuming Base64-encoded data from elm-pages, you will need to update it to handle raw byte arrays instead.
 - `elm-pages bundle-script` no longer mutates or auto-applies local DB migrations during bundling. Migrations are applied when the bundled script runs on the target machine.
 - Removed generated `Pages.Db` `*At` APIs (`getAt`, `updateAt`, `transactionAt`) in favor of connection-based DB access (`Pages.Db.open` + `Connection`).
+- Updated devcert dependency (see [#572](https://github.com/dillonkearns/elm-pages/pull/572)). Thank you [@miniBill](https://github.com/miniBill)!
+- More precise TypeScript types for internal JS code (see [#564](https://github.com/dillonkearns/elm-pages/pull/564)). Thank you [@miniBill](https://github.com/miniBill)!
+
+### Fixed
+
+- Fix spinner output printing on non-interactive terminals (e.g. CI). Spinner state changes are now suppressed when not running in a TTY (see [#568](https://github.com/dillonkearns/elm-pages/pull/568)).
+- Fix config not loading on Windows (see [#483](https://github.com/dillonkearns/elm-pages/pull/483)). Thank you [@bdukes](https://github.com/bdukes)!
+- Fall back to `node_modules/.bin/elm-format` when `elm-format` is not on PATH, and pass `--elm-format-path` to elm-review to fix Netlify builds. Surface a clear error message when the elm-format dependency is missing instead of silently failing.
+- Fix issue where clicking to a heading in docs pages would cover the heading text.
 
 ## [3.1.5] - 2026-02-23
 
