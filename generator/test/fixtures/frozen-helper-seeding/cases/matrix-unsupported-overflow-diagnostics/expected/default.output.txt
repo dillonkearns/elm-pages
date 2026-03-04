@@ -1,0 +1,10 @@
+View.freeze warnings: unsupported helper usage detected in 10 location(s).
+- lib/Ui/ListViewA.elm: Frozen view codemod: unsupported helper function value or partial application
+- lib/Ui/ListViewB.elm: Frozen view codemod: unsupported helper function value or partial application
+- lib/Ui/ListViewC.elm: Frozen view codemod: unsupported helper function value or partial application
+- lib/Ui/ListViewD.elm: Frozen view codemod: unsupported helper function value or partial application
+- app/Route/Index.elm: Frozen view codemod: unsupported helper function value or partial application
+- lib/Ui/ListViewA.elm: Server codemod: unsupported helper function value or partial application
+- lib/Ui/ListViewB.elm: Server codemod: unsupported helper function value or partial application
+- lib/Ui/ListViewC.elm: Server codemod: unsupported helper function value or partial application
+Falling back to de-optimized frozen views for this build target (codemod fixes were skipped).

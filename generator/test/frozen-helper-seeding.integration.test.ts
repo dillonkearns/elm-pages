@@ -684,6 +684,34 @@ function assertMultiFileUnsupportedDiagnosticsAreAggregated(caseId: string): voi
   );
 }
 
+function assertUnsupportedDiagnosticsOverflowTruncation(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const output = stripAnsi(`${result.stdout}\n${result.stderr}`);
+  expect(output).toContain(
+    "View.freeze warnings: unsupported helper usage detected in 10 location(s)."
+  );
+  expect(output).toContain("- ... and 2 more");
+  expect(output).toContain(
+    "Frozen view codemod: unsupported helper function value or partial application"
+  );
+  expect(output).toContain(
+    "Server codemod: unsupported helper function value or partial application"
+  );
+}
+
+function assertCombinedValidationDeOptAndUnsupportedSignals(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const output = stripAnsi(`${result.stdout}\n${result.stderr}`);
+  expect(output).toContain("View.freeze warnings:");
+  expect(output).toContain("inside View.freeze");
+  expect(output).toContain("unsupported helper usage detected");
+  expect(output).toContain("View.freeze call(s) de-optimized");
+}
+
 describe.sequential("frozen helper seeding CLI behavior", () => {
   const caseIds = listFixtureCaseIds();
 
@@ -835,6 +863,26 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
     () => {
       assertMultiFileUnsupportedDiagnosticsAreAggregated(
         "matrix-unsupported-multi-file-diagnostics"
+      );
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "matrix-unsupported-overflow-diagnostics reports truncation while preserving mixed client/server visibility",
+    () => {
+      assertUnsupportedDiagnosticsOverflowTruncation(
+        "matrix-unsupported-overflow-diagnostics"
+      );
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "matrix-combined-validation-deopt-unsupported surfaces all diagnostics together in default mode",
+    () => {
+      assertCombinedValidationDeOptAndUnsupportedSignals(
+        "matrix-combined-validation-deopt-unsupported"
       );
     },
     integrationTestTimeoutMs
