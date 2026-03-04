@@ -2057,7 +2057,11 @@ handleViewFreezeCall functionNode freezeArg node context =
             else if context.sharedState.freezeCallDepth > 1 then
                 -- Inside nested freeze - skip transformation (no-op)
                 ( [], context )
-            -- Second check: are we inside a tainted conditional (if/case that depends on model)?
+            -- Third check: direct View.freeze inside a lambda/repeated context.
+            -- A single static ID cannot represent multiple runtime invocations.
+            else if context.lambdaDepth > 0 then
+                ( [ emitDeOptimizationCount (Node.range node) "repeated_context" ], context )
+            -- Fourth check: are we inside a tainted conditional (if/case that depends on model)?
             -- If so, skip transformation to avoid server/client mismatch
             else if context.taintedContextDepth > 0 then
                 -- Inside tainted conditional - de-optimize (skip transformation)

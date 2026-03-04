@@ -521,6 +521,7 @@ async function syncFallbackRuleModules(target, fallbackConfigPath) {
 async function computeUnsupportedFixExclusionPaths(cwdPath, issues) {
   const sourceDirectories = await readWorkspaceSourceDirectories(cwdPath);
   const excludedPaths = new Set();
+  const importingFilesCache = new Map();
 
   for (const issue of issues) {
     const localPath =
@@ -533,14 +534,38 @@ async function computeUnsupportedFixExclusionPaths(cwdPath, issues) {
   }
 
   for (const issue of issues) {
+    const issueDetails = await readUnsupportedIssueDetails(cwdPath, issue);
     const referencedHelperPath =
       await findReferencedHelperPathForUnsupportedIssue(
         cwdPath,
         sourceDirectories,
-        issue
+        issue,
+        issueDetails
       );
     if (referencedHelperPath) {
       excludedPaths.add(referencedHelperPath);
+    }
+
+    if (
+      issueDetails &&
+      issueDetails.isComplexFunctionReference &&
+      issueDetails.moduleName
+    ) {
+      const moduleName = issueDetails.moduleName;
+      if (!importingFilesCache.has(moduleName)) {
+        importingFilesCache.set(
+          moduleName,
+          await findImportingFilesForModule(
+            cwdPath,
+            sourceDirectories,
+            moduleName
+          )
+        );
+      }
+
+      for (const importingPath of importingFilesCache.get(moduleName) || []) {
+        excludedPaths.add(importingPath);
+      }
     }
   }
 
@@ -566,19 +591,10 @@ async function readWorkspaceSourceDirectories(cwdPath) {
 
 /**
  * @param {string} cwdPath
- * @param {string[]} sourceDirectories
  * @param {{path: string, localPath?: string, message: string, region?: any}} issue
- * @returns {Promise<string | null>}
+ * @returns {Promise<{localPath: string, fileContent: string, regionText: string, functionReferences: Array<{qualifier: string | null, functionName: string}>, isComplexFunctionReference: boolean, moduleName: string | null} | null>}
  */
-async function findReferencedHelperPathForUnsupportedIssue(
-  cwdPath,
-  sourceDirectories,
-  issue
-) {
-  if (!issue.region || !issue.region.start || !issue.region.end) {
-    return null;
-  }
-
+async function readUnsupportedIssueDetails(cwdPath, issue) {
   const issueLocalPath =
     issue.localPath && issue.localPath.length > 0
       ? issue.localPath
@@ -595,17 +611,82 @@ async function findReferencedHelperPathForUnsupportedIssue(
     return null;
   }
 
-  const regionText = extractRegionText(fileContent, issue.region);
-  const functionReference = parseFunctionReference(regionText);
-  if (!functionReference) {
+  const regionText =
+    issue.region && issue.region.start && issue.region.end
+      ? extractRegionText(fileContent, issue.region)
+      : "";
+  const functionReferences =
+    regionText.length > 0 ? parseFunctionReferenceCandidates(regionText) : [];
+  const directReference =
+    regionText.length > 0 ? parseFunctionReference(regionText) : null;
+  const moduleName = parseModuleNameFromElmFile(fileContent);
+
+  return {
+    localPath: issueLocalPath,
+    fileContent,
+    regionText,
+    functionReferences,
+    isComplexFunctionReference:
+      functionReferences.length > 0 && directReference === null,
+    moduleName,
+  };
+}
+
+/**
+ * @param {string} cwdPath
+ * @param {string[]} sourceDirectories
+ * @param {{path: string, localPath?: string, message: string, region?: any}} issue
+ * @param {{localPath: string, fileContent: string, regionText: string, functionReferences: Array<{qualifier: string | null, functionName: string}>} | null} [issueDetails]
+ * @returns {Promise<string | null>}
+ */
+async function findReferencedHelperPathForUnsupportedIssue(
+  cwdPath,
+  sourceDirectories,
+  issue,
+  issueDetails = null
+) {
+  const issueLocalPath = issueDetails
+    ? issueDetails.localPath
+    : issue.localPath && issue.localPath.length > 0
+      ? issue.localPath
+      : normalizeIssuePath(issue.path);
+  if (issueLocalPath.length === 0) {
+    return null;
+  }
+
+  let fileContent = issueDetails ? issueDetails.fileContent : null;
+  if (!fileContent) {
+    try {
+      fileContent = await fs.promises.readFile(
+        path.join(cwdPath, issueLocalPath),
+        "utf8"
+      );
+    } catch (_error) {
+      return null;
+    }
+  }
+  const functionReferences = issueDetails
+    ? issueDetails.functionReferences
+    : issue.region && issue.region.start && issue.region.end
+      ? parseFunctionReferenceCandidates(extractRegionText(fileContent, issue.region))
+      : [];
+  if (functionReferences.length === 0) {
     return null;
   }
 
   const imports = parseElmImports(fileContent);
-  const helperModuleName = resolveImportedModuleName(imports, functionReference);
-  if (!helperModuleName) {
+  const resolvedModuleNames = new Set();
+  for (const functionReference of functionReferences) {
+    const helperModuleName = resolveImportedModuleName(imports, functionReference);
+    if (helperModuleName) {
+      resolvedModuleNames.add(helperModuleName);
+    }
+  }
+
+  if (resolvedModuleNames.size !== 1) {
     return null;
   }
+  const helperModuleName = Array.from(resolvedModuleNames)[0];
 
   const helperRelativeModulePath =
     helperModuleName.replace(/\./g, "/") + ".elm";
@@ -621,6 +702,69 @@ async function findReferencedHelperPathForUnsupportedIssue(
   }
 
   return null;
+}
+
+/**
+ * @param {string} fileContent
+ * @returns {string | null}
+ */
+function parseModuleNameFromElmFile(fileContent) {
+  const moduleMatch = fileContent.match(
+    /^\s*module\s+([A-Z][A-Za-z0-9_.]*)\s+exposing\b/m
+  );
+  return moduleMatch ? moduleMatch[1] : null;
+}
+
+/**
+ * @param {string} cwdPath
+ * @param {string[]} sourceDirectories
+ * @param {string} moduleName
+ * @returns {Promise<string[]>}
+ */
+async function findImportingFilesForModule(cwdPath, sourceDirectories, moduleName) {
+  const importingFiles = new Set();
+
+  for (const sourceDirectory of sourceDirectories) {
+    const sourceDirectoryPath = path.join(cwdPath, sourceDirectory);
+    if (!fs.existsSync(sourceDirectoryPath)) {
+      continue;
+    }
+
+    const elmFilePaths = await listElmFilesRecursively(sourceDirectoryPath);
+    for (const elmFilePath of elmFilePaths) {
+      const fileContent = await fs.promises.readFile(elmFilePath, "utf8");
+      const imports = parseElmImports(fileContent);
+      if (imports.byModule.has(moduleName)) {
+        importingFiles.add(normalizeIssuePath(path.relative(cwdPath, elmFilePath)));
+      }
+    }
+  }
+
+  return Array.from(importingFiles).sort();
+}
+
+/**
+ * @param {string} directoryPath
+ * @returns {Promise<string[]>}
+ */
+async function listElmFilesRecursively(directoryPath) {
+  const entries = await fs.promises.readdir(directoryPath, {
+    withFileTypes: true,
+  });
+
+  const nestedFiles = await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) =>
+        listElmFilesRecursively(path.join(directoryPath, entry.name))
+      )
+  );
+
+  const directElmFiles = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".elm"))
+    .map((entry) => path.join(directoryPath, entry.name));
+
+  return directElmFiles.concat(nestedFiles.flat());
 }
 
 /**
@@ -662,7 +806,7 @@ function extractRegionText(fileContent, region) {
 
 /**
  * @param {string} expressionText
- * @returns {string | null}
+ * @returns {{qualifier: string | null, functionName: string} | null}
  */
 function parseFunctionReference(expressionText) {
   const normalizedExpression = expressionText
@@ -693,6 +837,45 @@ function parseFunctionReference(expressionText) {
   }
 
   return null;
+}
+
+/**
+ * @param {string} expressionText
+ * @returns {Array<{qualifier: string | null, functionName: string}>}
+ */
+function parseFunctionReferenceCandidates(expressionText) {
+  const normalizedExpression = expressionText.trim();
+  if (normalizedExpression.length === 0) {
+    return [];
+  }
+
+  const candidates = [];
+  const candidateKeys = new Set();
+  const addCandidate = (candidate) => {
+    const key = `${candidate.qualifier || ""}|${candidate.functionName}`;
+    if (!candidateKeys.has(key)) {
+      candidateKeys.add(key);
+      candidates.push(candidate);
+    }
+  };
+
+  const directReference = parseFunctionReference(normalizedExpression);
+  if (directReference) {
+    addCandidate(directReference);
+  }
+
+  // Complex expressions (for example partial application/composition) can still
+  // contain a module-qualified helper reference somewhere inside.
+  const qualifiedReferencePattern =
+    /([A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*)\.([a-z][A-Za-z0-9_']*)/g;
+  for (const match of normalizedExpression.matchAll(qualifiedReferencePattern)) {
+    addCandidate({
+      qualifier: match[1],
+      functionName: match[2],
+    });
+  }
+
+  return candidates;
 }
 
 /**
@@ -1000,6 +1183,7 @@ export const __testHelpers = {
   findReferencedHelperPathForUnsupportedIssue,
   extractRegionText,
   parseFunctionReference,
+  parseFunctionReferenceCandidates,
   parseElmImports,
   resolveImportedModuleName,
 };

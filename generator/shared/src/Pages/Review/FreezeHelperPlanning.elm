@@ -227,14 +227,36 @@ findUnsupportedHelperFunctionValueArg knowledge resolveCalledFunctionId args =
     args
         |> List.filter
             (\arg ->
-                case Node.value (unwrapParenthesizedExpression arg) of
-                    Expression.FunctionOrValue _ _ ->
-                        helperCallNeedsFrozenId knowledge resolveCalledFunctionId arg
-
-                    _ ->
-                        False
+                containsUnsupportedHelperFunctionValueOrPartial knowledge resolveCalledFunctionId arg
             )
         |> List.head
+
+
+containsUnsupportedHelperFunctionValueOrPartial :
+    FreezeKnowledge
+    -> (Node Expression -> Maybe FunctionId)
+    -> Node Expression
+    -> Bool
+containsUnsupportedHelperFunctionValueOrPartial knowledge resolveCalledFunctionId expressionNode =
+    let
+        node =
+            unwrapParenthesizedExpression expressionNode
+    in
+    case Node.value node of
+        Expression.FunctionOrValue _ _ ->
+            helperCallNeedsFrozenId knowledge resolveCalledFunctionId node
+
+        Expression.Application (_ :: args) ->
+            List.any
+                (containsUnsupportedHelperFunctionValueOrPartial knowledge resolveCalledFunctionId)
+                args
+
+        Expression.OperatorApplication _ _ left right ->
+            containsUnsupportedHelperFunctionValueOrPartial knowledge resolveCalledFunctionId left
+                || containsUnsupportedHelperFunctionValueOrPartial knowledge resolveCalledFunctionId right
+
+        _ ->
+            False
 
 
 letFunctionsWithDirectSeededHelperCalls :

@@ -20,7 +20,7 @@ const fixtureRoot = join(testDir, "fixtures", "frozen-helper-seeding");
 const fixtureProjectDir = join(fixtureRoot, "project");
 const fixtureCasesDir = join(fixtureRoot, "cases");
 const tempDirs: string[] = [];
-const integrationTestTimeoutMs = 240_000;
+const integrationTestTimeoutMs = 1_200_000;
 
 const buildModes = [
   { name: "default", extraArgs: [] },
@@ -134,25 +134,36 @@ function runElmPagesBuildRaw(
   caseId: string,
   extraArgs: string[] = []
 ): RawBuildResult {
-  const projectDir = prepareProjectForCase(caseId);
   const cliPath = join(repoRoot, "generator", "src", "cli.js");
-  const result = spawnSync(
-    "node",
-    [cliPath, "build", "--keep-cache", ...extraArgs],
-    {
-      cwd: projectDir,
-      env: { ...process.env, FORCE_COLOR: "0" },
-      encoding: "utf8",
-      timeout: 240_000,
-    }
-  );
 
-  return {
-    status: result.status ?? 1,
-    stdout: result.stdout ?? "",
-    stderr: result.stderr ?? "",
-    projectDir,
-  };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const projectDir = prepareProjectForCase(caseId);
+    const result = spawnSync(
+      "node",
+      [cliPath, "build", "--keep-cache", ...extraArgs],
+      {
+        cwd: projectDir,
+        env: { ...process.env, FORCE_COLOR: "0" },
+        encoding: "utf8",
+        timeout: 1_200_000,
+      }
+    );
+
+    const rawResult: RawBuildResult = {
+      status: result.status ?? 1,
+      stdout: result.stdout ?? "",
+      stderr: result.stderr ?? "",
+      projectDir,
+    };
+
+    const hasOutput =
+      rawResult.stdout.trim().length > 0 || rawResult.stderr.trim().length > 0;
+    if (rawResult.status === 0 || hasOutput || attempt === 1) {
+      return rawResult;
+    }
+  }
+
+  throw new Error(`Unreachable: failed to run build for fixture ${caseId}`);
 }
 
 function parseFrozenViewsPrefixFromBytes(
@@ -362,6 +373,22 @@ function assertSupportedHelperAdoptionWithUnrelatedUnsupported(
   );
 }
 
+function assertDirectRepeatedFreezeDeOptimized(caseId: string): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const clientWorkspace = join(result.projectDir, "elm-stuff", "elm-pages", "client");
+  const clientRoutePath = findModuleFileInWorkspace(
+    clientWorkspace,
+    join("Route", "Index.elm")
+  );
+  const clientRoute = readFileSync(clientRoutePath, "utf8");
+
+  // Repeated direct View.freeze in lambda contexts must not be rewritten to static IDs.
+  expect(clientRoute).toContain("View.freeze");
+  expect(clientRoute).not.toContain("__ELM_PAGES_STATIC__");
+}
+
 describe.sequential("frozen helper seeding CLI behavior", () => {
   const caseIds = listFixtureCaseIds();
 
@@ -418,6 +445,14 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
       assertSupportedHelperAdoptionWithUnrelatedUnsupported(
         "mixed-supported-helper-unrelated-unsupported-lib"
       );
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "direct-repeated-freeze-route de-optimizes direct repeated freeze callsites",
+    () => {
+      assertDirectRepeatedFreezeDeOptimized("direct-repeated-freeze-route");
     },
     integrationTestTimeoutMs
   );

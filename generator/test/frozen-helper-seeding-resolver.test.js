@@ -245,6 +245,139 @@ summaryCard user =
     ]);
   });
 
+  it("resolves helper path for partial application expressions", async () => {
+    const projectDir = createTempProject(["app", "lib"]);
+    const issuePath = "app/Route/Index.elm";
+    writeProjectFile(
+      projectDir,
+      issuePath,
+      `module Route.Index exposing (view)
+
+import Ui.FrozenHelper as FrozenHelper
+
+view users =
+    users |> List.map (FrozenHelper.summaryCardWithPrefix "User: ")
+`
+    );
+    writeProjectFile(
+      projectDir,
+      "lib/Ui/FrozenHelper.elm",
+      `module Ui.FrozenHelper exposing (summaryCardWithPrefix)
+
+summaryCardWithPrefix prefix user =
+    user
+`
+    );
+
+    const issue = makeIssue(
+      projectDir,
+      issuePath,
+      "FrozenHelper.summaryCardWithPrefix \"User: \""
+    );
+    const excluded = await __testHelpers.computeUnsupportedFixExclusionPaths(
+      projectDir,
+      [issue]
+    );
+
+    expect(excluded).toEqual([
+      "app/Route/Index.elm",
+      "lib/Ui/FrozenHelper.elm",
+    ]);
+  });
+
+  it("resolves helper path for composition expressions", async () => {
+    const projectDir = createTempProject(["app", "lib"]);
+    const issuePath = "app/Route/Index.elm";
+    writeProjectFile(
+      projectDir,
+      issuePath,
+      `module Route.Index exposing (view)
+
+import Ui.FrozenHelper as FrozenHelper
+
+view users =
+    users |> List.map (FrozenHelper.summaryCard << identity)
+`
+    );
+    writeProjectFile(
+      projectDir,
+      "lib/Ui/FrozenHelper.elm",
+      `module Ui.FrozenHelper exposing (summaryCard)
+
+summaryCard user =
+    user
+`
+    );
+
+    const issue = makeIssue(
+      projectDir,
+      issuePath,
+      "FrozenHelper.summaryCard << identity"
+    );
+    const excluded = await __testHelpers.computeUnsupportedFixExclusionPaths(
+      projectDir,
+      [issue]
+    );
+
+    expect(excluded).toEqual([
+      "app/Route/Index.elm",
+      "lib/Ui/FrozenHelper.elm",
+    ]);
+  });
+
+  it("excludes importing callsites for complex unsupported helper expressions", async () => {
+    const projectDir = createTempProject(["app", "lib"]);
+    writeProjectFile(
+      projectDir,
+      "lib/Ui/ListView.elm",
+      `module Ui.ListView exposing (summaryCards)
+
+import Html.Styled exposing (Html)
+import Ui.FrozenHelper as FrozenHelper
+
+summaryCards : List { name : String } -> List (Html msg)
+summaryCards users =
+    users |> List.map (FrozenHelper.summaryCardWithPrefix "User: ")
+`
+    );
+    writeProjectFile(
+      projectDir,
+      "lib/Ui/FrozenHelper.elm",
+      `module Ui.FrozenHelper exposing (summaryCardWithPrefix)
+
+summaryCardWithPrefix prefix user =
+    user
+`
+    );
+    writeProjectFile(
+      projectDir,
+      "app/Route/Index.elm",
+      `module Route.Index exposing (view)
+
+import Ui.ListView as ListView
+
+view users =
+    ListView.summaryCards users
+`
+    );
+
+    const issue = makeIssue(
+      projectDir,
+      "lib/Ui/ListView.elm",
+      "FrozenHelper.summaryCardWithPrefix \"User: \""
+    );
+    const excluded = await __testHelpers.computeUnsupportedFixExclusionPaths(
+      projectDir,
+      [issue]
+    );
+
+    expect(excluded).toEqual([
+      "app/Route/Index.elm",
+      "lib/Ui/FrozenHelper.elm",
+      "lib/Ui/ListView.elm",
+    ]);
+  });
+
   it("keeps only issue file when unqualified import is ambiguous", async () => {
     const projectDir = createTempProject(["app", "lib"]);
     const issuePath = "app/Route/Index.elm";
