@@ -32,8 +32,19 @@ export async function run(elmModulePath, options) {
   const cwd = process.cwd();
   process.chdir(projectDirectory);
 
-  if (options.debug && options.optimize) {
-    console.error("Error: --debug and --optimize cannot be used together.");
+  if (options.optimize !== undefined && options.debug) {
+    console.error(
+      "error: The --debug and --optimize options are mutually exclusive."
+    );
+    process.exit(1);
+  }
+  if (options.optimize === undefined) {
+    options.optimize = "2";
+  }
+  if (!["0", "1", "2"].includes(options.optimize)) {
+    console.error(
+      `error: argument ${options.optimize} for the --optimize option is invalid. Allowed choices are 0, 1, 2.`
+    );
     process.exit(1);
   }
 

@@ -24,7 +24,7 @@ export async function compileElmForBrowser(options, config = {}) {
   await fsHelpers.tryMkdir(secretDir);
 
   // For production builds, apply DCE transform via elm-review
-  if (options.optimize) {
+  if (options.optimize === "2" || options.optimize === true) {
     await runElmReviewForDCE();
   }
 
@@ -143,13 +143,14 @@ return forceThunks(html);
  */
 async function compileElm(options, elmEntrypointPath, outputPath, cwd) {
   await spawnElmMake(options, elmEntrypointPath, outputPath, cwd);
-  if (options.optimize) {
+  if (options.optimize === "2" || options.optimize === true) {
     await elmOptimizeLevel2(outputPath, cwd);
   }
 }
 
 async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   const executableName = await requireLamdera();
+  const mode = resolveCompileMode(options);
   try {
     await fsPromises.unlink(outputPath);
   } catch (e) {
@@ -164,8 +165,7 @@ async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
         elmEntrypointPath,
         "--output",
         outputPath,
-        ...(options.debug ? ["--debug"] : []),
-        ...(options.optimize ? ["--optimize"] : []),
+        ...modeToOptions(mode),
         "--report",
         "json",
       ],
@@ -207,6 +207,7 @@ async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
  */
 async function runElm(options, elmEntrypointPath, outputPath, cwd) {
   const executableName = await requireLamdera();
+  const mode = resolveCompileMode(options);
   const startTime = Date.now();
   return new Promise((resolve, reject) => {
     const child = spawnCallback(
@@ -216,8 +217,7 @@ async function runElm(options, elmEntrypointPath, outputPath, cwd) {
         elmEntrypointPath,
         "--output",
         outputPath,
-        ...(options.debug ? ["--debug"] : []),
-        ...(options.optimize ? ["--optimize"] : []),
+        ...modeToOptions(mode),
         "--report",
         "json",
       ],
@@ -350,7 +350,29 @@ export async function runElmReviewForDCE(cwd) {
   });
 }
 
-function elmOptimizeLevel2(outputPath, cwd) {
+/** @typedef {"debug" | "optimize" | "default"} CompileMode */
+
+/** Derive compile mode from options */
+export function resolveCompileMode(options) {
+  if (options.debug) return "debug";
+  if (options.optimize === false || options.optimize === "0") return "default";
+  return "optimize"; // covers true, "1", "2", undefined
+}
+
+/**
+ * @param {CompileMode} mode
+ */
+export function modeToOptions(mode) {
+  if (mode === "debug") {
+    return ["--debug"];
+  } else if (mode === "optimize") {
+    return ["--optimize"];
+  } else {
+    return [];
+  }
+}
+
+export function elmOptimizeLevel2(outputPath, cwd) {
   return new Promise((resolve, reject) => {
     const optimizedOutputPath = outputPath + ".opt";
     const subprocess = spawnCallback(

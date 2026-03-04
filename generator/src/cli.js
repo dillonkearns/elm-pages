@@ -33,6 +33,15 @@ async function main() {
     .command("build")
     .option("--debug", "Skip terser and run elm make with --debug")
     .option(
+      "--optimize <level>",
+      [
+        "Set the optimization level:",
+        "0 - no optimization",
+        "1 - basic optimizations provided by the Elm compiler",
+        "2 - advanced optimizations provided by Elm Optimize Level 2 (default unless --debug)",
+      ].join("\n")
+    )
+    .option(
       "--base <basePath>",
       "build site to be served under a base path",
       "/"
@@ -47,6 +56,22 @@ async function main() {
     )
     .description("run a full site build")
     .action(async (options) => {
+      if (options.optimize !== undefined && options.debug) {
+        console.error(
+          "error: The --debug and --optimize options are mutually exclusive."
+        );
+        process.exit(1);
+      }
+      if (options.optimize === undefined) {
+        options.optimize = "2";
+      }
+      if (!["0", "1", "2"].includes(options.optimize)) {
+        console.error(
+          `error: argument ${options.optimize} for the --optimize option is invalid. Allowed choices are 0, 1, 2.`
+        );
+        process.exit(1);
+      }
+
       const { run } = await import("./commands/build.js");
       await run(options);
     });
@@ -109,8 +134,13 @@ async function main() {
       "Run elm make with --debug (skip optimizations)"
     )
     .option(
-      "--optimize",
-      "Run elm make with --optimize and apply elm-optimize-level-2"
+      "--optimize <level>",
+      [
+        "Set the optimization level:",
+        "0 - no optimization",
+        "1 - basic optimizations provided by the Elm compiler",
+        "2 - advanced optimizations provided by Elm Optimize Level 2 (default unless --debug)",
+      ].join("\n")
     )
     .option(
       "--output <path>",

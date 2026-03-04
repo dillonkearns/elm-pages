@@ -1,6 +1,6 @@
 import * as fs from "./dir-helpers.js";
 import * as fsPromises from "fs/promises";
-import { runElmReview } from "./compile-elm.js";
+import { runElmReview, elmOptimizeLevel2, resolveCompileMode, modeToOptions } from "./compile-elm.js";
 import { patchFrozenViews } from "./frozen-view-codemod.js";
 import { restoreColorSafe } from "./error-formatter.js";
 import * as path from "path";
@@ -100,10 +100,12 @@ async function cachedWhich(executable) {
   }
 }
 
-async function ensureRequiredExecutables() {
+async function ensureRequiredExecutables(options) {
   const checks = await Promise.allSettled([
     cachedWhich("lamdera"),
-    cachedWhich("elm-optimize-level-2"),
+    options.optimize === "2"
+      ? cachedWhich("elm-optimize-level-2")
+      : Promise.resolve(),
     cachedWhich("elm-review"),
   ]);
 
@@ -137,7 +139,7 @@ export async function run(options) {
     // Run independent startup tasks in parallel
     const [, , , config] = await Promise.all([
       ensureRequiredDirs(),
-      ensureRequiredExecutables(),
+      ensureRequiredExecutables(options),
       codegen.generate(options.base),
       resolveConfig(),
     ]);
@@ -567,7 +569,7 @@ async function compileElm(options, config) {
   // the client bundle uses transformed source for dead-code elimination.
 
   await spawnElmMake(
-    options.debug ? "debug" : "optimize",
+    resolveCompileMode(options),
     options,
     ".elm-pages/Main.elm",
     fullOutputPath,
@@ -597,44 +599,6 @@ async function fingerprintElmAsset(fullOutputPath, withoutExtension) {
   return fileHash;
 }
 
-export function elmOptimizeLevel2(outputPath, cwd) {
-  return new Promise((resolve, reject) => {
-    const optimizedOutputPath = outputPath + ".opt";
-    const subprocess = spawnCallback(
-      `elm-optimize-level-2`,
-      [outputPath, "--output", optimizedOutputPath],
-      {
-        // ignore stdout
-        // stdio: ["inherit", "ignore", "inherit"],
-
-        cwd: cwd,
-      }
-    );
-    let commandOutput = "";
-
-    subprocess.stderr.on("data", function (data) {
-      commandOutput += data;
-    });
-
-    subprocess.on("close", async (code) => {
-      if (code === 0) {
-        await copyFile(optimizedOutputPath, outputPath);
-        resolve();
-      } else {
-        if (!buildError) {
-          buildError = true;
-          process.exitCode = 1;
-          reject(
-            `I encountered an error when running elm-optimize-level-2:\n\n ${commandOutput}`
-          );
-        } else {
-          // avoid unhandled error printing duplicate message, let process.exit in top loop take over
-        }
-      }
-    });
-  });
-}
-
 /** @typedef {"debug" | "optimize" | "default"} CompileMode  */
 
 /**
@@ -645,7 +609,7 @@ export function elmOptimizeLevel2(outputPath, cwd) {
  */
 async function spawnElmMake(mode, options, elmEntrypointPath, outputPath, cwd) {
   await runElmMake(mode, options, elmEntrypointPath, outputPath, cwd);
-  if (mode === "optimize") {
+  if (mode === "optimize" && (options.optimize === "2" || options.optimize === true)) {
     await elmOptimizeLevel2(outputPath, cwd);
   }
   await fsPromises.writeFile(
@@ -664,18 +628,6 @@ function getAssetHash(content) {
   return createHash("sha256").update(content).digest("hex").slice(0, 8);
 }
 
-/**
- * @param {CompileMode} mode
- */
-function modeToOptions(mode) {
-  if (mode === "debug") {
-    return ["--debug"];
-  } else if (mode === "optimize") {
-    return ["--optimize"];
-  } else {
-    return [];
-  }
-}
 
 /**
  * @param {CompileMode} mode
@@ -809,7 +761,7 @@ export async function compileCliApp(options) {
 
   await spawnElmMake(
     // TODO should be --optimize, but there seems to be an issue with the html to JSON with --optimize
-    options.debug ? "debug" : "optimize",
+    resolveCompileMode(options),
     options,
     path.join(
       process.cwd(),
