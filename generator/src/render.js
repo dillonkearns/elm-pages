@@ -334,7 +334,7 @@ function runElmApp(
       // delete require.cache[require.resolve(compiledElmPath)];
     };
 
-    async function portHandler(/** @type { FromElm }  */ newThing) {
+    async function portHandler(/** @type { FromElm } */ newThing) {
       let fromElm;
       let contentDatPayload;
       let outgoingBytes = [];
