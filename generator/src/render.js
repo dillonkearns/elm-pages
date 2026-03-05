@@ -670,10 +670,7 @@ async function runInternalJob(
       case "elm-pages-internal://glob":
         return await runGlobNew(requestToPerform, patternsToWatch);
       case "elm-pages-internal://randomSeed":
-        return jsonResponse(
-          requestToPerform,
-          crypto.getRandomValues(new Uint32Array(1))[0]
-        );
+        return jsonResponse(requestToPerform, runRandomSeed());
       case "elm-pages-internal://now":
         return jsonResponse(requestToPerform, Date.now());
       case "elm-pages-internal://env":
@@ -1261,7 +1258,7 @@ function getContext(requestToPerform) {
  *
  * @param {InternalReadFileJob} req
  * @param {Set<string>} patternsToWatch
- * @returns
+ * @returns {Promise<JsonResponse>}
  */
 async function readFileJobNew(req, patternsToWatch) {
   const cwd = path.resolve(...req.dir);
@@ -1289,7 +1286,7 @@ async function readFileJobNew(req, patternsToWatch) {
 /**
  * @param {InternalReadFileBinaryJob} req
  * @param {Set<string>} patternsToWatch
- * @returns {Promise<InternalResponse>}
+ * @returns {Promise<BytesResponse>}
  */
 async function readFileBinaryJobNew(req, patternsToWatch) {
   const filePath = req.body.args[1];
@@ -2092,8 +2089,16 @@ function runStopSpinner(req) {
 }
 
 /**
+ * @returns {number}
+ */
+function runRandomSeed(){
+  return crypto.getRandomValues(new Uint32Array(1))[0];
+}
+
+/**
  * @param {InternalGlobJob} req
  * @param {Set<string>} patternsToWatch
+ * @returns {Promise<JsonResponse>}
  */
 async function runGlobNew(req, patternsToWatch) {
   try {
@@ -2136,9 +2141,9 @@ async function runGlobNew(req, patternsToWatch) {
 
 /**
  * @param {InternalLogJob} req
- * @returns {Promise<JsonResponse>}
+ * @returns {JsonResponse}
  */
-async function runLogJob(req) {
+function runLogJob(req) {
   try {
     console.log(req.body.args[0].message);
     return jsonResponse(req, null);
