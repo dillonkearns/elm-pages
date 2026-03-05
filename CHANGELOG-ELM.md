@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - New file system utilities in `Pages.Script`: `removeFile`, `copyFile`, `move`, `makeDirectory`, `removeDirectory`, `makeTempDirectory`.
 - `BackendTask.and` sequencing helper.
 - `BackendTask.finally` for guaranteed cleanup.
+- `BackendTask.File.exists` to check whether a file exists.
+- `BackendTask.File.optional` to attempt a file read and return `Nothing` instead of failing.
 
 ### Changed
 

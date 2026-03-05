@@ -28,8 +28,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - **Breaking:** Scripts now require the `lamdera` compiler. The `elm` binary is no longer supported as a fallback.
 - **Breaking:** JS↔Elm ports now pass `Bytes` directly instead of Base64-encoded strings. This removes the `base64` dependency and reduces client bundle size. If you have custom port code that was consuming Base64-encoded data from elm-pages, you will need to update it to handle raw byte arrays instead.
-- `elm-pages bundle-script` no longer mutates or auto-applies local DB migrations during bundling. Migrations are applied when the bundled script runs on the target machine.
-- Removed generated `Pages.Db` `*At` APIs (`getAt`, `updateAt`, `transactionAt`) in favor of connection-based DB access (`Pages.Db.open` + `Connection`).
 - Updated devcert dependency (see [#572](https://github.com/dillonkearns/elm-pages/pull/572)). Thank you [@miniBill](https://github.com/miniBill)!
 - More precise TypeScript types for internal JS code (see [#564](https://github.com/dillonkearns/elm-pages/pull/564)). Thank you [@miniBill](https://github.com/miniBill)!
 
