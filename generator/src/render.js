@@ -2214,19 +2214,6 @@ async function runDecryptJob(req) {
 }
 
 /**
- * @param {{ ports: { fromJsPort: { send: (arg0: { tag: string; data: unknown; }) => void; }; }; }} app
- * @param {{ message: string; title: string; }} error
- */
-function sendError(app, error) {
-  foundErrors = true;
-
-  app.ports.fromJsPort.send({
-    tag: "BuildError",
-    data: error,
-  });
-}
-
-/**
  * @param {string} input
  * @param {crypto.CipherKey[]} secrets
  * @returns {string | null}
