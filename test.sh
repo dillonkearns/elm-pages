@@ -29,5 +29,6 @@ elm-verify-examples --run-tests --elm-test-args '--compiler=lamdera'
 (cd examples/end-to-end && \
   npx elm-codegen install && \
   npx elm-pages run script/src/AddRoute.elm TestScaffold name:text email:text && \
+  npx elm-pages gen && \
   lamdera make app/Route/TestScaffold.elm && \
   rm app/Route/TestScaffold.elm)
