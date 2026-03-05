@@ -256,8 +256,7 @@ createFile { moduleName, fields } =
             }
 
 
-errorsView :
-    Elm.Declare.Function (Elm.Expression -> Elm.Expression -> Elm.Expression)
+errorsView : Elm.Declare.Function (Elm.Expression -> Elm.Expression -> Elm.Expression)
 errorsView =
     Elm.Declare.fn2 "errorsView"
         (Elm.Arg.varWith "errors" (Type.namedWith [ "Form" ] "Errors" [ Type.string ]))

@@ -101,7 +101,7 @@ formWithFields elmCssView fields viewFn =
                                 )
                             )
                 )
-                (Elm.apply formInit
+                (Elm.apply formValue
                     [ Elm.function (List.map fieldToParam fields)
                         (\params ->
                             Elm.record
@@ -147,6 +147,7 @@ formWithFields elmCssView fields viewFn =
                                 ]
                         )
                     ]
+                    |> Elm.Op.pipe formHiddenKind
                 )
             |> Elm.withType
                 (Type.namedWith [ "Form" ]
@@ -459,25 +460,27 @@ formField fieldArg fieldArg0 =
         [ Elm.string fieldArg, fieldArg0 ]
 
 
-formInit : Elm.Expression
-formInit =
+formValue : Elm.Expression
+formValue =
     Elm.value
         { importFrom = [ "Form" ]
         , name = "form"
         , annotation = Nothing
         }
-        |> Elm.Op.pipe
-            (Elm.apply
-                (Elm.value
-                    { importFrom = [ "Form" ]
-                    , name = "hiddenKind"
-                    , annotation = Nothing
-                    }
-                )
-                [ Elm.tuple (Elm.string "kind") (Elm.string "regular")
-                , Elm.string "Expected kind."
-                ]
-            )
+
+
+formHiddenKind : Elm.Expression
+formHiddenKind =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Form" ]
+            , name = "hiddenKind"
+            , annotation = Nothing
+            }
+        )
+        [ Elm.tuple (Elm.string "kind") (Elm.string "regular")
+        , Elm.string "Expected kind."
+        ]
 
 
 initCombined : Elm.Expression -> Elm.Expression -> Elm.Expression

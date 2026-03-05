@@ -282,8 +282,16 @@ createFile { moduleName, fields } =
 errorsView : Function (Elm.Expression -> Elm.Expression -> Elm.Expression)
 errorsView =
     fn2 "errorsView"
-        (Elm.Arg.var "errors")
-        (Elm.Arg.var "field")
+        (Elm.Arg.varWith "errors" (Type.namedWith [ "Form" ] "Errors" [ Type.string ]))
+        (Elm.Arg.varWith "field"
+            (Type.namedWith [ "Form", "Validation" ]
+                "Field"
+                [ Type.string
+                , Type.var "parsed"
+                , Type.var "kind"
+                ]
+            )
+        )
         (\errors field ->
             Elm.ifThen
                 (Gen.List.call_.isEmpty (Form.errorsForField field errors))
