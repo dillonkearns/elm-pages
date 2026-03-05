@@ -617,45 +617,85 @@ function dataViewToBuffer(dv) {
  */
 
 /**
- * @typedef {InternalJobWith<"elm-pages-internal://log", [{message: string}]>} InternalLogJob
- * @typedef {InternalJobWith<"elm-pages-internal://env", [string]>} InternalEnvJob
- * @typedef {InternalJobWith<"elm-pages-internal://read-file", [unknown, string]>} InternalReadFileJob
- * @typedef {InternalJobWith<"elm-pages-internal://read-file-binary", [unknown, string]>} InternalReadFileBinaryJob
- * @typedef {InternalJobWith<"elm-pages-internal://glob", [{pattern: string; options: { dot: boolean; followSymbolicLinks: boolean; caseSensitiveMatch: boolean; gitIgnore: boolean; deep?: number; onlyFiles: boolean; onlyDirectories: boolean; stats: boolean}}]>} InternalGlobJob
- * @typedef {InternalJobWith<"elm-pages-internal://randomSeed", [unknown, null]>} InternalRandomSeedJob
- * @typedef {InternalJobWith<"elm-pages-internal://now", [unknown, null]>} InternalNowJob
- * @typedef {InternalJobWith<"elm-pages-internal://encrypt", [{values: unknown; secret: string;}]>} InternalEncryptJob
- * @typedef {InternalJobWith<"elm-pages-internal://decrypt", [{input: string; secrets: string[];}]>} InternalDecryptJob
- * @typedef {InternalJobWith<"elm-pages-internal://write-file", [{path: string; body: string; }]>} InternalWriteFileJob
- * @typedef {InternalJobWith<"elm-pages-internal://sleep", [{milliseconds: number}]>} InternalSleepJob
- * @typedef {InternalJobWith<"elm-pages-internal://which", [string]>} InternalWhichJob
- * @typedef {InternalJobWith<"elm-pages-internal://question", [{prompt: string; }]>} InternalQuestionJob
- * @typedef {InternalJobWith<"elm-pages-internal://readKey", unknown>} InternalReadKeyJob
- * @typedef {InternalJobWith<"elm-pages-internal://stream", [{ kind: string; parts: StreamPart[]}]>} InternalStreamJob
- * @typedef {InternalJobWith<"elm-pages-internal://start-spinner", [{ text: string; immediateStart: boolean; spinnerId?: string; spinner?: string; }]>} InternalStartSpinnerJob
- * @typedef {InternalJobWith<"elm-pages-internal://stop-spinner", [{ spinnerId: string; completionFn: string; completionText: string | null; }]>} InternalStopSpinnerJob
- *
- *
- * @typedef {InternalLogJob | InternalEnvJob | InternalReadFileJob | InternalReadFileBinaryJob | InternalGlobJob | InternalRandomSeedJob | InternalNowJob | InternalEncryptJob | InternalDecryptJob |InternalWriteFileJob | InternalSleepJob| InternalWhichJob | InternalQuestionJob | InternalReadKeyJob | InternalStreamJob | InternalStartSpinnerJob | InternalStopSpinnerJob} InternalJob
- *
- * @typedef {{ request: InternalJob; response: { bodyKind: "bytes"; body: null; }; rawBytes: Buffer; }} BytesResponse
- * @typedef {{ request: InternalJob; response: { bodyKind: "json"; body: unknown; }}} JsonResponse
- * @typedef {{ request: InternalJob; response: { bodyKind: "string"; body: string; }}} StringResponse
- * @typedef {BytesResponse | JsonResponse | StringResponse} InternalResponse
- *
+ * @template U
+ * @template A
+ * @typedef {InternalJobWith<U, [A]>} JsonBodyJob
  */
 
 /**
+ * @template U
+ * @typedef {InternalJobWith<U, [unknown, string]>} StringBodyJob
+ */
+
+/**
+ * @template U
+ * @typedef {InternalJobWith<U, [unknown]>} NoBodyJob
+ */
+
+/**
+ * @typedef {JsonBodyJob<"elm-pages-internal://log", {message: string}>} InternalLogJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://env", string>} InternalEnvJob
+ * @typedef {StringBodyJob<"elm-pages-internal://read-file">} InternalReadFileJob
+ * @typedef {StringBodyJob<"elm-pages-internal://read-file-binary">} InternalReadFileBinaryJob
+ * @typedef {{pattern: string; options: { dot: boolean; followSymbolicLinks: boolean; caseSensitiveMatch: boolean; gitIgnore: boolean; deep?: number; onlyFiles: boolean; onlyDirectories: boolean; stats: boolean}}} GlobArgs
+ * @typedef {JsonBodyJob<"elm-pages-internal://glob", GlobArgs>} InternalGlobJob
+ * @typedef {NoBodyJob<"elm-pages-internal://randomSeed">} InternalRandomSeedJob
+ * @typedef {NoBodyJob<"elm-pages-internal://now">} InternalNowJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://encrypt", {values: unknown; secret: string;}>} InternalEncryptJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://decrypt", {input: string; secrets: string[];}>} InternalDecryptJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://write-file", {path: string; body: string; }>} InternalWriteFileJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://sleep", {milliseconds: number}>} InternalSleepJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://which", string>} InternalWhichJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://question", {prompt: string; }>} InternalQuestionJob
+ * @typedef {NoBodyJob<"elm-pages-internal://readKey">} InternalReadKeyJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://stream", { kind: string; parts: StreamPart[]}>} InternalStreamJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://start-spinner", { text: string; immediateStart: boolean; spinnerId?: string; spinner?: string; }>} InternalStartSpinnerJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://stop-spinner", { spinnerId: string; completionFn: string; completionText: string | null; }>} InternalStopSpinnerJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://delete-file", { path: string; }>} InternalDeleteFileJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://copy-file", { from: string; to: string; }>} InternalCopyFileJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://move", { from: string; to: string; }>} InternalMoveJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://make-directory", { path: string; recursive: boolean; }>} InternalMakeDirectoryJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://remove-directory", { path: string; recursive: boolean; }>} InternalRemoveDirectoryJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://make-temp-directory", string>} InternalMakeTempDirectoryJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://resolve-path", string>} InternalResolvePathJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://file-exists", string>} InternalFileExistsJob
+ *
+ *
+ * @typedef {InternalLogJob | InternalEnvJob | InternalReadFileJob | InternalReadFileBinaryJob | InternalGlobJob | InternalRandomSeedJob | InternalNowJob | InternalEncryptJob | InternalDecryptJob |InternalWriteFileJob | InternalSleepJob| InternalWhichJob | InternalQuestionJob | InternalReadKeyJob | InternalStreamJob | InternalStartSpinnerJob | InternalStopSpinnerJob | InternalDeleteFileJob | InternalCopyFileJob | InternalMoveJob | InternalMakeDirectoryJob | InternalRemoveDirectoryJob | InternalMakeTempDirectoryJob | InternalResolvePathJob | InternalFileExistsJob} InternalJob
+ */
+
+/**
+ * @template {InternalJob} J
+ * @typedef {{ request: J; response: { bodyKind: "bytes"; body: null; }; rawBytes: Buffer; }} BytesResponse
+ */
+
+/**
+ * @template {InternalJob} J
+ * @typedef {{ request: J; response: { bodyKind: "json"; body: unknown; }}} JsonResponse
+ */
+
+/**
+ * @template {InternalJob} J
+ * @typedef {{ request: J; response: { bodyKind: "string"; body: string; }}} StringResponse
+ */
+
+/**
+ * @template {InternalJob} J
+ * @typedef {BytesResponse<J> | JsonResponse<J> | StringResponse<J>} InternalResponse
+ */
+
+/**
+ * @template {InternalJob} J
  * @param {Set<string>} patternsToWatch
  * @param {PortsFile} portsFile
- * @param {InternalJob} requestToPerform
- * @returns {Promise<InternalResponse>}
+ * @param {J} requestToPerform
+ * @returns {Promise<InternalResponse<J>>}
  */
 async function runInternalJob(requestToPerform, patternsToWatch, portsFile) {
   try {
     switch (requestToPerform.url) {
       case "elm-pages-internal://log":
-        return await runLogJob(requestToPerform);
+        return runLogJob(requestToPerform);
       case "elm-pages-internal://read-file":
         return await readFileJobNew(requestToPerform, patternsToWatch);
       case "elm-pages-internal://read-file-binary":
@@ -1258,7 +1298,7 @@ function getContext(requestToPerform) {
  *
  * @param {InternalReadFileJob} req
  * @param {Set<string>} patternsToWatch
- * @returns {Promise<JsonResponse>}
+ * @returns {Promise<JsonResponse<InternalReadFileJob>>}
  */
 async function readFileJobNew(req, patternsToWatch) {
   const cwd = path.resolve(...req.dir);
@@ -1286,7 +1326,7 @@ async function readFileJobNew(req, patternsToWatch) {
 /**
  * @param {InternalReadFileBinaryJob} req
  * @param {Set<string>} patternsToWatch
- * @returns {Promise<BytesResponse>}
+ * @returns {Promise<BytesResponse<InternalReadFileBinaryJob>>}
  */
 async function readFileBinaryJobNew(req, patternsToWatch) {
   const filePath = req.body.args[1];
@@ -1834,6 +1874,7 @@ export async function question(prompt) {
  * Read a single keypress from stdin without requiring Enter.
  * Uses raw mode to capture individual keypresses.
  * Falls back to line-buffered input when not in a TTY (e.g., piped input).
+ * @returns {Promise<string | NonSharedBuffer>}
  */
 export async function readKey() {
   const stdin = process.stdin;
@@ -1872,6 +1913,11 @@ export async function readKey() {
   });
 }
 
+/**
+ * @param {InternalFileExistsJob} req
+ * @param {Set<string>} patternsToWatch
+ * @returns
+ */
 async function runFileExists(req, patternsToWatch) {
   const cwd = path.resolve(...req.dir);
   const filePath = path.resolve(cwd, req.body.args[0]);
@@ -1884,6 +1930,10 @@ async function runFileExists(req, patternsToWatch) {
   }
 }
 
+/**
+ * @param {InternalDeleteFileJob} req
+ * @returns
+ */
 async function runDeleteFile(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -1904,6 +1954,10 @@ async function runDeleteFile(req) {
   }
 }
 
+/**
+ * @param {InternalCopyFileJob} req
+ * @returns
+ */
 async function runCopyFile(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -1923,6 +1977,10 @@ async function runCopyFile(req) {
   }
 }
 
+/**
+ * @param {InternalMoveJob} req
+ * @returns
+ */
 async function runMove(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -1965,6 +2023,10 @@ async function runMove(req) {
   }
 }
 
+/**
+ * @param {InternalMakeDirectoryJob} req
+ * @returns
+ */
 async function runMakeDirectory(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -1982,6 +2044,9 @@ async function runMakeDirectory(req) {
   }
 }
 
+/**
+ * @param {InternalRemoveDirectoryJob} req
+ */
 async function runRemoveDirectory(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -2014,6 +2079,10 @@ async function runRemoveDirectory(req) {
   }
 }
 
+/**
+ * @param {InternalMakeTempDirectoryJob} req
+ * @returns {Promise<JsonResponse<InternalMakeTempDirectoryJob>>}
+ */
 async function runMakeTempDirectory(req) {
   const prefix = req.body.args[0];
   try {
@@ -2098,7 +2167,7 @@ function runRandomSeed() {
 /**
  * @param {InternalGlobJob} req
  * @param {Set<string>} patternsToWatch
- * @returns {Promise<JsonResponse>}
+ * @returns {Promise<JsonResponse<InternalGlobJob>>}
  */
 async function runGlobNew(req, patternsToWatch) {
   try {
@@ -2141,7 +2210,7 @@ async function runGlobNew(req, patternsToWatch) {
 
 /**
  * @param {InternalLogJob} req
- * @returns {JsonResponse}
+ * @returns {JsonResponse<InternalLogJob>}
  */
 function runLogJob(req) {
   try {
@@ -2153,6 +2222,9 @@ function runLogJob(req) {
   }
 }
 
+/**
+ * @param {InternalResolvePathJob} req
+ */
 function runResolvePath(req) {
   const filePath = req.body.args[0];
   const cwd = path.resolve(...req.dir);
