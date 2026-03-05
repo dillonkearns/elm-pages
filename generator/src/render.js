@@ -254,7 +254,6 @@ function runGeneratorAppHelp(
               requestToPerform.url.startsWith("elm-pages-internal://")
             ) {
               result = await runInternalJob(
-                requestHash,
                 requestToPerform,
                 patternsToWatch,
                 portsFile
@@ -426,7 +425,6 @@ function runElmApp(
               requestToPerform.url.startsWith("elm-pages-internal://")
             ) {
               result = await runInternalJob(
-                requestHash,
                 requestToPerform,
                 patternsToWatch,
                 portsFile
@@ -651,14 +649,12 @@ function dataViewToBuffer(dv) {
  */
 
 /**
- * @param {unknown} requestHash
  * @param {Set<string>} patternsToWatch
  * @param {PortsFile} portsFile
  * @param {InternalJob} requestToPerform
  * @returns {Promise<InternalResponse>}
  */
 async function runInternalJob(
-  requestHash,
   requestToPerform,
   patternsToWatch,
   portsFile
