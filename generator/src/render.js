@@ -590,7 +590,7 @@ function dataViewToBuffer(dv) {
 /**
  * @template U
  * @template A
- * @typedef {{ url: U; body: { args: A }; dir: string[]; quiet: boolean; env: { [key:string]: string; } }} InternalJobWith<U,A>
+ * @typedef {{ url: U; headers: [string, string][]; body: { args: A }; dir: string[]; quiet: boolean; env: { [key:string]: string; } }} InternalJobWith<U,A>
  */
 
 /**
@@ -644,9 +644,14 @@ function dataViewToBuffer(dv) {
  *
  * @typedef {JsonBodyJob<"elm-pages-internal://db-set-default-path", { path: string; }>} InternalDbSetDefaultPathJob
  * @typedef {JsonBodyJob<"elm-pages-internal://db-migrate-read", null>} InternalDbMigrateReadJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://db-read-meta", { path?: string; }>} InternalDbReadMetaJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://db-read", unknown>} InternalDbReadJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://db-lock-acquire", { path?: string; }>} InternalDbLockAcquireJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://db-lock-release", { path?: string; token: string; }>} InternalDbLockReleaseJob
  * @typedef {BytesBodyJob<"elm-pages-internal://db-migrate-write">} InternalDbMigrateWriteJob
+ * @typedef {BytesBodyJob<"elm-pages-internal://db-write">} InternalDbWriteJob
  *
- * @typedef {InternalLogJob | InternalEnvJob | InternalReadFileJob | InternalReadFileBinaryJob | InternalGlobJob | InternalRandomSeedJob | InternalNowJob | InternalEncryptJob | InternalDecryptJob |InternalWriteFileJob | InternalSleepJob| InternalWhichJob | InternalQuestionJob | InternalReadKeyJob | InternalStreamJob | InternalStartSpinnerJob | InternalStopSpinnerJob | InternalDeleteFileJob | InternalCopyFileJob | InternalMoveJob | InternalMakeDirectoryJob | InternalRemoveDirectoryJob | InternalMakeTempDirectoryJob | InternalResolvePathJob | InternalFileExistsJob | InternalDbSetDefaultPathJob | InternalDbMigrateReadJob |InternalDbMigrateWriteJob} InternalJob
+ * @typedef {InternalLogJob | InternalEnvJob | InternalReadFileJob | InternalReadFileBinaryJob | InternalGlobJob | InternalRandomSeedJob | InternalNowJob | InternalEncryptJob | InternalDecryptJob |InternalWriteFileJob | InternalSleepJob| InternalWhichJob | InternalQuestionJob | InternalReadKeyJob | InternalStreamJob | InternalStartSpinnerJob | InternalStopSpinnerJob | InternalDeleteFileJob | InternalCopyFileJob | InternalMoveJob | InternalMakeDirectoryJob | InternalRemoveDirectoryJob | InternalMakeTempDirectoryJob | InternalResolvePathJob | InternalFileExistsJob | InternalDbSetDefaultPathJob | InternalDbMigrateReadJob | InternalDbReadMetaJob | InternalDbReadJob | InternalDbLockAcquireJob | InternalDbLockReleaseJob | InternalDbMigrateWriteJob | InternalDbWriteJob} InternalJob
  */
 
 /**
@@ -769,6 +774,10 @@ async function runInternalJob(requestToPerform, patternsToWatch, portsFile) {
 const dbLockTokensByPath = new Map();
 let dbLockCleanupRegistered = false;
 
+/**
+ * @param {string} cwd
+ * @param {{ path?: string; } | string | null} payloadOrHeaders
+ */
 function resolveDbBinPath(cwd, payloadOrHeaders) {
   let customPath;
   if (
@@ -792,12 +801,16 @@ function resolveDbBinPath(cwd, payloadOrHeaders) {
 /**
  * Extract the x-db-path header value from request headers.
  * Headers are stored as an array of [key, value] pairs.
+ * @param {InternalDbWriteJob | InternalDbMigrateWriteJob} req
  */
 function getDbPathHeader(req) {
   const entry = req.headers.find(([k]) => k === "x-db-path");
   return entry ? entry[1] : null;
 }
 
+/**
+ * @param {string} dbBinPath
+ */
 function resolveDbLockPath(dbBinPath) {
   return `${dbBinPath}.lock`;
 }
@@ -805,6 +818,7 @@ function resolveDbLockPath(dbBinPath) {
 /**
  * Remove stale .tmp.{pid} files left behind by previous crashes.
  * Only removes files matching the exact tmp pattern for the given dbBinPath.
+ * @param {string} dbBinPath
  */
 async function cleanStaleTmpFiles(dbBinPath) {
   const dir = path.dirname(dbBinPath);
@@ -885,6 +899,9 @@ async function runDbReadMeta(req) {
   }
 }
 
+/**
+ * @param {string} cwd
+ */
 async function findCurrentDbElm(cwd) {
   const candidates = [
     path.resolve(cwd, "script/src/Db.elm"),
@@ -914,6 +931,9 @@ async function findCurrentDbElm(cwd) {
   return null;
 }
 
+/**
+ * @param {InternalDbWriteJob} req
+ */
 async function runDbWrite(req) {
   const cwd = path.resolve(...req.dir);
 
@@ -1002,6 +1022,10 @@ async function runDbWrite(req) {
   return jsonResponse(null);
 }
 
+/**
+ * @param {InternalDbLockAcquireJob} req
+ * @returns {Promise<JsonResponse<string>>}
+ */
 async function runDbLockAcquire(req) {
   const cwd = path.resolve(...req.dir);
   const payload = req.body.args[0];
@@ -1125,6 +1149,10 @@ async function runDbLockAcquire(req) {
   };
 }
 
+/**
+ * @param {InternalDbLockReleaseJob} req
+ * @returns {Promise<JsonResponse<null>>}
+ */
 async function runDbLockRelease(req) {
   const cwd = path.resolve(...req.dir);
   const payload = req.body.args[0];
@@ -2116,6 +2144,7 @@ async function runWriteFileJob(req) {
 
 /**
  * @param {InternalStartSpinnerJob} req
+ * @returns {JsonResponse<string>}
  */
 function runStartSpinner(req) {
   const data = req.body.args[0];
@@ -2136,11 +2165,11 @@ function runStartSpinner(req) {
 
 /**
  * @param {InternalStopSpinnerJob} req
+ * @returns {JsonResponse<null>}
  */
 function runStopSpinner(req) {
   const data = req.body.args[0];
   const { spinnerId, completionText, completionFn } = data;
-  let completeFn;
   if (completionFn === "succeed") {
     spinnies.succeed(spinnerId, { text: completionText });
   } else if (completionFn === "fail") {
@@ -2161,7 +2190,7 @@ function runRandomSeed() {
 /**
  * @param {InternalGlobJob} req
  * @param {Set<string>} patternsToWatch
- * @returns {Promise<JsonResponse<unknown[]>>}
+ * @returns {Promise<JsonResponse<(null | unknown)[]>>}
  */
 async function runGlobNew(req, patternsToWatch) {
   try {
