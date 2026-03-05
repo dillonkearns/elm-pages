@@ -573,11 +573,9 @@ async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
 }
 
 /**
- * @template R
- * @template J
- * @param {R} request
- * @param {J} json
- * @returns {{ request: R; response: { bodyKind: "json"; body: J; }}}
+ * @param {InternalJob} request
+ * @param {unknown} json
+ * @returns {JsonResponse}
  */
 function jsonResponse(request, json) {
   return {
@@ -587,10 +585,9 @@ function jsonResponse(request, json) {
 }
 
 /**
- * @template B
- * @param {InternalJobWith<string, B>} request
+ * @param {InternalJob} request
  * @param {Uint8Array | Int32Array} buffer
- * @returns {{ request: InternalJobWith<string, B>; response: { bodyKind: "bytes"; body: null; }; rawBytes: Buffer; }}
+ * @returns {BytesResponse}
  */
 function bytesResponse(request, buffer) {
   return {
@@ -645,6 +642,11 @@ function dataViewToBuffer(dv) {
  *
  *
  * @typedef {InternalLogJob | InternalEnvJob | InternalReadFileJob | InternalReadFileBinaryJob | InternalGlobJob | InternalRandomSeedJob | InternalNowJob | InternalEncryptJob | InternalDecryptJob |InternalWriteFileJob | InternalSleepJob| InternalWhichJob | InternalQuestionJob | InternalReadKeyJob | InternalStreamJob | InternalStartSpinnerJob | InternalStopSpinnerJob} InternalJob
+ * 
+ * @typedef {{ request: InternalJob; response: { bodyKind: "bytes"; body: null; }; rawBytes: Buffer; }} BytesResponse
+ * @typedef {{ request: InternalJob; response: { bodyKind: "json"; body: unknown; }}} JsonResponse
+ * @typedef {{ request: InternalJob; response: { bodyKind: "string"; body: string; }}} StringResponse
+ * @typedef {BytesResponse | JsonResponse | StringResponse} InternalResponse
  *
  */
 
@@ -653,6 +655,7 @@ function dataViewToBuffer(dv) {
  * @param {Set<string>} patternsToWatch
  * @param {PortsFile} portsFile
  * @param {InternalJob} requestToPerform
+ * @returns {Promise<InternalResponse>}
  */
 async function runInternalJob(
   requestHash,
@@ -1290,6 +1293,7 @@ async function readFileJobNew(req, patternsToWatch) {
 /**
  * @param {InternalReadFileBinaryJob} req
  * @param {Set<string>} patternsToWatch
+ * @returns {Promise<InternalResponse>}
  */
 async function readFileBinaryJobNew(req, patternsToWatch) {
   const filePath = req.body.args[1];
@@ -2136,6 +2140,7 @@ async function runGlobNew(req, patternsToWatch) {
 
 /**
  * @param {InternalLogJob} req
+ * @returns {Promise<JsonResponse>}
  */
 async function runLogJob(req) {
   try {
