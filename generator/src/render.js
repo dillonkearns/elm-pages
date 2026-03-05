@@ -571,6 +571,8 @@ function bytesResponse(buffer) {
 /**
  * Convert a Node.js Buffer to a DataView, which is what Lamdera's port
  * system expects for Bytes values.
+ * @param {Buffer} buf
+ * @returns {DataView}
  */
 function bufferToDataView(buf) {
   return new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
@@ -578,6 +580,8 @@ function bufferToDataView(buf) {
 
 /**
  * Convert a DataView (received from Lamdera port Bytes) to a Node.js Buffer.
+ * @param {DataView} dv
+ * @returns {Buffer}
  */
 function dataViewToBuffer(dv) {
   return Buffer.from(dv.buffer, dv.byteOffset, dv.byteLength);
