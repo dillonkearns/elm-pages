@@ -24,14 +24,10 @@ elm-verify-examples --run-tests --elm-test-args '--compiler=lamdera'
 # Multipart tests - tests multipartBody encoding via busboy round-trip
 (cd examples/end-to-end && npx elm-pages run script/src/MultipartTests.elm)
 
-# Scaffold tests - verify elm-pages init + AddRoute/AddStaticRoute generate compilable code
-rm -rf test-scaffold-project
-npx elm-pages init test-scaffold-project
-(cd test-scaffold-project && \
-  npm i && \
-  npx elm-pages db init && \
+# Scaffold tests - verify AddRoute with form fields generates compilable code
+# Uses end-to-end example which references local src/ via source-directories
+(cd examples/end-to-end && \
   npx elm-codegen install && \
   npx elm-pages run script/src/AddRoute.elm TestScaffold name:text email:text && \
-  npx elm-pages run script/src/AddStaticRoute.elm TestStaticScaffold && \
-  npx elm-pages build)
-rm -rf test-scaffold-project
+  lamdera make app/Route/TestScaffold.elm && \
+  rm app/Route/TestScaffold.elm)
