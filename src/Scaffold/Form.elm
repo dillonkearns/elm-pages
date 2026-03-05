@@ -101,51 +101,52 @@ formWithFields elmCssView fields viewFn =
                                 )
                             )
                 )
-                (Elm.function (List.map fieldToParam fields)
-                    (\params ->
-                        Elm.record
-                            [ ( "combine"
-                              , params
-                                    |> List.foldl
-                                        (\fieldExpression chain ->
-                                            chain
-                                                |> Elm.Op.pipe (validationAndMap fieldExpression)
-                                        )
-                                        (Elm.val "ParsedForm"
-                                            |> Elm.Op.pipe validationSucceed
-                                        )
-                              )
-                            , ( "view"
-                              , Elm.fn (Elm.Arg.var "formState")
-                                    (\formState ->
-                                        let
-                                            mappedParams : List { name : String, kind : Kind, param : Elm.Expression }
-                                            mappedParams =
-                                                params
-                                                    |> List.Extra.zip fields
-                                                    |> List.map
-                                                        (\( ( name, kind ), param ) ->
-                                                            { name = name
-                                                            , kind = kind
-                                                            , param = param
-                                                            }
-                                                        )
-                                        in
-                                        viewFn
-                                            { formState =
-                                                { errors = formState |> Elm.get "errors"
-                                                , submitting = formState |> Elm.get "submitting"
-                                                , submitAttempted = formState |> Elm.get "submitAttempted"
-                                                , data = formState |> Elm.get "data"
-                                                , expression = formState
+                (Elm.apply formInit
+                    [ Elm.function (List.map fieldToParam fields)
+                        (\params ->
+                            Elm.record
+                                [ ( "combine"
+                                  , params
+                                        |> List.foldl
+                                            (\fieldExpression chain ->
+                                                chain
+                                                    |> Elm.Op.pipe (validationAndMap fieldExpression)
+                                            )
+                                            (Elm.val "ParsedForm"
+                                                |> Elm.Op.pipe validationSucceed
+                                            )
+                                  )
+                                , ( "view"
+                                  , Elm.fn (Elm.Arg.var "formState")
+                                        (\formState ->
+                                            let
+                                                mappedParams : List { name : String, kind : Kind, param : Elm.Expression }
+                                                mappedParams =
+                                                    params
+                                                        |> List.Extra.zip fields
+                                                        |> List.map
+                                                            (\( ( name, kind ), param ) ->
+                                                                { name = name
+                                                                , kind = kind
+                                                                , param = param
+                                                                }
+                                                            )
+                                            in
+                                            viewFn
+                                                { formState =
+                                                    { errors = formState |> Elm.get "errors"
+                                                    , submitting = formState |> Elm.get "submitting"
+                                                    , submitAttempted = formState |> Elm.get "submitAttempted"
+                                                    , data = formState |> Elm.get "data"
+                                                    , expression = formState
+                                                    }
+                                                , params = mappedParams
                                                 }
-                                            , params = mappedParams
-                                            }
-                                    )
-                              )
-                            ]
-                    )
-                    |> Elm.Op.pipe formInit
+                                        )
+                                  )
+                                ]
+                        )
+                    ]
                 )
             |> Elm.withType
                 (Type.namedWith [ "Form" ]
