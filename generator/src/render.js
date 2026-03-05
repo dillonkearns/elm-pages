@@ -610,6 +610,11 @@ function dataViewToBuffer(dv) {
  */
 
 /**
+ * @template U
+ * @typedef {InternalJobWith<U, [unknown, DataView]>} BytesBodyJob
+ */
+
+/**
  * @typedef {JsonBodyJob<"elm-pages-internal://log", {message: string}>} InternalLogJob
  * @typedef {JsonBodyJob<"elm-pages-internal://env", string>} InternalEnvJob
  * @typedef {StringBodyJob<"elm-pages-internal://read-file">} InternalReadFileJob
@@ -637,8 +642,11 @@ function dataViewToBuffer(dv) {
  * @typedef {JsonBodyJob<"elm-pages-internal://resolve-path", string>} InternalResolvePathJob
  * @typedef {JsonBodyJob<"elm-pages-internal://file-exists", string>} InternalFileExistsJob
  *
+ * @typedef {JsonBodyJob<"elm-pages-internal://db-set-default-path", { path: string; }>} InternalDbSetDefaultPathJob
+ * @typedef {JsonBodyJob<"elm-pages-internal://db-migrate-read", null>} InternalDbMigrateReadJob
+ * @typedef {BytesBodyJob<"elm-pages-internal://db-migrate-write">} InternalDbMigrateWriteJob
  *
- * @typedef {InternalLogJob | InternalEnvJob | InternalReadFileJob | InternalReadFileBinaryJob | InternalGlobJob | InternalRandomSeedJob | InternalNowJob | InternalEncryptJob | InternalDecryptJob |InternalWriteFileJob | InternalSleepJob| InternalWhichJob | InternalQuestionJob | InternalReadKeyJob | InternalStreamJob | InternalStartSpinnerJob | InternalStopSpinnerJob | InternalDeleteFileJob | InternalCopyFileJob | InternalMoveJob | InternalMakeDirectoryJob | InternalRemoveDirectoryJob | InternalMakeTempDirectoryJob | InternalResolvePathJob | InternalFileExistsJob} InternalJob
+ * @typedef {InternalLogJob | InternalEnvJob | InternalReadFileJob | InternalReadFileBinaryJob | InternalGlobJob | InternalRandomSeedJob | InternalNowJob | InternalEncryptJob | InternalDecryptJob |InternalWriteFileJob | InternalSleepJob| InternalWhichJob | InternalQuestionJob | InternalReadKeyJob | InternalStreamJob | InternalStartSpinnerJob | InternalStopSpinnerJob | InternalDeleteFileJob | InternalCopyFileJob | InternalMoveJob | InternalMakeDirectoryJob | InternalRemoveDirectoryJob | InternalMakeTempDirectoryJob | InternalResolvePathJob | InternalFileExistsJob | InternalDbSetDefaultPathJob | InternalDbMigrateReadJob |InternalDbMigrateWriteJob} InternalJob
  */
 
 /**
@@ -815,6 +823,10 @@ async function cleanStaleTmpFiles(dbBinPath) {
   }
 }
 
+/**
+ * @param {string} name
+ * @param {number} fallback
+ */
 function readPositiveIntEnv(name, fallback) {
   const raw = process.env[name];
   if (typeof raw !== "string" || raw.trim() === "") {
@@ -826,6 +838,7 @@ function readPositiveIntEnv(name, fallback) {
 }
 
 /**
+ * @param {InternalDbSetDefaultPathJob} req
  * @returns {Promise<JsonResponse<null>>}
  */
 async function runDbSetDefaultPath(req) {
@@ -1143,6 +1156,10 @@ async function runDbLockRelease(req) {
   return jsonResponse(null);
 }
 
+/**
+ * @param {InternalDbMigrateReadJob} req
+ * @returns {Promise<BytesResponse>}
+ */
 async function runDbMigrateRead(req) {
   const cwd = path.resolve(...req.dir);
   const payload = req.body.args[0];
@@ -1166,6 +1183,10 @@ async function runDbMigrateRead(req) {
   }
 }
 
+/**
+ * @param {InternalDbMigrateWriteJob} req
+ * @returns {Promise<JsonResponse<null>>}
+ */
 async function runDbMigrateWrite(req) {
   const cwd = path.resolve(...req.dir);
 
@@ -1267,7 +1288,7 @@ function getContext(requestToPerform) {
  *
  * @param {InternalReadFileJob} req
  * @param {Set<string>} patternsToWatch
- * @returns {Promise<JsonResponse<InternalReadFileJob>>}
+ * @returns {Promise<JsonResponse<{ parsedFrontmatter: { [key: string]: unknown; }; withoutFrontmatter: string; rawFile: string; } | { errorCode : unknown; }>>}
  */
 async function readFileJobNew(req, patternsToWatch) {
   const cwd = path.resolve(...req.dir);
