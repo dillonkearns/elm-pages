@@ -492,9 +492,8 @@ async function outputString(basePath, fromElm, isDevServer, contentDatPayload) {
  * @typedef {{ tag: "PageProgress"; args: Arg[] }} FromElmPageProgress
  *
  * @typedef {{ oldThing: FromElmNew; binaryPageData: unknown; }} FromElmOldThing
- *
  * @typedef {FromElmLog | FromElmApiResponse | FromElmPageProgress} FromElmNew
- * @typedef {FromElmNew | FromElmOldThing} FromElm
+ * @typedef {{ json: FromElmNew; bytes: {key: string; data: DataView; }[]; } | FromElmOldThing} FromElm
  */
 
 /**
