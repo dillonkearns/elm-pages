@@ -26,12 +26,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Scripts now require the `lamdera` compiler. The `elm` binary is no longer supported as a fallback.
 
-### Removed
-
-- `FilePath.toPosixString` (was an alias for `toString`) and `FilePath.toWindowsString`.
-- `FilePath.isAbsolute` from the public API.
-- `FilePath.filenameWithExtension` (was an alias for `filename`).
-
 ## [11.0.0] - 2026-02-15
 
 ### Added
