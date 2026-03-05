@@ -224,10 +224,7 @@ function runGeneratorAppHelp(
       } else if (fromElm.tag === "DoHttp") {
         // Build a map of request hash → raw bytes from the port's bytes field
         const outgoingBytesMap = new Map(
-          outgoingBytes.map(({ key, data }) => [
-            key,
-            dataViewToBuffer(data),
-          ])
+          outgoingBytes.map(({ key, data }) => [key, dataViewToBuffer(data)])
         );
         const results = await Promise.all(
           fromElm.args[0].map(async ([requestHash, requestToPerform]) => {
@@ -362,7 +359,12 @@ function runElmApp(
       } else if (fromElm.tag === "ApiResponse") {
         const args = fromElm.args[0];
         const resolvedBody = contentDatPayload
-          ? { ...args.body, body: Buffer.from(dataViewToBuffer(contentDatPayload)).toString("base64") }
+          ? {
+              ...args.body,
+              body: Buffer.from(dataViewToBuffer(contentDatPayload)).toString(
+                "base64"
+              ),
+            }
           : args.body;
 
         resolve({
@@ -395,10 +397,7 @@ function runElmApp(
       } else if (fromElm.tag === "DoHttp") {
         // Build a map of request hash → raw bytes from the port's bytes field
         const outgoingBytesMap = new Map(
-          outgoingBytes.map(({ key, data }) => [
-            key,
-            dataViewToBuffer(data),
-          ])
+          outgoingBytes.map(({ key, data }) => [key, dataViewToBuffer(data)])
         );
         const results = await Promise.all(
           fromElm.args[0].map(async ([requestHash, requestToPerform]) => {
@@ -549,9 +548,7 @@ async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
     }
   } catch (error) {
     const errorMessage =
-      typeof error === "string"
-        ? error
-        : error.message || String(error);
+      typeof error === "string" ? error : error.message || String(error);
 
     return [
       requestHash,
@@ -640,7 +637,7 @@ function dataViewToBuffer(dv) {
  *
  *
  * @typedef {InternalLogJob | InternalEnvJob | InternalReadFileJob | InternalReadFileBinaryJob | InternalGlobJob | InternalRandomSeedJob | InternalNowJob | InternalEncryptJob | InternalDecryptJob |InternalWriteFileJob | InternalSleepJob| InternalWhichJob | InternalQuestionJob | InternalReadKeyJob | InternalStreamJob | InternalStartSpinnerJob | InternalStopSpinnerJob} InternalJob
- * 
+ *
  * @typedef {{ request: InternalJob; response: { bodyKind: "bytes"; body: null; }; rawBytes: Buffer; }} BytesResponse
  * @typedef {{ request: InternalJob; response: { bodyKind: "json"; body: unknown; }}} JsonResponse
  * @typedef {{ request: InternalJob; response: { bodyKind: "string"; body: string; }}} StringResponse
@@ -654,11 +651,7 @@ function dataViewToBuffer(dv) {
  * @param {InternalJob} requestToPerform
  * @returns {Promise<InternalResponse>}
  */
-async function runInternalJob(
-  requestToPerform,
-  patternsToWatch,
-  portsFile
-) {
+async function runInternalJob(requestToPerform, patternsToWatch, portsFile) {
   try {
     switch (requestToPerform.url) {
       case "elm-pages-internal://log":
@@ -736,8 +729,8 @@ async function runInternalJob(
       error.title && error.message
         ? `-- ${error.title.toUpperCase()} --\n\n${error.message}`
         : typeof error === "string"
-        ? error
-        : error.message || String(error);
+          ? error
+          : error.message || String(error);
 
     // Return a proper response so Object.fromEntries
     // doesn't crash. The non-200 status causes BackendTask.Http to treat
@@ -772,7 +765,10 @@ function resolveDbBinPath(cwd, payloadOrHeaders) {
   ) {
     // Legacy: path from JSON payload
     customPath = payloadOrHeaders.path;
-  } else if (typeof payloadOrHeaders === "string" && payloadOrHeaders.length > 0) {
+  } else if (
+    typeof payloadOrHeaders === "string" &&
+    payloadOrHeaders.length > 0
+  ) {
     // New: path passed directly (from x-db-path header)
     customPath = payloadOrHeaders;
   }
@@ -876,7 +872,9 @@ async function findCurrentDbElm(cwd) {
   for (const elmJsonName of ["script/elm.json", "elm.json"]) {
     const elmJsonPath = path.resolve(cwd, elmJsonName);
     try {
-      const elmJson = JSON.parse(await fsPromises.readFile(elmJsonPath, "utf8"));
+      const elmJson = JSON.parse(
+        await fsPromises.readFile(elmJsonPath, "utf8")
+      );
       const base = path.dirname(elmJsonPath);
       for (const dir of elmJson["source-directories"] || []) {
         candidates.push(path.resolve(base, dir, "Db.elm"));
@@ -914,18 +912,14 @@ async function runDbWrite(req) {
     schemaHash = payload && payload.hash;
     const base64Data = payload && payload.data;
     dbBinPath = resolveDbBinPath(cwd, payload);
-    wire3Data = typeof base64Data === "string" ? Buffer.from(base64Data, "base64") : null;
+    wire3Data =
+      typeof base64Data === "string" ? Buffer.from(base64Data, "base64") : null;
   }
 
-  if (
-    typeof schemaHash !== "string" ||
-    schemaHash.length === 0 ||
-    !wire3Data
-  ) {
+  if (typeof schemaHash !== "string" || schemaHash.length === 0 || !wire3Data) {
     throw {
       title: "Invalid db-write payload",
-      message:
-        "Expected hash and data fields when writing to the database.",
+      message: "Expected hash and data fields when writing to the database.",
     };
   }
 
@@ -972,7 +966,8 @@ async function runDbWrite(req) {
 
   // Best-effort provenance capture: persist Db.elm source for this schema hash.
   try {
-    const { saveSchemaSource, computeSchemaHashFromSource } = await import("./db-schema.js");
+    const { saveSchemaSource, computeSchemaHashFromSource } =
+      await import("./db-schema.js");
     const currentDb = await findCurrentDbElm(cwd);
     if (currentDb) {
       const currentHash = computeSchemaHashFromSource(currentDb.source);
@@ -1006,10 +1001,7 @@ async function runDbLockAcquire(req) {
     "ELM_PAGES_DB_STALE_LOCK_TIMEOUT_MS",
     5 * 60 * 1000
   );
-  const minRetryDelayMs = readPositiveIntEnv(
-    "ELM_PAGES_DB_LOCK_RETRY_MS",
-    50
-  );
+  const minRetryDelayMs = readPositiveIntEnv("ELM_PAGES_DB_LOCK_RETRY_MS", 50);
   const maxRetryDelayMs = readPositiveIntEnv(
     "ELM_PAGES_DB_LOCK_MAX_RETRY_MS",
     500
@@ -1083,7 +1075,9 @@ async function runDbLockAcquire(req) {
           maxRetryDelayMs,
           minRetryDelayMs * 2 ** Math.min(attempt, 5)
         );
-        const jitterMs = Math.floor(Math.random() * Math.max(1, minRetryDelayMs));
+        const jitterMs = Math.floor(
+          Math.random() * Math.max(1, minRetryDelayMs)
+        );
         await new Promise((resolve) =>
           setTimeout(resolve, exponentialMs + jitterMs)
         );
@@ -1179,7 +1173,8 @@ async function runDbMigrateWrite(req) {
     const payload = req.body.args[0];
     const base64Data = payload && payload.data;
     dbBinPath = resolveDbBinPath(cwd, payload);
-    wire3Data = typeof base64Data === "string" ? Buffer.from(base64Data, "base64") : null;
+    wire3Data =
+      typeof base64Data === "string" ? Buffer.from(base64Data, "base64") : null;
   }
 
   if (!wire3Data) {
@@ -1192,11 +1187,8 @@ async function runDbMigrateWrite(req) {
   // Read current schema hash from the current Db.elm source
   // The migration chain encodes with the NEW Db.w3_encode_Db,
   // so we need the current schema hash for the new db.bin header.
-  const {
-    readSchemaVersion,
-    saveSchemaSource,
-    computeSchemaHashFromSource,
-  } = await import("./db-schema.js");
+  const { readSchemaVersion, saveSchemaSource, computeSchemaHashFromSource } =
+    await import("./db-schema.js");
 
   const schemaVersion = await readSchemaVersion(cwd);
 
@@ -1205,13 +1197,19 @@ async function runDbMigrateWrite(req) {
   try {
     const currentDb = await findCurrentDbElm(cwd);
     if (!currentDb) {
-      throw { title: "Migration write failed", message: "Could not find Db.elm to compute schema hash." };
+      throw {
+        title: "Migration write failed",
+        message: "Could not find Db.elm to compute schema hash.",
+      };
     }
     schemaHash = computeSchemaHashFromSource(currentDb.source);
     await saveSchemaSource(cwd, schemaHash, currentDb.source);
   } catch (error) {
     if (error.title) throw error;
-    throw { title: "Migration write failed", message: `Error computing schema hash: ${error.message}` };
+    throw {
+      title: "Migration write failed",
+      message: `Error computing schema hash: ${error.message}`,
+    };
   }
 
   // Create backup before writing
@@ -1233,7 +1231,9 @@ async function runDbMigrateWrite(req) {
     await fsPromises.writeFile(tmpPath, fileBuffer);
     await fsPromises.rename(tmpPath, dbBinPath);
   } catch (error) {
-    try { await fsPromises.unlink(tmpPath); } catch (_) {}
+    try {
+      await fsPromises.unlink(tmpPath);
+    } catch (_) {}
     throw {
       title: "Migration write failed",
       message: `Failed to write db.bin: ${error.message}`,
@@ -2091,7 +2091,7 @@ function runStopSpinner(req) {
 /**
  * @returns {number}
  */
-function runRandomSeed(){
+function runRandomSeed() {
   return crypto.getRandomValues(new Uint32Array(1))[0];
 }
 
