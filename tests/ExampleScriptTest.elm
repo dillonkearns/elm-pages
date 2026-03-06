@@ -53,4 +53,24 @@ all =
                             }
                         |> BackendTaskTest.expectSuccess
             ]
+        , describe "starsScript (fromScript)"
+            [ test "uses default CLI args" <|
+                \() ->
+                    ExampleScript.starsScript
+                        |> BackendTaskTest.fromScript []
+                        |> BackendTaskTest.simulateHttpGet
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            (Encode.object [ ( "stargazers_count", Encode.int 1205 ) ])
+                        |> BackendTaskTest.ensureLogged "dillonkearns/elm-pages has 1205 stars"
+                        |> BackendTaskTest.expectSuccess
+            , test "accepts custom CLI args" <|
+                \() ->
+                    ExampleScript.starsScript
+                        |> BackendTaskTest.fromScript [ "--username", "mdgriffith", "--repo", "elm-ui" ]
+                        |> BackendTaskTest.simulateHttpGet
+                            "https://api.github.com/repos/mdgriffith/elm-ui"
+                            (Encode.object [ ( "stargazers_count", Encode.int 1300 ) ])
+                        |> BackendTaskTest.ensureLogged "mdgriffith/elm-ui has 1300 stars"
+                        |> BackendTaskTest.expectSuccess
+            ]
         ]

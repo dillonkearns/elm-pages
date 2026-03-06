@@ -3,6 +3,9 @@ module ScriptTestTests exposing (all)
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import BackendTask.Http
+import Cli.Option as Option
+import Cli.OptionsParser as OptionsParser
+import Cli.Program as Program
 import Expect
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
@@ -454,6 +457,80 @@ all =
                                         , \m -> m |> String.contains "expected.txt" |> Expect.equal True
                                         , \m -> m |> String.contains "actual.txt" |> Expect.equal True
                                         ]
+                            )
+            ]
+        , describe "fromScript"
+            [ test "withoutCliOptions script succeeds" <|
+                \() ->
+                    Script.withoutCliOptions
+                        (Script.log "hello")
+                        |> BackendTaskTest.fromScript []
+                        |> BackendTaskTest.ensureLogged "hello"
+                        |> BackendTaskTest.expectSuccess
+            , test "withCliOptions parses args" <|
+                \() ->
+                    let
+                        cliConfig : Program.Config { name : String }
+                        cliConfig =
+                            Program.config
+                                |> Program.add
+                                    (OptionsParser.build (\name -> { name = name })
+                                        |> OptionsParser.with
+                                            (Option.optionalKeywordArg "name"
+                                                |> Option.withDefault "world"
+                                            )
+                                    )
+                    in
+                    Script.withCliOptions cliConfig
+                        (\{ name } ->
+                            Script.log ("Hello, " ++ name ++ "!")
+                        )
+                        |> BackendTaskTest.fromScript [ "--name", "Dillon" ]
+                        |> BackendTaskTest.ensureLogged "Hello, Dillon!"
+                        |> BackendTaskTest.expectSuccess
+            , test "withCliOptions uses defaults when no args" <|
+                \() ->
+                    let
+                        cliConfig : Program.Config { name : String }
+                        cliConfig =
+                            Program.config
+                                |> Program.add
+                                    (OptionsParser.build (\name -> { name = name })
+                                        |> OptionsParser.with
+                                            (Option.optionalKeywordArg "name"
+                                                |> Option.withDefault "world"
+                                            )
+                                    )
+                    in
+                    Script.withCliOptions cliConfig
+                        (\{ name } ->
+                            Script.log ("Hello, " ++ name ++ "!")
+                        )
+                        |> BackendTaskTest.fromScript []
+                        |> BackendTaskTest.ensureLogged "Hello, world!"
+                        |> BackendTaskTest.expectSuccess
+            , test "invalid CLI args gives test error" <|
+                \() ->
+                    let
+                        cliConfig : Program.Config { name : String }
+                        cliConfig =
+                            Program.config
+                                |> Program.add
+                                    (OptionsParser.build (\name -> { name = name })
+                                        |> OptionsParser.with
+                                            (Option.requiredKeywordArg "name")
+                                    )
+                    in
+                    Script.withCliOptions cliConfig
+                        (\{ name } ->
+                            Script.log name
+                        )
+                        |> BackendTaskTest.fromScript []
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> String.contains "name"
+                                    |> Expect.equal True
                             )
             ]
         , describe "fromBackendTask + expectFailure"
