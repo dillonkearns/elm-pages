@@ -14,6 +14,23 @@ module Test.BackendTask exposing
     , expectTestError
     )
 
+{-| Test helpers for `BackendTask` values.
+
+Lets you test `BackendTask` pipelines in pure Elm with no side effects, using
+step-by-step simulation inspired by `elm-program-test`.
+
+@docs BackendTaskTest, HttpError
+
+@docs fromBackendTask
+
+@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom
+
+@docs ensureHttpGet, ensureLogged, ensureFileWritten
+
+@docs expectSuccess, expectFailure, expectTestError
+
+-}
+
 import BackendTask exposing (BackendTask)
 import Dict
 import Expect exposing (Expectation)
@@ -26,6 +43,10 @@ import Pages.StaticHttpRequest exposing (RawRequest(..), Status(..))
 import RequestsAndPending
 
 
+{-| Opaque type representing the state of a `BackendTask` test. Build one with
+`fromBackendTask`, simulate effects, then assert with `expectSuccess` or
+`expectFailure`.
+-}
 type BackendTaskTest
     = Running
         { continuation : RawRequest FatalError ()
@@ -45,11 +66,16 @@ type TrackedEffect
     | FileWriteEffect { path : String, body : String }
 
 
+{-| The type of HTTP error to simulate with `simulateHttpError`.
+-}
 type HttpError
     = NetworkError
     | Timeout
 
 
+{-| Start a test from a `BackendTask`. Auto-resolvable effects (like
+`Script.log` and `Script.writeFile`) are resolved immediately.
+-}
 fromBackendTask : BackendTask FatalError () -> BackendTaskTest
 fromBackendTask task =
     advanceWithAutoResolve
@@ -197,16 +223,22 @@ trackEffect req =
             []
 
 
+{-| Simulate a pending HTTP GET request resolving with the given JSON response.
+-}
 simulateHttpGet : String -> Encode.Value -> BackendTaskTest -> BackendTaskTest
 simulateHttpGet url jsonResponse =
     simulateHttpResponse "simulateHttpGet" "GET" url (httpSuccessResponse url jsonResponse)
 
 
+{-| Simulate a pending HTTP POST request resolving with the given JSON response.
+-}
 simulateHttpPost : String -> Encode.Value -> BackendTaskTest -> BackendTaskTest
 simulateHttpPost url jsonResponse =
     simulateHttpResponse "simulateHttpPost" "POST" url (httpSuccessResponse url jsonResponse)
 
 
+{-| Simulate a pending HTTP request failing with the given error.
+-}
 simulateHttpError : String -> String -> HttpError -> BackendTaskTest -> BackendTaskTest
 simulateHttpError method url error =
     let
@@ -225,6 +257,8 @@ simulateHttpError method url error =
     simulateHttpResponse "simulateHttpError" method url responseValue
 
 
+{-| Simulate a pending `BackendTask.Custom.run` call resolving with the given JSON value.
+-}
 simulateCustom : String -> Encode.Value -> BackendTaskTest -> BackendTaskTest
 simulateCustom portName jsonResponse scriptTest =
     case scriptTest of
@@ -393,6 +427,8 @@ formatPendingRequests requests =
             |> String.join "\n"
 
 
+{-| Assert that a GET request to the given URL is currently pending.
+-}
 ensureHttpGet : String -> BackendTaskTest -> BackendTaskTest
 ensureHttpGet url scriptTest =
     case scriptTest of
@@ -420,6 +456,8 @@ ensureHttpGet url scriptTest =
                         )
 
 
+{-| Assert that the given message was logged via `Script.log`.
+-}
 ensureLogged : String -> BackendTaskTest -> BackendTaskTest
 ensureLogged expectedMessage scriptTest =
     case scriptTest of
@@ -451,6 +489,8 @@ ensureLogged expectedMessage scriptTest =
                     )
 
 
+{-| Assert that a file was written with the given path and body via `Script.writeFile`.
+-}
 ensureFileWritten : { path : String, body : String } -> BackendTaskTest -> BackendTaskTest
 ensureFileWritten expected scriptTest =
     let
@@ -534,6 +574,8 @@ permanentErrorToString err =
             "Internal error"
 
 
+{-| Assert that the `BackendTask` completed successfully.
+-}
 expectSuccess : BackendTaskTest -> Expectation
 expectSuccess scriptTest =
     case scriptTest of
@@ -555,6 +597,8 @@ expectSuccess scriptTest =
             Expect.fail msg
 
 
+{-| Assert that the `BackendTask` completed with a `FatalError`.
+-}
 expectFailure : BackendTaskTest -> Expectation
 expectFailure scriptTest =
     case scriptTest of
@@ -576,6 +620,8 @@ expectFailure scriptTest =
             Expect.fail msg
 
 
+{-| Assert that the test itself has an error (e.g. a simulation step didn't match).
+-}
 expectTestError : (String -> Expectation) -> BackendTaskTest -> Expectation
 expectTestError assertion scriptTest =
     case scriptTest of
