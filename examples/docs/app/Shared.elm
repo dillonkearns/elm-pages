@@ -23,13 +23,14 @@ template =
     , view = view
     , data = data
     , subscriptions = subscriptions
-    , onPageChange = Nothing
+    , onPageChange = Just (\_ -> CloseMobileMenu)
     }
 
 
 type Msg
     = SharedMsg SharedMsg
     | ToggleMobileMenu
+    | CloseMobileMenu
 
 
 type alias Data =
@@ -73,6 +74,9 @@ update msg model =
         ToggleMobileMenu ->
             ( { model | showMobileMenu = not model.showMobileMenu }, Effect.none )
 
+        CloseMobileMenu ->
+            ( { model | showMobileMenu = False }, Effect.none )
+
 
 subscriptions : UrlPath -> Model -> Sub Msg
 subscriptions _ _ =
@@ -95,11 +99,22 @@ view :
     -> View msg
     -> { body : List (Html msg), title : String }
 view sharedData page model toMsg pageView =
+    let
+        currentSection : Maybe String
+        currentSection =
+            case page.path of
+                "docs" :: section :: _ ->
+                    Just section
+
+                _ ->
+                    Nothing
+    in
     { body =
         [ Html.div
             [ Attr.class "flex flex-col"
             ]
             [ View.Header.view (toMsg ToggleMobileMenu) 0 page.path
+            , TableOfContents.view model.showMobileMenu False currentSection sharedData
             , Html.div
                 [ Attr.class "flex-grow flex flex-col"
                 ]

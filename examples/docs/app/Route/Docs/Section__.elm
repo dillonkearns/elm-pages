@@ -207,13 +207,13 @@ view :
     App Data ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
-view app sharedModel =
+view app _ =
     { title = app.data.titles.title ++ " - elm-pages docs"
     , body =
         [ Html.div
             [ Attr.class "flex flex-1 h-full"
             ]
-            [ TableOfContents.view sharedModel.showMobileMenu True app.routeParams.section app.sharedData
+            [ TableOfContents.view False True app.routeParams.section app.sharedData
             , Html.article
                 [ Attr.class "prose relative pt-20 pb-16 px-6 w-full max-w-full overflow-x-hidden md:px-8"
                 ]
