@@ -7,6 +7,8 @@ module Test.BackendTask exposing
     , simulateHttpError
     , simulateCustom
     , ensureHttpGet
+    , ensureHttpPost
+    , ensureCustom
     , ensureLogged
     , ensureFileWritten
     , expectSuccess
@@ -65,7 +67,7 @@ you never need to simulate them. But you can still assert that they happened usi
 These check conditions mid-pipeline without ending the test. They return the same
 `BackendTaskTest` so you can keep chaining.
 
-@docs ensureHttpGet, ensureLogged, ensureFileWritten
+@docs ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten
 
 
 ## Terminal Assertions
@@ -570,8 +572,9 @@ formatPendingRequests requests =
 
 
 {-| Assert that a GET request to the given URL is currently pending, without resolving it.
-This is useful for verifying your `BackendTask` is making the request you expect before
-you provide the simulated response.
+This is useful for verifying that requests are issued in parallel — if both `ensureHttpGet`
+calls pass, you know `map2` (or `combine`) dispatched them at the same time rather than
+sequentially.
 
     import BackendTask
     import BackendTask.Http
@@ -579,43 +582,164 @@ you provide the simulated response.
     import Json.Encode as Encode
     import Test.BackendTask as BackendTaskTest
 
-    BackendTask.Http.getJson
-        "https://api.github.com/repos/dillonkearns/elm-pages"
-        (Decode.field "stargazers_count" Decode.int)
-        |> BackendTask.allowFatal
-        |> BackendTask.map (\_ -> ())
+    BackendTask.map2 (\_ _ -> ())
+        (BackendTask.Http.getJson
+            "https://api.github.com/repos/dillonkearns/elm-pages"
+            (Decode.field "stargazers_count" Decode.int)
+            |> BackendTask.allowFatal
+        )
+        (BackendTask.Http.getJson
+            "https://api.github.com/repos/dillonkearns/elm-graphql"
+            (Decode.field "stargazers_count" Decode.int)
+            |> BackendTask.allowFatal
+        )
         |> BackendTaskTest.fromBackendTask
+        -- verify both requests are pending at the same time
         |> BackendTaskTest.ensureHttpGet
             "https://api.github.com/repos/dillonkearns/elm-pages"
+        |> BackendTaskTest.ensureHttpGet
+            "https://api.github.com/repos/dillonkearns/elm-graphql"
         |> BackendTaskTest.simulateHttpGet
             "https://api.github.com/repos/dillonkearns/elm-pages"
-            (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
+            (Encode.object [ ( "stargazers_count", Encode.int 1205 ) ])
+        |> BackendTaskTest.simulateHttpGet
+            "https://api.github.com/repos/dillonkearns/elm-graphql"
+            (Encode.object [ ( "stargazers_count", Encode.int 780 ) ])
         |> BackendTaskTest.expectSuccess
+
+Note: you don't need `ensureHttpGet` before every `simulateHttpGet` —
+`simulateHttpGet` already fails if the request isn't pending. Use `ensure`
+when you want to verify request timing (parallel vs sequential).
 
 -}
 ensureHttpGet : String -> BackendTaskTest -> BackendTaskTest
-ensureHttpGet url scriptTest =
+ensureHttpGet url =
+    ensureHttpRequest "ensureHttpGet" "GET" url
+
+
+{-| Assert that a POST request to the given URL is currently pending, without resolving it.
+Like [`ensureHttpGet`](#ensureHttpGet), this is most useful for verifying request timing.
+
+    import BackendTask
+    import BackendTask.Http
+    import Json.Decode as Decode
+    import Json.Encode as Encode
+    import Test.BackendTask as BackendTaskTest
+
+    -- Verify that a GET and POST are issued in parallel
+    BackendTask.map2 (\_ _ -> ())
+        (BackendTask.Http.getJson
+            "https://api.example.com/config"
+            (Decode.succeed ())
+            |> BackendTask.allowFatal
+        )
+        (BackendTask.Http.post
+            "https://api.example.com/items"
+            (BackendTask.Http.jsonBody (Encode.object [ ( "name", Encode.string "test" ) ]))
+            (BackendTask.Http.expectJson (Decode.succeed ()))
+            |> BackendTask.allowFatal
+        )
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.ensureHttpGet "https://api.example.com/config"
+        |> BackendTaskTest.ensureHttpPost "https://api.example.com/items"
+        |> BackendTaskTest.simulateHttpGet "https://api.example.com/config" Encode.null
+        |> BackendTaskTest.simulateHttpPost "https://api.example.com/items" Encode.null
+        |> BackendTaskTest.expectSuccess
+
+-}
+ensureHttpPost : String -> BackendTaskTest -> BackendTaskTest
+ensureHttpPost url =
+    ensureHttpRequest "ensureHttpPost" "POST" url
+
+
+ensureHttpRequest : String -> String -> String -> BackendTaskTest -> BackendTaskTest
+ensureHttpRequest callerName method url scriptTest =
     case scriptTest of
         TestError _ ->
             scriptTest
 
         Done _ ->
             TestError
-                ("ensureHttpGet: Expected a pending GET request for\n\n    "
+                (callerName
+                    ++ ": Expected a pending "
+                    ++ method
+                    ++ " request for\n\n    "
                     ++ url
                     ++ "\n\nbut the script has already completed."
                 )
 
         Running state ->
-            case findMatchingRequest "GET" url state.pendingRequests of
+            case findMatchingRequest method url state.pendingRequests of
                 Just _ ->
                     scriptTest
 
                 Nothing ->
                     TestError
-                        ("ensureHttpGet: Expected a pending GET request for\n\n    "
+                        (callerName
+                            ++ ": Expected a pending "
+                            ++ method
+                            ++ " request for\n\n    "
                             ++ url
                             ++ "\n\nbut the pending requests are:\n\n"
+                            ++ formatPendingRequests state.pendingRequests
+                        )
+
+
+{-| Assert that a `BackendTask.Custom.run` call with the given port name is currently pending,
+without resolving it. Like [`ensureHttpGet`](#ensureHttpGet), this is most useful for
+verifying that calls are issued in parallel.
+
+    import BackendTask
+    import BackendTask.Custom
+    import Json.Decode as Decode
+    import Json.Encode as Encode
+    import Test.BackendTask as BackendTaskTest
+
+    -- Verify both custom calls are dispatched in parallel
+    BackendTask.map2 (\_ _ -> ())
+        (BackendTask.Custom.run "hashPassword"
+            (Encode.string "secret123")
+            Decode.string
+            |> BackendTask.allowFatal
+        )
+        (BackendTask.Custom.run "sendEmail"
+            (Encode.string "user@example.com")
+            (Decode.succeed ())
+            |> BackendTask.allowFatal
+        )
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.ensureCustom "hashPassword"
+        |> BackendTaskTest.ensureCustom "sendEmail"
+        |> BackendTaskTest.simulateCustom "hashPassword"
+            (Encode.string "hashed_secret123")
+        |> BackendTaskTest.simulateCustom "sendEmail"
+            Encode.null
+        |> BackendTaskTest.expectSuccess
+
+-}
+ensureCustom : String -> BackendTaskTest -> BackendTaskTest
+ensureCustom portName scriptTest =
+    case scriptTest of
+        TestError _ ->
+            scriptTest
+
+        Done _ ->
+            TestError
+                ("ensureCustom: Expected a pending BackendTask.Custom.run call for port \""
+                    ++ portName
+                    ++ "\"\n\nbut the script has already completed."
+                )
+
+        Running state ->
+            case findMatchingPort portName state.pendingRequests of
+                Just _ ->
+                    scriptTest
+
+                Nothing ->
+                    TestError
+                        ("ensureCustom: Expected a pending BackendTask.Custom.run call for port \""
+                            ++ portName
+                            ++ "\"\n\nbut the pending requests are:\n\n"
                             ++ formatPendingRequests state.pendingRequests
                         )
 
