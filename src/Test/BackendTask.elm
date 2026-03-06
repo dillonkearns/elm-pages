@@ -2,6 +2,7 @@ module Test.BackendTask exposing
     ( BackendTaskTest
     , HttpError(..)
     , fromBackendTask
+    , fromScript
     , simulateHttpGet
     , simulateHttpPost
     , simulateHttpError
@@ -54,7 +55,7 @@ you never need to simulate them. But you can still assert that they happened usi
 
 ## Building
 
-@docs BackendTaskTest, HttpError, fromBackendTask
+@docs BackendTaskTest, HttpError, fromBackendTask, fromScript
 
 
 ## Simulating Effects
@@ -79,11 +80,13 @@ These end the pipeline and produce an `Expectation` for elm-test.
 -}
 
 import BackendTask exposing (BackendTask)
+import Cli.Program as Program
 import Dict
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Pages.Internal.Script
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.StaticHttp.Request as Request
 import Pages.StaticHttpRequest exposing (RawRequest(..), Status(..))
@@ -152,6 +155,53 @@ fromBackendTask task =
         , pendingRequests = []
         , trackedEffects = []
         }
+
+
+{-| Start a test from a [`Script`](Pages-Script#Script) value with simulated CLI arguments.
+This lets you test the full script including CLI option parsing.
+
+    import Cli.Option as Option
+    import Cli.OptionsParser as OptionsParser
+    import Cli.Program as Program
+    import Pages.Script as Script
+    import Test.BackendTask as BackendTaskTest
+
+    Script.withCliOptions
+        (Program.config
+            |> Program.add
+                (OptionsParser.build (\name -> { name = name })
+                    |> OptionsParser.with
+                        (Option.optionalKeywordArg "name"
+                            |> Option.withDefault "world"
+                        )
+                )
+        )
+        (\{ name } -> Script.log ("Hello, " ++ name ++ "!"))
+        |> BackendTaskTest.fromScript [ "--name", "Dillon" ]
+        |> BackendTaskTest.ensureLogged "Hello, Dillon!"
+        |> BackendTaskTest.expectSuccess
+
+If the CLI arguments don't match the expected options, you get a `TestError`
+with the CLI parser's error message.
+
+-}
+fromScript : List String -> Pages.Internal.Script.Script -> BackendTaskTest
+fromScript cliArgs (Pages.Internal.Script.Script toConfig) =
+    let
+        programConfig : Program.Config (BackendTask FatalError ())
+        programConfig =
+            toConfig (\_ _ -> "")
+
+        argv : List String
+        argv =
+            "node" :: "elm-pages-test" :: cliArgs
+    in
+    case Program.run programConfig argv "" Program.WithoutColor of
+        Program.CustomMatch task ->
+            fromBackendTask task
+
+        Program.SystemMessage _ message ->
+            TestError ("fromScript: CLI argument parsing failed:\n\n" ++ message)
 
 
 type alias RunningState =

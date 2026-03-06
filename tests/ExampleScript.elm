@@ -1,7 +1,10 @@
-module ExampleScript exposing (fetchAndLogStars, fetchAndWriteReport)
+module ExampleScript exposing (fetchAndLogStars, fetchAndWriteReport, starsScript)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
+import Cli.Option as Option
+import Cli.OptionsParser as OptionsParser
+import Cli.Program as Program
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Pages.Script as Script
@@ -43,3 +46,27 @@ fetchAndWriteReport { username, repos } =
                     }
                     |> BackendTask.allowFatal
             )
+
+
+{-| A full Script value with CLI options for testing with fromScript.
+-}
+starsScript : Script.Script
+starsScript =
+    Script.withCliOptions
+        (Program.config
+            |> Program.add
+                (OptionsParser.build
+                    (\username repo -> { username = username, repo = repo })
+                    |> OptionsParser.with
+                        (Option.optionalKeywordArg "username"
+                            |> Option.withDefault "dillonkearns"
+                        )
+                    |> OptionsParser.with
+                        (Option.optionalKeywordArg "repo"
+                            |> Option.withDefault "elm-pages"
+                        )
+                )
+        )
+        (\{ username, repo } ->
+            fetchAndLogStars { username = username, repo = repo }
+        )
