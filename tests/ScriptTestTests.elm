@@ -52,11 +52,14 @@ all =
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
-                                    |> Expect.all
-                                        [ \m -> m |> String.contains "simulateHttpGet" |> Expect.equal True
-                                        , \m -> m |> String.contains "https://WRONG-URL.com" |> Expect.equal True
-                                        , \m -> m |> String.contains "https://api.github.com/repos/dillonkearns/elm-pages" |> Expect.equal True
-                                        ]
+                                    |> Expect.equal
+                                        """simulateHttpGet: Expected a pending GET request for
+
+    https://WRONG-URL.com
+
+but the pending requests are:
+
+    GET https://api.github.com/repos/dillonkearns/elm-pages"""
                             )
             ]
         , describe "ensureHttpGet"
@@ -96,11 +99,14 @@ all =
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
-                                    |> Expect.all
-                                        [ \m -> m |> String.contains "ensureHttpGet" |> Expect.equal True
-                                        , \m -> m |> String.contains "https://WRONG-URL.com" |> Expect.equal True
-                                        , \m -> m |> String.contains "https://api.github.com/repos/dillonkearns/elm-pages" |> Expect.equal True
-                                        ]
+                                    |> Expect.equal
+                                        """ensureHttpGet: Expected a pending GET request for
+
+    https://WRONG-URL.com
+
+but the pending requests are:
+
+    GET https://api.github.com/repos/dillonkearns/elm-pages"""
                             )
             ]
         , describe "sequential requests (andThen)"
@@ -159,11 +165,14 @@ all =
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
-                                    |> Expect.all
-                                        [ \m -> m |> String.contains "ensureLogged" |> Expect.equal True
-                                        , \m -> m |> String.contains "goodbye" |> Expect.equal True
-                                        , \m -> m |> String.contains "hello" |> Expect.equal True
-                                        ]
+                                    |> Expect.equal
+                                        """ensureLogged: Expected a log message:
+
+    "goodbye"
+
+but the logged messages are:
+
+    "hello\""""
                             )
             , test "Script.log auto-resolves and is tracked by ensureLogged" <|
                 \() ->
@@ -266,10 +275,14 @@ all =
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
-                                    |> Expect.all
-                                        [ \m -> m |> String.contains "simulateHttpPost" |> Expect.equal True
-                                        , \m -> m |> String.contains "GET" |> Expect.equal True
-                                        ]
+                                    |> Expect.equal
+                                        """simulateHttpPost: Expected a pending POST request for
+
+    https://api.example.com/items
+
+but the pending requests are:
+
+    GET https://api.example.com/items"""
                             )
             ]
         , describe "simulateHttpError"
@@ -299,11 +312,14 @@ all =
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
-                                    |> Expect.all
-                                        [ \m -> m |> String.contains "simulateHttpError" |> Expect.equal True
-                                        , \m -> m |> String.contains "https://WRONG.com" |> Expect.equal True
-                                        , \m -> m |> String.contains "https://api.example.com/data" |> Expect.equal True
-                                        ]
+                                    |> Expect.equal
+                                        """simulateHttpError: Expected a pending GET request for
+
+    https://WRONG.com
+
+but the pending requests are:
+
+    GET https://api.example.com/data"""
                             )
             ]
         , describe "simulateCustom"
@@ -331,11 +347,12 @@ all =
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
-                                    |> Expect.all
-                                        [ \m -> m |> String.contains "simulateCustom" |> Expect.equal True
-                                        , \m -> m |> String.contains "wrongPortName" |> Expect.equal True
-                                        , \m -> m |> String.contains "hashPassword" |> Expect.equal True
-                                        ]
+                                    |> Expect.equal
+                                        """simulateCustom: Expected a pending BackendTask.Custom.run call for port "wrongPortName"
+
+but the pending requests are:
+
+    BackendTask.Custom.run "hashPassword\""""
                             )
             ]
         , describe "ensureHttpPost"
@@ -372,11 +389,14 @@ all =
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
-                                    |> Expect.all
-                                        [ \m -> m |> String.contains "ensureHttpPost" |> Expect.equal True
-                                        , \m -> m |> String.contains "https://api.example.com/items" |> Expect.equal True
-                                        , \m -> m |> String.contains "GET" |> Expect.equal True
-                                        ]
+                                    |> Expect.equal
+                                        """ensureHttpPost: Expected a pending POST request for
+
+    https://api.example.com/items
+
+but the pending requests are:
+
+    GET https://api.example.com/items"""
                             )
             ]
         , describe "ensureCustom"
@@ -413,11 +433,12 @@ all =
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
-                                    |> Expect.all
-                                        [ \m -> m |> String.contains "ensureCustom" |> Expect.equal True
-                                        , \m -> m |> String.contains "wrongPortName" |> Expect.equal True
-                                        , \m -> m |> String.contains "hashPassword" |> Expect.equal True
-                                        ]
+                                    |> Expect.equal
+                                        """ensureCustom: Expected a pending BackendTask.Custom.run call for port "wrongPortName"
+
+but the pending requests are:
+
+    BackendTask.Custom.run "hashPassword\""""
                             )
             ]
         , describe "error messages"
@@ -427,7 +448,11 @@ all =
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.simulateHttpGet "https://example.com" (Encode.object [])
                         |> BackendTaskTest.expectTestError
-                            (\msg -> msg |> String.contains "already completed" |> Expect.equal True)
+                            (\msg ->
+                                msg
+                                    |> Expect.equal
+                                        "simulateHttpGet: The script has already completed. No pending requests to simulate."
+                            )
             , test "expectSuccess when requests still pending" <|
                 \() ->
                     BackendTask.Http.getJson "https://api.example.com/data" (Decode.succeed ())
@@ -452,11 +477,14 @@ all =
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
-                                    |> Expect.all
-                                        [ \m -> m |> String.contains "ensureFileWritten" |> Expect.equal True
-                                        , \m -> m |> String.contains "expected.txt" |> Expect.equal True
-                                        , \m -> m |> String.contains "actual.txt" |> Expect.equal True
-                                        ]
+                                    |> Expect.equal
+                                        """ensureFileWritten: Expected a file write to:
+
+    expected.txt
+
+but the file writes are:
+
+    actual.txt"""
                             )
             ]
         , describe "fromScript"
@@ -529,8 +557,12 @@ all =
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
-                                    |> String.contains "name"
-                                    |> Expect.equal True
+                                    |> Expect.equal
+                                        """fromScript: CLI argument parsing failed:
+
+Missing required option: --name
+
+elm-pages-test --name <name>"""
                             )
             ]
         , describe "fromBackendTask + expectFailure"
