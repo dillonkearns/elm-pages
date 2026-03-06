@@ -57,19 +57,30 @@ all =
                             )
             ]
         , describe "ensureHttpGet"
-            [ test "validates pending GET request exists" <|
+            [ test "verifies parallel requests are both pending" <|
                 \() ->
-                    BackendTask.Http.getJson
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
-                        (Decode.field "stargazers_count" Decode.int)
-                        |> BackendTask.allowFatal
-                        |> BackendTask.map (\_ -> ())
+                    BackendTask.map2 (\_ _ -> ())
+                        (BackendTask.Http.getJson
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            (Decode.field "stargazers_count" Decode.int)
+                            |> BackendTask.allowFatal
+                        )
+                        (BackendTask.Http.getJson
+                            "https://api.github.com/repos/dillonkearns/elm-graphql"
+                            (Decode.field "stargazers_count" Decode.int)
+                            |> BackendTask.allowFatal
+                        )
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.ensureHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
+                        |> BackendTaskTest.ensureHttpGet
+                            "https://api.github.com/repos/dillonkearns/elm-graphql"
                         |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
-                            (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
+                            (Encode.object [ ( "stargazers_count", Encode.int 1205 ) ])
+                        |> BackendTaskTest.simulateHttpGet
+                            "https://api.github.com/repos/dillonkearns/elm-graphql"
+                            (Encode.object [ ( "stargazers_count", Encode.int 780 ) ])
                         |> BackendTaskTest.expectSuccess
             , test "fails when expected GET not pending" <|
                 \() ->
@@ -319,6 +330,88 @@ all =
                                 msg
                                     |> Expect.all
                                         [ \m -> m |> String.contains "simulateCustom" |> Expect.equal True
+                                        , \m -> m |> String.contains "wrongPortName" |> Expect.equal True
+                                        , \m -> m |> String.contains "hashPassword" |> Expect.equal True
+                                        ]
+                            )
+            ]
+        , describe "ensureHttpPost"
+            [ test "verifies POST is pending alongside GET" <|
+                \() ->
+                    BackendTask.map2 (\_ _ -> ())
+                        (BackendTask.Http.getJson
+                            "https://api.example.com/config"
+                            (Decode.succeed ())
+                            |> BackendTask.allowFatal
+                        )
+                        (BackendTask.Http.post
+                            "https://api.example.com/items"
+                            (BackendTask.Http.jsonBody (Encode.object [ ( "name", Encode.string "test" ) ]))
+                            (BackendTask.Http.expectJson (Decode.succeed ()))
+                            |> BackendTask.allowFatal
+                        )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureHttpGet "https://api.example.com/config"
+                        |> BackendTaskTest.ensureHttpPost "https://api.example.com/items"
+                        |> BackendTaskTest.simulateHttpGet "https://api.example.com/config" Encode.null
+                        |> BackendTaskTest.simulateHttpPost
+                            "https://api.example.com/items"
+                            (Encode.object [ ( "id", Encode.int 42 ) ])
+                        |> BackendTaskTest.expectSuccess
+            , test "fails when expected POST not pending" <|
+                \() ->
+                    BackendTask.Http.getJson
+                        "https://api.example.com/items"
+                        (Decode.succeed ())
+                        |> BackendTask.allowFatal
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureHttpPost "https://api.example.com/items"
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> Expect.all
+                                        [ \m -> m |> String.contains "ensureHttpPost" |> Expect.equal True
+                                        , \m -> m |> String.contains "https://api.example.com/items" |> Expect.equal True
+                                        , \m -> m |> String.contains "GET" |> Expect.equal True
+                                        ]
+                            )
+            ]
+        , describe "ensureCustom"
+            [ test "verifies parallel Custom calls are both pending" <|
+                \() ->
+                    BackendTask.map2 (\_ _ -> ())
+                        (BackendTask.Custom.run "hashPassword"
+                            (Encode.string "secret123")
+                            Decode.string
+                            |> BackendTask.allowFatal
+                        )
+                        (BackendTask.Custom.run "sendEmail"
+                            (Encode.string "user@example.com")
+                            (Decode.succeed ())
+                            |> BackendTask.allowFatal
+                        )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureCustom "hashPassword"
+                        |> BackendTaskTest.ensureCustom "sendEmail"
+                        |> BackendTaskTest.simulateCustom "hashPassword"
+                            (Encode.string "hashed_secret123")
+                        |> BackendTaskTest.simulateCustom "sendEmail"
+                            Encode.null
+                        |> BackendTaskTest.expectSuccess
+            , test "fails when expected port not pending" <|
+                \() ->
+                    BackendTask.Custom.run "hashPassword"
+                        (Encode.string "secret123")
+                        Decode.string
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map (\_ -> ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureCustom "wrongPortName"
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> Expect.all
+                                        [ \m -> m |> String.contains "ensureCustom" |> Expect.equal True
                                         , \m -> m |> String.contains "wrongPortName" |> Expect.equal True
                                         , \m -> m |> String.contains "hashPassword" |> Expect.equal True
                                         ]
