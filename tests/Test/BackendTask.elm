@@ -1,7 +1,11 @@
-module ScriptTest exposing
-    ( ScriptTest
+module Test.BackendTask exposing
+    ( BackendTaskTest
+    , HttpError(..)
     , fromBackendTask
     , simulateHttpGet
+    , simulateHttpPost
+    , simulateHttpError
+    , simulateCustom
     , ensureHttpGet
     , ensureLogged
     , ensureFileWritten
@@ -22,7 +26,7 @@ import Pages.StaticHttpRequest exposing (RawRequest(..), Status(..))
 import RequestsAndPending
 
 
-type ScriptTest
+type BackendTaskTest
     = Running
         { continuation : RawRequest FatalError ()
         , responseEntries : List ( String, Encode.Value )
@@ -41,7 +45,12 @@ type TrackedEffect
     | FileWriteEffect { path : String, body : String }
 
 
-fromBackendTask : BackendTask FatalError () -> ScriptTest
+type HttpError
+    = NetworkError
+    | Timeout
+
+
+fromBackendTask : BackendTask FatalError () -> BackendTaskTest
 fromBackendTask task =
     advanceWithAutoResolve
         { continuation = task
@@ -59,15 +68,15 @@ type alias RunningState =
     }
 
 
-advanceWithAutoResolve : RunningState -> ScriptTest
+advanceWithAutoResolve : RunningState -> BackendTaskTest
 advanceWithAutoResolve state =
     advanceWithAutoResolveHelper 1000 state
 
 
-advanceWithAutoResolveHelper : Int -> RunningState -> ScriptTest
+advanceWithAutoResolveHelper : Int -> RunningState -> BackendTaskTest
 advanceWithAutoResolveHelper fuel state =
     if fuel <= 0 then
-        TestError "ScriptTest: Too many auto-resolve steps. Does your BackendTask have an infinite loop?"
+        TestError "BackendTaskTest: Too many auto-resolve steps. Does your BackendTask have an infinite loop?"
 
     else
         let
@@ -188,11 +197,39 @@ trackEffect req =
             []
 
 
-simulateHttpGet : String -> Encode.Value -> ScriptTest -> ScriptTest
-simulateHttpGet url jsonResponse scriptTest =
+simulateHttpGet : String -> Encode.Value -> BackendTaskTest -> BackendTaskTest
+simulateHttpGet url jsonResponse =
+    simulateHttpResponse "simulateHttpGet" "GET" url (httpSuccessResponse url jsonResponse)
+
+
+simulateHttpPost : String -> Encode.Value -> BackendTaskTest -> BackendTaskTest
+simulateHttpPost url jsonResponse =
+    simulateHttpResponse "simulateHttpPost" "POST" url (httpSuccessResponse url jsonResponse)
+
+
+simulateHttpError : String -> String -> HttpError -> BackendTaskTest -> BackendTaskTest
+simulateHttpError method url error =
+    let
+        errorString =
+            case error of
+                NetworkError ->
+                    "NetworkError"
+
+                Timeout ->
+                    "Timeout"
+
+        responseValue =
+            Encode.object
+                [ ( "elm-pages-internal-error", Encode.string errorString ) ]
+    in
+    simulateHttpResponse "simulateHttpError" method url responseValue
+
+
+simulateCustom : String -> Encode.Value -> BackendTaskTest -> BackendTaskTest
+simulateCustom portName jsonResponse scriptTest =
     case scriptTest of
         Running state ->
-            case findMatchingRequest "GET" url state.pendingRequests of
+            case findMatchingPort portName state.pendingRequests of
                 Just ( matchedReq, remaining ) ->
                     let
                         hash =
@@ -200,11 +237,7 @@ simulateHttpGet url jsonResponse scriptTest =
 
                         responseValue =
                             Encode.object
-                                [ ( "statusCode", Encode.int 200 )
-                                , ( "statusText", Encode.string "OK" )
-                                , ( "headers", Encode.object [] )
-                                , ( "url", Encode.string url )
-                                , ( "bodyKind", Encode.string "json" )
+                                [ ( "bodyKind", Encode.string "json" )
                                 , ( "body", jsonResponse )
                                 ]
 
@@ -225,14 +258,69 @@ simulateHttpGet url jsonResponse scriptTest =
 
                 Nothing ->
                     TestError
-                        ("simulateHttpGet: Expected a pending GET request for\n\n    "
+                        ("simulateCustom: Expected a pending BackendTask.Custom.run call for port \""
+                            ++ portName
+                            ++ "\"\n\nbut the pending requests are:\n\n"
+                            ++ formatPendingRequests state.pendingRequests
+                        )
+
+        Done _ ->
+            TestError "simulateCustom: The script has already completed. No pending requests to simulate."
+
+        TestError _ ->
+            scriptTest
+
+
+httpSuccessResponse : String -> Encode.Value -> Encode.Value
+httpSuccessResponse url jsonResponse =
+    Encode.object
+        [ ( "statusCode", Encode.int 200 )
+        , ( "statusText", Encode.string "OK" )
+        , ( "headers", Encode.object [] )
+        , ( "url", Encode.string url )
+        , ( "bodyKind", Encode.string "json" )
+        , ( "body", jsonResponse )
+        ]
+
+
+simulateHttpResponse : String -> String -> String -> Encode.Value -> BackendTaskTest -> BackendTaskTest
+simulateHttpResponse callerName method url responseValue scriptTest =
+    case scriptTest of
+        Running state ->
+            case findMatchingRequest method url state.pendingRequests of
+                Just ( matchedReq, remaining ) ->
+                    let
+                        hash =
+                            Request.hash matchedReq
+
+                        entry =
+                            ( hash, Encode.object [ ( "response", responseValue ) ] )
+
+                        newState =
+                            { state
+                                | responseEntries = entry :: state.responseEntries
+                                , pendingRequests = remaining
+                            }
+                    in
+                    if List.isEmpty remaining then
+                        advanceWithAutoResolve newState
+
+                    else
+                        Running newState
+
+                Nothing ->
+                    TestError
+                        (callerName
+                            ++ ": Expected a pending "
+                            ++ method
+                            ++ " request for\n\n    "
                             ++ url
                             ++ "\n\nbut the pending requests are:\n\n"
                             ++ formatPendingRequests state.pendingRequests
                         )
 
         Done _ ->
-            TestError "simulateHttpGet: The script has already completed. No pending requests to simulate."
+            TestError (callerName ++ ": The script has already completed. No pending requests to simulate.")
 
         TestError _ ->
             scriptTest
@@ -257,6 +345,36 @@ findMatchingRequestHelper method url before after =
                 findMatchingRequestHelper method url (req :: before) rest
 
 
+findMatchingPort : String -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
+findMatchingPort portName requests =
+    findMatchingPortHelper portName [] requests
+
+
+findMatchingPortHelper : String -> List Request.Request -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
+findMatchingPortHelper portName before after =
+    case after of
+        [] ->
+            Nothing
+
+        req :: rest ->
+            if req.url == "elm-pages-internal://port" && getPortName req == Just portName then
+                Just ( req, List.reverse before ++ rest )
+
+            else
+                findMatchingPortHelper portName (req :: before) rest
+
+
+getPortName : Request.Request -> Maybe String
+getPortName req =
+    case req.body of
+        StaticHttpBody.JsonBody json ->
+            Decode.decodeValue (Decode.field "portName" Decode.string) json
+                |> Result.toMaybe
+
+        _ ->
+            Nothing
+
+
 formatPendingRequests : List Request.Request -> String
 formatPendingRequests requests =
     if List.isEmpty requests then
@@ -264,11 +382,18 @@ formatPendingRequests requests =
 
     else
         requests
-            |> List.map (\req -> "    " ++ req.method ++ " " ++ req.url)
+            |> List.map
+                (\req ->
+                    if req.url == "elm-pages-internal://port" then
+                        "    BackendTask.Custom.run \"" ++ (getPortName req |> Maybe.withDefault "???") ++ "\""
+
+                    else
+                        "    " ++ req.method ++ " " ++ req.url
+                )
             |> String.join "\n"
 
 
-ensureHttpGet : String -> ScriptTest -> ScriptTest
+ensureHttpGet : String -> BackendTaskTest -> BackendTaskTest
 ensureHttpGet url scriptTest =
     case scriptTest of
         TestError _ ->
@@ -295,7 +420,7 @@ ensureHttpGet url scriptTest =
                         )
 
 
-ensureLogged : String -> ScriptTest -> ScriptTest
+ensureLogged : String -> BackendTaskTest -> BackendTaskTest
 ensureLogged expectedMessage scriptTest =
     case scriptTest of
         TestError _ ->
@@ -326,7 +451,7 @@ ensureLogged expectedMessage scriptTest =
                     )
 
 
-ensureFileWritten : { path : String, body : String } -> ScriptTest -> ScriptTest
+ensureFileWritten : { path : String, body : String } -> BackendTaskTest -> BackendTaskTest
 ensureFileWritten expected scriptTest =
     let
         check effects =
@@ -409,7 +534,7 @@ permanentErrorToString err =
             "Internal error"
 
 
-expectSuccess : ScriptTest -> Expectation
+expectSuccess : BackendTaskTest -> Expectation
 expectSuccess scriptTest =
     case scriptTest of
         Done { result } ->
@@ -430,7 +555,7 @@ expectSuccess scriptTest =
             Expect.fail msg
 
 
-expectFailure : ScriptTest -> Expectation
+expectFailure : BackendTaskTest -> Expectation
 expectFailure scriptTest =
     case scriptTest of
         Done { result } ->
@@ -451,7 +576,7 @@ expectFailure scriptTest =
             Expect.fail msg
 
 
-expectTestError : (String -> Expectation) -> ScriptTest -> Expectation
+expectTestError : (String -> Expectation) -> BackendTaskTest -> Expectation
 expectTestError assertion scriptTest =
     case scriptTest of
         TestError msg ->

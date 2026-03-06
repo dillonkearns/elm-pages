@@ -1,25 +1,26 @@
 module ScriptTestTests exposing (all)
 
 import BackendTask
+import BackendTask.Custom
 import BackendTask.Http
 import Expect
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Script as Script
-import ScriptTest
 import Test exposing (Test, describe, test)
+import Test.BackendTask as BackendTaskTest
 
 
 all : Test
 all =
-    describe "ScriptTest"
+    describe "Test.BackendTask"
         [ describe "fromBackendTask + expectSuccess"
             [ test "succeeds for BackendTask.succeed ()" <|
                 \() ->
                     BackendTask.succeed ()
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.expectSuccess
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectSuccess
             ]
         , describe "simulateHttpGet"
             [ test "single HTTP GET resolves and succeeds" <|
@@ -29,11 +30,11 @@ all =
                         (Decode.field "stargazers_count" Decode.int)
                         |> BackendTask.allowFatal
                         |> BackendTask.map (\_ -> ())
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
-                        |> ScriptTest.expectSuccess
+                        |> BackendTaskTest.expectSuccess
             , test "wrong URL gives helpful error" <|
                 \() ->
                     BackendTask.Http.getJson
@@ -41,11 +42,11 @@ all =
                         (Decode.field "stargazers_count" Decode.int)
                         |> BackendTask.allowFatal
                         |> BackendTask.map (\_ -> ())
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpGet
                             "https://WRONG-URL.com"
                             (Encode.object [])
-                        |> ScriptTest.expectTestError
+                        |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
                                     |> Expect.all
@@ -63,22 +64,22 @@ all =
                         (Decode.field "stargazers_count" Decode.int)
                         |> BackendTask.allowFatal
                         |> BackendTask.map (\_ -> ())
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.ensureHttpGet
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
-                        |> ScriptTest.expectSuccess
+                        |> BackendTaskTest.expectSuccess
             , test "fails when expected GET not pending" <|
                 \() ->
                     BackendTask.Http.getJson
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         (Decode.succeed ())
                         |> BackendTask.allowFatal
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.ensureHttpGet "https://WRONG-URL.com"
-                        |> ScriptTest.expectTestError
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureHttpGet "https://WRONG-URL.com"
+                        |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
                                     |> Expect.all
@@ -103,14 +104,14 @@ all =
                                     |> BackendTask.allowFatal
                                     |> BackendTask.map (\_ -> ())
                             )
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                             (Encode.object [ ( "stargazers_count", Encode.int 22 ) ])
-                        |> ScriptTest.expectSuccess
+                        |> BackendTaskTest.expectSuccess
             ]
         , describe "parallel requests (map2)"
             [ test "two parallel HTTP GETs" <|
@@ -126,22 +127,22 @@ all =
                             (Decode.field "stargazers_count" Decode.int)
                             |> BackendTask.allowFatal
                         )
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                             (Encode.object [ ( "stargazers_count", Encode.int 22 ) ])
-                        |> ScriptTest.expectSuccess
+                        |> BackendTaskTest.expectSuccess
             ]
         , describe "auto-resolve and tracking"
             [ test "ensureLogged fails when message not present" <|
                 \() ->
                     Script.log "hello"
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.ensureLogged "goodbye"
-                        |> ScriptTest.expectTestError
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "goodbye"
+                        |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
                                     |> Expect.all
@@ -160,21 +161,21 @@ all =
                             (\stars ->
                                 Script.log (String.fromInt stars)
                             )
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
-                        |> ScriptTest.ensureLogged "86"
-                        |> ScriptTest.expectSuccess
+                        |> BackendTaskTest.ensureLogged "86"
+                        |> BackendTaskTest.expectSuccess
             ]
         , describe "file write tracking"
             [ test "writeFile auto-resolves and is tracked by ensureFileWritten" <|
                 \() ->
                     Script.writeFile { path = "output.json", body = """{"key":"value"}""" }
                         |> BackendTask.allowFatal
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.ensureFileWritten { path = "output.json", body = """{"key":"value"}""" }
-                        |> ScriptTest.expectSuccess
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureFileWritten { path = "output.json", body = """{"key":"value"}""" }
+                        |> BackendTaskTest.expectSuccess
             ]
         , describe "dogfooding: Stars-like script"
             [ test "fetches star count and logs it" <|
@@ -191,12 +192,12 @@ all =
                                     )
                     in
                     starsTask
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
-                        |> ScriptTest.ensureLogged "86"
-                        |> ScriptTest.expectSuccess
+                        |> BackendTaskTest.ensureLogged "86"
+                        |> BackendTaskTest.expectSuccess
             , test "fetches then writes file" <|
                 \() ->
                     let
@@ -215,19 +216,157 @@ all =
                                     )
                     in
                     writeStarsTask
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
-                        |> ScriptTest.ensureFileWritten { path = "stars.txt", body = "86" }
-                        |> ScriptTest.expectSuccess
+                        |> BackendTaskTest.ensureFileWritten { path = "stars.txt", body = "86" }
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "simulateHttpPost"
+            [ test "POST request resolves and succeeds" <|
+                \() ->
+                    BackendTask.Http.post
+                        "https://api.example.com/items"
+                        (BackendTask.Http.jsonBody (Encode.object [ ( "name", Encode.string "test" ) ]))
+                        (BackendTask.Http.expectJson (Decode.field "id" Decode.int))
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map (\_ -> ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpPost
+                            "https://api.example.com/items"
+                            (Encode.object [ ( "id", Encode.int 42 ) ])
+                        |> BackendTaskTest.expectSuccess
+            , test "error when simulating POST but only GET is pending" <|
+                \() ->
+                    BackendTask.Http.getJson
+                        "https://api.example.com/items"
+                        (Decode.succeed ())
+                        |> BackendTask.allowFatal
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpPost
+                            "https://api.example.com/items"
+                            (Encode.object [])
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> Expect.all
+                                        [ \m -> m |> String.contains "simulateHttpPost" |> Expect.equal True
+                                        , \m -> m |> String.contains "GET" |> Expect.equal True
+                                        ]
+                            )
+            ]
+        , describe "simulateHttpError"
+            [ test "network error causes script failure" <|
+                \() ->
+                    BackendTask.Http.getJson
+                        "https://api.example.com/data"
+                        (Decode.succeed ())
+                        |> BackendTask.allowFatal
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpError
+                            "GET"
+                            "https://api.example.com/data"
+                            BackendTaskTest.NetworkError
+                        |> BackendTaskTest.expectFailure
+            , test "error when URL doesn't match" <|
+                \() ->
+                    BackendTask.Http.getJson
+                        "https://api.example.com/data"
+                        (Decode.succeed ())
+                        |> BackendTask.allowFatal
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpError
+                            "GET"
+                            "https://WRONG.com"
+                            BackendTaskTest.NetworkError
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> Expect.all
+                                        [ \m -> m |> String.contains "simulateHttpError" |> Expect.equal True
+                                        , \m -> m |> String.contains "https://WRONG.com" |> Expect.equal True
+                                        , \m -> m |> String.contains "https://api.example.com/data" |> Expect.equal True
+                                        ]
+                            )
+            ]
+        , describe "simulateCustom"
+            [ test "custom port call resolves with simulated value" <|
+                \() ->
+                    BackendTask.Custom.run "hashPassword"
+                        (Encode.string "secret123")
+                        Decode.string
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map (\_ -> ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateCustom "hashPassword"
+                            (Encode.string "hashed_secret123")
+                        |> BackendTaskTest.expectSuccess
+            , test "error when port name doesn't match" <|
+                \() ->
+                    BackendTask.Custom.run "hashPassword"
+                        (Encode.string "secret123")
+                        Decode.string
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map (\_ -> ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateCustom "wrongPortName"
+                            (Encode.string "whatever")
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> Expect.all
+                                        [ \m -> m |> String.contains "simulateCustom" |> Expect.equal True
+                                        , \m -> m |> String.contains "wrongPortName" |> Expect.equal True
+                                        , \m -> m |> String.contains "hashPassword" |> Expect.equal True
+                                        ]
+                            )
+            ]
+        , describe "error messages"
+            [ test "simulateHttpGet on completed script" <|
+                \() ->
+                    BackendTask.succeed ()
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpGet "https://example.com" (Encode.object [])
+                        |> BackendTaskTest.expectTestError
+                            (\msg -> msg |> String.contains "already completed" |> Expect.equal True)
+            , test "expectSuccess when requests still pending" <|
+                \() ->
+                    BackendTask.Http.getJson "https://api.example.com/data" (Decode.succeed ())
+                        |> BackendTask.allowFatal
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectSuccess
+                        |> Expect.equal (Expect.fail "")
+                        |> (\_ ->
+                                -- Can't easily test Expectation equality, so just verify it's Running
+                                BackendTask.Http.getJson "https://api.example.com/data" (Decode.succeed ())
+                                    |> BackendTask.allowFatal
+                                    |> BackendTaskTest.fromBackendTask
+                                    |> BackendTaskTest.simulateHttpGet "https://api.example.com/data" Encode.null
+                                    |> BackendTaskTest.expectSuccess
+                           )
+            , test "ensureFileWritten shows actual file writes in error" <|
+                \() ->
+                    Script.writeFile { path = "actual.txt", body = "content" }
+                        |> BackendTask.allowFatal
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureFileWritten { path = "expected.txt", body = "other" }
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> Expect.all
+                                        [ \m -> m |> String.contains "ensureFileWritten" |> Expect.equal True
+                                        , \m -> m |> String.contains "expected.txt" |> Expect.equal True
+                                        , \m -> m |> String.contains "actual.txt" |> Expect.equal True
+                                        ]
+                            )
             ]
         , describe "fromBackendTask + expectFailure"
             [ test "fails for BackendTask.fail" <|
                 \() ->
                     FatalError.fromString "Something went wrong"
                         |> BackendTask.fail
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.expectFailure
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFailure
             ]
         ]

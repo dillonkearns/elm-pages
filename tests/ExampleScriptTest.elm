@@ -3,7 +3,7 @@ module ExampleScriptTest exposing (all)
 import ExampleScript
 import Expect
 import Json.Encode as Encode
-import ScriptTest
+import Test.BackendTask as BackendTaskTest
 import Test exposing (Test, describe, test)
 
 
@@ -15,24 +15,24 @@ all =
                 \() ->
                     ExampleScript.fetchAndLogStars
                         { username = "dillonkearns", repo = "elm-pages" }
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.ensureHttpGet
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 1205 ) ])
-                        |> ScriptTest.ensureLogged "dillonkearns/elm-pages has 1205 stars"
-                        |> ScriptTest.expectSuccess
+                        |> BackendTaskTest.ensureLogged "dillonkearns/elm-pages has 1205 stars"
+                        |> BackendTaskTest.expectSuccess
             , test "works with a different repo" <|
                 \() ->
                     ExampleScript.fetchAndLogStars
                         { username = "mdgriffith", repo = "elm-ui" }
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/mdgriffith/elm-ui"
                             (Encode.object [ ( "stargazers_count", Encode.int 1300 ) ])
-                        |> ScriptTest.ensureLogged "mdgriffith/elm-ui has 1300 stars"
-                        |> ScriptTest.expectSuccess
+                        |> BackendTaskTest.ensureLogged "mdgriffith/elm-ui has 1300 stars"
+                        |> BackendTaskTest.expectSuccess
             ]
         , describe "fetchAndWriteReport"
             [ test "fetches stars for multiple repos and writes a report" <|
@@ -41,17 +41,17 @@ all =
                         { username = "dillonkearns"
                         , repos = [ "elm-pages", "elm-graphql" ]
                         }
-                        |> ScriptTest.fromBackendTask
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 1205 ) ])
-                        |> ScriptTest.simulateHttpGet
+                        |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-graphql"
                             (Encode.object [ ( "stargazers_count", Encode.int 780 ) ])
-                        |> ScriptTest.ensureFileWritten
+                        |> BackendTaskTest.ensureFileWritten
                             { path = "report.md"
                             , body = "# Star Report\n\nelm-pages: 1205\nelm-graphql: 780"
                             }
-                        |> ScriptTest.expectSuccess
+                        |> BackendTaskTest.expectSuccess
             ]
         ]
