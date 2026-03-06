@@ -1,6 +1,6 @@
 module ScriptTestTests exposing (all)
 
-import BackendTask
+import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import BackendTask.Http
 import Expect
@@ -97,9 +97,9 @@ all =
                         (Decode.field "stargazers_count" Decode.int)
                         |> BackendTask.allowFatal
                         |> BackendTask.andThen
-                            (\stars ->
+                            (\_ ->
                                 BackendTask.Http.getJson
-                                    ("https://api.github.com/repos/dillonkearns/elm-pages-starter")
+                                    "https://api.github.com/repos/dillonkearns/elm-pages-starter"
                                     (Decode.field "stargazers_count" Decode.int)
                                     |> BackendTask.allowFatal
                                     |> BackendTask.map (\_ -> ())
@@ -181,6 +181,7 @@ all =
             [ test "fetches star count and logs it" <|
                 \() ->
                     let
+                        starsTask : BackendTask FatalError ()
                         starsTask =
                             BackendTask.Http.getJson
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -201,6 +202,7 @@ all =
             , test "fetches then writes file" <|
                 \() ->
                     let
+                        writeStarsTask : BackendTask FatalError ()
                         writeStarsTask =
                             BackendTask.Http.getJson
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
