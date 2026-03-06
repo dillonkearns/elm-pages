@@ -731,8 +731,6 @@ async function runInternalJob(
         return [requestHash, runStartSpinner(requestToPerform)];
       case "elm-pages-internal://stop-spinner":
         return [requestHash, runStopSpinner(requestToPerform)];
-      case "elm-pages-internal://db-read":
-        return [requestHash, await runDbRead(requestToPerform)];
       case "elm-pages-internal://db-read-meta":
         return [requestHash, await runDbReadMeta(requestToPerform)];
       case "elm-pages-internal://db-write":
@@ -865,62 +863,6 @@ async function runDbSetDefaultPath(req) {
 
   configuredDbPath = payload.path;
   return jsonResponse(req, null);
-}
-
-async function runDbRead(req) {
-  const cwd = path.resolve(...req.dir);
-  const payload = req.body.args[0];
-  const schemaHash =
-    typeof payload === "string" ? payload : payload && payload.hash;
-  const dbBinPath = resolveDbBinPath(cwd, payload);
-  const lockPath = resolveDbLockPath(dbBinPath);
-  const dbBinDisplay = path.relative(cwd, dbBinPath) || dbBinPath;
-  const lockDisplay = path.relative(cwd, lockPath) || lockPath;
-
-  if (typeof schemaHash !== "string" || schemaHash.length === 0) {
-    throw {
-      title: "Invalid db-read payload",
-      message:
-        "Expected schema hash when reading from the database.",
-    };
-  }
-
-  try {
-    const fileContents = await fsPromises.readFile(dbBinPath);
-    const parsed = parseDbBinHeader(fileContents);
-
-    // Compare schema hash
-    if (parsed.schemaHashHex !== schemaHash) {
-      throw {
-        title: "Schema mismatch",
-        message:
-          `Your Db type has changed since ${dbBinDisplay} was last written. Delete ${dbBinDisplay} and ${lockDisplay} (if present) to start fresh (this will delete existing data).`,
-      };
-    }
-
-    // Return Wire3 data with length prefix
-    const buffer = new Uint8Array(4 + parsed.wire3Data.length);
-    const view = new DataView(
-      buffer.buffer,
-      buffer.byteOffset,
-      buffer.byteLength
-    );
-    view.setInt32(0, parsed.wire3Data.length);
-    parsed.wire3Data.copy(buffer, 4);
-
-    return bytesResponse(req, buffer);
-  } catch (error) {
-    if (error.code === "ENOENT") {
-      // File doesn't exist - return length=0 so Elm uses the generated seed path
-      // Must use DataView to write big-endian int32 (Buffer.from(Int32Array)
-      // copies values as bytes, not the underlying 4-byte representation)
-      const buffer = new Uint8Array(4);
-      new DataView(buffer.buffer).setInt32(0, 0); // big-endian 0
-      return bytesResponse(req, buffer);
-    }
-    // Re-throw structured errors from validation above
-    throw error;
-  }
 }
 
 async function runDbReadMeta(req) {
