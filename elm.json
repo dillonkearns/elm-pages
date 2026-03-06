@@ -46,7 +46,8 @@
         "Pages.Internal.ResponseSketch",
         "Pages.Internal.Router",
         "Pages.Internal.RoutePattern",
-        "Pages.Internal.NotFoundReason"
+        "Pages.Internal.NotFoundReason",
+        "Test.BackendTask"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
@@ -78,11 +79,11 @@
         "robinheghan/fnv1a": "1.0.0 <= v < 2.0.0",
         "rtfeldman/elm-css": "18.0.0 <= v < 19.0.0",
         "the-sett/elm-syntax-dsl": "6.0.2 <= v < 7.0.0",
-        "wolfadex/elm-ansi": "3.0.0 <= v < 4.0.0"
+        "wolfadex/elm-ansi": "3.0.0 <= v < 4.0.0",
+        "elm-explorations/test": "2.0.1 <= v < 3.0.0"
     },
     "test-dependencies": {
         "avh4/elm-program-test": "4.0.0 <= v < 5.0.0",
-        "elm-explorations/test": "2.0.1 <= v < 3.0.0",
         "the-sett/elm-pretty-printer": "3.0.0 <= v < 4.0.0"
     }
 }
