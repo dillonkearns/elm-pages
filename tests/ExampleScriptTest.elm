@@ -1,10 +1,9 @@
 module ExampleScriptTest exposing (all)
 
 import ExampleScript
-import Expect
 import Json.Encode as Encode
-import Test.BackendTask as BackendTaskTest
 import Test exposing (Test, describe, test)
+import Test.BackendTask as BackendTaskTest
 
 
 all : Test
