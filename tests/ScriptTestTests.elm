@@ -1110,6 +1110,153 @@ but the pending requests are:
                                     msg
                             )
             ]
+        , describe "gzip and unzip"
+            [ test "gzip then unzip round-trips" <|
+                \() ->
+                    Stream.fromString "hello world"
+                        |> Stream.pipe Stream.gzip
+                        |> Stream.pipe Stream.unzip
+                        |> Stream.read
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\output -> Script.log output.body)
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "hello world"
+                        |> BackendTaskTest.expectSuccess
+            , test "unzip without gzip gives error" <|
+                \() ->
+                    Stream.fromString "plain text"
+                        |> Stream.pipe Stream.unzip
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFailure
+            , test "gzip marker is visible in fileWrite" <|
+                \() ->
+                    Stream.fromString "compressed data"
+                        |> Stream.pipe Stream.gzip
+                        |> Stream.pipe (Stream.fileWrite "data.gz")
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFile "data.gz" "****GZIPPED****compressed data"
+                        |> BackendTaskTest.expectSuccess
+            , test "gzip fileWrite then unzip fileRead round-trips" <|
+                \() ->
+                    let
+                        compress =
+                            Stream.fromString "secret"
+                                |> Stream.pipe Stream.gzip
+                                |> Stream.pipe (Stream.fileWrite "data.gz")
+                                |> Stream.run
+
+                        decompress =
+                            Stream.fileRead "data.gz"
+                                |> Stream.pipe Stream.unzip
+                                |> Stream.read
+                                |> BackendTask.allowFatal
+                    in
+                    compress
+                        |> BackendTask.andThen (\() -> decompress)
+                        |> BackendTask.andThen (\output -> Script.log output.body)
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "secret"
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "simulateCustomStream"
+            [ test "custom duplex stream resolves" <|
+                \() ->
+                    Stream.fromString "input data"
+                        |> Stream.pipe (Stream.customDuplex "myTransform" (Encode.object []))
+                        |> Stream.pipe (Stream.fileWrite "output.txt")
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateCustomStream "myTransform" "transformed output"
+                        |> BackendTaskTest.expectFile "output.txt" "transformed output"
+                        |> BackendTaskTest.expectSuccess
+            , test "custom read stream resolves" <|
+                \() ->
+                    Stream.customRead "dataSource" (Encode.object [])
+                        |> Stream.pipe (Stream.fileWrite "result.txt")
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateCustomStream "dataSource" "generated data"
+                        |> BackendTaskTest.expectFile "result.txt" "generated data"
+                        |> BackendTaskTest.expectSuccess
+            , test "wrong port name gives helpful error" <|
+                \() ->
+                    Stream.fromString "input"
+                        |> Stream.pipe (Stream.customDuplex "myPort" (Encode.object []))
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateCustomStream "wrongPort" "output"
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                Expect.equal
+                                    """simulateCustomStream: Expected a pending stream with custom stream port "wrongPort"
+
+but the pending requests are:
+
+    Stream [fromString | customDuplex]"""
+                                    msg
+                            )
+            ]
+        , describe "simulateStreamHttp"
+            [ test "http stream resolves" <|
+                \() ->
+                    Stream.http
+                        { url = "https://api.example.com/data"
+                        , method = "GET"
+                        , headers = []
+                        , body = BackendTask.Http.emptyBody
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
+                        }
+                        |> Stream.read
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\output -> Script.log output.body)
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateStreamHttp "https://api.example.com/data" "response body"
+                        |> BackendTaskTest.ensureLogged "response body"
+                        |> BackendTaskTest.expectSuccess
+            , test "http stream with fileWrite" <|
+                \() ->
+                    Stream.http
+                        { url = "https://api.example.com/data"
+                        , method = "GET"
+                        , headers = []
+                        , body = BackendTask.Http.emptyBody
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
+                        }
+                        |> Stream.pipe (Stream.fileWrite "response.json")
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateStreamHttp "https://api.example.com/data" "{\"count\": 42}"
+                        |> BackendTaskTest.expectFile "response.json" "{\"count\": 42}"
+                        |> BackendTaskTest.expectSuccess
+            , test "wrong URL gives helpful error" <|
+                \() ->
+                    Stream.http
+                        { url = "https://api.example.com/data"
+                        , method = "GET"
+                        , headers = []
+                        , body = BackendTask.Http.emptyBody
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
+                        }
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateStreamHttp "https://wrong.url/data" "response"
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                Expect.equal
+                                    """simulateStreamHttp: Expected a pending stream with stream HTTP request "https://wrong.url/data"
+
+but the pending requests are:
+
+    Stream [httpWrite]"""
+                                    msg
+                            )
+            ]
         ]
 
 
