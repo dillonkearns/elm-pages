@@ -3,9 +3,9 @@ module Test.BackendTask exposing
     , TestSetup, defaultSetup, withFile, withDb, withStdin, withEnv
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
-    , expectFile, expectFileExists, expectNoFile
+    , ensureFile, ensureFileExists, ensureNoFile
     , SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
-    , expectSuccess, expectDb, expectFailure, expectTestError
+    , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectTestError
     )
 
 {-| Pure Elm testing for `BackendTask` pipelines — no side effects, no HTTP calls, no file I/O.
@@ -59,7 +59,7 @@ simulate things the framework can't predict (HTTP, shell commands, custom ports)
   - `Stream.gzip`, `Stream.unzip`
 
 All of these read from or write to virtual state. Use `withFile` to seed files, `withEnv` to
-seed environment variables, `expectFile` to assert on files, and
+seed environment variables, `ensureFile` to assert on files, and
 `ensureLogged`/`ensureStdout`/`ensureStderr` to check output.
 
 **Needs simulation:**
@@ -109,7 +109,7 @@ These check conditions mid-pipeline without ending the test. They return the sam
 Built-in filesystem operations (`Script.writeFile`, `Script.removeFile`, etc.) are tracked
 in a virtual filesystem. Assert on the final state with these functions.
 
-@docs expectFile, expectFileExists, expectNoFile
+@docs ensureFile, ensureFileExists, ensureNoFile
 
 
 ## Simulated Effects
@@ -125,7 +125,7 @@ virtual filesystem automatically.
 
 These end the pipeline and produce an `Expectation` for elm-test.
 
-@docs expectSuccess, expectDb, expectFailure, expectTestError
+@docs expectSuccess, expectSuccessWith, expectDb, expectFailure, expectTestError
 
 -}
 
@@ -156,23 +156,9 @@ simulate external effects, and finish with [`expectSuccess`](#expectSuccess) or 
         |> BackendTaskTest.expectSuccess
 
 -}
-type BackendTaskTest
-    = Running
-        { continuation : RawRequest FatalError ()
-        , responseEntries : List ( String, Encode.Value )
-        , responseBytesEntries : Dict String Bytes
-        , pendingRequests : List Request.Request
-        , trackedEffects : List TrackedEffect
-        , virtualFS : VirtualFS
-        , virtualDB : VirtualDB
-        , simulatedEffects : Maybe (String -> Encode.Value -> List SimulatedEffect)
-        }
-    | Done
-        { result : Result FatalError ()
-        , trackedEffects : List TrackedEffect
-        , virtualFS : VirtualFS
-        , virtualDB : VirtualDB
-        }
+type BackendTaskTest a
+    = Running (RunningState a)
+    | Done (DoneState a)
     | TestError String
 
 
@@ -384,7 +370,7 @@ effects like HTTP requests and `BackendTask.Custom.run` calls.
         |> BackendTaskTest.expectSuccess
 
 -}
-fromBackendTask : BackendTask FatalError () -> BackendTaskTest
+fromBackendTask : BackendTask FatalError a -> BackendTaskTest a
 fromBackendTask =
     fromBackendTaskWith defaultSetup
 
@@ -406,7 +392,7 @@ to seed initial files or DB state.
         |> BackendTaskTest.expectSuccess
 
 -}
-fromBackendTaskWith : TestSetup -> BackendTask FatalError () -> BackendTaskTest
+fromBackendTaskWith : TestSetup -> BackendTask FatalError a -> BackendTaskTest a
 fromBackendTaskWith (TestSetup setup) task =
     advanceWithAutoResolve
         { continuation = task
@@ -443,7 +429,7 @@ fromBackendTaskWithDb :
     { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes }
     -> db
     -> BackendTask FatalError ()
-    -> BackendTaskTest
+    -> BackendTaskTest ()
 fromBackendTaskWithDb config initialValue =
     fromBackendTaskWith (defaultSetup |> withDb config initialValue)
 
@@ -476,7 +462,7 @@ If the CLI arguments don't match the expected options, you get a `TestError`
 with the CLI parser's error message.
 
 -}
-fromScript : List String -> Pages.Internal.Script.Script -> BackendTaskTest
+fromScript : List String -> Pages.Internal.Script.Script -> BackendTaskTest ()
 fromScript =
     fromScriptWith defaultSetup
 
@@ -492,7 +478,7 @@ fromScript =
         |> BackendTaskTest.expectSuccess
 
 -}
-fromScriptWith : TestSetup -> List String -> Pages.Internal.Script.Script -> BackendTaskTest
+fromScriptWith : TestSetup -> List String -> Pages.Internal.Script.Script -> BackendTaskTest ()
 fromScriptWith setup cliArgs (Pages.Internal.Script.Script toConfig) =
     let
         programConfig : Program.Config (BackendTask FatalError ())
@@ -511,8 +497,8 @@ fromScriptWith setup cliArgs (Pages.Internal.Script.Script toConfig) =
             TestError ("fromScript: CLI argument parsing failed:\n\n" ++ message)
 
 
-type alias RunningState =
-    { continuation : RawRequest FatalError ()
+type alias RunningState a =
+    { continuation : RawRequest FatalError a
     , responseEntries : List ( String, Encode.Value )
     , responseBytesEntries : Dict String Bytes
     , pendingRequests : List Request.Request
@@ -523,12 +509,20 @@ type alias RunningState =
     }
 
 
-advanceWithAutoResolve : RunningState -> BackendTaskTest
+type alias DoneState a =
+    { result : Result FatalError a
+    , trackedEffects : List TrackedEffect
+    , virtualFS : VirtualFS
+    , virtualDB : VirtualDB
+    }
+
+
+advanceWithAutoResolve : RunningState a -> BackendTaskTest a
 advanceWithAutoResolve state =
     advanceWithAutoResolveHelper 1000 state
 
 
-advanceWithAutoResolveHelper : Int -> RunningState -> BackendTaskTest
+advanceWithAutoResolveHelper : Int -> RunningState a -> BackendTaskTest a
 advanceWithAutoResolveHelper fuel state =
     if fuel <= 0 then
         TestError "BackendTaskTest: Too many auto-resolve steps. Does your BackendTask have an infinite loop?"
@@ -1391,7 +1385,7 @@ If the URL doesn't match any pending request, you'll get a helpful error listing
 actual pending requests.
 
 -}
-simulateHttpGet : String -> Encode.Value -> BackendTaskTest -> BackendTaskTest
+simulateHttpGet : String -> Encode.Value -> BackendTaskTest a -> BackendTaskTest a
 simulateHttpGet url jsonResponse =
     simulateHttpResponse "simulateHttpGet" "GET" url (httpSuccessResponse url jsonResponse)
 
@@ -1417,7 +1411,7 @@ simulateHttpGet url jsonResponse =
         |> BackendTaskTest.expectSuccess
 
 -}
-simulateHttpPost : String -> Encode.Value -> BackendTaskTest -> BackendTaskTest
+simulateHttpPost : String -> Encode.Value -> BackendTaskTest a -> BackendTaskTest a
 simulateHttpPost url jsonResponse =
     simulateHttpResponse "simulateHttpPost" "POST" url (httpSuccessResponse url jsonResponse)
 
@@ -1441,7 +1435,7 @@ simulateHttpPost url jsonResponse =
         |> BackendTaskTest.expectFailure
 
 -}
-simulateHttpError : String -> String -> HttpError -> BackendTaskTest -> BackendTaskTest
+simulateHttpError : String -> String -> HttpError -> BackendTaskTest a -> BackendTaskTest a
 simulateHttpError method url error =
     let
         errorString =
@@ -1479,7 +1473,7 @@ The port name must exactly match the first argument passed to `BackendTask.Custo
         |> BackendTaskTest.expectSuccess
 
 -}
-simulateCustom : String -> Encode.Value -> BackendTaskTest -> BackendTaskTest
+simulateCustom : String -> Encode.Value -> BackendTaskTest a -> BackendTaskTest a
 simulateCustom portName jsonResponse scriptTest =
     case scriptTest of
         Running state ->
@@ -1523,7 +1517,7 @@ simulateCustom portName jsonResponse scriptTest =
                         updatedVirtualFS =
                             applySimulatedEffects handlerEffects state.virtualFS
 
-                        newState : RunningState
+                        newState : RunningState a
                         newState =
                             { state
                                 | responseEntries = entry :: state.responseEntries
@@ -1565,14 +1559,14 @@ around the command — you only provide the command's output.
         |> Stream.run
         |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.simulateCommand "grep" "error: something bad\n"
-        |> BackendTaskTest.expectFile "errors.txt" "error: something bad\n"
+        |> BackendTaskTest.ensureFile "errors.txt" "error: something bad\n"
         |> BackendTaskTest.expectSuccess
 
 For `Stream.run` pipelines, the output is used for downstream parts (like `fileWrite`)
 but isn't returned to Elm. For `Stream.read`, it becomes the body.
 
 -}
-simulateCommand : String -> String -> BackendTaskTest -> BackendTaskTest
+simulateCommand : String -> String -> BackendTaskTest a -> BackendTaskTest a
 simulateCommand commandName commandOutput scriptTest =
     simulateStreamByPartName "simulateCommand"
         (\part -> part.name == "command" && part.command == Just commandName)
@@ -1597,11 +1591,11 @@ handles simulatable parts around the custom port, you only provide the port's ou
         |> Stream.run
         |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.simulateCustomStream "myTransform" "transformed output"
-        |> BackendTaskTest.expectFile "output.txt" "transformed output"
+        |> BackendTaskTest.ensureFile "output.txt" "transformed output"
         |> BackendTaskTest.expectSuccess
 
 -}
-simulateCustomStream : String -> String -> BackendTaskTest -> BackendTaskTest
+simulateCustomStream : String -> String -> BackendTaskTest a -> BackendTaskTest a
 simulateCustomStream portName portOutput scriptTest =
     simulateStreamByPartName "simulateCustomStream"
         (\part -> part.portName == Just portName)
@@ -1623,7 +1617,7 @@ around the HTTP request, you only provide the response body.
         |> BackendTaskTest.expectSuccess
 
 -}
-simulateStreamHttp : String -> String -> BackendTaskTest -> BackendTaskTest
+simulateStreamHttp : String -> String -> BackendTaskTest a -> BackendTaskTest a
 simulateStreamHttp url httpOutput scriptTest =
     simulateStreamByPartName "simulateStreamHttp"
         (\part -> part.url == Just url)
@@ -1645,7 +1639,7 @@ httpStreamMetadata url =
 
 {-| Internal helper — shared implementation for simulateCommand, simulateCustomStream, simulateStreamHttp.
 -}
-simulateStreamByPartName : String -> (StreamPartInfo -> Bool) -> String -> Encode.Value -> String -> BackendTaskTest -> BackendTaskTest
+simulateStreamByPartName : String -> (StreamPartInfo -> Bool) -> String -> Encode.Value -> String -> BackendTaskTest a -> BackendTaskTest a
 simulateStreamByPartName callerName predicate description metadata opaqueOutput scriptTest =
     case scriptTest of
         Running state ->
@@ -1700,7 +1694,7 @@ simulateStreamByPartName callerName predicate description metadata opaqueOutput 
                                 entry =
                                     jsonAutoResolveEntry hash responseBody
 
-                                newState : RunningState
+                                newState : RunningState a
                                 newState =
                                     { state
                                         | responseEntries = entry :: state.responseEntries
@@ -1899,7 +1893,7 @@ httpSuccessResponse url jsonResponse =
         ]
 
 
-simulateHttpResponse : String -> String -> String -> Encode.Value -> BackendTaskTest -> BackendTaskTest
+simulateHttpResponse : String -> String -> String -> Encode.Value -> BackendTaskTest a -> BackendTaskTest a
 simulateHttpResponse callerName method url responseValue scriptTest =
     case scriptTest of
         Running state ->
@@ -2063,7 +2057,7 @@ Note: you don't need `ensureHttpGet` before every `simulateHttpGet` —
 when you want to verify request timing (parallel vs sequential).
 
 -}
-ensureHttpGet : String -> BackendTaskTest -> BackendTaskTest
+ensureHttpGet : String -> BackendTaskTest a -> BackendTaskTest a
 ensureHttpGet url =
     ensureHttpRequest "ensureHttpGet" "GET" url
 
@@ -2098,12 +2092,12 @@ Like [`ensureHttpGet`](#ensureHttpGet), this is most useful for verifying reques
         |> BackendTaskTest.expectSuccess
 
 -}
-ensureHttpPost : String -> BackendTaskTest -> BackendTaskTest
+ensureHttpPost : String -> BackendTaskTest a -> BackendTaskTest a
 ensureHttpPost url =
     ensureHttpRequest "ensureHttpPost" "POST" url
 
 
-ensureHttpRequest : String -> String -> String -> BackendTaskTest -> BackendTaskTest
+ensureHttpRequest : String -> String -> String -> BackendTaskTest a -> BackendTaskTest a
 ensureHttpRequest callerName method url scriptTest =
     case scriptTest of
         TestError _ ->
@@ -2168,7 +2162,7 @@ verifying that calls are issued in parallel.
         |> BackendTaskTest.expectSuccess
 
 -}
-ensureCustom : String -> BackendTaskTest -> BackendTaskTest
+ensureCustom : String -> BackendTaskTest a -> BackendTaskTest a
 ensureCustom portName scriptTest =
     case scriptTest of
         TestError _ ->
@@ -2208,7 +2202,7 @@ in the pipeline — it checks all log messages that have occurred so far.
         |> BackendTaskTest.expectSuccess
 
 -}
-ensureLogged : String -> BackendTaskTest -> BackendTaskTest
+ensureLogged : String -> BackendTaskTest a -> BackendTaskTest a
 ensureLogged expectedMessage scriptTest =
     case scriptTest of
         TestError _ ->
@@ -2254,7 +2248,7 @@ Both the path and body must match exactly.
         |> BackendTaskTest.expectSuccess
 
 -}
-ensureFileWritten : { path : String, body : String } -> BackendTaskTest -> BackendTaskTest
+ensureFileWritten : { path : String, body : String } -> BackendTaskTest a -> BackendTaskTest a
 ensureFileWritten expected scriptTest =
     let
         check effects =
@@ -2294,7 +2288,7 @@ ensureFileWritten expected scriptTest =
         |> BackendTaskTest.expectSuccess
 
 -}
-ensureStdout : String -> BackendTaskTest -> BackendTaskTest
+ensureStdout : String -> BackendTaskTest a -> BackendTaskTest a
 ensureStdout expectedContent scriptTest =
     let
         check effects =
@@ -2333,7 +2327,7 @@ ensureStdout expectedContent scriptTest =
         |> BackendTaskTest.expectSuccess
 
 -}
-ensureStderr : String -> BackendTaskTest -> BackendTaskTest
+ensureStderr : String -> BackendTaskTest a -> BackendTaskTest a
 ensureStderr expectedContent scriptTest =
     let
         check effects =
@@ -2444,14 +2438,14 @@ so far will be reflected.
     Script.writeFile { path = "output.txt", body = "hello" }
         |> BackendTask.allowFatal
         |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.expectFile "output.txt" "hello"
+        |> BackendTaskTest.ensureFile "output.txt" "hello"
         |> BackendTaskTest.expectSuccess
 
 -}
-expectFile : String -> String -> BackendTaskTest -> BackendTaskTest
-expectFile path expectedContent scriptTest =
+ensureFile : String -> String -> BackendTaskTest a -> BackendTaskTest a
+ensureFile path expectedContent scriptTest =
     let
-        checkFS : VirtualFS -> BackendTaskTest
+        checkFS : VirtualFS -> BackendTaskTest a
         checkFS vfs =
             case Dict.get path vfs.files of
                 Just actualContent ->
@@ -2460,11 +2454,11 @@ expectFile path expectedContent scriptTest =
 
                     else
                         TestError
-                            ("expectFile: File \"" ++ path ++ "\" exists but has different content.\n\nExpected:\n\n    " ++ expectedContent ++ "\n\nActual:\n\n    " ++ actualContent)
+                            ("ensureFile: File \"" ++ path ++ "\" exists but has different content.\n\nExpected:\n\n    " ++ expectedContent ++ "\n\nActual:\n\n    " ++ actualContent)
 
                 Nothing ->
                     TestError
-                        ("expectFile: Expected file \"" ++ path ++ "\" to exist but it was not found.\n\nFiles in virtual filesystem:\n\n" ++ formatVirtualFiles vfs)
+                        ("ensureFile: Expected file \"" ++ path ++ "\" to exist but it was not found.\n\nFiles in virtual filesystem:\n\n" ++ formatVirtualFiles vfs)
     in
     case scriptTest of
         TestError _ ->
@@ -2486,14 +2480,14 @@ expectFile path expectedContent scriptTest =
     Script.writeFile { path = "output.txt", body = "hello" }
         |> BackendTask.allowFatal
         |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.expectFileExists "output.txt"
+        |> BackendTaskTest.ensureFileExists "output.txt"
         |> BackendTaskTest.expectSuccess
 
 -}
-expectFileExists : String -> BackendTaskTest -> BackendTaskTest
-expectFileExists path scriptTest =
+ensureFileExists : String -> BackendTaskTest a -> BackendTaskTest a
+ensureFileExists path scriptTest =
     let
-        checkFS : VirtualFS -> BackendTaskTest
+        checkFS : VirtualFS -> BackendTaskTest a
         checkFS vfs =
             case Dict.get path vfs.files of
                 Just _ ->
@@ -2501,7 +2495,7 @@ expectFileExists path scriptTest =
 
                 Nothing ->
                     TestError
-                        ("expectFileExists: Expected file \"" ++ path ++ "\" to exist but it was not found.\n\nFiles in virtual filesystem:\n\n" ++ formatVirtualFiles vfs)
+                        ("ensureFileExists: Expected file \"" ++ path ++ "\" to exist but it was not found.\n\nFiles in virtual filesystem:\n\n" ++ formatVirtualFiles vfs)
     in
     case scriptTest of
         TestError _ ->
@@ -2522,18 +2516,18 @@ that a file was deleted or was never created.
 
     BackendTask.succeed ()
         |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.expectNoFile "output.txt"
+        |> BackendTaskTest.ensureNoFile "output.txt"
         |> BackendTaskTest.expectSuccess
 
 -}
-expectNoFile : String -> BackendTaskTest -> BackendTaskTest
-expectNoFile path scriptTest =
+ensureNoFile : String -> BackendTaskTest a -> BackendTaskTest a
+ensureNoFile path scriptTest =
     let
-        checkFS : VirtualFS -> BackendTaskTest
+        checkFS : VirtualFS -> BackendTaskTest a
         checkFS vfs =
             case Dict.get path vfs.files of
                 Just _ ->
-                    TestError ("expectNoFile: Expected file \"" ++ path ++ "\" to not exist but it was found.")
+                    TestError ("ensureNoFile: Expected file \"" ++ path ++ "\" to not exist but it was found.")
 
                 Nothing ->
                     scriptTest
@@ -2579,11 +2573,11 @@ translation layer, not an auto-resolver. Custom ports still pause and require ex
                         []
             )
         |> BackendTaskTest.simulateCustom "generateReport" Encode.null
-        |> BackendTaskTest.expectFile "report.pdf" "content"
+        |> BackendTaskTest.ensureFile "report.pdf" "content"
         |> BackendTaskTest.expectSuccess
 
 -}
-withSimulatedEffects : (String -> Encode.Value -> List SimulatedEffect) -> BackendTaskTest -> BackendTaskTest
+withSimulatedEffects : (String -> Encode.Value -> List SimulatedEffect) -> BackendTaskTest a -> BackendTaskTest a
 withSimulatedEffects handler scriptTest =
     case scriptTest of
         Running state ->
@@ -2669,13 +2663,56 @@ it produces an `Expectation` for elm-test, so it should be the last step in your
 If the `BackendTask` still has pending requests, the test fails with a message listing them.
 
 -}
-expectSuccess : BackendTaskTest -> Expectation
+expectSuccess : BackendTaskTest a -> Expectation
 expectSuccess scriptTest =
     case scriptTest of
         Done { result } ->
             case result of
-                Ok () ->
+                Ok _ ->
                     Expect.pass
+
+                Err _ ->
+                    Expect.fail "Expected success but the script failed with an error."
+
+        Running state ->
+            Expect.fail
+                ("Expected the script to complete, but there are still pending requests:\n\n"
+                    ++ formatPendingRequests state.pendingRequests
+                )
+
+        TestError msg ->
+            Expect.fail msg
+
+
+{-| Like [`expectSuccess`](#expectSuccess), but also runs an assertion on the
+result value. Use this when your `BackendTask` returns a value you want to check
+with elm-test assertions.
+
+    import BackendTask.Glob as Glob
+    import Test.BackendTask as BackendTaskTest
+
+    Glob.fromString "content/blog/*.md"
+        |> BackendTask.map List.sort
+        |> BackendTaskTest.fromBackendTaskWith
+            (BackendTaskTest.defaultSetup
+                |> BackendTaskTest.withFile "content/blog/first-post.md" "First"
+                |> BackendTaskTest.withFile "content/blog/second-post.md" "Second"
+            )
+        |> BackendTaskTest.expectSuccessWith
+            (Expect.equal
+                [ "content/blog/first-post.md"
+                , "content/blog/second-post.md"
+                ]
+            )
+
+-}
+expectSuccessWith : (a -> Expectation) -> BackendTaskTest a -> Expectation
+expectSuccessWith assertion scriptTest =
+    case scriptTest of
+        Done { result } ->
+            case result of
+                Ok value ->
+                    assertion value
 
                 Err _ ->
                     Expect.fail "Expected success but the script failed with an error."
@@ -2707,7 +2744,7 @@ an assertion function that receives the decoded DB value.
 expectDb :
     { a | decode : Bytes -> Maybe db }
     -> (db -> Expectation)
-    -> BackendTaskTest
+    -> BackendTaskTest b
     -> Expectation
 expectDb config assertion scriptTest =
     case scriptTest of
@@ -2725,7 +2762,7 @@ expectDb config assertion scriptTest =
                 Err _ ->
                     Expect.fail "expectDb: Expected success but the script failed with an error."
 
-                Ok () ->
+                Ok _ ->
                     case virtualDB.state of
                         Nothing ->
                             Expect.fail "expectDb: No DB state stored. Did your script perform any DB write operations?"
@@ -2759,12 +2796,12 @@ error handling paths, for example when simulating a network error.
         |> BackendTaskTest.expectFailure
 
 -}
-expectFailure : BackendTaskTest -> Expectation
+expectFailure : BackendTaskTest a -> Expectation
 expectFailure scriptTest =
     case scriptTest of
         Done { result } ->
             case result of
-                Ok () ->
+                Ok _ ->
                     Expect.fail "Expected failure but the script succeeded."
 
                 Err _ ->
@@ -2802,7 +2839,7 @@ produce the error messages you expect.
             )
 
 -}
-expectTestError : (String -> Expectation) -> BackendTaskTest -> Expectation
+expectTestError : (String -> Expectation) -> BackendTaskTest a -> Expectation
 expectTestError assertion scriptTest =
     case scriptTest of
         TestError msg ->

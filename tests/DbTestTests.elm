@@ -81,7 +81,7 @@ all =
                             )
                         |> BackendTaskTest.fromBackendTaskWithDb FakeDb.testConfig
                             { counter = 99, name = "" }
-                        |> BackendTaskTest.expectFile "output.txt" "counter=99"
+                        |> BackendTaskTest.ensureFile "output.txt" "counter=99"
                         |> BackendTaskTest.expectSuccess
             , test "string fields round-trip through DB" <|
                 \() ->
