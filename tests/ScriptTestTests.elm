@@ -2,6 +2,7 @@ module ScriptTestTests exposing (all)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
+import BackendTask.File
 import BackendTask.Http
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
@@ -666,5 +667,85 @@ Actual:
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.expectFile "output.txt" "second"
                         |> BackendTaskTest.expectSuccess
+            , test "removeFile removes from virtual filesystem" <|
+                \() ->
+                    Script.writeFile { path = "temp.txt", body = "data" }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\() -> Script.removeFile "temp.txt")
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectNoFile "temp.txt"
+                        |> BackendTaskTest.expectSuccess
+            , test "copyFile copies in virtual filesystem" <|
+                \() ->
+                    Script.writeFile { path = "original.txt", body = "hello" }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\() -> Script.copyFile { from = "original.txt", to = "copy.txt" })
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFile "original.txt" "hello"
+                        |> BackendTaskTest.expectFile "copy.txt" "hello"
+                        |> BackendTaskTest.expectSuccess
+            , test "move renames in virtual filesystem" <|
+                \() ->
+                    Script.writeFile { path = "old.txt", body = "content" }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\() -> Script.move { from = "old.txt", to = "new.txt" })
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectNoFile "old.txt"
+                        |> BackendTaskTest.expectFile "new.txt" "content"
+                        |> BackendTaskTest.expectSuccess
+            , test "write then read round-trips through virtual filesystem" <|
+                \() ->
+                    Script.writeFile { path = "data.txt", body = "round-trip" }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\() ->
+                                BackendTask.File.rawFile "data.txt"
+                                    |> BackendTask.allowFatal
+                            )
+                        |> BackendTask.andThen
+                            (\content ->
+                                Script.log ("Read: " ++ content)
+                            )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "Read: round-trip"
+                        |> BackendTaskTest.expectSuccess
+            , test "reading non-existent file fails" <|
+                \() ->
+                    BackendTask.File.rawFile "missing.txt"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map (\_ -> ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFailure
+            , test "file exists check works with virtual filesystem" <|
+                \() ->
+                    Script.writeFile { path = "exists.txt", body = "hi" }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\() ->
+                                BackendTask.map2
+                                    (\a b ->
+                                        Script.log
+                                            ("exists: "
+                                                ++ boolToString a
+                                                ++ ", missing: "
+                                                ++ boolToString b
+                                            )
+                                    )
+                                    (BackendTask.File.exists "exists.txt")
+                                    (BackendTask.File.exists "nope.txt")
+                                    |> BackendTask.andThen identity
+                            )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "exists: true, missing: false"
+                        |> BackendTaskTest.expectSuccess
             ]
         ]
+
+
+boolToString : Bool -> String
+boolToString b =
+    if b then
+        "true"
+
+    else
+        "false"
