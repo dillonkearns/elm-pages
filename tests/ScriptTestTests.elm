@@ -584,34 +584,34 @@ elm-pages-test --name <name>"""
                     Script.writeFile { path = "output.txt", body = "hello world" }
                         |> BackendTask.allowFatal
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectFile "output.txt" "hello world"
+                        |> BackendTaskTest.ensureFile "output.txt" "hello world"
                         |> BackendTaskTest.expectSuccess
-            , test "expectFile fails when file doesn't exist" <|
+            , test "ensureFile fails when file doesn't exist" <|
                 \() ->
                     BackendTask.succeed ()
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectFile "missing.txt" "content"
+                        |> BackendTaskTest.ensureFile "missing.txt" "content"
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
                                     |> Expect.equal
-                                        """expectFile: Expected file "missing.txt" to exist but it was not found.
+                                        """ensureFile: Expected file "missing.txt" to exist but it was not found.
 
 Files in virtual filesystem:
 
     (none)"""
                             )
-            , test "expectFile fails when content doesn't match" <|
+            , test "ensureFile fails when content doesn't match" <|
                 \() ->
                     Script.writeFile { path = "output.txt", body = "actual content" }
                         |> BackendTask.allowFatal
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectFile "output.txt" "expected content"
+                        |> BackendTaskTest.ensureFile "output.txt" "expected content"
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
                                     |> Expect.equal
-                                        """expectFile: File "output.txt" exists but has different content.
+                                        """ensureFile: File "output.txt" exists but has different content.
 
 Expected:
 
@@ -621,30 +621,30 @@ Actual:
 
     actual content"""
                             )
-            , test "expectNoFile passes when file doesn't exist" <|
+            , test "ensureNoFile passes when file doesn't exist" <|
                 \() ->
                     BackendTask.succeed ()
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectNoFile "missing.txt"
+                        |> BackendTaskTest.ensureNoFile "missing.txt"
                         |> BackendTaskTest.expectSuccess
-            , test "expectNoFile fails when file exists" <|
+            , test "ensureNoFile fails when file exists" <|
                 \() ->
                     Script.writeFile { path = "output.txt", body = "content" }
                         |> BackendTask.allowFatal
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectNoFile "output.txt"
+                        |> BackendTaskTest.ensureNoFile "output.txt"
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 msg
                                     |> Expect.equal
-                                        """expectNoFile: Expected file "output.txt" to not exist but it was found."""
+                                        """ensureNoFile: Expected file "output.txt" to not exist but it was found."""
                             )
-            , test "expectFileExists passes when file exists" <|
+            , test "ensureFileExists passes when file exists" <|
                 \() ->
                     Script.writeFile { path = "output.txt", body = "content" }
                         |> BackendTask.allowFatal
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectFileExists "output.txt"
+                        |> BackendTaskTest.ensureFileExists "output.txt"
                         |> BackendTaskTest.expectSuccess
             , test "multiple writeFile calls track all files" <|
                 \() ->
@@ -656,8 +656,8 @@ Actual:
                                     |> BackendTask.allowFatal
                             )
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectFile "a.txt" "aaa"
-                        |> BackendTaskTest.expectFile "b.txt" "bbb"
+                        |> BackendTaskTest.ensureFile "a.txt" "aaa"
+                        |> BackendTaskTest.ensureFile "b.txt" "bbb"
                         |> BackendTaskTest.expectSuccess
             , test "writing to same file overwrites" <|
                 \() ->
@@ -669,7 +669,7 @@ Actual:
                                     |> BackendTask.allowFatal
                             )
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectFile "output.txt" "second"
+                        |> BackendTaskTest.ensureFile "output.txt" "second"
                         |> BackendTaskTest.expectSuccess
             , test "removeFile removes from virtual filesystem" <|
                 \() ->
@@ -677,7 +677,7 @@ Actual:
                         |> BackendTask.allowFatal
                         |> BackendTask.andThen (\() -> Script.removeFile "temp.txt")
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectNoFile "temp.txt"
+                        |> BackendTaskTest.ensureNoFile "temp.txt"
                         |> BackendTaskTest.expectSuccess
             , test "copyFile copies in virtual filesystem" <|
                 \() ->
@@ -685,8 +685,8 @@ Actual:
                         |> BackendTask.allowFatal
                         |> BackendTask.andThen (\() -> Script.copyFile { from = "original.txt", to = "copy.txt" })
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectFile "original.txt" "hello"
-                        |> BackendTaskTest.expectFile "copy.txt" "hello"
+                        |> BackendTaskTest.ensureFile "original.txt" "hello"
+                        |> BackendTaskTest.ensureFile "copy.txt" "hello"
                         |> BackendTaskTest.expectSuccess
             , test "move renames in virtual filesystem" <|
                 \() ->
@@ -694,8 +694,8 @@ Actual:
                         |> BackendTask.allowFatal
                         |> BackendTask.andThen (\() -> Script.move { from = "old.txt", to = "new.txt" })
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectNoFile "old.txt"
-                        |> BackendTaskTest.expectFile "new.txt" "content"
+                        |> BackendTaskTest.ensureNoFile "old.txt"
+                        |> BackendTaskTest.ensureFile "new.txt" "content"
                         |> BackendTaskTest.expectSuccess
             , test "write then read round-trips through virtual filesystem" <|
                 \() ->
@@ -762,7 +762,7 @@ Actual:
                                         []
                             )
                         |> BackendTaskTest.simulateCustom "generateReport" Encode.null
-                        |> BackendTaskTest.expectFile "report.pdf" "pdf content"
+                        |> BackendTaskTest.ensureFile "report.pdf" "pdf content"
                         |> BackendTaskTest.expectSuccess
             , test "custom port removes file from virtual filesystem" <|
                 \() ->
@@ -786,9 +786,9 @@ Actual:
                                     _ ->
                                         []
                             )
-                        |> BackendTaskTest.expectFile "temp.txt" "data"
+                        |> BackendTaskTest.ensureFile "temp.txt" "data"
                         |> BackendTaskTest.simulateCustom "cleanup" Encode.null
-                        |> BackendTaskTest.expectNoFile "temp.txt"
+                        |> BackendTaskTest.ensureNoFile "temp.txt"
                         |> BackendTaskTest.expectSuccess
             , test "handler receives request body" <|
                 \() ->
@@ -827,7 +827,7 @@ Actual:
                                         []
                             )
                         |> BackendTaskTest.simulateCustom "writeToPath" Encode.null
-                        |> BackendTaskTest.expectFile "custom.txt" "hello"
+                        |> BackendTaskTest.ensureFile "custom.txt" "hello"
                         |> BackendTaskTest.expectSuccess
             , test "without handler, simulateCustom works as before" <|
                 \() ->
@@ -864,7 +864,7 @@ Actual:
                         |> Stream.pipe (Stream.fileWrite "output.txt")
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectFile "output.txt" "file content"
+                        |> BackendTaskTest.ensureFile "output.txt" "file content"
                         |> BackendTaskTest.expectSuccess
             , test "fileRead reads from seeded VFS" <|
                 \() ->
@@ -886,7 +886,7 @@ Actual:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "input.txt" "copied content"
                             )
-                        |> BackendTaskTest.expectFile "output.txt" "copied content"
+                        |> BackendTaskTest.ensureFile "output.txt" "copied content"
                         |> BackendTaskTest.expectSuccess
             , test "stream read returns body as text" <|
                 \() ->
@@ -1020,7 +1020,7 @@ Actual:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withStdin "stdin content"
                             )
-                        |> BackendTaskTest.expectFile "output.txt" "stdin content"
+                        |> BackendTaskTest.ensureFile "output.txt" "stdin content"
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "simulateCommand"
@@ -1065,7 +1065,7 @@ Actual:
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.simulateCommand "grep" "error: something bad\n"
-                        |> BackendTaskTest.expectFile "errors.txt" "error: something bad\n"
+                        |> BackendTaskTest.ensureFile "errors.txt" "error: something bad\n"
                         |> BackendTaskTest.expectSuccess
             , test "fileRead + command + fileWrite full pipeline" <|
                 \() ->
@@ -1078,7 +1078,7 @@ Actual:
                                 |> BackendTaskTest.withFile "input.txt" "c\na\nb"
                             )
                         |> BackendTaskTest.simulateCommand "sort" "a\nb\nc"
-                        |> BackendTaskTest.expectFile "sorted.txt" "a\nb\nc"
+                        |> BackendTaskTest.ensureFile "sorted.txt" "a\nb\nc"
                         |> BackendTaskTest.expectSuccess
             , test "Script.exec uses simulateCommand" <|
                 \() ->
@@ -1140,7 +1140,7 @@ but the pending requests are:
                         |> Stream.pipe (Stream.fileWrite "data.gz")
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectFile "data.gz" "****GZIPPED****compressed data"
+                        |> BackendTaskTest.ensureFile "data.gz" "****GZIPPED****compressed data"
                         |> BackendTaskTest.expectSuccess
             , test "gzip fileWrite then unzip fileRead round-trips" <|
                 \() ->
@@ -1175,7 +1175,7 @@ but the pending requests are:
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.simulateCustomStream "myTransform" "transformed output"
-                        |> BackendTaskTest.expectFile "output.txt" "transformed output"
+                        |> BackendTaskTest.ensureFile "output.txt" "transformed output"
                         |> BackendTaskTest.expectSuccess
             , test "custom read stream resolves" <|
                 \() ->
@@ -1184,7 +1184,7 @@ but the pending requests are:
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.simulateCustomStream "dataSource" "generated data"
-                        |> BackendTaskTest.expectFile "result.txt" "generated data"
+                        |> BackendTaskTest.ensureFile "result.txt" "generated data"
                         |> BackendTaskTest.expectSuccess
             , test "wrong port name gives helpful error" <|
                 \() ->
@@ -1236,7 +1236,7 @@ but the pending requests are:
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.simulateStreamHttp "https://api.example.com/data" "{\"count\": 42}"
-                        |> BackendTaskTest.expectFile "response.json" "{\"count\": 42}"
+                        |> BackendTaskTest.ensureFile "response.json" "{\"count\": 42}"
                         |> BackendTaskTest.expectSuccess
             , test "wrong URL gives helpful error" <|
                 \() ->
@@ -1379,7 +1379,7 @@ but the pending requests are:
                         |> BackendTask.allowFatal
                         |> BackendTask.inDir "subdir"
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectFile "subdir/output.txt" "hello"
+                        |> BackendTaskTest.ensureFile "subdir/output.txt" "hello"
                         |> BackendTaskTest.expectSuccess
             , test "nested inDir stacks" <|
                 \() ->
@@ -1427,7 +1427,7 @@ but the pending requests are:
                         |> Stream.run
                         |> BackendTask.inDir "mydir"
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectFile "mydir/out.txt" "written via stream"
+                        |> BackendTaskTest.ensureFile "mydir/out.txt" "written via stream"
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "Glob"
@@ -1435,19 +1435,6 @@ but the pending requests are:
                 \() ->
                     Glob.fromString "content/blog/*.md"
                         |> BackendTask.map List.sort
-                        |> BackendTask.andThen
-                            (\matches ->
-                                if matches == [ "content/blog/first-post.md", "content/blog/second-post.md" ] then
-                                    BackendTask.succeed ()
-
-                                else
-                                    BackendTask.fail
-                                        (FatalError.build
-                                            { title = "Unexpected glob result"
-                                            , body = "Got: " ++ String.join ", " matches
-                                            }
-                                        )
-                            )
                         |> BackendTaskTest.fromBackendTaskWith
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "content/blog/first-post.md" "First post"
@@ -1455,28 +1442,20 @@ but the pending requests are:
                                 |> BackendTaskTest.withFile "content/about.md" "About page"
                                 |> BackendTaskTest.withFile "src/Main.elm" "module Main"
                             )
-                        |> BackendTaskTest.expectSuccess
+                        |> BackendTaskTest.expectSuccessWith
+                            (Expect.equal
+                                [ "content/blog/first-post.md"
+                                , "content/blog/second-post.md"
+                                ]
+                            )
             , test "Glob.fromString returns empty list when no matches" <|
                 \() ->
                     Glob.fromString "*.xyz"
-                        |> BackendTask.andThen
-                            (\matches ->
-                                if matches == [] then
-                                    BackendTask.succeed ()
-
-                                else
-                                    BackendTask.fail
-                                        (FatalError.build
-                                            { title = "Expected empty"
-                                            , body = "Got: " ++ String.join ", " matches
-                                            }
-                                        )
-                            )
                         |> BackendTaskTest.fromBackendTaskWith
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "hello.md" "content"
                             )
-                        |> BackendTaskTest.expectSuccess
+                        |> BackendTaskTest.expectSuccessWith (Expect.equal [])
             , test "Glob with capture extracts slug" <|
                 \() ->
                     Glob.succeed (\slug -> slug)
@@ -1485,43 +1464,18 @@ but the pending requests are:
                         |> Glob.match (Glob.literal ".md")
                         |> Glob.toBackendTask
                         |> BackendTask.map List.sort
-                        |> BackendTask.andThen
-                            (\slugs ->
-                                if slugs == [ "first-post", "second-post" ] then
-                                    BackendTask.succeed ()
-
-                                else
-                                    BackendTask.fail
-                                        (FatalError.build
-                                            { title = "Unexpected slugs"
-                                            , body = "Got: " ++ String.join ", " slugs
-                                            }
-                                        )
-                            )
                         |> BackendTaskTest.fromBackendTaskWith
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "content/blog/first-post.md" "First"
                                 |> BackendTaskTest.withFile "content/blog/second-post.md" "Second"
                                 |> BackendTaskTest.withFile "content/about.md" "About"
                             )
-                        |> BackendTaskTest.expectSuccess
+                        |> BackendTaskTest.expectSuccessWith
+                            (Expect.equal [ "first-post", "second-post" ])
             , test "Glob recursive wildcard matches nested files" <|
                 \() ->
                     Glob.fromString "src/**/*.elm"
                         |> BackendTask.map List.sort
-                        |> BackendTask.andThen
-                            (\matches ->
-                                if matches == [ "src/Main.elm", "src/Ui/Button.elm", "src/Ui/Icon.elm" ] then
-                                    BackendTask.succeed ()
-
-                                else
-                                    BackendTask.fail
-                                        (FatalError.build
-                                            { title = "Unexpected matches"
-                                            , body = "Got: " ++ String.join ", " matches
-                                            }
-                                        )
-                            )
                         |> BackendTaskTest.fromBackendTaskWith
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "src/Main.elm" "module Main"
@@ -1529,7 +1483,13 @@ but the pending requests are:
                                 |> BackendTaskTest.withFile "src/Ui/Icon.elm" "module Ui.Icon"
                                 |> BackendTaskTest.withFile "tests/Test.elm" "module Test"
                             )
-                        |> BackendTaskTest.expectSuccess
+                        |> BackendTaskTest.expectSuccessWith
+                            (Expect.equal
+                                [ "src/Main.elm"
+                                , "src/Ui/Button.elm"
+                                , "src/Ui/Icon.elm"
+                                ]
+                            )
             , test "Glob then read file round-trip" <|
                 \() ->
                     Glob.fromString "content/*.md"
@@ -1539,19 +1499,6 @@ but the pending requests are:
                                     [ singleFile ] ->
                                         BackendTask.File.rawFile singleFile
                                             |> BackendTask.allowFatal
-                                            |> BackendTask.andThen
-                                                (\content ->
-                                                    if content == "Hello World" then
-                                                        BackendTask.succeed ()
-
-                                                    else
-                                                        BackendTask.fail
-                                                            (FatalError.build
-                                                                { title = "Wrong content"
-                                                                , body = "Got: " ++ content
-                                                                }
-                                                            )
-                                                )
 
                                     _ ->
                                         BackendTask.fail
@@ -1565,79 +1512,41 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "content/hello.md" "Hello World"
                             )
-                        |> BackendTaskTest.expectSuccess
+                        |> BackendTaskTest.expectSuccessWith (Expect.equal "Hello World")
             , test "Glob matches files written during script" <|
                 \() ->
                     Script.writeFile { path = "output/report.txt", body = "done" }
                         |> BackendTask.allowFatal
                         |> BackendTask.andThen
-                            (\_ ->
-                                Glob.fromString "output/*.txt"
-                                    |> BackendTask.andThen
-                                        (\matches ->
-                                            if matches == [ "output/report.txt" ] then
-                                                BackendTask.succeed ()
-
-                                            else
-                                                BackendTask.fail
-                                                    (FatalError.build
-                                                        { title = "Wrong matches"
-                                                        , body = "Got: " ++ String.join ", " matches
-                                                        }
-                                                    )
-                                        )
-                            )
+                            (\_ -> Glob.fromString "output/*.txt")
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.expectSuccess
+                        |> BackendTaskTest.expectSuccessWith
+                            (Expect.equal [ "output/report.txt" ])
             , test "Glob with inDir resolves relative to working dir" <|
                 \() ->
                     Glob.fromString "*.md"
                         |> BackendTask.inDir "content/blog"
                         |> BackendTask.map List.sort
-                        |> BackendTask.andThen
-                            (\matches ->
-                                if matches == [ "first.md", "second.md" ] then
-                                    BackendTask.succeed ()
-
-                                else
-                                    BackendTask.fail
-                                        (FatalError.build
-                                            { title = "Wrong matches"
-                                            , body = "Got: " ++ String.join ", " matches
-                                            }
-                                        )
-                            )
                         |> BackendTaskTest.fromBackendTaskWith
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "content/blog/first.md" "First"
                                 |> BackendTaskTest.withFile "content/blog/second.md" "Second"
                                 |> BackendTaskTest.withFile "other/file.md" "Other"
                             )
-                        |> BackendTaskTest.expectSuccess
+                        |> BackendTaskTest.expectSuccessWith
+                            (Expect.equal [ "first.md", "second.md" ])
             , test "Glob with brace expansion" <|
                 \() ->
                     Glob.fromString "data/*.{json,yml}"
                         |> BackendTask.map List.sort
-                        |> BackendTask.andThen
-                            (\matches ->
-                                if matches == [ "data/authors.yml", "data/config.json" ] then
-                                    BackendTask.succeed ()
-
-                                else
-                                    BackendTask.fail
-                                        (FatalError.build
-                                            { title = "Wrong matches"
-                                            , body = "Got: " ++ String.join ", " matches
-                                            }
-                                        )
-                            )
                         |> BackendTaskTest.fromBackendTaskWith
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "data/config.json" "{}"
                                 |> BackendTaskTest.withFile "data/authors.yml" "---"
                                 |> BackendTaskTest.withFile "data/notes.txt" "text"
                             )
-                        |> BackendTaskTest.expectSuccess
+                        |> BackendTaskTest.expectSuccessWith
+                            (Expect.equal [ "data/authors.yml", "data/config.json" ])
             ]
         ]
 
