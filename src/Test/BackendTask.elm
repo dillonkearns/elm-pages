@@ -273,7 +273,7 @@ advanceWithAutoResolveHelper fuel state =
                         List.partition isAutoResolvable pendingRequests
 
                     ( autoEntries, newEffects ) =
-                        buildAutoResponses autoResolvable
+                        buildAutoResponses state.virtualFS autoResolvable
 
                     newVirtualFS : VirtualFS
                     newVirtualFS =
@@ -308,23 +308,31 @@ isAutoResolvable request =
         && (url /= "elm-pages-internal://port")
 
 
-buildAutoResponses : List Request.Request -> ( List ( String, Encode.Value ), List TrackedEffect )
-buildAutoResponses requests =
+buildAutoResponses : VirtualFS -> List Request.Request -> ( List ( String, Encode.Value ), List TrackedEffect )
+buildAutoResponses vfs requests =
     List.foldl
         (\req ( entries, effects ) ->
             let
+                hash : String
                 hash =
                     Request.hash req
 
+                responseBody : Encode.Value
+                responseBody =
+                    autoResponseBody vfs req
+
+                responseValue : Encode.Value
                 responseValue =
                     Encode.object
                         [ ( "bodyKind", Encode.string "json" )
-                        , ( "body", Encode.null )
+                        , ( "body", responseBody )
                         ]
 
+                entry : ( String, Encode.Value )
                 entry =
                     ( hash, Encode.object [ ( "response", responseValue ) ] )
 
+                newEffects : List TrackedEffect
                 newEffects =
                     trackEffect req
             in
@@ -332,6 +340,53 @@ buildAutoResponses requests =
         )
         ( [], [] )
         requests
+
+
+autoResponseBody : VirtualFS -> Request.Request -> Encode.Value
+autoResponseBody vfs req =
+    case req.url of
+        "elm-pages-internal://read-file" ->
+            case getStringBody req of
+                Just filePath ->
+                    case Dict.get filePath vfs.files of
+                        Just content ->
+                            Encode.object
+                                [ ( "rawFile", Encode.string content )
+                                , ( "withoutFrontmatter", Encode.string content )
+                                ]
+
+                        Nothing ->
+                            Encode.object
+                                [ ( "errorCode", Encode.string "ENOENT" ) ]
+
+                Nothing ->
+                    Encode.null
+
+        "elm-pages-internal://file-exists" ->
+            case req.body of
+                StaticHttpBody.JsonBody json ->
+                    case Decode.decodeValue Decode.string json of
+                        Ok filePath ->
+                            Encode.bool (Dict.member filePath vfs.files)
+
+                        Err _ ->
+                            Encode.bool False
+
+                _ ->
+                    Encode.bool False
+
+        _ ->
+            Encode.null
+
+
+getStringBody : Request.Request -> Maybe String
+getStringBody req =
+    case req.body of
+        StaticHttpBody.StringBody _ content ->
+            Just content
+
+        _ ->
+            Nothing
 
 
 trackEffect : Request.Request -> List TrackedEffect
@@ -383,27 +438,59 @@ applyVirtualFSEffect : Request.Request -> VirtualFS -> VirtualFS
 applyVirtualFSEffect req vfs =
     case req.url of
         "elm-pages-internal://write-file" ->
-            case req.body of
-                StaticHttpBody.JsonBody json ->
-                    case
-                        Decode.decodeValue
-                            (Decode.map2 (\p b -> { path = p, body = b })
-                                (Decode.field "path" Decode.string)
-                                (Decode.field "body" Decode.string)
-                            )
-                            json
-                    of
-                        Ok { path, body } ->
-                            { vfs | files = Dict.insert path body vfs.files }
+            case decodeJsonBody (Decode.map2 (\p b -> ( p, b )) (Decode.field "path" Decode.string) (Decode.field "body" Decode.string)) req of
+                Just ( path, body ) ->
+                    { vfs | files = Dict.insert path body vfs.files }
 
-                        Err _ ->
+                Nothing ->
+                    vfs
+
+        "elm-pages-internal://delete-file" ->
+            case decodeJsonBody (Decode.field "path" Decode.string) req of
+                Just path ->
+                    { vfs | files = Dict.remove path vfs.files }
+
+                Nothing ->
+                    vfs
+
+        "elm-pages-internal://copy-file" ->
+            case decodeJsonBody (Decode.map2 Tuple.pair (Decode.field "from" Decode.string) (Decode.field "to" Decode.string)) req of
+                Just ( from, to ) ->
+                    case Dict.get from vfs.files of
+                        Just content ->
+                            { vfs | files = Dict.insert to content vfs.files }
+
+                        Nothing ->
                             vfs
 
-                _ ->
+                Nothing ->
+                    vfs
+
+        "elm-pages-internal://move" ->
+            case decodeJsonBody (Decode.map2 Tuple.pair (Decode.field "from" Decode.string) (Decode.field "to" Decode.string)) req of
+                Just ( from, to ) ->
+                    case Dict.get from vfs.files of
+                        Just content ->
+                            { vfs | files = Dict.insert to content vfs.files |> Dict.remove from }
+
+                        Nothing ->
+                            vfs
+
+                Nothing ->
                     vfs
 
         _ ->
             vfs
+
+
+decodeJsonBody : Decode.Decoder a -> Request.Request -> Maybe a
+decodeJsonBody decoder req =
+    case req.body of
+        StaticHttpBody.JsonBody json ->
+            Decode.decodeValue decoder json |> Result.toMaybe
+
+        _ ->
+            Nothing
 
 
 {-| Simulate a pending HTTP GET request resolving with the given JSON response body.
