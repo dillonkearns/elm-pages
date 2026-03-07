@@ -2,6 +2,7 @@ module ScriptTestTests exposing (all)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
+import BackendTask.Env
 import BackendTask.File
 import BackendTask.Http
 import BackendTask.Stream as Stream
@@ -1256,6 +1257,67 @@ but the pending requests are:
     Stream [httpWrite]"""
                                     msg
                             )
+            ]
+        , describe "environment variables"
+            [ test "Env.get returns seeded value" <|
+                \() ->
+                    BackendTask.Env.get "API_KEY"
+                        |> BackendTask.andThen
+                            (\maybeKey ->
+                                Script.log (Maybe.withDefault "missing" maybeKey)
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withEnv "API_KEY" "secret123"
+                            )
+                        |> BackendTaskTest.ensureLogged "secret123"
+                        |> BackendTaskTest.expectSuccess
+            , test "Env.get returns Nothing for missing variable" <|
+                \() ->
+                    BackendTask.Env.get "MISSING_VAR"
+                        |> BackendTask.andThen
+                            (\maybeKey ->
+                                Script.log (Maybe.withDefault "not set" maybeKey)
+                            )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "not set"
+                        |> BackendTaskTest.expectSuccess
+            , test "Env.expect succeeds with seeded value" <|
+                \() ->
+                    BackendTask.Env.expect "DB_URL"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\url -> Script.log url)
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withEnv "DB_URL" "postgres://localhost/mydb"
+                            )
+                        |> BackendTaskTest.ensureLogged "postgres://localhost/mydb"
+                        |> BackendTaskTest.expectSuccess
+            , test "Env.expect fails for missing variable" <|
+                \() ->
+                    BackendTask.Env.expect "MISSING_VAR"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map (\_ -> ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFailure
+            , test "multiple env variables" <|
+                \() ->
+                    BackendTask.map2 (\a b -> a ++ ":" ++ b)
+                        (BackendTask.Env.get "HOST"
+                            |> BackendTask.map (Maybe.withDefault "")
+                        )
+                        (BackendTask.Env.get "PORT"
+                            |> BackendTask.map (Maybe.withDefault "")
+                        )
+                        |> BackendTask.andThen Script.log
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withEnv "HOST" "localhost"
+                                |> BackendTaskTest.withEnv "PORT" "3000"
+                            )
+                        |> BackendTaskTest.ensureLogged "localhost:3000"
+                        |> BackendTaskTest.expectSuccess
             ]
         ]
 
