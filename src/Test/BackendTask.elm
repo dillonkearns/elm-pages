@@ -1,10 +1,10 @@
 module Test.BackendTask exposing
-    ( BackendTaskTest, HttpError(..), fromBackendTask, fromScript
+    ( BackendTaskTest, HttpError(..), fromBackendTask, fromBackendTaskWithDb, fromScript
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten
     , expectFile, expectFileExists, expectNoFile
     , SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
-    , expectSuccess, expectFailure, expectTestError
+    , expectSuccess, expectDb, expectFailure, expectTestError
     )
 
 {-| Pure Elm testing for `BackendTask` pipelines — no side effects, no HTTP calls, no file I/O.
@@ -45,7 +45,7 @@ you never need to simulate them. But you can still assert that they happened usi
 
 ## Building
 
-@docs BackendTaskTest, HttpError, fromBackendTask, fromScript
+@docs BackendTaskTest, HttpError, fromBackendTask, fromBackendTaskWithDb, fromScript
 
 
 ## Simulating Effects
@@ -82,11 +82,13 @@ virtual filesystem automatically.
 
 These end the pipeline and produce an `Expectation` for elm-test.
 
-@docs expectSuccess, expectFailure, expectTestError
+@docs expectSuccess, expectDb, expectFailure, expectTestError
 
 -}
 
 import BackendTask exposing (BackendTask)
+import Bytes exposing (Bytes)
+import Bytes.Encode as BE
 import Cli.Program as Program
 import Dict exposing (Dict)
 import Expect exposing (Expectation)
@@ -98,6 +100,7 @@ import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.StaticHttp.Request as Request
 import Pages.StaticHttpRequest exposing (RawRequest(..), Status(..))
 import RequestsAndPending
+import Test.Runner
 
 
 {-| The state of a `BackendTask` under test. Create one with [`fromBackendTask`](#fromBackendTask),
@@ -112,15 +115,18 @@ type BackendTaskTest
     = Running
         { continuation : RawRequest FatalError ()
         , responseEntries : List ( String, Encode.Value )
+        , responseBytesEntries : Dict String Bytes
         , pendingRequests : List Request.Request
         , trackedEffects : List TrackedEffect
         , virtualFS : VirtualFS
+        , virtualDB : VirtualDB
         , simulatedEffects : Maybe (String -> Encode.Value -> List SimulatedEffect)
         }
     | Done
         { result : Result FatalError ()
         , trackedEffects : List TrackedEffect
         , virtualFS : VirtualFS
+        , virtualDB : VirtualDB
         }
     | TestError String
 
@@ -133,6 +139,25 @@ type alias VirtualFS =
 emptyVirtualFS : VirtualFS
 emptyVirtualFS =
     { files = Dict.empty
+    }
+
+
+type alias VirtualDB =
+    { state : Maybe Bytes
+    , dbConfig : Maybe DbConfig
+    }
+
+
+type alias DbConfig =
+    { schemaVersion : Int
+    , schemaHash : String
+    }
+
+
+emptyVirtualDB : VirtualDB
+emptyVirtualDB =
+    { state = Nothing
+    , dbConfig = Nothing
     }
 
 
@@ -182,9 +207,53 @@ fromBackendTask task =
     advanceWithAutoResolve
         { continuation = task
         , responseEntries = []
+        , responseBytesEntries = Dict.empty
         , pendingRequests = []
         , trackedEffects = []
         , virtualFS = emptyVirtualFS
+        , virtualDB = emptyVirtualDB
+        , simulatedEffects = Nothing
+        }
+
+
+{-| Start a test from a `BackendTask` that uses `Pages.Db`. Pass the generated
+`Pages.Db.testConfig` and an initial DB value. All DB operations (`get`, `update`,
+`transaction`) will be auto-resolved against a virtual DB.
+
+    import Pages.Db
+    import Test.BackendTask as BackendTaskTest
+
+    myDbScript
+        |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig
+            { counter = 0 }
+        |> BackendTaskTest.expectDb Pages.Db.testConfig
+            (\db -> Expect.equal 1 db.counter)
+
+If a script uses `Pages.Db` but is created with [`fromBackendTask`](#fromBackendTask)
+instead, you'll get a helpful error message.
+
+-}
+fromBackendTaskWithDb :
+    { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes }
+    -> db
+    -> BackendTask FatalError ()
+    -> BackendTaskTest
+fromBackendTaskWithDb config initialValue task =
+    let
+        wire3Bytes =
+            config.encode initialValue
+    in
+    advanceWithAutoResolve
+        { continuation = task
+        , responseEntries = []
+        , responseBytesEntries = Dict.empty
+        , pendingRequests = []
+        , trackedEffects = []
+        , virtualFS = emptyVirtualFS
+        , virtualDB =
+            { state = Just wire3Bytes
+            , dbConfig = Just { schemaVersion = config.schemaVersion, schemaHash = config.schemaHash }
+            }
         , simulatedEffects = Nothing
         }
 
@@ -239,9 +308,11 @@ fromScript cliArgs (Pages.Internal.Script.Script toConfig) =
 type alias RunningState =
     { continuation : RawRequest FatalError ()
     , responseEntries : List ( String, Encode.Value )
+    , responseBytesEntries : Dict String Bytes
     , pendingRequests : List Request.Request
     , trackedEffects : List TrackedEffect
     , virtualFS : VirtualFS
+    , virtualDB : VirtualDB
     , simulatedEffects : Maybe (String -> Encode.Value -> List SimulatedEffect)
     }
 
@@ -261,7 +332,7 @@ advanceWithAutoResolveHelper fuel state =
             requestsAndPending : RequestsAndPending.RequestsAndPending
             requestsAndPending =
                 { json = Encode.object state.responseEntries
-                , rawBytes = Dict.empty
+                , rawBytes = state.responseBytesEntries
                 }
         in
         case Pages.StaticHttpRequest.cacheRequestResolution state.continuation requestsAndPending of
@@ -270,6 +341,7 @@ advanceWithAutoResolveHelper fuel state =
                     { result = result
                     , trackedEffects = state.trackedEffects
                     , virtualFS = state.virtualFS
+                    , virtualDB = state.virtualDB
                     }
 
             HasPermanentError err ->
@@ -280,32 +352,52 @@ advanceWithAutoResolveHelper fuel state =
                     ( autoResolvable, external ) =
                         List.partition isAutoResolvable pendingRequests
 
-                    ( autoEntries, newEffects ) =
-                        buildAutoResponses state.virtualFS autoResolvable
+                    hasDbRequests =
+                        List.any isDbRequest autoResolvable
 
-                    newVirtualFS : VirtualFS
-                    newVirtualFS =
-                        applyVirtualFSEffects autoResolvable state.virtualFS
+                    dbConfigMissing =
+                        state.virtualDB.dbConfig == Nothing
                 in
-                if List.isEmpty external && not (List.isEmpty autoResolvable) then
-                    advanceWithAutoResolveHelper (fuel - 1)
-                        { continuation = continuation
-                        , responseEntries = state.responseEntries ++ autoEntries
-                        , pendingRequests = []
-                        , trackedEffects = state.trackedEffects ++ newEffects
-                        , virtualFS = newVirtualFS
-                        , simulatedEffects = state.simulatedEffects
-                        }
+                if hasDbRequests && dbConfigMissing then
+                    TestError
+                        ("Your script uses Pages.Db, but the test was created with fromBackendTask.\n\n"
+                            ++ "Use fromBackendTaskWithDb instead to provide DB support:\n\n"
+                            ++ "    myScript\n"
+                            ++ "        |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig initialDbValue"
+                        )
 
                 else
-                    Running
-                        { continuation = continuation
-                        , responseEntries = state.responseEntries ++ autoEntries
-                        , pendingRequests = external
-                        , trackedEffects = state.trackedEffects ++ newEffects
-                        , virtualFS = newVirtualFS
-                        , simulatedEffects = state.simulatedEffects
-                        }
+                    let
+                        autoResult =
+                            buildAutoResponses state.virtualFS state.virtualDB autoResolvable
+
+                        newVirtualFS : VirtualFS
+                        newVirtualFS =
+                            applyVirtualFSEffects autoResolvable state.virtualFS
+                    in
+                    if List.isEmpty external && not (List.isEmpty autoResolvable) then
+                        advanceWithAutoResolveHelper (fuel - 1)
+                            { continuation = continuation
+                            , responseEntries = state.responseEntries ++ autoResult.jsonEntries
+                            , responseBytesEntries = Dict.union autoResult.bytesEntries state.responseBytesEntries
+                            , pendingRequests = []
+                            , trackedEffects = state.trackedEffects ++ autoResult.trackedEffects
+                            , virtualFS = newVirtualFS
+                            , virtualDB = autoResult.virtualDB
+                            , simulatedEffects = state.simulatedEffects
+                            }
+
+                    else
+                        Running
+                            { continuation = continuation
+                            , responseEntries = state.responseEntries ++ autoResult.jsonEntries
+                            , responseBytesEntries = Dict.union autoResult.bytesEntries state.responseBytesEntries
+                            , pendingRequests = external
+                            , trackedEffects = state.trackedEffects ++ autoResult.trackedEffects
+                            , virtualFS = newVirtualFS
+                            , virtualDB = autoResult.virtualDB
+                            , simulatedEffects = state.simulatedEffects
+                            }
 
 
 isAutoResolvable : Request.Request -> Bool
@@ -318,37 +410,62 @@ isAutoResolvable request =
         && (url /= "elm-pages-internal://port")
 
 
-buildAutoResponses : VirtualFS -> List Request.Request -> ( List ( String, Encode.Value ), List TrackedEffect )
-buildAutoResponses vfs requests =
+isDbRequest : Request.Request -> Bool
+isDbRequest request =
+    String.startsWith "elm-pages-internal://db-" request.url
+
+
+type alias AutoResolveResult =
+    { jsonEntries : List ( String, Encode.Value )
+    , trackedEffects : List TrackedEffect
+    , bytesEntries : Dict String Bytes
+    , virtualDB : VirtualDB
+    }
+
+
+buildAutoResponses : VirtualFS -> VirtualDB -> List Request.Request -> AutoResolveResult
+buildAutoResponses vfs virtualDB requests =
     List.foldl
-        (\req ( entries, effects ) ->
+        (\req accum ->
             let
                 hash : String
                 hash =
                     Request.hash req
-
-                responseBody : Encode.Value
-                responseBody =
-                    autoResponseBody vfs req
-
-                responseValue : Encode.Value
-                responseValue =
-                    Encode.object
-                        [ ( "bodyKind", Encode.string "json" )
-                        , ( "body", responseBody )
-                        ]
-
-                entry : ( String, Encode.Value )
-                entry =
-                    ( hash, Encode.object [ ( "response", responseValue ) ] )
-
-                newEffects : List TrackedEffect
-                newEffects =
-                    trackEffect req
             in
-            ( entry :: entries, effects ++ newEffects )
+            if isDbRequest req then
+                processDbRequest req hash accum
+
+            else
+                let
+                    responseBody : Encode.Value
+                    responseBody =
+                        autoResponseBody vfs req
+
+                    responseValue : Encode.Value
+                    responseValue =
+                        Encode.object
+                            [ ( "bodyKind", Encode.string "json" )
+                            , ( "body", responseBody )
+                            ]
+
+                    entry : ( String, Encode.Value )
+                    entry =
+                        ( hash, Encode.object [ ( "response", responseValue ) ] )
+
+                    newEffects : List TrackedEffect
+                    newEffects =
+                        trackEffect req
+                in
+                { accum
+                    | jsonEntries = entry :: accum.jsonEntries
+                    , trackedEffects = accum.trackedEffects ++ newEffects
+                }
         )
-        ( [], [] )
+        { jsonEntries = []
+        , trackedEffects = []
+        , bytesEntries = Dict.empty
+        , virtualDB = virtualDB
+        }
         requests
 
 
@@ -498,6 +615,197 @@ decodeJsonBody decoder req =
     case req.body of
         StaticHttpBody.JsonBody json ->
             Decode.decodeValue decoder json |> Result.toMaybe
+
+        _ ->
+            Nothing
+
+
+processDbRequest : Request.Request -> String -> AutoResolveResult -> AutoResolveResult
+processDbRequest req hash accum =
+    case req.url of
+        "elm-pages-internal://db-lock-acquire" ->
+            let
+                entry =
+                    jsonAutoResolveEntry hash (Encode.string "test-lock-token")
+            in
+            { accum | jsonEntries = entry :: accum.jsonEntries }
+
+        "elm-pages-internal://db-lock-release" ->
+            let
+                entry =
+                    jsonAutoResolveEntry hash Encode.null
+            in
+            { accum | jsonEntries = entry :: accum.jsonEntries }
+
+        "elm-pages-internal://db-set-default-path" ->
+            let
+                entry =
+                    jsonAutoResolveEntry hash Encode.null
+            in
+            { accum | jsonEntries = entry :: accum.jsonEntries }
+
+        "elm-pages-internal://db-read-meta" ->
+            let
+                responseBytes =
+                    constructDbReadMetaBytes accum.virtualDB
+
+                jsonEntry =
+                    ( hash
+                    , Encode.object
+                        [ ( "response"
+                          , Encode.object
+                                [ ( "bodyKind", Encode.string "bytes" ) ]
+                          )
+                        ]
+                    )
+            in
+            { accum
+                | jsonEntries = jsonEntry :: accum.jsonEntries
+                , bytesEntries = Dict.insert hash responseBytes accum.bytesEntries
+            }
+
+        "elm-pages-internal://db-write" ->
+            let
+                newVirtualDB =
+                    case extractBytesBody req of
+                        Just wire3Bytes ->
+                            { state = Just wire3Bytes
+                            , dbConfig = accum.virtualDB.dbConfig
+                            }
+
+                        Nothing ->
+                            accum.virtualDB
+
+                entry =
+                    jsonAutoResolveEntry hash Encode.null
+            in
+            { accum
+                | jsonEntries = entry :: accum.jsonEntries
+                , virtualDB = newVirtualDB
+            }
+
+        "elm-pages-internal://db-migrate-write" ->
+            let
+                newVirtualDB =
+                    case extractBytesBody req of
+                        Just wire3Bytes ->
+                            { state = Just wire3Bytes
+                            , dbConfig = accum.virtualDB.dbConfig
+                            }
+
+                        Nothing ->
+                            accum.virtualDB
+
+                entry =
+                    jsonAutoResolveEntry hash Encode.null
+            in
+            { accum
+                | jsonEntries = entry :: accum.jsonEntries
+                , virtualDB = newVirtualDB
+            }
+
+        _ ->
+            let
+                entry =
+                    jsonAutoResolveEntry hash Encode.null
+            in
+            { accum | jsonEntries = entry :: accum.jsonEntries }
+
+
+jsonAutoResolveEntry : String -> Encode.Value -> ( String, Encode.Value )
+jsonAutoResolveEntry hash body =
+    ( hash
+    , Encode.object
+        [ ( "response"
+          , Encode.object
+                [ ( "bodyKind", Encode.string "json" )
+                , ( "body", body )
+                ]
+          )
+        ]
+    )
+
+
+constructDbReadMetaBytes : VirtualDB -> Bytes
+constructDbReadMetaBytes virtualDB =
+    case ( virtualDB.state, virtualDB.dbConfig ) of
+        ( Just wire3, Just config ) ->
+            BE.encode
+                (BE.sequence
+                    [ BE.unsignedInt32 Bytes.BE config.schemaVersion
+                    , hexStringToEncoder config.schemaHash
+                    , BE.unsignedInt32 Bytes.BE (Bytes.width wire3)
+                    , BE.bytes wire3
+                    ]
+                )
+
+        _ ->
+            BE.encode
+                (BE.sequence
+                    [ BE.unsignedInt32 Bytes.BE 0
+                    , BE.sequence (List.repeat 32 (BE.unsignedInt8 0))
+                    , BE.unsignedInt32 Bytes.BE 0
+                    ]
+                )
+
+
+hexStringToEncoder : String -> BE.Encoder
+hexStringToEncoder hex =
+    hex
+        |> String.toList
+        |> pairUp
+        |> List.map (\( hi, lo ) -> BE.unsignedInt8 (hexCharToInt hi * 16 + hexCharToInt lo))
+        |> padToLength 32
+        |> BE.sequence
+
+
+padToLength : Int -> List BE.Encoder -> List BE.Encoder
+padToLength targetLen encoders =
+    let
+        currentLen =
+            List.length encoders
+    in
+    if currentLen >= targetLen then
+        List.take targetLen encoders
+
+    else
+        encoders ++ List.repeat (targetLen - currentLen) (BE.unsignedInt8 0)
+
+
+pairUp : List a -> List ( a, a )
+pairUp list =
+    case list of
+        a :: b :: rest ->
+            ( a, b ) :: pairUp rest
+
+        _ ->
+            []
+
+
+hexCharToInt : Char -> Int
+hexCharToInt c =
+    let
+        code =
+            Char.toCode c
+    in
+    if code >= 48 && code <= 57 then
+        code - 48
+
+    else if code >= 97 && code <= 102 then
+        code - 97 + 10
+
+    else if code >= 65 && code <= 70 then
+        code - 65 + 10
+
+    else
+        0
+
+
+extractBytesBody : Request.Request -> Maybe Bytes
+extractBytesBody req =
+    case req.body of
+        StaticHttpBody.BytesBody _ bytes ->
+            Just bytes
 
         _ ->
             Nothing
@@ -1385,6 +1693,55 @@ expectSuccess scriptTest =
 
         TestError msg ->
             Expect.fail msg
+
+
+{-| Assert on the virtual DB state. This is a terminal assertion that also checks
+the script completed successfully. Pass the generated `Pages.Db.testConfig` and
+an assertion function that receives the decoded DB value.
+
+    import Pages.Db
+    import Test.BackendTask as BackendTaskTest
+
+    myDbScript
+        |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig
+            { counter = 0 }
+        |> BackendTaskTest.expectDb Pages.Db.testConfig
+            (\db -> Expect.equal 1 db.counter)
+
+-}
+expectDb :
+    { a | decode : Bytes -> Maybe db }
+    -> (db -> Expectation)
+    -> BackendTaskTest
+    -> Expectation
+expectDb config assertion scriptTest =
+    case scriptTest of
+        TestError msg ->
+            Expect.fail msg
+
+        Running state ->
+            Expect.fail
+                ("Expected the script to complete, but there are still pending requests:\n\n"
+                    ++ formatPendingRequests state.pendingRequests
+                )
+
+        Done { result, virtualDB } ->
+            case result of
+                Err _ ->
+                    Expect.fail "expectDb: Expected success but the script failed with an error."
+
+                Ok () ->
+                    case virtualDB.state of
+                        Nothing ->
+                            Expect.fail "expectDb: No DB state stored. Did your script perform any DB write operations?"
+
+                        Just bytes ->
+                            case config.decode bytes of
+                                Just db ->
+                                    assertion db
+
+                                Nothing ->
+                                    Expect.fail "expectDb: Failed to decode the stored DB bytes."
 
 
 {-| Assert that the `BackendTask` completed with a `FatalError`. Useful for testing

@@ -65,6 +65,9 @@ print("Batch introspection OK")
 # Multipart tests - tests multipartBody encoding via busboy round-trip
 (cd examples/end-to-end && npx elm-pages run script/src/MultipartTests.elm)
 
+# DB unit tests - tests Test.BackendTask virtual DB layer with real Pages.Db + Wire3 round-trip
+(cd examples/end-to-end && npx elm-pages run script/src/DbUnitTests.elm)
+
 # Scaffold tests - verify AddRoute with form fields generates compilable code
 # Uses end-to-end example which references local src/ via source-directories
 (cd examples/end-to-end && \
