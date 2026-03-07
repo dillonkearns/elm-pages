@@ -143,6 +143,8 @@ import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.StaticHttp.Request as Request
 import Pages.StaticHttpRequest exposing (RawRequest(..), Status(..))
 import RequestsAndPending
+import Set
+import Test.GlobMatch
 import Test.Runner
 
 
@@ -817,8 +819,124 @@ autoResponseBody vfs req =
                 _ ->
                     Encode.null
 
+        "elm-pages-internal://glob" ->
+            case decodeJsonBody globRequestDecoder req of
+                Just { pattern, options } ->
+                    let
+                        resolvedCwd =
+                            case req.dir of
+                                [] ->
+                                    ""
+
+                                dirs ->
+                                    String.join "/" dirs ++ "/"
+
+                        allFilePaths =
+                            Dict.keys vfs.files
+
+                        candidatePaths =
+                            let
+                                onlyFiles =
+                                    options.onlyFiles
+
+                                onlyDirectories =
+                                    options.onlyDirectories
+                            in
+                            if onlyDirectories then
+                                Test.GlobMatch.directoriesFromFiles allFilePaths
+                                    |> Set.toList
+
+                            else if onlyFiles then
+                                allFilePaths
+
+                            else
+                                allFilePaths
+                                    ++ (Test.GlobMatch.directoriesFromFiles allFilePaths |> Set.toList)
+
+                        -- Make paths relative to cwd for matching
+                        relativePaths =
+                            if resolvedCwd == "" then
+                                candidatePaths
+
+                            else
+                                candidatePaths
+                                    |> List.filterMap
+                                        (\p ->
+                                            if String.startsWith resolvedCwd p then
+                                                Just (String.dropLeft (String.length resolvedCwd) p)
+
+                                            else
+                                                Nothing
+                                        )
+
+                        tokens =
+                            Test.GlobMatch.parsePattern pattern
+
+                        matchOptions =
+                            { caseSensitive = options.caseSensitive
+                            , dot = options.dot
+                            }
+
+                        matches =
+                            Test.GlobMatch.matchPaths matchOptions tokens relativePaths
+                    in
+                    matches
+                        |> List.map
+                            (\{ fullPath, captures } ->
+                                Encode.object
+                                    [ ( "fullPath", Encode.string fullPath )
+                                    , ( "captures", Encode.list Encode.string captures )
+                                    , ( "fileStats"
+                                      , Encode.object
+                                            [ ( "fullPath", Encode.string fullPath )
+                                            , ( "size", Encode.int 0 )
+                                            , ( "atime", Encode.int 0 )
+                                            , ( "mtime", Encode.int 0 )
+                                            , ( "ctime", Encode.int 0 )
+                                            , ( "birthtime", Encode.int 0 )
+                                            , ( "isDirectory", Encode.bool False )
+                                            ]
+                                      )
+                                    ]
+                            )
+                        |> Encode.list identity
+
+                Nothing ->
+                    Encode.list identity []
+
         _ ->
             Encode.null
+
+
+globRequestDecoder :
+    Decode.Decoder
+        { pattern : String
+        , options :
+            { dot : Bool
+            , caseSensitive : Bool
+            , onlyFiles : Bool
+            , onlyDirectories : Bool
+            }
+        }
+globRequestDecoder =
+    Decode.map2
+        (\pattern options -> { pattern = pattern, options = options })
+        (Decode.field "pattern" Decode.string)
+        (Decode.field "options"
+            (Decode.map4
+                (\dot caseSensitive onlyFiles onlyDirectories ->
+                    { dot = dot
+                    , caseSensitive = caseSensitive
+                    , onlyFiles = onlyFiles
+                    , onlyDirectories = onlyDirectories
+                    }
+                )
+                (Decode.field "dot" Decode.bool)
+                (Decode.field "caseSensitiveMatch" Decode.bool)
+                (Decode.field "onlyFiles" Decode.bool)
+                (Decode.field "onlyDirectories" Decode.bool)
+            )
+        )
 
 
 resolveStreamPaths : Request.Request -> List StreamPartInfo -> List StreamPartInfo
