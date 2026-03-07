@@ -1319,6 +1319,79 @@ but the pending requests are:
                         |> BackendTaskTest.ensureLogged "localhost:3000"
                         |> BackendTaskTest.expectSuccess
             ]
+        , describe "inDir"
+            [ test "file read resolves relative to inDir" <|
+                \() ->
+                    BackendTask.File.rawFile "config.json"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen Script.log
+                        |> BackendTask.inDir "subdir"
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "subdir/config.json" "found it"
+                            )
+                        |> BackendTaskTest.ensureLogged "found it"
+                        |> BackendTaskTest.expectSuccess
+            , test "file write resolves relative to inDir" <|
+                \() ->
+                    Script.writeFile
+                        { path = "output.txt"
+                        , body = "hello"
+                        }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.inDir "subdir"
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFile "subdir/output.txt" "hello"
+                        |> BackendTaskTest.expectSuccess
+            , test "nested inDir stacks" <|
+                \() ->
+                    BackendTask.File.rawFile "data.txt"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen Script.log
+                        |> BackendTask.inDir "inner"
+                        |> BackendTask.inDir "outer"
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "outer/inner/data.txt" "nested"
+                            )
+                        |> BackendTaskTest.ensureLogged "nested"
+                        |> BackendTaskTest.expectSuccess
+            , test "file exists checks relative to inDir" <|
+                \() ->
+                    BackendTask.File.exists "config.json"
+                        |> BackendTask.andThen
+                            (\exists ->
+                                Script.log (boolToString exists)
+                            )
+                        |> BackendTask.inDir "subdir"
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "subdir/config.json" "content"
+                            )
+                        |> BackendTaskTest.ensureLogged "true"
+                        |> BackendTaskTest.expectSuccess
+            , test "stream fileRead resolves relative to inDir" <|
+                \() ->
+                    Stream.fileRead "input.txt"
+                        |> Stream.pipe Stream.stdout
+                        |> Stream.run
+                        |> BackendTask.inDir "mydir"
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "mydir/input.txt" "stream content"
+                            )
+                        |> BackendTaskTest.ensureStdout "stream content"
+                        |> BackendTaskTest.expectSuccess
+            , test "stream fileWrite resolves relative to inDir" <|
+                \() ->
+                    Stream.fromString "written via stream"
+                        |> Stream.pipe (Stream.fileWrite "out.txt")
+                        |> Stream.run
+                        |> BackendTask.inDir "mydir"
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFile "mydir/out.txt" "written via stream"
+                        |> BackendTaskTest.expectSuccess
+            ]
         ]
 
 
