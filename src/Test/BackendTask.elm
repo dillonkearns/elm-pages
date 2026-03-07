@@ -44,6 +44,35 @@ you never need to simulate them. But you can still assert that they happened usi
 `ensureLogged` and `ensureFileWritten`.
 
 
+## What gets auto-resolved vs. what you simulate
+
+Most built-in operations resolve automatically against virtual state — you only need to
+simulate things the framework can't predict (HTTP, shell commands, custom ports).
+
+**Auto-resolved (no simulation needed):**
+
+  - `Script.log`, `Script.writeFile`, `Script.removeFile`, `Script.copyFile`, `Script.move`
+  - `BackendTask.File.rawFile`, `BackendTask.File.jsonFile`, `BackendTask.File.exists`
+  - `Stream.fromString`, `Stream.stdin`, `Stream.stdout`, `Stream.stderr`
+  - `Stream.fileRead`, `Stream.fileWrite`
+  - `Stream.gzip`, `Stream.unzip`
+
+All of these read from or write to the virtual filesystem. Use `withFile` to seed files,
+`expectFile` to assert on them, and `ensureLogged`/`ensureStdout`/`ensureStderr` to check output.
+
+**Needs simulation:**
+
+  - `BackendTask.Http.*` — use `simulateHttpGet`, `simulateHttpPost`, `simulateHttpError`
+  - `BackendTask.Custom.run` — use `simulateCustom`
+  - `Stream.command` / `Script.command` / `Script.exec` — use `simulateCommand`
+  - `Stream.customRead` / `Stream.customWrite` / `Stream.customDuplex` — use `simulateCustomStream`
+  - `Stream.http` / `Stream.httpWithInput` — use `simulateStreamHttp`
+
+For stream pipelines that mix both (e.g. `fileRead |> command |> fileWrite`), the framework
+handles the auto-resolvable parts around the opaque part — you only provide the opaque part's
+output.
+
+
 ## Building
 
 @docs BackendTaskTest, HttpError, fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
