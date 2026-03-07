@@ -1,7 +1,7 @@
 module Test.BackendTask exposing
     ( BackendTaskTest, HttpError(..), fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
     , TestSetup, defaultSetup, withFile, withDb, withStdin
-    , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom
+    , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
     , expectFile, expectFileExists, expectNoFile
     , SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
@@ -58,7 +58,7 @@ Configure the initial state (seeded files, DB) before the test starts running.
 
 ## Simulating Effects
 
-@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom
+@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand
 
 
 ## Inline Assertions
@@ -573,6 +573,7 @@ type alias StreamPartInfo =
     { name : String
     , path : Maybe String
     , string : Maybe String
+    , command : Maybe String
     }
 
 
@@ -582,10 +583,11 @@ streamPipelineDecoder =
         (Decode.field "kind" Decode.string)
         (Decode.field "parts"
             (Decode.list
-                (Decode.map3 StreamPartInfo
+                (Decode.map4 StreamPartInfo
                     (Decode.field "name" Decode.string)
                     (Decode.maybe (Decode.field "path" Decode.string))
                     (Decode.maybe (Decode.field "string" Decode.string))
+                    (Decode.maybe (Decode.field "command" Decode.string))
                 )
             )
         )
@@ -785,63 +787,7 @@ type alias StreamSimResult =
 
 simulateStreamPipeline : VirtualFS -> List StreamPartInfo -> StreamSimResult
 simulateStreamPipeline vfs parts =
-    List.foldl
-        (\part accum ->
-            case accum.error of
-                Just _ ->
-                    -- Short-circuit on error
-                    accum
-
-                Nothing ->
-                    case part.name of
-                        "fromString" ->
-                            { accum | output = Maybe.withDefault "" part.string }
-
-                        "stdin" ->
-                            case accum.virtualFS.stdin of
-                                Just content ->
-                                    { accum | output = content }
-
-                                Nothing ->
-                                    { accum | error = Just "Stream stdin: No stdin content provided. Use withStdin in your TestSetup." }
-
-                        "fileRead" ->
-                            case part.path of
-                                Just path ->
-                                    case Dict.get path accum.virtualFS.files of
-                                        Just content ->
-                                            { accum | output = content }
-
-                                        Nothing ->
-                                            { accum | error = Just ("Stream fileRead: File \"" ++ path ++ "\" not found in virtual filesystem.") }
-
-                                Nothing ->
-                                    accum
-
-                        "fileWrite" ->
-                            case part.path of
-                                Just path ->
-                                    { accum
-                                        | virtualFS = insertFile path accum.output accum.virtualFS
-                                        , effects = accum.effects ++ [ FileWriteEffect { path = path, body = accum.output } ]
-                                    }
-
-                                Nothing ->
-                                    accum
-
-                        "stdout" ->
-                            { accum
-                                | effects = accum.effects ++ [ StdoutEffect accum.output ]
-                            }
-
-                        "stderr" ->
-                            { accum
-                                | effects = accum.effects ++ [ StderrEffect accum.output ]
-                            }
-
-                        _ ->
-                            accum
-        )
+    simulateStreamPipelineFrom
         { output = ""
         , effects = []
         , virtualFS = vfs
@@ -1333,6 +1279,249 @@ simulateCustom portName jsonResponse scriptTest =
 
         TestError _ ->
             scriptTest
+
+
+{-| Simulate a pending stream pipeline that contains a `Stream.command`. The framework
+handles simulatable parts (`fileRead`, `fileWrite`, `fromString`, `stdin`, `stdout`, `stderr`)
+around the command — you only provide the command's output.
+
+    import BackendTask.Stream as Stream
+    import Test.BackendTask as BackendTaskTest
+
+    Stream.fromString "input data"
+        |> Stream.pipe (Stream.command "grep" [ "error" ])
+        |> Stream.pipe (Stream.fileWrite "errors.txt")
+        |> Stream.run
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.simulateCommand "grep" "error: something bad\n"
+        |> BackendTaskTest.expectFile "errors.txt" "error: something bad\n"
+        |> BackendTaskTest.expectSuccess
+
+For `Stream.run` pipelines, the output is used for downstream parts (like `fileWrite`)
+but isn't returned to Elm. For `Stream.read`, it becomes the body.
+
+-}
+simulateCommand : String -> String -> BackendTaskTest -> BackendTaskTest
+simulateCommand commandName commandOutput scriptTest =
+    case scriptTest of
+        Running state ->
+            case findMatchingStream commandName state.pendingRequests of
+                Just ( matchedReq, remaining ) ->
+                    let
+                        hash : String
+                        hash =
+                            Request.hash matchedReq
+                    in
+                    case decodeJsonBody streamPipelineDecoder matchedReq of
+                        Just pipeline ->
+                            let
+                                simResult =
+                                    simulateStreamWithCommand state.virtualFS commandName commandOutput pipeline.parts
+
+                                responseBody : Encode.Value
+                                responseBody =
+                                    case simResult.error of
+                                        Just errorMsg ->
+                                            Encode.object [ ( "error", Encode.string errorMsg ) ]
+
+                                        Nothing ->
+                                            case pipeline.kind of
+                                                "text" ->
+                                                    Encode.object
+                                                        [ ( "body", Encode.string simResult.output )
+                                                        , ( "metadata", Encode.object [ ( "exitCode", Encode.int 0 ) ] )
+                                                        ]
+
+                                                "json" ->
+                                                    case Decode.decodeString Decode.value simResult.output of
+                                                        Ok jsonValue ->
+                                                            Encode.object
+                                                                [ ( "body", jsonValue )
+                                                                , ( "metadata", Encode.object [ ( "exitCode", Encode.int 0 ) ] )
+                                                                ]
+
+                                                        Err _ ->
+                                                            Encode.object
+                                                                [ ( "body", Encode.string simResult.output )
+                                                                , ( "metadata", Encode.object [ ( "exitCode", Encode.int 0 ) ] )
+                                                                ]
+
+                                                _ ->
+                                                    Encode.null
+
+                                entry : ( String, Encode.Value )
+                                entry =
+                                    jsonAutoResolveEntry hash responseBody
+
+                                newState : RunningState
+                                newState =
+                                    { state
+                                        | responseEntries = entry :: state.responseEntries
+                                        , pendingRequests = remaining
+                                        , virtualFS = simResult.virtualFS
+                                        , trackedEffects = state.trackedEffects ++ simResult.effects
+                                    }
+                            in
+                            if List.isEmpty remaining then
+                                advanceWithAutoResolve newState
+
+                            else
+                                Running newState
+
+                        Nothing ->
+                            TestError "simulateCommand: Failed to decode stream pipeline."
+
+                Nothing ->
+                    TestError
+                        ("simulateCommand: Expected a pending stream with command \""
+                            ++ commandName
+                            ++ "\"\n\nbut the pending requests are:\n\n"
+                            ++ formatPendingRequests state.pendingRequests
+                        )
+
+        Done _ ->
+            TestError "simulateCommand: The script has already completed. No pending requests to simulate."
+
+        TestError _ ->
+            scriptTest
+
+
+findMatchingStream : String -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
+findMatchingStream commandName requests =
+    findMatchingStreamHelper commandName [] requests
+
+
+findMatchingStreamHelper : String -> List Request.Request -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
+findMatchingStreamHelper commandName before after =
+    case after of
+        [] ->
+            Nothing
+
+        req :: rest ->
+            if req.url == "elm-pages-internal://stream" && streamHasCommand commandName req then
+                Just ( req, List.reverse before ++ rest )
+
+            else
+                findMatchingStreamHelper commandName (req :: before) rest
+
+
+streamHasCommand : String -> Request.Request -> Bool
+streamHasCommand commandName req =
+    case decodeJsonBody (Decode.field "parts" (Decode.list (Decode.map2 Tuple.pair (Decode.field "name" Decode.string) (Decode.maybe (Decode.field "command" Decode.string))))) req of
+        Just parts ->
+            List.any (\( name, cmd ) -> name == "command" && cmd == Just commandName) parts
+
+        Nothing ->
+            False
+
+
+simulateStreamWithCommand : VirtualFS -> String -> String -> List StreamPartInfo -> StreamSimResult
+simulateStreamWithCommand vfs commandName commandOutput parts =
+    let
+        ( before, afterIncluding ) =
+            splitAtCommand commandName parts
+
+        after =
+            List.drop 1 afterIncluding
+
+        beforeResult =
+            simulateStreamPipeline vfs before
+    in
+    case beforeResult.error of
+        Just _ ->
+            beforeResult
+
+        Nothing ->
+            let
+                afterResult =
+                    simulateStreamPipelineFrom
+                        { output = commandOutput
+                        , effects = []
+                        , virtualFS = beforeResult.virtualFS
+                        , error = Nothing
+                        }
+                        after
+            in
+            { afterResult
+                | effects = beforeResult.effects ++ afterResult.effects
+            }
+
+
+simulateStreamPipelineFrom : StreamSimResult -> List StreamPartInfo -> StreamSimResult
+simulateStreamPipelineFrom initial parts =
+    List.foldl
+        (\part accum ->
+            case accum.error of
+                Just _ ->
+                    accum
+
+                Nothing ->
+                    case part.name of
+                        "fromString" ->
+                            { accum | output = Maybe.withDefault "" part.string }
+
+                        "stdin" ->
+                            case accum.virtualFS.stdin of
+                                Just content ->
+                                    { accum | output = content }
+
+                                Nothing ->
+                                    { accum | error = Just "Stream stdin: No stdin content provided. Use withStdin in your TestSetup." }
+
+                        "fileRead" ->
+                            case part.path of
+                                Just path ->
+                                    case Dict.get path accum.virtualFS.files of
+                                        Just content ->
+                                            { accum | output = content }
+
+                                        Nothing ->
+                                            { accum | error = Just ("Stream fileRead: File \"" ++ path ++ "\" not found in virtual filesystem.") }
+
+                                Nothing ->
+                                    accum
+
+                        "fileWrite" ->
+                            case part.path of
+                                Just path ->
+                                    { accum
+                                        | virtualFS = insertFile path accum.output accum.virtualFS
+                                        , effects = accum.effects ++ [ FileWriteEffect { path = path, body = accum.output } ]
+                                    }
+
+                                Nothing ->
+                                    accum
+
+                        "stdout" ->
+                            { accum | effects = accum.effects ++ [ StdoutEffect accum.output ] }
+
+                        "stderr" ->
+                            { accum | effects = accum.effects ++ [ StderrEffect accum.output ] }
+
+                        _ ->
+                            accum
+        )
+        initial
+        parts
+
+
+splitAtCommand : String -> List StreamPartInfo -> ( List StreamPartInfo, List StreamPartInfo )
+splitAtCommand commandName parts =
+    splitAtCommandHelper commandName [] parts
+
+
+splitAtCommandHelper : String -> List StreamPartInfo -> List StreamPartInfo -> ( List StreamPartInfo, List StreamPartInfo )
+splitAtCommandHelper commandName before after =
+    case after of
+        [] ->
+            ( List.reverse before, [] )
+
+        part :: rest ->
+            if part.name == "command" && part.command == Just commandName then
+                ( List.reverse before, part :: rest )
+
+            else
+                splitAtCommandHelper commandName (part :: before) rest
 
 
 httpSuccessResponse : String -> Encode.Value -> Encode.Value
