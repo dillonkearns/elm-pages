@@ -573,4 +573,98 @@ elm-pages-test --name <name>"""
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.expectFailure
             ]
+        , describe "virtual filesystem"
+            [ test "writeFile updates virtual filesystem" <|
+                \() ->
+                    Script.writeFile { path = "output.txt", body = "hello world" }
+                        |> BackendTask.allowFatal
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFile "output.txt" "hello world"
+                        |> BackendTaskTest.expectSuccess
+            , test "expectFile fails when file doesn't exist" <|
+                \() ->
+                    BackendTask.succeed ()
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFile "missing.txt" "content"
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> Expect.equal
+                                        """expectFile: Expected file "missing.txt" to exist but it was not found.
+
+Files in virtual filesystem:
+
+    (none)"""
+                            )
+            , test "expectFile fails when content doesn't match" <|
+                \() ->
+                    Script.writeFile { path = "output.txt", body = "actual content" }
+                        |> BackendTask.allowFatal
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFile "output.txt" "expected content"
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> Expect.equal
+                                        """expectFile: File "output.txt" exists but has different content.
+
+Expected:
+
+    expected content
+
+Actual:
+
+    actual content"""
+                            )
+            , test "expectNoFile passes when file doesn't exist" <|
+                \() ->
+                    BackendTask.succeed ()
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectNoFile "missing.txt"
+                        |> BackendTaskTest.expectSuccess
+            , test "expectNoFile fails when file exists" <|
+                \() ->
+                    Script.writeFile { path = "output.txt", body = "content" }
+                        |> BackendTask.allowFatal
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectNoFile "output.txt"
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> Expect.equal
+                                        """expectNoFile: Expected file "output.txt" to not exist but it was found."""
+                            )
+            , test "expectFileExists passes when file exists" <|
+                \() ->
+                    Script.writeFile { path = "output.txt", body = "content" }
+                        |> BackendTask.allowFatal
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFileExists "output.txt"
+                        |> BackendTaskTest.expectSuccess
+            , test "multiple writeFile calls track all files" <|
+                \() ->
+                    Script.writeFile { path = "a.txt", body = "aaa" }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\() ->
+                                Script.writeFile { path = "b.txt", body = "bbb" }
+                                    |> BackendTask.allowFatal
+                            )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFile "a.txt" "aaa"
+                        |> BackendTaskTest.expectFile "b.txt" "bbb"
+                        |> BackendTaskTest.expectSuccess
+            , test "writing to same file overwrites" <|
+                \() ->
+                    Script.writeFile { path = "output.txt", body = "first" }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\() ->
+                                Script.writeFile { path = "output.txt", body = "second" }
+                                    |> BackendTask.allowFatal
+                            )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFile "output.txt" "second"
+                        |> BackendTaskTest.expectSuccess
+            ]
         ]
