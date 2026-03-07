@@ -1,23 +1,9 @@
 module Test.BackendTask exposing
-    ( BackendTaskTest
-    , HttpError(..)
-    , fromBackendTask
-    , fromScript
-    , simulateHttpGet
-    , simulateHttpPost
-    , simulateHttpError
-    , simulateCustom
-    , ensureHttpGet
-    , ensureHttpPost
-    , ensureCustom
-    , ensureLogged
-    , ensureFileWritten
-    , expectFile
-    , expectFileExists
-    , expectNoFile
-    , expectSuccess
-    , expectFailure
-    , expectTestError
+    ( BackendTaskTest, HttpError(..), fromBackendTask, fromScript
+    , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom
+    , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten
+    , expectFile, expectFileExists, expectNoFile
+    , expectSuccess, expectFailure, expectTestError
     )
 
 {-| Pure Elm testing for `BackendTask` pipelines — no side effects, no HTTP calls, no file I/O.

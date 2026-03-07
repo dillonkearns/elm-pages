@@ -1,6 +1,7 @@
-module ExampleScript exposing (fetchAndLogStars, fetchAndWriteReport, starsScript)
+module ExampleScript exposing (fetchAndLogStars, fetchAndWriteReport, fetchWriteAndVerify, reportScript, starsScript)
 
 import BackendTask exposing (BackendTask)
+import BackendTask.File
 import BackendTask.Http
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
@@ -46,6 +47,60 @@ fetchAndWriteReport { username, repos } =
                     }
                     |> BackendTask.allowFatal
             )
+
+
+{-| Fetch stars, write a report, read it back, and log a summary.
+Exercises the write-then-read round trip through the virtual filesystem.
+-}
+fetchWriteAndVerify : { username : String, repos : List String } -> BackendTask FatalError ()
+fetchWriteAndVerify { username, repos } =
+    fetchAndWriteReport { username = username, repos = repos }
+        |> BackendTask.andThen
+            (\() ->
+                BackendTask.File.rawFile "report.md"
+                    |> BackendTask.allowFatal
+            )
+        |> BackendTask.andThen
+            (\content ->
+                let
+                    lineCount : Int
+                    lineCount =
+                        List.length (String.lines content)
+                in
+                Script.log ("Report complete: " ++ String.fromInt lineCount ++ " lines written to report.md")
+            )
+
+
+{-| A full Script with CLI options that fetches stars, writes a report, reads it back,
+and logs a summary. Exercises fromScript + virtual FS + HTTP simulation end-to-end.
+-}
+reportScript : Script.Script
+reportScript =
+    Script.withCliOptions
+        (Program.config
+            |> Program.add
+                (OptionsParser.build
+                    (\username repos -> { username = username, repos = repos })
+                    |> OptionsParser.with
+                        (Option.optionalKeywordArg "username"
+                            |> Option.withDefault "dillonkearns"
+                        )
+                    |> OptionsParser.with
+                        (Option.keywordArgList "repo")
+                )
+        )
+        (\{ username, repos } ->
+            let
+                repoList : List String
+                repoList =
+                    if List.isEmpty repos then
+                        [ "elm-pages" ]
+
+                    else
+                        repos
+            in
+            fetchWriteAndVerify { username = username, repos = repoList }
+        )
 
 
 {-| A full Script value with CLI options for testing with fromScript.
