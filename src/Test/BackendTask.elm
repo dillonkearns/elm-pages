@@ -138,6 +138,7 @@ import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Pages.Internal.FatalError
 import Pages.Internal.Script
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.StaticHttp.Request as Request
@@ -2650,6 +2651,13 @@ permanentErrorToString err =
             "Internal error"
 
 
+fatalErrorToString : FatalError -> String
+fatalErrorToString error =
+    case error of
+        Pages.Internal.FatalError.FatalError { title, body } ->
+            title ++ "\n\n" ++ body
+
+
 {-| Assert that the `BackendTask` completed successfully. This is a terminal assertion —
 it produces an `Expectation` for elm-test, so it should be the last step in your pipeline.
 
@@ -2671,8 +2679,8 @@ expectSuccess scriptTest =
                 Ok _ ->
                     Expect.pass
 
-                Err _ ->
-                    Expect.fail "Expected success but the script failed with an error."
+                Err err ->
+                    Expect.fail ("Expected success but the script failed with an error:\n\n" ++ fatalErrorToString err)
 
         Running state ->
             Expect.fail
@@ -2714,8 +2722,8 @@ expectSuccessWith assertion scriptTest =
                 Ok value ->
                     assertion value
 
-                Err _ ->
-                    Expect.fail "Expected success but the script failed with an error."
+                Err err ->
+                    Expect.fail ("Expected success but the script failed with an error:\n\n" ++ fatalErrorToString err)
 
         Running state ->
             Expect.fail
@@ -2759,8 +2767,8 @@ expectDb config assertion scriptTest =
 
         Done { result, virtualDB } ->
             case result of
-                Err _ ->
-                    Expect.fail "expectDb: Expected success but the script failed with an error."
+                Err err ->
+                    Expect.fail ("expectDb: Expected success but the script failed with an error:\n\n" ++ fatalErrorToString err)
 
                 Ok _ ->
                     case virtualDB.state of

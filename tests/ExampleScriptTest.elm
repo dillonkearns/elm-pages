@@ -51,7 +51,7 @@ all =
                             { path = "report.md"
                             , body = "# Star Report\n\nelm-pages: 1205\nelm-graphql: 780"
                             }
-                        |> BackendTaskTest.expectFile "report.md"
+                        |> BackendTaskTest.ensureFile "report.md"
                             "# Star Report\n\nelm-pages: 1205\nelm-graphql: 780"
                         |> BackendTaskTest.expectSuccess
             ]
@@ -63,7 +63,7 @@ all =
                         |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 1205 ) ])
-                        |> BackendTaskTest.expectFile "report.md"
+                        |> BackendTaskTest.ensureFile "report.md"
                             "# Star Report\n\nelm-pages: 1205"
                         |> BackendTaskTest.ensureLogged "Report complete: 3 lines written to report.md"
                         |> BackendTaskTest.expectSuccess
@@ -84,7 +84,7 @@ all =
                         |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/mdgriffith/elm-animator"
                             (Encode.object [ ( "stargazers_count", Encode.int 400 ) ])
-                        |> BackendTaskTest.expectFile "report.md"
+                        |> BackendTaskTest.ensureFile "report.md"
                             "# Star Report\n\nelm-ui: 1300\nelm-animator: 400"
                         |> BackendTaskTest.ensureLogged "Report complete: 4 lines written to report.md"
                         |> BackendTaskTest.expectSuccess
