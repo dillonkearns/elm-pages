@@ -1,7 +1,7 @@
 module Test.BackendTask exposing
     ( BackendTaskTest, HttpError(..), fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
     , TestSetup, defaultSetup, withFile, withDb, withStdin
-    , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand
+    , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
     , expectFile, expectFileExists, expectNoFile
     , SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
@@ -58,7 +58,7 @@ Configure the initial state (seeded files, DB) before the test starts running.
 
 ## Simulating Effects
 
-@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand
+@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
 
 
 ## Inline Assertions
@@ -574,6 +574,8 @@ type alias StreamPartInfo =
     , path : Maybe String
     , string : Maybe String
     , command : Maybe String
+    , portName : Maybe String
+    , url : Maybe String
     }
 
 
@@ -583,11 +585,13 @@ streamPipelineDecoder =
         (Decode.field "kind" Decode.string)
         (Decode.field "parts"
             (Decode.list
-                (Decode.map4 StreamPartInfo
+                (Decode.map6 StreamPartInfo
                     (Decode.field "name" Decode.string)
                     (Decode.maybe (Decode.field "path" Decode.string))
                     (Decode.maybe (Decode.field "string" Decode.string))
                     (Decode.maybe (Decode.field "command" Decode.string))
+                    (Decode.maybe (Decode.field "portName" Decode.string))
+                    (Decode.maybe (Decode.field "url" Decode.string))
                 )
             )
         )
@@ -612,6 +616,12 @@ isSimulatablePart part =
             True
 
         "stderr" ->
+            True
+
+        "gzip" ->
+            True
+
+        "unzip" ->
             True
 
         _ ->
@@ -1303,9 +1313,82 @@ but isn't returned to Elm. For `Stream.read`, it becomes the body.
 -}
 simulateCommand : String -> String -> BackendTaskTest -> BackendTaskTest
 simulateCommand commandName commandOutput scriptTest =
+    simulateStreamByPartName "simulateCommand"
+        (\part -> part.name == "command" && part.command == Just commandName)
+        ("command \"" ++ commandName ++ "\"")
+        commandMetadata
+        commandOutput
+        scriptTest
+
+
+commandMetadata : Encode.Value
+commandMetadata =
+    Encode.object [ ( "exitCode", Encode.int 0 ) ]
+
+
+{-| Simulate a pending stream pipeline that contains a custom stream part (`Stream.customRead`,
+`Stream.customWrite`, or `Stream.customDuplex`). Works like `simulateCommand` — the framework
+handles simulatable parts around the custom port, you only provide the port's output.
+
+    Stream.fromString "input"
+        |> Stream.pipe (Stream.customDuplex "myTransform" (Encode.object []))
+        |> Stream.pipe (Stream.fileWrite "output.txt")
+        |> Stream.run
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.simulateCustomStream "myTransform" "transformed output"
+        |> BackendTaskTest.expectFile "output.txt" "transformed output"
+        |> BackendTaskTest.expectSuccess
+
+-}
+simulateCustomStream : String -> String -> BackendTaskTest -> BackendTaskTest
+simulateCustomStream portName portOutput scriptTest =
+    simulateStreamByPartName "simulateCustomStream"
+        (\part -> part.portName == Just portName)
+        ("custom stream port \"" ++ portName ++ "\"")
+        commandMetadata
+        portOutput
+        scriptTest
+
+
+{-| Simulate a pending stream pipeline that contains an HTTP stream part (`Stream.http` or
+`Stream.httpWithInput`). Works like `simulateCommand` — the framework handles simulatable parts
+around the HTTP request, you only provide the response body.
+
+    Stream.fromString "request body"
+        |> Stream.pipe (Stream.httpWithInput { url = "https://api.example.com", method = "POST", headers = [], retries = 0, timeoutInMs = 0 })
+        |> Stream.read
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.simulateStreamHttp "https://api.example.com" "response body"
+        |> BackendTaskTest.expectSuccess
+
+-}
+simulateStreamHttp : String -> String -> BackendTaskTest -> BackendTaskTest
+simulateStreamHttp url httpOutput scriptTest =
+    simulateStreamByPartName "simulateStreamHttp"
+        (\part -> part.url == Just url)
+        ("stream HTTP request \"" ++ url ++ "\"")
+        (httpStreamMetadata url)
+        httpOutput
+        scriptTest
+
+
+httpStreamMetadata : String -> Encode.Value
+httpStreamMetadata url =
+    Encode.object
+        [ ( "statusCode", Encode.int 200 )
+        , ( "statusText", Encode.string "OK" )
+        , ( "headers", Encode.object [] )
+        , ( "url", Encode.string url )
+        ]
+
+
+{-| Internal helper — shared implementation for simulateCommand, simulateCustomStream, simulateStreamHttp.
+-}
+simulateStreamByPartName : String -> (StreamPartInfo -> Bool) -> String -> Encode.Value -> String -> BackendTaskTest -> BackendTaskTest
+simulateStreamByPartName callerName predicate description metadata opaqueOutput scriptTest =
     case scriptTest of
         Running state ->
-            case findMatchingStream commandName state.pendingRequests of
+            case findMatchingStreamByPart predicate state.pendingRequests of
                 Just ( matchedReq, remaining ) ->
                     let
                         hash : String
@@ -1316,7 +1399,7 @@ simulateCommand commandName commandOutput scriptTest =
                         Just pipeline ->
                             let
                                 simResult =
-                                    simulateStreamWithCommand state.virtualFS commandName commandOutput pipeline.parts
+                                    simulateStreamWithOpaquePart predicate state.virtualFS opaqueOutput pipeline.parts
 
                                 responseBody : Encode.Value
                                 responseBody =
@@ -1329,7 +1412,7 @@ simulateCommand commandName commandOutput scriptTest =
                                                 "text" ->
                                                     Encode.object
                                                         [ ( "body", Encode.string simResult.output )
-                                                        , ( "metadata", Encode.object [ ( "exitCode", Encode.int 0 ) ] )
+                                                        , ( "metadata", metadata )
                                                         ]
 
                                                 "json" ->
@@ -1337,13 +1420,13 @@ simulateCommand commandName commandOutput scriptTest =
                                                         Ok jsonValue ->
                                                             Encode.object
                                                                 [ ( "body", jsonValue )
-                                                                , ( "metadata", Encode.object [ ( "exitCode", Encode.int 0 ) ] )
+                                                                , ( "metadata", metadata )
                                                                 ]
 
                                                         Err _ ->
                                                             Encode.object
                                                                 [ ( "body", Encode.string simResult.output )
-                                                                , ( "metadata", Encode.object [ ( "exitCode", Encode.int 0 ) ] )
+                                                                , ( "metadata", metadata )
                                                                 ]
 
                                                 _ ->
@@ -1369,57 +1452,58 @@ simulateCommand commandName commandOutput scriptTest =
                                 Running newState
 
                         Nothing ->
-                            TestError "simulateCommand: Failed to decode stream pipeline."
+                            TestError (callerName ++ ": Failed to decode stream pipeline.")
 
                 Nothing ->
                     TestError
-                        ("simulateCommand: Expected a pending stream with command \""
-                            ++ commandName
-                            ++ "\"\n\nbut the pending requests are:\n\n"
+                        (callerName
+                            ++ ": Expected a pending stream with "
+                            ++ description
+                            ++ "\n\nbut the pending requests are:\n\n"
                             ++ formatPendingRequests state.pendingRequests
                         )
 
         Done _ ->
-            TestError "simulateCommand: The script has already completed. No pending requests to simulate."
+            TestError (callerName ++ ": The script has already completed. No pending requests to simulate.")
 
         TestError _ ->
             scriptTest
 
 
-findMatchingStream : String -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
-findMatchingStream commandName requests =
-    findMatchingStreamHelper commandName [] requests
+findMatchingStreamByPart : (StreamPartInfo -> Bool) -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
+findMatchingStreamByPart predicate requests =
+    findMatchingStreamByPartHelper predicate [] requests
 
 
-findMatchingStreamHelper : String -> List Request.Request -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
-findMatchingStreamHelper commandName before after =
+findMatchingStreamByPartHelper : (StreamPartInfo -> Bool) -> List Request.Request -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
+findMatchingStreamByPartHelper predicate before after =
     case after of
         [] ->
             Nothing
 
         req :: rest ->
-            if req.url == "elm-pages-internal://stream" && streamHasCommand commandName req then
+            if req.url == "elm-pages-internal://stream" && streamHasPart predicate req then
                 Just ( req, List.reverse before ++ rest )
 
             else
-                findMatchingStreamHelper commandName (req :: before) rest
+                findMatchingStreamByPartHelper predicate (req :: before) rest
 
 
-streamHasCommand : String -> Request.Request -> Bool
-streamHasCommand commandName req =
-    case decodeJsonBody (Decode.field "parts" (Decode.list (Decode.map2 Tuple.pair (Decode.field "name" Decode.string) (Decode.maybe (Decode.field "command" Decode.string))))) req of
-        Just parts ->
-            List.any (\( name, cmd ) -> name == "command" && cmd == Just commandName) parts
+streamHasPart : (StreamPartInfo -> Bool) -> Request.Request -> Bool
+streamHasPart predicate req =
+    case decodeJsonBody streamPipelineDecoder req of
+        Just pipeline ->
+            List.any predicate pipeline.parts
 
         Nothing ->
             False
 
 
-simulateStreamWithCommand : VirtualFS -> String -> String -> List StreamPartInfo -> StreamSimResult
-simulateStreamWithCommand vfs commandName commandOutput parts =
+simulateStreamWithOpaquePart : (StreamPartInfo -> Bool) -> VirtualFS -> String -> List StreamPartInfo -> StreamSimResult
+simulateStreamWithOpaquePart predicate vfs opaqueOutput parts =
     let
         ( before, afterIncluding ) =
-            splitAtCommand commandName parts
+            splitAtPart predicate parts
 
         after =
             List.drop 1 afterIncluding
@@ -1435,7 +1519,7 @@ simulateStreamWithCommand vfs commandName commandOutput parts =
             let
                 afterResult =
                     simulateStreamPipelineFrom
-                        { output = commandOutput
+                        { output = opaqueOutput
                         , effects = []
                         , virtualFS = beforeResult.virtualFS
                         , error = Nothing
@@ -1445,6 +1529,25 @@ simulateStreamWithCommand vfs commandName commandOutput parts =
             { afterResult
                 | effects = beforeResult.effects ++ afterResult.effects
             }
+
+
+splitAtPart : (StreamPartInfo -> Bool) -> List StreamPartInfo -> ( List StreamPartInfo, List StreamPartInfo )
+splitAtPart predicate parts =
+    splitAtPartHelper predicate [] parts
+
+
+splitAtPartHelper : (StreamPartInfo -> Bool) -> List StreamPartInfo -> List StreamPartInfo -> ( List StreamPartInfo, List StreamPartInfo )
+splitAtPartHelper predicate before after =
+    case after of
+        [] ->
+            ( List.reverse before, [] )
+
+        part :: rest ->
+            if predicate part then
+                ( List.reverse before, part :: rest )
+
+            else
+                splitAtPartHelper predicate (part :: before) rest
 
 
 simulateStreamPipelineFrom : StreamSimResult -> List StreamPartInfo -> StreamSimResult
@@ -1498,6 +1601,16 @@ simulateStreamPipelineFrom initial parts =
                         "stderr" ->
                             { accum | effects = accum.effects ++ [ StderrEffect accum.output ] }
 
+                        "gzip" ->
+                            { accum | output = gzipMarker ++ accum.output }
+
+                        "unzip" ->
+                            if String.startsWith gzipMarker accum.output then
+                                { accum | output = String.dropLeft (String.length gzipMarker) accum.output }
+
+                            else
+                                { accum | error = Just "Stream unzip: Data is not gzipped. In tests, only data that passed through a gzip stream part can be unzipped." }
+
                         _ ->
                             accum
         )
@@ -1505,23 +1618,10 @@ simulateStreamPipelineFrom initial parts =
         parts
 
 
-splitAtCommand : String -> List StreamPartInfo -> ( List StreamPartInfo, List StreamPartInfo )
-splitAtCommand commandName parts =
-    splitAtCommandHelper commandName [] parts
+gzipMarker : String
+gzipMarker =
+    "****GZIPPED****"
 
-
-splitAtCommandHelper : String -> List StreamPartInfo -> List StreamPartInfo -> ( List StreamPartInfo, List StreamPartInfo )
-splitAtCommandHelper commandName before after =
-    case after of
-        [] ->
-            ( List.reverse before, [] )
-
-        part :: rest ->
-            if part.name == "command" && part.command == Just commandName then
-                ( List.reverse before, part :: rest )
-
-            else
-                splitAtCommandHelper commandName (part :: before) rest
 
 
 httpSuccessResponse : String -> Encode.Value -> Encode.Value
