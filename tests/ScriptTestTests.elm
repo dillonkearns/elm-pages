@@ -4,6 +4,7 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import BackendTask.Env
 import BackendTask.File
+import BackendTask.Glob as Glob
 import BackendTask.Http
 import BackendTask.Stream as Stream
 import Cli.Option as Option
@@ -1427,6 +1428,215 @@ but the pending requests are:
                         |> BackendTask.inDir "mydir"
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.expectFile "mydir/out.txt" "written via stream"
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "Glob"
+            [ test "Glob.fromString matches seeded files" <|
+                \() ->
+                    Glob.fromString "content/blog/*.md"
+                        |> BackendTask.map List.sort
+                        |> BackendTask.andThen
+                            (\matches ->
+                                if matches == [ "content/blog/first-post.md", "content/blog/second-post.md" ] then
+                                    BackendTask.succeed ()
+
+                                else
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Unexpected glob result"
+                                            , body = "Got: " ++ String.join ", " matches
+                                            }
+                                        )
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "content/blog/first-post.md" "First post"
+                                |> BackendTaskTest.withFile "content/blog/second-post.md" "Second post"
+                                |> BackendTaskTest.withFile "content/about.md" "About page"
+                                |> BackendTaskTest.withFile "src/Main.elm" "module Main"
+                            )
+                        |> BackendTaskTest.expectSuccess
+            , test "Glob.fromString returns empty list when no matches" <|
+                \() ->
+                    Glob.fromString "*.xyz"
+                        |> BackendTask.andThen
+                            (\matches ->
+                                if matches == [] then
+                                    BackendTask.succeed ()
+
+                                else
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Expected empty"
+                                            , body = "Got: " ++ String.join ", " matches
+                                            }
+                                        )
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "hello.md" "content"
+                            )
+                        |> BackendTaskTest.expectSuccess
+            , test "Glob with capture extracts slug" <|
+                \() ->
+                    Glob.succeed (\slug -> slug)
+                        |> Glob.match (Glob.literal "content/blog/")
+                        |> Glob.capture Glob.wildcard
+                        |> Glob.match (Glob.literal ".md")
+                        |> Glob.toBackendTask
+                        |> BackendTask.map List.sort
+                        |> BackendTask.andThen
+                            (\slugs ->
+                                if slugs == [ "first-post", "second-post" ] then
+                                    BackendTask.succeed ()
+
+                                else
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Unexpected slugs"
+                                            , body = "Got: " ++ String.join ", " slugs
+                                            }
+                                        )
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "content/blog/first-post.md" "First"
+                                |> BackendTaskTest.withFile "content/blog/second-post.md" "Second"
+                                |> BackendTaskTest.withFile "content/about.md" "About"
+                            )
+                        |> BackendTaskTest.expectSuccess
+            , test "Glob recursive wildcard matches nested files" <|
+                \() ->
+                    Glob.fromString "src/**/*.elm"
+                        |> BackendTask.map List.sort
+                        |> BackendTask.andThen
+                            (\matches ->
+                                if matches == [ "src/Main.elm", "src/Ui/Button.elm", "src/Ui/Icon.elm" ] then
+                                    BackendTask.succeed ()
+
+                                else
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Unexpected matches"
+                                            , body = "Got: " ++ String.join ", " matches
+                                            }
+                                        )
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "src/Main.elm" "module Main"
+                                |> BackendTaskTest.withFile "src/Ui/Button.elm" "module Ui.Button"
+                                |> BackendTaskTest.withFile "src/Ui/Icon.elm" "module Ui.Icon"
+                                |> BackendTaskTest.withFile "tests/Test.elm" "module Test"
+                            )
+                        |> BackendTaskTest.expectSuccess
+            , test "Glob then read file round-trip" <|
+                \() ->
+                    Glob.fromString "content/*.md"
+                        |> BackendTask.andThen
+                            (\files ->
+                                case files of
+                                    [ singleFile ] ->
+                                        BackendTask.File.rawFile singleFile
+                                            |> BackendTask.allowFatal
+                                            |> BackendTask.andThen
+                                                (\content ->
+                                                    if content == "Hello World" then
+                                                        BackendTask.succeed ()
+
+                                                    else
+                                                        BackendTask.fail
+                                                            (FatalError.build
+                                                                { title = "Wrong content"
+                                                                , body = "Got: " ++ content
+                                                                }
+                                                            )
+                                                )
+
+                                    _ ->
+                                        BackendTask.fail
+                                            (FatalError.build
+                                                { title = "Expected one file"
+                                                , body = "Got " ++ String.fromInt (List.length files)
+                                                }
+                                            )
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "content/hello.md" "Hello World"
+                            )
+                        |> BackendTaskTest.expectSuccess
+            , test "Glob matches files written during script" <|
+                \() ->
+                    Script.writeFile { path = "output/report.txt", body = "done" }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\_ ->
+                                Glob.fromString "output/*.txt"
+                                    |> BackendTask.andThen
+                                        (\matches ->
+                                            if matches == [ "output/report.txt" ] then
+                                                BackendTask.succeed ()
+
+                                            else
+                                                BackendTask.fail
+                                                    (FatalError.build
+                                                        { title = "Wrong matches"
+                                                        , body = "Got: " ++ String.join ", " matches
+                                                        }
+                                                    )
+                                        )
+                            )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectSuccess
+            , test "Glob with inDir resolves relative to working dir" <|
+                \() ->
+                    Glob.fromString "*.md"
+                        |> BackendTask.inDir "content/blog"
+                        |> BackendTask.map List.sort
+                        |> BackendTask.andThen
+                            (\matches ->
+                                if matches == [ "first.md", "second.md" ] then
+                                    BackendTask.succeed ()
+
+                                else
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Wrong matches"
+                                            , body = "Got: " ++ String.join ", " matches
+                                            }
+                                        )
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "content/blog/first.md" "First"
+                                |> BackendTaskTest.withFile "content/blog/second.md" "Second"
+                                |> BackendTaskTest.withFile "other/file.md" "Other"
+                            )
+                        |> BackendTaskTest.expectSuccess
+            , test "Glob with brace expansion" <|
+                \() ->
+                    Glob.fromString "data/*.{json,yml}"
+                        |> BackendTask.map List.sort
+                        |> BackendTask.andThen
+                            (\matches ->
+                                if matches == [ "data/authors.yml", "data/config.json" ] then
+                                    BackendTask.succeed ()
+
+                                else
+                                    BackendTask.fail
+                                        (FatalError.build
+                                            { title = "Wrong matches"
+                                            , body = "Got: " ++ String.join ", " matches
+                                            }
+                                        )
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "data/config.json" "{}"
+                                |> BackendTaskTest.withFile "data/authors.yml" "---"
+                                |> BackendTaskTest.withFile "data/notes.txt" "text"
+                            )
                         |> BackendTaskTest.expectSuccess
             ]
         ]
