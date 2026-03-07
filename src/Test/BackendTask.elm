@@ -800,7 +800,11 @@ autoResponseBody vfs req =
                 StaticHttpBody.JsonBody json ->
                     case Decode.decodeValue Decode.string json of
                         Ok envVarName ->
-                            case Dict.get envVarName vfs.env of
+                            let
+                                mergedEnv =
+                                    Dict.union req.env vfs.env
+                            in
+                            case Dict.get envVarName mergedEnv of
                                 Just value ->
                                     Encode.string value
 
@@ -1763,7 +1767,6 @@ simulateStreamPipelineFrom initial parts =
 gzipMarker : String
 gzipMarker =
     "****GZIPPED****"
-
 
 
 httpSuccessResponse : String -> Encode.Value -> Encode.Value

@@ -910,6 +910,7 @@ Actual:
             , test "stream with opaque parts (command) is not auto-resolved" <|
                 \() ->
                     let
+                        result : Expectation
                         result =
                             Stream.fromString "hello"
                                 |> Stream.pipe (Stream.command "grep" [ "hello" ])
@@ -1143,12 +1144,14 @@ but the pending requests are:
             , test "gzip fileWrite then unzip fileRead round-trips" <|
                 \() ->
                     let
+                        compress : BackendTask FatalError ()
                         compress =
                             Stream.fromString "secret"
                                 |> Stream.pipe Stream.gzip
                                 |> Stream.pipe (Stream.fileWrite "data.gz")
                                 |> Stream.run
 
+                        decompress : BackendTask FatalError { body : String, metadata : () }
                         decompress =
                             Stream.fileRead "data.gz"
                                 |> Stream.pipe Stream.unzip
@@ -1317,6 +1320,40 @@ but the pending requests are:
                                 |> BackendTaskTest.withEnv "PORT" "3000"
                             )
                         |> BackendTaskTest.ensureLogged "localhost:3000"
+                        |> BackendTaskTest.expectSuccess
+            , test "BackendTask.withEnv makes variable visible to Env.get" <|
+                \() ->
+                    BackendTask.Env.get "MY_CUSTOM_VAR"
+                        |> BackendTask.withEnv "MY_CUSTOM_VAR" "injected"
+                        |> BackendTask.andThen
+                            (\maybeVal ->
+                                Script.log (Maybe.withDefault "missing" maybeVal)
+                            )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "injected"
+                        |> BackendTaskTest.expectSuccess
+            , test "BackendTask.withEnv overrides TestSetup withEnv" <|
+                \() ->
+                    BackendTask.Env.get "MY_VAR"
+                        |> BackendTask.withEnv "MY_VAR" "overridden"
+                        |> BackendTask.andThen
+                            (\maybeVal ->
+                                Script.log (Maybe.withDefault "missing" maybeVal)
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withEnv "MY_VAR" "original"
+                            )
+                        |> BackendTaskTest.ensureLogged "overridden"
+                        |> BackendTaskTest.expectSuccess
+            , test "Env.expect works with BackendTask.withEnv" <|
+                \() ->
+                    BackendTask.Env.expect "REQUIRED_VAR"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen Script.log
+                        |> BackendTask.withEnv "REQUIRED_VAR" "provided"
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "provided"
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "inDir"
