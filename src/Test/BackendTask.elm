@@ -12,6 +12,9 @@ module Test.BackendTask exposing
     , ensureCustom
     , ensureLogged
     , ensureFileWritten
+    , expectFile
+    , expectFileExists
+    , expectNoFile
     , expectSuccess
     , expectFailure
     , expectTestError
@@ -71,6 +74,14 @@ These check conditions mid-pipeline without ending the test. They return the sam
 @docs ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten
 
 
+## Virtual Filesystem
+
+Built-in filesystem operations (`Script.writeFile`, `Script.removeFile`, etc.) are tracked
+in a virtual filesystem. You can seed initial files and assert on the final state.
+
+@docs expectFile, expectFileExists, expectNoFile
+
+
 ## Terminal Assertions
 
 These end the pipeline and produce an `Expectation` for elm-test.
@@ -81,7 +92,7 @@ These end the pipeline and produce an `Expectation` for elm-test.
 
 import BackendTask exposing (BackendTask)
 import Cli.Program as Program
-import Dict
+import Dict exposing (Dict)
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
@@ -107,12 +118,25 @@ type BackendTaskTest
         , responseEntries : List ( String, Encode.Value )
         , pendingRequests : List Request.Request
         , trackedEffects : List TrackedEffect
+        , virtualFS : VirtualFS
         }
     | Done
         { result : Result FatalError ()
         , trackedEffects : List TrackedEffect
+        , virtualFS : VirtualFS
         }
     | TestError String
+
+
+type alias VirtualFS =
+    { files : Dict String String
+    }
+
+
+emptyVirtualFS : VirtualFS
+emptyVirtualFS =
+    { files = Dict.empty
+    }
 
 
 type TrackedEffect
@@ -154,6 +178,7 @@ fromBackendTask task =
         , responseEntries = []
         , pendingRequests = []
         , trackedEffects = []
+        , virtualFS = emptyVirtualFS
         }
 
 
@@ -209,6 +234,7 @@ type alias RunningState =
     , responseEntries : List ( String, Encode.Value )
     , pendingRequests : List Request.Request
     , trackedEffects : List TrackedEffect
+    , virtualFS : VirtualFS
     }
 
 
@@ -235,6 +261,7 @@ advanceWithAutoResolveHelper fuel state =
                 Done
                     { result = result
                     , trackedEffects = state.trackedEffects
+                    , virtualFS = state.virtualFS
                     }
 
             HasPermanentError err ->
@@ -247,6 +274,10 @@ advanceWithAutoResolveHelper fuel state =
 
                     ( autoEntries, newEffects ) =
                         buildAutoResponses autoResolvable
+
+                    newVirtualFS : VirtualFS
+                    newVirtualFS =
+                        applyVirtualFSEffects autoResolvable state.virtualFS
                 in
                 if List.isEmpty external && not (List.isEmpty autoResolvable) then
                     advanceWithAutoResolveHelper (fuel - 1)
@@ -254,6 +285,7 @@ advanceWithAutoResolveHelper fuel state =
                         , responseEntries = state.responseEntries ++ autoEntries
                         , pendingRequests = []
                         , trackedEffects = state.trackedEffects ++ newEffects
+                        , virtualFS = newVirtualFS
                         }
 
                 else
@@ -262,6 +294,7 @@ advanceWithAutoResolveHelper fuel state =
                         , responseEntries = state.responseEntries ++ autoEntries
                         , pendingRequests = external
                         , trackedEffects = state.trackedEffects ++ newEffects
+                        , virtualFS = newVirtualFS
                         }
 
 
@@ -339,6 +372,38 @@ trackEffect req =
 
         _ ->
             []
+
+
+applyVirtualFSEffects : List Request.Request -> VirtualFS -> VirtualFS
+applyVirtualFSEffects requests vfs =
+    List.foldl applyVirtualFSEffect vfs requests
+
+
+applyVirtualFSEffect : Request.Request -> VirtualFS -> VirtualFS
+applyVirtualFSEffect req vfs =
+    case req.url of
+        "elm-pages-internal://write-file" ->
+            case req.body of
+                StaticHttpBody.JsonBody json ->
+                    case
+                        Decode.decodeValue
+                            (Decode.map2 (\p b -> { path = p, body = b })
+                                (Decode.field "path" Decode.string)
+                                (Decode.field "body" Decode.string)
+                            )
+                            json
+                    of
+                        Ok { path, body } ->
+                            { vfs | files = Dict.insert path body vfs.files }
+
+                        Err _ ->
+                            vfs
+
+                _ ->
+                    vfs
+
+        _ ->
+            vfs
 
 
 {-| Simulate a pending HTTP GET request resolving with the given JSON response body.
@@ -921,6 +986,155 @@ formatLoggedMessages effects =
 
     else
         String.join "\n" logMessages
+
+
+withFile : String -> String -> BackendTaskTest -> BackendTaskTest
+withFile path content scriptTest =
+    case scriptTest of
+        Running state ->
+            Running { state | virtualFS = insertFile path content state.virtualFS }
+
+        Done state ->
+            Done { state | virtualFS = insertFile path content state.virtualFS }
+
+        TestError _ ->
+            scriptTest
+
+
+insertFile : String -> String -> VirtualFS -> VirtualFS
+insertFile path content vfs =
+    { vfs | files = Dict.insert path content vfs.files }
+
+
+{-| Assert that a file exists in the virtual filesystem with the given content.
+This checks the end state — all `Script.writeFile` calls that have been auto-resolved
+so far will be reflected.
+
+    import BackendTask
+    import Pages.Script as Script
+    import Test.BackendTask as BackendTaskTest
+
+    Script.writeFile { path = "output.txt", body = "hello" }
+        |> BackendTask.allowFatal
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.expectFile "output.txt" "hello"
+        |> BackendTaskTest.expectSuccess
+
+-}
+expectFile : String -> String -> BackendTaskTest -> BackendTaskTest
+expectFile path expectedContent scriptTest =
+    let
+        checkFS : VirtualFS -> BackendTaskTest
+        checkFS vfs =
+            case Dict.get path vfs.files of
+                Just actualContent ->
+                    if actualContent == expectedContent then
+                        scriptTest
+
+                    else
+                        TestError
+                            ("expectFile: File \"" ++ path ++ "\" exists but has different content.\n\nExpected:\n\n    " ++ expectedContent ++ "\n\nActual:\n\n    " ++ actualContent)
+
+                Nothing ->
+                    TestError
+                        ("expectFile: Expected file \"" ++ path ++ "\" to exist but it was not found.\n\nFiles in virtual filesystem:\n\n" ++ formatVirtualFiles vfs)
+    in
+    case scriptTest of
+        TestError _ ->
+            scriptTest
+
+        Running state ->
+            checkFS state.virtualFS
+
+        Done state ->
+            checkFS state.virtualFS
+
+
+{-| Assert that a file exists in the virtual filesystem (without checking its content).
+
+    import BackendTask
+    import Pages.Script as Script
+    import Test.BackendTask as BackendTaskTest
+
+    Script.writeFile { path = "output.txt", body = "hello" }
+        |> BackendTask.allowFatal
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.expectFileExists "output.txt"
+        |> BackendTaskTest.expectSuccess
+
+-}
+expectFileExists : String -> BackendTaskTest -> BackendTaskTest
+expectFileExists path scriptTest =
+    let
+        checkFS : VirtualFS -> BackendTaskTest
+        checkFS vfs =
+            case Dict.get path vfs.files of
+                Just _ ->
+                    scriptTest
+
+                Nothing ->
+                    TestError
+                        ("expectFileExists: Expected file \"" ++ path ++ "\" to exist but it was not found.\n\nFiles in virtual filesystem:\n\n" ++ formatVirtualFiles vfs)
+    in
+    case scriptTest of
+        TestError _ ->
+            scriptTest
+
+        Running state ->
+            checkFS state.virtualFS
+
+        Done state ->
+            checkFS state.virtualFS
+
+
+{-| Assert that a file does not exist in the virtual filesystem. Useful for verifying
+that a file was deleted or was never created.
+
+    import BackendTask
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTask.succeed ()
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.expectNoFile "output.txt"
+        |> BackendTaskTest.expectSuccess
+
+-}
+expectNoFile : String -> BackendTaskTest -> BackendTaskTest
+expectNoFile path scriptTest =
+    let
+        checkFS : VirtualFS -> BackendTaskTest
+        checkFS vfs =
+            case Dict.get path vfs.files of
+                Just _ ->
+                    TestError ("expectNoFile: Expected file \"" ++ path ++ "\" to not exist but it was found.")
+
+                Nothing ->
+                    scriptTest
+    in
+    case scriptTest of
+        TestError _ ->
+            scriptTest
+
+        Running state ->
+            checkFS state.virtualFS
+
+        Done state ->
+            checkFS state.virtualFS
+
+
+formatVirtualFiles : VirtualFS -> String
+formatVirtualFiles vfs =
+    let
+        filePaths : List String
+        filePaths =
+            Dict.keys vfs.files
+                |> List.map (\p -> "    " ++ p)
+    in
+    if List.isEmpty filePaths then
+        "    (none)"
+
+    else
+        String.join "\n" filePaths
 
 
 permanentErrorToString : Pages.StaticHttpRequest.Error -> String
