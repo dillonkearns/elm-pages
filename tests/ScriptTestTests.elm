@@ -4,6 +4,7 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import BackendTask.File
 import BackendTask.Http
+import BackendTask.Stream as Stream
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
@@ -14,6 +15,7 @@ import Json.Encode as Encode
 import Pages.Script as Script
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
+import Test.Runner
 
 
 all : Test
@@ -835,6 +837,141 @@ Actual:
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.simulateCustom "hashPassword"
                             (Encode.string "hashed_secret")
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "stream auto-resolution"
+            [ test "fromString piped to stdout tracks output" <|
+                \() ->
+                    Stream.fromString "hello world"
+                        |> Stream.pipe Stream.stdout
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureStdout "hello world"
+                        |> BackendTaskTest.expectSuccess
+            , test "fromString piped to stderr tracks output" <|
+                \() ->
+                    Stream.fromString "error message"
+                        |> Stream.pipe Stream.stderr
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureStderr "error message"
+                        |> BackendTaskTest.expectSuccess
+            , test "fromString piped to fileWrite writes to VFS" <|
+                \() ->
+                    Stream.fromString "file content"
+                        |> Stream.pipe (Stream.fileWrite "output.txt")
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFile "output.txt" "file content"
+                        |> BackendTaskTest.expectSuccess
+            , test "fileRead reads from seeded VFS" <|
+                \() ->
+                    Stream.fileRead "data.txt"
+                        |> Stream.pipe Stream.stdout
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "data.txt" "seeded data"
+                            )
+                        |> BackendTaskTest.ensureStdout "seeded data"
+                        |> BackendTaskTest.expectSuccess
+            , test "fileRead piped to fileWrite copies via VFS" <|
+                \() ->
+                    Stream.fileRead "input.txt"
+                        |> Stream.pipe (Stream.fileWrite "output.txt")
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "input.txt" "copied content"
+                            )
+                        |> BackendTaskTest.expectFile "output.txt" "copied content"
+                        |> BackendTaskTest.expectSuccess
+            , test "stream read returns body as text" <|
+                \() ->
+                    Stream.fromString "hello"
+                        |> Stream.read
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\{ body } -> Script.log body)
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "hello"
+                        |> BackendTaskTest.expectSuccess
+            , test "stream readJson returns parsed JSON" <|
+                \() ->
+                    Stream.fromString """{"name":"test"}"""
+                        |> Stream.readJson (Decode.field "name" Decode.string)
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\{ body } -> Script.log body)
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "test"
+                        |> BackendTaskTest.expectSuccess
+            , test "stream with opaque parts (command) is not auto-resolved" <|
+                \() ->
+                    let
+                        result =
+                            Stream.fromString "hello"
+                                |> Stream.pipe (Stream.command "grep" [ "hello" ])
+                                |> Stream.pipe Stream.stdout
+                                |> Stream.run
+                                |> BackendTaskTest.fromBackendTask
+                                |> BackendTaskTest.expectSuccess
+                    in
+                    -- Should fail because the stream has opaque parts (command) and stays pending
+                    case Test.Runner.getFailureReason result of
+                        Just failure ->
+                            Expect.equal True (String.contains "pending requests" failure.description)
+
+                        Nothing ->
+                            Expect.fail "Expected the test to fail because the stream has a command part"
+            , test "stream fileWrite is visible to subsequent BackendTask.File.rawFile" <|
+                \() ->
+                    Stream.fromString "written by stream"
+                        |> Stream.pipe (Stream.fileWrite "stream-out.txt")
+                        |> Stream.run
+                        |> BackendTask.andThen
+                            (\() ->
+                                BackendTask.File.rawFile "stream-out.txt"
+                                    |> BackendTask.allowFatal
+                            )
+                        |> BackendTask.andThen
+                            (\content -> Script.log content)
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "written by stream"
+                        |> BackendTaskTest.expectSuccess
+            , test "fileRead reads file written by Script.writeFile" <|
+                \() ->
+                    Script.writeFile { path = "data.txt", body = "written by script" }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\() ->
+                                Stream.fileRead "data.txt"
+                                    |> Stream.read
+                                    |> BackendTask.allowFatal
+                            )
+                        |> BackendTask.andThen
+                            (\{ body } -> Script.log body)
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "written by script"
+                        |> BackendTaskTest.expectSuccess
+            , test "stream fileRead of non-existent file produces error" <|
+                \() ->
+                    Stream.fileRead "missing.txt"
+                        |> Stream.pipe Stream.stdout
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFailure
+            , test "BackendTask.File.rawFile reads seeded file" <|
+                \() ->
+                    BackendTask.File.rawFile "config.json"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\content -> Script.log content)
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "config.json" """{"port":8080}"""
+                            )
+                        |> BackendTaskTest.ensureLogged """{"port":8080}"""
                         |> BackendTaskTest.expectSuccess
             ]
         ]

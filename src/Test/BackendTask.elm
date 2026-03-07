@@ -1,7 +1,8 @@
 module Test.BackendTask exposing
-    ( BackendTaskTest, HttpError(..), fromBackendTask, fromBackendTaskWithDb, fromScript
+    ( BackendTaskTest, HttpError(..), fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
+    , TestSetup, defaultSetup, withFile, withDb
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom
-    , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten
+    , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
     , expectFile, expectFileExists, expectNoFile
     , SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectDb, expectFailure, expectTestError
@@ -45,7 +46,14 @@ you never need to simulate them. But you can still assert that they happened usi
 
 ## Building
 
-@docs BackendTaskTest, HttpError, fromBackendTask, fromBackendTaskWithDb, fromScript
+@docs BackendTaskTest, HttpError, fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
+
+
+## Test Setup
+
+Configure the initial state (seeded files, DB) before the test starts running.
+
+@docs TestSetup, defaultSetup, withFile, withDb
 
 
 ## Simulating Effects
@@ -58,13 +66,13 @@ you never need to simulate them. But you can still assert that they happened usi
 These check conditions mid-pipeline without ending the test. They return the same
 `BackendTaskTest` so you can keep chaining.
 
-@docs ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten
+@docs ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
 
 
 ## Virtual Filesystem
 
 Built-in filesystem operations (`Script.writeFile`, `Script.removeFile`, etc.) are tracked
-in a virtual filesystem. You can seed initial files and assert on the final state.
+in a virtual filesystem. Assert on the final state with these functions.
 
 @docs expectFile, expectFileExists, expectNoFile
 
@@ -164,6 +172,8 @@ emptyVirtualDB =
 type TrackedEffect
     = LogEffect String
     | FileWriteEffect { path : String, body : String }
+    | StdoutEffect String
+    | StderrEffect String
 
 
 {-| An effect on the virtual filesystem that a custom port declares via
@@ -188,6 +198,86 @@ type HttpError
     | Timeout
 
 
+{-| Configuration for the initial state of a test. Create with [`defaultSetup`](#defaultSetup),
+then configure with [`withFile`](#withFile) and [`withDb`](#withDb).
+
+    BackendTaskTest.defaultSetup
+        |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
+        |> BackendTaskTest.withDb Pages.Db.testConfig { counter = 0 }
+
+-}
+type TestSetup
+    = TestSetup
+        { virtualFS : VirtualFS
+        , virtualDB : VirtualDB
+        }
+
+
+{-| An empty test setup with no seeded files or DB state.
+-}
+defaultSetup : TestSetup
+defaultSetup =
+    TestSetup
+        { virtualFS = emptyVirtualFS
+        , virtualDB = emptyVirtualDB
+        }
+
+
+{-| Seed a file into the virtual filesystem before the test starts running.
+
+    import BackendTask.Stream as Stream
+    import Test.BackendTask as BackendTaskTest
+
+    Stream.fileRead "config.json"
+        |> Stream.read
+        |> BackendTask.allowFatal
+        |> BackendTask.andThen (\{ body } -> Script.log body)
+        |> BackendTaskTest.fromBackendTaskWith
+            (BackendTaskTest.defaultSetup
+                |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
+            )
+        |> BackendTaskTest.ensureLogged """{"key":"value"}"""
+        |> BackendTaskTest.expectSuccess
+
+-}
+withFile : String -> String -> TestSetup -> TestSetup
+withFile path content (TestSetup setup) =
+    TestSetup { setup | virtualFS = insertFile path content setup.virtualFS }
+
+
+{-| Seed the virtual DB with a typed value before the test starts running.
+
+    import Pages.Db
+    import Test.BackendTask as BackendTaskTest
+
+    myDbScript
+        |> BackendTaskTest.fromBackendTaskWith
+            (BackendTaskTest.defaultSetup
+                |> BackendTaskTest.withDb Pages.Db.testConfig { counter = 0 }
+            )
+        |> BackendTaskTest.expectDb Pages.Db.testConfig
+            (\db -> Expect.equal 1 db.counter)
+
+-}
+withDb :
+    { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes }
+    -> db
+    -> TestSetup
+    -> TestSetup
+withDb config initialValue (TestSetup setup) =
+    let
+        wire3Bytes =
+            config.encode initialValue
+    in
+    TestSetup
+        { setup
+            | virtualDB =
+                { state = Just wire3Bytes
+                , dbConfig = Just { schemaVersion = config.schemaVersion, schemaHash = config.schemaHash }
+                }
+        }
+
+
 {-| Start a test from a `BackendTask FatalError ()`. Internal effects like `Script.log`
 and `Script.writeFile` are automatically resolved — you only need to simulate external
 effects like HTTP requests and `BackendTask.Custom.run` calls.
@@ -203,15 +293,37 @@ effects like HTTP requests and `BackendTask.Custom.run` calls.
 
 -}
 fromBackendTask : BackendTask FatalError () -> BackendTaskTest
-fromBackendTask task =
+fromBackendTask =
+    fromBackendTaskWith defaultSetup
+
+
+{-| Start a test with a configured [`TestSetup`](#TestSetup). Use this when you need
+to seed initial files or DB state.
+
+    import BackendTask.File
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTask.File.rawFile "config.json"
+        |> BackendTask.allowFatal
+        |> BackendTask.andThen (\content -> Script.log content)
+        |> BackendTaskTest.fromBackendTaskWith
+            (BackendTaskTest.defaultSetup
+                |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
+            )
+        |> BackendTaskTest.ensureLogged """{"key":"value"}"""
+        |> BackendTaskTest.expectSuccess
+
+-}
+fromBackendTaskWith : TestSetup -> BackendTask FatalError () -> BackendTaskTest
+fromBackendTaskWith (TestSetup setup) task =
     advanceWithAutoResolve
         { continuation = task
         , responseEntries = []
         , responseBytesEntries = Dict.empty
         , pendingRequests = []
         , trackedEffects = []
-        , virtualFS = emptyVirtualFS
-        , virtualDB = emptyVirtualDB
+        , virtualFS = setup.virtualFS
+        , virtualDB = setup.virtualDB
         , simulatedEffects = Nothing
         }
 
@@ -232,30 +344,16 @@ fromBackendTask task =
 If a script uses `Pages.Db` but is created with [`fromBackendTask`](#fromBackendTask)
 instead, you'll get a helpful error message.
 
+This is a convenience for `fromBackendTaskWith (defaultSetup |> withDb config initialValue)`.
+
 -}
 fromBackendTaskWithDb :
     { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes }
     -> db
     -> BackendTask FatalError ()
     -> BackendTaskTest
-fromBackendTaskWithDb config initialValue task =
-    let
-        wire3Bytes =
-            config.encode initialValue
-    in
-    advanceWithAutoResolve
-        { continuation = task
-        , responseEntries = []
-        , responseBytesEntries = Dict.empty
-        , pendingRequests = []
-        , trackedEffects = []
-        , virtualFS = emptyVirtualFS
-        , virtualDB =
-            { state = Just wire3Bytes
-            , dbConfig = Just { schemaVersion = config.schemaVersion, schemaHash = config.schemaHash }
-            }
-        , simulatedEffects = Nothing
-        }
+fromBackendTaskWithDb config initialValue =
+    fromBackendTaskWith (defaultSetup |> withDb config initialValue)
 
 
 {-| Start a test from a [`Script`](Pages-Script#Script) value with simulated CLI arguments.
@@ -287,7 +385,23 @@ with the CLI parser's error message.
 
 -}
 fromScript : List String -> Pages.Internal.Script.Script -> BackendTaskTest
-fromScript cliArgs (Pages.Internal.Script.Script toConfig) =
+fromScript =
+    fromScriptWith defaultSetup
+
+
+{-| Like [`fromScript`](#fromScript) but with a configured [`TestSetup`](#TestSetup).
+
+    myScript
+        |> BackendTaskTest.fromScriptWith
+            (BackendTaskTest.defaultSetup
+                |> BackendTaskTest.withFile "config.json" "{}"
+            )
+            [ "--verbose" ]
+        |> BackendTaskTest.expectSuccess
+
+-}
+fromScriptWith : TestSetup -> List String -> Pages.Internal.Script.Script -> BackendTaskTest
+fromScriptWith setup cliArgs (Pages.Internal.Script.Script toConfig) =
     let
         programConfig : Program.Config (BackendTask FatalError ())
         programConfig =
@@ -299,7 +413,7 @@ fromScript cliArgs (Pages.Internal.Script.Script toConfig) =
     in
     case Program.run programConfig argv "" Program.WithoutColor of
         Program.CustomMatch task ->
-            fromBackendTask task
+            fromBackendTaskWith setup task
 
         Program.SystemMessage _ message ->
             TestError ("fromScript: CLI argument parsing failed:\n\n" ++ message)
@@ -370,10 +484,6 @@ advanceWithAutoResolveHelper fuel state =
                     let
                         autoResult =
                             buildAutoResponses state.virtualFS state.virtualDB autoResolvable
-
-                        newVirtualFS : VirtualFS
-                        newVirtualFS =
-                            applyVirtualFSEffects autoResolvable state.virtualFS
                     in
                     if List.isEmpty external && not (List.isEmpty autoResolvable) then
                         advanceWithAutoResolveHelper (fuel - 1)
@@ -382,7 +492,7 @@ advanceWithAutoResolveHelper fuel state =
                             , responseBytesEntries = Dict.union autoResult.bytesEntries state.responseBytesEntries
                             , pendingRequests = []
                             , trackedEffects = state.trackedEffects ++ autoResult.trackedEffects
-                            , virtualFS = newVirtualFS
+                            , virtualFS = autoResult.virtualFS
                             , virtualDB = autoResult.virtualDB
                             , simulatedEffects = state.simulatedEffects
                             }
@@ -394,7 +504,7 @@ advanceWithAutoResolveHelper fuel state =
                             , responseBytesEntries = Dict.union autoResult.bytesEntries state.responseBytesEntries
                             , pendingRequests = external
                             , trackedEffects = state.trackedEffects ++ autoResult.trackedEffects
-                            , virtualFS = newVirtualFS
+                            , virtualFS = autoResult.virtualFS
                             , virtualDB = autoResult.virtualDB
                             , simulatedEffects = state.simulatedEffects
                             }
@@ -406,8 +516,12 @@ isAutoResolvable request =
         url =
             request.url
     in
-    String.startsWith "elm-pages-internal://" url
-        && (url /= "elm-pages-internal://port")
+    if url == "elm-pages-internal://stream" then
+        isStreamAutoResolvable request
+
+    else
+        String.startsWith "elm-pages-internal://" url
+            && (url /= "elm-pages-internal://port")
 
 
 isDbRequest : Request.Request -> Bool
@@ -415,11 +529,72 @@ isDbRequest request =
     String.startsWith "elm-pages-internal://db-" request.url
 
 
+isStreamAutoResolvable : Request.Request -> Bool
+isStreamAutoResolvable req =
+    case decodeJsonBody streamPipelineDecoder req of
+        Just pipeline ->
+            List.all isSimulatablePart pipeline.parts
+
+        Nothing ->
+            False
+
+
+type alias StreamPipeline =
+    { kind : String
+    , parts : List StreamPartInfo
+    }
+
+
+type alias StreamPartInfo =
+    { name : String
+    , path : Maybe String
+    , string : Maybe String
+    }
+
+
+streamPipelineDecoder : Decode.Decoder StreamPipeline
+streamPipelineDecoder =
+    Decode.map2 StreamPipeline
+        (Decode.field "kind" Decode.string)
+        (Decode.field "parts"
+            (Decode.list
+                (Decode.map3 StreamPartInfo
+                    (Decode.field "name" Decode.string)
+                    (Decode.maybe (Decode.field "path" Decode.string))
+                    (Decode.maybe (Decode.field "string" Decode.string))
+                )
+            )
+        )
+
+
+isSimulatablePart : StreamPartInfo -> Bool
+isSimulatablePart part =
+    case part.name of
+        "fileRead" ->
+            True
+
+        "fileWrite" ->
+            True
+
+        "fromString" ->
+            True
+
+        "stdout" ->
+            True
+
+        "stderr" ->
+            True
+
+        _ ->
+            False
+
+
 type alias AutoResolveResult =
     { jsonEntries : List ( String, Encode.Value )
     , trackedEffects : List TrackedEffect
     , bytesEntries : Dict String Bytes
     , virtualDB : VirtualDB
+    , virtualFS : VirtualFS
     }
 
 
@@ -435,11 +610,14 @@ buildAutoResponses vfs virtualDB requests =
             if isDbRequest req then
                 processDbRequest req hash accum
 
+            else if req.url == "elm-pages-internal://stream" then
+                processStreamRequest req hash accum
+
             else
                 let
                     responseBody : Encode.Value
                     responseBody =
-                        autoResponseBody vfs req
+                        autoResponseBody accum.virtualFS req
 
                     responseValue : Encode.Value
                     responseValue =
@@ -455,16 +633,22 @@ buildAutoResponses vfs virtualDB requests =
                     newEffects : List TrackedEffect
                     newEffects =
                         trackEffect req
+
+                    newVFS : VirtualFS
+                    newVFS =
+                        applyVirtualFSEffect req accum.virtualFS
                 in
                 { accum
                     | jsonEntries = entry :: accum.jsonEntries
                     , trackedEffects = accum.trackedEffects ++ newEffects
+                    , virtualFS = newVFS
                 }
         )
         { jsonEntries = []
         , trackedEffects = []
         , bytesEntries = Dict.empty
         , virtualDB = virtualDB
+        , virtualFS = vfs
         }
         requests
 
@@ -504,6 +688,131 @@ autoResponseBody vfs req =
 
         _ ->
             Encode.null
+
+
+processStreamRequest : Request.Request -> String -> AutoResolveResult -> AutoResolveResult
+processStreamRequest req hash accum =
+    case decodeJsonBody streamPipelineDecoder req of
+        Just pipeline ->
+            let
+                simulationResult =
+                    simulateStreamPipeline accum.virtualFS pipeline.parts
+
+                responseBody : Encode.Value
+                responseBody =
+                    case simulationResult.error of
+                        Just errorMsg ->
+                            Encode.object [ ( "error", Encode.string errorMsg ) ]
+
+                        Nothing ->
+                            case pipeline.kind of
+                                "text" ->
+                                    Encode.object
+                                        [ ( "body", Encode.string simulationResult.output )
+                                        , ( "metadata", Encode.null )
+                                        ]
+
+                                "json" ->
+                                    case Decode.decodeString Decode.value simulationResult.output of
+                                        Ok jsonValue ->
+                                            Encode.object
+                                                [ ( "body", jsonValue )
+                                                , ( "metadata", Encode.null )
+                                                ]
+
+                                        Err _ ->
+                                            Encode.object
+                                                [ ( "body", Encode.string simulationResult.output )
+                                                , ( "metadata", Encode.null )
+                                                ]
+
+                                _ ->
+                                    -- "none" — Stream.run just needs non-error JSON
+                                    Encode.null
+
+                entry : ( String, Encode.Value )
+                entry =
+                    jsonAutoResolveEntry hash responseBody
+            in
+            { accum
+                | jsonEntries = entry :: accum.jsonEntries
+                , trackedEffects = accum.trackedEffects ++ simulationResult.effects
+                , virtualFS = simulationResult.virtualFS
+            }
+
+        Nothing ->
+            let
+                entry =
+                    jsonAutoResolveEntry hash Encode.null
+            in
+            { accum | jsonEntries = entry :: accum.jsonEntries }
+
+
+type alias StreamSimResult =
+    { output : String
+    , effects : List TrackedEffect
+    , virtualFS : VirtualFS
+    , error : Maybe String
+    }
+
+
+simulateStreamPipeline : VirtualFS -> List StreamPartInfo -> StreamSimResult
+simulateStreamPipeline vfs parts =
+    List.foldl
+        (\part accum ->
+            case accum.error of
+                Just _ ->
+                    -- Short-circuit on error
+                    accum
+
+                Nothing ->
+                    case part.name of
+                        "fromString" ->
+                            { accum | output = Maybe.withDefault "" part.string }
+
+                        "fileRead" ->
+                            case part.path of
+                                Just path ->
+                                    case Dict.get path accum.virtualFS.files of
+                                        Just content ->
+                                            { accum | output = content }
+
+                                        Nothing ->
+                                            { accum | error = Just ("Stream fileRead: File \"" ++ path ++ "\" not found in virtual filesystem.") }
+
+                                Nothing ->
+                                    accum
+
+                        "fileWrite" ->
+                            case part.path of
+                                Just path ->
+                                    { accum
+                                        | virtualFS = insertFile path accum.output accum.virtualFS
+                                        , effects = accum.effects ++ [ FileWriteEffect { path = path, body = accum.output } ]
+                                    }
+
+                                Nothing ->
+                                    accum
+
+                        "stdout" ->
+                            { accum
+                                | effects = accum.effects ++ [ StdoutEffect accum.output ]
+                            }
+
+                        "stderr" ->
+                            { accum
+                                | effects = accum.effects ++ [ StderrEffect accum.output ]
+                            }
+
+                        _ ->
+                            accum
+        )
+        { output = ""
+        , effects = []
+        , virtualFS = vfs
+        , error = Nothing
+        }
+        parts
 
 
 getStringBody : Request.Request -> Maybe String
@@ -554,11 +863,6 @@ trackEffect req =
 
         _ ->
             []
-
-
-applyVirtualFSEffects : List Request.Request -> VirtualFS -> VirtualFS
-applyVirtualFSEffects requests vfs =
-    List.foldl applyVirtualFSEffect vfs requests
 
 
 applyVirtualFSEffect : Request.Request -> VirtualFS -> VirtualFS
@@ -1376,6 +1680,110 @@ ensureFileWritten expected scriptTest =
             check state.trackedEffects
 
 
+{-| Assert that the given content was written to stdout via a stream pipeline
+(e.g., `Stream.fromString "hello" |> Stream.pipe Stream.stdout |> Stream.run`).
+
+    import BackendTask.Stream as Stream
+    import Test.BackendTask as BackendTaskTest
+
+    Stream.fromString "hello"
+        |> Stream.pipe Stream.stdout
+        |> Stream.run
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.ensureStdout "hello"
+        |> BackendTaskTest.expectSuccess
+
+-}
+ensureStdout : String -> BackendTaskTest -> BackendTaskTest
+ensureStdout expectedContent scriptTest =
+    let
+        check effects =
+            if List.member (StdoutEffect expectedContent) effects then
+                scriptTest
+
+            else
+                TestError
+                    ("ensureStdout: Expected stdout output:\n\n    \""
+                        ++ expectedContent
+                        ++ "\"\n\nbut the stdout outputs are:\n\n"
+                        ++ formatStdOutputs StdoutEffect effects
+                    )
+    in
+    case scriptTest of
+        TestError _ ->
+            scriptTest
+
+        Done state ->
+            check state.trackedEffects
+
+        Running state ->
+            check state.trackedEffects
+
+
+{-| Assert that the given content was written to stderr via a stream pipeline.
+
+    import BackendTask.Stream as Stream
+    import Test.BackendTask as BackendTaskTest
+
+    Stream.fromString "error!"
+        |> Stream.pipe Stream.stderr
+        |> Stream.run
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.ensureStderr "error!"
+        |> BackendTaskTest.expectSuccess
+
+-}
+ensureStderr : String -> BackendTaskTest -> BackendTaskTest
+ensureStderr expectedContent scriptTest =
+    let
+        check effects =
+            if List.member (StderrEffect expectedContent) effects then
+                scriptTest
+
+            else
+                TestError
+                    ("ensureStderr: Expected stderr output:\n\n    \""
+                        ++ expectedContent
+                        ++ "\"\n\nbut the stderr outputs are:\n\n"
+                        ++ formatStdOutputs StderrEffect effects
+                    )
+    in
+    case scriptTest of
+        TestError _ ->
+            scriptTest
+
+        Done state ->
+            check state.trackedEffects
+
+        Running state ->
+            check state.trackedEffects
+
+
+formatStdOutputs : (String -> TrackedEffect) -> List TrackedEffect -> String
+formatStdOutputs constructor effects =
+    let
+        outputs =
+            List.filterMap
+                (\effect ->
+                    case ( effect, constructor "" ) of
+                        ( StdoutEffect content, StdoutEffect _ ) ->
+                            Just ("    \"" ++ content ++ "\"")
+
+                        ( StderrEffect content, StderrEffect _ ) ->
+                            Just ("    \"" ++ content ++ "\"")
+
+                        _ ->
+                            Nothing
+                )
+                effects
+    in
+    if List.isEmpty outputs then
+        "    (none)"
+
+    else
+        String.join "\n" outputs
+
+
 formatFileWrites : List TrackedEffect -> String
 formatFileWrites effects =
     let
@@ -1418,19 +1826,6 @@ formatLoggedMessages effects =
 
     else
         String.join "\n" logMessages
-
-
-withFile : String -> String -> BackendTaskTest -> BackendTaskTest
-withFile path content scriptTest =
-    case scriptTest of
-        Running state ->
-            Running { state | virtualFS = insertFile path content state.virtualFS }
-
-        Done state ->
-            Done { state | virtualFS = insertFile path content state.virtualFS }
-
-        TestError _ ->
-            scriptTest
 
 
 insertFile : String -> String -> VirtualFS -> VirtualFS
