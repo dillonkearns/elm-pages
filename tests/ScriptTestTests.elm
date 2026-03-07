@@ -739,6 +739,104 @@ Actual:
                         |> BackendTaskTest.ensureLogged "exists: true, missing: false"
                         |> BackendTaskTest.expectSuccess
             ]
+        , describe "withSimulatedEffects"
+            [ test "custom port writes file to virtual filesystem" <|
+                \() ->
+                    BackendTask.Custom.run "generateReport"
+                        (Encode.string "input data")
+                        (Decode.succeed ())
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map (\_ -> ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.withSimulatedEffects
+                            (\portName _ ->
+                                case portName of
+                                    "generateReport" ->
+                                        [ BackendTaskTest.writeFileEffect "report.pdf" "pdf content" ]
+
+                                    _ ->
+                                        []
+                            )
+                        |> BackendTaskTest.simulateCustom "generateReport" Encode.null
+                        |> BackendTaskTest.expectFile "report.pdf" "pdf content"
+                        |> BackendTaskTest.expectSuccess
+            , test "custom port removes file from virtual filesystem" <|
+                \() ->
+                    Script.writeFile { path = "temp.txt", body = "data" }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\() ->
+                                BackendTask.Custom.run "cleanup"
+                                    Encode.null
+                                    (Decode.succeed ())
+                                    |> BackendTask.allowFatal
+                                    |> BackendTask.map (\_ -> ())
+                            )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.withSimulatedEffects
+                            (\portName _ ->
+                                case portName of
+                                    "cleanup" ->
+                                        [ BackendTaskTest.removeFileEffect "temp.txt" ]
+
+                                    _ ->
+                                        []
+                            )
+                        |> BackendTaskTest.expectFile "temp.txt" "data"
+                        |> BackendTaskTest.simulateCustom "cleanup" Encode.null
+                        |> BackendTaskTest.expectNoFile "temp.txt"
+                        |> BackendTaskTest.expectSuccess
+            , test "handler receives request body" <|
+                \() ->
+                    BackendTask.Custom.run "writeToPath"
+                        (Encode.object
+                            [ ( "path", Encode.string "custom.txt" )
+                            , ( "content", Encode.string "hello" )
+                            ]
+                        )
+                        (Decode.succeed ())
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map (\_ -> ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.withSimulatedEffects
+                            (\_ requestBody ->
+                                let
+                                    maybePath : Maybe String
+                                    maybePath =
+                                        Decode.decodeValue
+                                            (Decode.at [ "input", "path" ] Decode.string)
+                                            requestBody
+                                            |> Result.toMaybe
+
+                                    maybeContent : Maybe String
+                                    maybeContent =
+                                        Decode.decodeValue
+                                            (Decode.at [ "input", "content" ] Decode.string)
+                                            requestBody
+                                            |> Result.toMaybe
+                                in
+                                case ( maybePath, maybeContent ) of
+                                    ( Just path, Just content ) ->
+                                        [ BackendTaskTest.writeFileEffect path content ]
+
+                                    _ ->
+                                        []
+                            )
+                        |> BackendTaskTest.simulateCustom "writeToPath" Encode.null
+                        |> BackendTaskTest.expectFile "custom.txt" "hello"
+                        |> BackendTaskTest.expectSuccess
+            , test "without handler, simulateCustom works as before" <|
+                \() ->
+                    BackendTask.Custom.run "hashPassword"
+                        (Encode.string "secret")
+                        Decode.string
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map (\_ -> ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateCustom "hashPassword"
+                            (Encode.string "hashed_secret")
+                        |> BackendTaskTest.expectSuccess
+            ]
         ]
 
 
