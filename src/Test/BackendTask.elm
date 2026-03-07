@@ -74,6 +74,10 @@ For stream pipelines that mix both (e.g. `fileRead |> command |> fileWrite`), th
 handles the auto-resolvable parts around the opaque part — you only provide the opaque part's
 output.
 
+`BackendTask.inDir` is fully supported — file paths are resolved relative to the working
+directory, so `inDir "subdir" (File.rawFile "config.json")` reads `subdir/config.json` from
+the virtual filesystem.
+
 
 ## Building
 
@@ -759,7 +763,11 @@ autoResponseBody vfs req =
     case req.url of
         "elm-pages-internal://read-file" ->
             case getStringBody req of
-                Just filePath ->
+                Just rawPath ->
+                    let
+                        filePath =
+                            resolveFilePath req rawPath
+                    in
                     case Dict.get filePath vfs.files of
                         Just content ->
                             Encode.object
@@ -778,8 +786,8 @@ autoResponseBody vfs req =
             case req.body of
                 StaticHttpBody.JsonBody json ->
                     case Decode.decodeValue Decode.string json of
-                        Ok filePath ->
-                            Encode.bool (Dict.member filePath vfs.files)
+                        Ok rawPath ->
+                            Encode.bool (Dict.member (resolveFilePath req rawPath) vfs.files)
 
                         Err _ ->
                             Encode.bool False
@@ -809,13 +817,36 @@ autoResponseBody vfs req =
             Encode.null
 
 
+resolveStreamPaths : Request.Request -> List StreamPartInfo -> List StreamPartInfo
+resolveStreamPaths req parts =
+    case req.dir of
+        [] ->
+            parts
+
+        dirs ->
+            let
+                resolve path =
+                    if String.startsWith "/" path then
+                        path
+
+                    else
+                        String.join "/" dirs ++ "/" ++ path
+            in
+            List.map
+                (\part -> { part | path = Maybe.map resolve part.path })
+                parts
+
+
 processStreamRequest : Request.Request -> String -> AutoResolveResult -> AutoResolveResult
 processStreamRequest req hash accum =
     case decodeJsonBody streamPipelineDecoder req of
         Just pipeline ->
             let
+                resolvedParts =
+                    resolveStreamPaths req pipeline.parts
+
                 simulationResult =
-                    simulateStreamPipeline accum.virtualFS pipeline.parts
+                    simulateStreamPipeline accum.virtualFS resolvedParts
 
                 responseBody : Encode.Value
                 responseBody =
@@ -924,7 +955,7 @@ trackEffect req =
                             json
                     of
                         Ok fileWrite ->
-                            [ FileWriteEffect fileWrite ]
+                            [ FileWriteEffect { path = resolveFilePath req fileWrite.path, body = fileWrite.body } ]
 
                         Err _ ->
                             []
@@ -941,23 +972,30 @@ applyVirtualFSEffect req vfs =
     case req.url of
         "elm-pages-internal://write-file" ->
             case decodeJsonBody (Decode.map2 (\p b -> ( p, b )) (Decode.field "path" Decode.string) (Decode.field "body" Decode.string)) req of
-                Just ( path, body ) ->
-                    { vfs | files = Dict.insert path body vfs.files }
+                Just ( rawPath, body ) ->
+                    { vfs | files = Dict.insert (resolveFilePath req rawPath) body vfs.files }
 
                 Nothing ->
                     vfs
 
         "elm-pages-internal://delete-file" ->
             case decodeJsonBody (Decode.field "path" Decode.string) req of
-                Just path ->
-                    { vfs | files = Dict.remove path vfs.files }
+                Just rawPath ->
+                    { vfs | files = Dict.remove (resolveFilePath req rawPath) vfs.files }
 
                 Nothing ->
                     vfs
 
         "elm-pages-internal://copy-file" ->
             case decodeJsonBody (Decode.map2 Tuple.pair (Decode.field "from" Decode.string) (Decode.field "to" Decode.string)) req of
-                Just ( from, to ) ->
+                Just ( rawFrom, rawTo ) ->
+                    let
+                        from =
+                            resolveFilePath req rawFrom
+
+                        to =
+                            resolveFilePath req rawTo
+                    in
                     case Dict.get from vfs.files of
                         Just content ->
                             { vfs | files = Dict.insert to content vfs.files }
@@ -970,7 +1008,14 @@ applyVirtualFSEffect req vfs =
 
         "elm-pages-internal://move" ->
             case decodeJsonBody (Decode.map2 Tuple.pair (Decode.field "from" Decode.string) (Decode.field "to" Decode.string)) req of
-                Just ( from, to ) ->
+                Just ( rawFrom, rawTo ) ->
+                    let
+                        from =
+                            resolveFilePath req rawFrom
+
+                        to =
+                            resolveFilePath req rawTo
+                    in
                     case Dict.get from vfs.files of
                         Just content ->
                             { vfs | files = Dict.insert to content vfs.files |> Dict.remove from }
@@ -983,6 +1028,20 @@ applyVirtualFSEffect req vfs =
 
         _ ->
             vfs
+
+
+resolveFilePath : Request.Request -> String -> String
+resolveFilePath req path =
+    case req.dir of
+        [] ->
+            path
+
+        dirs ->
+            if String.startsWith "/" path then
+                path
+
+            else
+                String.join "/" dirs ++ "/" ++ path
 
 
 decodeJsonBody : Decode.Decoder a -> Request.Request -> Maybe a
@@ -1478,8 +1537,11 @@ simulateStreamByPartName callerName predicate description metadata opaqueOutput 
                     case decodeJsonBody streamPipelineDecoder matchedReq of
                         Just pipeline ->
                             let
+                                resolvedParts =
+                                    resolveStreamPaths matchedReq pipeline.parts
+
                                 simResult =
-                                    simulateStreamWithOpaquePart predicate state.virtualFS opaqueOutput pipeline.parts
+                                    simulateStreamWithOpaquePart predicate state.virtualFS opaqueOutput resolvedParts
 
                                 responseBody : Encode.Value
                                 responseBody =
