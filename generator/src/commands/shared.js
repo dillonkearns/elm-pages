@@ -153,7 +153,7 @@ migrateFromV${fromVersion} old =
       }).join("\n\n")
     : "";
 
-  return `module Pages.Db exposing (Connection, default, open, get, update, transaction)
+  return `module Pages.Db exposing (Connection, default, open, get, update, transaction, testConfig)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
@@ -482,6 +482,22 @@ releaseLock connection token =
             )
         )
         (BackendTask.Http.expectJson (Decode.succeed ()))
+
+
+testConfig :
+    { schemaVersion : Int
+    , schemaHash : String
+    , encode : Db.Db -> Bytes
+    , decode : Bytes -> Maybe Db.Db
+    , seed : Db.Db
+    }
+testConfig =
+    { schemaVersion = schemaVersion
+    , schemaHash = schemaHash
+    , encode = \\db -> Wire.bytesEncode (Db.w3_encode_Db db)
+    , decode = \\bytes -> Wire.bytesDecode Db.w3_decode_Db bytes
+    , seed = Pages.DbSeed.seedCurrent
+    }
 `;
 }
 
