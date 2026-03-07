@@ -7,9 +7,9 @@
   "description": "Hybrid Elm framework with full-stack and static routes.",
   "main": "index.js",
   "scripts": {
-    "start": "cd examples/end-to-end && npm i && npx elm-pages dev",
+    "start": "cd examples/end-to-end && npm ci && npx elm-pages dev",
     "test": "./test.sh",
-    "test:snapshot": "(cd examples/escaping && npm install && npm test) && (cd examples/base-path && npm install && npm test)",
+    "test:snapshot": "(cd examples/escaping && npm ci && npm test) && (cd examples/base-path && npm ci && npm test)",
     "cypress": "npm start & cypress run",
     "build:generator": "elm-codegen install && (cd codegen && lamdera make Generate.elm --output elm-pages-codegen.js && mv elm-pages-codegen.js elm-pages-codegen.cjs)",
     "review": "elm-review",
