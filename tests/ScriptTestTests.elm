@@ -920,7 +920,11 @@ Actual:
                     -- Should fail because the stream has opaque parts (command) and stays pending
                     case Test.Runner.getFailureReason result of
                         Just failure ->
-                            Expect.equal True (String.contains "pending requests" failure.description)
+                            Expect.all
+                                [ \d -> Expect.equal True (String.contains "pending requests" d)
+                                , \d -> Expect.equal True (String.contains "Stream [fromString | command | stdout]" d)
+                                ]
+                                failure.description
 
                         Nothing ->
                             Expect.fail "Expected the test to fail because the stream has a command part"
@@ -972,6 +976,48 @@ Actual:
                                 |> BackendTaskTest.withFile "config.json" """{"port":8080}"""
                             )
                         |> BackendTaskTest.ensureLogged """{"port":8080}"""
+                        |> BackendTaskTest.expectSuccess
+            , test "stdin reads seeded content" <|
+                \() ->
+                    Stream.stdin
+                        |> Stream.read
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\{ body } -> Script.log body)
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withStdin "hello from stdin"
+                            )
+                        |> BackendTaskTest.ensureLogged "hello from stdin"
+                        |> BackendTaskTest.expectSuccess
+            , test "stdin piped to stdout" <|
+                \() ->
+                    Stream.stdin
+                        |> Stream.pipe Stream.stdout
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withStdin "piped through"
+                            )
+                        |> BackendTaskTest.ensureStdout "piped through"
+                        |> BackendTaskTest.expectSuccess
+            , test "stdin without withStdin produces error" <|
+                \() ->
+                    Stream.stdin
+                        |> Stream.pipe Stream.stdout
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFailure
+            , test "stdin piped to fileWrite" <|
+                \() ->
+                    Stream.stdin
+                        |> Stream.pipe (Stream.fileWrite "output.txt")
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withStdin "stdin content"
+                            )
+                        |> BackendTaskTest.expectFile "output.txt" "stdin content"
                         |> BackendTaskTest.expectSuccess
             ]
         ]

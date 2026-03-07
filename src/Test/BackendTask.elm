@@ -1,6 +1,6 @@
 module Test.BackendTask exposing
     ( BackendTaskTest, HttpError(..), fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
-    , TestSetup, defaultSetup, withFile, withDb
+    , TestSetup, defaultSetup, withFile, withDb, withStdin
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
     , expectFile, expectFileExists, expectNoFile
@@ -53,7 +53,7 @@ you never need to simulate them. But you can still assert that they happened usi
 
 Configure the initial state (seeded files, DB) before the test starts running.
 
-@docs TestSetup, defaultSetup, withFile, withDb
+@docs TestSetup, defaultSetup, withFile, withDb, withStdin
 
 
 ## Simulating Effects
@@ -141,12 +141,14 @@ type BackendTaskTest
 
 type alias VirtualFS =
     { files : Dict String String
+    , stdin : Maybe String
     }
 
 
 emptyVirtualFS : VirtualFS
 emptyVirtualFS =
     { files = Dict.empty
+    , stdin = Nothing
     }
 
 
@@ -276,6 +278,28 @@ withDb config initialValue (TestSetup setup) =
                 , dbConfig = Just { schemaVersion = config.schemaVersion, schemaHash = config.schemaHash }
                 }
         }
+
+
+{-| Seed stdin content for stream pipelines that read from `Stream.stdin`.
+
+    import BackendTask.Stream as Stream
+    import Test.BackendTask as BackendTaskTest
+
+    Stream.stdin
+        |> Stream.read
+        |> BackendTask.allowFatal
+        |> BackendTask.andThen (\{ body } -> Script.log body)
+        |> BackendTaskTest.fromBackendTaskWith
+            (BackendTaskTest.defaultSetup
+                |> BackendTaskTest.withStdin "hello from stdin"
+            )
+        |> BackendTaskTest.ensureLogged "hello from stdin"
+        |> BackendTaskTest.expectSuccess
+
+-}
+withStdin : String -> TestSetup -> TestSetup
+withStdin content (TestSetup setup) =
+    TestSetup { setup | virtualFS = { files = setup.virtualFS.files, stdin = Just content } }
 
 
 {-| Start a test from a `BackendTask FatalError ()`. Internal effects like `Script.log`
@@ -579,6 +603,9 @@ isSimulatablePart part =
         "fromString" ->
             True
 
+        "stdin" ->
+            True
+
         "stdout" ->
             True
 
@@ -769,6 +796,14 @@ simulateStreamPipeline vfs parts =
                     case part.name of
                         "fromString" ->
                             { accum | output = Maybe.withDefault "" part.string }
+
+                        "stdin" ->
+                            case accum.virtualFS.stdin of
+                                Just content ->
+                                    { accum | output = content }
+
+                                Nothing ->
+                                    { accum | error = Just "Stream stdin: No stdin content provided. Use withStdin in your TestSetup." }
 
                         "fileRead" ->
                             case part.path of
@@ -1416,10 +1451,23 @@ formatPendingRequests requests =
                     if req.url == "elm-pages-internal://port" then
                         "    BackendTask.Custom.run \"" ++ (getPortName req |> Maybe.withDefault "???") ++ "\""
 
+                    else if req.url == "elm-pages-internal://stream" then
+                        "    Stream [" ++ formatStreamParts req ++ "]"
+
                     else
                         "    " ++ req.method ++ " " ++ req.url
                 )
             |> String.join "\n"
+
+
+formatStreamParts : Request.Request -> String
+formatStreamParts req =
+    case decodeJsonBody (Decode.field "parts" (Decode.list (Decode.field "name" Decode.string))) req of
+        Just parts ->
+            String.join " | " parts
+
+        Nothing ->
+            "???"
 
 
 {-| Assert that a GET request to the given URL is currently pending, without resolving it.
