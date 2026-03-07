@@ -3,6 +3,7 @@ module Test.BackendTask exposing
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten
     , expectFile, expectFileExists, expectNoFile
+    , SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectFailure, expectTestError
     )
 
@@ -68,6 +69,15 @@ in a virtual filesystem. You can seed initial files and assert on the final stat
 @docs expectFile, expectFileExists, expectNoFile
 
 
+## Simulated Effects
+
+Declare virtual filesystem side effects for custom ports. When a custom port is resolved
+via [`simulateCustom`](#simulateCustom), the registered handler's effects are applied to the
+virtual filesystem automatically.
+
+@docs SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
+
+
 ## Terminal Assertions
 
 These end the pipeline and produce an `Expectation` for elm-test.
@@ -105,6 +115,7 @@ type BackendTaskTest
         , pendingRequests : List Request.Request
         , trackedEffects : List TrackedEffect
         , virtualFS : VirtualFS
+        , simulatedEffects : Maybe (String -> Encode.Value -> List SimulatedEffect)
         }
     | Done
         { result : Result FatalError ()
@@ -128,6 +139,15 @@ emptyVirtualFS =
 type TrackedEffect
     = LogEffect String
     | FileWriteEffect { path : String, body : String }
+
+
+{-| An effect on the virtual filesystem that a custom port declares via
+[`withSimulatedEffects`](#withSimulatedEffects). Create values with
+[`writeFileEffect`](#writeFileEffect) and [`removeFileEffect`](#removeFileEffect).
+-}
+type SimulatedEffect
+    = SimWriteFile { path : String, body : String }
+    | SimRemoveFile String
 
 
 {-| The type of HTTP error to simulate with [`simulateHttpError`](#simulateHttpError).
@@ -165,6 +185,7 @@ fromBackendTask task =
         , pendingRequests = []
         , trackedEffects = []
         , virtualFS = emptyVirtualFS
+        , simulatedEffects = Nothing
         }
 
 
@@ -221,6 +242,7 @@ type alias RunningState =
     , pendingRequests : List Request.Request
     , trackedEffects : List TrackedEffect
     , virtualFS : VirtualFS
+    , simulatedEffects : Maybe (String -> Encode.Value -> List SimulatedEffect)
     }
 
 
@@ -272,6 +294,7 @@ advanceWithAutoResolveHelper fuel state =
                         , pendingRequests = []
                         , trackedEffects = state.trackedEffects ++ newEffects
                         , virtualFS = newVirtualFS
+                        , simulatedEffects = state.simulatedEffects
                         }
 
                 else
@@ -281,6 +304,7 @@ advanceWithAutoResolveHelper fuel state =
                         , pendingRequests = external
                         , trackedEffects = state.trackedEffects ++ newEffects
                         , virtualFS = newVirtualFS
+                        , simulatedEffects = state.simulatedEffects
                         }
 
 
@@ -598,22 +622,49 @@ simulateCustom portName jsonResponse scriptTest =
             case findMatchingPort portName state.pendingRequests of
                 Just ( matchedReq, remaining ) ->
                     let
+                        hash : String
                         hash =
                             Request.hash matchedReq
 
+                        responseValue : Encode.Value
                         responseValue =
                             Encode.object
                                 [ ( "bodyKind", Encode.string "json" )
                                 , ( "body", jsonResponse )
                                 ]
 
+                        entry : ( String, Encode.Value )
                         entry =
                             ( hash, Encode.object [ ( "response", responseValue ) ] )
 
+                        requestBody : Encode.Value
+                        requestBody =
+                            case matchedReq.body of
+                                StaticHttpBody.JsonBody json ->
+                                    json
+
+                                _ ->
+                                    Encode.null
+
+                        handlerEffects : List SimulatedEffect
+                        handlerEffects =
+                            case state.simulatedEffects of
+                                Just handler ->
+                                    handler portName requestBody
+
+                                Nothing ->
+                                    []
+
+                        updatedVirtualFS : VirtualFS
+                        updatedVirtualFS =
+                            applySimulatedEffects handlerEffects state.virtualFS
+
+                        newState : RunningState
                         newState =
                             { state
                                 | responseEntries = entry :: state.responseEntries
                                 , pendingRequests = remaining
+                                , virtualFS = updatedVirtualFS
                             }
                     in
                     if List.isEmpty remaining then
@@ -1193,6 +1244,85 @@ expectNoFile path scriptTest =
 
         Done state ->
             checkFS state.virtualFS
+
+
+{-| Declare filesystem side effects for custom ports. The handler receives the port name
+and the request body (as JSON), and returns a list of [`SimulatedEffect`](#SimulatedEffect)s
+to apply to the virtual filesystem when the port is resolved via [`simulateCustom`](#simulateCustom).
+
+This follows the same pattern as elm-program-test's `withSimulatedEffects` — it's a
+translation layer, not an auto-resolver. Custom ports still pause and require explicit
+[`simulateCustom`](#simulateCustom) calls.
+
+    import BackendTask
+    import BackendTask.Custom
+    import Json.Decode as Decode
+    import Json.Encode as Encode
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTask.Custom.run "generateReport"
+        (Encode.string "input")
+        (Decode.succeed ())
+        |> BackendTask.allowFatal
+        |> BackendTask.map (\_ -> ())
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.withSimulatedEffects
+            (\portName _ ->
+                case portName of
+                    "generateReport" ->
+                        [ BackendTaskTest.writeFileEffect "report.pdf" "content" ]
+
+                    _ ->
+                        []
+            )
+        |> BackendTaskTest.simulateCustom "generateReport" Encode.null
+        |> BackendTaskTest.expectFile "report.pdf" "content"
+        |> BackendTaskTest.expectSuccess
+
+-}
+withSimulatedEffects : (String -> Encode.Value -> List SimulatedEffect) -> BackendTaskTest -> BackendTaskTest
+withSimulatedEffects handler scriptTest =
+    case scriptTest of
+        Running state ->
+            Running { state | simulatedEffects = Just handler }
+
+        _ ->
+            scriptTest
+
+
+{-| Declare that a custom port writes a file to the virtual filesystem.
+
+    BackendTaskTest.writeFileEffect "output.txt" "file content"
+
+-}
+writeFileEffect : String -> String -> SimulatedEffect
+writeFileEffect path body =
+    SimWriteFile { path = path, body = body }
+
+
+{-| Declare that a custom port removes a file from the virtual filesystem.
+
+    BackendTaskTest.removeFileEffect "temp.txt"
+
+-}
+removeFileEffect : String -> SimulatedEffect
+removeFileEffect path =
+    SimRemoveFile path
+
+
+applySimulatedEffects : List SimulatedEffect -> VirtualFS -> VirtualFS
+applySimulatedEffects effects vfs =
+    List.foldl applySimulatedEffect vfs effects
+
+
+applySimulatedEffect : SimulatedEffect -> VirtualFS -> VirtualFS
+applySimulatedEffect effect vfs =
+    case effect of
+        SimWriteFile { path, body } ->
+            { vfs | files = Dict.insert path body vfs.files }
+
+        SimRemoveFile path ->
+            { vfs | files = Dict.remove path vfs.files }
 
 
 formatVirtualFiles : VirtualFS -> String
