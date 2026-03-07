@@ -2245,14 +2245,11 @@ function sendError(app, error) {
  * @returns {string | null}
  */
 function tryDecodeCookie(input, secrets) {
-  if (secrets.length > 0) {
-    const signed = cookie.unsign(input, secrets[0]);
+  for (let index = 0; index < secrets.length; index++) {
+    const signed = cookie.unsign(input, secrets[index]);
     if (signed) {
       return signed;
-    } else {
-      return tryDecodeCookie(input, secrets.slice(1));
     }
-  } else {
-    return null;
   }
+  return null;
 }
