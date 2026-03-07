@@ -910,7 +910,7 @@ Actual:
             , test "stream with opaque parts (command) is not auto-resolved" <|
                 \() ->
                     let
-                        result : Expectation
+                        result : Expect.Expectation
                         result =
                             Stream.fromString "hello"
                                 |> Stream.pipe (Stream.command "grep" [ "hello" ])

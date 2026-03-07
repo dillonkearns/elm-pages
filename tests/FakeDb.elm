@@ -48,6 +48,7 @@ encode db =
 encodeString : String -> BE.Encoder
 encodeString s =
     let
+        strBytes : Bytes
         strBytes =
             BE.encode (BE.string s)
     in
@@ -163,9 +164,11 @@ bytesToHexHelp remaining acc =
 byteToHex : Int -> String
 byteToHex byte =
     let
+        hi : Int
         hi =
             byte // 16
 
+        lo : Int
         lo =
             modBy 16 byte
     in
@@ -175,22 +178,53 @@ byteToHex byte =
 hexDigit : Int -> Char
 hexDigit n =
     case n of
-        0 -> '0'
-        1 -> '1'
-        2 -> '2'
-        3 -> '3'
-        4 -> '4'
-        5 -> '5'
-        6 -> '6'
-        7 -> '7'
-        8 -> '8'
-        9 -> '9'
-        10 -> 'a'
-        11 -> 'b'
-        12 -> 'c'
-        13 -> 'd'
-        14 -> 'e'
-        _ -> 'f'
+        0 ->
+            '0'
+
+        1 ->
+            '1'
+
+        2 ->
+            '2'
+
+        3 ->
+            '3'
+
+        4 ->
+            '4'
+
+        5 ->
+            '5'
+
+        6 ->
+            '6'
+
+        7 ->
+            '7'
+
+        8 ->
+            '8'
+
+        9 ->
+            '9'
+
+        10 ->
+            'a'
+
+        11 ->
+            'b'
+
+        12 ->
+            'c'
+
+        13 ->
+            'd'
+
+        14 ->
+            'e'
+
+        _ ->
+            'f'
 
 
 resolvePayload : DbReadPayload -> BackendTask FatalError Db
@@ -251,7 +285,7 @@ releaseLock =
         { url = "elm-pages-internal://db-lock-release"
         , method = "GET"
         , headers = []
-        , body = BackendTask.Http.jsonBody (Encode.object [( "token", Encode.string "test-lock-token" )])
+        , body = BackendTask.Http.jsonBody (Encode.object [ ( "token", Encode.string "test-lock-token" ) ])
         , timeoutInMs = Nothing
         , retries = Nothing
         }
