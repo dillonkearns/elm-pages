@@ -1,6 +1,6 @@
 module Test.BackendTask exposing
     ( BackendTaskTest, HttpError(..), fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
-    , TestSetup, defaultSetup, withFile, withDb, withStdin
+    , TestSetup, defaultSetup, withFile, withDb, withStdin, withEnv
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
     , expectFile, expectFileExists, expectNoFile
@@ -53,12 +53,14 @@ simulate things the framework can't predict (HTTP, shell commands, custom ports)
 
   - `Script.log`, `Script.writeFile`, `Script.removeFile`, `Script.copyFile`, `Script.move`
   - `BackendTask.File.rawFile`, `BackendTask.File.jsonFile`, `BackendTask.File.exists`
+  - `BackendTask.Env.get`, `BackendTask.Env.expect`
   - `Stream.fromString`, `Stream.stdin`, `Stream.stdout`, `Stream.stderr`
   - `Stream.fileRead`, `Stream.fileWrite`
   - `Stream.gzip`, `Stream.unzip`
 
-All of these read from or write to the virtual filesystem. Use `withFile` to seed files,
-`expectFile` to assert on them, and `ensureLogged`/`ensureStdout`/`ensureStderr` to check output.
+All of these read from or write to virtual state. Use `withFile` to seed files, `withEnv` to
+seed environment variables, `expectFile` to assert on files, and
+`ensureLogged`/`ensureStdout`/`ensureStderr` to check output.
 
 **Needs simulation:**
 
@@ -82,7 +84,7 @@ output.
 
 Configure the initial state (seeded files, DB) before the test starts running.
 
-@docs TestSetup, defaultSetup, withFile, withDb, withStdin
+@docs TestSetup, defaultSetup, withFile, withDb, withStdin, withEnv
 
 
 ## Simulating Effects
@@ -171,6 +173,7 @@ type BackendTaskTest
 type alias VirtualFS =
     { files : Dict String String
     , stdin : Maybe String
+    , env : Dict String String
     }
 
 
@@ -178,6 +181,7 @@ emptyVirtualFS : VirtualFS
 emptyVirtualFS =
     { files = Dict.empty
     , stdin = Nothing
+    , env = Dict.empty
     }
 
 
@@ -328,7 +332,36 @@ withDb config initialValue (TestSetup setup) =
 -}
 withStdin : String -> TestSetup -> TestSetup
 withStdin content (TestSetup setup) =
-    TestSetup { setup | virtualFS = { files = setup.virtualFS.files, stdin = Just content } }
+    let
+        vfs =
+            setup.virtualFS
+    in
+    TestSetup { setup | virtualFS = { vfs | stdin = Just content } }
+
+
+{-| Seed an environment variable for `BackendTask.Env.get` and `BackendTask.Env.expect`.
+
+    import BackendTask.Env
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTask.Env.expect "API_KEY"
+        |> BackendTask.allowFatal
+        |> BackendTask.andThen (\key -> Script.log key)
+        |> BackendTaskTest.fromBackendTaskWith
+            (BackendTaskTest.defaultSetup
+                |> BackendTaskTest.withEnv "API_KEY" "secret123"
+            )
+        |> BackendTaskTest.ensureLogged "secret123"
+        |> BackendTaskTest.expectSuccess
+
+-}
+withEnv : String -> String -> TestSetup -> TestSetup
+withEnv name value (TestSetup setup) =
+    let
+        vfs =
+            setup.virtualFS
+    in
+    TestSetup { setup | virtualFS = { vfs | env = Dict.insert name value vfs.env } }
 
 
 {-| Start a test from a `BackendTask FatalError ()`. Internal effects like `Script.log`
@@ -753,6 +786,24 @@ autoResponseBody vfs req =
 
                 _ ->
                     Encode.bool False
+
+        "elm-pages-internal://env" ->
+            case req.body of
+                StaticHttpBody.JsonBody json ->
+                    case Decode.decodeValue Decode.string json of
+                        Ok envVarName ->
+                            case Dict.get envVarName vfs.env of
+                                Just value ->
+                                    Encode.string value
+
+                                Nothing ->
+                                    Encode.null
+
+                        Err _ ->
+                            Encode.null
+
+                _ ->
+                    Encode.null
 
         _ ->
             Encode.null
