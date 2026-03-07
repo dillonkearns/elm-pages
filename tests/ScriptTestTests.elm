@@ -1020,6 +1020,96 @@ Actual:
                         |> BackendTaskTest.expectFile "output.txt" "stdin content"
                         |> BackendTaskTest.expectSuccess
             ]
+        , describe "simulateCommand"
+            [ test "simple command with run" <|
+                \() ->
+                    Stream.fromString "input"
+                        |> Stream.pipe (Stream.command "grep" [ "error" ])
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateCommand "grep" "error: found\n"
+                        |> BackendTaskTest.expectSuccess
+            , test "command with read returns output" <|
+                \() ->
+                    Stream.fromString "input"
+                        |> Stream.pipe (Stream.command "wc" [ "-l" ])
+                        |> Stream.read
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\{ body } -> Script.log body)
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateCommand "wc" "42"
+                        |> BackendTaskTest.ensureLogged "42"
+                        |> BackendTaskTest.expectSuccess
+            , test "fileRead before command reads from VFS" <|
+                \() ->
+                    Stream.fileRead "data.txt"
+                        |> Stream.pipe (Stream.command "grep" [ "error" ])
+                        |> Stream.pipe Stream.stdout
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "data.txt" "line1\nerror: bad\nline3"
+                            )
+                        |> BackendTaskTest.simulateCommand "grep" "error: bad\n"
+                        |> BackendTaskTest.ensureStdout "error: bad\n"
+                        |> BackendTaskTest.expectSuccess
+            , test "fileWrite after command writes to VFS" <|
+                \() ->
+                    Stream.fromString "input data"
+                        |> Stream.pipe (Stream.command "grep" [ "error" ])
+                        |> Stream.pipe (Stream.fileWrite "errors.txt")
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateCommand "grep" "error: something bad\n"
+                        |> BackendTaskTest.expectFile "errors.txt" "error: something bad\n"
+                        |> BackendTaskTest.expectSuccess
+            , test "fileRead + command + fileWrite full pipeline" <|
+                \() ->
+                    Stream.fileRead "input.txt"
+                        |> Stream.pipe (Stream.command "sort" [])
+                        |> Stream.pipe (Stream.fileWrite "sorted.txt")
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "input.txt" "c\na\nb"
+                            )
+                        |> BackendTaskTest.simulateCommand "sort" "a\nb\nc"
+                        |> BackendTaskTest.expectFile "sorted.txt" "a\nb\nc"
+                        |> BackendTaskTest.expectSuccess
+            , test "Script.exec uses simulateCommand" <|
+                \() ->
+                    Script.exec "ls" [ "-la" ]
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateCommand "ls" ""
+                        |> BackendTaskTest.expectSuccess
+            , test "Script.command uses simulateCommand and returns output" <|
+                \() ->
+                    Script.command "ls" [ "-la" ]
+                        |> BackendTask.andThen
+                            (\output -> Script.log output)
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateCommand "ls" "file1.txt\nfile2.txt"
+                        |> BackendTaskTest.ensureLogged "file1.txt\nfile2.txt"
+                        |> BackendTaskTest.expectSuccess
+            , test "wrong command name gives helpful error" <|
+                \() ->
+                    Stream.fromString "input"
+                        |> Stream.pipe (Stream.command "grep" [ "error" ])
+                        |> Stream.run
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateCommand "sed" "output"
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                Expect.equal
+                                    """simulateCommand: Expected a pending stream with command "sed"
+
+but the pending requests are:
+
+    Stream [fromString | command]"""
+                                    msg
+                            )
+            ]
         ]
 
 
