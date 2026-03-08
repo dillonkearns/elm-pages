@@ -2054,6 +2054,71 @@ but the pending requests are:
                             )
                         |> BackendTaskTest.ensureLogged "---\n{\"title\": \"Hello\"}\n---\nBody text"
                         |> BackendTaskTest.expectSuccess
+            , test "YAML frontmatter gives clear error" <|
+                \() ->
+                    BackendTask.File.onlyFrontmatter
+                        (Decode.field "title" Decode.string)
+                        "post.md"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\title -> Script.log title)
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "post.md" "---\ntitle: Hello\ntags:\n  - elm\n---\nBody"
+                            )
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                Expect.all
+                                    [ \m -> m |> String.contains "JSON" |> Expect.equal True
+                                    , \m -> m |> String.contains "post.md" |> Expect.equal True
+                                    ]
+                                    msg
+                            )
+            , test "frontmatter with Windows line endings" <|
+                \() ->
+                    BackendTask.File.bodyWithFrontmatter
+                        (\bodyText ->
+                            Decode.map2 (\title -> \b -> { title = title, body = b })
+                                (Decode.field "title" Decode.string)
+                                (Decode.succeed bodyText)
+                        )
+                        "post.md"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\result ->
+                                Script.log (result.title ++ ": " ++ String.trim result.body)
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "post.md" "---\r\n{\"title\": \"Hello\"}\r\n---\r\nBody text"
+                            )
+                        |> BackendTaskTest.ensureLogged "Hello: Body text"
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "ensureHttpPostWith"
+            [ test "can assert on POST request body" <|
+                \() ->
+                    BackendTask.Http.post "https://api.example.com/items"
+                        (BackendTask.Http.jsonBody
+                            (Encode.object
+                                [ ( "name", Encode.string "test-item" )
+                                , ( "count", Encode.int 42 )
+                                ]
+                            )
+                        )
+                        (BackendTask.Http.expectJson (Decode.succeed ()))
+                        |> BackendTask.allowFatal
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureHttpPostWith "https://api.example.com/items"
+                            (\body ->
+                                case Decode.decodeValue (Decode.field "name" Decode.string) body of
+                                    Ok name ->
+                                        Expect.equal "test-item" name
+
+                                    Err err ->
+                                        Expect.fail (Decode.errorToString err)
+                            )
+                        |> BackendTaskTest.simulateHttpPost "https://api.example.com/items" Encode.null
+                        |> BackendTaskTest.expectSuccess
             ]
         , describe "glob sorting"
             [ test "glob results are sorted without explicit List.sort" <|

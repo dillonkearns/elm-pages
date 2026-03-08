@@ -3,7 +3,7 @@ module Test.BackendTask exposing
     , TestSetup, defaultSetup, withFile, withBinaryFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , simulateQuestion, simulateReadKey
-    , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
+    , ensureHttpGet, ensureHttpPost, ensureHttpPostWith, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
     , ensureFile, ensureFileExists, ensureNoFile
     , SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
@@ -122,7 +122,7 @@ Configure the initial state (seeded files, DB) before the test starts running.
 These check conditions mid-pipeline without ending the test. They return the same
 `BackendTaskTest` so you can keep chaining.
 
-@docs ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
+@docs ensureHttpGet, ensureHttpPost, ensureHttpPostWith, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
 
 
 ## Virtual Filesystem
@@ -144,7 +144,17 @@ virtual filesystem automatically.
 
 ## Terminal Assertions
 
-These end the pipeline and produce an `Expectation` for elm-test.
+These end the pipeline and produce an `Expectation` for elm-test. Every test must
+end with exactly one terminal assertion.
+
+  - **`expectSuccess`** / **`expectSuccessWith`** — the `BackendTask` completed successfully
+  - **`expectFailure`** / **`expectFailureWith`** — the `BackendTask` completed with a `FatalError`
+    (your script's own error handling produced an expected failure)
+  - **`expectDb`** — the `BackendTask` completed successfully, and you want to assert on the
+    final database state
+  - **`expectTestError`** — the _test framework itself_ produced an error, such as reading a
+    file that wasn't seeded, using `BackendTask.Time.now` without `withTime`, or an
+    unresolvable request. Use this when testing that your test setup catches mistakes.
 
 @docs expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
 
@@ -937,17 +947,18 @@ autoResponseBody vfs req =
                     in
                     case Dict.get filePath vfs.files of
                         Just content ->
-                            let
-                                { frontmatterValue, bodyWithoutFrontmatter } =
-                                    parseFrontmatter content
-                            in
-                            Ok
-                                (Encode.object
-                                    [ ( "rawFile", Encode.string content )
-                                    , ( "withoutFrontmatter", Encode.string bodyWithoutFrontmatter )
-                                    , ( "parsedFrontmatter", frontmatterValue )
-                                    ]
-                                )
+                            case parseFrontmatter filePath content of
+                                Ok { frontmatterValue, bodyWithoutFrontmatter } ->
+                                    Ok
+                                        (Encode.object
+                                            [ ( "rawFile", Encode.string content )
+                                            , ( "withoutFrontmatter", Encode.string bodyWithoutFrontmatter )
+                                            , ( "parsedFrontmatter", frontmatterValue )
+                                            ]
+                                        )
+
+                                Err errorMsg ->
+                                    Err errorMsg
 
                         Nothing ->
                             Ok
@@ -1462,38 +1473,56 @@ applyVirtualFSEffect req vfs =
             Ok vfs
 
 
-parseFrontmatter : String -> { frontmatterValue : Encode.Value, bodyWithoutFrontmatter : String }
-parseFrontmatter content =
-    if String.startsWith "---\n" content then
-        case String.indexes "\n---\n" (String.dropLeft 3 content) of
+parseFrontmatter : String -> String -> Result String { frontmatterValue : Encode.Value, bodyWithoutFrontmatter : String }
+parseFrontmatter filePath content =
+    let
+        -- Normalize Windows line endings before parsing
+        normalized =
+            String.replace "\r\n" "\n" content
+    in
+    if String.startsWith "---\n" normalized then
+        case String.indexes "\n---\n" (String.dropLeft 3 normalized) of
             firstEnd :: _ ->
                 let
                     frontmatterString =
-                        String.slice 4 (firstEnd + 3) content
+                        String.slice 4 (firstEnd + 3) normalized
 
                     bodyAfterMarker =
-                        String.dropLeft (firstEnd + 3 + 5) content
+                        String.dropLeft (firstEnd + 3 + 5) normalized
                 in
                 case Decode.decodeString Decode.value frontmatterString of
                     Ok jsonValue ->
-                        { frontmatterValue = jsonValue
-                        , bodyWithoutFrontmatter = bodyAfterMarker
-                        }
+                        Ok
+                            { frontmatterValue = jsonValue
+                            , bodyWithoutFrontmatter = bodyAfterMarker
+                            }
 
                     Err _ ->
-                        { frontmatterValue = Encode.null
-                        , bodyWithoutFrontmatter = bodyAfterMarker
-                        }
+                        Err
+                            ("File \""
+                                ++ filePath
+                                ++ "\" has frontmatter (between --- markers), but it is not valid JSON.\n\n"
+                                ++ "The test framework only supports JSON frontmatter in test fixtures.\n\n"
+                                ++ "Use JSON format instead of YAML:\n\n"
+                                ++ "    BackendTaskTest.withFile \""
+                                ++ filePath
+                                ++ "\"\n"
+                                ++ "        \"---\\n{\\\"title\\\": \\\"Hello\\\"}\\n---\\nBody text\"\n\n"
+                                ++ "If your file doesn't use frontmatter and just happens to start with\n"
+                                ++ "\"---\", remove the leading \"---\" from your test fixture content."
+                            )
 
             [] ->
-                { frontmatterValue = Encode.null
-                , bodyWithoutFrontmatter = content
-                }
+                Ok
+                    { frontmatterValue = Encode.null
+                    , bodyWithoutFrontmatter = normalized
+                    }
 
     else
-        { frontmatterValue = Encode.null
-        , bodyWithoutFrontmatter = content
-        }
+        Ok
+            { frontmatterValue = Encode.null
+            , bodyWithoutFrontmatter = normalized
+            }
 
 
 resolveFilePath : Request.Request -> String -> String
@@ -2710,6 +2739,82 @@ ensureHttpPost url =
     ensureHttpRequest "ensureHttpPost" "POST" url
 
 
+{-| Like [`ensureHttpPost`](#ensureHttpPost), but also runs an assertion on the request body.
+This is useful for verifying that the correct data was sent in a POST request.
+
+    import BackendTask
+    import BackendTask.Http
+    import Json.Decode as Decode
+    import Json.Encode as Encode
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTask.Http.post
+        "https://api.example.com/items"
+        (BackendTask.Http.jsonBody
+            (Encode.object [ ( "name", Encode.string "test" ) ])
+        )
+        (BackendTask.Http.expectJson (Decode.succeed ()))
+        |> BackendTask.allowFatal
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.ensureHttpPostWith "https://api.example.com/items"
+            (\body ->
+                case Decode.decodeValue (Decode.field "name" Decode.string) body of
+                    Ok name ->
+                        Expect.equal "test" name
+
+                    Err err ->
+                        Expect.fail (Decode.errorToString err)
+            )
+        |> BackendTaskTest.simulateHttpPost "https://api.example.com/items" Encode.null
+        |> BackendTaskTest.expectSuccess
+
+-}
+ensureHttpPostWith : String -> (Encode.Value -> Expect.Expectation) -> BackendTaskTest a -> BackendTaskTest a
+ensureHttpPostWith url bodyAssertion scriptTest =
+    case scriptTest of
+        TestError _ ->
+            scriptTest
+
+        Done _ ->
+            TestError
+                ("ensureHttpPostWith: Expected a pending POST request for\n\n    "
+                    ++ url
+                    ++ "\n\nbut the script has already completed."
+                )
+
+        Running state ->
+            case findMatchingRequest "POST" url state.pendingRequests of
+                Just ( req, _ ) ->
+                    let
+                        bodyValue =
+                            case req.body of
+                                StaticHttpBody.JsonBody json ->
+                                    json
+
+                                _ ->
+                                    Encode.null
+                    in
+                    case Test.Runner.getFailureReason (bodyAssertion bodyValue) of
+                        Nothing ->
+                            scriptTest
+
+                        Just failure ->
+                            TestError
+                                ("ensureHttpPostWith: POST request body assertion failed for\n\n    "
+                                    ++ url
+                                    ++ "\n\n"
+                                    ++ failure.description
+                                )
+
+                Nothing ->
+                    TestError
+                        ("ensureHttpPostWith: Expected a pending POST request for\n\n    "
+                            ++ url
+                            ++ "\n\nbut the pending requests are:\n\n"
+                            ++ formatPendingRequests state.pendingRequests
+                        )
+
+
 ensureHttpRequest : String -> String -> String -> BackendTaskTest a -> BackendTaskTest a
 ensureHttpRequest callerName method url scriptTest =
     case scriptTest of
@@ -3298,6 +3403,8 @@ expectSuccess scriptTest =
             Expect.fail
                 ("Expected the script to complete, but there are still pending requests:\n\n"
                     ++ formatPendingRequests state.pendingRequests
+                    ++ "\nHint: Use a simulate function (like simulateHttpGet, simulateCustom, etc.)\n"
+                    ++ "to provide a response for each pending request before calling the terminal assertion."
                 )
 
         TestError msg ->
@@ -3341,6 +3448,8 @@ expectSuccessWith assertion scriptTest =
             Expect.fail
                 ("Expected the script to complete, but there are still pending requests:\n\n"
                     ++ formatPendingRequests state.pendingRequests
+                    ++ "\nHint: Use a simulate function (like simulateHttpGet, simulateCustom, etc.)\n"
+                    ++ "to provide a response for each pending request before calling the terminal assertion."
                 )
 
         TestError msg ->
@@ -3375,6 +3484,8 @@ expectDb config assertion scriptTest =
             Expect.fail
                 ("Expected the script to complete, but there are still pending requests:\n\n"
                     ++ formatPendingRequests state.pendingRequests
+                    ++ "\nHint: Use a simulate function (like simulateHttpGet, simulateCustom, etc.)\n"
+                    ++ "to provide a response for each pending request before calling the terminal assertion."
                 )
 
         Done { result, virtualDB } ->
@@ -3431,6 +3542,8 @@ expectFailure scriptTest =
             Expect.fail
                 ("Expected the script to complete, but there are still pending requests:\n\n"
                     ++ formatPendingRequests state.pendingRequests
+                    ++ "\nHint: Use a simulate function (like simulateHttpGet, simulateCustom, etc.)\n"
+                    ++ "to provide a response for each pending request before calling the terminal assertion."
                 )
 
         TestError msg ->
@@ -3480,6 +3593,8 @@ expectFailureWith assertion scriptTest =
             Expect.fail
                 ("Expected the script to complete, but there are still pending requests:\n\n"
                     ++ formatPendingRequests state.pendingRequests
+                    ++ "\nHint: Use a simulate function (like simulateHttpGet, simulateCustom, etc.)\n"
+                    ++ "to provide a response for each pending request before calling the terminal assertion."
                 )
 
         TestError msg ->
