@@ -16,28 +16,28 @@ America/New\_York is UTC-5 (EST) in winter and UTC-4 (EDT) in summer.
 run : Script
 run =
     testScript "Timezone"
-        [ BackendTask.Time.zone (withinYears 5)
-            |> testTask "zone withinYears: winter hour (EST = UTC-5)"
-                (\z ->
-                    -- Jan 1, 2024 00:00 UTC = Dec 31, 2023 19:00 EST (UTC-5)
-                    Time.toHour z (Time.millisToPosix 1704067200000)
-                        |> Expect.equal 19
-                )
-        , BackendTask.Time.zone (withinYears 5)
-            |> testTask "zone withinYears: summer hour (EDT = UTC-4)"
-                (\z ->
-                    -- Jul 1, 2024 12:00 UTC = Jul 1, 2024 08:00 EDT (UTC-4)
-                    Time.toHour z (Time.millisToPosix 1719835200000)
-                        |> Expect.equal 8
-                )
-        , BackendTask.Time.zone (withinRange { yearsAgo = 10, yearsAhead = 2 })
-            |> testTask "zone withinRange: asymmetric range works"
+        [ BackendTask.Time.zone
+            |> testTask "zone (default): winter hour (EST = UTC-5)"
                 (\z ->
                     -- Jan 1, 2024 00:00 UTC = Dec 31, 2023 19:00 EST (UTC-5)
                     Time.toHour z (Time.millisToPosix 1704067200000)
                         |> Expect.equal 19
                 )
         , BackendTask.Time.zone
+            |> testTask "zone (default): summer hour (EDT = UTC-4)"
+                (\z ->
+                    -- Jul 1, 2024 12:00 UTC = Jul 1, 2024 08:00 EDT (UTC-4)
+                    Time.toHour z (Time.millisToPosix 1719835200000)
+                        |> Expect.equal 8
+                )
+        , BackendTask.Time.zoneFor (withinRange { yearsAgo = 10, yearsAhead = 2 })
+            |> testTask "zone withinRange: asymmetric range works"
+                (\z ->
+                    -- Jan 1, 2024 00:00 UTC = Dec 31, 2023 19:00 EST (UTC-5)
+                    Time.toHour z (Time.millisToPosix 1704067200000)
+                        |> Expect.equal 19
+                )
+        , BackendTask.Time.zoneFor
             (between
                 { since = Date.fromCalendarDate 2020 Time.Jan 1
                 , until = Date.fromCalendarDate 2030 Time.Dec 31
@@ -49,7 +49,7 @@ run =
                     Time.toHour z (Time.millisToPosix 1705341600000)
                         |> Expect.equal 13
                 )
-        , BackendTask.Time.zone
+        , BackendTask.Time.zoneFor
             (between
                 { since = Date.fromCalendarDate 2020 Time.Jan 1
                 , until = Date.fromCalendarDate 2030 Time.Dec 31
@@ -61,7 +61,7 @@ run =
                     Time.toHour z (Time.millisToPosix 1721066400000)
                         |> Expect.equal 14
                 )
-        , BackendTask.Time.zone
+        , BackendTask.Time.zoneFor
             (between
                 { since = Date.fromCalendarDate 2024 Time.Mar 1
                 , until = Date.fromCalendarDate 2024 Time.Apr 30
