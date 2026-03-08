@@ -20,7 +20,7 @@ all =
                         |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 1205 ) ])
-                        |> BackendTaskTest.ensureLogged [ "dillonkearns/elm-pages has 1205 stars" ]
+                        |> BackendTaskTest.ensureStdout [ "dillonkearns/elm-pages has 1205 stars" ]
                         |> BackendTaskTest.expectSuccess
             , test "works with a different repo" <|
                 \() ->
@@ -30,7 +30,7 @@ all =
                         |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/mdgriffith/elm-ui"
                             (Encode.object [ ( "stargazers_count", Encode.int 1300 ) ])
-                        |> BackendTaskTest.ensureLogged [ "mdgriffith/elm-ui has 1300 stars" ]
+                        |> BackendTaskTest.ensureStdout [ "mdgriffith/elm-ui has 1300 stars" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "fetchAndWriteReport"
@@ -65,7 +65,7 @@ all =
                             (Encode.object [ ( "stargazers_count", Encode.int 1205 ) ])
                         |> BackendTaskTest.ensureFile "report.md"
                             "# Star Report\n\nelm-pages: 1205"
-                        |> BackendTaskTest.ensureLogged [ "Report complete: 3 lines written to report.md" ]
+                        |> BackendTaskTest.ensureStdout [ "Report complete: 3 lines written to report.md" ]
                         |> BackendTaskTest.expectSuccess
             , test "accepts custom repos via CLI args" <|
                 \() ->
@@ -86,7 +86,7 @@ all =
                             (Encode.object [ ( "stargazers_count", Encode.int 400 ) ])
                         |> BackendTaskTest.ensureFile "report.md"
                             "# Star Report\n\nelm-ui: 1300\nelm-animator: 400"
-                        |> BackendTaskTest.ensureLogged [ "Report complete: 4 lines written to report.md" ]
+                        |> BackendTaskTest.ensureStdout [ "Report complete: 4 lines written to report.md" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "starsScript (fromScript)"
@@ -97,7 +97,7 @@ all =
                         |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 1205 ) ])
-                        |> BackendTaskTest.ensureLogged [ "dillonkearns/elm-pages has 1205 stars" ]
+                        |> BackendTaskTest.ensureStdout [ "dillonkearns/elm-pages has 1205 stars" ]
                         |> BackendTaskTest.expectSuccess
             , test "accepts custom CLI args" <|
                 \() ->
@@ -106,7 +106,7 @@ all =
                         |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/mdgriffith/elm-ui"
                             (Encode.object [ ( "stargazers_count", Encode.int 1300 ) ])
-                        |> BackendTaskTest.ensureLogged [ "mdgriffith/elm-ui has 1300 stars" ]
+                        |> BackendTaskTest.ensureStdout [ "mdgriffith/elm-ui has 1300 stars" ]
                         |> BackendTaskTest.expectSuccess
             ]
         ]

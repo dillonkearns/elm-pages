@@ -23,7 +23,7 @@ import Json.Encode as Encode
 import Pages.Script as Script
 import Random
 import Test exposing (Test, describe, test)
-import Test.BackendTask as BackendTaskTest
+import Test.BackendTask as BackendTaskTest exposing (Output(..))
 import Test.Runner
 import Time
 
@@ -170,18 +170,24 @@ but the pending requests are:
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "auto-resolve and tracking"
-            [ test "ensureLogged fails when message not present" <|
+            [ test "ensureStdout fails when message not present" <|
                 \() ->
                     Script.log "hello"
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "goodbye" ]
+                        |> BackendTaskTest.ensureStdout [ "goodbye" ]
                         |> BackendTaskTest.expectTestError
                             (\msg ->
-                                msg
-                                    |> String.contains "ensureLoggedWith"
-                                    |> Expect.equal True
+                                Expect.equal
+                                    ("""ensureOutputWith: Output assertion failed.
+
+Expect.equal
+
+Output since last drain:
+
+    stdout: "hello\"""")
+                                    msg
                             )
-            , test "Script.log auto-resolves and is tracked by ensureLogged" <|
+            , test "Script.log auto-resolves and is tracked by ensureStdout" <|
                 \() ->
                     BackendTask.Http.getJson
                         "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -195,7 +201,7 @@ but the pending requests are:
                         |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
-                        |> BackendTaskTest.ensureLogged [ "86" ]
+                        |> BackendTaskTest.ensureStdout [ "86" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "file write tracking"
@@ -227,7 +233,7 @@ but the pending requests are:
                         |> BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
-                        |> BackendTaskTest.ensureLogged [ "86" ]
+                        |> BackendTaskTest.ensureStdout [ "86" ]
                         |> BackendTaskTest.expectSuccess
             , test "fetches then writes file" <|
                 \() ->
@@ -577,7 +583,7 @@ but the file writes are:
                     Script.withoutCliOptions
                         (Script.log "hello")
                         |> BackendTaskTest.fromScript []
-                        |> BackendTaskTest.ensureLogged [ "hello" ]
+                        |> BackendTaskTest.ensureStdout [ "hello" ]
                         |> BackendTaskTest.expectSuccess
             , test "withCliOptions parses args" <|
                 \() ->
@@ -598,7 +604,7 @@ but the file writes are:
                             Script.log ("Hello, " ++ name ++ "!")
                         )
                         |> BackendTaskTest.fromScript [ "--name", "Dillon" ]
-                        |> BackendTaskTest.ensureLogged [ "Hello, Dillon!" ]
+                        |> BackendTaskTest.ensureStdout [ "Hello, Dillon!" ]
                         |> BackendTaskTest.expectSuccess
             , test "withCliOptions uses defaults when no args" <|
                 \() ->
@@ -619,7 +625,7 @@ but the file writes are:
                             Script.log ("Hello, " ++ name ++ "!")
                         )
                         |> BackendTaskTest.fromScript []
-                        |> BackendTaskTest.ensureLogged [ "Hello, world!" ]
+                        |> BackendTaskTest.ensureStdout [ "Hello, world!" ]
                         |> BackendTaskTest.expectSuccess
             , test "invalid CLI args gives test error" <|
                 \() ->
@@ -850,7 +856,7 @@ Actual:
                                 Script.log ("Read: " ++ content)
                             )
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "Read: round-trip" ]
+                        |> BackendTaskTest.ensureStdout [ "Read: round-trip" ]
                         |> BackendTaskTest.expectSuccess
             , test "reading non-existent file fails" <|
                 \() ->
@@ -879,7 +885,7 @@ Actual:
                                     |> BackendTask.andThen identity
                             )
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "exists: true, missing: false" ]
+                        |> BackendTaskTest.ensureStdout [ "exists: true, missing: false" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "withSimulatedEffects"
@@ -987,7 +993,7 @@ Actual:
                         |> Stream.pipe Stream.stdout
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureStdout "hello world"
+                        |> BackendTaskTest.ensureStdout [ "hello world" ]
                         |> BackendTaskTest.expectSuccess
             , test "fromString piped to stderr tracks output" <|
                 \() ->
@@ -995,7 +1001,7 @@ Actual:
                         |> Stream.pipe Stream.stderr
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureStderr "error message"
+                        |> BackendTaskTest.ensureStderr [ "error message" ]
                         |> BackendTaskTest.expectSuccess
             , test "fromString piped to fileWrite writes to VFS" <|
                 \() ->
@@ -1014,7 +1020,7 @@ Actual:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "data.txt" "seeded data"
                             )
-                        |> BackendTaskTest.ensureStdout "seeded data"
+                        |> BackendTaskTest.ensureStdout [ "seeded data" ]
                         |> BackendTaskTest.expectSuccess
             , test "fileRead piped to fileWrite copies via VFS" <|
                 \() ->
@@ -1035,7 +1041,7 @@ Actual:
                         |> BackendTask.andThen
                             (\{ body } -> Script.log body)
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "hello" ]
+                        |> BackendTaskTest.ensureStdout [ "hello" ]
                         |> BackendTaskTest.expectSuccess
             , test "stream readJson returns parsed JSON" <|
                 \() ->
@@ -1045,7 +1051,7 @@ Actual:
                         |> BackendTask.andThen
                             (\{ body } -> Script.log body)
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "test" ]
+                        |> BackendTaskTest.ensureStdout [ "test" ]
                         |> BackendTaskTest.expectSuccess
             , test "stream with opaque parts (command) is not auto-resolved" <|
                 \() ->
@@ -1083,7 +1089,7 @@ Actual:
                         |> BackendTask.andThen
                             (\content -> Script.log content)
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "written by stream" ]
+                        |> BackendTaskTest.ensureStdout [ "written by stream" ]
                         |> BackendTaskTest.expectSuccess
             , test "fileRead reads file written by Script.writeFile" <|
                 \() ->
@@ -1098,7 +1104,7 @@ Actual:
                         |> BackendTask.andThen
                             (\{ body } -> Script.log body)
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "written by script" ]
+                        |> BackendTaskTest.ensureStdout [ "written by script" ]
                         |> BackendTaskTest.expectSuccess
             , test "stream fileRead of non-existent file produces error" <|
                 \() ->
@@ -1117,7 +1123,7 @@ Actual:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "config.json" """{"port":8080}"""
                             )
-                        |> BackendTaskTest.ensureLogged [ """{"port":8080}""" ]
+                        |> BackendTaskTest.ensureStdout [ """{"port":8080}""" ]
                         |> BackendTaskTest.expectSuccess
             , test "stdin reads seeded content" <|
                 \() ->
@@ -1130,7 +1136,7 @@ Actual:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withStdin "hello from stdin"
                             )
-                        |> BackendTaskTest.ensureLogged [ "hello from stdin" ]
+                        |> BackendTaskTest.ensureStdout [ "hello from stdin" ]
                         |> BackendTaskTest.expectSuccess
             , test "stdin piped to stdout" <|
                 \() ->
@@ -1141,7 +1147,7 @@ Actual:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withStdin "piped through"
                             )
-                        |> BackendTaskTest.ensureStdout "piped through"
+                        |> BackendTaskTest.ensureStdout [ "piped through" ]
                         |> BackendTaskTest.expectSuccess
             , test "stdin without withStdin produces error" <|
                 \() ->
@@ -1181,7 +1187,7 @@ Actual:
                             (\{ body } -> Script.log body)
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.simulateCommand "wc" "42"
-                        |> BackendTaskTest.ensureLogged [ "42" ]
+                        |> BackendTaskTest.ensureStdout [ "42" ]
                         |> BackendTaskTest.expectSuccess
             , test "fileRead before command reads from VFS" <|
                 \() ->
@@ -1194,7 +1200,7 @@ Actual:
                                 |> BackendTaskTest.withFile "data.txt" "line1\nerror: bad\nline3"
                             )
                         |> BackendTaskTest.simulateCommand "grep" "error: bad\n"
-                        |> BackendTaskTest.ensureStdout "error: bad\n"
+                        |> BackendTaskTest.ensureStdout [ "error: bad\n" ]
                         |> BackendTaskTest.expectSuccess
             , test "fileWrite after command writes to VFS" <|
                 \() ->
@@ -1232,7 +1238,7 @@ Actual:
                             (\output -> Script.log output)
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.simulateCommand "ls" "file1.txt\nfile2.txt"
-                        |> BackendTaskTest.ensureLogged [ "file1.txt\nfile2.txt" ]
+                        |> BackendTaskTest.ensureStdout [ "file1.txt\nfile2.txt" ]
                         |> BackendTaskTest.expectSuccess
             , test "wrong command name gives helpful error" <|
                 \() ->
@@ -1263,7 +1269,7 @@ but the pending requests are:
                         |> BackendTask.andThen
                             (\output -> Script.log output.body)
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "hello world" ]
+                        |> BackendTaskTest.ensureStdout [ "hello world" ]
                         |> BackendTaskTest.expectSuccess
             , test "unzip without gzip gives error" <|
                 \() ->
@@ -1302,7 +1308,7 @@ but the pending requests are:
                         |> BackendTask.andThen (\() -> decompress)
                         |> BackendTask.andThen (\output -> Script.log output.body)
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "secret" ]
+                        |> BackendTaskTest.ensureStdout [ "secret" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "simulateCustomStream"
@@ -1359,7 +1365,7 @@ but the pending requests are:
                         |> BackendTask.andThen (\output -> Script.log output.body)
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.simulateStreamHttp "https://api.example.com/data" "response body"
-                        |> BackendTaskTest.ensureLogged [ "response body" ]
+                        |> BackendTaskTest.ensureStdout [ "response body" ]
                         |> BackendTaskTest.expectSuccess
             , test "http stream with fileWrite" <|
                 \() ->
@@ -1413,7 +1419,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withEnv "API_KEY" "secret123"
                             )
-                        |> BackendTaskTest.ensureLogged [ "secret123" ]
+                        |> BackendTaskTest.ensureStdout [ "secret123" ]
                         |> BackendTaskTest.expectSuccess
             , test "Env.get returns Nothing for missing variable" <|
                 \() ->
@@ -1423,7 +1429,7 @@ but the pending requests are:
                                 Script.log (Maybe.withDefault "not set" maybeKey)
                             )
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "not set" ]
+                        |> BackendTaskTest.ensureStdout [ "not set" ]
                         |> BackendTaskTest.expectSuccess
             , test "Env.expect succeeds with seeded value" <|
                 \() ->
@@ -1435,7 +1441,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withEnv "DB_URL" "postgres://localhost/mydb"
                             )
-                        |> BackendTaskTest.ensureLogged [ "postgres://localhost/mydb" ]
+                        |> BackendTaskTest.ensureStdout [ "postgres://localhost/mydb" ]
                         |> BackendTaskTest.expectSuccess
             , test "Env.expect fails for missing variable" <|
                 \() ->
@@ -1459,7 +1465,7 @@ but the pending requests are:
                                 |> BackendTaskTest.withEnv "HOST" "localhost"
                                 |> BackendTaskTest.withEnv "PORT" "3000"
                             )
-                        |> BackendTaskTest.ensureLogged [ "localhost:3000" ]
+                        |> BackendTaskTest.ensureStdout [ "localhost:3000" ]
                         |> BackendTaskTest.expectSuccess
             , test "BackendTask.withEnv makes variable visible to Env.get" <|
                 \() ->
@@ -1470,7 +1476,7 @@ but the pending requests are:
                                 Script.log (Maybe.withDefault "missing" maybeVal)
                             )
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "injected" ]
+                        |> BackendTaskTest.ensureStdout [ "injected" ]
                         |> BackendTaskTest.expectSuccess
             , test "BackendTask.withEnv overrides TestSetup withEnv" <|
                 \() ->
@@ -1484,7 +1490,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withEnv "MY_VAR" "original"
                             )
-                        |> BackendTaskTest.ensureLogged [ "overridden" ]
+                        |> BackendTaskTest.ensureStdout [ "overridden" ]
                         |> BackendTaskTest.expectSuccess
             , test "Env.expect works with BackendTask.withEnv" <|
                 \() ->
@@ -1493,7 +1499,7 @@ but the pending requests are:
                         |> BackendTask.andThen Script.log
                         |> BackendTask.withEnv "REQUIRED_VAR" "provided"
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "provided" ]
+                        |> BackendTaskTest.ensureStdout [ "provided" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "inDir"
@@ -1507,7 +1513,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "subdir/config.json" "found it"
                             )
-                        |> BackendTaskTest.ensureLogged [ "found it" ]
+                        |> BackendTaskTest.ensureStdout [ "found it" ]
                         |> BackendTaskTest.expectSuccess
             , test "file write resolves relative to inDir" <|
                 \() ->
@@ -1531,7 +1537,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "outer/inner/data.txt" "nested"
                             )
-                        |> BackendTaskTest.ensureLogged [ "nested" ]
+                        |> BackendTaskTest.ensureStdout [ "nested" ]
                         |> BackendTaskTest.expectSuccess
             , test "file exists checks relative to inDir" <|
                 \() ->
@@ -1545,7 +1551,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "subdir/config.json" "content"
                             )
-                        |> BackendTaskTest.ensureLogged [ "true" ]
+                        |> BackendTaskTest.ensureStdout [ "true" ]
                         |> BackendTaskTest.expectSuccess
             , test "stream fileRead resolves relative to inDir" <|
                 \() ->
@@ -1557,7 +1563,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "mydir/input.txt" "stream content"
                             )
-                        |> BackendTaskTest.ensureStdout "stream content"
+                        |> BackendTaskTest.ensureStdout [ "stream content" ]
                         |> BackendTaskTest.expectSuccess
             , test "stream fileWrite resolves relative to inDir" <|
                 \() ->
@@ -1693,7 +1699,7 @@ but the pending requests are:
                     Script.sleep 1000
                         |> BackendTask.andThen (\() -> Script.log "after sleep")
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "after sleep" ]
+                        |> BackendTaskTest.ensureStdout [ "after sleep" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "makeDirectory"
@@ -1702,7 +1708,7 @@ but the pending requests are:
                     Script.makeDirectory { recursive = True } "dist/assets"
                         |> BackendTask.andThen (\() -> Script.log "dir created")
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "dir created" ]
+                        |> BackendTaskTest.ensureStdout [ "dir created" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "removeDirectory"
@@ -1714,7 +1720,7 @@ but the pending requests are:
                             (\() -> Script.removeDirectory { recursive = True } "build")
                         |> BackendTask.andThen (\() -> Script.log "removed")
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "removed" ]
+                        |> BackendTaskTest.ensureStdout [ "removed" ]
                         |> BackendTaskTest.expectSuccess
             , test "removeDirectory removes matching files from VFS" <|
                 \() ->
@@ -1736,7 +1742,7 @@ but the pending requests are:
                     Script.makeTempDirectory "my-build-"
                         |> BackendTask.andThen Script.log
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "/tmp/my-build-0" ]
+                        |> BackendTaskTest.ensureStdout [ "/tmp/my-build-0" ]
                         |> BackendTaskTest.expectSuccess
             , test "files can be written to temp directory" <|
                 \() ->
@@ -1762,7 +1768,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)
                             )
-                        |> BackendTaskTest.ensureLogged [ "1709827200000" ]
+                        |> BackendTaskTest.ensureStdout [ "1709827200000" ]
                         |> BackendTaskTest.expectSuccess
             , test "now without withTime gives helpful error" <|
                 \() ->
@@ -1786,7 +1792,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withRandomSeed 42
                             )
-                        |> BackendTaskTest.ensureLogged [ "42" ]
+                        |> BackendTaskTest.ensureStdout [ "42" ]
                         |> BackendTaskTest.expectSuccess
             , test "Random.generate uses seeded value" <|
                 \() ->
@@ -1822,7 +1828,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withWhich "elm-review" "/usr/local/bin/elm-review"
                             )
-                        |> BackendTaskTest.ensureLogged [ "/usr/local/bin/elm-review" ]
+                        |> BackendTaskTest.ensureStdout [ "/usr/local/bin/elm-review" ]
                         |> BackendTaskTest.expectSuccess
             , test "which returns Nothing for unregistered command" <|
                 \() ->
@@ -1832,7 +1838,7 @@ but the pending requests are:
                                 Script.log (Maybe.withDefault "not found" maybePath)
                             )
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "not found" ]
+                        |> BackendTaskTest.ensureStdout [ "not found" ]
                         |> BackendTaskTest.expectSuccess
             , test "expectWhich succeeds for registered command" <|
                 \() ->
@@ -1842,7 +1848,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withWhich "node" "/usr/bin/node"
                             )
-                        |> BackendTaskTest.ensureLogged [ "/usr/bin/node" ]
+                        |> BackendTaskTest.ensureStdout [ "/usr/bin/node" ]
                         |> BackendTaskTest.expectSuccess
             , test "expectWhich fails for unregistered command" <|
                 \() ->
@@ -1859,7 +1865,7 @@ but the pending requests are:
                             (\name -> Script.log ("Hello, " ++ name ++ "!"))
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.simulateQuestion "What is your name? " "Dillon"
-                        |> BackendTaskTest.ensureLogged [ "Hello, Dillon!" ]
+                        |> BackendTaskTest.ensureStdout [ "Hello, Dillon!" ]
                         |> BackendTaskTest.expectSuccess
             , test "wrong prompt gives helpful error" <|
                 \() ->
@@ -1888,7 +1894,7 @@ but the pending requests are:
                             )
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.simulateReadKey "y"
-                        |> BackendTaskTest.ensureLogged [ "confirmed" ]
+                        |> BackendTaskTest.ensureStdout [ "confirmed" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "resolve-path"
@@ -1899,7 +1905,7 @@ but the pending requests are:
                         |> BackendTask.andThen
                             (\resolved -> Script.log (FilePath.toString resolved))
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "src/Main.elm" ]
+                        |> BackendTaskTest.ensureStdout [ "src/Main.elm" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "binaryFile"
@@ -1927,7 +1933,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withBinaryFile "test.bin" testBytes
                             )
-                        |> BackendTaskTest.ensureLogged [ "4" ]
+                        |> BackendTaskTest.ensureStdout [ "4" ]
                         |> BackendTaskTest.expectSuccess
             , test "binary file not found produces error" <|
                 \() ->
@@ -1960,7 +1966,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withBinaryFile "subdir/data.bin" testBytes
                             )
-                        |> BackendTaskTest.ensureLogged [ "1" ]
+                        |> BackendTaskTest.ensureStdout [ "1" ]
                         |> BackendTaskTest.expectSuccess
             , test "binary file round-trip preserves content" <|
                 \() ->
@@ -1989,7 +1995,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withBinaryFile "data.bin" testBytes
                             )
-                        |> BackendTaskTest.ensureLogged [ "12345" ]
+                        |> BackendTaskTest.ensureStdout [ "12345" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "binary file integration with FS ops"
@@ -2010,7 +2016,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withBinaryFile "data.bin" testBytes
                             )
-                        |> BackendTaskTest.ensureLogged [ "true" ]
+                        |> BackendTaskTest.ensureStdout [ "true" ]
                         |> BackendTaskTest.expectSuccess
             , test "delete removes binary file" <|
                 \() ->
@@ -2026,7 +2032,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withBinaryFile "data.bin" testBytes
                             )
-                        |> BackendTaskTest.ensureLogged [ "false" ]
+                        |> BackendTaskTest.ensureStdout [ "false" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "FS edge cases"
@@ -2066,7 +2072,7 @@ but the pending requests are:
                             )
                         |> BackendTask.andThen (\content -> Script.log content)
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "content" ]
+                        |> BackendTaskTest.ensureStdout [ "content" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "frontmatter"
@@ -2088,7 +2094,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "post.md" "---\n{\"title\": \"Hello\"}\n---\nBody text"
                             )
-                        |> BackendTaskTest.ensureLogged [ "Hello: Body text" ]
+                        |> BackendTaskTest.ensureStdout [ "Hello: Body text" ]
                         |> BackendTaskTest.expectSuccess
             , test "onlyFrontmatter reads parsed frontmatter" <|
                 \() ->
@@ -2101,7 +2107,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "post.md" "---\n{\"title\": \"Hello\"}\n---\nBody text"
                             )
-                        |> BackendTaskTest.ensureLogged [ "Hello" ]
+                        |> BackendTaskTest.ensureStdout [ "Hello" ]
                         |> BackendTaskTest.expectSuccess
             , test "bodyWithoutFrontmatter strips frontmatter markers" <|
                 \() ->
@@ -2112,7 +2118,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "post.md" "---\n{\"title\": \"Hello\"}\n---\nBody text"
                             )
-                        |> BackendTaskTest.ensureLogged [ "Body text" ]
+                        |> BackendTaskTest.ensureStdout [ "Body text" ]
                         |> BackendTaskTest.expectSuccess
             , test "rawFile returns full content including frontmatter" <|
                 \() ->
@@ -2123,7 +2129,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "post.md" "---\n{\"title\": \"Hello\"}\n---\nBody text"
                             )
-                        |> BackendTaskTest.ensureLogged [ "---\n{\"title\": \"Hello\"}\n---\nBody text" ]
+                        |> BackendTaskTest.ensureStdout [ "---\n{\"title\": \"Hello\"}\n---\nBody text" ]
                         |> BackendTaskTest.expectSuccess
             , test "YAML frontmatter gives clear error" <|
                 \() ->
@@ -2162,7 +2168,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "post.md" "---\r\n{\"title\": \"Hello\"}\r\n---\r\nBody text"
                             )
-                        |> BackendTaskTest.ensureLogged [ "Hello: Body text" ]
+                        |> BackendTaskTest.ensureStdout [ "Hello: Body text" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "simulateHttp"
@@ -2194,7 +2200,7 @@ but the pending requests are:
                             , headers = []
                             , body = Encode.object [ ( "error", Encode.string "User not found" ) ]
                             }
-                        |> BackendTaskTest.ensureLogged [ "not found" ]
+                        |> BackendTaskTest.ensureStdout [ "not found" ]
                         |> BackendTaskTest.expectSuccess
             , test "simulate PUT request" <|
                 \() ->
@@ -2219,7 +2225,7 @@ but the pending requests are:
                             , headers = []
                             , body = Encode.object [ ( "id", Encode.string "123" ) ]
                             }
-                        |> BackendTaskTest.ensureLogged [ "updated: 123" ]
+                        |> BackendTaskTest.ensureStdout [ "updated: 123" ]
                         |> BackendTaskTest.expectSuccess
             , test "simulate DELETE request" <|
                 \() ->
@@ -2242,7 +2248,7 @@ but the pending requests are:
                             , headers = []
                             , body = Encode.null
                             }
-                        |> BackendTaskTest.ensureLogged [ "deleted" ]
+                        |> BackendTaskTest.ensureStdout [ "deleted" ]
                         |> BackendTaskTest.expectSuccess
             , test "simulate response with custom headers" <|
                 \() ->
@@ -2259,7 +2265,7 @@ but the pending requests are:
                             , headers = [ ( "x-request-id", "abc123" ) ]
                             , body = Encode.null
                             }
-                        |> BackendTaskTest.ensureLogged [ "ok" ]
+                        |> BackendTaskTest.ensureStdout [ "ok" ]
                         |> BackendTaskTest.expectSuccess
             , test "simulate 500 server error" <|
                 \() ->
@@ -2285,7 +2291,7 @@ but the pending requests are:
                             , headers = []
                             , body = Encode.object [ ( "error", Encode.string "Something broke" ) ]
                             }
-                        |> BackendTaskTest.ensureLogged [ "server error: 500" ]
+                        |> BackendTaskTest.ensureStdout [ "server error: 500" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "glob sorting"
@@ -2316,7 +2322,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "hello.txt" "world"
                             )
-                        |> BackendTaskTest.ensureLogged [ "world" ]
+                        |> BackendTaskTest.ensureStdout [ "world" ]
                         |> BackendTaskTest.expectSuccess
             , test "resolves dot-dot in file path" <|
                 \() ->
@@ -2327,7 +2333,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "hello.txt" "world"
                             )
-                        |> BackendTaskTest.ensureLogged [ "world" ]
+                        |> BackendTaskTest.ensureStdout [ "world" ]
                         |> BackendTaskTest.expectSuccess
             , test "resolves double slashes in file path" <|
                 \() ->
@@ -2338,7 +2344,7 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "foo/bar.txt" "content"
                             )
-                        |> BackendTaskTest.ensureLogged [ "content" ]
+                        |> BackendTaskTest.ensureStdout [ "content" ]
                         |> BackendTaskTest.expectSuccess
             , test "write with dot-slash then read normalized" <|
                 \() ->
@@ -2351,7 +2357,7 @@ but the pending requests are:
                             )
                         |> BackendTask.andThen (\content -> Script.log content)
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLogged [ "result" ]
+                        |> BackendTaskTest.ensureStdout [ "result" ]
                         |> BackendTaskTest.expectSuccess
             , test "inDir with dot-dot resolves correctly" <|
                 \() ->
@@ -2363,19 +2369,19 @@ but the pending requests are:
                             (BackendTaskTest.defaultSetup
                                 |> BackendTaskTest.withFile "hello.txt" "world"
                             )
-                        |> BackendTaskTest.ensureLogged [ "world" ]
+                        |> BackendTaskTest.ensureStdout [ "world" ]
                         |> BackendTaskTest.expectSuccess
             ]
-        , describe "ensureLoggedWith"
-            [ test "gives all log messages to assertion" <|
+        , describe "ensureOutputWith"
+            [ test "gives all output messages to assertion" <|
                 \() ->
                     Script.log "hello"
                         |> BackendTask.andThen (\() -> Script.log "world")
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLoggedWith
-                            (\logs -> Expect.equal [ "hello", "world" ] logs)
+                        |> BackendTaskTest.ensureOutputWith
+                            (\outputs -> Expect.equal [ Stdout "hello", Stdout "world" ] outputs)
                         |> BackendTaskTest.expectSuccess
-            , test "drains on success — second call only sees new logs" <|
+            , test "drains on success — second call only sees new output" <|
                 \() ->
                     Script.log "phase1"
                         |> BackendTask.andThen (\() -> Script.log "phase1b")
@@ -2388,15 +2394,15 @@ but the pending requests are:
                             )
                         |> BackendTask.andThen (\() -> Script.log "phase2")
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLoggedWith
-                            (\logs -> Expect.equal [ "phase1", "phase1b" ] logs)
+                        |> BackendTaskTest.ensureOutputWith
+                            (\outputs -> Expect.equal [ Stdout "phase1", Stdout "phase1b" ] outputs)
                         |> BackendTaskTest.simulateHttpGet
                             "https://api.example.com/data"
                             (Encode.object [])
-                        |> BackendTaskTest.ensureLoggedWith
-                            (\logs -> Expect.equal [ "phase2" ] logs)
+                        |> BackendTaskTest.ensureOutputWith
+                            (\outputs -> Expect.equal [ Stdout "phase2" ] outputs)
                         |> BackendTaskTest.expectSuccess
-            , test "empty list when no new logs since last drain" <|
+            , test "empty list when no new output since last drain" <|
                 \() ->
                     Script.log "only one"
                         |> BackendTask.andThen
@@ -2408,28 +2414,109 @@ but the pending requests are:
                             )
                         |> BackendTask.map (\() -> ())
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.ensureLoggedWith
-                            (\logs -> Expect.equal [ "only one" ] logs)
+                        |> BackendTaskTest.ensureOutputWith
+                            (\outputs -> Expect.equal [ Stdout "only one" ] outputs)
                         |> BackendTaskTest.simulateHttpGet
                             "https://api.example.com/data"
                             (Encode.object [])
-                        |> BackendTaskTest.ensureLoggedWith
-                            (\logs -> Expect.equal [] logs)
+                        |> BackendTaskTest.ensureOutputWith
+                            (\outputs -> Expect.equal [] outputs)
                         |> BackendTaskTest.expectSuccess
-            , test "does NOT drain on failure — logs preserved for retry" <|
+            , test "does NOT drain on failure — output preserved for retry" <|
                 \() ->
                     Script.log "important"
                         |> BackendTaskTest.fromBackendTask
                         -- This assertion fails (wrong expected value)...
-                        |> BackendTaskTest.ensureLoggedWith
-                            (\logs -> Expect.equal [ "wrong" ] logs)
+                        |> BackendTaskTest.ensureOutputWith
+                            (\outputs -> Expect.equal [ Stdout "wrong" ] outputs)
                         -- ...so it becomes a TestError.
-                        -- We verify the test error mentions the failure.
                         |> BackendTaskTest.expectTestError
                             (\msg ->
-                                msg
-                                    |> String.contains "ensureLoggedWith"
-                                    |> Expect.equal True
+                                Expect.equal
+                                    ("""ensureOutputWith: Output assertion failed.
+
+Expect.equal
+
+Output since last drain:
+
+    stdout: "important\"""")
+                                    msg
+                            )
+            , test "preserves interleaved stdout/stderr ordering" <|
+                \() ->
+                    Script.log "step 1"
+                        |> BackendTask.andThen
+                            (\() ->
+                                Stream.fromString "warning!"
+                                    |> Stream.pipe Stream.stderr
+                                    |> Stream.run
+                            )
+                        |> BackendTask.andThen (\() -> Script.log "step 2")
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureOutputWith
+                            (\outputs ->
+                                Expect.equal
+                                    [ Stdout "step 1"
+                                    , Stderr "warning!"
+                                    , Stdout "step 2"
+                                    ]
+                                    outputs
+                            )
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "ensureStdout/ensureStderr implicit assertions"
+            [ test "ensureStdout fails when stderr is present" <|
+                \() ->
+                    Script.log "hello"
+                        |> BackendTask.andThen
+                            (\() ->
+                                Stream.fromString "oops"
+                                    |> Stream.pipe Stream.stderr
+                                    |> Stream.run
+                            )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureStdout [ "hello" ]
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                Expect.equal
+                                    ("""ensureOutputWith: Output assertion failed.
+
+ensureStdout found unexpected stderr output:
+
+    "oops"
+
+Use ensureOutputWith to check both stdout and stderr together.
+
+Output since last drain:
+
+    stdout: "hello"
+    stderr: "oops\"""")
+                                    msg
+                            )
+            , test "ensureStderr fails when stdout is present" <|
+                \() ->
+                    Stream.fromString "error!"
+                        |> Stream.pipe Stream.stderr
+                        |> Stream.run
+                        |> BackendTask.andThen (\() -> Script.log "logged")
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureStderr [ "error!" ]
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                Expect.equal
+                                    ("""ensureOutputWith: Output assertion failed.
+
+ensureStderr found unexpected stdout output:
+
+    "logged"
+
+Use ensureOutputWith to check both stdout and stderr together.
+
+Output since last drain:
+
+    stderr: "error!"
+    stdout: "logged\"""")
+                                    msg
                             )
             ]
         ]
