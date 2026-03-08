@@ -3,7 +3,7 @@ module MultipartTests exposing (run)
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import BackendTask.Http
-import BackendTaskTest exposing (testScript)
+import BackendTaskTest exposing (testTask, testScript)
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
@@ -13,7 +13,6 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.StaticHttpBody exposing (Body(..))
 import Pages.Script as Script exposing (Script)
-import Test
 
 
 run : Script
@@ -23,7 +22,7 @@ run =
             [ BackendTask.Http.stringPart "title" "My Photo"
             , BackendTask.Http.stringPart "description" "A test upload"
             ]
-            |> test "string parts are parsed correctly"
+            |> testTask "string parts are parsed correctly"
                 (\{ fields } ->
                     fields
                         |> Expect.equal
@@ -38,7 +37,7 @@ run =
                     |> Bytes.Encode.encode
                 )
             ]
-            |> test "mixed string and file parts"
+            |> testTask "mixed string and file parts"
                 (\{ fields, files } ->
                     Expect.all
                         [ \_ -> fields |> Expect.equal [ ( "field1", "hello" ) ]
@@ -58,7 +57,7 @@ run =
         , parseWith "newlines in string value"
             [ BackendTask.Http.stringPart "message" "line1\r\nline2\r\nline3"
             ]
-            |> test "CRLF in values"
+            |> testTask "CRLF in values"
                 (\{ fields } ->
                     fields
                         |> Expect.equal [ ( "message", "line1\r\nline2\r\nline3" ) ]
@@ -66,7 +65,7 @@ run =
         , parseWith "unicode in string value"
             [ BackendTask.Http.stringPart "emoji" "\u{1F600}\u{1F389} héllo wörld"
             ]
-            |> test "unicode values"
+            |> testTask "unicode values"
                 (\{ fields } ->
                     fields
                         |> Expect.equal [ ( "emoji", "\u{1F600}\u{1F389} héllo wörld" ) ]
@@ -74,7 +73,7 @@ run =
         , parseWith "quotes in field name are percent-encoded"
             [ BackendTask.Http.stringPart "field\"name" "value"
             ]
-            |> test "quotes in field name"
+            |> testTask "quotes in field name"
                 (\{ fields } ->
                     -- FormData percent-encodes special characters
                     fields
@@ -83,7 +82,7 @@ run =
         , parseWith "CRLF in field name are percent-encoded"
             [ BackendTask.Http.stringPart "field\r\nname" "value"
             ]
-            |> test "CRLF in field name"
+            |> testTask "CRLF in field name"
                 (\{ fields } ->
                     -- FormData percent-encodes \r\n
                     fields
@@ -95,7 +94,7 @@ run =
                     |> Bytes.Encode.encode
                 )
             ]
-            |> test "quotes and CRLF in filename"
+            |> testTask "quotes and CRLF in filename"
                 (\{ files } ->
                     -- FormData percent-encodes special chars in filenames
                     files
@@ -108,7 +107,7 @@ run =
                     |> Bytes.Encode.encode
                 )
             ]
-            |> test "CRLF stripped from MIME type in raw bytes"
+            |> testTask "CRLF stripped from MIME type in raw bytes"
                 (\containsInjection ->
                     -- Without sanitization, the raw bytes would contain
                     -- "\r\nEvil-Header:" as a separate header line.
@@ -126,7 +125,7 @@ run =
                     |> Bytes.Encode.encode
                 )
             ]
-            |> test "binary data with CRLF and dashes"
+            |> testTask "binary data with CRLF and dashes"
                 (\{ files } ->
                     files
                         |> List.map (\( name, info ) -> ( name, info.content ))
@@ -242,17 +241,6 @@ fileInfoDecoder =
         (Decode.field "filename" Decode.string)
         (Decode.field "mimeType" Decode.string)
         (Decode.field "content" Decode.string)
-
-
-test : String -> (a -> Expect.Expectation) -> BackendTask FatalError a -> BackendTask FatalError Test.Test
-test name toExpectation task =
-    BackendTask.succeed ()
-        |> Script.doThen task
-        |> BackendTask.map
-            (\data ->
-                Test.test name <|
-                    \() -> toExpectation data
-            )
 
 
 encodeBytesMap : List ( String, Bytes ) -> Encode.Value

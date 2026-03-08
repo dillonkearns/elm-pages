@@ -4,7 +4,7 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import BackendTask.Http exposing (Error(..))
 import BackendTask.Stream as Stream exposing (Stream, defaultCommandOptions)
-import BackendTaskTest exposing (testScript)
+import BackendTaskTest exposing (testTask, testScript)
 import Dict
 import Expect
 import FatalError exposing (FatalError)
@@ -23,7 +23,7 @@ run =
             |> Stream.pipe (Stream.command "wc" [ "-l" ])
             |> Stream.read
             |> try
-            |> test "capture stdin"
+            |> testTask "capture stdin"
                 (\{ body } ->
                     body
                         |> String.trim
@@ -33,7 +33,7 @@ run =
         , Stream.fromString "asdf\nqwer\n"
             |> Stream.pipe (Stream.command "wc" [ "-l" ])
             |> Stream.run
-            |> test "run stdin"
+            |> testTask "run stdin"
                 (\() ->
                     Expect.pass
                 )
@@ -45,18 +45,18 @@ run =
             Encode.null
             Decode.string
             |> try
-            |> test "custom task"
+            |> testTask "custom task"
                 (Expect.equal "Hello!")
         , Stream.fromString "asdf\nqwer\n"
             |> Stream.pipe (Stream.customDuplex "upperCaseStream" Encode.null)
             |> Stream.read
             |> try
-            |> test "custom duplex"
+            |> testTask "custom duplex"
                 (.body >> Expect.equal "ASDF\nQWER\n")
         , Stream.customRead "customReadStream" Encode.null
             |> Stream.read
             |> try
-            |> test "custom read"
+            |> testTask "custom read"
                 (.body >> Expect.equal "Hello from customReadStream!")
         , Stream.fromString "qwer\n"
             |> Stream.pipe (Stream.customDuplex "customReadStream" Encode.null)
@@ -75,7 +75,7 @@ run =
                         |> Stream.readJson (Decode.field "type" Decode.string)
                         |> try
                 )
-            |> test "zip and unzip" (.body >> Expect.equal "application")
+            |> testTask "zip and unzip" (.body >> Expect.equal "application")
         , Stream.fromString
             """module            Foo
        
@@ -85,7 +85,7 @@ b =            2
             |> Stream.pipe (Stream.command "elm-format" [ "--stdin" ])
             |> Stream.read
             |> try
-            |> test "elm-format --stdin"
+            |> testTask "elm-format --stdin"
                 (\{ metadata, body } ->
                     body
                         |> Expect.equal
@@ -111,7 +111,7 @@ b =
                         |> Stream.read
                         |> try
                 )
-            |> test "write to file"
+            |> testTask "write to file"
                 (\{ metadata, body } ->
                     body
                         |> Expect.equal
@@ -125,7 +125,7 @@ b =
                 )
             |> Stream.readJson Decode.string
             |> try
-            |> test "read command output as JSON"
+            |> testTask "read command output as JSON"
                 (.body >> Expect.equal "src")
         , Stream.fromString "invalid elm module"
             |> Stream.pipe
@@ -139,7 +139,7 @@ b =
                 )
             |> Stream.read
             |> try
-            |> test "stderr"
+            |> testTask "stderr"
                 (.body >> Expect.equal "Unable to parse file <STDIN>:1:13 To see a detailed explanation, run elm make on the file.\n")
         , Stream.http
             { url = "https://jsonplaceholder.typicode.com/posts/124"
@@ -152,7 +152,7 @@ b =
             |> Stream.read
             |> BackendTask.mapError .recoverable
             |> BackendTask.toResult
-            |> test "output from HTTP"
+            |> testTask "output from HTTP"
                 (\result ->
                     case result of
                         Ok _ ->
@@ -188,7 +188,7 @@ b =
                 )
             |> Stream.read
             |> try
-            |> test "duplex meta"
+            |> testTask "duplex meta"
                 (Expect.equal
                     { metadata = "Hi! I'm metadata from upperCaseStream!"
                     , body = "THIS IS INPUT..."
@@ -203,7 +203,7 @@ b =
                 )
             |> Stream.readMetadata
             |> try
-            |> test "writeStream meta"
+            |> testTask "writeStream meta"
                 (Expect.equal "Hi! I'm metadata from customWriteStream!")
         , Stream.fileRead "does-not-exist"
             |> Stream.run
@@ -219,7 +219,7 @@ b =
             |> Stream.read
             |> try
             |> BackendTask.do
-            |> test "gzip alone is no-op"
+            |> testTask "gzip alone is no-op"
                 (\() ->
                     Expect.pass
                 )
@@ -228,7 +228,7 @@ b =
             |> Stream.pipe Stream.unzip
             |> Stream.read
             |> try
-            |> test "gzip with no input can be unzipped to empty"
+            |> testTask "gzip with no input can be unzipped to empty"
                 (\{ body } ->
                     body
                         |> Expect.equal ""
@@ -238,7 +238,7 @@ b =
         , Stream.command "echo" [ "hello from command with no stdin" ]
             |> Stream.read
             |> try
-            |> test "command with no stdin input"
+            |> testTask "command with no stdin input"
                 (\{ body } ->
                     body
                         |> String.trim
@@ -255,7 +255,7 @@ b =
                         |> Stream.read
                         |> try
                 )
-            |> test "gzip with no input written to file can be read and unzipped"
+            |> testTask "gzip with no input written to file can be read and unzipped"
                 (\{ body } ->
                     body
                         |> Expect.equal ""
@@ -272,7 +272,7 @@ b =
             |> Stream.pipe (Stream.command "cat" [])
             |> Stream.read
             |> try
-            |> test "piped command captures output correctly"
+            |> testTask "piped command captures output correctly"
                 (\{ body } ->
                     body |> Expect.equal "test data"
                 )
@@ -291,7 +291,7 @@ b =
             |> Stream.pipe Stream.unzip
             |> Stream.read
             |> try
-            |> test "gzip then unzip roundtrip"
+            |> testTask "gzip then unzip roundtrip"
                 (\{ body } ->
                     body
                         |> Expect.equal "hello world"
@@ -304,7 +304,7 @@ b =
             [ "-c", "echo success && exit 42" ]
             |> Stream.read
             |> try
-            |> test "command with allowNon0Status succeeds on non-zero exit"
+            |> testTask "command with allowNon0Status succeeds on non-zero exit"
                 (\{ body } ->
                     body
                         |> String.trim
@@ -319,17 +319,6 @@ b =
                 "Unexpected token"
         ]
 
-
-test : String -> (a -> Expect.Expectation) -> BackendTask FatalError a -> BackendTask FatalError Test.Test
-test name toExpectation task =
-    --Script.log name
-    BackendTask.succeed ()
-        |> Script.doThen task
-        |> BackendTask.map
-            (\data ->
-                Test.test name <|
-                    \() -> toExpectation data
-            )
 
 
 expectError : String -> String -> BackendTask FatalError a -> BackendTask FatalError Test.Test
