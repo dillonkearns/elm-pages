@@ -903,15 +903,17 @@ buildAutoResponses vfs virtualDB requests =
                                     newEffects =
                                         trackEffect req
 
-                                    newVFS : VirtualFS
-                                    newVFS =
-                                        applyVirtualFSEffect req accum.virtualFS
                                 in
-                                { accum
-                                    | jsonEntries = entry :: accum.jsonEntries
-                                    , trackedEffects = accum.trackedEffects ++ newEffects
-                                    , virtualFS = newVFS
-                                }
+                                case applyVirtualFSEffect req accum.virtualFS of
+                                    Ok newVFS ->
+                                        { accum
+                                            | jsonEntries = entry :: accum.jsonEntries
+                                            , trackedEffects = accum.trackedEffects ++ newEffects
+                                            , virtualFS = newVFS
+                                        }
+
+                                    Err errorMsg ->
+                                        { accum | error = Just errorMsg }
         )
         { jsonEntries = []
         , trackedEffects = []
@@ -935,10 +937,15 @@ autoResponseBody vfs req =
                     in
                     case Dict.get filePath vfs.files of
                         Just content ->
+                            let
+                                { frontmatterValue, bodyWithoutFrontmatter } =
+                                    parseFrontmatter content
+                            in
                             Ok
                                 (Encode.object
                                     [ ( "rawFile", Encode.string content )
-                                    , ( "withoutFrontmatter", Encode.string content )
+                                    , ( "withoutFrontmatter", Encode.string bodyWithoutFrontmatter )
+                                    , ( "parsedFrontmatter", frontmatterValue )
                                     ]
                                 )
 
@@ -956,7 +963,11 @@ autoResponseBody vfs req =
                 StaticHttpBody.JsonBody json ->
                     case Decode.decodeValue Decode.string json of
                         Ok rawPath ->
-                            Ok (Encode.bool (Dict.member (resolveFilePath req rawPath) vfs.files))
+                            let
+                                resolved =
+                                    resolveFilePath req rawPath
+                            in
+                            Ok (Encode.bool (Dict.member resolved vfs.files || Dict.member resolved vfs.binaryFiles))
 
                         Err _ ->
                             Ok (Encode.bool False)
@@ -1339,24 +1350,32 @@ trackEffect req =
             []
 
 
-applyVirtualFSEffect : Request.Request -> VirtualFS -> VirtualFS
+applyVirtualFSEffect : Request.Request -> VirtualFS -> Result String VirtualFS
 applyVirtualFSEffect req vfs =
     case req.url of
         "elm-pages-internal://write-file" ->
             case decodeJsonBody (Decode.map2 (\p b -> ( p, b )) (Decode.field "path" Decode.string) (Decode.field "body" Decode.string)) req of
                 Just ( rawPath, body ) ->
-                    { vfs | files = Dict.insert (resolveFilePath req rawPath) body vfs.files }
+                    Ok { vfs | files = Dict.insert (resolveFilePath req rawPath) body vfs.files }
 
                 Nothing ->
-                    vfs
+                    Ok vfs
 
         "elm-pages-internal://delete-file" ->
             case decodeJsonBody (Decode.field "path" Decode.string) req of
                 Just rawPath ->
-                    { vfs | files = Dict.remove (resolveFilePath req rawPath) vfs.files }
+                    let
+                        resolved =
+                            resolveFilePath req rawPath
+                    in
+                    Ok
+                        { vfs
+                            | files = Dict.remove resolved vfs.files
+                            , binaryFiles = Dict.remove resolved vfs.binaryFiles
+                        }
 
                 Nothing ->
-                    vfs
+                    Ok vfs
 
         "elm-pages-internal://copy-file" ->
             case decodeJsonBody (Decode.map2 Tuple.pair (Decode.field "from" Decode.string) (Decode.field "to" Decode.string)) req of
@@ -1370,13 +1389,18 @@ applyVirtualFSEffect req vfs =
                     in
                     case Dict.get from vfs.files of
                         Just content ->
-                            { vfs | files = Dict.insert to content vfs.files }
+                            Ok { vfs | files = Dict.insert to content vfs.files }
 
                         Nothing ->
-                            vfs
+                            case Dict.get from vfs.binaryFiles of
+                                Just content ->
+                                    Ok { vfs | binaryFiles = Dict.insert to content vfs.binaryFiles }
+
+                                Nothing ->
+                                    Err ("Script.copyFile failed: source file \"" ++ from ++ "\" not found in virtual filesystem.")
 
                 Nothing ->
-                    vfs
+                    Ok vfs
 
         "elm-pages-internal://move" ->
             case decodeJsonBody (Decode.map2 Tuple.pair (Decode.field "from" Decode.string) (Decode.field "to" Decode.string)) req of
@@ -1388,15 +1412,24 @@ applyVirtualFSEffect req vfs =
                         to =
                             resolveFilePath req rawTo
                     in
-                    case Dict.get from vfs.files of
-                        Just content ->
-                            { vfs | files = Dict.insert to content vfs.files |> Dict.remove from }
+                    if from == to then
+                        Ok vfs
 
-                        Nothing ->
-                            vfs
+                    else
+                        case Dict.get from vfs.files of
+                            Just content ->
+                                Ok { vfs | files = Dict.insert to content vfs.files |> Dict.remove from }
+
+                            Nothing ->
+                                case Dict.get from vfs.binaryFiles of
+                                    Just content ->
+                                        Ok { vfs | binaryFiles = Dict.insert to content vfs.binaryFiles |> Dict.remove from }
+
+                                    Nothing ->
+                                        Err ("Script.move failed: source file \"" ++ from ++ "\" not found in virtual filesystem.")
 
                 Nothing ->
-                    vfs
+                    Ok vfs
 
         "elm-pages-internal://remove-directory" ->
             case decodeJsonBody (Decode.field "path" Decode.string) req of
@@ -1411,19 +1444,56 @@ applyVirtualFSEffect req vfs =
 
                             else
                                 dirPath ++ "/"
+
+                        notInDir : String -> a -> Bool
+                        notInDir filePath _ =
+                            not (String.startsWith dirPrefix filePath)
                     in
-                    { vfs
-                        | files =
-                            Dict.filter
-                                (\filePath _ -> not (String.startsWith dirPrefix filePath))
-                                vfs.files
-                    }
+                    Ok
+                        { vfs
+                            | files = Dict.filter notInDir vfs.files
+                            , binaryFiles = Dict.filter notInDir vfs.binaryFiles
+                        }
 
                 Nothing ->
-                    vfs
+                    Ok vfs
 
         _ ->
-            vfs
+            Ok vfs
+
+
+parseFrontmatter : String -> { frontmatterValue : Encode.Value, bodyWithoutFrontmatter : String }
+parseFrontmatter content =
+    if String.startsWith "---\n" content then
+        case String.indexes "\n---\n" (String.dropLeft 3 content) of
+            firstEnd :: _ ->
+                let
+                    frontmatterString =
+                        String.slice 4 (firstEnd + 3) content
+
+                    bodyAfterMarker =
+                        String.dropLeft (firstEnd + 3 + 5) content
+                in
+                case Decode.decodeString Decode.value frontmatterString of
+                    Ok jsonValue ->
+                        { frontmatterValue = jsonValue
+                        , bodyWithoutFrontmatter = bodyAfterMarker
+                        }
+
+                    Err _ ->
+                        { frontmatterValue = Encode.null
+                        , bodyWithoutFrontmatter = bodyAfterMarker
+                        }
+
+            [] ->
+                { frontmatterValue = Encode.null
+                , bodyWithoutFrontmatter = content
+                }
+
+    else
+        { frontmatterValue = Encode.null
+        , bodyWithoutFrontmatter = content
+        }
 
 
 resolveFilePath : Request.Request -> String -> String

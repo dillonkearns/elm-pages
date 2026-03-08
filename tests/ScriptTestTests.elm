@@ -1921,6 +1921,140 @@ but the pending requests are:
                         |> BackendTaskTest.ensureLogged "12345"
                         |> BackendTaskTest.expectSuccess
             ]
+        , describe "binary file integration with FS ops"
+            [ test "file-exists returns true for binary file" <|
+                \() ->
+                    let
+                        testBytes : Bytes.Bytes
+                        testBytes =
+                            Bytes.Encode.encode (Bytes.Encode.unsignedInt8 42)
+                    in
+                    BackendTask.File.exists "data.bin"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\exists ->
+                                Script.log (boolToString exists)
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withBinaryFile "data.bin" testBytes
+                            )
+                        |> BackendTaskTest.ensureLogged "true"
+                        |> BackendTaskTest.expectSuccess
+            , test "delete removes binary file" <|
+                \() ->
+                    let
+                        testBytes : Bytes.Bytes
+                        testBytes =
+                            Bytes.Encode.encode (Bytes.Encode.unsignedInt8 42)
+                    in
+                    Script.removeFile "data.bin"
+                        |> BackendTask.andThen (\() -> BackendTask.File.exists "data.bin" |> BackendTask.allowFatal)
+                        |> BackendTask.andThen (\exists -> Script.log (boolToString exists))
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withBinaryFile "data.bin" testBytes
+                            )
+                        |> BackendTaskTest.ensureLogged "false"
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "FS edge cases"
+            [ test "copy non-existent file produces error" <|
+                \() ->
+                    Script.copyFile { from = "missing.txt", to = "dest.txt" }
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> String.contains "missing.txt"
+                                    |> Expect.equal True
+                            )
+            , test "move non-existent file produces error" <|
+                \() ->
+                    Script.move { from = "missing.txt", to = "dest.txt" }
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> String.contains "missing.txt"
+                                    |> Expect.equal True
+                            )
+            , test "move file to itself is no-op" <|
+                \() ->
+                    Script.writeFile
+                        { path = "test.txt", body = "content" }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\() ->
+                                Script.move { from = "test.txt", to = "test.txt" }
+                            )
+                        |> BackendTask.andThen
+                            (\() ->
+                                BackendTask.File.rawFile "test.txt"
+                                    |> BackendTask.allowFatal
+                            )
+                        |> BackendTask.andThen (\content -> Script.log content)
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "content"
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "frontmatter"
+            [ test "bodyWithFrontmatter reads parsed frontmatter" <|
+                \() ->
+                    BackendTask.File.bodyWithFrontmatter
+                        (\bodyText ->
+                            Decode.map2 (\title -> \b -> { title = title, body = b })
+                                (Decode.field "title" Decode.string)
+                                (Decode.succeed bodyText)
+                        )
+                        "post.md"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\result ->
+                                Script.log (result.title ++ ": " ++ String.trim result.body)
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "post.md" "---\n{\"title\": \"Hello\"}\n---\nBody text"
+                            )
+                        |> BackendTaskTest.ensureLogged "Hello: Body text"
+                        |> BackendTaskTest.expectSuccess
+            , test "onlyFrontmatter reads parsed frontmatter" <|
+                \() ->
+                    BackendTask.File.onlyFrontmatter
+                        (Decode.field "title" Decode.string)
+                        "post.md"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\title -> Script.log title)
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "post.md" "---\n{\"title\": \"Hello\"}\n---\nBody text"
+                            )
+                        |> BackendTaskTest.ensureLogged "Hello"
+                        |> BackendTaskTest.expectSuccess
+            , test "bodyWithoutFrontmatter strips frontmatter markers" <|
+                \() ->
+                    BackendTask.File.bodyWithoutFrontmatter "post.md"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\body -> Script.log (String.trim body))
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "post.md" "---\n{\"title\": \"Hello\"}\n---\nBody text"
+                            )
+                        |> BackendTaskTest.ensureLogged "Body text"
+                        |> BackendTaskTest.expectSuccess
+            , test "rawFile returns full content including frontmatter" <|
+                \() ->
+                    BackendTask.File.rawFile "post.md"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\raw -> Script.log raw)
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "post.md" "---\n{\"title\": \"Hello\"}\n---\nBody text"
+                            )
+                        |> BackendTaskTest.ensureLogged "---\n{\"title\": \"Hello\"}\n---\nBody text"
+                        |> BackendTaskTest.expectSuccess
+            ]
         ]
 
 
