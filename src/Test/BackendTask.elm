@@ -1,6 +1,6 @@
 module Test.BackendTask exposing
     ( BackendTaskTest, HttpError(..), fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
-    , TestSetup, defaultSetup, withFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
+    , TestSetup, defaultSetup, withFile, withBinaryFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , simulateQuestion, simulateReadKey
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
@@ -107,7 +107,7 @@ the virtual filesystem.
 
 Configure the initial state (seeded files, DB) before the test starts running.
 
-@docs TestSetup, defaultSetup, withFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
+@docs TestSetup, defaultSetup, withFile, withBinaryFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
 
 
 ## Simulating Effects
@@ -187,6 +187,7 @@ type BackendTaskTest a
 
 type alias VirtualFS =
     { files : Dict String String
+    , binaryFiles : Dict String Bytes
     , stdin : Maybe String
     , env : Dict String String
     , time : Maybe Time.Posix
@@ -199,6 +200,7 @@ type alias VirtualFS =
 emptyVirtualFS : VirtualFS
 emptyVirtualFS =
     { files = Dict.empty
+    , binaryFiles = Dict.empty
     , stdin = Nothing
     , env = Dict.empty
     , time = Nothing
@@ -301,6 +303,39 @@ defaultSetup =
 withFile : String -> String -> TestSetup -> TestSetup
 withFile path content (TestSetup setup) =
     TestSetup { setup | virtualFS = insertFile path content setup.virtualFS }
+
+
+{-| Seed a binary file into the virtual filesystem before the test starts running.
+Use this for testing `BackendTask.File.binaryFile`.
+
+    import BackendTask.File
+    import Bytes.Encode
+    import Test.BackendTask as BackendTaskTest
+
+    let
+        testBytes =
+            Bytes.Encode.encode
+                (Bytes.Encode.unsignedInt8 42)
+    in
+    BackendTask.File.binaryFile "data.bin"
+        |> BackendTask.allowFatal
+        |> BackendTask.andThen
+            (\bytes -> Script.log (String.fromInt (Bytes.width bytes)))
+        |> BackendTaskTest.fromBackendTaskWith
+            (BackendTaskTest.defaultSetup
+                |> BackendTaskTest.withBinaryFile "data.bin" testBytes
+            )
+        |> BackendTaskTest.ensureLogged "1"
+        |> BackendTaskTest.expectSuccess
+
+-}
+withBinaryFile : String -> Bytes -> TestSetup -> TestSetup
+withBinaryFile path content (TestSetup setup) =
+    let
+        vfs =
+            setup.virtualFS
+    in
+    TestSetup { setup | virtualFS = { vfs | binaryFiles = Dict.insert path content vfs.binaryFiles } }
 
 
 {-| Seed the virtual DB with a typed value before the test starts running.
@@ -842,6 +877,9 @@ buildAutoResponses vfs virtualDB requests =
 
                     else if req.url == "elm-pages-internal://make-temp-directory" then
                         processMakeTempDirectory req hash accum
+
+                    else if req.url == "elm-pages-internal://read-file-binary" then
+                        processReadFileBinary req hash accum
 
                     else
                         case autoResponseBody accum.virtualFS req of
@@ -1400,6 +1438,65 @@ resolveFilePath req path =
 
             else
                 String.join "/" dirs ++ "/" ++ path
+
+
+processReadFileBinary : Request.Request -> String -> AutoResolveResult -> AutoResolveResult
+processReadFileBinary req hash accum =
+    let
+        filePath =
+            case getStringBody req of
+                Just rawPath ->
+                    resolveFilePath req rawPath
+
+                Nothing ->
+                    ""
+    in
+    case Dict.get filePath accum.virtualFS.binaryFiles of
+        Just fileBytes ->
+            let
+                responseBytes =
+                    BE.encode
+                        (BE.sequence
+                            [ BE.signedInt32 Bytes.BE (Bytes.width fileBytes)
+                            , BE.bytes fileBytes
+                            ]
+                        )
+
+                jsonEntry =
+                    ( hash
+                    , Encode.object
+                        [ ( "response"
+                          , Encode.object
+                                [ ( "bodyKind", Encode.string "bytes" ) ]
+                          )
+                        ]
+                    )
+            in
+            { accum
+                | jsonEntries = jsonEntry :: accum.jsonEntries
+                , bytesEntries = Dict.insert hash responseBytes accum.bytesEntries
+            }
+
+        Nothing ->
+            -- Return -1 length to signal file not found (matches Node.js behavior)
+            let
+                responseBytes =
+                    BE.encode (BE.signedInt32 Bytes.BE -1)
+
+                jsonEntry =
+                    ( hash
+                    , Encode.object
+                        [ ( "response"
+                          , Encode.object
+                                [ ( "bodyKind", Encode.string "bytes" ) ]
+                          )
+                        ]
+                    )
+            in
+            { accum
+                | jsonEntries = jsonEntry :: accum.jsonEntries
+                , bytesEntries = Dict.insert hash responseBytes accum.bytesEntries
+            }
 
 
 processMakeTempDirectory : Request.Request -> String -> AutoResolveResult -> AutoResolveResult

@@ -9,6 +9,9 @@ import BackendTask.Http
 import BackendTask.Random
 import BackendTask.Stream as Stream
 import BackendTask.Time
+import Bytes
+import Bytes.Decode
+import Bytes.Encode
 import FilePath
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
@@ -1826,6 +1829,96 @@ but the pending requests are:
                             (\resolved -> Script.log (FilePath.toString resolved))
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.ensureLogged "src/Main.elm"
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "binaryFile"
+            [ test "reads seeded binary file" <|
+                \() ->
+                    let
+                        testBytes : Bytes.Bytes
+                        testBytes =
+                            Bytes.Encode.encode
+                                (Bytes.Encode.sequence
+                                    [ Bytes.Encode.unsignedInt8 0xDE
+                                    , Bytes.Encode.unsignedInt8 0xAD
+                                    , Bytes.Encode.unsignedInt8 0xBE
+                                    , Bytes.Encode.unsignedInt8 0xEF
+                                    ]
+                                )
+                    in
+                    BackendTask.File.binaryFile "test.bin"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\bytes ->
+                                Script.log (String.fromInt (Bytes.width bytes))
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withBinaryFile "test.bin" testBytes
+                            )
+                        |> BackendTaskTest.ensureLogged "4"
+                        |> BackendTaskTest.expectSuccess
+            , test "binary file not found produces error" <|
+                \() ->
+                    BackendTask.File.binaryFile "missing.bin"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map (\_ -> ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> String.contains "Internal error"
+                                    |> Expect.equal True
+                            )
+            , test "binary file with inDir" <|
+                \() ->
+                    let
+                        testBytes : Bytes.Bytes
+                        testBytes =
+                            Bytes.Encode.encode
+                                (Bytes.Encode.unsignedInt8 42)
+                    in
+                    BackendTask.File.binaryFile "data.bin"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\bytes ->
+                                Script.log (String.fromInt (Bytes.width bytes))
+                            )
+                        |> BackendTask.inDir "subdir"
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withBinaryFile "subdir/data.bin" testBytes
+                            )
+                        |> BackendTaskTest.ensureLogged "1"
+                        |> BackendTaskTest.expectSuccess
+            , test "binary file round-trip preserves content" <|
+                \() ->
+                    let
+                        testBytes : Bytes.Bytes
+                        testBytes =
+                            Bytes.Encode.encode
+                                (Bytes.Encode.sequence
+                                    [ Bytes.Encode.unsignedInt32 Bytes.BE 12345
+                                    , Bytes.Encode.unsignedInt32 Bytes.BE 67890
+                                    ]
+                                )
+                    in
+                    BackendTask.File.binaryFile "data.bin"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\bytes ->
+                                case Bytes.Decode.decode (Bytes.Decode.unsignedInt32 Bytes.BE) bytes of
+                                    Just firstInt ->
+                                        Script.log (String.fromInt firstInt)
+
+                                    Nothing ->
+                                        Script.log "decode failed"
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withBinaryFile "data.bin" testBytes
+                            )
+                        |> BackendTaskTest.ensureLogged "12345"
                         |> BackendTaskTest.expectSuccess
             ]
         ]
