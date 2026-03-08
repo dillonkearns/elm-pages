@@ -1498,16 +1498,56 @@ parseFrontmatter content =
 
 resolveFilePath : Request.Request -> String -> String
 resolveFilePath req path =
-    case req.dir of
-        [] ->
+    let
+        combined =
+            case req.dir of
+                [] ->
+                    path
+
+                dirs ->
+                    if String.startsWith "/" path then
+                        path
+
+                    else
+                        String.join "/" dirs ++ "/" ++ path
+    in
+    normalizePath combined
+
+
+normalizePath : String -> String
+normalizePath path =
+    let
+        isAbsolute =
+            String.startsWith "/" path
+
+        segments =
             path
+                |> String.split "/"
+                |> List.filter (\s -> s /= "" && s /= ".")
 
-        dirs ->
-            if String.startsWith "/" path then
-                path
+        normalized =
+            List.foldl
+                (\segment accum ->
+                    if segment == ".." then
+                        case accum of
+                            [] ->
+                                []
 
-            else
-                String.join "/" dirs ++ "/" ++ path
+                            _ :: rest ->
+                                rest
+
+                    else
+                        segment :: accum
+                )
+                []
+                segments
+                |> List.reverse
+    in
+    if isAbsolute then
+        "/" ++ String.join "/" normalized
+
+    else
+        String.join "/" normalized
 
 
 processReadFileBinary : Request.Request -> String -> AutoResolveResult -> AutoResolveResult
