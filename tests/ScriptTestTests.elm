@@ -2055,6 +2055,84 @@ but the pending requests are:
                         |> BackendTaskTest.ensureLogged "---\n{\"title\": \"Hello\"}\n---\nBody text"
                         |> BackendTaskTest.expectSuccess
             ]
+        , describe "glob sorting"
+            [ test "glob results are sorted without explicit List.sort" <|
+                \() ->
+                    Glob.fromString "*.txt"
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "zebra.txt" ""
+                                |> BackendTaskTest.withFile "apple.txt" ""
+                                |> BackendTaskTest.withFile "mango.txt" ""
+                            )
+                        |> BackendTaskTest.expectSuccessWith
+                            (Expect.equal
+                                [ "apple.txt"
+                                , "mango.txt"
+                                , "zebra.txt"
+                                ]
+                            )
+            ]
+        , describe "path normalization"
+            [ test "resolves dot-slash in file path" <|
+                \() ->
+                    BackendTask.File.rawFile "./hello.txt"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\content -> Script.log content)
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "hello.txt" "world"
+                            )
+                        |> BackendTaskTest.ensureLogged "world"
+                        |> BackendTaskTest.expectSuccess
+            , test "resolves dot-dot in file path" <|
+                \() ->
+                    BackendTask.File.rawFile "foo/../hello.txt"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\content -> Script.log content)
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "hello.txt" "world"
+                            )
+                        |> BackendTaskTest.ensureLogged "world"
+                        |> BackendTaskTest.expectSuccess
+            , test "resolves double slashes in file path" <|
+                \() ->
+                    BackendTask.File.rawFile "foo//bar.txt"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\content -> Script.log content)
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "foo/bar.txt" "content"
+                            )
+                        |> BackendTaskTest.ensureLogged "content"
+                        |> BackendTaskTest.expectSuccess
+            , test "write with dot-slash then read normalized" <|
+                \() ->
+                    Script.writeFile { path = "./output.txt", body = "result" }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\() ->
+                                BackendTask.File.rawFile "output.txt"
+                                    |> BackendTask.allowFatal
+                            )
+                        |> BackendTask.andThen (\content -> Script.log content)
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "result"
+                        |> BackendTaskTest.expectSuccess
+            , test "inDir with dot-dot resolves correctly" <|
+                \() ->
+                    BackendTask.File.rawFile "../hello.txt"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\content -> Script.log content)
+                        |> BackendTask.inDir "subdir"
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "hello.txt" "world"
+                            )
+                        |> BackendTaskTest.ensureLogged "world"
+                        |> BackendTaskTest.expectSuccess
+            ]
         ]
 
 
