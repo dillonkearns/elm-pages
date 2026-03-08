@@ -693,6 +693,8 @@ async function runInternalJob(
         ];
       case "elm-pages-internal://now":
         return [requestHash, jsonResponse(requestToPerform, Date.now())];
+      case "elm-pages-internal://timezone":
+        return [requestHash, jsonResponse(requestToPerform, runTimezone(requestToPerform))];
       case "elm-pages-internal://env":
         return [requestHash, await runEnvJob(requestToPerform)];
       case "elm-pages-internal://resolve-path":
@@ -2255,4 +2257,129 @@ function tryDecodeCookie(input, secrets) {
   } else {
     return null;
   }
+}
+
+// --- Timezone helpers ---
+
+const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+
+/**
+ * Handle elm-pages-internal://timezone requests.
+ * Accepts either { yearsAgo, yearsAhead } (relative) or { sinceMs, untilMs } (absolute).
+ * Optionally accepts { tzId } for a named timezone; defaults to system timezone.
+ * Returns { defaultOffset, eras } for Time.customZone.
+ */
+function runTimezone(req) {
+  const body = req.body.args[0];
+  const tzId = body.tzId || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  // Validate timezone name by attempting a format
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: tzId });
+  } catch (e) {
+    throw {
+      title: "Invalid Timezone",
+      message: `"${tzId}" is not a valid IANA timezone identifier.\n\nExamples of valid identifiers: "America/New_York", "Europe/London", "Asia/Tokyo", "UTC".`,
+    };
+  }
+
+  let sinceMs, untilMs;
+  if (body.yearsAgo !== undefined) {
+    const now = Date.now();
+    const msPerYear = 365.25 * 24 * 60 * 60 * 1000;
+    sinceMs = now - body.yearsAgo * msPerYear;
+    untilMs = now + body.yearsAhead * msPerYear;
+  } else {
+    sinceMs = body.sinceMs;
+    untilMs = body.untilMs;
+  }
+
+  if (typeof globalThis.Temporal !== "undefined") {
+    return getTimezoneDataTemporal(tzId, sinceMs, untilMs);
+  }
+  return getTimezoneDataIntl(tzId, sinceMs, untilMs);
+}
+
+/**
+ * Get UTC offset in minutes for a timezone at a given instant, using Intl.
+ */
+function getOffsetMinutesIntl(tzId, ms) {
+  const utc = new Date(new Date(ms).toLocaleString("en-US", { timeZone: "UTC" }));
+  const local = new Date(new Date(ms).toLocaleString("en-US", { timeZone: tzId }));
+  return (local - utc) / 60000;
+}
+
+/**
+ * Binary search to find the exact minute when a timezone offset transition occurs.
+ */
+function binarySearchTransition(tzId, loMs, hiMs, offsetBefore) {
+  while (hiMs - loMs > 60000) {
+    const mid = Math.floor((loMs + hiMs) / 2);
+    if (getOffsetMinutesIntl(tzId, mid) === offsetBefore) {
+      loMs = mid;
+    } else {
+      hiMs = mid;
+    }
+  }
+  return hiMs;
+}
+
+/**
+ * Get timezone transition data using the Intl API (scan + binary search).
+ * Scans every 2 weeks to catch even rare mid-month transitions.
+ */
+function getTimezoneDataIntl(tzId, sinceMs, untilMs) {
+  const defaultOffset = getOffsetMinutesIntl(tzId, sinceMs);
+  const eras = [];
+  let prevOffset = defaultOffset;
+
+  let scanMs = sinceMs + TWO_WEEKS_MS;
+  while (scanMs <= untilMs) {
+    const offset = getOffsetMinutesIntl(tzId, scanMs);
+    if (offset !== prevOffset) {
+      const exactMs = binarySearchTransition(
+        tzId,
+        scanMs - TWO_WEEKS_MS,
+        scanMs,
+        prevOffset
+      );
+      eras.push({
+        start: Math.floor(exactMs / 60000),
+        offset: offset,
+      });
+      prevOffset = offset;
+    }
+    scanMs += TWO_WEEKS_MS;
+  }
+
+  // elm/time expects eras sorted newest-first
+  eras.reverse();
+  return { defaultOffset, eras };
+}
+
+/**
+ * Get timezone transition data using the Temporal API (direct transition walking).
+ */
+function getTimezoneDataTemporal(tzId, sinceMs, untilMs) {
+  const Temporal = globalThis.Temporal;
+  const tz = Temporal.TimeZone.from(tzId);
+  const startInstant = Temporal.Instant.fromEpochMilliseconds(sinceMs);
+  const endInstant = Temporal.Instant.fromEpochMilliseconds(untilMs);
+
+  const defaultOffset = tz.getOffsetNanosecondsFor(startInstant) / 60_000_000_000;
+  const eras = [];
+
+  let instant = tz.getNextTransition(startInstant);
+  while (instant && Temporal.Instant.compare(instant, endInstant) < 0) {
+    const offsetMinutes = tz.getOffsetNanosecondsFor(instant) / 60_000_000_000;
+    eras.push({
+      start: Math.floor(instant.epochMilliseconds / 60000),
+      offset: offsetMinutes,
+    });
+    instant = tz.getNextTransition(instant);
+  }
+
+  // elm/time expects eras sorted newest-first
+  eras.reverse();
+  return { defaultOffset, eras };
 }

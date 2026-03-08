@@ -24,6 +24,9 @@ elm-verify-examples --run-tests --elm-test-args '--compiler=lamdera'
 # Multipart tests - tests multipartBody encoding via busboy round-trip
 (cd examples/end-to-end && npx elm-pages run script/src/MultipartTests.elm)
 
+# Timezone tests - tests BackendTask.Time.zone and zoneInRange with DST transitions
+(cd examples/end-to-end && TZ=America/New_York npx elm-pages run script/src/TimezoneTests.elm)
+
 # Scaffold tests - verify AddRoute with form fields generates compilable code
 # Uses end-to-end example which references local src/ via source-directories
 (cd examples/end-to-end && \
