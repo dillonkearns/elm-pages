@@ -2322,12 +2322,45 @@ function runTimezone(req) {
 }
 
 /**
- * Get UTC offset in minutes for a timezone at a given instant, using Intl.
+ * Cache Intl.DateTimeFormat instances for performance.
+ * Using formatToParts + cached formatters is ~10x faster than toLocaleString re-parsing.
+ */
+const tzFormatters = new Map();
+const utcFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "UTC",
+  year: "numeric", month: "numeric", day: "numeric",
+  hour: "numeric", minute: "numeric", second: "numeric",
+  hour12: false,
+});
+
+function getTzFormatter(tzId) {
+  let fmt = tzFormatters.get(tzId);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: tzId,
+      year: "numeric", month: "numeric", day: "numeric",
+      hour: "numeric", minute: "numeric", second: "numeric",
+      hour12: false,
+    });
+    tzFormatters.set(tzId, fmt);
+  }
+  return fmt;
+}
+
+function partsToMs(parts) {
+  const p = {};
+  for (const { type, value } of parts) p[type] = parseInt(value) || 0;
+  const h = p.hour === 24 ? 0 : p.hour;
+  return Date.UTC(p.year, p.month - 1, p.day, h, p.minute, p.second);
+}
+
+/**
+ * Get UTC offset in minutes for a timezone at a given instant.
  */
 function getOffsetMinutesIntl(tzId, ms) {
-  const utc = new Date(new Date(ms).toLocaleString("en-US", { timeZone: "UTC" }));
-  const local = new Date(new Date(ms).toLocaleString("en-US", { timeZone: tzId }));
-  return (local - utc) / 60000;
+  const utcMs = partsToMs(utcFormatter.formatToParts(ms));
+  const localMs = partsToMs(getTzFormatter(tzId).formatToParts(ms));
+  return (localMs - utcMs) / 60000;
 }
 
 /**
