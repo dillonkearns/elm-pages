@@ -24,7 +24,7 @@ all =
                             )
                         |> BackendTaskTest.fromBackendTaskWithDb FakeDb.testConfig
                             { counter = 42, name = "test" }
-                        |> BackendTaskTest.ensureLogged [ "counter=42" ]
+                        |> BackendTaskTest.ensureStdout [ "counter=42" ]
                         |> BackendTaskTest.expectSuccess
             , test "script that updates DB persists the change" <|
                 \() ->

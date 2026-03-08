@@ -3,7 +3,8 @@ module Test.BackendTask exposing
     , TestSetup, defaultSetup, withFile, withBinaryFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , simulateQuestion, simulateReadKey
-    , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureLoggedWith, ensureFileWritten, ensureStdout, ensureStderr
+    , ensureHttpGet, ensureHttpPost, ensureCustom, ensureFileWritten
+    , Output(..), ensureStdout, ensureStderr, ensureOutputWith
     , ensureFile, ensureFileExists, ensureNoFile
     , SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
@@ -37,12 +38,12 @@ external effect (HTTP requests, custom port calls), optionally asserting on trac
                 |> BackendTaskTest.simulateHttpGet
                     "https://api.github.com/repos/dillonkearns/elm-pages"
                     (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
-                |> BackendTaskTest.ensureLogged [ "86" ]
+                |> BackendTaskTest.ensureStdout [ "86" ]
                 |> BackendTaskTest.expectSuccess
 
 Fire-and-forget effects like `Script.log` and `Script.writeFile` are resolved automatically —
 you never need to simulate them. But you can still assert that they happened using
-`ensureLogged` and `ensureFileWritten`.
+`ensureStdout` and `ensureFileWritten`.
 
 
 ## What gets auto-resolved vs. what you simulate
@@ -61,7 +62,7 @@ simulate things the framework can't predict (HTTP, shell commands, custom ports)
 
 All of these read from or write to virtual state. Use `withFile` to seed files, `withEnv` to
 seed environment variables, `ensureFile` to assert on files, and
-`ensureLogged`/`ensureStdout`/`ensureStderr` to check output.
+`ensureStdout`/`ensureStderr` to check output.
 
 **Needs simulation:**
 
@@ -122,7 +123,7 @@ Configure the initial state (seeded files, DB) before the test starts running.
 These check conditions mid-pipeline without ending the test. They return the same
 `BackendTaskTest` so you can keep chaining.
 
-@docs ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureLoggedWith, ensureFileWritten, ensureStdout, ensureStderr
+@docs ensureHttpGet, ensureHttpPost, ensureCustom, ensureFileWritten, Output, ensureStdout, ensureStderr, ensureOutputWith
 
 
 ## Virtual Filesystem
@@ -240,10 +241,17 @@ emptyVirtualDB =
 
 
 type TrackedEffect
-    = LogEffect String
-    | FileWriteEffect { path : String, body : String }
-    | StdoutEffect String
+    = StdoutEffect String
     | StderrEffect String
+    | FileWriteEffect { path : String, body : String }
+
+
+{-| Represents a single output message on either stdout or stderr, preserving
+the interleaved ordering. Used with [`ensureOutputWith`](#ensureOutputWith).
+-}
+type Output
+    = Stdout String
+    | Stderr String
 
 
 {-| An effect on the virtual filesystem that a custom port declares via
@@ -306,7 +314,7 @@ defaultSetup =
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
             )
-        |> BackendTaskTest.ensureLogged [ """{"key":"value"}""" ]
+        |> BackendTaskTest.ensureStdout [ """{"key":"value"}""" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -335,7 +343,7 @@ Use this for testing `BackendTask.File.binaryFile`.
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withBinaryFile "data.bin" testBytes
             )
-        |> BackendTaskTest.ensureLogged [ "1" ]
+        |> BackendTaskTest.ensureStdout [ "1" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -394,7 +402,7 @@ withDb config initialValue (TestSetup setup) =
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withStdin "hello from stdin"
             )
-        |> BackendTaskTest.ensureLogged [ "hello from stdin" ]
+        |> BackendTaskTest.ensureStdout [ "hello from stdin" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -419,7 +427,7 @@ withStdin content (TestSetup setup) =
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withEnv "API_KEY" "secret123"
             )
-        |> BackendTaskTest.ensureLogged [ "secret123" ]
+        |> BackendTaskTest.ensureStdout [ "secret123" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -446,7 +454,7 @@ withEnv name value (TestSetup setup) =
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)
             )
-        |> BackendTaskTest.ensureLogged [ "1709827200000" ]
+        |> BackendTaskTest.ensureStdout [ "1709827200000" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -474,7 +482,7 @@ the seed is used with `Random.initialSeed` to run the generator deterministicall
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withRandomSeed 42
             )
-        |> BackendTaskTest.ensureLogged [ "42" ]
+        |> BackendTaskTest.ensureStdout [ "42" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -499,7 +507,7 @@ The first argument is the command name, the second is its full path.
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withWhich "node" "/usr/bin/node"
             )
-        |> BackendTaskTest.ensureLogged [ "/usr/bin/node" ]
+        |> BackendTaskTest.ensureStdout [ "/usr/bin/node" ]
         |> BackendTaskTest.expectSuccess
 
 Commands not registered with `withWhich` will return `Nothing` from `Script.which`.
@@ -546,7 +554,7 @@ to seed initial files or DB state.
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
             )
-        |> BackendTaskTest.ensureLogged [ """{"key":"value"}""" ]
+        |> BackendTaskTest.ensureStdout [ """{"key":"value"}""" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -558,7 +566,7 @@ fromBackendTaskWith (TestSetup setup) task =
         , responseBytesEntries = Dict.empty
         , pendingRequests = []
         , trackedEffects = []
-        , drainedLogCount = 0
+        , drainedOutputCount = 0
         , virtualFS = setup.virtualFS
         , virtualDB = setup.virtualDB
         , simulatedEffects = Nothing
@@ -614,7 +622,7 @@ This lets you test the full script including CLI option parsing.
         )
         (\{ name } -> Script.log ("Hello, " ++ name ++ "!"))
         |> BackendTaskTest.fromScript [ "--name", "Dillon" ]
-        |> BackendTaskTest.ensureLogged [ "Hello, Dillon!" ]
+        |> BackendTaskTest.ensureStdout [ "Hello, Dillon!" ]
         |> BackendTaskTest.expectSuccess
 
 If the CLI arguments don't match the expected options, you get a `TestError`
@@ -662,7 +670,7 @@ type alias RunningState a =
     , responseBytesEntries : Dict String Bytes
     , pendingRequests : List Request.Request
     , trackedEffects : List TrackedEffect
-    , drainedLogCount : Int
+    , drainedOutputCount : Int
     , virtualFS : VirtualFS
     , virtualDB : VirtualDB
     , simulatedEffects : Maybe (String -> Encode.Value -> List SimulatedEffect)
@@ -672,7 +680,7 @@ type alias RunningState a =
 type alias DoneState a =
     { result : Result FatalError a
     , trackedEffects : List TrackedEffect
-    , drainedLogCount : Int
+    , drainedOutputCount : Int
     , virtualFS : VirtualFS
     , virtualDB : VirtualDB
     }
@@ -701,7 +709,7 @@ advanceWithAutoResolveHelper fuel state =
                 Done
                     { result = result
                     , trackedEffects = state.trackedEffects
-                    , drainedLogCount = state.drainedLogCount
+                    , drainedOutputCount = state.drainedOutputCount
                     , virtualFS = state.virtualFS
                     , virtualDB = state.virtualDB
                     }
@@ -745,7 +753,7 @@ advanceWithAutoResolveHelper fuel state =
                                     , responseBytesEntries = Dict.union autoResult.bytesEntries state.responseBytesEntries
                                     , pendingRequests = []
                                     , trackedEffects = state.trackedEffects ++ autoResult.trackedEffects
-                                    , drainedLogCount = state.drainedLogCount
+                                    , drainedOutputCount = state.drainedOutputCount
                                     , virtualFS = autoResult.virtualFS
                                     , virtualDB = autoResult.virtualDB
                                     , simulatedEffects = state.simulatedEffects
@@ -758,7 +766,7 @@ advanceWithAutoResolveHelper fuel state =
                                     , responseBytesEntries = Dict.union autoResult.bytesEntries state.responseBytesEntries
                                     , pendingRequests = external
                                     , trackedEffects = state.trackedEffects ++ autoResult.trackedEffects
-                                    , drainedLogCount = state.drainedLogCount
+                                    , drainedOutputCount = state.drainedOutputCount
                                     , virtualFS = autoResult.virtualFS
                                     , virtualDB = autoResult.virtualDB
                             , simulatedEffects = state.simulatedEffects
@@ -1335,7 +1343,7 @@ trackEffect req =
                 StaticHttpBody.JsonBody json ->
                     case Decode.decodeValue (Decode.field "message" Decode.string) json of
                         Ok message ->
-                            [ LogEffect message ]
+                            [ StdoutEffect message ]
 
                         Err _ ->
                             []
@@ -2232,7 +2240,7 @@ The prompt must match the prompt text passed to `Script.question`.
             (\name -> Script.log ("Hello, " ++ name ++ "!"))
         |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.simulateQuestion "What is your name? " "Dillon"
-        |> BackendTaskTest.ensureLogged [ "Hello, Dillon!" ]
+        |> BackendTaskTest.ensureStdout [ "Hello, Dillon!" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -2256,7 +2264,7 @@ simulateQuestion prompt answer scriptTest =
             )
         |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.simulateReadKey "y"
-        |> BackendTaskTest.ensureLogged [ "confirmed" ]
+        |> BackendTaskTest.ensureStdout [ "confirmed" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -3042,143 +3050,6 @@ ensureCustom portName bodyAssertion scriptTest =
                         )
 
 
-{-| Assert that exactly these log messages were produced since the last successful
-`ensureLogged` or `ensureLoggedWith` call (or since the start of the test). On success,
-the checked messages are drained — subsequent calls only see new messages.
-
-This follows the same drain-on-success pattern as elm-program-test's `ensureOutgoingPortValues`.
-On failure, messages are NOT drained, preserving them for debugging.
-
-    import Pages.Script as Script
-    import Test.BackendTask as BackendTaskTest
-
-    -- Simple: check a single log message
-    Script.log "Hello!"
-        |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.ensureLogged [ "Hello!" ]
-        |> BackendTaskTest.expectSuccess
-
-    -- Phase-based: drain between simulation steps
-    Script.log "fetching"
-        |> BackendTask.andThen
-            (\() ->
-                BackendTask.Http.getJson "https://example.com/api"
-                    (Decode.succeed ())
-                    |> BackendTask.allowFatal
-            )
-        |> BackendTask.andThen (\() -> Script.log "done")
-        |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.ensureLogged [ "fetching" ]
-        |> BackendTaskTest.simulateHttpGet "https://example.com/api"
-            (Encode.object [])
-        |> BackendTaskTest.ensureLogged [ "done" ]
-        |> BackendTaskTest.expectSuccess
-
-For custom assertions (e.g. checking message count, substring matching), use
-[`ensureLoggedWith`](#ensureLoggedWith).
-
--}
-ensureLogged : List String -> BackendTaskTest a -> BackendTaskTest a
-ensureLogged expectedMessages =
-    ensureLoggedWith (\logs -> Expect.equal expectedMessages logs)
-
-
-{-| Like [`ensureLogged`](#ensureLogged) but with a custom assertion on the log messages
-since the last drain. Drains on success, preserves on failure.
-
-    import Expect
-    import Pages.Script as Script
-    import Test.BackendTask as BackendTaskTest
-
-    Script.log "Processed 42 items"
-        |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.ensureLoggedWith
-            (\logs ->
-                case logs of
-                    [ msg ] ->
-                        msg
-                            |> String.contains "42"
-                            |> Expect.equal True
-
-                    _ ->
-                        Expect.fail "Expected exactly one log message"
-            )
-        |> BackendTaskTest.expectSuccess
-
--}
-ensureLoggedWith : (List String -> Expect.Expectation) -> BackendTaskTest a -> BackendTaskTest a
-ensureLoggedWith checkMessages scriptTest =
-    let
-        check : List TrackedEffect -> Int -> ( List String, Int )
-        check effects drainedCount =
-            let
-                allLogs =
-                    effects
-                        |> List.filterMap
-                            (\effect ->
-                                case effect of
-                                    LogEffect msg ->
-                                        Just msg
-
-                                    _ ->
-                                        Nothing
-                            )
-
-                newLogs =
-                    List.drop drainedCount allLogs
-            in
-            ( newLogs, List.length allLogs )
-    in
-    case scriptTest of
-        TestError _ ->
-            scriptTest
-
-        Done state ->
-            let
-                ( newLogs, totalCount ) =
-                    check state.trackedEffects state.drainedLogCount
-            in
-            case Test.Runner.getFailureReason (checkMessages newLogs) of
-                Nothing ->
-                    Done { state | drainedLogCount = totalCount }
-
-                Just failure ->
-                    TestError
-                        ("ensureLoggedWith: Log message assertion failed.\n\n"
-                            ++ failure.description
-                            ++ "\n\nLog messages since last drain:\n\n"
-                            ++ formatLogList newLogs
-                        )
-
-        Running state ->
-            let
-                ( newLogs, totalCount ) =
-                    check state.trackedEffects state.drainedLogCount
-            in
-            case Test.Runner.getFailureReason (checkMessages newLogs) of
-                Nothing ->
-                    Running { state | drainedLogCount = totalCount }
-
-                Just failure ->
-                    TestError
-                        ("ensureLoggedWith: Log message assertion failed.\n\n"
-                            ++ failure.description
-                            ++ "\n\nLog messages since last drain:\n\n"
-                            ++ formatLogList newLogs
-                        )
-
-
-formatLogList : List String -> String
-formatLogList logs =
-    if List.isEmpty logs then
-        "    (none)"
-
-    else
-        logs
-            |> List.map (\msg -> "    \"" ++ msg ++ "\"")
-            |> String.join "\n"
-
-
 {-| Assert that a file was written with the given path and body via `Script.writeFile`.
 Both the path and body must match exactly.
 
@@ -3220,108 +3091,263 @@ ensureFileWritten expected scriptTest =
             check state.trackedEffects
 
 
-{-| Assert that the given content was written to stdout via a stream pipeline
-(e.g., `Stream.fromString "hello" |> Stream.pipe Stream.stdout |> Stream.run`).
+{-| Assert that exactly these stdout messages were produced since the last successful
+`ensureStdout`, `ensureStderr`, or `ensureOutputWith` call (or since the start of the test).
+Both `Script.log` and stream-based stdout (`Stream.pipe Stream.stdout`) are tracked as stdout output.
 
-    import BackendTask.Stream as Stream
+**Important:** This also implicitly asserts that _no stderr_ output was produced in the same
+window. If your script produces both stdout and stderr in the same phase, use
+[`ensureOutputWith`](#ensureOutputWith) instead to check both streams together.
+
+On success, all output (stdout and stderr) is drained — subsequent calls only see new messages.
+On failure, messages are NOT drained, preserving them for debugging. This follows the same
+drain-on-success pattern as elm-program-test's `ensureOutgoingPortValues`.
+
+    import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
-    Stream.fromString "hello"
-        |> Stream.pipe Stream.stdout
-        |> Stream.run
+    -- Simple: check a single message
+    Script.log "Hello!"
         |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.ensureStdout "hello"
+        |> BackendTaskTest.ensureStdout [ "Hello!" ]
+        |> BackendTaskTest.expectSuccess
+
+    -- Phase-based: drain between simulation steps
+    Script.log "fetching"
+        |> BackendTask.andThen
+            (\() ->
+                BackendTask.Http.getJson "https://example.com/api"
+                    (Decode.succeed ())
+                    |> BackendTask.allowFatal
+            )
+        |> BackendTask.andThen (\() -> Script.log "done")
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.ensureStdout [ "fetching" ]
+        |> BackendTaskTest.simulateHttpGet "https://example.com/api"
+            (Encode.object [])
+        |> BackendTaskTest.ensureStdout [ "done" ]
         |> BackendTaskTest.expectSuccess
 
 -}
-ensureStdout : String -> BackendTaskTest a -> BackendTaskTest a
-ensureStdout expectedContent scriptTest =
-    let
-        check effects =
-            if List.member (StdoutEffect expectedContent) effects then
-                scriptTest
+ensureStdout : List String -> BackendTaskTest a -> BackendTaskTest a
+ensureStdout expectedMessages =
+    ensureOutputWith
+        (\outputs ->
+            let
+                unexpectedStderr =
+                    List.filterMap
+                        (\output ->
+                            case output of
+                                Stderr msg ->
+                                    Just msg
+
+                                Stdout _ ->
+                                    Nothing
+                        )
+                        outputs
+
+                stdoutMessages =
+                    List.filterMap
+                        (\output ->
+                            case output of
+                                Stdout msg ->
+                                    Just msg
+
+                                Stderr _ ->
+                                    Nothing
+                        )
+                        outputs
+            in
+            if not (List.isEmpty unexpectedStderr) then
+                Expect.fail
+                    ("ensureStdout found unexpected stderr output:\n\n"
+                        ++ formatStringList unexpectedStderr
+                        ++ "\n\nUse ensureOutputWith to check both stdout and stderr together."
+                    )
 
             else
-                TestError
-                    ("ensureStdout: Expected stdout output:\n\n    \""
-                        ++ expectedContent
-                        ++ "\"\n\nbut the stdout outputs are:\n\n"
-                        ++ formatStdOutputs StdoutEffect effects
-                    )
-    in
-    case scriptTest of
-        TestError _ ->
-            scriptTest
-
-        Done state ->
-            check state.trackedEffects
-
-        Running state ->
-            check state.trackedEffects
+                Expect.equal expectedMessages stdoutMessages
+        )
 
 
-{-| Assert that the given content was written to stderr via a stream pipeline.
+{-| Assert that exactly these stderr messages were produced since the last successful
+`ensureStdout`, `ensureStderr`, or `ensureOutputWith` call (or since the start of the test).
+Only stream-based stderr output (`Stream.pipe Stream.stderr`) is tracked here.
+
+**Important:** This also implicitly asserts that _no stdout_ output was produced in the same
+window. If your script produces both stdout and stderr in the same phase, use
+[`ensureOutputWith`](#ensureOutputWith) instead to check both streams together.
+
+Follows the same drain-on-success pattern as [`ensureStdout`](#ensureStdout).
 
     import BackendTask.Stream as Stream
     import Test.BackendTask as BackendTaskTest
 
-    Stream.fromString "error!"
+    Stream.fromString "warning!"
         |> Stream.pipe Stream.stderr
         |> Stream.run
         |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.ensureStderr "error!"
+        |> BackendTaskTest.ensureStderr [ "warning!" ]
         |> BackendTaskTest.expectSuccess
 
 -}
-ensureStderr : String -> BackendTaskTest a -> BackendTaskTest a
-ensureStderr expectedContent scriptTest =
-    let
-        check effects =
-            if List.member (StderrEffect expectedContent) effects then
-                scriptTest
+ensureStderr : List String -> BackendTaskTest a -> BackendTaskTest a
+ensureStderr expectedMessages =
+    ensureOutputWith
+        (\outputs ->
+            let
+                unexpectedStdout =
+                    List.filterMap
+                        (\output ->
+                            case output of
+                                Stdout msg ->
+                                    Just msg
+
+                                Stderr _ ->
+                                    Nothing
+                        )
+                        outputs
+
+                stderrMessages =
+                    List.filterMap
+                        (\output ->
+                            case output of
+                                Stderr msg ->
+                                    Just msg
+
+                                Stdout _ ->
+                                    Nothing
+                        )
+                        outputs
+            in
+            if not (List.isEmpty unexpectedStdout) then
+                Expect.fail
+                    ("ensureStderr found unexpected stdout output:\n\n"
+                        ++ formatStringList unexpectedStdout
+                        ++ "\n\nUse ensureOutputWith to check both stdout and stderr together."
+                    )
 
             else
-                TestError
-                    ("ensureStderr: Expected stderr output:\n\n    \""
-                        ++ expectedContent
-                        ++ "\"\n\nbut the stderr outputs are:\n\n"
-                        ++ formatStdOutputs StderrEffect effects
-                    )
+                Expect.equal expectedMessages stderrMessages
+        )
+
+
+{-| Assert on the interleaved stdout/stderr output since the last drain, preserving
+the ordering between stdout and stderr messages. Drains on success, preserves on failure.
+
+    import Expect
+    import Pages.Script as Script
+    import Test.BackendTask as BackendTaskTest exposing (Output(..))
+
+    Script.log "step 1"
+        |> BackendTask.andThen (\() -> writeToStderr "warning!")
+        |> BackendTask.andThen (\() -> Script.log "step 2")
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.ensureOutputWith
+            (\outputs ->
+                Expect.equal
+                    [ Stdout "step 1"
+                    , Stderr "warning!"
+                    , Stdout "step 2"
+                    ]
+                    outputs
+            )
+        |> BackendTaskTest.expectSuccess
+
+-}
+ensureOutputWith : (List Output -> Expect.Expectation) -> BackendTaskTest a -> BackendTaskTest a
+ensureOutputWith checkOutputs scriptTest =
+    let
+        extract effects drainedCount =
+            let
+                all =
+                    extractOutputs effects
+
+                new =
+                    List.drop drainedCount all
+            in
+            ( new, List.length all )
     in
     case scriptTest of
         TestError _ ->
             scriptTest
 
         Done state ->
-            check state.trackedEffects
+            let
+                ( new, totalCount ) =
+                    extract state.trackedEffects state.drainedOutputCount
+            in
+            case Test.Runner.getFailureReason (checkOutputs new) of
+                Nothing ->
+                    Done { state | drainedOutputCount = totalCount }
+
+                Just failure ->
+                    TestError
+                        ("ensureOutputWith: Output assertion failed.\n\n"
+                            ++ failure.description
+                            ++ "\n\nOutput since last drain:\n\n"
+                            ++ formatOutputs new
+                        )
 
         Running state ->
-            check state.trackedEffects
+            let
+                ( new, totalCount ) =
+                    extract state.trackedEffects state.drainedOutputCount
+            in
+            case Test.Runner.getFailureReason (checkOutputs new) of
+                Nothing ->
+                    Running { state | drainedOutputCount = totalCount }
+
+                Just failure ->
+                    TestError
+                        ("ensureOutputWith: Output assertion failed.\n\n"
+                            ++ failure.description
+                            ++ "\n\nOutput since last drain:\n\n"
+                            ++ formatOutputs new
+                        )
 
 
-formatStdOutputs : (String -> TrackedEffect) -> List TrackedEffect -> String
-formatStdOutputs constructor effects =
-    let
-        outputs =
-            List.filterMap
-                (\effect ->
-                    case ( effect, constructor "" ) of
-                        ( StdoutEffect content, StdoutEffect _ ) ->
-                            Just ("    \"" ++ content ++ "\"")
+extractOutputs : List TrackedEffect -> List Output
+extractOutputs effects =
+    List.filterMap
+        (\effect ->
+            case effect of
+                StdoutEffect msg ->
+                    Just (Stdout msg)
 
-                        ( StderrEffect content, StderrEffect _ ) ->
-                            Just ("    \"" ++ content ++ "\"")
+                StderrEffect msg ->
+                    Just (Stderr msg)
 
-                        _ ->
-                            Nothing
-                )
-                effects
-    in
+                _ ->
+                    Nothing
+        )
+        effects
+
+
+formatOutputs : List Output -> String
+formatOutputs outputs =
     if List.isEmpty outputs then
         "    (none)"
 
     else
-        String.join "\n" outputs
+        outputs
+            |> List.map
+                (\output ->
+                    case output of
+                        Stdout msg ->
+                            "    stdout: \"" ++ msg ++ "\""
+
+                        Stderr msg ->
+                            "    stderr: \"" ++ msg ++ "\""
+                )
+            |> String.join "\n"
+
+
+formatStringList : List String -> String
+formatStringList msgs =
+    msgs
+        |> List.map (\msg -> "    \"" ++ msg ++ "\"")
+        |> String.join "\n"
 
 
 formatFileWrites : List TrackedEffect -> String
@@ -3344,28 +3370,6 @@ formatFileWrites effects =
 
     else
         String.join "\n" writes
-
-
-formatLoggedMessages : List TrackedEffect -> String
-formatLoggedMessages effects =
-    let
-        logMessages =
-            List.filterMap
-                (\effect ->
-                    case effect of
-                        LogEffect msg ->
-                            Just ("    \"" ++ msg ++ "\"")
-
-                        _ ->
-                            Nothing
-                )
-                effects
-    in
-    if List.isEmpty logMessages then
-        "    (none)"
-
-    else
-        String.join "\n" logMessages
 
 
 insertFile : String -> String -> VirtualFS -> VirtualFS
