@@ -1,7 +1,7 @@
 module Test.BackendTask exposing
     ( BackendTaskTest, HttpError(..), fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
     , TestSetup, defaultSetup, withFile, withBinaryFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
-    , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
+    , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , simulateQuestion, simulateReadKey
     , ensureHttpGet, ensureHttpPost, ensureHttpPostWith, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
     , ensureFile, ensureFileExists, ensureNoFile
@@ -112,7 +112,7 @@ Configure the initial state (seeded files, DB) before the test starts running.
 
 ## Simulating Effects
 
-@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
+@docs simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
 
 @docs simulateQuestion, simulateReadKey
 
@@ -1923,6 +1923,77 @@ simulateHttpPost url jsonResponse =
     simulateHttpResponse "simulateHttpPost" "POST" url (httpSuccessResponse url jsonResponse)
 
 
+{-| General-purpose HTTP simulation. Supports any HTTP method, any status code,
+custom response headers, and a response body. Use this when you need more control
+than [`simulateHttpGet`](#simulateHttpGet) or [`simulateHttpPost`](#simulateHttpPost) provide.
+
+    import BackendTask
+    import BackendTask.Http
+    import Json.Decode as Decode
+    import Json.Encode as Encode
+    import Test.BackendTask as BackendTaskTest
+
+    -- Simulate a 404 error
+    BackendTask.Http.getJson
+        "https://api.example.com/users/999"
+        userDecoder
+        |> BackendTask.onError
+            (\err ->
+                case err of
+                    BackendTask.Http.BadStatus { statusCode } _ ->
+                        if statusCode == 404 then
+                            BackendTask.succeed fallbackUser
+                        else
+                            BackendTask.fail (FatalError.fromString "API error")
+                    _ ->
+                        BackendTask.fail (FatalError.fromString "Network error")
+            )
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.simulateHttp
+            { method = "GET", url = "https://api.example.com/users/999" }
+            { statusCode = 404
+            , statusText = "Not Found"
+            , headers = []
+            , body = Encode.object [ ( "error", Encode.string "User not found" ) ]
+            }
+        |> BackendTaskTest.expectSuccess
+
+    -- Simulate a PUT request
+    BackendTask.Http.request
+        { method = "PUT", url = "https://api.example.com/items/1", ... }
+        (BackendTask.Http.expectWhatever)
+        |> BackendTask.allowFatal
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.simulateHttp
+            { method = "PUT", url = "https://api.example.com/items/1" }
+            { statusCode = 200, statusText = "OK", headers = [], body = Encode.null }
+        |> BackendTaskTest.expectSuccess
+
+-}
+simulateHttp :
+    { method : String, url : String }
+    -> { statusCode : Int, statusText : String, headers : List ( String, String ), body : Encode.Value }
+    -> BackendTaskTest a
+    -> BackendTaskTest a
+simulateHttp { method, url } { statusCode, statusText, headers, body } =
+    let
+        responseValue =
+            Encode.object
+                [ ( "statusCode", Encode.int statusCode )
+                , ( "statusText", Encode.string statusText )
+                , ( "headers"
+                  , headers
+                        |> List.map (\( k, v ) -> ( k, Encode.string v ))
+                        |> Encode.object
+                  )
+                , ( "url", Encode.string url )
+                , ( "bodyKind", Encode.string "json" )
+                , ( "body", body )
+                ]
+    in
+    simulateHttpResponse "simulateHttp" method url responseValue
+
+
 {-| Simulate a pending HTTP request failing with an [`HttpError`](#HttpError).
 
     import BackendTask
@@ -2534,8 +2605,11 @@ simulateHttpResponse callerName method url responseValue scriptTest =
                         hash =
                             Request.hash matchedReq
 
+                        adjustedResponseValue =
+                            adjustBodyKindForExpect matchedReq responseValue
+
                         entry =
-                            ( hash, Encode.object [ ( "response", responseValue ) ] )
+                            ( hash, Encode.object [ ( "response", adjustedResponseValue ) ] )
 
                         newState =
                             { state
@@ -2565,6 +2639,71 @@ simulateHttpResponse callerName method url responseValue scriptTest =
 
         TestError _ ->
             scriptTest
+
+
+adjustBodyKindForExpect : Request.Request -> Encode.Value -> Encode.Value
+adjustBodyKindForExpect req responseValue =
+    let
+        expectHeader =
+            req.headers
+                |> List.filterMap
+                    (\( key, value ) ->
+                        if key == "elm-pages-internal" then
+                            Just value
+
+                        else
+                            Nothing
+                    )
+                |> List.head
+                |> Maybe.withDefault ""
+    in
+    case expectHeader of
+        "ExpectWhatever" ->
+            -- Replace bodyKind with "whatever" so the Elm decoder produces WhateverBody
+            case Decode.decodeValue (Decode.keyValuePairs Decode.value) responseValue of
+                Ok pairs ->
+                    pairs
+                        |> List.map
+                            (\( k, v ) ->
+                                if k == "bodyKind" then
+                                    ( k, Encode.string "whatever" )
+
+                                else
+                                    ( k, v )
+                            )
+                        |> Encode.object
+
+                Err _ ->
+                    responseValue
+
+        "ExpectString" ->
+            -- Replace bodyKind with "string" and convert body to string if needed
+            case Decode.decodeValue (Decode.keyValuePairs Decode.value) responseValue of
+                Ok pairs ->
+                    pairs
+                        |> List.map
+                            (\( k, v ) ->
+                                if k == "bodyKind" then
+                                    ( k, Encode.string "string" )
+
+                                else if k == "body" then
+                                    case Decode.decodeValue Decode.string v of
+                                        Ok _ ->
+                                            ( k, v )
+
+                                        Err _ ->
+                                            ( k, Encode.string (Encode.encode 0 v) )
+
+                                else
+                                    ( k, v )
+                            )
+                        |> Encode.object
+
+                Err _ ->
+                    responseValue
+
+        _ ->
+            responseValue
 
 
 findMatchingRequest : String -> String -> List Request.Request -> Maybe ( Request.Request, List Request.Request )

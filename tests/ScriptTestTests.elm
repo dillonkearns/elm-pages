@@ -2120,6 +2120,129 @@ but the pending requests are:
                         |> BackendTaskTest.simulateHttpPost "https://api.example.com/items" Encode.null
                         |> BackendTaskTest.expectSuccess
             ]
+        , describe "simulateHttp"
+            [ test "simulate 404 error response" <|
+                \() ->
+                    BackendTask.Http.getJson
+                        "https://api.example.com/users/999"
+                        (Decode.field "name" Decode.string)
+                        |> BackendTask.mapError .recoverable
+                        |> BackendTask.onError
+                            (\err ->
+                                case err of
+                                    BackendTask.Http.BadStatus { statusCode } _ ->
+                                        if statusCode == 404 then
+                                            BackendTask.succeed "not found"
+
+                                        else
+                                            BackendTask.succeed ("unexpected status: " ++ String.fromInt statusCode)
+
+                                    _ ->
+                                        BackendTask.succeed "other error"
+                            )
+                        |> BackendTask.andThen (\msg -> Script.log msg)
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttp
+                            { method = "GET", url = "https://api.example.com/users/999" }
+                            { statusCode = 404
+                            , statusText = "Not Found"
+                            , headers = []
+                            , body = Encode.object [ ( "error", Encode.string "User not found" ) ]
+                            }
+                        |> BackendTaskTest.ensureLogged "not found"
+                        |> BackendTaskTest.expectSuccess
+            , test "simulate PUT request" <|
+                \() ->
+                    BackendTask.Http.request
+                        { url = "https://api.example.com/items/123"
+                        , method = "PUT"
+                        , headers = []
+                        , body =
+                            BackendTask.Http.jsonBody
+                                (Encode.object [ ( "name", Encode.string "updated" ) ])
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
+                        }
+                        (BackendTask.Http.expectJson (Decode.field "id" Decode.string))
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\id -> Script.log ("updated: " ++ id))
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttp
+                            { method = "PUT", url = "https://api.example.com/items/123" }
+                            { statusCode = 200
+                            , statusText = "OK"
+                            , headers = []
+                            , body = Encode.object [ ( "id", Encode.string "123" ) ]
+                            }
+                        |> BackendTaskTest.ensureLogged "updated: 123"
+                        |> BackendTaskTest.expectSuccess
+            , test "simulate DELETE request" <|
+                \() ->
+                    BackendTask.Http.request
+                        { url = "https://api.example.com/items/456"
+                        , method = "DELETE"
+                        , headers = []
+                        , body = BackendTask.Http.emptyBody
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
+                        }
+                        (BackendTask.Http.expectWhatever ())
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\() -> Script.log "deleted")
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttp
+                            { method = "DELETE", url = "https://api.example.com/items/456" }
+                            { statusCode = 204
+                            , statusText = "No Content"
+                            , headers = []
+                            , body = Encode.null
+                            }
+                        |> BackendTaskTest.ensureLogged "deleted"
+                        |> BackendTaskTest.expectSuccess
+            , test "simulate response with custom headers" <|
+                \() ->
+                    BackendTask.Http.getJson
+                        "https://api.example.com/data"
+                        (Decode.succeed ())
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen (\() -> Script.log "ok")
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttp
+                            { method = "GET", url = "https://api.example.com/data" }
+                            { statusCode = 200
+                            , statusText = "OK"
+                            , headers = [ ( "x-request-id", "abc123" ) ]
+                            , body = Encode.null
+                            }
+                        |> BackendTaskTest.ensureLogged "ok"
+                        |> BackendTaskTest.expectSuccess
+            , test "simulate 500 server error" <|
+                \() ->
+                    BackendTask.Http.getJson
+                        "https://api.example.com/data"
+                        (Decode.field "value" Decode.string)
+                        |> BackendTask.mapError .recoverable
+                        |> BackendTask.onError
+                            (\err ->
+                                case err of
+                                    BackendTask.Http.BadStatus { statusCode } _ ->
+                                        BackendTask.succeed ("server error: " ++ String.fromInt statusCode)
+
+                                    _ ->
+                                        BackendTask.succeed "other error"
+                            )
+                        |> BackendTask.andThen (\msg -> Script.log msg)
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttp
+                            { method = "GET", url = "https://api.example.com/data" }
+                            { statusCode = 500
+                            , statusText = "Internal Server Error"
+                            , headers = []
+                            , body = Encode.object [ ( "error", Encode.string "Something broke" ) ]
+                            }
+                        |> BackendTaskTest.ensureLogged "server error: 500"
+                        |> BackendTaskTest.expectSuccess
+            ]
         , describe "glob sorting"
             [ test "glob results are sorted without explicit List.sort" <|
                 \() ->
