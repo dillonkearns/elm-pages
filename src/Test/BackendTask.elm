@@ -5,7 +5,7 @@ module Test.BackendTask exposing
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
     , ensureFile, ensureFileExists, ensureNoFile
     , SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
-    , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectTestError
+    , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
     )
 
 {-| Pure Elm testing for `BackendTask` pipelines — no side effects, no HTTP calls, no file I/O.
@@ -79,6 +79,24 @@ directory, so `inDir "subdir" (File.rawFile "config.json")` reads `subdir/config
 the virtual filesystem.
 
 
+## What this framework does NOT test
+
+  - **Decoder correctness against real HTTP responses** — You provide simulated JSON, so the
+    framework can't catch mismatches between your decoder and the actual API response shape.
+    Consider supplementing with contract tests or golden-file tests for critical decoders.
+  - **Actual file system behavior** — Permissions, symlinks, encoding issues, race conditions,
+    and OS-specific path handling are not modeled. The virtual filesystem is a simple
+    `Dict String String`.
+  - **Real shell command behavior** — `simulateCommand` provides canned output. It doesn't
+    validate that the command exists, that the arguments are correct, or what the command
+    would actually produce.
+  - **Timing and concurrency** — `BackendTask.map2` dispatches requests in parallel in
+    production, and you can verify this with `ensureHttpGet`/`ensureHttpPost`, but actual
+    timing, race conditions, and timeout behavior are not modeled.
+  - **Network conditions** — Beyond `simulateHttpError` with `NetworkError`/`Timeout`, there
+    is no simulation of slow responses, partial failures, or retries.
+
+
 ## Building
 
 @docs BackendTaskTest, HttpError, fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
@@ -125,7 +143,7 @@ virtual filesystem automatically.
 
 These end the pipeline and produce an `Expectation` for elm-test.
 
-@docs expectSuccess, expectSuccessWith, expectDb, expectFailure, expectTestError
+@docs expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
 
 -}
 
@@ -2814,6 +2832,55 @@ expectFailure scriptTest =
 
                 Err _ ->
                     Expect.pass
+
+        Running state ->
+            Expect.fail
+                ("Expected the script to complete, but there are still pending requests:\n\n"
+                    ++ formatPendingRequests state.pendingRequests
+                )
+
+        TestError msg ->
+            Expect.fail msg
+
+
+{-| Like [`expectFailure`](#expectFailure), but also runs an assertion on the
+[`FatalError`](FatalError#FatalError). Use this to verify the specific error
+your `BackendTask` produces.
+
+    import BackendTask
+    import BackendTask.Http
+    import Json.Decode as Decode
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTask.Http.getJson
+        "https://api.example.com/data"
+        (Decode.succeed ())
+        |> BackendTask.allowFatal
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.simulateHttpError
+            "GET"
+            "https://api.example.com/data"
+            BackendTaskTest.NetworkError
+        |> BackendTaskTest.expectFailureWith
+            (\error ->
+                error.title
+                    |> String.contains "Http"
+                    |> Expect.equal True
+            )
+
+-}
+expectFailureWith : ({ title : String, body : String } -> Expectation) -> BackendTaskTest a -> Expectation
+expectFailureWith assertion scriptTest =
+    case scriptTest of
+        Done { result } ->
+            case result of
+                Ok _ ->
+                    Expect.fail "Expected failure but the script succeeded."
+
+                Err error ->
+                    case error of
+                        Pages.Internal.FatalError.FatalError details ->
+                            assertion details
 
         Running state ->
             Expect.fail
