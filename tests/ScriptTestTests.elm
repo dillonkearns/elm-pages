@@ -578,6 +578,66 @@ elm-pages-test --name <name>"""
                         |> BackendTaskTest.fromBackendTask
                         |> BackendTaskTest.expectFailure
             ]
+        , describe "expectFailureWith"
+            [ test "asserts on FatalError details from fromString" <|
+                \() ->
+                    FatalError.fromString "Something went wrong"
+                        |> BackendTask.fail
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFailureWith
+                            (\error ->
+                                Expect.all
+                                    [ \e -> e.title |> Expect.equal "Custom Error"
+                                    , \e -> e.body |> Expect.equal "Something went wrong"
+                                    ]
+                                    error
+                            )
+            , test "asserts on FatalError details from build" <|
+                \() ->
+                    FatalError.build { title = "HTTP Error", body = "Request to https://example.com failed" }
+                        |> BackendTask.fail
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFailureWith
+                            (\error ->
+                                Expect.all
+                                    [ \e -> e.title |> Expect.equal "HTTP Error"
+                                    , \e -> e.body |> Expect.equal "Request to https://example.com failed"
+                                    ]
+                                    error
+                            )
+            , test "fails when script succeeds" <|
+                \() ->
+                    BackendTask.succeed ()
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFailureWith (\_ -> Expect.pass)
+                        |> isFailingExpectation
+            , test "fails when script has pending requests" <|
+                \() ->
+                    BackendTask.Http.getJson "https://example.com" (Decode.succeed ())
+                        |> BackendTask.allowFatal
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFailureWith (\_ -> Expect.pass)
+                        |> isFailingExpectation
+            , test "fails when there is a test error" <|
+                \() ->
+                    BackendTask.succeed ()
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpGet "https://no-match.com" Encode.null
+                        |> BackendTaskTest.expectFailureWith (\_ -> Expect.pass)
+                        |> isFailingExpectation
+            , test "works with simulateHttpError" <|
+                \() ->
+                    BackendTask.Http.getJson "https://api.example.com/data" (Decode.succeed ())
+                        |> BackendTask.allowFatal
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateHttpError "GET" "https://api.example.com/data" BackendTaskTest.NetworkError
+                        |> BackendTaskTest.expectFailureWith
+                            (\error ->
+                                error.body
+                                    |> String.contains "NetworkError"
+                                    |> Expect.equal True
+                            )
+            ]
         , describe "virtual filesystem"
             [ test "writeFile updates virtual filesystem" <|
                 \() ->
@@ -1558,3 +1618,13 @@ boolToString b =
 
     else
         "false"
+
+
+isFailingExpectation : Expect.Expectation -> Expect.Expectation
+isFailingExpectation expectation =
+    case Test.Runner.getFailureReason expectation of
+        Just _ ->
+            Expect.pass
+
+        Nothing ->
+            Expect.fail "Expected the expectation to fail, but it passed."
