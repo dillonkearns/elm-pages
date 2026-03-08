@@ -1,7 +1,8 @@
 module Test.BackendTask exposing
     ( BackendTaskTest, HttpError(..), fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
-    , TestSetup, defaultSetup, withFile, withDb, withStdin, withEnv
+    , TestSetup, defaultSetup, withFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
+    , simulateQuestion, simulateReadKey
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
     , ensureFile, ensureFileExists, ensureNoFile
     , SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
@@ -106,12 +107,14 @@ the virtual filesystem.
 
 Configure the initial state (seeded files, DB) before the test starts running.
 
-@docs TestSetup, defaultSetup, withFile, withDb, withStdin, withEnv
+@docs TestSetup, defaultSetup, withFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
 
 
 ## Simulating Effects
 
 @docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
+
+@docs simulateQuestion, simulateReadKey
 
 
 ## Inline Assertions
@@ -165,6 +168,7 @@ import RequestsAndPending
 import Set
 import Test.GlobMatch
 import Test.Runner
+import Time
 
 
 {-| The state of a `BackendTask` under test. Create one with [`fromBackendTask`](#fromBackendTask),
@@ -185,6 +189,10 @@ type alias VirtualFS =
     { files : Dict String String
     , stdin : Maybe String
     , env : Dict String String
+    , time : Maybe Time.Posix
+    , randomSeed : Maybe Int
+    , whichCommands : Dict String String
+    , tempDirCounter : Int
     }
 
 
@@ -193,6 +201,10 @@ emptyVirtualFS =
     { files = Dict.empty
     , stdin = Nothing
     , env = Dict.empty
+    , time = Nothing
+    , randomSeed = Nothing
+    , whichCommands = Dict.empty
+    , tempDirCounter = 0
     }
 
 
@@ -373,6 +385,88 @@ withEnv name value (TestSetup setup) =
             setup.virtualFS
     in
     TestSetup { setup | virtualFS = { vfs | env = Dict.insert name value vfs.env } }
+
+
+{-| Set a fixed virtual time for `BackendTask.Time.now`. Without this, any use of
+`BackendTask.Time.now` will produce a test error with a helpful message.
+
+    import BackendTask.Time
+    import Time
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTask.Time.now
+        |> BackendTask.andThen
+            (\time -> Script.log (String.fromInt (Time.posixToMillis time)))
+        |> BackendTaskTest.fromBackendTaskWith
+            (BackendTaskTest.defaultSetup
+                |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)
+            )
+        |> BackendTaskTest.ensureLogged "1709827200000"
+        |> BackendTaskTest.expectSuccess
+
+-}
+withTime : Time.Posix -> TestSetup -> TestSetup
+withTime time (TestSetup setup) =
+    let
+        vfs =
+            setup.virtualFS
+    in
+    TestSetup { setup | virtualFS = { vfs | time = Just time } }
+
+
+{-| Set a fixed random seed for `BackendTask.Random.int32` and `BackendTask.Random.generate`.
+Without this, any use of `BackendTask.Random` will produce a test error with a helpful message.
+
+The seed value is returned directly by `BackendTask.Random.int32`. For `BackendTask.Random.generate`,
+the seed is used with `Random.initialSeed` to run the generator deterministically.
+
+    import BackendTask.Random
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTask.Random.int32
+        |> BackendTask.andThen (\seed -> Script.log (String.fromInt seed))
+        |> BackendTaskTest.fromBackendTaskWith
+            (BackendTaskTest.defaultSetup
+                |> BackendTaskTest.withRandomSeed 42
+            )
+        |> BackendTaskTest.ensureLogged "42"
+        |> BackendTaskTest.expectSuccess
+
+-}
+withRandomSeed : Int -> TestSetup -> TestSetup
+withRandomSeed seed (TestSetup setup) =
+    let
+        vfs =
+            setup.virtualFS
+    in
+    TestSetup { setup | virtualFS = { vfs | randomSeed = Just seed } }
+
+
+{-| Register a command as available for `Script.which` and `Script.expectWhich`.
+The first argument is the command name, the second is its full path.
+
+    import Pages.Script as Script
+    import Test.BackendTask as BackendTaskTest
+
+    Script.expectWhich "node"
+        |> BackendTask.andThen Script.log
+        |> BackendTaskTest.fromBackendTaskWith
+            (BackendTaskTest.defaultSetup
+                |> BackendTaskTest.withWhich "node" "/usr/bin/node"
+            )
+        |> BackendTaskTest.ensureLogged "/usr/bin/node"
+        |> BackendTaskTest.expectSuccess
+
+Commands not registered with `withWhich` will return `Nothing` from `Script.which`.
+
+-}
+withWhich : String -> String -> TestSetup -> TestSetup
+withWhich commandName path (TestSetup setup) =
+    let
+        vfs =
+            setup.virtualFS
+    in
+    TestSetup { setup | virtualFS = { vfs | whichCommands = Dict.insert commandName path vfs.whichCommands } }
 
 
 {-| Start a test from a `BackendTask FatalError ()`. Internal effects like `Script.log`
@@ -590,27 +684,32 @@ advanceWithAutoResolveHelper fuel state =
                         autoResult =
                             buildAutoResponses state.virtualFS state.virtualDB autoResolvable
                     in
-                    if List.isEmpty external && not (List.isEmpty autoResolvable) then
-                        advanceWithAutoResolveHelper (fuel - 1)
-                            { continuation = continuation
-                            , responseEntries = state.responseEntries ++ autoResult.jsonEntries
-                            , responseBytesEntries = Dict.union autoResult.bytesEntries state.responseBytesEntries
-                            , pendingRequests = []
-                            , trackedEffects = state.trackedEffects ++ autoResult.trackedEffects
-                            , virtualFS = autoResult.virtualFS
-                            , virtualDB = autoResult.virtualDB
-                            , simulatedEffects = state.simulatedEffects
-                            }
+                    case autoResult.error of
+                        Just errorMsg ->
+                            TestError errorMsg
 
-                    else
-                        Running
-                            { continuation = continuation
-                            , responseEntries = state.responseEntries ++ autoResult.jsonEntries
-                            , responseBytesEntries = Dict.union autoResult.bytesEntries state.responseBytesEntries
-                            , pendingRequests = external
-                            , trackedEffects = state.trackedEffects ++ autoResult.trackedEffects
-                            , virtualFS = autoResult.virtualFS
-                            , virtualDB = autoResult.virtualDB
+                        Nothing ->
+                            if List.isEmpty external && not (List.isEmpty autoResolvable) then
+                                advanceWithAutoResolveHelper (fuel - 1)
+                                    { continuation = continuation
+                                    , responseEntries = state.responseEntries ++ autoResult.jsonEntries
+                                    , responseBytesEntries = Dict.union autoResult.bytesEntries state.responseBytesEntries
+                                    , pendingRequests = []
+                                    , trackedEffects = state.trackedEffects ++ autoResult.trackedEffects
+                                    , virtualFS = autoResult.virtualFS
+                                    , virtualDB = autoResult.virtualDB
+                                    , simulatedEffects = state.simulatedEffects
+                                    }
+
+                            else
+                                Running
+                                    { continuation = continuation
+                                    , responseEntries = state.responseEntries ++ autoResult.jsonEntries
+                                    , responseBytesEntries = Dict.union autoResult.bytesEntries state.responseBytesEntries
+                                    , pendingRequests = external
+                                    , trackedEffects = state.trackedEffects ++ autoResult.trackedEffects
+                                    , virtualFS = autoResult.virtualFS
+                                    , virtualDB = autoResult.virtualDB
                             , simulatedEffects = state.simulatedEffects
                             }
 
@@ -627,6 +726,8 @@ isAutoResolvable request =
     else
         String.startsWith "elm-pages-internal://" url
             && (url /= "elm-pages-internal://port")
+            && (url /= "elm-pages-internal://question")
+            && (url /= "elm-pages-internal://readKey")
 
 
 isDbRequest : Request.Request -> Bool
@@ -715,6 +816,7 @@ type alias AutoResolveResult =
     , bytesEntries : Dict String Bytes
     , virtualDB : VirtualDB
     , virtualFS : VirtualFS
+    , error : Maybe String
     }
 
 
@@ -722,58 +824,68 @@ buildAutoResponses : VirtualFS -> VirtualDB -> List Request.Request -> AutoResol
 buildAutoResponses vfs virtualDB requests =
     List.foldl
         (\req accum ->
-            let
-                hash : String
-                hash =
-                    Request.hash req
-            in
-            if isDbRequest req then
-                processDbRequest req hash accum
+            case accum.error of
+                Just _ ->
+                    accum
 
-            else if req.url == "elm-pages-internal://stream" then
-                processStreamRequest req hash accum
+                Nothing ->
+                    let
+                        hash : String
+                        hash =
+                            Request.hash req
+                    in
+                    if isDbRequest req then
+                        processDbRequest req hash accum
 
-            else
-                let
-                    responseBody : Encode.Value
-                    responseBody =
-                        autoResponseBody accum.virtualFS req
+                    else if req.url == "elm-pages-internal://stream" then
+                        processStreamRequest req hash accum
 
-                    responseValue : Encode.Value
-                    responseValue =
-                        Encode.object
-                            [ ( "bodyKind", Encode.string "json" )
-                            , ( "body", responseBody )
-                            ]
+                    else if req.url == "elm-pages-internal://make-temp-directory" then
+                        processMakeTempDirectory req hash accum
 
-                    entry : ( String, Encode.Value )
-                    entry =
-                        ( hash, Encode.object [ ( "response", responseValue ) ] )
+                    else
+                        case autoResponseBody accum.virtualFS req of
+                            Err errorMsg ->
+                                { accum | error = Just errorMsg }
 
-                    newEffects : List TrackedEffect
-                    newEffects =
-                        trackEffect req
+                            Ok responseBody ->
+                                let
+                                    responseValue : Encode.Value
+                                    responseValue =
+                                        Encode.object
+                                            [ ( "bodyKind", Encode.string "json" )
+                                            , ( "body", responseBody )
+                                            ]
 
-                    newVFS : VirtualFS
-                    newVFS =
-                        applyVirtualFSEffect req accum.virtualFS
-                in
-                { accum
-                    | jsonEntries = entry :: accum.jsonEntries
-                    , trackedEffects = accum.trackedEffects ++ newEffects
-                    , virtualFS = newVFS
-                }
+                                    entry : ( String, Encode.Value )
+                                    entry =
+                                        ( hash, Encode.object [ ( "response", responseValue ) ] )
+
+                                    newEffects : List TrackedEffect
+                                    newEffects =
+                                        trackEffect req
+
+                                    newVFS : VirtualFS
+                                    newVFS =
+                                        applyVirtualFSEffect req accum.virtualFS
+                                in
+                                { accum
+                                    | jsonEntries = entry :: accum.jsonEntries
+                                    , trackedEffects = accum.trackedEffects ++ newEffects
+                                    , virtualFS = newVFS
+                                }
         )
         { jsonEntries = []
         , trackedEffects = []
         , bytesEntries = Dict.empty
         , virtualDB = virtualDB
         , virtualFS = vfs
+        , error = Nothing
         }
         requests
 
 
-autoResponseBody : VirtualFS -> Request.Request -> Encode.Value
+autoResponseBody : VirtualFS -> Request.Request -> Result String Encode.Value
 autoResponseBody vfs req =
     case req.url of
         "elm-pages-internal://read-file" ->
@@ -785,30 +897,34 @@ autoResponseBody vfs req =
                     in
                     case Dict.get filePath vfs.files of
                         Just content ->
-                            Encode.object
-                                [ ( "rawFile", Encode.string content )
-                                , ( "withoutFrontmatter", Encode.string content )
-                                ]
+                            Ok
+                                (Encode.object
+                                    [ ( "rawFile", Encode.string content )
+                                    , ( "withoutFrontmatter", Encode.string content )
+                                    ]
+                                )
 
                         Nothing ->
-                            Encode.object
-                                [ ( "errorCode", Encode.string "ENOENT" ) ]
+                            Ok
+                                (Encode.object
+                                    [ ( "errorCode", Encode.string "ENOENT" ) ]
+                                )
 
                 Nothing ->
-                    Encode.null
+                    Ok Encode.null
 
         "elm-pages-internal://file-exists" ->
             case req.body of
                 StaticHttpBody.JsonBody json ->
                     case Decode.decodeValue Decode.string json of
                         Ok rawPath ->
-                            Encode.bool (Dict.member (resolveFilePath req rawPath) vfs.files)
+                            Ok (Encode.bool (Dict.member (resolveFilePath req rawPath) vfs.files))
 
                         Err _ ->
-                            Encode.bool False
+                            Ok (Encode.bool False)
 
                 _ ->
-                    Encode.bool False
+                    Ok (Encode.bool False)
 
         "elm-pages-internal://env" ->
             case req.body of
@@ -821,16 +937,16 @@ autoResponseBody vfs req =
                             in
                             case Dict.get envVarName mergedEnv of
                                 Just value ->
-                                    Encode.string value
+                                    Ok (Encode.string value)
 
                                 Nothing ->
-                                    Encode.null
+                                    Ok Encode.null
 
                         Err _ ->
-                            Encode.null
+                            Ok Encode.null
 
                 _ ->
-                    Encode.null
+                    Ok Encode.null
 
         "elm-pages-internal://glob" ->
             case decodeJsonBody globRequestDecoder req of
@@ -893,32 +1009,115 @@ autoResponseBody vfs req =
                         matches =
                             Test.GlobMatch.matchPaths matchOptions tokens relativePaths
                     in
-                    matches
-                        |> List.map
-                            (\{ fullPath, captures } ->
-                                Encode.object
-                                    [ ( "fullPath", Encode.string fullPath )
-                                    , ( "captures", Encode.list Encode.string captures )
-                                    , ( "fileStats"
-                                      , Encode.object
-                                            [ ( "fullPath", Encode.string fullPath )
-                                            , ( "size", Encode.int 0 )
-                                            , ( "atime", Encode.int 0 )
-                                            , ( "mtime", Encode.int 0 )
-                                            , ( "ctime", Encode.int 0 )
-                                            , ( "birthtime", Encode.int 0 )
-                                            , ( "isDirectory", Encode.bool False )
-                                            ]
-                                      )
-                                    ]
-                            )
-                        |> Encode.list identity
+                    Ok
+                        (matches
+                            |> List.map
+                                (\{ fullPath, captures } ->
+                                    Encode.object
+                                        [ ( "fullPath", Encode.string fullPath )
+                                        , ( "captures", Encode.list Encode.string captures )
+                                        , ( "fileStats"
+                                          , Encode.object
+                                                [ ( "fullPath", Encode.string fullPath )
+                                                , ( "size", Encode.int 0 )
+                                                , ( "atime", Encode.int 0 )
+                                                , ( "mtime", Encode.int 0 )
+                                                , ( "ctime", Encode.int 0 )
+                                                , ( "birthtime", Encode.int 0 )
+                                                , ( "isDirectory", Encode.bool False )
+                                                ]
+                                          )
+                                        ]
+                                )
+                            |> Encode.list identity
+                        )
 
                 Nothing ->
-                    Encode.list identity []
+                    Ok (Encode.list identity [])
+
+        "elm-pages-internal://now" ->
+            case vfs.time of
+                Just time ->
+                    Ok (Encode.int (Time.posixToMillis time))
+
+                Nothing ->
+                    Err
+                        ("BackendTask.Time.now requires a virtual time.\n\n"
+                            ++ "Use withTime in your TestSetup:\n\n"
+                            ++ "    BackendTaskTest.defaultSetup\n"
+                            ++ "        |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)"
+                        )
+
+        "elm-pages-internal://randomSeed" ->
+            case vfs.randomSeed of
+                Just seed ->
+                    Ok (Encode.int seed)
+
+                Nothing ->
+                    Err
+                        ("BackendTask.Random requires a virtual random seed.\n\n"
+                            ++ "Use withRandomSeed in your TestSetup:\n\n"
+                            ++ "    BackendTaskTest.defaultSetup\n"
+                            ++ "        |> BackendTaskTest.withRandomSeed 42"
+                        )
+
+        "elm-pages-internal://log" ->
+            Ok Encode.null
+
+        "elm-pages-internal://write-file" ->
+            Ok Encode.null
+
+        "elm-pages-internal://delete-file" ->
+            Ok Encode.null
+
+        "elm-pages-internal://copy-file" ->
+            Ok Encode.null
+
+        "elm-pages-internal://move" ->
+            Ok Encode.null
+
+        "elm-pages-internal://sleep" ->
+            Ok Encode.null
+
+        "elm-pages-internal://which" ->
+            case decodeJsonBody Decode.string req of
+                Just commandName ->
+                    case Dict.get commandName vfs.whichCommands of
+                        Just path ->
+                            Ok (Encode.string path)
+
+                        Nothing ->
+                            Ok Encode.null
+
+                Nothing ->
+                    Ok Encode.null
+
+        "elm-pages-internal://make-directory" ->
+            Ok Encode.null
+
+        "elm-pages-internal://remove-directory" ->
+            Ok Encode.null
+
+        "elm-pages-internal://start-spinner" ->
+            Ok Encode.null
+
+        "elm-pages-internal://stop-spinner" ->
+            Ok Encode.null
+
+        "elm-pages-internal://resolve-path" ->
+            case decodeJsonBody Decode.string req of
+                Just path ->
+                    Ok (Encode.string path)
+
+                Nothing ->
+                    Ok Encode.null
 
         _ ->
-            Encode.null
+            Err
+                ("Unsupported elm-pages-internal request: "
+                    ++ req.url
+                    ++ "\n\nThis request type is not yet supported in the test framework."
+                )
 
 
 globRequestDecoder :
@@ -1161,6 +1360,30 @@ applyVirtualFSEffect req vfs =
                 Nothing ->
                     vfs
 
+        "elm-pages-internal://remove-directory" ->
+            case decodeJsonBody (Decode.field "path" Decode.string) req of
+                Just rawPath ->
+                    let
+                        dirPath =
+                            resolveFilePath req rawPath
+
+                        dirPrefix =
+                            if String.endsWith "/" dirPath then
+                                dirPath
+
+                            else
+                                dirPath ++ "/"
+                    in
+                    { vfs
+                        | files =
+                            Dict.filter
+                                (\filePath _ -> not (String.startsWith dirPrefix filePath))
+                                vfs.files
+                    }
+
+                Nothing ->
+                    vfs
+
         _ ->
             vfs
 
@@ -1177,6 +1400,35 @@ resolveFilePath req path =
 
             else
                 String.join "/" dirs ++ "/" ++ path
+
+
+processMakeTempDirectory : Request.Request -> String -> AutoResolveResult -> AutoResolveResult
+processMakeTempDirectory req hash accum =
+    let
+        prefix =
+            case decodeJsonBody Decode.string req of
+                Just p ->
+                    p
+
+                Nothing ->
+                    "tmp-"
+
+        tempPath =
+            "/tmp/" ++ prefix ++ String.fromInt accum.virtualFS.tempDirCounter
+
+        currentVFS =
+            accum.virtualFS
+
+        updatedVFS =
+            { currentVFS | tempDirCounter = currentVFS.tempDirCounter + 1 }
+
+        entry =
+            jsonAutoResolveEntry hash (Encode.string tempPath)
+    in
+    { accum
+        | jsonEntries = entry :: accum.jsonEntries
+        , virtualFS = updatedVFS
+    }
 
 
 decodeJsonBody : Decode.Decoder a -> Request.Request -> Maybe a
@@ -1656,6 +1908,130 @@ httpStreamMetadata url =
         ]
 
 
+{-| Simulate a pending `Script.question` call resolving with the given answer.
+The prompt must match the prompt text passed to `Script.question`.
+
+    import Pages.Script as Script
+    import Test.BackendTask as BackendTaskTest
+
+    Script.question "What is your name? "
+        |> BackendTask.andThen
+            (\name -> Script.log ("Hello, " ++ name ++ "!"))
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.simulateQuestion "What is your name? " "Dillon"
+        |> BackendTaskTest.ensureLogged "Hello, Dillon!"
+        |> BackendTaskTest.expectSuccess
+
+-}
+simulateQuestion : String -> String -> BackendTaskTest a -> BackendTaskTest a
+simulateQuestion prompt answer scriptTest =
+    simulateInteractive "simulateQuestion" "question" (matchByPrompt prompt) ("question \"" ++ prompt ++ "\"") answer scriptTest
+
+
+{-| Simulate a pending `Script.readKey` call resolving with the given key.
+
+    import Pages.Script as Script
+    import Test.BackendTask as BackendTaskTest
+
+    Script.readKey
+        |> BackendTask.andThen
+            (\key ->
+                if key == "y" then
+                    Script.log "confirmed"
+                else
+                    Script.log "rejected"
+            )
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.simulateReadKey "y"
+        |> BackendTaskTest.ensureLogged "confirmed"
+        |> BackendTaskTest.expectSuccess
+
+-}
+simulateReadKey : String -> BackendTaskTest a -> BackendTaskTest a
+simulateReadKey key scriptTest =
+    simulateInteractive "simulateReadKey" "readKey" (\_ -> True) "readKey" key scriptTest
+
+
+matchByPrompt : String -> Request.Request -> Bool
+matchByPrompt expectedPrompt req =
+    case decodeJsonBody (Decode.field "prompt" Decode.string) req of
+        Just actualPrompt ->
+            actualPrompt == expectedPrompt
+
+        Nothing ->
+            False
+
+
+simulateInteractive : String -> String -> (Request.Request -> Bool) -> String -> String -> BackendTaskTest a -> BackendTaskTest a
+simulateInteractive callerName urlSuffix predicate description answer scriptTest =
+    let
+        targetUrl =
+            "elm-pages-internal://" ++ urlSuffix
+    in
+    case scriptTest of
+        Running state ->
+            case findMatchingInteractive targetUrl predicate state.pendingRequests of
+                Just ( matchedReq, remaining ) ->
+                    let
+                        hash =
+                            Request.hash matchedReq
+
+                        responseValue =
+                            Encode.object
+                                [ ( "bodyKind", Encode.string "json" )
+                                , ( "body", Encode.string answer )
+                                ]
+
+                        entry =
+                            ( hash, Encode.object [ ( "response", responseValue ) ] )
+
+                        newState =
+                            { state
+                                | responseEntries = entry :: state.responseEntries
+                                , pendingRequests = remaining
+                            }
+                    in
+                    if List.isEmpty remaining then
+                        advanceWithAutoResolve newState
+
+                    else
+                        Running newState
+
+                Nothing ->
+                    TestError
+                        (callerName
+                            ++ ": Expected a pending "
+                            ++ description
+                            ++ "\n\nbut the pending requests are:\n\n"
+                            ++ formatPendingRequests state.pendingRequests
+                        )
+
+        Done _ ->
+            TestError (callerName ++ ": The script has already completed. No pending requests to simulate.")
+
+        TestError _ ->
+            scriptTest
+
+
+findMatchingInteractive : String -> (Request.Request -> Bool) -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
+findMatchingInteractive targetUrl predicate requests =
+    findMatchingInteractiveHelper targetUrl predicate [] requests
+
+
+findMatchingInteractiveHelper : String -> (Request.Request -> Bool) -> List Request.Request -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
+findMatchingInteractiveHelper targetUrl predicate before after =
+    case after of
+        [] ->
+            Nothing
+
+        req :: rest ->
+            if req.url == targetUrl && predicate req then
+                Just ( req, List.reverse before ++ rest )
+
+            else
+                findMatchingInteractiveHelper targetUrl predicate (req :: before) rest
+
+
 {-| Internal helper — shared implementation for simulateCommand, simulateCustomStream, simulateStreamHttp.
 -}
 simulateStreamByPartName : String -> (StreamPartInfo -> Bool) -> String -> Encode.Value -> String -> BackendTaskTest a -> BackendTaskTest a
@@ -2018,6 +2394,17 @@ formatPendingRequests requests =
 
                     else if req.url == "elm-pages-internal://stream" then
                         "    Stream [" ++ formatStreamParts req ++ "]"
+
+                    else if req.url == "elm-pages-internal://question" then
+                        case decodeJsonBody (Decode.field "prompt" Decode.string) req of
+                            Just prompt ->
+                                "    Script.question \"" ++ prompt ++ "\""
+
+                            Nothing ->
+                                "    Script.question ???"
+
+                    else if req.url == "elm-pages-internal://readKey" then
+                        "    Script.readKey"
 
                     else
                         "    " ++ req.method ++ " " ++ req.url
