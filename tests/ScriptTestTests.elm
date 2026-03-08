@@ -6,7 +6,10 @@ import BackendTask.Env
 import BackendTask.File
 import BackendTask.Glob as Glob
 import BackendTask.Http
+import BackendTask.Random
 import BackendTask.Stream as Stream
+import BackendTask.Time
+import FilePath
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
@@ -15,9 +18,11 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Script as Script
+import Random
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
 import Test.Runner
+import Time
 
 
 all : Test
@@ -1607,6 +1612,221 @@ but the pending requests are:
                             )
                         |> BackendTaskTest.expectSuccessWith
                             (Expect.equal [ "data/authors.yml", "data/config.json" ])
+            ]
+        , describe "sleep"
+            [ test "sleep auto-resolves as no-op" <|
+                \() ->
+                    Script.sleep 1000
+                        |> BackendTask.andThen (\() -> Script.log "after sleep")
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "after sleep"
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "makeDirectory"
+            [ test "makeDirectory auto-resolves as no-op" <|
+                \() ->
+                    Script.makeDirectory { recursive = True } "dist/assets"
+                        |> BackendTask.andThen (\() -> Script.log "dir created")
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "dir created"
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "removeDirectory"
+            [ test "removeDirectory auto-resolves" <|
+                \() ->
+                    Script.writeFile { path = "build/output.js", body = "code" }
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\() -> Script.removeDirectory { recursive = True } "build")
+                        |> BackendTask.andThen (\() -> Script.log "removed")
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "removed"
+                        |> BackendTaskTest.expectSuccess
+            , test "removeDirectory removes matching files from VFS" <|
+                \() ->
+                    Script.removeDirectory { recursive = True } "build"
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withFile "build/output.js" "code"
+                                |> BackendTaskTest.withFile "build/style.css" "css"
+                                |> BackendTaskTest.withFile "src/Main.elm" "module Main"
+                            )
+                        |> BackendTaskTest.ensureNoFile "build/output.js"
+                        |> BackendTaskTest.ensureNoFile "build/style.css"
+                        |> BackendTaskTest.ensureFile "src/Main.elm" "module Main"
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "makeTempDirectory"
+            [ test "makeTempDirectory returns deterministic path" <|
+                \() ->
+                    Script.makeTempDirectory "my-build-"
+                        |> BackendTask.andThen Script.log
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "/tmp/my-build-0"
+                        |> BackendTaskTest.expectSuccess
+            , test "files can be written to temp directory" <|
+                \() ->
+                    Script.makeTempDirectory "work-"
+                        |> BackendTask.andThen
+                            (\tmpDir ->
+                                Script.writeFile { path = tmpDir ++ "/output.txt", body = "content" }
+                                    |> BackendTask.allowFatal
+                            )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureFile "/tmp/work-0/output.txt" "content"
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "BackendTask.Time.now"
+            [ test "now returns configured time" <|
+                \() ->
+                    BackendTask.Time.now
+                        |> BackendTask.andThen
+                            (\time ->
+                                Script.log (String.fromInt (Time.posixToMillis time))
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)
+                            )
+                        |> BackendTaskTest.ensureLogged "1709827200000"
+                        |> BackendTaskTest.expectSuccess
+            , test "now without withTime gives helpful error" <|
+                \() ->
+                    BackendTask.Time.now
+                        |> BackendTask.andThen (\_ -> BackendTask.succeed ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> String.contains "withTime"
+                                    |> Expect.equal True
+                            )
+            ]
+        , describe "BackendTask.Random"
+            [ test "random with seeded value returns deterministic result" <|
+                \() ->
+                    BackendTask.Random.int32
+                        |> BackendTask.andThen
+                            (\seed -> Script.log (String.fromInt seed))
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withRandomSeed 42
+                            )
+                        |> BackendTaskTest.ensureLogged "42"
+                        |> BackendTaskTest.expectSuccess
+            , test "Random.generate uses seeded value" <|
+                \() ->
+                    BackendTask.Random.generate (Random.int 0 100)
+                        |> BackendTask.andThen
+                            (\value -> Script.log (String.fromInt value))
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withRandomSeed 42
+                            )
+                        |> BackendTaskTest.expectSuccess
+            , test "random without withRandomSeed gives helpful error" <|
+                \() ->
+                    BackendTask.Random.int32
+                        |> BackendTask.andThen (\_ -> BackendTask.succeed ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> String.contains "withRandomSeed"
+                                    |> Expect.equal True
+                            )
+            ]
+        , describe "Script.which"
+            [ test "which returns path for registered command" <|
+                \() ->
+                    Script.which "elm-review"
+                        |> BackendTask.andThen
+                            (\maybePath ->
+                                Script.log (Maybe.withDefault "not found" maybePath)
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withWhich "elm-review" "/usr/local/bin/elm-review"
+                            )
+                        |> BackendTaskTest.ensureLogged "/usr/local/bin/elm-review"
+                        |> BackendTaskTest.expectSuccess
+            , test "which returns Nothing for unregistered command" <|
+                \() ->
+                    Script.which "nonexistent"
+                        |> BackendTask.andThen
+                            (\maybePath ->
+                                Script.log (Maybe.withDefault "not found" maybePath)
+                            )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "not found"
+                        |> BackendTaskTest.expectSuccess
+            , test "expectWhich succeeds for registered command" <|
+                \() ->
+                    Script.expectWhich "node"
+                        |> BackendTask.andThen Script.log
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.defaultSetup
+                                |> BackendTaskTest.withWhich "node" "/usr/bin/node"
+                            )
+                        |> BackendTaskTest.ensureLogged "/usr/bin/node"
+                        |> BackendTaskTest.expectSuccess
+            , test "expectWhich fails for unregistered command" <|
+                \() ->
+                    Script.expectWhich "nonexistent"
+                        |> BackendTask.andThen (\_ -> BackendTask.succeed ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectFailure
+            ]
+        , describe "simulateQuestion"
+            [ test "question resolves with simulated answer" <|
+                \() ->
+                    Script.question "What is your name? "
+                        |> BackendTask.andThen
+                            (\name -> Script.log ("Hello, " ++ name ++ "!"))
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateQuestion "What is your name? " "Dillon"
+                        |> BackendTaskTest.ensureLogged "Hello, Dillon!"
+                        |> BackendTaskTest.expectSuccess
+            , test "wrong prompt gives helpful error" <|
+                \() ->
+                    Script.question "What is your name? "
+                        |> BackendTask.andThen (\_ -> BackendTask.succeed ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateQuestion "Wrong prompt" "answer"
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> String.contains "What is your name?"
+                                    |> Expect.equal True
+                            )
+            ]
+        , describe "simulateReadKey"
+            [ test "readKey resolves with simulated key" <|
+                \() ->
+                    Script.readKey
+                        |> BackendTask.andThen
+                            (\key ->
+                                if key == "y" then
+                                    Script.log "confirmed"
+
+                                else
+                                    Script.log "rejected"
+                            )
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.simulateReadKey "y"
+                        |> BackendTaskTest.ensureLogged "confirmed"
+                        |> BackendTaskTest.expectSuccess
+            ]
+        , describe "resolve-path"
+            [ test "FilePath.resolve returns input unchanged" <|
+                \() ->
+                    FilePath.fromString "src/Main.elm"
+                        |> FilePath.resolve
+                        |> BackendTask.andThen
+                            (\resolved -> Script.log (FilePath.toString resolved))
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureLogged "src/Main.elm"
+                        |> BackendTaskTest.expectSuccess
             ]
         ]
 
