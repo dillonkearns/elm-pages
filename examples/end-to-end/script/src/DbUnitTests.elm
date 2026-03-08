@@ -29,7 +29,7 @@ run =
                     )
                 |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig
                     { todos = [], nextId = 42 }
-                |> BackendTaskTest.ensureLogged "nextId=42"
+                |> BackendTaskTest.ensureLogged [ "nextId=42" ]
                 |> BackendTaskTest.expectSuccess
             )
             |> BackendTask.andThen
@@ -105,7 +105,7 @@ run =
                                 )
                             |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig
                                 { todos = [ { id = 1, title = "A", completed = False } ], nextId = 2 }
-                            |> BackendTaskTest.ensureLogged "count=1"
+                            |> BackendTaskTest.ensureLogged [ "count=1" ]
                             |> BackendTaskTest.expectDb Pages.Db.testConfig
                                 (\db -> Expect.equal 3 db.nextId)
                         )

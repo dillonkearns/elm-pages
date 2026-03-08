@@ -3,7 +3,7 @@ module Test.BackendTask exposing
     , TestSetup, defaultSetup, withFile, withBinaryFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , simulateQuestion, simulateReadKey
-    , ensureHttpGet, ensureHttpPost, ensureHttpPostWith, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
+    , ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureLoggedWith, ensureFileWritten, ensureStdout, ensureStderr
     , ensureFile, ensureFileExists, ensureNoFile
     , SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
@@ -37,7 +37,7 @@ external effect (HTTP requests, custom port calls), optionally asserting on trac
                 |> BackendTaskTest.simulateHttpGet
                     "https://api.github.com/repos/dillonkearns/elm-pages"
                     (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
-                |> BackendTaskTest.ensureLogged "86"
+                |> BackendTaskTest.ensureLogged [ "86" ]
                 |> BackendTaskTest.expectSuccess
 
 Fire-and-forget effects like `Script.log` and `Script.writeFile` are resolved automatically —
@@ -122,7 +122,7 @@ Configure the initial state (seeded files, DB) before the test starts running.
 These check conditions mid-pipeline without ending the test. They return the same
 `BackendTaskTest` so you can keep chaining.
 
-@docs ensureHttpGet, ensureHttpPost, ensureHttpPostWith, ensureCustom, ensureLogged, ensureFileWritten, ensureStdout, ensureStderr
+@docs ensureHttpGet, ensureHttpPost, ensureCustom, ensureLogged, ensureLoggedWith, ensureFileWritten, ensureStdout, ensureStderr
 
 
 ## Virtual Filesystem
@@ -306,7 +306,7 @@ defaultSetup =
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
             )
-        |> BackendTaskTest.ensureLogged """{"key":"value"}"""
+        |> BackendTaskTest.ensureLogged [ """{"key":"value"}""" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -335,7 +335,7 @@ Use this for testing `BackendTask.File.binaryFile`.
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withBinaryFile "data.bin" testBytes
             )
-        |> BackendTaskTest.ensureLogged "1"
+        |> BackendTaskTest.ensureLogged [ "1" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -394,7 +394,7 @@ withDb config initialValue (TestSetup setup) =
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withStdin "hello from stdin"
             )
-        |> BackendTaskTest.ensureLogged "hello from stdin"
+        |> BackendTaskTest.ensureLogged [ "hello from stdin" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -419,7 +419,7 @@ withStdin content (TestSetup setup) =
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withEnv "API_KEY" "secret123"
             )
-        |> BackendTaskTest.ensureLogged "secret123"
+        |> BackendTaskTest.ensureLogged [ "secret123" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -446,7 +446,7 @@ withEnv name value (TestSetup setup) =
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)
             )
-        |> BackendTaskTest.ensureLogged "1709827200000"
+        |> BackendTaskTest.ensureLogged [ "1709827200000" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -474,7 +474,7 @@ the seed is used with `Random.initialSeed` to run the generator deterministicall
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withRandomSeed 42
             )
-        |> BackendTaskTest.ensureLogged "42"
+        |> BackendTaskTest.ensureLogged [ "42" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -499,7 +499,7 @@ The first argument is the command name, the second is its full path.
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withWhich "node" "/usr/bin/node"
             )
-        |> BackendTaskTest.ensureLogged "/usr/bin/node"
+        |> BackendTaskTest.ensureLogged [ "/usr/bin/node" ]
         |> BackendTaskTest.expectSuccess
 
 Commands not registered with `withWhich` will return `Nothing` from `Script.which`.
@@ -546,7 +546,7 @@ to seed initial files or DB state.
             (BackendTaskTest.defaultSetup
                 |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
             )
-        |> BackendTaskTest.ensureLogged """{"key":"value"}"""
+        |> BackendTaskTest.ensureLogged [ """{"key":"value"}""" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -558,6 +558,7 @@ fromBackendTaskWith (TestSetup setup) task =
         , responseBytesEntries = Dict.empty
         , pendingRequests = []
         , trackedEffects = []
+        , drainedLogCount = 0
         , virtualFS = setup.virtualFS
         , virtualDB = setup.virtualDB
         , simulatedEffects = Nothing
@@ -613,7 +614,7 @@ This lets you test the full script including CLI option parsing.
         )
         (\{ name } -> Script.log ("Hello, " ++ name ++ "!"))
         |> BackendTaskTest.fromScript [ "--name", "Dillon" ]
-        |> BackendTaskTest.ensureLogged "Hello, Dillon!"
+        |> BackendTaskTest.ensureLogged [ "Hello, Dillon!" ]
         |> BackendTaskTest.expectSuccess
 
 If the CLI arguments don't match the expected options, you get a `TestError`
@@ -661,6 +662,7 @@ type alias RunningState a =
     , responseBytesEntries : Dict String Bytes
     , pendingRequests : List Request.Request
     , trackedEffects : List TrackedEffect
+    , drainedLogCount : Int
     , virtualFS : VirtualFS
     , virtualDB : VirtualDB
     , simulatedEffects : Maybe (String -> Encode.Value -> List SimulatedEffect)
@@ -670,6 +672,7 @@ type alias RunningState a =
 type alias DoneState a =
     { result : Result FatalError a
     , trackedEffects : List TrackedEffect
+    , drainedLogCount : Int
     , virtualFS : VirtualFS
     , virtualDB : VirtualDB
     }
@@ -698,6 +701,7 @@ advanceWithAutoResolveHelper fuel state =
                 Done
                     { result = result
                     , trackedEffects = state.trackedEffects
+                    , drainedLogCount = state.drainedLogCount
                     , virtualFS = state.virtualFS
                     , virtualDB = state.virtualDB
                     }
@@ -741,6 +745,7 @@ advanceWithAutoResolveHelper fuel state =
                                     , responseBytesEntries = Dict.union autoResult.bytesEntries state.responseBytesEntries
                                     , pendingRequests = []
                                     , trackedEffects = state.trackedEffects ++ autoResult.trackedEffects
+                                    , drainedLogCount = state.drainedLogCount
                                     , virtualFS = autoResult.virtualFS
                                     , virtualDB = autoResult.virtualDB
                                     , simulatedEffects = state.simulatedEffects
@@ -753,6 +758,7 @@ advanceWithAutoResolveHelper fuel state =
                                     , responseBytesEntries = Dict.union autoResult.bytesEntries state.responseBytesEntries
                                     , pendingRequests = external
                                     , trackedEffects = state.trackedEffects ++ autoResult.trackedEffects
+                                    , drainedLogCount = state.drainedLogCount
                                     , virtualFS = autoResult.virtualFS
                                     , virtualDB = autoResult.virtualDB
                             , simulatedEffects = state.simulatedEffects
@@ -2226,7 +2232,7 @@ The prompt must match the prompt text passed to `Script.question`.
             (\name -> Script.log ("Hello, " ++ name ++ "!"))
         |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.simulateQuestion "What is your name? " "Dillon"
-        |> BackendTaskTest.ensureLogged "Hello, Dillon!"
+        |> BackendTaskTest.ensureLogged [ "Hello, Dillon!" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -2250,7 +2256,7 @@ simulateQuestion prompt answer scriptTest =
             )
         |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.simulateReadKey "y"
-        |> BackendTaskTest.ensureLogged "confirmed"
+        |> BackendTaskTest.ensureLogged [ "confirmed" ]
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -2843,43 +2849,9 @@ ensureHttpGet url =
     ensureHttpRequest "ensureHttpGet" "GET" url
 
 
-{-| Assert that a POST request to the given URL is currently pending, without resolving it.
-Like [`ensureHttpGet`](#ensureHttpGet), this is most useful for verifying request timing.
-
-    import BackendTask
-    import BackendTask.Http
-    import Json.Decode as Decode
-    import Json.Encode as Encode
-    import Test.BackendTask as BackendTaskTest
-
-    -- Verify that a GET and POST are issued in parallel
-    BackendTask.map2 (\_ _ -> ())
-        (BackendTask.Http.getJson
-            "https://api.example.com/config"
-            (Decode.succeed ())
-            |> BackendTask.allowFatal
-        )
-        (BackendTask.Http.post
-            "https://api.example.com/items"
-            (BackendTask.Http.jsonBody (Encode.object [ ( "name", Encode.string "test" ) ]))
-            (BackendTask.Http.expectJson (Decode.succeed ()))
-            |> BackendTask.allowFatal
-        )
-        |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.ensureHttpGet "https://api.example.com/config"
-        |> BackendTaskTest.ensureHttpPost "https://api.example.com/items"
-        |> BackendTaskTest.simulateHttpGet "https://api.example.com/config" Encode.null
-        |> BackendTaskTest.simulateHttpPost "https://api.example.com/items" Encode.null
-        |> BackendTaskTest.expectSuccess
-
--}
-ensureHttpPost : String -> BackendTaskTest a -> BackendTaskTest a
-ensureHttpPost url =
-    ensureHttpRequest "ensureHttpPost" "POST" url
-
-
-{-| Like [`ensureHttpPost`](#ensureHttpPost), but also runs an assertion on the request body.
-This is useful for verifying that the correct data was sent in a POST request.
+{-| Assert that a POST request to the given URL is currently pending, and run an
+assertion on the request body. Does not resolve the request — use this to verify
+request timing (parallel vs sequential) and that the correct data was sent.
 
     import BackendTask
     import BackendTask.Http
@@ -2895,7 +2867,7 @@ This is useful for verifying that the correct data was sent in a POST request.
         (BackendTask.Http.expectJson (Decode.succeed ()))
         |> BackendTask.allowFatal
         |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.ensureHttpPostWith "https://api.example.com/items"
+        |> BackendTaskTest.ensureHttpPost "https://api.example.com/items"
             (\body ->
                 case Decode.decodeValue (Decode.field "name" Decode.string) body of
                     Ok name ->
@@ -2907,16 +2879,21 @@ This is useful for verifying that the correct data was sent in a POST request.
         |> BackendTaskTest.simulateHttpPost "https://api.example.com/items" Encode.null
         |> BackendTaskTest.expectSuccess
 
+If you don't need to check the body, just use `Expect.pass`:
+
+    |> BackendTaskTest.ensureHttpPost "https://api.example.com/items"
+        (\_ -> Expect.pass)
+
 -}
-ensureHttpPostWith : String -> (Encode.Value -> Expect.Expectation) -> BackendTaskTest a -> BackendTaskTest a
-ensureHttpPostWith url bodyAssertion scriptTest =
+ensureHttpPost : String -> (Encode.Value -> Expect.Expectation) -> BackendTaskTest a -> BackendTaskTest a
+ensureHttpPost url bodyAssertion scriptTest =
     case scriptTest of
         TestError _ ->
             scriptTest
 
         Done _ ->
             TestError
-                ("ensureHttpPostWith: Expected a pending POST request for\n\n    "
+                ("ensureHttpPost: Expected a pending POST request for\n\n    "
                     ++ url
                     ++ "\n\nbut the script has already completed."
                 )
@@ -2939,7 +2916,7 @@ ensureHttpPostWith url bodyAssertion scriptTest =
 
                         Just failure ->
                             TestError
-                                ("ensureHttpPostWith: POST request body assertion failed for\n\n    "
+                                ("ensureHttpPost: POST request body assertion failed for\n\n    "
                                     ++ url
                                     ++ "\n\n"
                                     ++ failure.description
@@ -2947,7 +2924,7 @@ ensureHttpPostWith url bodyAssertion scriptTest =
 
                 Nothing ->
                     TestError
-                        ("ensureHttpPostWith: Expected a pending POST request for\n\n    "
+                        ("ensureHttpPost: Expected a pending POST request for\n\n    "
                             ++ url
                             ++ "\n\nbut the pending requests are:\n\n"
                             ++ formatPendingRequests state.pendingRequests
@@ -2988,8 +2965,9 @@ ensureHttpRequest callerName method url scriptTest =
 
 
 {-| Assert that a `BackendTask.Custom.run` call with the given port name is currently pending,
-without resolving it. Like [`ensureHttpGet`](#ensureHttpGet), this is most useful for
-verifying that calls are issued in parallel.
+and run an assertion on the arguments (the JSON value passed to the port). Does not resolve
+the request — use this to verify request timing (parallel vs sequential) and that the
+correct arguments were passed.
 
     import BackendTask
     import BackendTask.Custom
@@ -2997,30 +2975,28 @@ verifying that calls are issued in parallel.
     import Json.Encode as Encode
     import Test.BackendTask as BackendTaskTest
 
-    -- Verify both custom calls are dispatched in parallel
-    BackendTask.map2 (\_ _ -> ())
-        (BackendTask.Custom.run "hashPassword"
-            (Encode.string "secret123")
-            Decode.string
-            |> BackendTask.allowFatal
-        )
-        (BackendTask.Custom.run "sendEmail"
-            (Encode.string "user@example.com")
-            (Decode.succeed ())
-            |> BackendTask.allowFatal
-        )
+    BackendTask.Custom.run "hashPassword"
+        (Encode.string "secret123")
+        Decode.string
+        |> BackendTask.allowFatal
+        |> BackendTask.map (\_ -> ())
         |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.ensureCustom "hashPassword"
-        |> BackendTaskTest.ensureCustom "sendEmail"
+            (\args ->
+                Decode.decodeValue Decode.string args
+                    |> Expect.equal (Ok "secret123")
+            )
         |> BackendTaskTest.simulateCustom "hashPassword"
             (Encode.string "hashed_secret123")
-        |> BackendTaskTest.simulateCustom "sendEmail"
-            Encode.null
         |> BackendTaskTest.expectSuccess
 
+If you don't need to check the arguments, just use `Expect.pass`:
+
+    |> BackendTaskTest.ensureCustom "hashPassword" (\_ -> Expect.pass)
+
 -}
-ensureCustom : String -> BackendTaskTest a -> BackendTaskTest a
-ensureCustom portName scriptTest =
+ensureCustom : String -> (Encode.Value -> Expect.Expectation) -> BackendTaskTest a -> BackendTaskTest a
+ensureCustom portName bodyAssertion scriptTest =
     case scriptTest of
         TestError _ ->
             scriptTest
@@ -3034,8 +3010,28 @@ ensureCustom portName scriptTest =
 
         Running state ->
             case findMatchingPort portName state.pendingRequests of
-                Just _ ->
-                    scriptTest
+                Just ( req, _ ) ->
+                    let
+                        inputValue =
+                            case req.body of
+                                StaticHttpBody.JsonBody json ->
+                                    Decode.decodeValue (Decode.field "input" Decode.value) json
+                                        |> Result.withDefault Encode.null
+
+                                _ ->
+                                    Encode.null
+                    in
+                    case Test.Runner.getFailureReason (bodyAssertion inputValue) of
+                        Nothing ->
+                            scriptTest
+
+                        Just failure ->
+                            TestError
+                                ("ensureCustom: Custom port \""
+                                    ++ portName
+                                    ++ "\" argument assertion failed\n\n"
+                                    ++ failure.description
+                                )
 
                 Nothing ->
                     TestError
@@ -3046,48 +3042,141 @@ ensureCustom portName scriptTest =
                         )
 
 
-{-| Assert that the given message was logged via `Script.log`. Can be used at any point
-in the pipeline — it checks all log messages that have occurred so far.
+{-| Assert that exactly these log messages were produced since the last successful
+`ensureLogged` or `ensureLoggedWith` call (or since the start of the test). On success,
+the checked messages are drained — subsequent calls only see new messages.
 
-    import BackendTask
+This follows the same drain-on-success pattern as elm-program-test's `ensureOutgoingPortValues`.
+On failure, messages are NOT drained, preserving them for debugging.
+
     import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
-    Script.log "Hello, World!"
+    -- Simple: check a single log message
+    Script.log "Hello!"
         |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.ensureLogged "Hello, World!"
+        |> BackendTaskTest.ensureLogged [ "Hello!" ]
+        |> BackendTaskTest.expectSuccess
+
+    -- Phase-based: drain between simulation steps
+    Script.log "fetching"
+        |> BackendTask.andThen
+            (\() ->
+                BackendTask.Http.getJson "https://example.com/api"
+                    (Decode.succeed ())
+                    |> BackendTask.allowFatal
+            )
+        |> BackendTask.andThen (\() -> Script.log "done")
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.ensureLogged [ "fetching" ]
+        |> BackendTaskTest.simulateHttpGet "https://example.com/api"
+            (Encode.object [])
+        |> BackendTaskTest.ensureLogged [ "done" ]
+        |> BackendTaskTest.expectSuccess
+
+For custom assertions (e.g. checking message count, substring matching), use
+[`ensureLoggedWith`](#ensureLoggedWith).
+
+-}
+ensureLogged : List String -> BackendTaskTest a -> BackendTaskTest a
+ensureLogged expectedMessages =
+    ensureLoggedWith (\logs -> Expect.equal expectedMessages logs)
+
+
+{-| Like [`ensureLogged`](#ensureLogged) but with a custom assertion on the log messages
+since the last drain. Drains on success, preserves on failure.
+
+    import Expect
+    import Pages.Script as Script
+    import Test.BackendTask as BackendTaskTest
+
+    Script.log "Processed 42 items"
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.ensureLoggedWith
+            (\logs ->
+                case logs of
+                    [ msg ] ->
+                        msg
+                            |> String.contains "42"
+                            |> Expect.equal True
+
+                    _ ->
+                        Expect.fail "Expected exactly one log message"
+            )
         |> BackendTaskTest.expectSuccess
 
 -}
-ensureLogged : String -> BackendTaskTest a -> BackendTaskTest a
-ensureLogged expectedMessage scriptTest =
+ensureLoggedWith : (List String -> Expect.Expectation) -> BackendTaskTest a -> BackendTaskTest a
+ensureLoggedWith checkMessages scriptTest =
+    let
+        check : List TrackedEffect -> Int -> ( List String, Int )
+        check effects drainedCount =
+            let
+                allLogs =
+                    effects
+                        |> List.filterMap
+                            (\effect ->
+                                case effect of
+                                    LogEffect msg ->
+                                        Just msg
+
+                                    _ ->
+                                        Nothing
+                            )
+
+                newLogs =
+                    List.drop drainedCount allLogs
+            in
+            ( newLogs, List.length allLogs )
+    in
     case scriptTest of
         TestError _ ->
             scriptTest
 
         Done state ->
-            if List.member (LogEffect expectedMessage) state.trackedEffects then
-                scriptTest
+            let
+                ( newLogs, totalCount ) =
+                    check state.trackedEffects state.drainedLogCount
+            in
+            case Test.Runner.getFailureReason (checkMessages newLogs) of
+                Nothing ->
+                    Done { state | drainedLogCount = totalCount }
 
-            else
-                TestError
-                    ("ensureLogged: Expected a log message:\n\n    \""
-                        ++ expectedMessage
-                        ++ "\"\n\nbut the logged messages are:\n\n"
-                        ++ formatLoggedMessages state.trackedEffects
-                    )
+                Just failure ->
+                    TestError
+                        ("ensureLoggedWith: Log message assertion failed.\n\n"
+                            ++ failure.description
+                            ++ "\n\nLog messages since last drain:\n\n"
+                            ++ formatLogList newLogs
+                        )
 
         Running state ->
-            if List.member (LogEffect expectedMessage) state.trackedEffects then
-                scriptTest
+            let
+                ( newLogs, totalCount ) =
+                    check state.trackedEffects state.drainedLogCount
+            in
+            case Test.Runner.getFailureReason (checkMessages newLogs) of
+                Nothing ->
+                    Running { state | drainedLogCount = totalCount }
 
-            else
-                TestError
-                    ("ensureLogged: Expected a log message:\n\n    \""
-                        ++ expectedMessage
-                        ++ "\"\n\nbut the logged messages are:\n\n"
-                        ++ formatLoggedMessages state.trackedEffects
-                    )
+                Just failure ->
+                    TestError
+                        ("ensureLoggedWith: Log message assertion failed.\n\n"
+                            ++ failure.description
+                            ++ "\n\nLog messages since last drain:\n\n"
+                            ++ formatLogList newLogs
+                        )
+
+
+formatLogList : List String -> String
+formatLogList logs =
+    if List.isEmpty logs then
+        "    (none)"
+
+    else
+        logs
+            |> List.map (\msg -> "    \"" ++ msg ++ "\"")
+            |> String.join "\n"
 
 
 {-| Assert that a file was written with the given path and body via `Script.writeFile`.
