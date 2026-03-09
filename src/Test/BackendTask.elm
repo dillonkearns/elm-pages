@@ -19,6 +19,10 @@ events in the outside world (like HTTP responses and shell commands), and what s
 state you want for your file system and environment variables. Everything
 else will be emulated for you.
 
+You can either test a [`BackendTask`](BackendTask) directly using [`fromBackendTask`](#fromBackendTask)
+and [`fromBackendTaskWith`](#fromBackendTaskWith), or you can [test a full Script](#fromScript)
+and exercise the CLI options parser along with it.
+
 ## Predictable effects are emulated automatically
 
 No simulation calls needed. Set the initial state with [`withFile`](#withFile)
@@ -64,7 +68,7 @@ and assert on the results with [`ensureFile`](#ensureFile).
         ]
             |> String.join "\n"
 
-## Test your Script end-to-end with [`fromScript`](#fromScript)
+## Testing a [`Script`](Pages-Script) with [`fromScript`](#fromScript)
 
 You can also test a full `Script` (including CLI option parsing) by using
 [`fromScript`](#fromScript). This gives you the most realistic test since
@@ -134,33 +138,6 @@ Everything else represents outside data and effects (HTTP requests, shell comman
 which you [must simulate in order to give the test runner the fake responses and effects to trigger when it runs](#simulating-effects).
 If your test case encounters one of these which is not simulated, it will fail with a clear message with instructions for how to
 simulate it.
-
-## Testing a BackendTask
-
-    test "fetches stars and logs the count" <|
-        \() ->
-            fetchStars "dillonkearns" "elm-pages"
-                |> BackendTaskTest.fromBackendTask
-                |> BackendTaskTest.simulateHttpGet
-                    "https://api.github.com/repos/dillonkearns/elm-pages"
-                    (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
-                |> BackendTaskTest.ensureStdout [ "86" ]
-                |> BackendTaskTest.expectSuccess
-
-
-## Testing a Script
-
-    test "greets the user by name" <|
-        \() ->
-            greetScript
-                |> BackendTaskTest.fromScript [ "--name", "Dillon" ]
-                |> BackendTaskTest.ensureStdout [ "Hello, Dillon!" ]
-                |> BackendTaskTest.expectSuccess
-
-Effects like `Script.log`, `Script.writeFile`, and file reads resolve automatically
-against virtual state. You only need to simulate things the framework can't predict
-(HTTP requests, shell commands, CustomBackendTask calls).
-
 
 ## Building
 
