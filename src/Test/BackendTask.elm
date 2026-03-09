@@ -678,6 +678,8 @@ If a script uses `Pages.Db` but is created with [`fromBackendTask`](#fromBackend
 instead, you'll get a helpful error message.
 
 This is a convenience for `fromBackendTaskWith (init |> withDb config initialValue)`.
+It also preserves the task's return value, so you can still use [`expectSuccessWith`](#expectSuccessWith)
+for DB-backed tasks that return useful data.
 
 -}
 fromBackendTaskWithDb :
