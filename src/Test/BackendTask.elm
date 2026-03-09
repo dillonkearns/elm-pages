@@ -1,6 +1,6 @@
 module Test.BackendTask exposing
     ( BackendTaskTest, HttpError(..), fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
-    , TestSetup, defaultSetup, withFile, withBinaryFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
+    , TestSetup, init, withFile, withBinaryFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , simulateQuestion, simulateReadKey
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureFileWritten
@@ -10,30 +10,104 @@ module Test.BackendTask exposing
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
     )
 
-{-| Pure Elm testing for `BackendTask` pipelines — no side effects, no HTTP calls, no file I/O.
+{-| Write pure tests for your `BackendTask`s and `Script`s that you can run with `elm-test`.
+No HTTP calls, no file I/O, or side effects of any kind. Just regular Elm tests.
 
-You build a test by creating a `BackendTaskTest` from your `BackendTask`, simulating each
-external effect (HTTP requests, custom port calls), optionally asserting on tracked effects
-(log messages, file writes), and finishing with a terminal assertion.
+Common scripting tasks like file operations, logging, and environment variables
+are emulated for you. You only need to tell the test how to simulate unpredictable
+events in the outside world (like HTTP responses and shell commands), and what starting
+state you want for your file system and environment variables. Everything
+else will be emulated for you.
 
-    import BackendTask
-    import BackendTask.Http
-    import Expect
-    import FatalError exposing (FatalError)
-    import Json.Decode as Decode
-    import Json.Encode as Encode
-    import Pages.Script as Script
-    import Test exposing (test)
-    import Test.BackendTask as BackendTaskTest
+## Predictable effects are emulated automatically
+
+No simulation calls needed. Set the initial state with [`withFile`](#withFile)
+and assert on the results with [`ensureFile`](#ensureFile).
+
+    generateDotEnv : BackendTask FatalError ()
+    generateDotEnv =
+        BackendTask.File.jsonFile configDecoder "config.json"
+            |> BackendTask.allowFatal
+            |> BackendTask.andThen
+                (\config ->
+                    Script.writeFile
+                        { path = ".env"
+                        , body = toDotEnv config
+                        }
+                        |> BackendTask.allowFatal
+                )
+
+    test "generates .env from config" <|
+        \() ->
+            generateDotEnv
+                |> BackendTaskTest.fromBackendTaskWith
+                    (BackendTaskTest.init
+                        |> BackendTaskTest.withFile "config.json"
+                            """{"host": "localhost", "port": 3000, "debug": true}"""
+                    )
+                |> BackendTaskTest.ensureFile ".env"
+                    "HOST=localhost\nPORT=3000\nDEBUG=true"
+                |> BackendTaskTest.expectSuccess
+
+    configDecoder : Decode.Decoder { host : String, port_ : Int, debug : Bool }
+    configDecoder =
+        Decode.map3 (\h p d -> { host = h, port_ = p, debug = d })
+            (Decode.field "host" Decode.string)
+            (Decode.field "port" Decode.int)
+            (Decode.field "debug" Decode.bool)
+
+    toDotEnv : { host : String, port_ : Int, debug : Bool } -> String
+    toDotEnv config =
+        [ "HOST=" ++ config.host
+        , "PORT=" ++ String.fromInt config.port_
+        , "DEBUG=" ++ boolToString config.debug
+        ]
+            |> String.join "\n"
+
+## Automatic Virtual State Emulation
+
+These effects are emulated automatically against virtual state:
+
+**File operations:**
+
+  - `Script.writeFile`, `Script.removeFile`, `Script.copyFile`, `Script.move` (assert with [`ensureFile`](#ensureFile))
+  - `BackendTask.File.rawFile`, `BackendTask.File.jsonFile`, `BackendTask.File.exists` ([`withFile`](#withFile) sets initial state)
+  - `BackendTask.Glob` (matches against files set with [`withFile`](#withFile))
+
+**Output:**
+
+  - `Script.log` (assert with [`ensureStdout`](#ensureStdout))
+
+**Environment:**
+
+  - `BackendTask.Env.get`, `BackendTask.Env.expect` ([`withEnv`](#withEnv) sets initial state)
+  - `BackendTask.Time.now` ([`withTime`](#withTime) sets initial state)
+  - `BackendTask.Random.generate` ([`withRandomSeed`](#withRandomSeed) sets initial state)
+  - `Script.which` ([`withWhich`](#withWhich) sets initial state)
+
+**Database:**
+
+  - `Pages.Db.get`, `Pages.Db.update`, `Pages.Db.transaction` ([`withDb`](#withDb) sets initial state, assert with [`expectDb`](#expectDb))
+
+**Streams:**
+
+  - `Stream.fromString`, `Stream.stdin`, `Stream.stdout`, `Stream.stderr`
+  - `Stream.fileRead`, `Stream.fileWrite`, `Stream.gzip`, `Stream.unzip`
+
+**Not emulated** (use the real thing or supplement with integration tests):
+
+  - Decoder correctness against real HTTP responses
+  - File system permissions, symlinks, encoding, and OS-specific path handling
+  - Actual shell command behavior and argument validation
+  - Timing, race conditions, and concurrency
+  - Network conditions beyond `NetworkError` and `Timeout`
+
+
+## Testing a BackendTask
 
     test "fetches stars and logs the count" <|
         \() ->
-            BackendTask.Http.getJson
-                "https://api.github.com/repos/dillonkearns/elm-pages"
-                (Decode.field "stargazers_count" Decode.int)
-                |> BackendTask.allowFatal
-                |> BackendTask.andThen
-                    (\stars -> Script.log (String.fromInt stars))
+            fetchStars "dillonkearns" "elm-pages"
                 |> BackendTaskTest.fromBackendTask
                 |> BackendTaskTest.simulateHttpGet
                     "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -41,62 +115,19 @@ external effect (HTTP requests, custom port calls), optionally asserting on trac
                 |> BackendTaskTest.ensureStdout [ "86" ]
                 |> BackendTaskTest.expectSuccess
 
-Fire-and-forget effects like `Script.log` and `Script.writeFile` are resolved automatically —
-you never need to simulate them. But you can still assert that they happened using
-`ensureStdout` and `ensureFileWritten`.
 
+## Testing a Script
 
-## What gets auto-resolved vs. what you simulate
+    test "greets the user by name" <|
+        \() ->
+            greetScript
+                |> BackendTaskTest.fromScript [ "--name", "Dillon" ]
+                |> BackendTaskTest.ensureStdout [ "Hello, Dillon!" ]
+                |> BackendTaskTest.expectSuccess
 
-Most built-in operations resolve automatically against virtual state — you only need to
-simulate things the framework can't predict (HTTP, shell commands, custom ports).
-
-**Auto-resolved (no simulation needed):**
-
-  - `Script.log`, `Script.writeFile`, `Script.removeFile`, `Script.copyFile`, `Script.move`
-  - `BackendTask.File.rawFile`, `BackendTask.File.jsonFile`, `BackendTask.File.exists`
-  - `BackendTask.Env.get`, `BackendTask.Env.expect`
-  - `Stream.fromString`, `Stream.stdin`, `Stream.stdout`, `Stream.stderr`
-  - `Stream.fileRead`, `Stream.fileWrite`
-  - `Stream.gzip`, `Stream.unzip`
-
-All of these read from or write to virtual state. Use `withFile` to seed files, `withEnv` to
-seed environment variables, `ensureFile` to assert on files, and
-`ensureStdout`/`ensureStderr` to check output.
-
-**Needs simulation:**
-
-  - `BackendTask.Http.*` — use `simulateHttpGet`, `simulateHttpPost`, `simulateHttpError`
-  - `BackendTask.Custom.run` — use `simulateCustom`
-  - `Stream.command` / `Script.command` / `Script.exec` — use `simulateCommand`
-  - `Stream.customRead` / `Stream.customWrite` / `Stream.customDuplex` — use `simulateCustomStream`
-  - `Stream.http` / `Stream.httpWithInput` — use `simulateStreamHttp`
-
-For stream pipelines that mix both (e.g. `fileRead |> command |> fileWrite`), the framework
-handles the auto-resolvable parts around the opaque part — you only provide the opaque part's
-output.
-
-`BackendTask.inDir` is fully supported — file paths are resolved relative to the working
-directory, so `inDir "subdir" (File.rawFile "config.json")` reads `subdir/config.json` from
-the virtual filesystem.
-
-
-## What this framework does NOT test
-
-  - **Decoder correctness against real HTTP responses** — You provide simulated JSON, so the
-    framework can't catch mismatches between your decoder and the actual API response shape.
-    Consider supplementing with contract tests or golden-file tests for critical decoders.
-  - **Actual file system behavior** — Permissions, symlinks, encoding issues, race conditions,
-    and OS-specific path handling are not modeled. The virtual filesystem is a simple
-    `Dict String String`.
-  - **Real shell command behavior** — `simulateCommand` provides canned output. It doesn't
-    validate that the command exists, that the arguments are correct, or what the command
-    would actually produce.
-  - **Timing and concurrency** — `BackendTask.map2` dispatches requests in parallel in
-    production, and you can verify this with `ensureHttpGet`/`ensureHttpPost`, but actual
-    timing, race conditions, and timeout behavior are not modeled.
-  - **Network conditions** — Beyond `simulateHttpError` with `NetworkError`/`Timeout`, there
-    is no simulation of slow responses, partial failures, or retries.
+Effects like `Script.log`, `Script.writeFile`, and file reads resolve automatically
+against virtual state. You only need to simulate things the framework can't predict
+(HTTP requests, shell commands, CustomBackendTask calls).
 
 
 ## Building
@@ -106,37 +137,41 @@ the virtual filesystem.
 
 ## Test Setup
 
-Configure the initial state (seeded files, DB) before the test starts running.
+Seed initial state before the test starts running.
 
-@docs TestSetup, defaultSetup, withFile, withBinaryFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
+@docs TestSetup, init, withFile, withBinaryFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
 
 
 ## Simulating Effects
+
+Provide responses for effects the framework can't predict.
+
+  - `BackendTask.Http.*` -> [`simulateHttpGet`](#simulateHttpGet), [`simulateHttpPost`](#simulateHttpPost), [`simulateHttp`](#simulateHttp), [`simulateHttpError`](#simulateHttpError)
+  - `BackendTask.Custom.run` -> [`simulateCustom`](#simulateCustom)
+  - `Stream.command` / `Script.command` / `Script.exec` -> [`simulateCommand`](#simulateCommand)
+  - `Stream.customRead` / `Stream.customWrite` / `Stream.customDuplex` -> [`simulateCustomStream`](#simulateCustomStream)
+  - `Stream.http` / `Stream.httpWithInput` -> [`simulateStreamHttp`](#simulateStreamHttp)
 
 @docs simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
 
 @docs simulateQuestion, simulateReadKey
 
 
-## Inline Assertions
+## Assertions
 
-These check conditions mid-pipeline without ending the test. They return the same
+Check conditions mid-pipeline without ending the test. These return the same
 `BackendTaskTest` so you can keep chaining.
 
-@docs ensureHttpGet, ensureHttpPost, ensureCustom, ensureFileWritten, Output, ensureStdout, ensureStderr, ensureOutputWith
+@docs ensureHttpGet, ensureHttpPost, ensureCustom, ensureFileWritten
 
-
-## Virtual Filesystem
-
-Built-in filesystem operations (`Script.writeFile`, `Script.removeFile`, etc.) are tracked
-in a virtual filesystem. Assert on the final state with these functions.
+@docs Output, ensureStdout, ensureStderr, ensureOutputWith
 
 @docs ensureFile, ensureFileExists, ensureNoFile
 
 
-## Simulated Effects
+## CustomBackendTask Side Effects
 
-Declare virtual filesystem side effects for custom ports. When a custom port is resolved
+Declare virtual filesystem side effects for CustomBackendTask calls. When a call is resolved
 via [`simulateCustom`](#simulateCustom), the registered handler's effects are applied to the
 virtual filesystem automatically.
 
@@ -145,19 +180,10 @@ virtual filesystem automatically.
 
 ## Terminal Assertions
 
-These end the pipeline and produce an `Expectation` for elm-test. Every test must
-end with exactly one terminal assertion.
-
-  - **`expectSuccess`** / **`expectSuccessWith`** — the `BackendTask` completed successfully
-  - **`expectFailure`** / **`expectFailureWith`** — the `BackendTask` completed with a `FatalError`
-    (your script's own error handling produced an expected failure)
-  - **`expectDb`** — the `BackendTask` completed successfully, and you want to assert on the
-    final database state
-  - **`expectTestError`** — the _test framework itself_ produced an error, such as reading a
-    file that wasn't seeded, using `BackendTask.Time.now` without `withTime`, or an
-    unresolvable request. Use this when testing that your test setup catches mistakes.
+Every test must end with exactly one of these to produce an `Expectation`.
 
 @docs expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
+
 
 -}
 
@@ -254,7 +280,7 @@ type Output
     | Stderr String
 
 
-{-| An effect on the virtual filesystem that a custom port declares via
+{-| An effect on the virtual filesystem that a CustomBackendTask declares via
 [`withSimulatedEffects`](#withSimulatedEffects). Create values with
 [`writeFileEffect`](#writeFileEffect) and [`removeFileEffect`](#removeFileEffect).
 -}
@@ -276,10 +302,10 @@ type HttpError
     | Timeout
 
 
-{-| Configuration for the initial state of a test. Create with [`defaultSetup`](#defaultSetup),
+{-| Configuration for the initial state of a test. Create with [`init`](#init),
 then configure with [`withFile`](#withFile) and [`withDb`](#withDb).
 
-    BackendTaskTest.defaultSetup
+    BackendTaskTest.init
         |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
         |> BackendTaskTest.withDb Pages.Db.testConfig { counter = 0 }
 
@@ -293,8 +319,8 @@ type TestSetup
 
 {-| An empty test setup with no seeded files or DB state.
 -}
-defaultSetup : TestSetup
-defaultSetup =
+init : TestSetup
+init =
     TestSetup
         { virtualFS = emptyVirtualFS
         , virtualDB = emptyVirtualDB
@@ -311,7 +337,7 @@ defaultSetup =
         |> BackendTask.allowFatal
         |> BackendTask.andThen (\{ body } -> Script.log body)
         |> BackendTaskTest.fromBackendTaskWith
-            (BackendTaskTest.defaultSetup
+            (BackendTaskTest.init
                 |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
             )
         |> BackendTaskTest.ensureStdout [ """{"key":"value"}""" ]
@@ -340,7 +366,7 @@ Use this for testing `BackendTask.File.binaryFile`.
         |> BackendTask.andThen
             (\bytes -> Script.log (String.fromInt (Bytes.width bytes)))
         |> BackendTaskTest.fromBackendTaskWith
-            (BackendTaskTest.defaultSetup
+            (BackendTaskTest.init
                 |> BackendTaskTest.withBinaryFile "data.bin" testBytes
             )
         |> BackendTaskTest.ensureStdout [ "1" ]
@@ -363,7 +389,7 @@ withBinaryFile path content (TestSetup setup) =
 
     myDbScript
         |> BackendTaskTest.fromBackendTaskWith
-            (BackendTaskTest.defaultSetup
+            (BackendTaskTest.init
                 |> BackendTaskTest.withDb Pages.Db.testConfig { counter = 0 }
             )
         |> BackendTaskTest.expectDb Pages.Db.testConfig
@@ -399,7 +425,7 @@ withDb config initialValue (TestSetup setup) =
         |> BackendTask.allowFatal
         |> BackendTask.andThen (\{ body } -> Script.log body)
         |> BackendTaskTest.fromBackendTaskWith
-            (BackendTaskTest.defaultSetup
+            (BackendTaskTest.init
                 |> BackendTaskTest.withStdin "hello from stdin"
             )
         |> BackendTaskTest.ensureStdout [ "hello from stdin" ]
@@ -424,7 +450,7 @@ withStdin content (TestSetup setup) =
         |> BackendTask.allowFatal
         |> BackendTask.andThen (\key -> Script.log key)
         |> BackendTaskTest.fromBackendTaskWith
-            (BackendTaskTest.defaultSetup
+            (BackendTaskTest.init
                 |> BackendTaskTest.withEnv "API_KEY" "secret123"
             )
         |> BackendTaskTest.ensureStdout [ "secret123" ]
@@ -451,7 +477,7 @@ withEnv name value (TestSetup setup) =
         |> BackendTask.andThen
             (\time -> Script.log (String.fromInt (Time.posixToMillis time)))
         |> BackendTaskTest.fromBackendTaskWith
-            (BackendTaskTest.defaultSetup
+            (BackendTaskTest.init
                 |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)
             )
         |> BackendTaskTest.ensureStdout [ "1709827200000" ]
@@ -479,7 +505,7 @@ the seed is used with `Random.initialSeed` to run the generator deterministicall
     BackendTask.Random.int32
         |> BackendTask.andThen (\seed -> Script.log (String.fromInt seed))
         |> BackendTaskTest.fromBackendTaskWith
-            (BackendTaskTest.defaultSetup
+            (BackendTaskTest.init
                 |> BackendTaskTest.withRandomSeed 42
             )
         |> BackendTaskTest.ensureStdout [ "42" ]
@@ -504,7 +530,7 @@ The first argument is the command name, the second is its full path.
     Script.expectWhich "node"
         |> BackendTask.andThen Script.log
         |> BackendTaskTest.fromBackendTaskWith
-            (BackendTaskTest.defaultSetup
+            (BackendTaskTest.init
                 |> BackendTaskTest.withWhich "node" "/usr/bin/node"
             )
         |> BackendTaskTest.ensureStdout [ "/usr/bin/node" ]
@@ -523,7 +549,7 @@ withWhich commandName path (TestSetup setup) =
 
 
 {-| Start a test from a `BackendTask FatalError ()`. Internal effects like `Script.log`
-and `Script.writeFile` are automatically resolved — you only need to simulate external
+and `Script.writeFile` are automatically resolved. You only need to simulate external
 effects like HTTP requests and `BackendTask.Custom.run` calls.
 
     import BackendTask
@@ -538,7 +564,7 @@ effects like HTTP requests and `BackendTask.Custom.run` calls.
 -}
 fromBackendTask : BackendTask FatalError a -> BackendTaskTest a
 fromBackendTask =
-    fromBackendTaskWith defaultSetup
+    fromBackendTaskWith init
 
 
 {-| Start a test with a configured [`TestSetup`](#TestSetup). Use this when you need
@@ -551,7 +577,7 @@ to seed initial files or DB state.
         |> BackendTask.allowFatal
         |> BackendTask.andThen (\content -> Script.log content)
         |> BackendTaskTest.fromBackendTaskWith
-            (BackendTaskTest.defaultSetup
+            (BackendTaskTest.init
                 |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
             )
         |> BackendTaskTest.ensureStdout [ """{"key":"value"}""" ]
@@ -589,7 +615,7 @@ fromBackendTaskWith (TestSetup setup) task =
 If a script uses `Pages.Db` but is created with [`fromBackendTask`](#fromBackendTask)
 instead, you'll get a helpful error message.
 
-This is a convenience for `fromBackendTaskWith (defaultSetup |> withDb config initialValue)`.
+This is a convenience for `fromBackendTaskWith (init |> withDb config initialValue)`.
 
 -}
 fromBackendTaskWithDb :
@@ -598,7 +624,7 @@ fromBackendTaskWithDb :
     -> BackendTask FatalError ()
     -> BackendTaskTest ()
 fromBackendTaskWithDb config initialValue =
-    fromBackendTaskWith (defaultSetup |> withDb config initialValue)
+    fromBackendTaskWith (init |> withDb config initialValue)
 
 
 {-| Start a test from a [`Script`](Pages-Script#Script) value with simulated CLI arguments.
@@ -631,14 +657,14 @@ with the CLI parser's error message.
 -}
 fromScript : List String -> Pages.Internal.Script.Script -> BackendTaskTest ()
 fromScript =
-    fromScriptWith defaultSetup
+    fromScriptWith init
 
 
 {-| Like [`fromScript`](#fromScript) but with a configured [`TestSetup`](#TestSetup).
 
     myScript
         |> BackendTaskTest.fromScriptWith
-            (BackendTaskTest.defaultSetup
+            (BackendTaskTest.init
                 |> BackendTaskTest.withFile "config.json" "{}"
             )
             [ "--verbose" ]
@@ -1118,7 +1144,7 @@ autoResponseBody vfs req =
                     Err
                         ("BackendTask.Time.now requires a virtual time.\n\n"
                             ++ "Use withTime in your TestSetup:\n\n"
-                            ++ "    BackendTaskTest.defaultSetup\n"
+                            ++ "    BackendTaskTest.init\n"
                             ++ "        |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)"
                         )
 
@@ -1131,7 +1157,7 @@ autoResponseBody vfs req =
                     Err
                         ("BackendTask.Random requires a virtual random seed.\n\n"
                             ++ "Use withRandomSeed in your TestSetup:\n\n"
-                            ++ "    BackendTaskTest.defaultSetup\n"
+                            ++ "    BackendTaskTest.init\n"
                             ++ "        |> BackendTaskTest.withRandomSeed 42"
                         )
 
@@ -1285,7 +1311,7 @@ processStreamRequest req hash accum =
                                                 ]
 
                                 _ ->
-                                    -- "none" — Stream.run just needs non-error JSON
+                                    -- "none".Stream.run just needs non-error JSON
                                     Encode.null
 
                 entry : ( String, Encode.Value )
@@ -2140,7 +2166,7 @@ simulateCustom portName jsonResponse scriptTest =
 
 {-| Simulate a pending stream pipeline that contains a `Stream.command`. The framework
 handles simulatable parts (`fileRead`, `fileWrite`, `fromString`, `stdin`, `stdout`, `stderr`)
-around the command — you only provide the command's output.
+around the command. You only provide the command's output.
 
     import BackendTask.Stream as Stream
     import Test.BackendTask as BackendTaskTest
@@ -2174,8 +2200,8 @@ commandMetadata =
 
 
 {-| Simulate a pending stream pipeline that contains a custom stream part (`Stream.customRead`,
-`Stream.customWrite`, or `Stream.customDuplex`). Works like `simulateCommand` — the framework
-handles simulatable parts around the custom port, you only provide the port's output.
+`Stream.customWrite`, or `Stream.customDuplex`). Works like `simulateCommand`. The framework
+handles simulatable parts around the CustomBackendTask. You only provide its output.
 
     Stream.fromString "input"
         |> Stream.pipe (Stream.customDuplex "myTransform" (Encode.object []))
@@ -2198,8 +2224,8 @@ simulateCustomStream portName portOutput scriptTest =
 
 
 {-| Simulate a pending stream pipeline that contains an HTTP stream part (`Stream.http` or
-`Stream.httpWithInput`). Works like `simulateCommand` — the framework handles simulatable parts
-around the HTTP request, you only provide the response body.
+`Stream.httpWithInput`). Works like `simulateCommand`. The framework handles simulatable parts
+around the HTTP request. You only provide the response body.
 
     Stream.fromString "request body"
         |> Stream.pipe (Stream.httpWithInput { url = "https://api.example.com", method = "POST", headers = [], retries = 0, timeoutInMs = 0 })
@@ -2353,7 +2379,7 @@ findMatchingInteractiveHelper targetUrl predicate before after =
                 findMatchingInteractiveHelper targetUrl predicate (req :: before) rest
 
 
-{-| Internal helper — shared implementation for simulateCommand, simulateCustomStream, simulateStreamHttp.
+{-| Internal helper. Shared implementation for simulateCommand, simulateCustomStream, simulateStreamHttp.
 -}
 simulateStreamByPartName : String -> (StreamPartInfo -> Bool) -> String -> Encode.Value -> String -> BackendTaskTest a -> BackendTaskTest a
 simulateStreamByPartName callerName predicate description metadata opaqueOutput scriptTest =
@@ -2812,7 +2838,7 @@ formatStreamParts req =
 
 
 {-| Assert that a GET request to the given URL is currently pending, without resolving it.
-This is useful for verifying that requests are issued in parallel — if both `ensureHttpGet`
+This is useful for verifying that requests are issued in parallel. If both `ensureHttpGet`
 calls pass, you know `map2` (or `combine`) dispatched them at the same time rather than
 sequentially.
 
@@ -2847,7 +2873,7 @@ sequentially.
             (Encode.object [ ( "stargazers_count", Encode.int 780 ) ])
         |> BackendTaskTest.expectSuccess
 
-Note: you don't need `ensureHttpGet` before every `simulateHttpGet` —
+Note: you don't need `ensureHttpGet` before every `simulateHttpGet`.
 `simulateHttpGet` already fails if the request isn't pending. Use `ensure`
 when you want to verify request timing (parallel vs sequential).
 
@@ -2858,7 +2884,7 @@ ensureHttpGet url =
 
 
 {-| Assert that a POST request to the given URL is currently pending, and run an
-assertion on the request body. Does not resolve the request — use this to verify
+assertion on the request body. Does not resolve the request. Use this to verify
 request timing (parallel vs sequential) and that the correct data was sent.
 
     import BackendTask
@@ -2974,7 +3000,7 @@ ensureHttpRequest callerName method url scriptTest =
 
 {-| Assert that a `BackendTask.Custom.run` call with the given port name is currently pending,
 and run an assertion on the arguments (the JSON value passed to the port). Does not resolve
-the request — use this to verify request timing (parallel vs sequential) and that the
+the request. Use this to verify request timing (parallel vs sequential) and that the
 correct arguments were passed.
 
     import BackendTask
@@ -3099,7 +3125,7 @@ Both `Script.log` and stream-based stdout (`Stream.pipe Stream.stdout`) are trac
 window. If your script produces both stdout and stderr in the same phase, use
 [`ensureOutputWith`](#ensureOutputWith) instead to check both streams together.
 
-On success, all output (stdout and stderr) is drained — subsequent calls only see new messages.
+On success, all output (stdout and stderr) is drained.subsequent calls only see new messages.
 On failure, messages are NOT drained, preserving them for debugging. This follows the same
 drain-on-success pattern as elm-program-test's `ensureOutgoingPortValues`.
 
@@ -3378,7 +3404,7 @@ insertFile path content vfs =
 
 
 {-| Assert that a file exists in the virtual filesystem with the given content.
-This checks the end state — all `Script.writeFile` calls that have been auto-resolved
+This checks the current state. All `Script.writeFile` calls that have been auto-resolved
 so far will be reflected.
 
     import BackendTask
@@ -3493,11 +3519,11 @@ ensureNoFile path scriptTest =
             checkFS state.virtualFS
 
 
-{-| Declare filesystem side effects for custom ports. The handler receives the port name
+{-| Declare filesystem side effects for CustomBackendTask calls. The handler receives the port name
 and the request body (as JSON), and returns a list of [`SimulatedEffect`](#SimulatedEffect)s
 to apply to the virtual filesystem when the port is resolved via [`simulateCustom`](#simulateCustom).
 
-This follows the same pattern as elm-program-test's `withSimulatedEffects` — it's a
+This follows the same pattern as elm-program-test's `withSimulatedEffects`. It's a
 translation layer, not an auto-resolver. Custom ports still pause and require explicit
 [`simulateCustom`](#simulateCustom) calls.
 
@@ -3537,7 +3563,7 @@ withSimulatedEffects handler scriptTest =
             scriptTest
 
 
-{-| Declare that a custom port writes a file to the virtual filesystem.
+{-| Declare that a CustomBackendTask writes a file to the virtual filesystem.
 
     BackendTaskTest.writeFileEffect "output.txt" "file content"
 
@@ -3547,7 +3573,7 @@ writeFileEffect path body =
     SimWriteFile { path = path, body = body }
 
 
-{-| Declare that a custom port removes a file from the virtual filesystem.
+{-| Declare that a CustomBackendTask removes a file from the virtual filesystem.
 
     BackendTaskTest.removeFileEffect "temp.txt"
 
@@ -3607,8 +3633,8 @@ fatalErrorToString error =
             title ++ "\n\n" ++ body
 
 
-{-| Assert that the `BackendTask` completed successfully. This is a terminal assertion —
-it produces an `Expectation` for elm-test, so it should be the last step in your pipeline.
+{-| Assert that the `BackendTask` completed successfully. This is a terminal assertion.
+It produces an `Expectation` for elm-test, so it should be the last step in your pipeline.
 
     import BackendTask
     import Test.BackendTask as BackendTaskTest
@@ -3653,7 +3679,7 @@ with elm-test assertions.
     Glob.fromString "content/blog/*.md"
         |> BackendTask.map List.sort
         |> BackendTaskTest.fromBackendTaskWith
-            (BackendTaskTest.defaultSetup
+            (BackendTaskTest.init
                 |> BackendTaskTest.withFile "content/blog/first-post.md" "First"
                 |> BackendTaskTest.withFile "content/blog/second-post.md" "Second"
             )
@@ -3833,7 +3859,7 @@ expectFailureWith assertion scriptTest =
             Expect.fail msg
 
 
-{-| Assert that the test itself produced an error — for example, a `simulateHttpGet` call
+{-| Assert that the test itself produced an error. For example, a `simulateHttpGet` call
 that didn't match any pending request. This is useful for testing that your test helpers
 produce the error messages you expect.
 
