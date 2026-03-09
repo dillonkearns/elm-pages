@@ -76,33 +76,33 @@ run =
                 )
 
         -- zoneByName tests (don't depend on TZ env var)
-        , BackendTask.Time.zoneByName "America/Chicago" (withinYears 5)
+        , BackendTask.Time.zoneByName "America/Chicago"
             |> testTask "zoneByName: Chicago winter (CST = UTC-6)"
                 (\z ->
                     -- Jan 1, 2024 00:00 UTC = Dec 31, 2023 18:00 CST (UTC-6)
                     Time.toHour z (Time.millisToPosix 1704067200000)
                         |> Expect.equal 18
                 )
-        , BackendTask.Time.zoneByName "America/Chicago" (withinYears 5)
+        , BackendTask.Time.zoneByName "America/Chicago"
             |> testTask "zoneByName: Chicago summer (CDT = UTC-5)"
                 (\z ->
                     -- Jul 1, 2024 12:00 UTC = Jul 1, 2024 07:00 CDT (UTC-5)
                     Time.toHour z (Time.millisToPosix 1719835200000)
                         |> Expect.equal 7
                 )
-        , BackendTask.Time.zoneByName "Asia/Kolkata"
+        , BackendTask.Time.zoneByNameFor "Asia/Kolkata"
             (between
                 { since = Date.fromCalendarDate 2020 Time.Jan 1
                 , until = Date.fromCalendarDate 2030 Time.Dec 31
                 }
             )
-            |> testTask "zoneByName: Kolkata fixed offset (UTC+5:30)"
+            |> testTask "zoneByNameFor: Kolkata fixed offset (UTC+5:30)"
                 (\z ->
                     -- Jan 1, 2024 00:00 UTC = Jan 1, 2024 05:30 IST (UTC+5:30)
                     Time.toHour z (Time.millisToPosix 1704067200000)
                         |> Expect.equal 5
                 )
-        , BackendTask.Time.zoneByName "UTC" (withinYears 1)
+        , BackendTask.Time.zoneByName "UTC"
             |> testTask "zoneByName: UTC is always 0 offset"
                 (\z ->
                     Time.toHour z (Time.millisToPosix 1704067200000)
