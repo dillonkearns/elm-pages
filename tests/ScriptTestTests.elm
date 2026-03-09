@@ -1017,7 +1017,7 @@ Actual:
                         |> Stream.pipe Stream.stdout
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "data.txt" "seeded data"
                             )
                         |> BackendTaskTest.ensureStdout [ "seeded data" ]
@@ -1028,7 +1028,7 @@ Actual:
                         |> Stream.pipe (Stream.fileWrite "output.txt")
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "input.txt" "copied content"
                             )
                         |> BackendTaskTest.ensureFile "output.txt" "copied content"
@@ -1120,7 +1120,7 @@ Actual:
                         |> BackendTask.andThen
                             (\content -> Script.log content)
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "config.json" """{"port":8080}"""
                             )
                         |> BackendTaskTest.ensureStdout [ """{"port":8080}""" ]
@@ -1133,7 +1133,7 @@ Actual:
                         |> BackendTask.andThen
                             (\{ body } -> Script.log body)
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withStdin "hello from stdin"
                             )
                         |> BackendTaskTest.ensureStdout [ "hello from stdin" ]
@@ -1144,7 +1144,7 @@ Actual:
                         |> Stream.pipe Stream.stdout
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withStdin "piped through"
                             )
                         |> BackendTaskTest.ensureStdout [ "piped through" ]
@@ -1162,7 +1162,7 @@ Actual:
                         |> Stream.pipe (Stream.fileWrite "output.txt")
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withStdin "stdin content"
                             )
                         |> BackendTaskTest.ensureFile "output.txt" "stdin content"
@@ -1196,7 +1196,7 @@ Actual:
                         |> Stream.pipe Stream.stdout
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "data.txt" "line1\nerror: bad\nline3"
                             )
                         |> BackendTaskTest.simulateCommand "grep" "error: bad\n"
@@ -1219,7 +1219,7 @@ Actual:
                         |> Stream.pipe (Stream.fileWrite "sorted.txt")
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "input.txt" "c\na\nb"
                             )
                         |> BackendTaskTest.simulateCommand "sort" "a\nb\nc"
@@ -1416,7 +1416,7 @@ but the pending requests are:
                                 Script.log (Maybe.withDefault "missing" maybeKey)
                             )
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withEnv "API_KEY" "secret123"
                             )
                         |> BackendTaskTest.ensureStdout [ "secret123" ]
@@ -1438,7 +1438,7 @@ but the pending requests are:
                         |> BackendTask.andThen
                             (\url -> Script.log url)
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withEnv "DB_URL" "postgres://localhost/mydb"
                             )
                         |> BackendTaskTest.ensureStdout [ "postgres://localhost/mydb" ]
@@ -1461,7 +1461,7 @@ but the pending requests are:
                         )
                         |> BackendTask.andThen Script.log
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withEnv "HOST" "localhost"
                                 |> BackendTaskTest.withEnv "PORT" "3000"
                             )
@@ -1487,7 +1487,7 @@ but the pending requests are:
                                 Script.log (Maybe.withDefault "missing" maybeVal)
                             )
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withEnv "MY_VAR" "original"
                             )
                         |> BackendTaskTest.ensureStdout [ "overridden" ]
@@ -1510,7 +1510,7 @@ but the pending requests are:
                         |> BackendTask.andThen Script.log
                         |> BackendTask.inDir "subdir"
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "subdir/config.json" "found it"
                             )
                         |> BackendTaskTest.ensureStdout [ "found it" ]
@@ -1534,7 +1534,7 @@ but the pending requests are:
                         |> BackendTask.inDir "inner"
                         |> BackendTask.inDir "outer"
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "outer/inner/data.txt" "nested"
                             )
                         |> BackendTaskTest.ensureStdout [ "nested" ]
@@ -1548,7 +1548,7 @@ but the pending requests are:
                             )
                         |> BackendTask.inDir "subdir"
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "subdir/config.json" "content"
                             )
                         |> BackendTaskTest.ensureStdout [ "true" ]
@@ -1560,7 +1560,7 @@ but the pending requests are:
                         |> Stream.run
                         |> BackendTask.inDir "mydir"
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "mydir/input.txt" "stream content"
                             )
                         |> BackendTaskTest.ensureStdout [ "stream content" ]
@@ -1581,7 +1581,7 @@ but the pending requests are:
                     Glob.fromString "content/blog/*.md"
                         |> BackendTask.map List.sort
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "content/blog/first-post.md" "First post"
                                 |> BackendTaskTest.withFile "content/blog/second-post.md" "Second post"
                                 |> BackendTaskTest.withFile "content/about.md" "About page"
@@ -1597,7 +1597,7 @@ but the pending requests are:
                 \() ->
                     Glob.fromString "*.xyz"
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "hello.md" "content"
                             )
                         |> BackendTaskTest.expectSuccessWith (Expect.equal [])
@@ -1610,7 +1610,7 @@ but the pending requests are:
                         |> Glob.toBackendTask
                         |> BackendTask.map List.sort
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "content/blog/first-post.md" "First"
                                 |> BackendTaskTest.withFile "content/blog/second-post.md" "Second"
                                 |> BackendTaskTest.withFile "content/about.md" "About"
@@ -1622,7 +1622,7 @@ but the pending requests are:
                     Glob.fromString "src/**/*.elm"
                         |> BackendTask.map List.sort
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "src/Main.elm" "module Main"
                                 |> BackendTaskTest.withFile "src/Ui/Button.elm" "module Ui.Button"
                                 |> BackendTaskTest.withFile "src/Ui/Icon.elm" "module Ui.Icon"
@@ -1654,7 +1654,7 @@ but the pending requests are:
                                             )
                             )
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "content/hello.md" "Hello World"
                             )
                         |> BackendTaskTest.expectSuccessWith (Expect.equal "Hello World")
@@ -1673,7 +1673,7 @@ but the pending requests are:
                         |> BackendTask.inDir "content/blog"
                         |> BackendTask.map List.sort
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "content/blog/first.md" "First"
                                 |> BackendTaskTest.withFile "content/blog/second.md" "Second"
                                 |> BackendTaskTest.withFile "other/file.md" "Other"
@@ -1685,7 +1685,7 @@ but the pending requests are:
                     Glob.fromString "data/*.{json,yml}"
                         |> BackendTask.map List.sort
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "data/config.json" "{}"
                                 |> BackendTaskTest.withFile "data/authors.yml" "---"
                                 |> BackendTaskTest.withFile "data/notes.txt" "text"
@@ -1726,7 +1726,7 @@ but the pending requests are:
                 \() ->
                     Script.removeDirectory { recursive = True } "build"
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "build/output.js" "code"
                                 |> BackendTaskTest.withFile "build/style.css" "css"
                                 |> BackendTaskTest.withFile "src/Main.elm" "module Main"
@@ -1765,7 +1765,7 @@ but the pending requests are:
                                 Script.log (String.fromInt (Time.posixToMillis time))
                             )
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)
                             )
                         |> BackendTaskTest.ensureStdout [ "1709827200000" ]
@@ -1789,7 +1789,7 @@ but the pending requests are:
                         |> BackendTask.andThen
                             (\seed -> Script.log (String.fromInt seed))
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withRandomSeed 42
                             )
                         |> BackendTaskTest.ensureStdout [ "42" ]
@@ -1800,7 +1800,7 @@ but the pending requests are:
                         |> BackendTask.andThen
                             (\value -> Script.log (String.fromInt value))
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withRandomSeed 42
                             )
                         |> BackendTaskTest.expectSuccess
@@ -1825,7 +1825,7 @@ but the pending requests are:
                                 Script.log (Maybe.withDefault "not found" maybePath)
                             )
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withWhich "elm-review" "/usr/local/bin/elm-review"
                             )
                         |> BackendTaskTest.ensureStdout [ "/usr/local/bin/elm-review" ]
@@ -1845,7 +1845,7 @@ but the pending requests are:
                     Script.expectWhich "node"
                         |> BackendTask.andThen Script.log
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withWhich "node" "/usr/bin/node"
                             )
                         |> BackendTaskTest.ensureStdout [ "/usr/bin/node" ]
@@ -1930,7 +1930,7 @@ but the pending requests are:
                                 Script.log (String.fromInt (Bytes.width bytes))
                             )
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withBinaryFile "test.bin" testBytes
                             )
                         |> BackendTaskTest.ensureStdout [ "4" ]
@@ -1963,7 +1963,7 @@ but the pending requests are:
                             )
                         |> BackendTask.inDir "subdir"
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withBinaryFile "subdir/data.bin" testBytes
                             )
                         |> BackendTaskTest.ensureStdout [ "1" ]
@@ -1992,7 +1992,7 @@ but the pending requests are:
                                         Script.log "decode failed"
                             )
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withBinaryFile "data.bin" testBytes
                             )
                         |> BackendTaskTest.ensureStdout [ "12345" ]
@@ -2013,7 +2013,7 @@ but the pending requests are:
                                 Script.log (boolToString exists)
                             )
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withBinaryFile "data.bin" testBytes
                             )
                         |> BackendTaskTest.ensureStdout [ "true" ]
@@ -2029,7 +2029,7 @@ but the pending requests are:
                         |> BackendTask.andThen (\() -> BackendTask.File.exists "data.bin" |> BackendTask.allowFatal)
                         |> BackendTask.andThen (\exists -> Script.log (boolToString exists))
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withBinaryFile "data.bin" testBytes
                             )
                         |> BackendTaskTest.ensureStdout [ "false" ]
@@ -2091,7 +2091,7 @@ but the pending requests are:
                                 Script.log (result.title ++ ": " ++ String.trim result.body)
                             )
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "post.md" "---\n{\"title\": \"Hello\"}\n---\nBody text"
                             )
                         |> BackendTaskTest.ensureStdout [ "Hello: Body text" ]
@@ -2104,7 +2104,7 @@ but the pending requests are:
                         |> BackendTask.allowFatal
                         |> BackendTask.andThen (\title -> Script.log title)
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "post.md" "---\n{\"title\": \"Hello\"}\n---\nBody text"
                             )
                         |> BackendTaskTest.ensureStdout [ "Hello" ]
@@ -2115,7 +2115,7 @@ but the pending requests are:
                         |> BackendTask.allowFatal
                         |> BackendTask.andThen (\body -> Script.log (String.trim body))
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "post.md" "---\n{\"title\": \"Hello\"}\n---\nBody text"
                             )
                         |> BackendTaskTest.ensureStdout [ "Body text" ]
@@ -2126,7 +2126,7 @@ but the pending requests are:
                         |> BackendTask.allowFatal
                         |> BackendTask.andThen (\raw -> Script.log raw)
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "post.md" "---\n{\"title\": \"Hello\"}\n---\nBody text"
                             )
                         |> BackendTaskTest.ensureStdout [ "---\n{\"title\": \"Hello\"}\n---\nBody text" ]
@@ -2139,7 +2139,7 @@ but the pending requests are:
                         |> BackendTask.allowFatal
                         |> BackendTask.andThen (\title -> Script.log title)
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "post.md" "---\ntitle: Hello\ntags:\n  - elm\n---\nBody"
                             )
                         |> BackendTaskTest.expectTestError
@@ -2165,7 +2165,7 @@ but the pending requests are:
                                 Script.log (result.title ++ ": " ++ String.trim result.body)
                             )
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "post.md" "---\r\n{\"title\": \"Hello\"}\r\n---\r\nBody text"
                             )
                         |> BackendTaskTest.ensureStdout [ "Hello: Body text" ]
@@ -2299,7 +2299,7 @@ but the pending requests are:
                 \() ->
                     Glob.fromString "*.txt"
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "zebra.txt" ""
                                 |> BackendTaskTest.withFile "apple.txt" ""
                                 |> BackendTaskTest.withFile "mango.txt" ""
@@ -2319,7 +2319,7 @@ but the pending requests are:
                         |> BackendTask.allowFatal
                         |> BackendTask.andThen (\content -> Script.log content)
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "hello.txt" "world"
                             )
                         |> BackendTaskTest.ensureStdout [ "world" ]
@@ -2330,7 +2330,7 @@ but the pending requests are:
                         |> BackendTask.allowFatal
                         |> BackendTask.andThen (\content -> Script.log content)
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "hello.txt" "world"
                             )
                         |> BackendTaskTest.ensureStdout [ "world" ]
@@ -2341,7 +2341,7 @@ but the pending requests are:
                         |> BackendTask.allowFatal
                         |> BackendTask.andThen (\content -> Script.log content)
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "foo/bar.txt" "content"
                             )
                         |> BackendTaskTest.ensureStdout [ "content" ]
@@ -2366,7 +2366,7 @@ but the pending requests are:
                         |> BackendTask.andThen (\content -> Script.log content)
                         |> BackendTask.inDir "subdir"
                         |> BackendTaskTest.fromBackendTaskWith
-                            (BackendTaskTest.defaultSetup
+                            (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "hello.txt" "world"
                             )
                         |> BackendTaskTest.ensureStdout [ "world" ]
