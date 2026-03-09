@@ -64,6 +64,38 @@ and assert on the results with [`ensureFile`](#ensureFile).
         ]
             |> String.join "\n"
 
+## Test your Script end-to-end with [`fromScript`](#fromScript)
+
+You can also test a full `Script` (including CLI option parsing) by using
+[`fromScript`](#fromScript). This gives you the most realistic test since
+everything runs through the same entry point as production, with only
+external effects simulated.
+
+    generateDotEnvScript : Script
+    generateDotEnvScript =
+        Script.withCliOptions
+            (OptionsParser.build identity
+                |> OptionsParser.with
+                    (Option.optionalKeywordArg "output")
+            )
+            (\maybeOutput ->
+                generateDotEnv
+                    (maybeOutput |> Maybe.withDefault ".env")
+            )
+
+    test "writes to custom output path" <|
+        \() ->
+            generateDotEnvScript
+                |> BackendTaskTest.fromScriptWith
+                    (BackendTaskTest.init
+                        |> BackendTaskTest.withFile "config.json"
+                            """{"host": "localhost", "port": 3000, "debug": true}"""
+                    )
+                    [ "--output", ".env.staging" ]
+                |> BackendTaskTest.ensureFile ".env.staging"
+                    "HOST=localhost\nPORT=3000\nDEBUG=true"
+                |> BackendTaskTest.expectSuccess
+
 ## Automatic Virtual State Emulation
 
 These effects are emulated automatically against virtual state:
@@ -88,6 +120,10 @@ These effects are emulated automatically against virtual state:
 **Database:**
 
   - `Pages.Db.get`, `Pages.Db.update`, `Pages.Db.transaction` ([`withDb`](#withDb) sets initial state, assert with [`expectDb`](#expectDb))
+
+**CLI parsing:**
+
+  - `Script.withCliOptions`, `Script.withoutCliOptions` (parsed from args passed to [`fromScript`](#fromScript))
 
 **Streams:**
 
@@ -132,7 +168,7 @@ against virtual state. You only need to simulate things the framework can't pred
 
 ## Building
 
-@docs BackendTaskTest, HttpError, fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
+@docs BackendTaskTest, fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
 
 
 ## Test Setup
@@ -152,7 +188,7 @@ Provide responses for effects the framework can't predict.
   - `Stream.customRead` / `Stream.customWrite` / `Stream.customDuplex` -> [`simulateCustomStream`](#simulateCustomStream)
   - `Stream.http` / `Stream.httpWithInput` -> [`simulateStreamHttp`](#simulateStreamHttp)
 
-@docs simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
+@docs simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, HttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
 
 @docs simulateQuestion, simulateReadKey
 
