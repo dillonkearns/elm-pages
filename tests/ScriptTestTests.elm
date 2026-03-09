@@ -12,12 +12,12 @@ import BackendTask.Time
 import Bytes
 import Bytes.Decode
 import Bytes.Encode
-import FilePath
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
 import Expect
 import FatalError exposing (FatalError)
+import FilePath
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Script as Script
@@ -178,13 +178,13 @@ but the pending requests are:
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 Expect.equal
-                                    ("""ensureOutputWith: Output assertion failed.
+                                    """ensureOutputWith: Output assertion failed.
 
 Expect.equal
 
 Output since last drain:
 
-    stdout: "hello\"""")
+    stdout: "hello\""""
                                     msg
                             )
             , test "Script.log auto-resolves and is tracked by ensureStdout" <|
@@ -888,7 +888,7 @@ Actual:
                         |> BackendTaskTest.ensureStdout [ "exists: true, missing: false" ]
                         |> BackendTaskTest.expectSuccess
             ]
-        , describe "withSimulatedEffects"
+        , describe "withVirtualEffects"
             [ test "custom port writes file to virtual filesystem" <|
                 \() ->
                     BackendTask.Custom.run "generateReport"
@@ -897,7 +897,7 @@ Actual:
                         |> BackendTask.allowFatal
                         |> BackendTask.map (\_ -> ())
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.withSimulatedEffects
+                        |> BackendTaskTest.withVirtualEffects
                             (\portName _ ->
                                 case portName of
                                     "generateReport" ->
@@ -922,7 +922,7 @@ Actual:
                                     |> BackendTask.map (\_ -> ())
                             )
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.withSimulatedEffects
+                        |> BackendTaskTest.withVirtualEffects
                             (\portName _ ->
                                 case portName of
                                     "cleanup" ->
@@ -947,7 +947,7 @@ Actual:
                         |> BackendTask.allowFatal
                         |> BackendTask.map (\_ -> ())
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.withSimulatedEffects
+                        |> BackendTaskTest.withVirtualEffects
                             (\_ requestBody ->
                                 let
                                     maybePath : Maybe String
@@ -2166,7 +2166,7 @@ but the pending requests are:
                             )
                         |> BackendTaskTest.fromBackendTaskWith
                             (BackendTaskTest.init
-                                |> BackendTaskTest.withFile "post.md" "---\r\n{\"title\": \"Hello\"}\r\n---\r\nBody text"
+                                |> BackendTaskTest.withFile "post.md" "---\u{000D}\n{\"title\": \"Hello\"}\u{000D}\n---\u{000D}\nBody text"
                             )
                         |> BackendTaskTest.ensureStdout [ "Hello: Body text" ]
                         |> BackendTaskTest.expectSuccess
@@ -2433,13 +2433,13 @@ but the pending requests are:
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 Expect.equal
-                                    ("""ensureOutputWith: Output assertion failed.
+                                    """ensureOutputWith: Output assertion failed.
 
 Expect.equal
 
 Output since last drain:
 
-    stdout: "important\"""")
+    stdout: "important\""""
                                     msg
                             )
             , test "preserves interleaved stdout/stderr ordering" <|
@@ -2479,7 +2479,7 @@ Output since last drain:
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 Expect.equal
-                                    ("""ensureOutputWith: Output assertion failed.
+                                    """ensureOutputWith: Output assertion failed.
 
 ensureStdout found unexpected stderr output:
 
@@ -2490,7 +2490,7 @@ Use ensureOutputWith to check both stdout and stderr together.
 Output since last drain:
 
     stdout: "hello"
-    stderr: "oops\"""")
+    stderr: "oops\""""
                                     msg
                             )
             , test "ensureStderr fails when stdout is present" <|
@@ -2504,7 +2504,7 @@ Output since last drain:
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 Expect.equal
-                                    ("""ensureOutputWith: Output assertion failed.
+                                    """ensureOutputWith: Output assertion failed.
 
 ensureStderr found unexpected stdout output:
 
@@ -2515,7 +2515,7 @@ Use ensureOutputWith to check both stdout and stderr together.
 Output since last drain:
 
     stderr: "error!"
-    stdout: "logged\"""")
+    stdout: "logged\""""
                                     msg
                             )
             ]

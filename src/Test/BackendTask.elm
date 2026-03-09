@@ -6,7 +6,7 @@ module Test.BackendTask exposing
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureFileWritten
     , Output(..), ensureStdout, ensureStderr, ensureOutputWith
     , ensureFile, ensureFileExists, ensureNoFile
-    , SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
+    , SimulatedEffect, withVirtualEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
     )
 
@@ -191,13 +191,14 @@ Check conditions mid-pipeline without ending the test. These return the same
 @docs ensureFile, ensureFileExists, ensureNoFile
 
 
-## CustomBackendTask Side Effects
+## Virtual Effects
 
-Declare virtual filesystem side effects for CustomBackendTask calls. When a call is resolved
+Declare virtual effects for CustomBackendTask calls. Today these effects update the
+virtual filesystem. When a call is resolved
 via [`simulateCustom`](#simulateCustom), the registered handler's effects are applied to the
 virtual filesystem automatically.
 
-@docs SimulatedEffect, withSimulatedEffects, writeFileEffect, removeFileEffect
+@docs SimulatedEffect, withVirtualEffects, writeFileEffect, removeFileEffect
 
 
 ## Terminal Assertions
@@ -306,7 +307,7 @@ type Output
 
 
 {-| An effect on the virtual filesystem that a CustomBackendTask declares via
-[`withSimulatedEffects`](#withSimulatedEffects). Create values with
+[`withVirtualEffects`](#withVirtualEffects). Create values with
 [`writeFileEffect`](#writeFileEffect) and [`removeFileEffect`](#removeFileEffect).
 -}
 type SimulatedEffect
@@ -3616,14 +3617,14 @@ ensureNoFile path scriptTest =
             checkFS state.virtualFS
 
 
-{-| Declare filesystem side effects for CustomBackendTask calls. The handler receives the port name
+{-| Declare virtual effects for CustomBackendTask calls. The handler receives the port name
 and the request body (as JSON), and returns a list of [`SimulatedEffect`](#SimulatedEffect)s
-to apply to the virtual filesystem when the port is resolved via [`simulateCustom`](#simulateCustom).
+to apply when the port is resolved via [`simulateCustom`](#simulateCustom).
 
-This is only for `BackendTask.Custom.run`. It does not enable HTTP, time, or any other
-global simulation features. Think of it as a translation layer for custom-task side effects,
-not an auto-resolver. Custom ports still pause and require explicit [`simulateCustom`](#simulateCustom)
-calls.
+This is only for `BackendTask.Custom.run`. Today the available virtual effects update the
+virtual filesystem, but the concept can grow over time. This does not enable HTTP, time,
+or any other global simulation features. Custom ports still pause and require explicit
+[`simulateCustom`](#simulateCustom) calls.
 
     import BackendTask
     import BackendTask.Custom
@@ -3637,7 +3638,7 @@ calls.
         |> BackendTask.allowFatal
         |> BackendTask.map (\_ -> ())
         |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.withSimulatedEffects
+        |> BackendTaskTest.withVirtualEffects
             (\portName _ ->
                 case portName of
                     "generateReport" ->
@@ -3651,8 +3652,8 @@ calls.
         |> BackendTaskTest.expectSuccess
 
 -}
-withSimulatedEffects : (String -> Encode.Value -> List SimulatedEffect) -> BackendTaskTest a -> BackendTaskTest a
-withSimulatedEffects handler scriptTest =
+withVirtualEffects : (String -> Encode.Value -> List SimulatedEffect) -> BackendTaskTest a -> BackendTaskTest a
+withVirtualEffects handler scriptTest =
     case scriptTest of
         Running state ->
             Running { state | simulatedEffects = Just handler }
