@@ -1,7 +1,7 @@
 module Test.BackendTask exposing
-    ( BackendTaskTest, HttpError(..), fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
+    ( BackendTaskTest, fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
     , TestSetup, init, withFile, withBinaryFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
-    , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
+    , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, HttpError(..), simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , simulateQuestion, simulateReadKey
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureFileWritten
     , Output(..), ensureStdout, ensureStderr, ensureOutputWith
@@ -23,19 +23,29 @@ You can either test a [`BackendTask`](BackendTask) directly using [`fromBackendT
 and [`fromBackendTaskWith`](#fromBackendTaskWith), or you can [test a full Script](#fromScript)
 and exercise the CLI options parser along with it.
 
+
 ## Predictable effects are emulated automatically
 
 No simulation calls needed. Set the initial state with [`withFile`](#withFile)
 and assert on the results with [`ensureFile`](#ensureFile).
 
-    generateDotEnv : BackendTask FatalError ()
-    generateDotEnv =
+    import BackendTask exposing (BackendTask)
+    import Cli.Option as Option
+    import Cli.OptionsParser as OptionsParser
+    import FatalError exposing (FatalError)
+    import Json.Decode as Decode
+    import Pages.Script as Script exposing (Script)
+    import Test exposing (test)
+    import Test.BackendTask as BackendTaskTest
+
+    generateDotEnv : String -> BackendTask FatalError ()
+    generateDotEnv outputPath =
         BackendTask.File.jsonFile configDecoder "config.json"
             |> BackendTask.allowFatal
             |> BackendTask.andThen
                 (\config ->
                     Script.writeFile
-                        { path = ".env"
+                        { path = outputPath
                         , body = toDotEnv config
                         }
                         |> BackendTask.allowFatal
@@ -43,7 +53,7 @@ and assert on the results with [`ensureFile`](#ensureFile).
 
     test "generates .env from config" <|
         \() ->
-            generateDotEnv
+            generateDotEnv ".env"
                 |> BackendTaskTest.fromBackendTaskWith
                     (BackendTaskTest.init
                         |> BackendTaskTest.withFile "config.json"
@@ -64,9 +74,10 @@ and assert on the results with [`ensureFile`](#ensureFile).
     toDotEnv config =
         [ "HOST=" ++ config.host
         , "PORT=" ++ String.fromInt config.port_
-        , "DEBUG=" ++ boolToString config.debug
+        , "DEBUG=" ++ (if config.debug then "true" else "false")
         ]
             |> String.join "\n"
+
 
 ## Testing a [`Script`](Pages-Script) with [`fromScript`](#fromScript)
 
@@ -99,6 +110,7 @@ external effects simulated.
                 |> BackendTaskTest.ensureFile ".env.staging"
                     "HOST=localhost\nPORT=3000\nDEBUG=true"
                 |> BackendTaskTest.expectSuccess
+
 
 ## Automatic Virtual State Emulation
 
@@ -138,6 +150,7 @@ Everything else represents outside data and effects (HTTP requests, shell comman
 which you [must simulate in order to give the test runner the fake responses and effects to trigger when it runs](#simulating-effects).
 If your test case encounters one of these which is not simulated, it will fail with a clear message with instructions for how to
 simulate it.
+
 
 ## Building
 
@@ -193,7 +206,6 @@ Every test must end with exactly one of these to produce an `Expectation`.
 
 @docs expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
 
-
 -}
 
 import BackendTask exposing (BackendTask)
@@ -208,6 +220,7 @@ import Json.Encode as Encode
 import Pages.Internal.FatalError
 import Pages.Internal.Script
 import Pages.Internal.StaticHttpBody as StaticHttpBody
+import Pages.Script exposing (Script)
 import Pages.StaticHttp.Request as Request
 import Pages.StaticHttpRequest exposing (RawRequest(..), Status(..))
 import RequestsAndPending
@@ -219,6 +232,9 @@ import Time
 
 {-| The state of a `BackendTask` under test. Create one with [`fromBackendTask`](#fromBackendTask),
 simulate external effects, and finish with [`expectSuccess`](#expectSuccess) or [`expectFailure`](#expectFailure).
+
+    import BackendTask
+    import Test.BackendTask as BackendTaskTest
 
     BackendTask.succeed ()
         |> BackendTaskTest.fromBackendTask
@@ -300,6 +316,8 @@ type SimulatedEffect
 
 {-| The type of HTTP error to simulate with [`simulateHttpError`](#simulateHttpError).
 
+    import Test.BackendTask as BackendTaskTest
+
     BackendTaskTest.simulateHttpError
         "GET"
         "https://api.example.com/data"
@@ -313,6 +331,9 @@ type HttpError
 
 {-| Configuration for the initial state of a test. Create with [`init`](#init),
 then configure with [`withFile`](#withFile) and [`withDb`](#withDb).
+
+    import Pages.Db
+    import Test.BackendTask as BackendTaskTest
 
     BackendTaskTest.init
         |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
@@ -338,7 +359,9 @@ init =
 
 {-| Seed a file into the virtual filesystem before the test starts running.
 
+    import BackendTask
     import BackendTask.Stream as Stream
+    import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
     Stream.fileRead "config.json"
@@ -361,8 +384,11 @@ withFile path content (TestSetup setup) =
 {-| Seed a binary file into the virtual filesystem before the test starts running.
 Use this for testing `BackendTask.File.binaryFile`.
 
+    import BackendTask
     import BackendTask.File
+    import Bytes
     import Bytes.Encode
+    import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
     let
@@ -393,10 +419,17 @@ withBinaryFile path content (TestSetup setup) =
 
 {-| Seed the virtual DB with a typed value before the test starts running.
 
+    import BackendTask exposing (BackendTask)
+    import Expect
+    import FatalError exposing (FatalError)
     import Pages.Db
     import Test.BackendTask as BackendTaskTest
 
-    myDbScript
+    incrementCounter : BackendTask FatalError ()
+    incrementCounter =
+        Pages.Db.update Pages.Db.default (\db -> { db | counter = db.counter + 1 })
+
+    incrementCounter
         |> BackendTaskTest.fromBackendTaskWith
             (BackendTaskTest.init
                 |> BackendTaskTest.withDb Pages.Db.testConfig { counter = 0 }
@@ -426,7 +459,9 @@ withDb config initialValue (TestSetup setup) =
 
 {-| Seed stdin content for stream pipelines that read from `Stream.stdin`.
 
+    import BackendTask
     import BackendTask.Stream as Stream
+    import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
     Stream.stdin
@@ -452,7 +487,9 @@ withStdin content (TestSetup setup) =
 
 {-| Seed an environment variable for `BackendTask.Env.get` and `BackendTask.Env.expect`.
 
+    import BackendTask
     import BackendTask.Env
+    import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
     BackendTask.Env.expect "API_KEY"
@@ -478,7 +515,9 @@ withEnv name value (TestSetup setup) =
 {-| Set a fixed virtual time for `BackendTask.Time.now`. Without this, any use of
 `BackendTask.Time.now` will produce a test error with a helpful message.
 
+    import BackendTask
     import BackendTask.Time
+    import Pages.Script as Script
     import Time
     import Test.BackendTask as BackendTaskTest
 
@@ -508,7 +547,9 @@ Without this, any use of `BackendTask.Random` will produce a test error with a h
 The seed value is returned directly by `BackendTask.Random.int32`. For `BackendTask.Random.generate`,
 the seed is used with `Random.initialSeed` to run the generator deterministically.
 
+    import BackendTask
     import BackendTask.Random
+    import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
     BackendTask.Random.int32
@@ -533,6 +574,7 @@ withRandomSeed seed (TestSetup setup) =
 {-| Register a command as available for `Script.which` and `Script.expectWhich`.
 The first argument is the command name, the second is its full path.
 
+    import BackendTask
     import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
@@ -567,6 +609,7 @@ effects like HTTP requests and `BackendTask.Custom.run` calls.
 
     -- Script.log is auto-resolved, no simulation needed
     Script.log "Hello!"
+        |> BackendTask.allowFatal
         |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.expectSuccess
 
@@ -579,7 +622,9 @@ fromBackendTask =
 {-| Start a test with a configured [`TestSetup`](#TestSetup). Use this when you need
 to seed initial files or DB state.
 
+    import BackendTask
     import BackendTask.File
+    import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
     BackendTask.File.rawFile "config.json"
@@ -612,10 +657,17 @@ fromBackendTaskWith (TestSetup setup) task =
 `Pages.Db.testConfig` and an initial DB value. All DB operations (`get`, `update`,
 `transaction`) will be auto-resolved against a virtual DB.
 
+    import BackendTask exposing (BackendTask)
+    import Expect
+    import FatalError exposing (FatalError)
     import Pages.Db
     import Test.BackendTask as BackendTaskTest
 
-    myDbScript
+    incrementCounter : BackendTask FatalError ()
+    incrementCounter =
+        Pages.Db.update Pages.Db.default (\db -> { db | counter = db.counter + 1 })
+
+    incrementCounter
         |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig
             { counter = 0 }
         |> BackendTaskTest.expectDb Pages.Db.testConfig
@@ -630,8 +682,8 @@ This is a convenience for `fromBackendTaskWith (init |> withDb config initialVal
 fromBackendTaskWithDb :
     { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes }
     -> db
-    -> BackendTask FatalError ()
-    -> BackendTaskTest ()
+    -> BackendTask FatalError value
+    -> BackendTaskTest value
 fromBackendTaskWithDb config initialValue =
     fromBackendTaskWith (init |> withDb config initialValue)
 
@@ -642,20 +694,24 @@ This lets you test the full script including CLI option parsing.
     import Cli.Option as Option
     import Cli.OptionsParser as OptionsParser
     import Cli.Program as Program
-    import Pages.Script as Script
+    import Pages.Script as Script exposing (Script)
     import Test.BackendTask as BackendTaskTest
 
-    Script.withCliOptions
-        (Program.config
-            |> Program.add
-                (OptionsParser.build (\name -> { name = name })
-                    |> OptionsParser.with
-                        (Option.optionalKeywordArg "name"
-                            |> Option.withDefault "world"
-                        )
-                )
-        )
-        (\{ name } -> Script.log ("Hello, " ++ name ++ "!"))
+    helloScript : Script
+    helloScript =
+        Script.withCliOptions
+            (Program.config
+                |> Program.add
+                    (OptionsParser.build (\name -> { name = name })
+                        |> OptionsParser.with
+                            (Option.optionalKeywordArg "name"
+                                |> Option.withDefault "world"
+                            )
+                    )
+            )
+            (\{ name } -> Script.log ("Hello, " ++ name ++ "!"))
+
+    helloScript
         |> BackendTaskTest.fromScript [ "--name", "Dillon" ]
         |> BackendTaskTest.ensureStdout [ "Hello, Dillon!" ]
         |> BackendTaskTest.expectSuccess
@@ -664,23 +720,36 @@ If the CLI arguments don't match the expected options, you get a `TestError`
 with the CLI parser's error message.
 
 -}
-fromScript : List String -> Pages.Internal.Script.Script -> BackendTaskTest ()
+fromScript : List String -> Script -> BackendTaskTest ()
 fromScript =
     fromScriptWith init
 
 
 {-| Like [`fromScript`](#fromScript) but with a configured [`TestSetup`](#TestSetup).
 
+    import BackendTask
+    import BackendTask.File
+    import Pages.Script as Script exposing (Script)
+    import Test.BackendTask as BackendTaskTest
+
+    myScript : Script
+    myScript =
+        Script.withoutCliOptions
+            (BackendTask.File.rawFile "config.json"
+                |> BackendTask.allowFatal
+                |> BackendTask.andThen Script.log
+            )
+
     myScript
         |> BackendTaskTest.fromScriptWith
             (BackendTaskTest.init
                 |> BackendTaskTest.withFile "config.json" "{}"
             )
-            [ "--verbose" ]
+            []
         |> BackendTaskTest.expectSuccess
 
 -}
-fromScriptWith : TestSetup -> List String -> Pages.Internal.Script.Script -> BackendTaskTest ()
+fromScriptWith : TestSetup -> List String -> Script -> BackendTaskTest ()
 fromScriptWith setup cliArgs (Pages.Internal.Script.Script toConfig) =
     let
         programConfig : Program.Config (BackendTask FatalError ())
@@ -804,8 +873,8 @@ advanceWithAutoResolveHelper fuel state =
                                     , drainedOutputCount = state.drainedOutputCount
                                     , virtualFS = autoResult.virtualFS
                                     , virtualDB = autoResult.virtualDB
-                            , simulatedEffects = state.simulatedEffects
-                            }
+                                    , simulatedEffects = state.simulatedEffects
+                                    }
 
 
 isAutoResolvable : Request.Request -> Bool
@@ -961,7 +1030,6 @@ buildAutoResponses vfs virtualDB requests =
                                     newEffects : List TrackedEffect
                                     newEffects =
                                         trackEffect req
-
                                 in
                                 case applyVirtualFSEffect req accum.virtualFS of
                                     Ok newVFS ->
@@ -1527,7 +1595,7 @@ parseFrontmatter filePath content =
     let
         -- Normalize Windows line endings before parsing
         normalized =
-            String.replace "\r\n" "\n" content
+            String.replace "\u{000D}\n" "\n" content
     in
     if String.startsWith "---\n" normalized then
         case String.indexes "\n---\n" (String.dropLeft 3 normalized) of
@@ -1978,11 +2046,23 @@ than [`simulateHttpGet`](#simulateHttpGet) or [`simulateHttpPost`](#simulateHttp
 
     import BackendTask
     import BackendTask.Http
+    import FatalError
     import Json.Decode as Decode
     import Json.Encode as Encode
     import Test.BackendTask as BackendTaskTest
 
-    -- Simulate a 404 error
+    type alias User =
+        { name : String }
+
+    userDecoder : Decode.Decoder User
+    userDecoder =
+        Decode.map (\name -> { name = name })
+            (Decode.field "name" Decode.string)
+
+    fallbackUser : User
+    fallbackUser =
+        { name = "Unknown user" }
+
     BackendTask.Http.getJson
         "https://api.example.com/users/999"
         userDecoder
@@ -2005,17 +2085,6 @@ than [`simulateHttpGet`](#simulateHttpGet) or [`simulateHttpPost`](#simulateHttp
             , headers = []
             , body = Encode.object [ ( "error", Encode.string "User not found" ) ]
             }
-        |> BackendTaskTest.expectSuccess
-
-    -- Simulate a PUT request
-    BackendTask.Http.request
-        { method = "PUT", url = "https://api.example.com/items/1", ... }
-        (BackendTask.Http.expectWhatever)
-        |> BackendTask.allowFatal
-        |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.simulateHttp
-            { method = "PUT", url = "https://api.example.com/items/1" }
-            { statusCode = 200, statusText = "OK", headers = [], body = Encode.null }
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -2212,6 +2281,10 @@ commandMetadata =
 `Stream.customWrite`, or `Stream.customDuplex`). Works like `simulateCommand`. The framework
 handles simulatable parts around the CustomBackendTask. You only provide its output.
 
+    import BackendTask.Stream as Stream
+    import Json.Encode as Encode
+    import Test.BackendTask as BackendTaskTest
+
     Stream.fromString "input"
         |> Stream.pipe (Stream.customDuplex "myTransform" (Encode.object []))
         |> Stream.pipe (Stream.fileWrite "output.txt")
@@ -2235,6 +2308,9 @@ simulateCustomStream portName portOutput scriptTest =
 {-| Simulate a pending stream pipeline that contains an HTTP stream part (`Stream.http` or
 `Stream.httpWithInput`). Works like `simulateCommand`. The framework handles simulatable parts
 around the HTTP request. You only provide the response body.
+
+    import BackendTask.Stream as Stream
+    import Test.BackendTask as BackendTaskTest
 
     Stream.fromString "request body"
         |> Stream.pipe (Stream.httpWithInput { url = "https://api.example.com", method = "POST", headers = [], retries = 0, timeoutInMs = 0 })
@@ -2267,6 +2343,7 @@ httpStreamMetadata url =
 {-| Simulate a pending `Script.question` call resolving with the given answer.
 The prompt must match the prompt text passed to `Script.question`.
 
+    import BackendTask
     import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
@@ -2286,6 +2363,7 @@ simulateQuestion prompt answer scriptTest =
 
 {-| Simulate a pending `Script.readKey` call resolving with the given key.
 
+    import BackendTask
     import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
@@ -3134,10 +3212,13 @@ Both `Script.log` and stream-based stdout (`Stream.pipe Stream.stdout`) are trac
 window. If your script produces both stdout and stderr in the same phase, use
 [`ensureOutputWith`](#ensureOutputWith) instead to check both streams together.
 
-On success, all output (stdout and stderr) is drained.subsequent calls only see new messages.
+On success, all output (stdout and stderr) is drained. Subsequent calls only see new messages.
 On failure, messages are NOT drained, preserving them for debugging. This follows the same
 drain-on-success pattern as elm-program-test's `ensureOutgoingPortValues`.
 
+    import BackendTask
+    import Json.Decode as Decode
+    import Json.Encode as Encode
     import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
@@ -3270,12 +3351,19 @@ ensureStderr expectedMessages =
 {-| Assert on the interleaved stdout/stderr output since the last drain, preserving
 the ordering between stdout and stderr messages. Drains on success, preserves on failure.
 
+    import BackendTask
+    import BackendTask.Stream as Stream
     import Expect
     import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest exposing (Output(..))
 
     Script.log "step 1"
-        |> BackendTask.andThen (\() -> writeToStderr "warning!")
+        |> BackendTask.andThen
+            (\() ->
+                Stream.fromString "warning!"
+                    |> Stream.pipe Stream.stderr
+                    |> Stream.run
+            )
         |> BackendTask.andThen (\() -> Script.log "step 2")
         |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.ensureOutputWith
@@ -3532,9 +3620,10 @@ ensureNoFile path scriptTest =
 and the request body (as JSON), and returns a list of [`SimulatedEffect`](#SimulatedEffect)s
 to apply to the virtual filesystem when the port is resolved via [`simulateCustom`](#simulateCustom).
 
-This follows the same pattern as elm-program-test's `withSimulatedEffects`. It's a
-translation layer, not an auto-resolver. Custom ports still pause and require explicit
-[`simulateCustom`](#simulateCustom) calls.
+This is only for `BackendTask.Custom.run`. It does not enable HTTP, time, or any other
+global simulation features. Think of it as a translation layer for custom-task side effects,
+not an auto-resolver. Custom ports still pause and require explicit [`simulateCustom`](#simulateCustom)
+calls.
 
     import BackendTask
     import BackendTask.Custom
@@ -3682,6 +3771,8 @@ expectSuccess scriptTest =
 result value. Use this when your `BackendTask` returns a value you want to check
 with elm-test assertions.
 
+    import Expect
+    import BackendTask
     import BackendTask.Glob as Glob
     import Test.BackendTask as BackendTaskTest
 
@@ -3727,10 +3818,17 @@ expectSuccessWith assertion scriptTest =
 the script completed successfully. Pass the generated `Pages.Db.testConfig` and
 an assertion function that receives the decoded DB value.
 
+    import Expect
+    import BackendTask exposing (BackendTask)
+    import FatalError exposing (FatalError)
     import Pages.Db
     import Test.BackendTask as BackendTaskTest
 
-    myDbScript
+    incrementCounter : BackendTask FatalError ()
+    incrementCounter =
+        Pages.Db.update Pages.Db.default (\db -> { db | counter = db.counter + 1 })
+
+    incrementCounter
         |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig
             { counter = 0 }
         |> BackendTaskTest.expectDb Pages.Db.testConfig
