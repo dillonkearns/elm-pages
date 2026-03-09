@@ -51,6 +51,14 @@ all =
                             FakeDb.testConfig.seed
                         |> BackendTaskTest.expectDb FakeDb.testConfig
                             (\db -> Expect.equal 1 db.counter)
+            , test "returned values can be asserted after DB setup" <|
+                \() ->
+                    FakeDb.update (\db -> { db | counter = db.counter + 1 })
+                        |> BackendTask.andThen (\() -> FakeDb.get)
+                        |> BackendTaskTest.fromBackendTaskWithDb FakeDb.testConfig
+                            { counter = 10, name = "test" }
+                        |> BackendTaskTest.expectSuccessWith
+                            (\db -> Expect.equal 11 db.counter)
             , test "DB + HTTP simulation combined" <|
                 \() ->
                     BackendTask.Http.getJson
