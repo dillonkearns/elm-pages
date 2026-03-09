@@ -1,6 +1,6 @@
 module BackendTask.Time exposing
     ( now
-    , zone, zoneFor, zoneByName
+    , zone, zoneFor, zoneByName, zoneByNameFor
     , DateRange, withinYears, withinRange, between
     )
 
@@ -8,7 +8,7 @@ module BackendTask.Time exposing
 
 @docs now
 
-@docs zone, zoneFor, zoneByName
+@docs zone, zoneFor, zoneByName, zoneByNameFor
 
 @docs DateRange, withinYears, withinRange, between
 
@@ -109,42 +109,51 @@ for example to a narrower window around the dates you need.
 -}
 zoneFor : DateRange -> BackendTask error Time.Zone
 zoneFor dateRange =
-    BackendTask.Internal.Request.request
-        { name = "timezone"
-        , body =
-            BackendTask.Http.jsonBody
-                (encodeDateRange Nothing dateRange)
-        , expect =
-            BackendTask.Http.expectJson zoneDecoder
-        }
+    requestZone Nothing dateRange
 
 
 {-| Get a [`Time.Zone`](https://package.elm-lang.org/packages/elm/time/latest/Time#Zone) for a specific
-IANA timezone (e.g. `"America/New_York"`, `"Europe/London"`, `"Asia/Tokyo"`) with DST transitions for
-the given date range.
+IANA timezone (e.g. `"America/New_York"`, `"Europe/London"`, `"Asia/Tokyo"`) with DST transitions
+covering 50 years in each direction.
 
-    import BackendTask.Time exposing (withinYears)
+    import BackendTask.Time
 
     newYorkZone : BackendTask error Time.Zone
     newYorkZone =
-        BackendTask.Time.zoneByName "America/New_York" (withinYears 100)
+        BackendTask.Time.zoneByName "America/New_York"
 
 This is useful for formatting dates in a known timezone regardless of what timezone the server is running in.
 For example, a blog built on a CI server (typically UTC) can format post dates in the author's local timezone.
 
+If you need a specific date range, use [`zoneByNameFor`](#zoneByNameFor).
+
 An invalid timezone name (e.g. `"Foo/Bar"`) will result in a `FatalError`.
 
 -}
-zoneByName : String -> DateRange -> BackendTask error Time.Zone
-zoneByName timeZoneId dateRange =
-    BackendTask.Internal.Request.request
-        { name = "timezone"
-        , body =
-            BackendTask.Http.jsonBody
-                (encodeDateRange (Just timeZoneId) dateRange)
-        , expect =
-            BackendTask.Http.expectJson zoneDecoder
-        }
+zoneByName : String -> BackendTask error Time.Zone
+zoneByName timeZoneId =
+    zoneByNameFor timeZoneId (withinYears 50)
+
+
+{-| Like [`zoneByName`](#zoneByName), but with a specific [`DateRange`](#DateRange).
+
+    import BackendTask.Time exposing (between)
+    import Date
+    import Time
+
+    newYorkZone : BackendTask error Time.Zone
+    newYorkZone =
+        BackendTask.Time.zoneByNameFor "America/New_York"
+            (between
+                { since = Date.fromCalendarDate 2015 Time.Jan 1
+                , until = Date.fromCalendarDate 2030 Time.Dec 31
+                }
+            )
+
+-}
+zoneByNameFor : String -> DateRange -> BackendTask error Time.Zone
+zoneByNameFor timeZoneId dateRange =
+    requestZone (Just timeZoneId) dateRange
 
 
 {-| A date range that specifies which period of time to include timezone transition data for.
@@ -195,9 +204,22 @@ between { since, until } =
         }
 
 
+requestZone : Maybe String -> DateRange -> BackendTask error Time.Zone
+requestZone maybeTzId dateRange =
+    BackendTask.Internal.Request.request
+        { name = "timezone"
+        , body =
+            BackendTask.Http.jsonBody
+                (encodeDateRange maybeTzId dateRange)
+        , expect =
+            BackendTask.Http.expectJson zoneDecoder
+        }
+
+
 encodeDateRange : Maybe String -> DateRange -> Encode.Value
 encodeDateRange maybeTzId dateRange =
     let
+        tzField : List ( String, Encode.Value )
         tzField =
             case maybeTzId of
                 Just tzId ->
@@ -206,6 +228,7 @@ encodeDateRange maybeTzId dateRange =
                 Nothing ->
                     []
 
+        rangeFields : List ( String, Encode.Value )
         rangeFields =
             case dateRange of
                 Relative { yearsAgo, yearsAhead } ->
