@@ -130,14 +130,10 @@ These effects are emulated automatically against virtual state:
   - `Stream.fromString`, `Stream.stdin`, `Stream.stdout`, `Stream.stderr`
   - `Stream.fileRead`, `Stream.fileWrite`, `Stream.gzip`, `Stream.unzip`
 
-**Not emulated** (use the real thing or supplement with integration tests):
-
-  - Decoder correctness against real HTTP responses
-  - File system permissions, symlinks, encoding, and OS-specific path handling
-  - Actual shell command behavior and argument validation
-  - Timing, race conditions, and concurrency
-  - Network conditions beyond `NetworkError` and `Timeout`
-
+Everything else represents outside data and effects (HTTP requests, shell commands, [`BackendTask.Custom`](BackendTask-Custom) calls)
+which you [must simulate in order to give the test runner the fake responses and effects to trigger when it runs](#simulating-effects).
+If your test case encounters one of these which is not simulated, it will fail with a clear message with instructions for how to
+simulate it.
 
 ## Testing a BackendTask
 
