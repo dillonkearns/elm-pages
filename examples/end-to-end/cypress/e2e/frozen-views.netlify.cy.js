@@ -73,8 +73,14 @@ context("frozen views netlify build output", () => {
       // Frozen helper badge called from Shared.elm (shared-scoped seeding)
       expect(html).to.include("shared-e2e");
 
-      // Total: 1 direct + 2 transitive + 2 badge + 2 localInfoCard + 1 shared badge = 8
-      expect(frozenViewCount).to.eq(8);
+      // Color palette inside View.freeze (tests DCE of elm-color-extra)
+      expect(html).to.include("Frozen Color Palette (DCE Test)");
+      expect(html).to.include("Generated from seed: codex");
+      // Verify actual color hex values are rendered (from Color.Convert.colorToHex)
+      expect(html).to.match(/#[0-9a-fA-F]{6}/);
+
+      // Total: 1 direct + 1 colorPalette + 2 transitive + 2 badge + 2 localInfoCard + 1 shared badge = 9
+      expect(frozenViewCount).to.eq(9);
     });
   });
 
@@ -113,6 +119,16 @@ context("frozen views netlify build output", () => {
     cy.contains("shared-e2e");
   });
 
+  it("renders frozen color palette with DCE'd elm-color-extra content", () => {
+    cy.visit("/frozen-views?name=codex");
+    cy.contains("h3", "Frozen Color Palette (DCE Test)");
+    cy.contains("Generated from seed: codex");
+    cy.contains("Base");
+    cy.contains("Lighter");
+    cy.contains("Darker");
+    cy.contains("Complement");
+  });
+
   it("keeps interactive islands working", () => {
     cy.visit("/frozen-views");
     cy.contains("h3", "Interactive Counter (Island)")
@@ -122,5 +138,68 @@ context("frozen views netlify build output", () => {
         cy.contains("button", "+").click();
         cy.contains("Counter: 1");
       });
+  });
+
+  it("preserves frozen views after SPA navigation away and back", () => {
+    // Start on frozen views page via full page load
+    cy.visit("/frozen-views");
+    cy.contains("h1", "Frozen Views (Netlify E2E)");
+    cy.contains("Transitive helper card A");
+
+    // SPA navigate to index via back link
+    cy.contains("a", "Back to Index").click();
+    cy.url().should("not.include", "/frozen-views");
+    cy.contains("This is the index page.");
+
+    // SPA navigate back to frozen views
+    cy.contains("a", "Frozen Views (Netlify)").click();
+    cy.url().should("include", "/frozen-views");
+
+    // Verify frozen content still renders after SPA transition
+    cy.contains("h1", "Frozen Views (Netlify E2E)");
+    cy.contains("Transitive helper card A");
+    cy.contains("Transitive helper card B");
+    cy.contains("e2e-alpha");
+    cy.contains("Local Helper Card");
+    cy.contains("shared-e2e");
+    cy.contains("Frozen Color Palette (DCE Test)");
+  });
+
+  it("preserves frozen views after browser back/forward navigation", () => {
+    cy.visit("/frozen-views");
+    cy.contains("h1", "Frozen Views (Netlify E2E)");
+
+    // Increment counter to create local state
+    cy.contains("h3", "Interactive Counter (Island)")
+      .parent()
+      .within(() => {
+        cy.contains("button", "+").click();
+        cy.contains("button", "+").click();
+        cy.contains("Counter: 2");
+      });
+
+    // SPA navigate away
+    cy.contains("a", "Back to Index").click();
+    cy.contains("This is the index page.");
+
+    // Browser back button
+    cy.go("back");
+    cy.url().should("include", "/frozen-views");
+
+    // Frozen content should render correctly after back navigation
+    cy.contains("h1", "Frozen Views (Netlify E2E)");
+    cy.contains("Transitive helper card A");
+    cy.contains("e2e-alpha");
+    cy.contains("Frozen Color Palette (DCE Test)");
+
+    // Browser forward button
+    cy.go("forward");
+    cy.url().should("not.include", "/frozen-views");
+    cy.contains("This is the index page.");
+
+    // Browser back again - frozen views should still work
+    cy.go("back");
+    cy.contains("h1", "Frozen Views (Netlify E2E)");
+    cy.contains("Transitive helper card A");
   });
 });

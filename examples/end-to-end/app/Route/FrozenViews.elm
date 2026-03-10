@@ -1,6 +1,9 @@
 module Route.FrozenViews exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
+import Color
+import Color.Convert
+import Color.Manipulate
 import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -117,6 +120,9 @@ view app _ model =
         [ Html.div [ Attr.style "max-width" "880px", Attr.style "margin" "0 auto", Attr.style "padding" "24px" ]
             [ Html.h1 [] [ Html.text "Frozen Views (Netlify E2E)" ]
             , Html.p []
+                [ Html.a [ Attr.href "/" ] [ Html.text "Back to Index" ]
+                ]
+            , Html.p []
                 [ Html.text "Server-rendered frozen sections and interactive islands."
                 ]
             , Html.p []
@@ -144,6 +150,8 @@ view app _ model =
             -- (localInfoCard is defined AFTER view in source order)
             , localInfoCard "Local Helper Card" "Route-local helper with String arg, defined after view"
             , localInfoCard "Second Local Card" "Same local helper, second call site"
+            -- Color library inside View.freeze (tests DCE of elm-color-extra)
+            , View.freeze (colorPaletteSection app.data.requestedName)
             , Html.div
                 [ Attr.style "margin-top" "24px"
                 , Attr.style "padding" "16px"
@@ -201,3 +209,61 @@ localInfoCard title description =
             , Html.p [] [ Html.text description ]
             ]
         )
+
+
+{-| Frozen color palette section that uses elm-color-extra.
+The Color.Convert and Color.Manipulate modules should be DCE'd from the client bundle
+since this content is only rendered server-side inside View.freeze.
+-}
+colorPaletteSection : String -> Html Never
+colorPaletteSection seedName =
+    let
+        baseColor =
+            Color.hsl (toFloat (String.length seedName) / 10) 0.7 0.5
+
+        lighterColor =
+            Color.Manipulate.lighten 0.2 baseColor
+
+        darkerColor =
+            Color.Manipulate.darken 0.2 baseColor
+
+        complementColor =
+            Color.Manipulate.rotateHue 180 baseColor
+
+        colorSwatch color label =
+            Html.div
+                [ Attr.style "display" "inline-block"
+                , Attr.style "width" "80px"
+                , Attr.style "text-align" "center"
+                , Attr.style "margin-right" "8px"
+                ]
+                [ Html.div
+                    [ Attr.style "width" "80px"
+                    , Attr.style "height" "40px"
+                    , Attr.style "border-radius" "4px"
+                    , Attr.style "background" (Color.Convert.colorToHex color)
+                    ]
+                    []
+                , Html.p [ Attr.style "font-size" "11px", Attr.style "margin" "4px 0" ]
+                    [ Html.text label ]
+                , Html.p [ Attr.style "font-size" "10px", Attr.style "color" "#666", Attr.style "margin" "0" ]
+                    [ Html.text (Color.Convert.colorToHex color) ]
+                ]
+    in
+    Html.div
+        [ Attr.style "margin-top" "20px"
+        , Attr.style "padding" "16px"
+        , Attr.style "background" "#faf5ff"
+        , Attr.style "border" "1px solid #d8b4fe"
+        , Attr.style "border-radius" "8px"
+        ]
+        [ Html.h3 [ Attr.style "margin-top" "0" ] [ Html.text "Frozen Color Palette (DCE Test)" ]
+        , Html.p [ Attr.style "font-size" "13px", Attr.style "color" "#666" ]
+            [ Html.text ("Generated from seed: " ++ seedName ++ " using elm-color-extra (should be DCE'd from client bundle)") ]
+        , Html.div [ Attr.style "display" "flex", Attr.style "gap" "4px", Attr.style "margin-top" "8px" ]
+            [ colorSwatch baseColor "Base"
+            , colorSwatch lighterColor "Lighter"
+            , colorSwatch darkerColor "Darker"
+            , colorSwatch complementColor "Complement"
+            ]
+        ]
