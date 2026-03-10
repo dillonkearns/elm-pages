@@ -1,6 +1,6 @@
 module Test.BackendTask exposing
-    ( BackendTaskTest, fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
-    , TestSetup, init, withFile, withBinaryFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
+    ( BackendTaskTest, fromBackendTask, fromBackendTaskWith, fromScript, fromScriptWith
+    , TestSetup, init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withRandomSeed, withWhich
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, HttpError(..), simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , simulateQuestion, simulateReadKey
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureFileWritten
@@ -154,14 +154,14 @@ simulate it.
 
 ## Building
 
-@docs BackendTaskTest, fromBackendTask, fromBackendTaskWith, fromBackendTaskWithDb, fromScript, fromScriptWith
+@docs BackendTaskTest, fromBackendTask, fromBackendTaskWith, fromScript, fromScriptWith
 
 
 ## Test Setup
 
 Seed initial state before the test starts running.
 
-@docs TestSetup, init, withFile, withBinaryFile, withDb, withStdin, withEnv, withTime, withRandomSeed, withWhich
+@docs TestSetup, init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withRandomSeed, withWhich
 
 
 ## Simulating Effects
@@ -419,7 +419,10 @@ withBinaryFile path content (TestSetup setup) =
     TestSetup { setup | virtualFS = { vfs | binaryFiles = Dict.insert path content vfs.binaryFiles } }
 
 
-{-| Seed the virtual DB with a typed value before the test starts running.
+{-| Seed the virtual DB with the default seed value from the generated `testConfig`.
+This is the value produced by running the full migration chain from `V1.seed ()`.
+
+Use [`withDbSetTo`](#withDbSetTo) instead when you need a specific initial value.
 
     import BackendTask exposing (BackendTask)
     import Expect
@@ -434,18 +437,47 @@ withBinaryFile path content (TestSetup setup) =
     incrementCounter
         |> BackendTaskTest.fromBackendTaskWith
             (BackendTaskTest.init
-                |> BackendTaskTest.withDb Pages.Db.testConfig { counter = 0 }
+                |> BackendTaskTest.withDb Pages.Db.testConfig
             )
         |> BackendTaskTest.expectDb Pages.Db.testConfig
             (\db -> Expect.equal 1 db.counter)
 
 -}
 withDb :
-    { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes }
-    -> db
+    { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes, seed : db }
     -> TestSetup
     -> TestSetup
-withDb config initialValue (TestSetup setup) =
+withDb config =
+    withDbSetTo config.seed config
+
+
+{-| Seed the virtual DB with a specific initial value before the test starts running.
+
+    import BackendTask exposing (BackendTask)
+    import Expect
+    import FatalError exposing (FatalError)
+    import Pages.Db
+    import Test.BackendTask as BackendTaskTest
+
+    incrementCounter : BackendTask FatalError ()
+    incrementCounter =
+        Pages.Db.update Pages.Db.default (\db -> { db | counter = db.counter + 1 })
+
+    incrementCounter
+        |> BackendTaskTest.fromBackendTaskWith
+            (BackendTaskTest.init
+                |> BackendTaskTest.withDbSetTo { counter = 0 } Pages.Db.testConfig
+            )
+        |> BackendTaskTest.expectDb Pages.Db.testConfig
+            (\db -> Expect.equal 1 db.counter)
+
+-}
+withDbSetTo :
+    db
+    -> { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes }
+    -> TestSetup
+    -> TestSetup
+withDbSetTo initialValue config (TestSetup setup) =
     let
         wire3Bytes =
             config.encode initialValue
@@ -655,43 +687,6 @@ fromBackendTaskWith (TestSetup setup) task =
         }
 
 
-{-| Start a test from a `BackendTask` that uses `Pages.Db`. Pass the generated
-`Pages.Db.testConfig` and an initial DB value. All DB operations (`get`, `update`,
-`transaction`) will be auto-resolved against a virtual DB.
-
-    import BackendTask exposing (BackendTask)
-    import Expect
-    import FatalError exposing (FatalError)
-    import Pages.Db
-    import Test.BackendTask as BackendTaskTest
-
-    incrementCounter : BackendTask FatalError ()
-    incrementCounter =
-        Pages.Db.update Pages.Db.default (\db -> { db | counter = db.counter + 1 })
-
-    incrementCounter
-        |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig
-            { counter = 0 }
-        |> BackendTaskTest.expectDb Pages.Db.testConfig
-            (\db -> Expect.equal 1 db.counter)
-
-If a script uses `Pages.Db` but is created with [`fromBackendTask`](#fromBackendTask)
-instead, you'll get a helpful error message.
-
-This is a convenience for `fromBackendTaskWith (init |> withDb config initialValue)`.
-It also preserves the task's return value, so you can still use [`expectSuccessWith`](#expectSuccessWith)
-for DB-backed tasks that return useful data.
-
--}
-fromBackendTaskWithDb :
-    { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes }
-    -> db
-    -> BackendTask FatalError value
-    -> BackendTaskTest value
-fromBackendTaskWithDb config initialValue =
-    fromBackendTaskWith (init |> withDb config initialValue)
-
-
 {-| Start a test from a [`Script`](Pages-Script#Script) value with simulated CLI arguments.
 This lets you test the full script including CLI option parsing.
 
@@ -838,10 +833,13 @@ advanceWithAutoResolveHelper fuel state =
                 in
                 if hasDbRequests && dbConfigMissing then
                     TestError
-                        ("Your script uses Pages.Db, but the test was created with fromBackendTask.\n\n"
-                            ++ "Use fromBackendTaskWithDb instead to provide DB support:\n\n"
+                        ("Your script uses Pages.Db, but the test was created without DB support.\n\n"
+                            ++ "Use withDb in your TestSetup:\n\n"
                             ++ "    myScript\n"
-                            ++ "        |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig initialDbValue"
+                            ++ "        |> BackendTaskTest.fromBackendTaskWith\n"
+                            ++ "            (BackendTaskTest.init\n"
+                            ++ "                |> BackendTaskTest.withDb Pages.Db.testConfig\n"
+                            ++ "            )"
                         )
 
                 else
@@ -3854,8 +3852,10 @@ an assertion function that receives the decoded DB value.
         Pages.Db.update Pages.Db.default (\db -> { db | counter = db.counter + 1 })
 
     incrementCounter
-        |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig
-            { counter = 0 }
+        |> BackendTaskTest.fromBackendTaskWith
+            (BackendTaskTest.init
+                |> BackendTaskTest.withDb Pages.Db.testConfig
+            )
         |> BackendTaskTest.expectDb Pages.Db.testConfig
             (\db -> Expect.equal 1 db.counter)
 
