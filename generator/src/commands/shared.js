@@ -74,6 +74,7 @@ main : Pages.Internal.Platform.GeneratorApplication.Program
 main =
     Pages.Internal.Platform.GeneratorApplication.app
         { data = ${moduleName}.run
+        , scriptModuleName = "${moduleName}"
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , gotBatchSub = gotBatchSub identity

@@ -67,7 +67,7 @@ app config =
         cliConfig =
             case config.data of
                 Pages.Internal.Script.Script theCliConfig ->
-                    theCliConfig HtmlPrinter.htmlToString
+                    theCliConfig config.scriptModuleName HtmlPrinter.htmlToString
     in
     Program.stateful
         { init =

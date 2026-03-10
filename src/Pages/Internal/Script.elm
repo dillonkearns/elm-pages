@@ -9,9 +9,11 @@ import Html exposing (Html)
 {-| -}
 type Script
     = Script
-        ((Maybe { indent : Int, newLines : Bool }
-          -> Html Never
-          -> String
-         )
+        (String
+         ->
+            (Maybe { indent : Int, newLines : Bool }
+             -> Html Never
+             -> String
+            )
          -> Program.Config (BackendTask FatalError ())
         )

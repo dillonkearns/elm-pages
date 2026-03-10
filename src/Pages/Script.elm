@@ -1,6 +1,6 @@
 module Pages.Script exposing
     ( Script
-    , withCliOptions, withoutCliOptions, withDatabasePath
+    , withCliOptions, withoutCliOptions, withSchema, withDatabasePath
     , writeFile, removeFile, copyFile, move
     , makeDirectory, removeDirectory, makeTempDirectory
     , command, exec
@@ -17,7 +17,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 ## Defining Scripts
 
-@docs withCliOptions, withoutCliOptions, withDatabasePath
+@docs withCliOptions, withoutCliOptions, withSchema, withDatabasePath
 
 
 ## File System Utilities
@@ -53,6 +53,8 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Script
+import TsJson.Encode
+import TsJson.Type
 
 
 {-| The type for your `run` function that can be executed by `elm-pages run`.
@@ -150,7 +152,7 @@ log message =
 withoutCliOptions : BackendTask FatalError () -> Script
 withoutCliOptions execute =
     Pages.Internal.Script.Script
-        (\_ ->
+        (\_ _ ->
             Program.config
                 |> Program.add
                     (OptionsParser.build ())
@@ -172,9 +174,113 @@ Read more at <https://elm-pages.com/docs/elm-pages-scripts/#adding-command-line-
 withCliOptions : Program.Config cliOptions -> (cliOptions -> BackendTask FatalError ()) -> Script
 withCliOptions config execute =
     Pages.Internal.Script.Script
-        (\_ ->
+        (\_ _ ->
             config
                 |> Program.mapConfig execute
+        )
+
+
+{-| Like [`withCliOptions`](#withCliOptions), but with a typed output schema.
+
+The return value of your `run` function is automatically JSON-encoded and
+printed to stdout using the provided encoder. Running with `--introspect`
+short-circuits execution and prints the output's JSON Schema instead, so
+that tools and LLM agents can discover what your script returns without
+running it.
+
+The schema is derived from the same `Encoder` that does the actual encoding,
+so it can never drift out of sync with the real output.
+
+`description` is a short summary of what the script does. It appears in
+`--introspect` output so that tools can decide whether to call it. The
+`help` field in the output is the usage synopsis from `--help` (without
+ANSI colors).
+
+Example: a script that checks whether a URL is reachable.
+
+    -- file: script/src/CheckStatus.elm
+    run : Script
+    run =
+        Script.withSchema
+            { description =
+                "Check whether a URL is reachable"
+            , cliOptions =
+                Program.config
+                    |> Program.add
+                        (OptionsParser.build identity
+                            |> OptionsParser.with
+                                (Option.requiredKeywordArg "url")
+                        )
+            , encoder =
+                TsEncode.object
+                    [ TsEncode.required "reachable"
+                        .reachable
+                        TsEncode.bool
+                    , TsEncode.required "statusCode"
+                        .statusCode
+                        TsEncode.int
+                    ]
+            , run = checkStatus
+            }
+
+```sh
+elm-pages run CheckStatus.elm --url https://example.com
+# { "reachable": true, "statusCode": 200 }
+
+elm-pages run CheckStatus.elm --introspect
+# { "name": "CheckStatus",
+#   "description": "Check whether a URL is reachable",
+#   "help": "CheckStatus --url <URL>",
+#   "outputSchema": { ... } }
+```
+
+-}
+withSchema :
+    { description : String
+    , cliOptions : Program.Config cliFlags
+    , encoder : TsJson.Encode.Encoder outputType
+    , run : cliFlags -> BackendTask FatalError outputType
+    }
+    -> Script
+withSchema { description, cliOptions, encoder, run } =
+    Pages.Internal.Script.Script
+        (\scriptModuleName _ ->
+            let
+                introspectionJson : String
+                introspectionJson =
+                    Encode.object
+                        [ ( "name", Encode.string scriptModuleName )
+                        , ( "description", Encode.string description )
+                        , ( "help"
+                          , Encode.string
+                                (Program.helpText scriptModuleName cliOptions)
+                          )
+                        , ( "outputSchema"
+                          , encoder
+                                |> TsJson.Encode.tsType
+                                |> TsJson.Type.toJsonSchema
+                          )
+                        ]
+                        |> Encode.encode 0
+            in
+            cliOptions
+                |> Program.mapConfig
+                    (\cliFlags ->
+                        run cliFlags
+                            |> BackendTask.andThen
+                                (\output ->
+                                    log
+                                        (output
+                                            |> TsJson.Encode.encoder encoder
+                                            |> Encode.encode 0
+                                        )
+                                )
+                    )
+                |> Program.add
+                    (OptionsParser.build
+                        (log introspectionJson)
+                        |> OptionsParser.expectFlag "introspect"
+                    )
         )
 
 
@@ -199,8 +305,8 @@ use `Pages.Db.open`.
 withDatabasePath : String -> Script -> Script
 withDatabasePath dbPath (Pages.Internal.Script.Script cliConfig) =
     Pages.Internal.Script.Script
-        (\htmlToString ->
-            cliConfig htmlToString
+        (\scriptModuleName htmlToString ->
+            cliConfig scriptModuleName htmlToString
                 |> Program.mapConfig
                     (\task ->
                         setDatabasePath dbPath

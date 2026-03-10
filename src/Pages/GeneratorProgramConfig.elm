@@ -9,6 +9,7 @@ import Pages.Script exposing (Script)
 
 type alias GeneratorProgramConfig =
     { data : Script
+    , scriptModuleName : String
     , toJsPort : { json : Json.Encode.Value, bytes : List { key : String, data : Bytes } } -> Cmd Never
     , fromJsPort : Sub Decode.Value
     , gotBatchSub : Sub (List { key : String, json : Decode.Value, bytes : Maybe Bytes })
