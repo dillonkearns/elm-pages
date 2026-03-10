@@ -27,8 +27,10 @@ run =
                     (\db ->
                         Script.log ("nextId=" ++ String.fromInt db.nextId)
                     )
-                |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig
-                    { todos = [], nextId = 42 }
+                |> BackendTaskTest.fromBackendTaskWith
+                    (BackendTaskTest.init
+                        |> BackendTaskTest.withDbSetTo { todos = [], nextId = 42 } Pages.Db.testConfig
+                    )
                 |> BackendTaskTest.ensureStdout [ "nextId=42" ]
                 |> BackendTaskTest.expectSuccess
             )
@@ -37,8 +39,10 @@ run =
                     test "update persists and round-trips through Wire3"
                         (Pages.Db.update Pages.Db.default
                             (\db -> { db | nextId = db.nextId + 1 })
-                            |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig
-                                { todos = [], nextId = 10 }
+                            |> BackendTaskTest.fromBackendTaskWith
+                                (BackendTaskTest.init
+                                    |> BackendTaskTest.withDbSetTo { todos = [], nextId = 10 } Pages.Db.testConfig
+                                )
                             |> BackendTaskTest.expectDb Pages.Db.testConfig
                                 (\db -> Expect.equal 11 db.nextId)
                         )
@@ -53,8 +57,10 @@ run =
                                     Pages.Db.update Pages.Db.default
                                         (\db -> { db | nextId = db.nextId * 10 })
                                 )
-                            |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig
-                                { todos = [], nextId = 5 }
+                            |> BackendTaskTest.fromBackendTaskWith
+                                (BackendTaskTest.init
+                                    |> BackendTaskTest.withDbSetTo { todos = [], nextId = 5 } Pages.Db.testConfig
+                                )
                             |> BackendTaskTest.expectDb Pages.Db.testConfig
                                 (\db -> Expect.equal 60 db.nextId)
                         )
@@ -71,10 +77,14 @@ run =
                                     , nextId = db.nextId + 1
                                 }
                             )
-                            |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig
-                                { todos = [ { id = 1, title = "First", completed = True } ]
-                                , nextId = 2
-                                }
+                            |> BackendTaskTest.fromBackendTaskWith
+                                (BackendTaskTest.init
+                                    |> BackendTaskTest.withDbSetTo
+                                        { todos = [ { id = 1, title = "First", completed = True } ]
+                                        , nextId = 2
+                                        }
+                                        Pages.Db.testConfig
+                                )
                             |> BackendTaskTest.expectDb Pages.Db.testConfig
                                 (\db ->
                                     Expect.all
@@ -103,8 +113,12 @@ run =
                                 (\count ->
                                     Script.log ("count=" ++ String.fromInt count)
                                 )
-                            |> BackendTaskTest.fromBackendTaskWithDb Pages.Db.testConfig
-                                { todos = [ { id = 1, title = "A", completed = False } ], nextId = 2 }
+                            |> BackendTaskTest.fromBackendTaskWith
+                                (BackendTaskTest.init
+                                    |> BackendTaskTest.withDbSetTo
+                                        { todos = [ { id = 1, title = "A", completed = False } ], nextId = 2 }
+                                        Pages.Db.testConfig
+                                )
                             |> BackendTaskTest.ensureStdout [ "count=1" ]
                             |> BackendTaskTest.expectDb Pages.Db.testConfig
                                 (\db -> Expect.equal 3 db.nextId)
