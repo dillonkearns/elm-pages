@@ -2185,6 +2185,18 @@ advanceOrStay newState =
         Running newState
 
 
+{-| Simulate a response for a [`BackendTask.Custom.run`](BackendTask-Custom#run) call.
+
+Provide the port name and the JSON response value to resolve the matching pending request.
+
+    import Json.Encode as Encode
+
+    myScript
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.simulateCustom "myPort" (Encode.string "hello")
+        |> BackendTaskTest.expectSuccess
+
+-}
 simulateCustom : String -> Encode.Value -> BackendTaskTest a -> BackendTaskTest a
 simulateCustom portName jsonResponse =
     resolveSimulation "simulateCustom"
