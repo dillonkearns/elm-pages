@@ -2738,6 +2738,14 @@ formatStreamParts req =
             "???"
 
 
+stillRunningError : List Request.Request -> String
+stillRunningError pendingRequests =
+    "Expected the script to complete, but there are still pending requests:\n\n"
+        ++ formatPendingRequests pendingRequests
+        ++ "\nHint: Use a simulate function (like simulateHttpGet, simulateCustom, etc.)\n"
+        ++ "to provide a response for each pending request before calling the terminal assertion."
+
+
 {-| Assert that a GET request to the given URL is currently pending, without resolving it.
 This is useful for verifying that requests are issued in parallel. If both `ensureHttpGet`
 calls pass, you know `map2` (or `combine`) dispatched them at the same time rather than
@@ -2993,29 +3001,20 @@ Both the path and body must match exactly.
 
 -}
 ensureFileWritten : { path : String, body : String } -> BackendTaskTest a -> BackendTaskTest a
-ensureFileWritten expected scriptTest =
-    let
-        check effects =
+ensureFileWritten expected =
+    checkTrackedEffects
+        (\effects ->
             if List.member (FileWriteEffect expected) effects then
-                scriptTest
+                Nothing
 
             else
-                TestError
+                Just
                     ("ensureFileWritten: Expected a file write to:\n\n    "
                         ++ expected.path
                         ++ "\n\nbut the file writes are:\n\n"
                         ++ formatFileWrites effects
                     )
-    in
-    case scriptTest of
-        TestError _ ->
-            scriptTest
-
-        Done state ->
-            check state.trackedEffects
-
-        Running state ->
-            check state.trackedEffects
+        )
 
 
 {-| Assert that exactly these stdout messages were produced since the last successful
@@ -3060,44 +3059,8 @@ drain-on-success pattern as elm-program-test's `ensureOutgoingPortValues`.
 
 -}
 ensureStdout : List String -> BackendTaskTest a -> BackendTaskTest a
-ensureStdout expectedMessages =
-    ensureOutputWith
-        (\outputs ->
-            let
-                unexpectedStderr =
-                    List.filterMap
-                        (\output ->
-                            case output of
-                                Stderr msg ->
-                                    Just msg
-
-                                Stdout _ ->
-                                    Nothing
-                        )
-                        outputs
-
-                stdoutMessages =
-                    List.filterMap
-                        (\output ->
-                            case output of
-                                Stdout msg ->
-                                    Just msg
-
-                                Stderr _ ->
-                                    Nothing
-                        )
-                        outputs
-            in
-            if not (List.isEmpty unexpectedStderr) then
-                Expect.fail
-                    ("ensureStdout found unexpected stderr output:\n\n"
-                        ++ formatStringList unexpectedStderr
-                        ++ "\n\nUse ensureOutputWith to check both stdout and stderr together."
-                    )
-
-            else
-                Expect.equal expectedMessages stdoutMessages
-        )
+ensureStdout =
+    ensureSingleStream "ensureStdout" "stderr" isStdout isStderr
 
 
 {-| Assert that exactly these stderr messages were produced since the last successful
@@ -3122,44 +3085,54 @@ Follows the same drain-on-success pattern as [`ensureStdout`](#ensureStdout).
 
 -}
 ensureStderr : List String -> BackendTaskTest a -> BackendTaskTest a
-ensureStderr expectedMessages =
+ensureStderr =
+    ensureSingleStream "ensureStderr" "stdout" isStderr isStdout
+
+
+ensureSingleStream : String -> String -> (Output -> Maybe String) -> (Output -> Maybe String) -> List String -> BackendTaskTest a -> BackendTaskTest a
+ensureSingleStream callerName otherStreamName extractExpected extractUnexpected expectedMessages =
     ensureOutputWith
         (\outputs ->
             let
-                unexpectedStdout =
-                    List.filterMap
-                        (\output ->
-                            case output of
-                                Stdout msg ->
-                                    Just msg
+                unexpected =
+                    List.filterMap extractUnexpected outputs
 
-                                Stderr _ ->
-                                    Nothing
-                        )
-                        outputs
-
-                stderrMessages =
-                    List.filterMap
-                        (\output ->
-                            case output of
-                                Stderr msg ->
-                                    Just msg
-
-                                Stdout _ ->
-                                    Nothing
-                        )
-                        outputs
+                expected =
+                    List.filterMap extractExpected outputs
             in
-            if not (List.isEmpty unexpectedStdout) then
+            if not (List.isEmpty unexpected) then
                 Expect.fail
-                    ("ensureStderr found unexpected stdout output:\n\n"
-                        ++ formatStringList unexpectedStdout
+                    (callerName
+                        ++ " found unexpected "
+                        ++ otherStreamName
+                        ++ " output:\n\n"
+                        ++ formatStringList unexpected
                         ++ "\n\nUse ensureOutputWith to check both stdout and stderr together."
                     )
 
             else
-                Expect.equal expectedMessages stderrMessages
+                Expect.equal expectedMessages expected
         )
+
+
+isStdout : Output -> Maybe String
+isStdout output =
+    case output of
+        Stdout msg ->
+            Just msg
+
+        Stderr _ ->
+            Nothing
+
+
+isStderr : Output -> Maybe String
+isStderr output =
+    case output of
+        Stderr msg ->
+            Just msg
+
+        Stdout _ ->
+            Nothing
 
 
 {-| Assert on the interleaved stdout/stderr output since the last drain, preserving
@@ -3195,53 +3168,35 @@ the ordering between stdout and stderr messages. Drains on success, preserves on
 ensureOutputWith : (List Output -> Expect.Expectation) -> BackendTaskTest a -> BackendTaskTest a
 ensureOutputWith checkOutputs scriptTest =
     let
-        extract effects drainedCount =
+        checkAndDrain wrap state =
             let
                 all =
-                    extractOutputs effects
+                    extractOutputs state.trackedEffects
 
                 new =
-                    List.drop drainedCount all
+                    List.drop state.drainedOutputCount all
             in
-            ( new, List.length all )
+            case Test.Runner.getFailureReason (checkOutputs new) of
+                Nothing ->
+                    wrap { state | drainedOutputCount = List.length all }
+
+                Just failure ->
+                    TestError
+                        ("ensureOutputWith: Output assertion failed.\n\n"
+                            ++ failure.description
+                            ++ "\n\nOutput since last drain:\n\n"
+                            ++ formatOutputs new
+                        )
     in
     case scriptTest of
         TestError _ ->
             scriptTest
 
         Done state ->
-            let
-                ( new, totalCount ) =
-                    extract state.trackedEffects state.drainedOutputCount
-            in
-            case Test.Runner.getFailureReason (checkOutputs new) of
-                Nothing ->
-                    Done { state | drainedOutputCount = totalCount }
-
-                Just failure ->
-                    TestError
-                        ("ensureOutputWith: Output assertion failed.\n\n"
-                            ++ failure.description
-                            ++ "\n\nOutput since last drain:\n\n"
-                            ++ formatOutputs new
-                        )
+            checkAndDrain Done state
 
         Running state ->
-            let
-                ( new, totalCount ) =
-                    extract state.trackedEffects state.drainedOutputCount
-            in
-            case Test.Runner.getFailureReason (checkOutputs new) of
-                Nothing ->
-                    Running { state | drainedOutputCount = totalCount }
-
-                Just failure ->
-                    TestError
-                        ("ensureOutputWith: Output assertion failed.\n\n"
-                            ++ failure.description
-                            ++ "\n\nOutput since last drain:\n\n"
-                            ++ formatOutputs new
-                        )
+            checkAndDrain Running state
 
 
 extractOutputs : List TrackedEffect -> List Output
@@ -3314,6 +3269,50 @@ insertFile path content vfs =
     { vfs | files = Dict.insert path content vfs.files }
 
 
+checkVirtualFS : (VirtualFS -> Maybe String) -> BackendTaskTest a -> BackendTaskTest a
+checkVirtualFS check scriptTest =
+    let
+        applyCheck vfs =
+            case check vfs of
+                Nothing ->
+                    scriptTest
+
+                Just errorMsg ->
+                    TestError errorMsg
+    in
+    case scriptTest of
+        TestError _ ->
+            scriptTest
+
+        Running state ->
+            applyCheck state.virtualFS
+
+        Done state ->
+            applyCheck state.virtualFS
+
+
+checkTrackedEffects : (List TrackedEffect -> Maybe String) -> BackendTaskTest a -> BackendTaskTest a
+checkTrackedEffects check scriptTest =
+    let
+        applyCheck effects =
+            case check effects of
+                Nothing ->
+                    scriptTest
+
+                Just errorMsg ->
+                    TestError errorMsg
+    in
+    case scriptTest of
+        TestError _ ->
+            scriptTest
+
+        Running state ->
+            applyCheck state.trackedEffects
+
+        Done state ->
+            applyCheck state.trackedEffects
+
+
 {-| Assert that a file exists in the virtual filesystem with the given content.
 This checks the current state. All `Script.writeFile` calls that have been auto-resolved
 so far will be reflected.
@@ -3330,32 +3329,22 @@ so far will be reflected.
 
 -}
 ensureFile : String -> String -> BackendTaskTest a -> BackendTaskTest a
-ensureFile path expectedContent scriptTest =
-    let
-        checkFS : VirtualFS -> BackendTaskTest a
-        checkFS vfs =
+ensureFile path expectedContent =
+    checkVirtualFS
+        (\vfs ->
             case Dict.get path vfs.files of
                 Just actualContent ->
                     if actualContent == expectedContent then
-                        scriptTest
+                        Nothing
 
                     else
-                        TestError
+                        Just
                             ("ensureFile: File \"" ++ path ++ "\" exists but has different content.\n\nExpected:\n\n    " ++ expectedContent ++ "\n\nActual:\n\n    " ++ actualContent)
 
                 Nothing ->
-                    TestError
+                    Just
                         ("ensureFile: Expected file \"" ++ path ++ "\" to exist but it was not found.\n\nFiles in virtual filesystem:\n\n" ++ formatVirtualFiles vfs)
-    in
-    case scriptTest of
-        TestError _ ->
-            scriptTest
-
-        Running state ->
-            checkFS state.virtualFS
-
-        Done state ->
-            checkFS state.virtualFS
+        )
 
 
 {-| Assert that a file exists in the virtual filesystem (without checking its content).
@@ -3372,27 +3361,17 @@ ensureFile path expectedContent scriptTest =
 
 -}
 ensureFileExists : String -> BackendTaskTest a -> BackendTaskTest a
-ensureFileExists path scriptTest =
-    let
-        checkFS : VirtualFS -> BackendTaskTest a
-        checkFS vfs =
+ensureFileExists path =
+    checkVirtualFS
+        (\vfs ->
             case Dict.get path vfs.files of
                 Just _ ->
-                    scriptTest
+                    Nothing
 
                 Nothing ->
-                    TestError
+                    Just
                         ("ensureFileExists: Expected file \"" ++ path ++ "\" to exist but it was not found.\n\nFiles in virtual filesystem:\n\n" ++ formatVirtualFiles vfs)
-    in
-    case scriptTest of
-        TestError _ ->
-            scriptTest
-
-        Running state ->
-            checkFS state.virtualFS
-
-        Done state ->
-            checkFS state.virtualFS
+        )
 
 
 {-| Assert that a file does not exist in the virtual filesystem. Useful for verifying
@@ -3408,26 +3387,16 @@ that a file was deleted or was never created.
 
 -}
 ensureNoFile : String -> BackendTaskTest a -> BackendTaskTest a
-ensureNoFile path scriptTest =
-    let
-        checkFS : VirtualFS -> BackendTaskTest a
-        checkFS vfs =
+ensureNoFile path =
+    checkVirtualFS
+        (\vfs ->
             case Dict.get path vfs.files of
                 Just _ ->
-                    TestError ("ensureNoFile: Expected file \"" ++ path ++ "\" to not exist but it was found.")
+                    Just ("ensureNoFile: Expected file \"" ++ path ++ "\" to not exist but it was found.")
 
                 Nothing ->
-                    scriptTest
-    in
-    case scriptTest of
-        TestError _ ->
-            scriptTest
-
-        Running state ->
-            checkFS state.virtualFS
-
-        Done state ->
-            checkFS state.virtualFS
+                    Nothing
+        )
 
 
 {-| Declare virtual effects for CustomBackendTask calls. The handler receives the port name
@@ -3570,12 +3539,7 @@ expectSuccess scriptTest =
                     Expect.fail ("Expected success but the script failed with an error:\n\n" ++ fatalErrorToString err)
 
         Running state ->
-            Expect.fail
-                ("Expected the script to complete, but there are still pending requests:\n\n"
-                    ++ formatPendingRequests state.pendingRequests
-                    ++ "\nHint: Use a simulate function (like simulateHttpGet, simulateCustom, etc.)\n"
-                    ++ "to provide a response for each pending request before calling the terminal assertion."
-                )
+            Expect.fail (stillRunningError state.pendingRequests)
 
         TestError msg ->
             Expect.fail msg
@@ -3617,12 +3581,7 @@ expectSuccessWith assertion scriptTest =
                     Expect.fail ("Expected success but the script failed with an error:\n\n" ++ fatalErrorToString err)
 
         Running state ->
-            Expect.fail
-                ("Expected the script to complete, but there are still pending requests:\n\n"
-                    ++ formatPendingRequests state.pendingRequests
-                    ++ "\nHint: Use a simulate function (like simulateHttpGet, simulateCustom, etc.)\n"
-                    ++ "to provide a response for each pending request before calling the terminal assertion."
-                )
+            Expect.fail (stillRunningError state.pendingRequests)
 
         TestError msg ->
             Expect.fail msg
@@ -3662,12 +3621,7 @@ expectDb config assertion scriptTest =
             Expect.fail msg
 
         Running state ->
-            Expect.fail
-                ("Expected the script to complete, but there are still pending requests:\n\n"
-                    ++ formatPendingRequests state.pendingRequests
-                    ++ "\nHint: Use a simulate function (like simulateHttpGet, simulateCustom, etc.)\n"
-                    ++ "to provide a response for each pending request before calling the terminal assertion."
-                )
+            Expect.fail (stillRunningError state.pendingRequests)
 
         Done { result, virtualDB } ->
             case result of
@@ -3720,12 +3674,7 @@ expectFailure scriptTest =
                     Expect.pass
 
         Running state ->
-            Expect.fail
-                ("Expected the script to complete, but there are still pending requests:\n\n"
-                    ++ formatPendingRequests state.pendingRequests
-                    ++ "\nHint: Use a simulate function (like simulateHttpGet, simulateCustom, etc.)\n"
-                    ++ "to provide a response for each pending request before calling the terminal assertion."
-                )
+            Expect.fail (stillRunningError state.pendingRequests)
 
         TestError msg ->
             Expect.fail msg
@@ -3771,12 +3720,7 @@ expectFailureWith assertion scriptTest =
                             assertion details
 
         Running state ->
-            Expect.fail
-                ("Expected the script to complete, but there are still pending requests:\n\n"
-                    ++ formatPendingRequests state.pendingRequests
-                    ++ "\nHint: Use a simulate function (like simulateHttpGet, simulateCustom, etc.)\n"
-                    ++ "to provide a response for each pending request before calling the terminal assertion."
-                )
+            Expect.fail (stillRunningError state.pendingRequests)
 
         TestError msg ->
             Expect.fail msg
