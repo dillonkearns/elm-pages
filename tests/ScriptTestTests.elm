@@ -2131,7 +2131,7 @@ but the pending requests are:
                             )
                         |> BackendTaskTest.ensureStdout [ "---\n{\"title\": \"Hello\"}\n---\nBody text" ]
                         |> BackendTaskTest.expectSuccess
-            , test "YAML frontmatter gives clear error" <|
+            , test "YAML frontmatter parses simple key-value" <|
                 \() ->
                     BackendTask.File.onlyFrontmatter
                         (Decode.field "title" Decode.string)
@@ -2142,14 +2142,81 @@ but the pending requests are:
                             (BackendTaskTest.init
                                 |> BackendTaskTest.withFile "post.md" "---\ntitle: Hello\ntags:\n  - elm\n---\nBody"
                             )
-                        |> BackendTaskTest.expectTestError
-                            (\msg ->
-                                Expect.all
-                                    [ \m -> m |> String.contains "JSON" |> Expect.equal True
-                                    , \m -> m |> String.contains "post.md" |> Expect.equal True
-                                    ]
-                                    msg
+                        |> BackendTaskTest.ensureStdout [ "Hello" ]
+                        |> BackendTaskTest.expectSuccess
+            , test "YAML frontmatter parses list field" <|
+                \() ->
+                    BackendTask.File.onlyFrontmatter
+                        (Decode.field "tags" (Decode.list Decode.string))
+                        "post.md"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen
+                            (\tags -> Script.log (String.join ", " tags))
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withFile "post.md" "---\ntitle: Hello\ntags:\n  - elm\n  - haskell\n---\nBody"
                             )
+                        |> BackendTaskTest.ensureStdout [ "elm, haskell" ]
+                        |> BackendTaskTest.expectSuccess
+            , test "YAML frontmatter with int and bool values" <|
+                \() ->
+                    BackendTask.File.onlyFrontmatter
+                        (Decode.map2 (\p d -> String.fromInt p ++ " " ++ boolToString d)
+                            (Decode.field "port" Decode.int)
+                            (Decode.field "debug" Decode.bool)
+                        )
+                        "config.md"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen Script.log
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withFile "config.md" "---\nport: 3000\ndebug: true\n---\n"
+                            )
+                        |> BackendTaskTest.ensureStdout [ "3000 true" ]
+                        |> BackendTaskTest.expectSuccess
+            , test "YAML frontmatter with nested mapping" <|
+                \() ->
+                    BackendTask.File.onlyFrontmatter
+                        (Decode.at [ "author", "name" ] Decode.string)
+                        "post.md"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen Script.log
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withFile "post.md" "---\nauthor:\n  name: Dillon\n  url: https://example.com\n---\nBody"
+                            )
+                        |> BackendTaskTest.ensureStdout [ "Dillon" ]
+                        |> BackendTaskTest.expectSuccess
+            , test "YAML frontmatter with bodyWithFrontmatter" <|
+                \() ->
+                    BackendTask.File.bodyWithFrontmatter
+                        (\bodyText ->
+                            Decode.map2 (\title b -> title ++ ": " ++ String.trim b)
+                                (Decode.field "title" Decode.string)
+                                (Decode.succeed bodyText)
+                        )
+                        "post.md"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen Script.log
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withFile "post.md" "---\ntitle: My Post\n---\nHello world"
+                            )
+                        |> BackendTaskTest.ensureStdout [ "My Post: Hello world" ]
+                        |> BackendTaskTest.expectSuccess
+            , test "JSON frontmatter still works" <|
+                \() ->
+                    BackendTask.File.onlyFrontmatter
+                        (Decode.field "title" Decode.string)
+                        "post.md"
+                        |> BackendTask.allowFatal
+                        |> BackendTask.andThen Script.log
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withFile "post.md" "---\n{\"title\": \"Hello\"}\n---\nBody text"
+                            )
+                        |> BackendTaskTest.ensureStdout [ "Hello" ]
+                        |> BackendTaskTest.expectSuccess
             , test "frontmatter with Windows line endings" <|
                 \() ->
                     BackendTask.File.bodyWithFrontmatter

@@ -229,6 +229,7 @@ import Set
 import Test.GlobMatch
 import Test.Runner
 import Time
+import Yaml.Decode as Yaml
 
 
 {-| The state of a `BackendTask` under test. Create one with [`fromBackendTask`](#fromBackendTask),
@@ -1618,19 +1619,21 @@ parseFrontmatter filePath content =
                             }
 
                     Err _ ->
-                        Err
-                            ("File \""
-                                ++ filePath
-                                ++ "\" has frontmatter (between --- markers), but it is not valid JSON.\n\n"
-                                ++ "The test framework only supports JSON frontmatter in test fixtures.\n\n"
-                                ++ "Use JSON format instead of YAML:\n\n"
-                                ++ "    BackendTaskTest.withFile \""
-                                ++ filePath
-                                ++ "\"\n"
-                                ++ "        \"---\\n{\\\"title\\\": \\\"Hello\\\"}\\n---\\nBody text\"\n\n"
-                                ++ "If your file doesn't use frontmatter and just happens to start with\n"
-                                ++ "\"---\", remove the leading \"---\" from your test fixture content."
-                            )
+                        case Yaml.fromString yamlToJsonValueDecoder frontmatterString of
+                            Ok jsonValue2 ->
+                                Ok
+                                    { frontmatterValue = jsonValue2
+                                    , bodyWithoutFrontmatter = bodyAfterMarker
+                                    }
+
+                            Err yamlError ->
+                                Err
+                                    ("File \""
+                                        ++ filePath
+                                        ++ "\" has frontmatter (between --- markers), but it could not be parsed as JSON or YAML.\n\n"
+                                        ++ "YAML error: "
+                                        ++ Yaml.errorToString yamlError
+                                    )
 
             [] ->
                 Ok
@@ -1643,6 +1646,25 @@ parseFrontmatter filePath content =
             { frontmatterValue = Encode.null
             , bodyWithoutFrontmatter = normalized
             }
+
+
+yamlToJsonValueDecoder : Yaml.Decoder Encode.Value
+yamlToJsonValueDecoder =
+    Yaml.oneOf
+        [ Yaml.map (\_ -> Encode.null) Yaml.null
+        , Yaml.map Encode.bool Yaml.bool
+        , Yaml.map Encode.int Yaml.int
+        , Yaml.map Encode.float Yaml.float
+        , Yaml.map Encode.string Yaml.string
+        , Yaml.map (Encode.list identity) (Yaml.list (Yaml.lazy (\() -> yamlToJsonValueDecoder)))
+        , Yaml.map
+            (\d ->
+                d
+                    |> Dict.toList
+                    |> Encode.object
+            )
+            (Yaml.dict (Yaml.lazy (\() -> yamlToJsonValueDecoder)))
+        ]
 
 
 resolveFilePath : Request.Request -> String -> String
