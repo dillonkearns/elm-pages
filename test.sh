@@ -15,6 +15,23 @@ elm-verify-examples --run-tests --elm-test-args '--compiler=lamdera'
 
 (cd test-scripts && npx elm-pages run src/TestBinaryRead.elm)
 
+# withSchema smoke tests - verify --introspect output and normal execution
+(cd test-scripts && npx elm-pages run src/TestWithSchema.elm --introspect | python3 -c '
+import sys, json
+data = json.load(sys.stdin)
+assert data["name"] == "TestWithSchema"
+assert "description" in data
+assert "help" in data
+assert "outputSchema" in data
+print("--introspect output OK")
+')
+(cd test-scripts && npx elm-pages run src/TestWithSchema.elm --name World | python3 -c '
+import sys, json
+data = json.load(sys.stdin)
+assert data["greeting"].startswith("Hello, World")
+print("Normal execution output OK")
+')
+
 # Stream tests - tests gzip, unzip, command stdin handling, etc.
 (cd examples/end-to-end && npm i && npx elm-pages run script/src/StreamTests.elm)
 
