@@ -246,15 +246,21 @@ withSchema { description, cliOptions, encoder, run } =
     Pages.Internal.Script.Script
         (\scriptModuleName _ ->
             let
+                helpString : String
+                helpString =
+                    case Program.run cliOptions [ "", scriptModuleName, "--help" ] "" Program.WithoutColor of
+                        Program.SystemMessage _ message ->
+                            message
+
+                        Program.CustomMatch _ ->
+                            ""
+
                 introspectionJson : String
                 introspectionJson =
                     Encode.object
                         [ ( "name", Encode.string scriptModuleName )
                         , ( "description", Encode.string description )
-                        , ( "help"
-                          , Encode.string
-                                (Program.helpText scriptModuleName cliOptions)
-                          )
+                        , ( "help", Encode.string helpString )
                         , ( "outputSchema"
                           , encoder
                                 |> TsJson.Encode.tsType
