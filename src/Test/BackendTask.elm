@@ -1,6 +1,7 @@
 module Test.BackendTask exposing
     ( BackendTaskTest, fromBackendTask, fromBackendTaskWith, fromScript, fromScriptWith
-    , TestSetup, init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withRandomSeed, withWhich
+    , TestSetup, init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
+    , TimeZone, utc, fixedOffsetZone, customTimeZone
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, HttpError(..), simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , simulateQuestion, simulateReadKey
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureFileWritten
@@ -130,6 +131,7 @@ These effects are emulated automatically against virtual state:
 
   - `BackendTask.Env.get`, `BackendTask.Env.expect` ([`withEnv`](#withEnv) sets initial state)
   - `BackendTask.Time.now` ([`withTime`](#withTime) sets initial state)
+  - `BackendTask.Time.zone`, `BackendTask.Time.zoneFor`, `BackendTask.Time.zoneByName`, `BackendTask.Time.zoneByNameFor` ([`withTimeZone`](#withTimeZone) / [`withTimeZoneByName`](#withTimeZoneByName) sets initial state)
   - `BackendTask.Random.generate` ([`withRandomSeed`](#withRandomSeed) sets initial state)
   - `Script.which` ([`withWhich`](#withWhich) sets initial state)
 
@@ -161,7 +163,9 @@ simulate it.
 
 Seed initial state before the test starts running.
 
-@docs TestSetup, init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withRandomSeed, withWhich
+@docs TestSetup, init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
+
+@docs TimeZone, utc, fixedOffsetZone, customTimeZone
 
 
 ## Simulating Effects
@@ -255,6 +259,8 @@ type alias VirtualFS =
     , stdin : Maybe String
     , env : Dict String String
     , time : Maybe Time.Posix
+    , timeZone : Maybe TimeZone
+    , timeZonesByName : Dict String TimeZone
     , randomSeed : Maybe Int
     , whichCommands : Dict String String
     , tempDirCounter : Int
@@ -268,6 +274,8 @@ emptyVirtualFS =
     , stdin = Nothing
     , env = Dict.empty
     , time = Nothing
+    , timeZone = Nothing
+    , timeZonesByName = Dict.empty
     , randomSeed = Nothing
     , whichCommands = Dict.empty
     , tempDirCounter = 0
@@ -573,6 +581,113 @@ withTime time (TestSetup setup) =
             setup.virtualFS
     in
     TestSetup { setup | virtualFS = { vfs | time = Just time } }
+
+
+{-| A virtual timezone for use in tests. Since `Time.Zone` is opaque and cannot be
+re-encoded, this type captures the zone data so the test framework can return it
+to `BackendTask.Time.zone` and friends.
+
+Use the helpers [`utc`](#utc), [`fixedOffsetZone`](#fixedOffsetZone), or
+[`customTimeZone`](#customTimeZone) to create values.
+
+-}
+type TimeZone
+    = TimeZone { defaultOffset : Int, eras : List { start : Int, offset : Int } }
+
+
+{-| UTC timezone (offset 0, no DST transitions).
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withTimeZone BackendTaskTest.utc
+
+-}
+utc : TimeZone
+utc =
+    TimeZone { defaultOffset = 0, eras = [] }
+
+
+{-| A timezone with a fixed offset in minutes from UTC (no DST transitions).
+
+    -- US Eastern Standard Time (UTC-5)
+    BackendTaskTest.fixedOffsetZone -300
+
+    -- India Standard Time (UTC+5:30)
+    BackendTaskTest.fixedOffsetZone 330
+
+-}
+fixedOffsetZone : Int -> TimeZone
+fixedOffsetZone offsetMinutes =
+    TimeZone { defaultOffset = offsetMinutes, eras = [] }
+
+
+{-| A timezone with DST transitions, matching the format of
+[`Time.customZone`](https://package.elm-lang.org/packages/elm/time/latest/Time#customZone).
+
+The `defaultOffset` is the offset in minutes for times before the first era.
+Each era has a `start` (minutes since epoch) and `offset` (minutes from UTC).
+Eras must be sorted newest-first (same as `Time.customZone`).
+
+    -- America/New_York with a single spring-forward transition in 2024
+    BackendTaskTest.customTimeZone -300
+        [ { start = 28533480, offset = -240 } -- Mar 10, 2024 07:00 UTC -> EDT
+        ]
+
+-}
+customTimeZone : Int -> List { start : Int, offset : Int } -> TimeZone
+customTimeZone defaultOffset eras =
+    TimeZone { defaultOffset = defaultOffset, eras = eras }
+
+
+{-| Set a virtual timezone for `BackendTask.Time.zone` and `BackendTask.Time.zoneFor`.
+Without this, any use of those functions will produce a test error with a helpful message.
+
+    import BackendTask
+    import BackendTask.Time
+    import Pages.Script as Script
+    import Time
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTask.Time.zone
+        |> BackendTask.andThen
+            (\z ->
+                -- Jan 1, 2024 00:00 UTC with UTC-5 gives hour 19 of Dec 31
+                Script.log (String.fromInt (Time.toHour z (Time.millisToPosix 1704067200000)))
+            )
+        |> BackendTaskTest.fromBackendTaskWith
+            (BackendTaskTest.init
+                |> BackendTaskTest.withTimeZone (BackendTaskTest.fixedOffsetZone -300)
+            )
+        |> BackendTaskTest.ensureStdout [ "19" ]
+        |> BackendTaskTest.expectSuccess
+
+-}
+withTimeZone : TimeZone -> TestSetup -> TestSetup
+withTimeZone tz (TestSetup setup) =
+    let
+        vfs =
+            setup.virtualFS
+    in
+    TestSetup { setup | virtualFS = { vfs | timeZone = Just tz } }
+
+
+{-| Set a virtual timezone for `BackendTask.Time.zoneByName` and `BackendTask.Time.zoneByNameFor`.
+Each name must be configured separately. Without this, any use of `zoneByName` will produce
+a test error with a helpful message.
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withTimeZoneByName "America/Chicago"
+            (BackendTaskTest.fixedOffsetZone -360)
+        |> BackendTaskTest.withTimeZoneByName "Asia/Kolkata"
+            (BackendTaskTest.fixedOffsetZone 330)
+
+-}
+withTimeZoneByName : String -> TimeZone -> TestSetup -> TestSetup
+withTimeZoneByName name tz (TestSetup setup) =
+    let
+        vfs =
+            setup.virtualFS
+    in
+    TestSetup { setup | virtualFS = { vfs | timeZonesByName = Dict.insert name tz vfs.timeZonesByName } }
 
 
 {-| Set a fixed random seed for `BackendTask.Random.int32` and `BackendTask.Random.generate`.
@@ -1220,6 +1335,39 @@ autoResponseBody vfs req =
                             ++ "        |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)"
                         )
 
+        "elm-pages-internal://timezone" ->
+            let
+                maybeTzId =
+                    decodeJsonBody (Decode.field "tzId" Decode.string) req
+            in
+            case maybeTzId of
+                Just tzId ->
+                    case Dict.get tzId vfs.timeZonesByName of
+                        Just tz ->
+                            Ok (encodeTimeZone tz)
+
+                        Nothing ->
+                            Err
+                                ("BackendTask.Time.zoneByName \"" ++ tzId ++ "\" requires a virtual timezone.\n\n"
+                                    ++ "Use withTimeZoneByName in your TestSetup:\n\n"
+                                    ++ "    BackendTaskTest.init\n"
+                                    ++ "        |> BackendTaskTest.withTimeZoneByName \"" ++ tzId ++ "\"\n"
+                                    ++ "            (BackendTaskTest.fixedOffsetZone -300)"
+                                )
+
+                Nothing ->
+                    case vfs.timeZone of
+                        Just tz ->
+                            Ok (encodeTimeZone tz)
+
+                        Nothing ->
+                            Err
+                                ("BackendTask.Time.zone requires a virtual timezone.\n\n"
+                                    ++ "Use withTimeZone in your TestSetup:\n\n"
+                                    ++ "    BackendTaskTest.init\n"
+                                    ++ "        |> BackendTaskTest.withTimeZone BackendTaskTest.utc"
+                                )
+
         "elm-pages-internal://randomSeed" ->
             case vfs.randomSeed of
                 Just seed ->
@@ -1792,6 +1940,23 @@ processMakeTempDirectory req hash accum =
         | jsonEntries = entry :: accum.jsonEntries
         , virtualFS = updatedVFS
     }
+
+
+encodeTimeZone : TimeZone -> Encode.Value
+encodeTimeZone (TimeZone { defaultOffset, eras }) =
+    Encode.object
+        [ ( "defaultOffset", Encode.int defaultOffset )
+        , ( "eras"
+          , Encode.list
+                (\era ->
+                    Encode.object
+                        [ ( "start", Encode.int era.start )
+                        , ( "offset", Encode.int era.offset )
+                        ]
+                )
+                eras
+          )
+        ]
 
 
 decodeJsonBody : Decode.Decoder a -> Request.Request -> Maybe a

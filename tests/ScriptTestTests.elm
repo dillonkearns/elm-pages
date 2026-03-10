@@ -1782,6 +1782,117 @@ but the pending requests are:
                                     |> Expect.equal True
                             )
             ]
+        , describe "BackendTask.Time.zone"
+            [ test "zone returns configured UTC timezone" <|
+                \() ->
+                    BackendTask.Time.zone
+                        |> BackendTask.andThen
+                            (\z ->
+                                -- Jan 1, 2024 00:00 UTC with UTC zone should give hour 0
+                                Script.log (String.fromInt (Time.toHour z (Time.millisToPosix 1704067200000)))
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withTimeZone BackendTaskTest.utc
+                            )
+                        |> BackendTaskTest.ensureStdout [ "0" ]
+                        |> BackendTaskTest.expectSuccess
+            , test "zone returns configured fixed offset timezone" <|
+                \() ->
+                    BackendTask.Time.zone
+                        |> BackendTask.andThen
+                            (\z ->
+                                -- Jan 1, 2024 00:00 UTC with UTC-5 gives hour 19 of Dec 31
+                                Script.log (String.fromInt (Time.toHour z (Time.millisToPosix 1704067200000)))
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withTimeZone (BackendTaskTest.fixedOffsetZone -300)
+                            )
+                        |> BackendTaskTest.ensureStdout [ "19" ]
+                        |> BackendTaskTest.expectSuccess
+            , test "zoneFor returns same zone (DateRange is ignored in tests)" <|
+                \() ->
+                    BackendTask.Time.zoneFor (BackendTask.Time.withinYears 5)
+                        |> BackendTask.andThen
+                            (\z ->
+                                Script.log (String.fromInt (Time.toHour z (Time.millisToPosix 1704067200000)))
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withTimeZone BackendTaskTest.utc
+                            )
+                        |> BackendTaskTest.ensureStdout [ "0" ]
+                        |> BackendTaskTest.expectSuccess
+            , test "zone without withTimeZone gives helpful error" <|
+                \() ->
+                    BackendTask.Time.zone
+                        |> BackendTask.andThen (\_ -> BackendTask.succeed ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectTestError
+                            (Expect.equal
+                                ("BackendTask.Time.zone requires a virtual timezone.\n\n"
+                                    ++ "Use withTimeZone in your TestSetup:\n\n"
+                                    ++ "    BackendTaskTest.init\n"
+                                    ++ "        |> BackendTaskTest.withTimeZone BackendTaskTest.utc"
+                                )
+                            )
+            , test "zoneByName returns configured named timezone" <|
+                \() ->
+                    BackendTask.Time.zoneByName "America/Chicago"
+                        |> BackendTask.andThen
+                            (\z ->
+                                -- Jan 1, 2024 00:00 UTC with UTC-6 gives hour 18 of Dec 31
+                                Script.log (String.fromInt (Time.toHour z (Time.millisToPosix 1704067200000)))
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withTimeZoneByName "America/Chicago"
+                                    (BackendTaskTest.fixedOffsetZone -360)
+                            )
+                        |> BackendTaskTest.ensureStdout [ "18" ]
+                        |> BackendTaskTest.expectSuccess
+            , test "zoneByName without withTimeZoneByName gives helpful error" <|
+                \() ->
+                    BackendTask.Time.zoneByName "America/New_York"
+                        |> BackendTask.andThen (\_ -> BackendTask.succeed ())
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectTestError
+                            (Expect.equal
+                                ("BackendTask.Time.zoneByName \"America/New_York\" requires a virtual timezone.\n\n"
+                                    ++ "Use withTimeZoneByName in your TestSetup:\n\n"
+                                    ++ "    BackendTaskTest.init\n"
+                                    ++ "        |> BackendTaskTest.withTimeZoneByName \"America/New_York\"\n"
+                                    ++ "            (BackendTaskTest.fixedOffsetZone -300)"
+                                )
+                            )
+            , test "customTimeZone with DST eras works" <|
+                \() ->
+                    BackendTask.Time.zone
+                        |> BackendTask.andThen
+                            (\z ->
+                                let
+                                    -- Mar 10, 2024 08:00 UTC (after spring forward)
+                                    summerHour =
+                                        Time.toHour z (Time.millisToPosix 1710057600000)
+
+                                    -- Jan 1, 2024 00:00 UTC (winter, before spring forward)
+                                    winterHour =
+                                        Time.toHour z (Time.millisToPosix 1704067200000)
+                                in
+                                Script.log (String.fromInt winterHour ++ "," ++ String.fromInt summerHour)
+                            )
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withTimeZone
+                                    (BackendTaskTest.customTimeZone -300
+                                        [ { start = 28500900, offset = -240 } -- Mar 10, 2024 07:00 UTC -> EDT
+                                        ]
+                                    )
+                            )
+                        |> BackendTaskTest.ensureStdout [ "19,4" ]
+                        |> BackendTaskTest.expectSuccess
+            ]
         , describe "BackendTask.Random"
             [ test "random with seeded value returns deterministic result" <|
                 \() ->
