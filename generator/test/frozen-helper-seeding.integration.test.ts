@@ -474,6 +474,125 @@ function assertSharedLocalHelperSeedingAgreement(caseId: string): void {
   );
 }
 
+function assertRouteLocalForwardRefStringArgSeedingAgreement(
+  caseId: string
+): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const indexHtmlPath = join(result.projectDir, "dist", "index.html");
+  const contentDatPath = join(result.projectDir, "dist", "content.dat");
+  const indexHtml = readFileSync(indexHtmlPath, "utf8");
+  const contentDatBytes = readFileSync(contentDatPath);
+
+  const extractedFromHtml = extractFrozenViews(indexHtml);
+  const contentDatDecoded = parseFrozenViewsPrefixFromBytes(contentDatBytes);
+
+  expect(Object.keys(contentDatDecoded.regions).sort()).toEqual(["0:0", "1:0"]);
+  expect(contentDatDecoded.regions).toEqual(extractedFromHtml);
+  expect(contentDatDecoded.regions["0:0"]).toContain("First Card: Alice");
+  expect(contentDatDecoded.regions["1:0"]).toContain("Second Card: Bob");
+
+  const clientWorkspace = join(
+    result.projectDir,
+    "elm-stuff",
+    "elm-pages",
+    "client"
+  );
+  const serverWorkspace = join(
+    result.projectDir,
+    "elm-stuff",
+    "elm-pages",
+    "server"
+  );
+  const clientRoutePath = findModuleFileInWorkspace(
+    clientWorkspace,
+    join("Route", "Index.elm")
+  );
+  const serverRoutePath = findModuleFileInWorkspace(
+    serverWorkspace,
+    join("Route", "Index.elm")
+  );
+  const clientRoute = readFileSync(clientRoutePath, "utf8");
+  const serverRoute = readFileSync(serverRoutePath, "utf8");
+
+  // Forward-referenced card should have FID param injected
+  expect(clientRoute).toContain("card elmPagesFid_route_index_card");
+  expect(serverRoute).toContain("card elmPagesFid_route_index_card");
+
+  // Call sites should have seeds prepended before the original String arg
+  expect(clientRoute).toContain('card "0" "First Card"');
+  expect(clientRoute).toContain('card "1" "Second Card"');
+  expect(serverRoute).toContain('card "0" "First Card"');
+  expect(serverRoute).toContain('card "1" "Second Card"');
+}
+
+function assertCrossModuleHelperStringArgSeedingAgreement(
+  caseId: string
+): void {
+  const result = runElmPagesBuildRaw(caseId);
+  expect(result.status).toBe(0);
+
+  const indexHtmlPath = join(result.projectDir, "dist", "index.html");
+  const contentDatPath = join(result.projectDir, "dist", "content.dat");
+  const indexHtml = readFileSync(indexHtmlPath, "utf8");
+  const contentDatBytes = readFileSync(contentDatPath);
+
+  const extractedFromHtml = extractFrozenViews(indexHtml);
+  const contentDatDecoded = parseFrozenViewsPrefixFromBytes(contentDatBytes);
+
+  expect(Object.keys(contentDatDecoded.regions).sort()).toEqual(["0:0", "1:0"]);
+  expect(contentDatDecoded.regions).toEqual(extractedFromHtml);
+  expect(contentDatDecoded.regions["0:0"]).toContain("Badge: elm-pages");
+  expect(contentDatDecoded.regions["1:0"]).toContain("Badge: astro");
+
+  // Verify the helper module got FID param injected (String -> String -> Html msg)
+  const clientWorkspace = join(
+    result.projectDir,
+    "elm-stuff",
+    "elm-pages",
+    "client"
+  );
+  const serverWorkspace = join(
+    result.projectDir,
+    "elm-stuff",
+    "elm-pages",
+    "server"
+  );
+  const clientHelperPath = findModuleFileInWorkspace(
+    clientWorkspace,
+    "FrozenHelper.elm"
+  );
+  const serverHelperPath = findModuleFileInWorkspace(
+    serverWorkspace,
+    "FrozenHelper.elm"
+  );
+  const clientHelper = readFileSync(clientHelperPath, "utf8");
+  const serverHelper = readFileSync(serverHelperPath, "utf8");
+
+  // badge originally takes String -> Html msg; after FID injection: String -> String -> Html msg
+  expect(clientHelper).toContain("badge : String -> String -> Html msg");
+  expect(serverHelper).toContain("badge : String -> String -> Html msg");
+
+  // Verify call sites got seeds
+  const clientRoutePath = findModuleFileInWorkspace(
+    clientWorkspace,
+    join("Route", "Index.elm")
+  );
+  const serverRoutePath = findModuleFileInWorkspace(
+    serverWorkspace,
+    join("Route", "Index.elm")
+  );
+  const clientRoute = readFileSync(clientRoutePath, "utf8");
+  const serverRoute = readFileSync(serverRoutePath, "utf8");
+
+  // Verify call sites have seed prepended: badge "0" "elm-pages", badge "1" "astro"
+  expect(clientRoute).toContain('badge "0" "elm-pages"');
+  expect(clientRoute).toContain('badge "1" "astro"');
+  expect(serverRoute).toContain('badge "0" "elm-pages"');
+  expect(serverRoute).toContain('badge "1" "astro"');
+}
+
 function assertRouteLocalMixedCallsiteFallback(caseId: string): void {
   const result = runElmPagesBuildRaw(caseId);
   expect(result.status).toBe(0);
@@ -745,6 +864,26 @@ describe.sequential("frozen helper seeding CLI behavior", () => {
     () => {
       assertSharedLocalHelperSeedingAgreement(
         "supported-shared-local-helper-two-sites"
+      );
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "supported-route-local-forward-ref-string-arg seeds forward-referenced helper with String first arg without infinite loop",
+    () => {
+      assertRouteLocalForwardRefStringArgSeedingAgreement(
+        "supported-route-local-forward-ref-string-arg"
+      );
+    },
+    integrationTestTimeoutMs
+  );
+
+  it(
+    "supported-cross-module-helper-string-arg seeds cross-module helper that takes String arg with FID param injection",
+    () => {
+      assertCrossModuleHelperStringArgSeedingAgreement(
+        "supported-cross-module-helper-string-arg"
       );
     },
     integrationTestTimeoutMs

@@ -62,6 +62,7 @@
             "miniBill/elm-unicode": "1.1.0",
             "robinheghan/murmur3": "1.0.0",
             "rtfeldman/elm-hex": "1.0.0",
+            "elmcraft/core-extra": "2.3.0",
             "stil4m/elm-syntax": "7.3.2",
             "stil4m/structured-writer": "1.0.3"
         }
