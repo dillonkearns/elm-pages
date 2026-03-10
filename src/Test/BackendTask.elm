@@ -1018,16 +1018,9 @@ buildAutoResponses vfs virtualDB requests =
 
                             Ok responseBody ->
                                 let
-                                    responseValue : Encode.Value
-                                    responseValue =
-                                        Encode.object
-                                            [ ( "bodyKind", Encode.string "json" )
-                                            , ( "body", responseBody )
-                                            ]
-
                                     entry : ( String, Encode.Value )
                                     entry =
-                                        ( hash, Encode.object [ ( "response", responseValue ) ] )
+                                        jsonAutoResolveEntry hash responseBody
 
                                     newEffects : List TrackedEffect
                                     newEffects =
@@ -1361,41 +1354,9 @@ processStreamRequest req hash accum =
                 simulationResult =
                     simulateStreamPipeline accum.virtualFS resolvedParts
 
-                responseBody : Encode.Value
-                responseBody =
-                    case simulationResult.error of
-                        Just errorMsg ->
-                            Encode.object [ ( "error", Encode.string errorMsg ) ]
-
-                        Nothing ->
-                            case pipeline.kind of
-                                "text" ->
-                                    Encode.object
-                                        [ ( "body", Encode.string simulationResult.output )
-                                        , ( "metadata", Encode.null )
-                                        ]
-
-                                "json" ->
-                                    case Decode.decodeString Decode.value simulationResult.output of
-                                        Ok jsonValue ->
-                                            Encode.object
-                                                [ ( "body", jsonValue )
-                                                , ( "metadata", Encode.null )
-                                                ]
-
-                                        Err _ ->
-                                            Encode.object
-                                                [ ( "body", Encode.string simulationResult.output )
-                                                , ( "metadata", Encode.null )
-                                                ]
-
-                                _ ->
-                                    -- "none".Stream.run just needs non-error JSON
-                                    Encode.null
-
                 entry : ( String, Encode.Value )
                 entry =
-                    jsonAutoResolveEntry hash responseBody
+                    jsonAutoResolveEntry hash (buildStreamResponseBody pipeline.kind Encode.null simulationResult)
             in
             { accum
                 | jsonEntries = entry :: accum.jsonEntries
@@ -1409,6 +1370,38 @@ processStreamRequest req hash accum =
                     jsonAutoResolveEntry hash Encode.null
             in
             { accum | jsonEntries = entry :: accum.jsonEntries }
+
+
+buildStreamResponseBody : String -> Encode.Value -> StreamSimResult -> Encode.Value
+buildStreamResponseBody kind metadata simResult =
+    case simResult.error of
+        Just errorMsg ->
+            Encode.object [ ( "error", Encode.string errorMsg ) ]
+
+        Nothing ->
+            case kind of
+                "text" ->
+                    Encode.object
+                        [ ( "body", Encode.string simResult.output )
+                        , ( "metadata", metadata )
+                        ]
+
+                "json" ->
+                    case Decode.decodeString Decode.value simResult.output of
+                        Ok jsonValue ->
+                            Encode.object
+                                [ ( "body", jsonValue )
+                                , ( "metadata", metadata )
+                                ]
+
+                        Err _ ->
+                            Encode.object
+                                [ ( "body", Encode.string simResult.output )
+                                , ( "metadata", metadata )
+                                ]
+
+                _ ->
+                    Encode.null
 
 
 type alias StreamSimResult =
@@ -1508,55 +1501,37 @@ applyVirtualFSEffect req vfs =
                     Ok vfs
 
         "elm-pages-internal://copy-file" ->
-            case decodeJsonBody (Decode.map2 Tuple.pair (Decode.field "from" Decode.string) (Decode.field "to" Decode.string)) req of
-                Just ( rawFrom, rawTo ) ->
-                    let
-                        from =
-                            resolveFilePath req rawFrom
-
-                        to =
-                            resolveFilePath req rawTo
-                    in
-                    case Dict.get from vfs.files of
-                        Just content ->
+            case decodeFromToPaths req of
+                Just ( from, to ) ->
+                    case getAnyFile from vfs of
+                        Just (TextFile content) ->
                             Ok { vfs | files = Dict.insert to content vfs.files }
 
-                        Nothing ->
-                            case Dict.get from vfs.binaryFiles of
-                                Just content ->
-                                    Ok { vfs | binaryFiles = Dict.insert to content vfs.binaryFiles }
+                        Just (BinaryFile content) ->
+                            Ok { vfs | binaryFiles = Dict.insert to content vfs.binaryFiles }
 
-                                Nothing ->
-                                    Err ("Script.copyFile failed: source file \"" ++ from ++ "\" not found in virtual filesystem.")
+                        Nothing ->
+                            Err ("Script.copyFile failed: source file \"" ++ from ++ "\" not found in virtual filesystem.")
 
                 Nothing ->
                     Ok vfs
 
         "elm-pages-internal://move" ->
-            case decodeJsonBody (Decode.map2 Tuple.pair (Decode.field "from" Decode.string) (Decode.field "to" Decode.string)) req of
-                Just ( rawFrom, rawTo ) ->
-                    let
-                        from =
-                            resolveFilePath req rawFrom
-
-                        to =
-                            resolveFilePath req rawTo
-                    in
+            case decodeFromToPaths req of
+                Just ( from, to ) ->
                     if from == to then
                         Ok vfs
 
                     else
-                        case Dict.get from vfs.files of
-                            Just content ->
+                        case getAnyFile from vfs of
+                            Just (TextFile content) ->
                                 Ok { vfs | files = Dict.insert to content vfs.files |> Dict.remove from }
 
-                            Nothing ->
-                                case Dict.get from vfs.binaryFiles of
-                                    Just content ->
-                                        Ok { vfs | binaryFiles = Dict.insert to content vfs.binaryFiles |> Dict.remove from }
+                            Just (BinaryFile content) ->
+                                Ok { vfs | binaryFiles = Dict.insert to content vfs.binaryFiles |> Dict.remove from }
 
-                                    Nothing ->
-                                        Err ("Script.move failed: source file \"" ++ from ++ "\" not found in virtual filesystem.")
+                            Nothing ->
+                                Err ("Script.move failed: source file \"" ++ from ++ "\" not found in virtual filesystem.")
 
                 Nothing ->
                     Ok vfs
@@ -1719,6 +1694,32 @@ normalizePath path =
         String.join "/" normalized
 
 
+type VirtualFile
+    = TextFile String
+    | BinaryFile Bytes
+
+
+getAnyFile : String -> VirtualFS -> Maybe VirtualFile
+getAnyFile path vfs =
+    case Dict.get path vfs.files of
+        Just content ->
+            Just (TextFile content)
+
+        Nothing ->
+            Dict.get path vfs.binaryFiles
+                |> Maybe.map BinaryFile
+
+
+decodeFromToPaths : Request.Request -> Maybe ( String, String )
+decodeFromToPaths req =
+    case decodeJsonBody (Decode.map2 Tuple.pair (Decode.field "from" Decode.string) (Decode.field "to" Decode.string)) req of
+        Just ( rawFrom, rawTo ) ->
+            Just ( resolveFilePath req rawFrom, resolveFilePath req rawTo )
+
+        Nothing ->
+            Nothing
+
+
 processReadFileBinary : Request.Request -> String -> AutoResolveResult -> AutoResolveResult
 processReadFileBinary req hash accum =
     let
@@ -1742,14 +1743,7 @@ processReadFileBinary req hash accum =
                         )
 
                 jsonEntry =
-                    ( hash
-                    , Encode.object
-                        [ ( "response"
-                          , Encode.object
-                                [ ( "bodyKind", Encode.string "bytes" ) ]
-                          )
-                        ]
-                    )
+                    bytesAutoResolveEntry hash
             in
             { accum
                 | jsonEntries = jsonEntry :: accum.jsonEntries
@@ -1763,14 +1757,7 @@ processReadFileBinary req hash accum =
                     BE.encode (BE.signedInt32 Bytes.BE -1)
 
                 jsonEntry =
-                    ( hash
-                    , Encode.object
-                        [ ( "response"
-                          , Encode.object
-                                [ ( "bodyKind", Encode.string "bytes" ) ]
-                          )
-                        ]
-                    )
+                    bytesAutoResolveEntry hash
             in
             { accum
                 | jsonEntries = jsonEntry :: accum.jsonEntries
@@ -1821,106 +1808,73 @@ processDbRequest : Request.Request -> String -> AutoResolveResult -> AutoResolve
 processDbRequest req hash accum =
     case req.url of
         "elm-pages-internal://db-lock-acquire" ->
-            let
-                entry =
-                    jsonAutoResolveEntry hash (Encode.string "test-lock-token")
-            in
-            { accum | jsonEntries = entry :: accum.jsonEntries }
-
-        "elm-pages-internal://db-lock-release" ->
-            let
-                entry =
-                    jsonAutoResolveEntry hash Encode.null
-            in
-            { accum | jsonEntries = entry :: accum.jsonEntries }
-
-        "elm-pages-internal://db-set-default-path" ->
-            let
-                entry =
-                    jsonAutoResolveEntry hash Encode.null
-            in
-            { accum | jsonEntries = entry :: accum.jsonEntries }
+            dbJsonResponse hash (Encode.string "test-lock-token") accum
 
         "elm-pages-internal://db-read-meta" ->
             let
                 responseBytes =
                     constructDbReadMetaBytes accum.virtualDB
-
-                jsonEntry =
-                    ( hash
-                    , Encode.object
-                        [ ( "response"
-                          , Encode.object
-                                [ ( "bodyKind", Encode.string "bytes" ) ]
-                          )
-                        ]
-                    )
             in
             { accum
-                | jsonEntries = jsonEntry :: accum.jsonEntries
+                | jsonEntries = bytesAutoResolveEntry hash :: accum.jsonEntries
                 , bytesEntries = Dict.insert hash responseBytes accum.bytesEntries
             }
 
         "elm-pages-internal://db-write" ->
-            let
-                newVirtualDB =
-                    case extractBytesBody req of
-                        Just wire3Bytes ->
-                            { state = Just wire3Bytes
-                            , dbConfig = accum.virtualDB.dbConfig
-                            }
-
-                        Nothing ->
-                            accum.virtualDB
-
-                entry =
-                    jsonAutoResolveEntry hash Encode.null
-            in
-            { accum
-                | jsonEntries = entry :: accum.jsonEntries
-                , virtualDB = newVirtualDB
-            }
+            dbWriteResponse req hash accum
 
         "elm-pages-internal://db-migrate-write" ->
-            let
-                newVirtualDB =
-                    case extractBytesBody req of
-                        Just wire3Bytes ->
-                            { state = Just wire3Bytes
-                            , dbConfig = accum.virtualDB.dbConfig
-                            }
-
-                        Nothing ->
-                            accum.virtualDB
-
-                entry =
-                    jsonAutoResolveEntry hash Encode.null
-            in
-            { accum
-                | jsonEntries = entry :: accum.jsonEntries
-                , virtualDB = newVirtualDB
-            }
+            dbWriteResponse req hash accum
 
         _ ->
-            let
-                entry =
-                    jsonAutoResolveEntry hash Encode.null
-            in
-            { accum | jsonEntries = entry :: accum.jsonEntries }
+            dbJsonResponse hash Encode.null accum
+
+
+dbJsonResponse : String -> Encode.Value -> AutoResolveResult -> AutoResolveResult
+dbJsonResponse hash body accum =
+    { accum | jsonEntries = jsonAutoResolveEntry hash body :: accum.jsonEntries }
+
+
+dbWriteResponse : Request.Request -> String -> AutoResolveResult -> AutoResolveResult
+dbWriteResponse req hash accum =
+    let
+        newVirtualDB =
+            case extractBytesBody req of
+                Just wire3Bytes ->
+                    { state = Just wire3Bytes
+                    , dbConfig = accum.virtualDB.dbConfig
+                    }
+
+                Nothing ->
+                    accum.virtualDB
+    in
+    { accum
+        | jsonEntries = jsonAutoResolveEntry hash Encode.null :: accum.jsonEntries
+        , virtualDB = newVirtualDB
+    }
+
+
+responseEntry : String -> Encode.Value -> ( String, Encode.Value )
+responseEntry hash responseValue =
+    ( hash, Encode.object [ ( "response", responseValue ) ] )
 
 
 jsonAutoResolveEntry : String -> Encode.Value -> ( String, Encode.Value )
 jsonAutoResolveEntry hash body =
-    ( hash
-    , Encode.object
-        [ ( "response"
-          , Encode.object
-                [ ( "bodyKind", Encode.string "json" )
-                , ( "body", body )
-                ]
-          )
-        ]
-    )
+    responseEntry hash
+        (Encode.object
+            [ ( "bodyKind", Encode.string "json" )
+            , ( "body", body )
+            ]
+        )
+
+
+bytesAutoResolveEntry : String -> ( String, Encode.Value )
+bytesAutoResolveEntry hash =
+    responseEntry hash
+        (Encode.object
+            [ ( "bodyKind", Encode.string "bytes" ) ]
+        )
 
 
 constructDbReadMetaBytes : VirtualDB -> Bytes
@@ -2192,77 +2146,78 @@ The port name must exactly match the first argument passed to `BackendTask.Custo
         |> BackendTaskTest.expectSuccess
 
 -}
-simulateCustom : String -> Encode.Value -> BackendTaskTest a -> BackendTaskTest a
-simulateCustom portName jsonResponse scriptTest =
+resolveSimulation :
+    String
+    -> String
+    -> (List Request.Request -> Maybe ( Request.Request, List Request.Request ))
+    -> (Request.Request -> List Request.Request -> RunningState a -> BackendTaskTest a)
+    -> BackendTaskTest a
+    -> BackendTaskTest a
+resolveSimulation callerName description finder onMatch scriptTest =
     case scriptTest of
         Running state ->
-            case findMatchingPort portName state.pendingRequests of
+            case finder state.pendingRequests of
                 Just ( matchedReq, remaining ) ->
-                    let
-                        hash : String
-                        hash =
-                            Request.hash matchedReq
-
-                        responseValue : Encode.Value
-                        responseValue =
-                            Encode.object
-                                [ ( "bodyKind", Encode.string "json" )
-                                , ( "body", jsonResponse )
-                                ]
-
-                        entry : ( String, Encode.Value )
-                        entry =
-                            ( hash, Encode.object [ ( "response", responseValue ) ] )
-
-                        requestBody : Encode.Value
-                        requestBody =
-                            case matchedReq.body of
-                                StaticHttpBody.JsonBody json ->
-                                    json
-
-                                _ ->
-                                    Encode.null
-
-                        handlerEffects : List SimulatedEffect
-                        handlerEffects =
-                            case state.simulatedEffects of
-                                Just handler ->
-                                    handler portName requestBody
-
-                                Nothing ->
-                                    []
-
-                        updatedVirtualFS : VirtualFS
-                        updatedVirtualFS =
-                            applySimulatedEffects handlerEffects state.virtualFS
-
-                        newState : RunningState a
-                        newState =
-                            { state
-                                | responseEntries = entry :: state.responseEntries
-                                , pendingRequests = remaining
-                                , virtualFS = updatedVirtualFS
-                            }
-                    in
-                    if List.isEmpty remaining then
-                        advanceWithAutoResolve newState
-
-                    else
-                        Running newState
+                    onMatch matchedReq remaining state
 
                 Nothing ->
                     TestError
-                        ("simulateCustom: Expected a pending BackendTask.Custom.run call for port \""
-                            ++ portName
-                            ++ "\"\n\nbut the pending requests are:\n\n"
+                        (callerName
+                            ++ ": Expected a pending "
+                            ++ description
+                            ++ "\n\nbut the pending requests are:\n\n"
                             ++ formatPendingRequests state.pendingRequests
                         )
 
         Done _ ->
-            TestError "simulateCustom: The script has already completed. No pending requests to simulate."
+            TestError (callerName ++ ": The script has already completed. No pending requests to simulate.")
 
         TestError _ ->
             scriptTest
+
+
+advanceOrStay : RunningState a -> BackendTaskTest a
+advanceOrStay newState =
+    if List.isEmpty newState.pendingRequests then
+        advanceWithAutoResolve newState
+
+    else
+        Running newState
+
+
+simulateCustom : String -> Encode.Value -> BackendTaskTest a -> BackendTaskTest a
+simulateCustom portName jsonResponse =
+    resolveSimulation "simulateCustom"
+        ("BackendTask.Custom.run call for port \"" ++ portName ++ "\"")
+        (findMatchingPort portName)
+        (\matchedReq remaining state ->
+            let
+                entry =
+                    jsonAutoResolveEntry (Request.hash matchedReq) jsonResponse
+
+                requestBody =
+                    case matchedReq.body of
+                        StaticHttpBody.JsonBody json ->
+                            json
+
+                        _ ->
+                            Encode.null
+
+                handlerEffects =
+                    case state.simulatedEffects of
+                        Just handler ->
+                            handler portName requestBody
+
+                        Nothing ->
+                            []
+            in
+            advanceOrStay
+                { state
+                    | responseEntries = entry :: state.responseEntries
+                    , pendingRequests = remaining
+                    , virtualFS = applySimulatedEffects handlerEffects state.virtualFS
+                }
+        )
 
 
 {-| Simulate a pending stream pipeline that contains a `Stream.command`. The framework
@@ -2420,183 +2375,60 @@ matchByPrompt expectedPrompt req =
 
 
 simulateInteractive : String -> String -> (Request.Request -> Bool) -> String -> String -> BackendTaskTest a -> BackendTaskTest a
-simulateInteractive callerName urlSuffix predicate description answer scriptTest =
-    let
-        targetUrl =
-            "elm-pages-internal://" ++ urlSuffix
-    in
-    case scriptTest of
-        Running state ->
-            case findMatchingInteractive targetUrl predicate state.pendingRequests of
-                Just ( matchedReq, remaining ) ->
-                    let
-                        hash =
-                            Request.hash matchedReq
-
-                        responseValue =
-                            Encode.object
-                                [ ( "bodyKind", Encode.string "json" )
-                                , ( "body", Encode.string answer )
-                                ]
-
-                        entry =
-                            ( hash, Encode.object [ ( "response", responseValue ) ] )
-
-                        newState =
-                            { state
-                                | responseEntries = entry :: state.responseEntries
-                                , pendingRequests = remaining
-                            }
-                    in
-                    if List.isEmpty remaining then
-                        advanceWithAutoResolve newState
-
-                    else
-                        Running newState
-
-                Nothing ->
-                    TestError
-                        (callerName
-                            ++ ": Expected a pending "
-                            ++ description
-                            ++ "\n\nbut the pending requests are:\n\n"
-                            ++ formatPendingRequests state.pendingRequests
-                        )
-
-        Done _ ->
-            TestError (callerName ++ ": The script has already completed. No pending requests to simulate.")
-
-        TestError _ ->
-            scriptTest
+simulateInteractive callerName urlSuffix predicate description answer =
+    resolveSimulation callerName
+        description
+        (findMatchingInteractive ("elm-pages-internal://" ++ urlSuffix) predicate)
+        (\matchedReq remaining state ->
+            advanceOrStay
+                { state
+                    | responseEntries = jsonAutoResolveEntry (Request.hash matchedReq) (Encode.string answer) :: state.responseEntries
+                    , pendingRequests = remaining
+                }
+        )
 
 
 findMatchingInteractive : String -> (Request.Request -> Bool) -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
-findMatchingInteractive targetUrl predicate requests =
-    findMatchingInteractiveHelper targetUrl predicate [] requests
-
-
-findMatchingInteractiveHelper : String -> (Request.Request -> Bool) -> List Request.Request -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
-findMatchingInteractiveHelper targetUrl predicate before after =
-    case after of
-        [] ->
-            Nothing
-
-        req :: rest ->
-            if req.url == targetUrl && predicate req then
-                Just ( req, List.reverse before ++ rest )
-
-            else
-                findMatchingInteractiveHelper targetUrl predicate (req :: before) rest
+findMatchingInteractive targetUrl predicate =
+    findMatchingBy (\req -> req.url == targetUrl && predicate req)
 
 
 {-| Internal helper. Shared implementation for simulateCommand, simulateCustomStream, simulateStreamHttp.
 -}
 simulateStreamByPartName : String -> (StreamPartInfo -> Bool) -> String -> Encode.Value -> String -> BackendTaskTest a -> BackendTaskTest a
-simulateStreamByPartName callerName predicate description metadata opaqueOutput scriptTest =
-    case scriptTest of
-        Running state ->
-            case findMatchingStreamByPart predicate state.pendingRequests of
-                Just ( matchedReq, remaining ) ->
+simulateStreamByPartName callerName predicate description metadata opaqueOutput =
+    resolveSimulation callerName
+        ("stream with " ++ description)
+        (findMatchingStreamByPart predicate)
+        (\matchedReq remaining state ->
+            case decodeJsonBody streamPipelineDecoder matchedReq of
+                Just pipeline ->
                     let
-                        hash : String
-                        hash =
-                            Request.hash matchedReq
+                        simResult =
+                            simulateStreamWithOpaquePart predicate
+                                state.virtualFS
+                                opaqueOutput
+                                (resolveStreamPaths matchedReq pipeline.parts)
+
+                        responseBody =
+                            buildStreamResponseBody pipeline.kind metadata simResult
                     in
-                    case decodeJsonBody streamPipelineDecoder matchedReq of
-                        Just pipeline ->
-                            let
-                                resolvedParts =
-                                    resolveStreamPaths matchedReq pipeline.parts
-
-                                simResult =
-                                    simulateStreamWithOpaquePart predicate state.virtualFS opaqueOutput resolvedParts
-
-                                responseBody : Encode.Value
-                                responseBody =
-                                    case simResult.error of
-                                        Just errorMsg ->
-                                            Encode.object [ ( "error", Encode.string errorMsg ) ]
-
-                                        Nothing ->
-                                            case pipeline.kind of
-                                                "text" ->
-                                                    Encode.object
-                                                        [ ( "body", Encode.string simResult.output )
-                                                        , ( "metadata", metadata )
-                                                        ]
-
-                                                "json" ->
-                                                    case Decode.decodeString Decode.value simResult.output of
-                                                        Ok jsonValue ->
-                                                            Encode.object
-                                                                [ ( "body", jsonValue )
-                                                                , ( "metadata", metadata )
-                                                                ]
-
-                                                        Err _ ->
-                                                            Encode.object
-                                                                [ ( "body", Encode.string simResult.output )
-                                                                , ( "metadata", metadata )
-                                                                ]
-
-                                                _ ->
-                                                    Encode.null
-
-                                entry : ( String, Encode.Value )
-                                entry =
-                                    jsonAutoResolveEntry hash responseBody
-
-                                newState : RunningState a
-                                newState =
-                                    { state
-                                        | responseEntries = entry :: state.responseEntries
-                                        , pendingRequests = remaining
-                                        , virtualFS = simResult.virtualFS
-                                        , trackedEffects = state.trackedEffects ++ simResult.effects
-                                    }
-                            in
-                            if List.isEmpty remaining then
-                                advanceWithAutoResolve newState
-
-                            else
-                                Running newState
-
-                        Nothing ->
-                            TestError (callerName ++ ": Failed to decode stream pipeline.")
+                    advanceOrStay
+                        { state
+                            | responseEntries = jsonAutoResolveEntry (Request.hash matchedReq) responseBody :: state.responseEntries
+                            , pendingRequests = remaining
+                            , virtualFS = simResult.virtualFS
+                            , trackedEffects = state.trackedEffects ++ simResult.effects
+                        }
 
                 Nothing ->
-                    TestError
-                        (callerName
-                            ++ ": Expected a pending stream with "
-                            ++ description
-                            ++ "\n\nbut the pending requests are:\n\n"
-                            ++ formatPendingRequests state.pendingRequests
-                        )
-
-        Done _ ->
-            TestError (callerName ++ ": The script has already completed. No pending requests to simulate.")
-
-        TestError _ ->
-            scriptTest
+                    TestError (callerName ++ ": Failed to decode stream pipeline.")
+        )
 
 
 findMatchingStreamByPart : (StreamPartInfo -> Bool) -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
-findMatchingStreamByPart predicate requests =
-    findMatchingStreamByPartHelper predicate [] requests
-
-
-findMatchingStreamByPartHelper : (StreamPartInfo -> Bool) -> List Request.Request -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
-findMatchingStreamByPartHelper predicate before after =
-    case after of
-        [] ->
-            Nothing
-
-        req :: rest ->
-            if req.url == "elm-pages-internal://stream" && streamHasPart predicate req then
-                Just ( req, List.reverse before ++ rest )
-
-            else
-                findMatchingStreamByPartHelper predicate (req :: before) rest
+findMatchingStreamByPart predicate =
+    findMatchingBy (\req -> req.url == "elm-pages-internal://stream" && streamHasPart predicate req)
 
 
 streamHasPart : (StreamPartInfo -> Bool) -> Request.Request -> Bool
@@ -2746,49 +2578,17 @@ httpSuccessResponse url jsonResponse =
 
 
 simulateHttpResponse : String -> String -> String -> Encode.Value -> BackendTaskTest a -> BackendTaskTest a
-simulateHttpResponse callerName method url responseValue scriptTest =
-    case scriptTest of
-        Running state ->
-            case findMatchingRequest method url state.pendingRequests of
-                Just ( matchedReq, remaining ) ->
-                    let
-                        hash =
-                            Request.hash matchedReq
-
-                        adjustedResponseValue =
-                            adjustBodyKindForExpect matchedReq responseValue
-
-                        entry =
-                            ( hash, Encode.object [ ( "response", adjustedResponseValue ) ] )
-
-                        newState =
-                            { state
-                                | responseEntries = entry :: state.responseEntries
-                                , pendingRequests = remaining
-                            }
-                    in
-                    if List.isEmpty remaining then
-                        advanceWithAutoResolve newState
-
-                    else
-                        Running newState
-
-                Nothing ->
-                    TestError
-                        (callerName
-                            ++ ": Expected a pending "
-                            ++ method
-                            ++ " request for\n\n    "
-                            ++ url
-                            ++ "\n\nbut the pending requests are:\n\n"
-                            ++ formatPendingRequests state.pendingRequests
-                        )
-
-        Done _ ->
-            TestError (callerName ++ ": The script has already completed. No pending requests to simulate.")
-
-        TestError _ ->
-            scriptTest
+simulateHttpResponse callerName method url responseValue =
+    resolveSimulation callerName
+        (method ++ " request for\n\n    " ++ url)
+        (findMatchingRequest method url)
+        (\matchedReq remaining state ->
+            advanceOrStay
+                { state
+                    | responseEntries = responseEntry (Request.hash matchedReq) (adjustBodyKindForExpect matchedReq responseValue) :: state.responseEntries
+                    , pendingRequests = remaining
+                }
+        )
 
 
 adjustBodyKindForExpect : Request.Request -> Encode.Value -> Encode.Value
@@ -2856,42 +2656,33 @@ adjustBodyKindForExpect req responseValue =
             responseValue
 
 
-findMatchingRequest : String -> String -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
-findMatchingRequest method url requests =
-    findMatchingRequestHelper method url [] requests
+findMatchingBy : (Request.Request -> Bool) -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
+findMatchingBy predicate requests =
+    findMatchingByHelper predicate [] requests
 
 
-findMatchingRequestHelper : String -> String -> List Request.Request -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
-findMatchingRequestHelper method url before after =
+findMatchingByHelper : (Request.Request -> Bool) -> List Request.Request -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
+findMatchingByHelper predicate before after =
     case after of
         [] ->
             Nothing
 
         req :: rest ->
-            if req.method == method && req.url == url then
+            if predicate req then
                 Just ( req, List.reverse before ++ rest )
 
             else
-                findMatchingRequestHelper method url (req :: before) rest
+                findMatchingByHelper predicate (req :: before) rest
+
+
+findMatchingRequest : String -> String -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
+findMatchingRequest method url =
+    findMatchingBy (\req -> req.method == method && req.url == url)
 
 
 findMatchingPort : String -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
-findMatchingPort portName requests =
-    findMatchingPortHelper portName [] requests
-
-
-findMatchingPortHelper : String -> List Request.Request -> List Request.Request -> Maybe ( Request.Request, List Request.Request )
-findMatchingPortHelper portName before after =
-    case after of
-        [] ->
-            Nothing
-
-        req :: rest ->
-            if req.url == "elm-pages-internal://port" && getPortName req == Just portName then
-                Just ( req, List.reverse before ++ rest )
-
-            else
-                findMatchingPortHelper portName (req :: before) rest
+findMatchingPort portName =
+    findMatchingBy (\req -> req.url == "elm-pages-internal://port" && getPortName req == Just portName)
 
 
 getPortName : Request.Request -> Maybe String
