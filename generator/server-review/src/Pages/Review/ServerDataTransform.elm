@@ -78,6 +78,8 @@ type alias DeferredHelperCall =
     , firstArgRange : Maybe Range
     , callerFunctionName : String
     , calleeFunctionId : ( ModuleName, String )
+    , argCount : Int
+    , firstArgContainsFidVariable : Bool
     }
 
 
@@ -441,7 +443,7 @@ declarationEnterVisitor node context =
                     , hasFidTypeAnnotation =
                         case function.signature of
                             Just signatureNode ->
-                                signatureStartsWithString (Node.value signatureNode).typeAnnotation
+                                maybeExistingFidParamName /= Nothing && signatureStartsWithString (Node.value signatureNode).typeAnnotation
 
                             Nothing ->
                                 False
@@ -791,7 +793,7 @@ rewriteHelperCallWithFrozenId node context =
                                 , contextWithFreezePresence
                                 )
 
-                            else if callAlreadyHasFrozenIdSeed args then
+                            else if callAlreadyHasFrozenIdSeed functionNode contextWithFreezePresence args then
                                 ( [], contextWithFreezePresence )
 
                             else
@@ -931,10 +933,16 @@ recordDeferredLocalHelperCall node functionNode args context =
             else if Dict.member calleeFunctionName context.functionDeclarationInfo then
                 Nothing
 
-            else if callAlreadyHasFrozenIdSeed args then
-                Nothing
-
             else
+                let
+                    fidDetected =
+                        case args of
+                            firstArg :: _ ->
+                                expressionContainsFidVariable firstArg
+
+                            [] ->
+                                False
+                in
                 Just
                     { context
                         | deferredHelperCalls =
@@ -943,6 +951,8 @@ recordDeferredLocalHelperCall node functionNode args context =
                             , firstArgRange = List.head args |> Maybe.map Node.range
                             , callerFunctionName = callerFunctionName
                             , calleeFunctionId = calleeFunctionId
+                            , argCount = List.length args
+                            , firstArgContainsFidVariable = fidDetected
                             }
                                 :: context.deferredHelperCalls
                     }
@@ -1082,19 +1092,106 @@ currentFunctionIsRecursive context =
             False
 
 
-callAlreadyHasFrozenIdSeed : List (Node Expression) -> Bool
-callAlreadyHasFrozenIdSeed args =
+callAlreadyHasFrozenIdSeed : Node Expression -> Context -> List (Node Expression) -> Bool
+callAlreadyHasFrozenIdSeed functionNode context args =
     case args of
         firstArg :: _ ->
             case Node.value (unwrapParenthesizedExpression firstArg) of
                 Expression.Literal _ ->
-                    True
+                    if calleeFunctionHasFidParam functionNode context then
+                        callHasAtLeastArityArgs functionNode context args
+
+                    else
+                        callHasMoreArgsThanArity functionNode context args
 
                 _ ->
                     expressionContainsFidVariable firstArg
 
         [] ->
             False
+
+
+calleeFunctionHasFidParam : Node Expression -> Context -> Bool
+calleeFunctionHasFidParam functionNode context =
+    case resolveCalledFunctionId functionNode context of
+        Just ( calleeModuleName, calleeFunctionName ) ->
+            if calleeModuleName == context.moduleName then
+                case Dict.get calleeFunctionName context.functionDeclarationInfo of
+                    Just info ->
+                        info.hasFidParam
+
+                    Nothing ->
+                        Dict.get ( calleeModuleName, calleeFunctionName ) context.projectFunctionHasFidParam
+                            |> Maybe.withDefault False
+
+            else
+                Dict.get ( calleeModuleName, calleeFunctionName ) context.projectFunctionHasFidParam
+                    |> Maybe.withDefault False
+
+        Nothing ->
+            False
+
+
+callHasMoreArgsThanArity : Node Expression -> Context -> List (Node Expression) -> Bool
+callHasMoreArgsThanArity functionNode context args =
+    case resolveCalledFunctionId functionNode context of
+        Just ( calleeModuleName, calleeFunctionName ) ->
+            let
+                maybeArity =
+                    if calleeModuleName == context.moduleName then
+                        case Dict.get calleeFunctionName context.functionDeclarationInfo of
+                            Just info ->
+                                Just info.argumentCount
+
+                            Nothing ->
+                                Dict.get ( calleeModuleName, calleeFunctionName ) context.projectFunctionArities
+
+                    else
+                        Dict.get ( calleeModuleName, calleeFunctionName ) context.projectFunctionArities
+            in
+            case maybeArity of
+                Just arity ->
+                    List.length args > arity
+
+                Nothing ->
+                    -- Arity unknown: conservatively assume the literal is already a seed.
+                    -- The deferred path in finalEvaluation handles initial seeding with
+                    -- complete data (all declarations visited).
+                    True
+
+        Nothing ->
+            -- Cannot resolve callee: conservatively assume seeded.
+            True
+
+
+callHasAtLeastArityArgs : Node Expression -> Context -> List (Node Expression) -> Bool
+callHasAtLeastArityArgs functionNode context args =
+    case resolveCalledFunctionId functionNode context of
+        Just ( calleeModuleName, calleeFunctionName ) ->
+            let
+                maybeArity =
+                    if calleeModuleName == context.moduleName then
+                        case Dict.get calleeFunctionName context.functionDeclarationInfo of
+                            Just info ->
+                                Just info.argumentCount
+
+                            Nothing ->
+                                Dict.get ( calleeModuleName, calleeFunctionName ) context.projectFunctionArities
+
+                    else
+                        Dict.get ( calleeModuleName, calleeFunctionName ) context.projectFunctionArities
+            in
+            case maybeArity of
+                Just arity ->
+                    List.length args >= arity
+
+                Nothing ->
+                    -- Arity unknown: conservatively assume seeded.
+                    True
+
+        Nothing ->
+            -- Cannot resolve callee: conservatively assume seeded.
+            True
 
 
 expressionContainsFidVariable : Node Expression -> Bool
@@ -2088,8 +2185,49 @@ deferredHelperCallSeedingErrors context =
                     )
                     ( Set.empty, [] )
 
+        deferredCallAlreadySeeded deferredCall =
+            deferredCall.firstArgContainsFidVariable
+                || (let
+                        ( _, calleeFunctionName ) =
+                            deferredCall.calleeFunctionId
+
+                        localInfo =
+                            Dict.get calleeFunctionName context.functionDeclarationInfo
+
+                        hasFidParam =
+                            case localInfo of
+                                Just info ->
+                                    info.hasFidParam
+
+                                Nothing ->
+                                    Dict.get deferredCall.calleeFunctionId context.projectFunctionHasFidParam
+                                        |> Maybe.withDefault False
+
+                        maybeArity =
+                            case localInfo of
+                                Just info ->
+                                    Just info.argumentCount
+
+                                Nothing ->
+                                    Dict.get deferredCall.calleeFunctionId context.projectFunctionArities
+                    in
+                    case maybeArity of
+                        Just arity ->
+                            if hasFidParam then
+                                deferredCall.argCount >= arity
+
+                            else
+                                deferredCall.argCount > arity
+
+                        Nothing ->
+                            False
+                   )
+
         step deferredCall ( nextSeedIndex, injectedFunctions, errors ) =
-            if FreezeHelperPlanning.functionContainsFreeze freezeKnowledgeAtEnd deferredCall.calleeFunctionId
+            if deferredCallAlreadySeeded deferredCall then
+                ( nextSeedIndex, injectedFunctions, errors )
+
+            else if FreezeHelperPlanning.functionContainsFreeze freezeKnowledgeAtEnd deferredCall.calleeFunctionId
                 && not (Set.member ( deferredCall.callerFunctionName, deferredCall.calleeFunctionId ) blockedDeferredPairs) then
                 let
                     ( seedExpression, nextSeedIndexAfter ) =

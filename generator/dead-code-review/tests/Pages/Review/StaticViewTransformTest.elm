@@ -6113,6 +6113,70 @@ view app =
                                 ]
                               )
                             ]
+            , test "Shared module calling cross-module helper with String arg gets FID seed injected" <|
+                \() ->
+                    [ """module UserCard exposing (view)
+
+import Html.Styled as Html
+import View
+
+view user =
+    View.freeze (Html.text user)
+"""
+                    , """module Shared exposing (view)
+
+import Html.Styled as Html
+import UserCard
+
+view pageView =
+    { body =
+        [ UserCard.view "alice"
+        ]
+    }
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "UserCard"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                    , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                    , under = "View.freeze (Html.text user)"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module UserCard exposing (view)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view elmPagesFid_usercard_view user =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid_usercard_view ++ ":0") |> View.htmlToFreezable |> View.freeze)
+"""
+                                ]
+                              )
+                            , ( "Shared"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: pass frozen ID to helper call"
+                                    , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                                    , under = """UserCard.view "alice\""""
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Shared exposing (view)
+
+import Html.Styled as Html
+import UserCard
+
+view pageView =
+    { body =
+        [ UserCard.view "shared:0" "alice"
+        ]
+    }
+"""
+                                ]
+                              )
+                            ]
             , test "adds helper ID parameter for route-local helper and rewrites local call sites" <|
                 \() ->
                     [ """module Route.Index exposing (view)
@@ -6716,5 +6780,191 @@ view app =
                     ]
                         |> Review.Test.runOnModules rule
                         |> Review.Test.expectNoErrors
+            , test "forward-referenced same-module helper gets deferred seed injection" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import Html.Styled as Html
+import View
+
+view app =
+    { body =
+        [ localHelper "First Call" "Description one"
+        , localHelper "Second Call" "Description two"
+        ]
+    }
+
+localHelper title desc =
+    View.freeze (Html.div [] [ Html.text title, Html.text desc ])
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Route.Index"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: transform View.freeze to inlined lazy thunk"
+                                    , details = [ "Transforms View.freeze to inlined lazy thunk for client-side adoption and DCE" ]
+                                    , under = "View.freeze (Html.div [] [ Html.text title, Html.text desc ])"
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view app =
+    { body =
+        [ localHelper "First Call" "Description one"
+        , localHelper "Second Call" "Description two"
+        ]
+    }
+
+localHelper elmPagesFid_route_index_localhelper title desc =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid_route_index_localhelper ++ ":0") |> View.htmlToFreezable |> View.freeze)
+"""
+                                , Review.Test.error
+                                    { message = "Frozen view codemod: pass frozen ID to helper call"
+                                    , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                                    , under = """localHelper "First Call" "Description one\""""
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Html.Styled as Html
+import View
+
+view app =
+    { body =
+        [ localHelper "0" "First Call" "Description one"
+        , localHelper "Second Call" "Description two"
+        ]
+    }
+
+localHelper title desc =
+    View.freeze (Html.div [] [ Html.text title, Html.text desc ])
+"""
+                                , Review.Test.error
+                                    { message = "Frozen view codemod: pass frozen ID to helper call"
+                                    , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                                    , under = """localHelper "Second Call" "Description two\""""
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Route.Index exposing (view)
+
+import Html.Styled as Html
+import View
+
+view app =
+    { body =
+        [ localHelper "First Call" "Description one"
+        , localHelper "1" "Second Call" "Description two"
+        ]
+    }
+
+localHelper title desc =
+    View.freeze (Html.div [] [ Html.text title, Html.text desc ])
+"""
+                                ]
+                              )
+                            ]
+            , test "idempotent: forward-referenced helper already seeded via deferred path produces no re-seeding" <|
+                \() ->
+                    [ """module Route.Index exposing (view)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+view app =
+    { body =
+        [ localHelper "0" "First Call" "Description one"
+        , localHelper "1" "Second Call" "Description two"
+        ]
+    }
+
+localHelper elmPagesFid_route_index_localhelper title desc =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid_route_index_localhelper ++ ":0") |> View.htmlToFreezable |> View.freeze)
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectNoErrors
+            , test "idempotent: cross-module helper with String arg and FID param already seeded produces no errors" <|
+                \() ->
+                    [ """module FrozenHelper exposing (badge)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+badge elmPagesFid_frozenhelper_badge label =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid_frozenhelper_badge ++ ":0") |> View.htmlToFreezable |> View.freeze)
+"""
+                    , """module Shared exposing (view)
+
+import Html.Styled as Html
+import FrozenHelper
+
+view pageView =
+    { body =
+        [ FrozenHelper.badge "shared:0" "elm-pages"
+        ]
+    }
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectNoErrors
+            , test "cross-module helper with String arg: FID param added but call site NOT yet seeded gets seed injected" <|
+                \() ->
+                    -- This simulates cycle 2 where FrozenHelper.badge got its FID param
+                    -- in cycle 1, but the call site in Shared wasn't updated due to fix conflicts.
+                    [ """module FrozenHelper exposing (badge)
+
+import Html.Styled as Html
+import View
+import Html.Lazy
+import Html as ElmPages__Html
+
+badge elmPagesFid_frozenhelper_badge label =
+    (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") ("__ELM_PAGES_STATIC__" ++ elmPagesFid_frozenhelper_badge ++ ":0") |> View.htmlToFreezable |> View.freeze)
+"""
+                    , """module Shared exposing (view)
+
+import Html.Styled as Html
+import FrozenHelper
+
+view pageView =
+    { body =
+        [ FrozenHelper.badge "elm-pages"
+        ]
+    }
+"""
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expectErrorsForModules
+                            [ ( "Shared"
+                              , [ Review.Test.error
+                                    { message = "Frozen view codemod: pass frozen ID to helper call"
+                                    , details = [ "Adds a unique frozen ID seed when calling a helper function that contains View.freeze." ]
+                                    , under = """FrozenHelper.badge "elm-pages\""""
+                                    }
+                                    |> Review.Test.whenFixed
+                                        """module Shared exposing (view)
+
+import Html.Styled as Html
+import FrozenHelper
+
+view pageView =
+    { body =
+        [ FrozenHelper.badge "shared:0" "elm-pages"
+        ]
+    }
+"""
+                                ]
+                              )
+                            ]
             ]
         ]

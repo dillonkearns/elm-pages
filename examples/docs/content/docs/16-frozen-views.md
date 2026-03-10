@@ -434,20 +434,72 @@ This is especially useful in CI pipelines to enforce that all `View.freeze` call
 
 Without `--strict`, de-optimized freeze calls still work correctly — the rendering code just won't be eliminated from the client bundle for those specific calls.
 
-### Helper-Call Patterns That Are Still Unsupported
+### Supported Helper Patterns
 
-Helper modules with `View.freeze` are supported, but there are still some contexts where the codemod cannot auto-seed unique helper IDs yet:
+Frozen helpers work in any source directory listed in your `elm.json` — `app/`, `src/`, `lib/`, or any other directory. The codemod mirrors all source directories for both client and server transforms.
 
-- Repeated lambda contexts (for example `List.map (\user -> Card.view user)`)
-- Function-value and partial-application usage (for example `List.map Card.view` or `List.map (Card.view prefix)`)
-- Recursive helper re-entry without explicit ID threading
+The key requirement is that each `View.freeze` call site must be **statically identifiable** so that elm-pages can assign it a unique ID at compile time. The client and server must agree on these IDs, and they're determined by the position of each call in the source code.
 
-In these cases, elm-pages falls back to de-optimized frozen views and shows a warning by default. With `--strict`, these become build errors so you can enforce optimizable patterns in CI.
+These patterns are fully optimized:
 
-### Current Limitation: Codemod Scope
+```elm
+-- Direct calls at known call sites (each gets a unique ID)
+FrozenHelper.summaryCard { title = "First", details = "..." }
+FrozenHelper.summaryCard { title = "Second", details = "..." }
 
-Today, the frozen-view codemod runs on source files under `app/` (the source tree copied for client/server codegen). If freeze-enabled helpers live outside `app/`, they are currently outside codemod coverage.
+-- Local helpers that use View.freeze internally
+localCard : String -> Html msg
+localCard title =
+    View.freeze (div [] [ text title ])
 
-### TODO
+-- Helpers called from Route modules, Shared.elm, or View.elm
+-- Works from any source directory in elm.json
+```
 
-- Expand frozen-view codemod coverage beyond `app/` source modules.
+### Unsupported Helper-Call Patterns
+
+Some call patterns prevent elm-pages from assigning static IDs. These patterns fall back to de-optimized frozen views — the code still works correctly, but the rendering code stays in the client bundle.
+
+**Passing a frozen helper as a function value:**
+
+```elm
+-- These are NOT optimized (frozen helper passed as a value, not called directly)
+List.map FrozenHelper.summaryCard items
+List.map (\item -> FrozenHelper.summaryCard item) items
+List.map (FrozenHelper.summaryCard prefix) items
+```
+
+**Function composition with a frozen helper:**
+
+```elm
+-- NOT optimized (composition creates a function value)
+List.map (FrozenHelper.summaryCard << toCardData) items
+```
+
+#### Why These Patterns Can't Be Optimized
+
+Each `View.freeze` call needs a unique ID assigned at compile time so that the client and server can agree on which frozen HTML corresponds to which call. When a frozen helper is passed as a function value to `List.map`, the number of calls is determined at runtime — there's no way to assign static IDs.
+
+This is a fundamental difference from `Html.Lazy`. With `Html.Lazy`, `List.map (Html.Lazy.lazy viewItem) items` works transparently because lazy is a runtime optimization — it just skips re-rendering when inputs match, and the virtual DOM handles any number of lazy nodes dynamically. `View.freeze` is a compile-time optimization that requires static analysis to agree on IDs before the code runs.
+
+#### How to Refactor
+
+If you want frozen views in a list, call the helper at each known call site instead:
+
+```elm
+-- Instead of: List.map FrozenHelper.summaryCard items
+-- Do this:
+[ FrozenHelper.summaryCard firstItem
+, FrozenHelper.summaryCard secondItem
+, FrozenHelper.summaryCard thirdItem
+]
+```
+
+This only works when the number of items is known at compile time. For dynamic lists, the content will need to stay in the client bundle.
+
+#### Fallback Behavior
+
+When an unsupported pattern is detected:
+
+- **Default mode** (`elm-pages build`): A warning is shown, the build succeeds, and the affected code stays in the client bundle. Everything still works correctly — you just don't get the DCE optimization for those calls.
+- **Strict mode** (`elm-pages build --strict`): The build fails with a specific error. This is useful in CI to enforce that all freeze calls are fully optimized.
