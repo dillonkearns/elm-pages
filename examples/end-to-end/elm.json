@@ -11,6 +11,7 @@
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
+            "MaybeJustJames/yaml": "2.1.7",
             "avh4/elm-color": "1.0.0",
             "avh4/elm-fifo": "1.0.4",
             "danfishgold/base64-bytes": "1.1.0",
@@ -61,6 +62,8 @@
             "fredcy/elm-parseint": "2.0.1",
             "jinjor/elm-xml-parser": "2.0.0",
             "miniBill/elm-unicode": "1.1.0",
+            "pithub/elm-parser-bug-workaround": "1.0.0",
+            "pithub/elm-parser-extra": "1.0.0",
             "robinheghan/murmur3": "1.0.0",
             "rtfeldman/elm-hex": "1.0.0",
             "stil4m/elm-syntax": "7.3.2",
