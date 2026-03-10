@@ -54,6 +54,7 @@
         },
         "indirect": {
             "Chadtech/elm-bool-extra": "2.4.2",
+            "elmcraft/core-extra": "2.3.0",
             "elm/file": "1.0.5",
             "elm-community/basics-extra": "4.1.0",
             "elm-community/maybe-extra": "5.3.0",

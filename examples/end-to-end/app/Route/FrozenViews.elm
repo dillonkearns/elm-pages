@@ -5,6 +5,7 @@ import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
+import FrozenHelper
 import FrozenHelperWrapper
 import Head
 import Html.Styled as Html exposing (Html)
@@ -134,6 +135,15 @@ view app _ model =
                 { title = "Transitive helper card B"
                 , details = "Route -> wrapper -> freeze helper (second call site)"
                 }
+
+            -- Cross-module helper with String first arg (tests FID param + String arg seeding)
+            , FrozenHelper.badge "e2e-alpha"
+            , FrozenHelper.badge "e2e-beta"
+
+            -- Forward-referenced route-local helper with String first arg
+            -- (localInfoCard is defined AFTER view in source order)
+            , localInfoCard "Local Helper Card" "Route-local helper with String arg, defined after view"
+            , localInfoCard "Second Local Card" "Same local helper, second call site"
             , Html.div
                 [ Attr.style "margin-top" "24px"
                 , Attr.style "padding" "16px"
@@ -172,3 +182,22 @@ serverDataSection pageData =
         , Html.p [] [ Html.text ("Name from query params: " ++ pageData.requestedName) ]
         , Html.p [] [ Html.text ("Request time (ms): " ++ String.fromInt pageData.requestTimeMs) ]
         ]
+
+
+{-| Forward-referenced route-local helper with String first arg.
+Defined AFTER view in source order to exercise the deferred seeding path.
+-}
+localInfoCard : String -> String -> Html msg
+localInfoCard title description =
+    View.freeze
+        (Html.div
+            [ Attr.style "padding" "12px"
+            , Attr.style "margin-bottom" "8px"
+            , Attr.style "background" "#f0fdfa"
+            , Attr.style "border" "1px solid #99f6e4"
+            , Attr.style "border-radius" "8px"
+            ]
+            [ Html.p [ Attr.style "font-weight" "600" ] [ Html.text title ]
+            , Html.p [] [ Html.text description ]
+            ]
+        )

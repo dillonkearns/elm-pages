@@ -29,7 +29,7 @@ context("frozen views netlify build output", () => {
     cy.contains("Transitive helper card B");
   });
 
-  it("serves frozen HTML payload from content.dat", () => {
+  it("serves frozen HTML payload from content.dat with all helper patterns", () => {
     cy.request({
       url: "/frozen-views/content.dat?name=codex",
       encoding: "binary",
@@ -44,8 +44,9 @@ context("frozen views netlify build output", () => {
 
       const frozenViews = parseFrozenViewsFromBinary(response.body);
       const html = Object.values(frozenViews).join("\n");
+      const frozenViewCount = Object.keys(frozenViews).length;
 
-      expect(Object.keys(frozenViews)).to.have.length(3);
+      // Original patterns: 1 direct freeze + 2 transitive helpers
       expect(html).to.include("Live Server Data");
       expect(html).to.include("Name from query params: codex");
       expect(html).to.include("Language Preferences: en-US");
@@ -57,6 +58,23 @@ context("frozen views netlify build output", () => {
       expect(html).to.include(
         "Route -&gt; wrapper -&gt; freeze helper (second call site)"
       );
+
+      // Cross-module helper with String first arg (FID param + String arg seeding)
+      expect(html).to.include("e2e-alpha");
+      expect(html).to.include("e2e-beta");
+
+      // Forward-referenced route-local helper with String first arg
+      expect(html).to.include("Local Helper Card");
+      expect(html).to.include("Second Local Card");
+      expect(html).to.include(
+        "Route-local helper with String arg, defined after view"
+      );
+
+      // Frozen helper badge called from Shared.elm (shared-scoped seeding)
+      expect(html).to.include("shared-e2e");
+
+      // Total: 1 direct + 2 transitive + 2 badge + 2 localInfoCard + 1 shared badge = 8
+      expect(frozenViewCount).to.eq(8);
     });
   });
 
@@ -76,6 +94,23 @@ context("frozen views netlify build output", () => {
         expect(contentDatKeys).to.deep.equal(serverRenderedIds);
       });
     });
+  });
+
+  it("renders cross-module String-arg badge helper content on the page", () => {
+    cy.visit("/frozen-views");
+    cy.contains("e2e-alpha");
+    cy.contains("e2e-beta");
+  });
+
+  it("renders forward-referenced route-local helper content on the page", () => {
+    cy.visit("/frozen-views");
+    cy.contains("Local Helper Card");
+    cy.contains("Second Local Card");
+  });
+
+  it("renders shared-scoped frozen helper badge on the page", () => {
+    cy.visit("/frozen-views");
+    cy.contains("shared-e2e");
   });
 
   it("keeps interactive islands working", () => {

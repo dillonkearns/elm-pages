@@ -3,6 +3,7 @@ module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import FatalError exposing (FatalError)
+import FrozenHelper
 import Html exposing (Html)
 import Html.Styled
 import Pages.Flags
@@ -93,7 +94,9 @@ view :
     -> { body : List (Html msg), title : String }
 view stars page model toMsg pageView =
     { body =
-        [ Html.Styled.div []
+        [ FrozenHelper.badge "shared-e2e"
+            |> Html.Styled.toUnstyled
+        , Html.Styled.div []
             pageView.body
             |> Html.Styled.toUnstyled
         ]

@@ -1,4 +1,4 @@
-module FrozenHelper exposing (summaryCard)
+module FrozenHelper exposing (badge, summaryCard)
 
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
@@ -18,4 +18,12 @@ summaryCard cardData =
             [ Html.p [ Attr.class "text-sm font-semibold text-blue-800 mb-1" ] [ Html.text cardData.title ]
             , Html.p [ Attr.class "text-sm text-blue-700" ] [ Html.text cardData.details ]
             ]
+        )
+
+
+badge : String -> Html msg
+badge label =
+    View.freeze
+        (Html.span [ Attr.class "inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800" ]
+            [ Html.text label ]
         )
