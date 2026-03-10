@@ -10,6 +10,7 @@
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
+            "MaybeJustJames/yaml": "2.1.7",
             "avh4/elm-color": "1.0.0",
             "danyx23/elm-mimetype": "4.0.1",
             "dillonkearns/elm-bcp47-language-tag": "2.0.0",
@@ -60,6 +61,8 @@
             "justinmimbs/time-extra": "1.2.0",
             "lazamar/dict-parser": "1.0.2",
             "miniBill/elm-unicode": "1.1.0",
+            "pithub/elm-parser-bug-workaround": "1.0.0",
+            "pithub/elm-parser-extra": "1.0.0",
             "rtfeldman/elm-hex": "1.0.0",
             "ryan-haskell/date-format": "1.0.0",
             "stil4m/elm-syntax": "7.3.2",
