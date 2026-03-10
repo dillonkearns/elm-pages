@@ -47,7 +47,14 @@
         "Pages.Internal.Router",
         "Pages.Internal.RoutePattern",
         "Pages.Internal.NotFoundReason",
-        "Test.BackendTask"
+        "Test.BackendTask",
+        "Test.BackendTask.Internal",
+        "Test.BackendTask.Http",
+        "Test.BackendTask.Time",
+        "Test.BackendTask.Db",
+        "Test.BackendTask.Custom",
+        "Test.BackendTask.Stream",
+        "Test.Script"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
