@@ -47,8 +47,6 @@ function rewriteElmJsonHelp(elmJson, options) {
   });
   addDirectDependency(elmJson, "lamdera/codecs", "1.0.0");
   addDirectDependency(elmJson, "elm/bytes", "1.0.8");
-  addDirectDependency(elmJson, "dillonkearns/elm-ts-json", "2.1.1");
-  addIndirectDependency(elmJson, "elm-community/dict-extra", "2.4.0");
   // 3. add our own secret My.elm module 😈
   elmJson["source-directories"].push(".elm-pages");
   return elmJson;
@@ -57,12 +55,6 @@ function rewriteElmJsonHelp(elmJson, options) {
 function addDirectDependency(elmJson, pkg, version) {
   elmJson["dependencies"]["direct"][pkg] = version;
   delete elmJson["dependencies"]["indirect"][pkg];
-}
-
-function addIndirectDependency(elmJson, pkg, version) {
-  if (!elmJson["dependencies"]["direct"][pkg]) {
-    elmJson["dependencies"]["indirect"][pkg] = version;
-  }
 }
 
 async function writeFileIfChanged(filePath, content) {
