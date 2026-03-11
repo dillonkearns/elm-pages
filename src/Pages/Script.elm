@@ -17,7 +17,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 ## Defining Scripts
 
-@docs withCliOptions, withoutCliOptions, withSchema, withDatabasePath
+@docs withCliOptions, withoutCliOptions, withSchema, introspect, withDatabasePath
 
 
 ## File System Utilities
