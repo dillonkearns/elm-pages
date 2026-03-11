@@ -32,6 +32,22 @@ assert data["greeting"].startswith("Hello, World")
 print("Normal execution output OK")
 ')
 
+# Batch introspection smoke test - verify elm-pages introspect discovers all withSchema scripts
+(cd test-scripts && npx elm-pages introspect | python3 -c '
+import sys, json
+data = json.load(sys.stdin)
+assert isinstance(data, list), "Expected a JSON array"
+assert len(data) == 2, "Expected 2 scripts, got " + str(len(data))
+names = {s["name"] for s in data}
+assert names == {"TestWithSchema", "TestListFiles"}, "Unexpected scripts: " + str(names)
+for s in data:
+    assert "description" in s
+    assert "help" in s
+    assert "outputSchema" in s
+    assert "path" in s
+print("Batch introspection OK")
+')
+
 # Stream tests - tests gzip, unzip, command stdin handling, etc.
 (cd examples/end-to-end && npm i && npx elm-pages run script/src/StreamTests.elm)
 
