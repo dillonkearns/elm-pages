@@ -58,6 +58,83 @@ export async function requireElm(compiledElmPath) {
 }
 
 /**
+ * Generate a ScriptMain.elm that batch-introspects multiple scripts.
+ * @param {Array<{moduleName: string}>} scripts
+ */
+export function introspectWrapperFile(scripts) {
+  const imports = scripts
+    .map((s) => `import ${s.moduleName}`)
+    .join("\n");
+
+  const entries = scripts
+    .map(
+      (s) =>
+        `            ( "${s.moduleName}", "${s.path}", ${s.moduleName}.run )`
+    )
+    .join("\n            , ");
+
+  return `port module ScriptMain exposing (main)
+
+import Bytes exposing (Bytes)
+import Json.Decode
+import Json.Encode
+import Pages.Internal.Platform.GeneratorApplication
+import Pages.Internal.Script exposing (Script(..))
+import Pages.Script as Script
+${imports}
+
+
+main : Pages.Internal.Platform.GeneratorApplication.Program
+main =
+    Pages.Internal.Platform.GeneratorApplication.app
+        { data = introspectAll
+        , scriptModuleName = "IntrospectAll"
+        , toJsPort = toJsPort
+        , fromJsPort = fromJsPort identity
+        , gotBatchSub = gotBatchSub identity
+        , sendPageData = \\_ -> Cmd.none
+        }
+
+
+introspectAll : Script
+introspectAll =
+    let
+        scripts =
+            [ ${entries}
+            ]
+
+        results =
+            scripts
+                |> List.filterMap
+                    (\\( moduleName, scriptPath, script ) ->
+                        case script of
+                            Script { introspect } ->
+                                case introspect of
+                                    Just fn ->
+                                        fn { moduleName = moduleName, path = scriptPath }
+                                            |> Just
+
+                                    Nothing ->
+                                        Nothing
+                    )
+                |> Json.Encode.list identity
+                |> Json.Encode.encode 0
+    in
+    Script.withoutCliOptions (Script.log results)
+
+
+port toJsPort : { json : Json.Encode.Value, bytes : List { key : String, data : Bytes } } -> Cmd msg
+
+
+port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
+
+
+port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe Bytes } -> msg) -> Sub msg
+`;
+}
+
+
+/**
  * @param {string} moduleName
  */
 export function generatorWrapperFile(moduleName) {

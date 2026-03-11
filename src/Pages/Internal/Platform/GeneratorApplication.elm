@@ -66,8 +66,8 @@ app config =
         cliConfig : Program.Config (BackendTask FatalError ())
         cliConfig =
             case config.data of
-                Pages.Internal.Script.Script theCliConfig ->
-                    theCliConfig config.scriptModuleName HtmlPrinter.htmlToString
+                Pages.Internal.Script.Script script ->
+                    script.cliConfig config.scriptModuleName HtmlPrinter.htmlToString
     in
     Program.stateful
         { init =
