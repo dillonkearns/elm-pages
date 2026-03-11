@@ -2181,8 +2181,7 @@ function runResolvePath(req) {
 async function runEnvJob(req) {
   try {
     const expectedEnv = req.body.args[0];
-    const env = { ...process.env, ...req.env };
-    return jsonResponse(req, env[expectedEnv] || null);
+    return jsonResponse(req, expectedEnv in req.env ? req.env[expectedEnv] : process.env[expectedEnv] || null);
   } catch (e) {
     console.log(`Error performing env '${JSON.stringify(req.body)}'`);
     throw e;
