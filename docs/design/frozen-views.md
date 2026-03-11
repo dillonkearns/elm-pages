@@ -24,7 +24,7 @@ This document describes the design for "frozen views" in elm-pages - a feature t
 ### Frozen vs Dynamic Content
 
 **Frozen content:**
-- Content that doesn't depend on `Model` or runtime fields like `app.action`, `app.navigation`, `app.url`
+- Content that doesn't depend on `Model` or runtime fields like `app.navigation`, `app.url`
 - Rendered at build/request time
 - HTML is "frozen" - never re-rendered on the client
 - Dependencies (parsers, source data) are DCE'd from client bundle
@@ -288,9 +288,8 @@ If tainted values are used inside `View.freeze`, the rule reports an error with 
 ## Constraints and Limitations
 
 1. **Frozen content must be `Html Never`** - No event handlers allowed (no `onClick`, etc.)
-2. **Only works in Route modules** - The elm-review transformation only applies to Route modules
-3. **Model cannot be used in freeze** - Compile-time taint checking prevents this
-4. **Runtime app fields cannot be used in freeze** - `app.action`, `app.navigation`, `app.url`, etc.
+2. **Model cannot be used in freeze** - Compile-time taint checking prevents this
+3. **Runtime app fields cannot be used in freeze** - `app.navigation`, `app.url`, etc. (note: `app.data` and `app.action` ARE supported inside freeze)
 
 ## Version Mismatch Considerations
 
@@ -306,6 +305,6 @@ With frozen views: Same behavior applies. The frozen HTML is just "data" from th
 ## References
 
 - User documentation: /docs/frozen-views
-- Taint tracking rule: `generator/review/src/Pages/Review/StaticRegionScope.elm`
-- Data type transform: `generator/dead-code-review/src/Pages/Review/StaticViewTransform.elm`
+- Client transform (DCE + frozen ID seeding): `generator/dead-code-review/src/Pages/Review/StaticViewTransform.elm`
+- Server transform (data-static wrapping + frozen ID seeding): `generator/server-review/src/Pages/Review/ServerDataTransform.elm`
 - Virtual-dom codemod: `generator/src/frozen-view-codemod.js`
