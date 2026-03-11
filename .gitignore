@@ -15,3 +15,6 @@ generated/
 
 elm-review-report.gz.json
 examples/docs/functions
+docs.json
+
+examples/end-to-end/db/schema-history/

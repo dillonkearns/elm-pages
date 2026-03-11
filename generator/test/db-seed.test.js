@@ -15,7 +15,7 @@ describe("Pages.Db codegen", () => {
   it("exposes connection-based API for custom db file locations", () => {
     const generated = generatePagesDbModule("abc123", 3);
     expect(generated).toContain(
-      "module Pages.Db exposing (Connection, default, open, get, update, transaction)"
+      "module Pages.Db exposing (Connection, default, open, get, update, transaction, testConfig)"
     );
     expect(generated).toContain("type Connection");
     expect(generated).toContain("open : String -> Connection");

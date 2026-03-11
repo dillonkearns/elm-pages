@@ -1,4 +1,4 @@
-module BackendTaskTest exposing (describe, run, test, testScript)
+module BackendTaskTest exposing (describe, run, test, testTask, testScript)
 
 import Array exposing (Array)
 import BackendTask exposing (BackendTask)
@@ -31,6 +31,24 @@ test name toTask =
             (\expectation ->
                 Test.test name <|
                     \() -> expectation
+            )
+
+
+{-| Define a test that maps over the result of a BackendTask. Designed for piping:
+
+    BackendTask.Time.zone { yearsAgo = 5, yearsAhead = 5 }
+        |> testTask "returns a zone"
+            (\z -> Time.toHour z someTime |> Expect.equal 19)
+
+-}
+testTask : String -> (a -> Expect.Expectation) -> BackendTask FatalError a -> BackendTask FatalError Test.Test
+testTask name toExpectation task =
+    BackendTask.succeed ()
+        |> Script.doThen task
+        |> BackendTask.map
+            (\data ->
+                Test.test name <|
+                    \() -> toExpectation data
             )
 
 

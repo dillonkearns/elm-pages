@@ -1,6 +1,7 @@
 module FileTests exposing (run)
 
 import BackendTask exposing (BackendTask)
+import BackendTask.Env
 import BackendTask.File as File
 import BackendTaskTest exposing (describe, test, testScript)
 import Expect
@@ -319,7 +320,7 @@ runTests =
                             Expect.all
                                 [ \_ -> Expect.equal True exists
                                 , \_ ->
-                                    if String.contains "test-prefix-" (tmpDir) then
+                                    if String.contains "test-prefix-" tmpDir then
                                         Expect.pass
 
                                     else
@@ -408,6 +409,21 @@ runTests =
                     (FilePath.fromString ""
                         |> FilePath.resolve
                     )
+        ]
+    , describe "BackendTask.withEnv + Env.get"
+        [ test "withEnv makes variable visible to Env.get" <|
+            \() ->
+                BackendTask.Env.get "TEST_WITH_ENV_VAR"
+                    |> BackendTask.withEnv "TEST_WITH_ENV_VAR" "injected-value"
+                    |> BackendTask.map
+                        (Expect.equal (Just "injected-value"))
+        , test "withEnv overrides existing env var for Env.get" <|
+            \() ->
+                -- PATH always exists, so withEnv should override it
+                BackendTask.Env.get "PATH"
+                    |> BackendTask.withEnv "PATH" "overridden"
+                    |> BackendTask.map
+                        (Expect.equal (Just "overridden"))
         ]
     ]
         |> BackendTaskTest.describe "File"
