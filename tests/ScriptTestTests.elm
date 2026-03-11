@@ -1918,7 +1918,10 @@ but the pending requests are:
                 \() ->
                     BackendTask.Time.zone
                         |> BackendTask.andThen (\_ -> BackendTask.succeed ())
-                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withTime (Time.millisToPosix 0)
+                            )
                         |> BackendTaskTest.expectTestError
                             (Expect.equal
                                 ("BackendTask.Time.zone requires a virtual timezone.\n\n"
@@ -1946,7 +1949,10 @@ but the pending requests are:
                 \() ->
                     BackendTask.Time.zoneByName "America/New_York"
                         |> BackendTask.andThen (\_ -> BackendTask.succeed ())
-                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withTime (Time.millisToPosix 0)
+                            )
                         |> BackendTaskTest.expectTestError
                             (Expect.equal
                                 ("BackendTask.Time.zoneByName \"America/New_York\" requires a virtual timezone.\n\n"

@@ -2286,7 +2286,7 @@ const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
 
 /**
  * Handle elm-pages-internal://timezone requests.
- * Accepts either { yearsAgo, yearsAhead } (relative) or { sinceMs, untilMs } (absolute).
+ * Accepts { sinceMs, untilMs } for the date range to scan for DST transitions.
  * Optionally accepts { tzId } for a named timezone; defaults to system timezone.
  * Returns { defaultOffset, eras } for Time.customZone.
  */
@@ -2304,16 +2304,7 @@ function runTimezone(req) {
     };
   }
 
-  let sinceMs, untilMs;
-  if (body.yearsAgo !== undefined) {
-    const now = Date.now();
-    const msPerYear = 365.25 * 24 * 60 * 60 * 1000;
-    sinceMs = now - body.yearsAgo * msPerYear;
-    untilMs = now + body.yearsAhead * msPerYear;
-  } else {
-    sinceMs = body.sinceMs;
-    untilMs = body.untilMs;
-  }
+  const { sinceMs, untilMs } = body;
 
   if (typeof globalThis.Temporal !== "undefined") {
     return getTimezoneDataTemporal(tzId, sinceMs, untilMs);
