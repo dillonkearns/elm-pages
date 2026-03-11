@@ -1,11 +1,10 @@
-module TestListFiles exposing (run, schemaInfo)
+module TestListFiles exposing (run)
 
 import BackendTask
 import BackendTask.Glob as Glob
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
-import Json.Encode
 import Pages.Script as Script exposing (Script)
 import TsJson.Encode as TsEncode
 
@@ -53,8 +52,3 @@ config =
 run : Script
 run =
     Script.withSchema config
-
-
-schemaInfo : { moduleName : String, path : String } -> Json.Encode.Value
-schemaInfo =
-    Script.introspect config

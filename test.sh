@@ -31,15 +31,23 @@ data = json.load(sys.stdin)
 assert data["greeting"].startswith("Hello, World")
 print("Normal execution output OK")
 ')
+(cd test-scripts && npx elm-pages run src/TestWithSchemaDebugLog.elm --introspect | python3 -c '
+import sys, json
+data = json.load(sys.stdin)
+assert data["name"] == "TestWithSchemaDebugLog"
+assert data["description"] == "Test script with a top-level Debug.log"
+assert data["outputSchema"]["properties"]["status"]["type"] == "string"
+print("Top-level Debug.log introspection OK")
+')
 
 # Batch introspection smoke test - verify elm-pages introspect discovers all withSchema scripts
 (cd test-scripts && npx elm-pages introspect | python3 -c '
 import sys, json
 data = json.load(sys.stdin)
 assert isinstance(data, list), "Expected a JSON array"
-assert len(data) == 2, "Expected 2 scripts, got " + str(len(data))
+assert len(data) == 3, "Expected 3 scripts, got " + str(len(data))
 names = {s["name"] for s in data}
-assert names == {"TestWithSchema", "TestListFiles"}, "Unexpected scripts: " + str(names)
+assert names == {"TestWithSchema", "TestListFiles", "TestWithSchemaDebugLog"}, "Unexpected scripts: " + str(names)
 for s in data:
     assert "description" in s
     assert "help" in s

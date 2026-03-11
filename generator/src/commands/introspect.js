@@ -1,6 +1,6 @@
 /**
- * Introspect command - batch-discovers all scripts using Script.withSchema
- * and outputs their combined introspection JSON.
+ * Introspect command - batch-discovers scripts and returns metadata for the
+ * ones whose `run` value uses Script.withSchema, outputting combined JSON.
  */
 
 import * as fs from "node:fs";
@@ -18,14 +18,13 @@ import {
 import { filePathToModuleName } from "../resolve-elm-module.js";
 
 /**
- * Find all .elm files in script/src/ that expose `schemaInfo` and generate a
- * batch introspection module.
+ * Find all candidate script modules and generate a batch introspection module.
  */
 export async function run() {
   try {
-    const { projectDirectory, sourceDirectory } = resolveScriptDirectories();
+    const { projectDirectory, sourceDirectories } = resolveScriptDirectories();
 
-    const scripts = findIntrospectableScripts(sourceDirectory);
+    const scripts = findIntrospectableScripts(sourceDirectories);
 
     if (scripts.length === 0) {
       console.log("[]");
@@ -33,12 +32,15 @@ export async function run() {
     }
 
     // Write the batch introspection wrapper
-    const [{ ensureDirSync, writeFileIfChanged, syncFilesToDirectory }, globby, { rewriteElmJson }] =
-      await Promise.all([
-        import("../file-helpers.js"),
-        import("globby"),
-        import("../rewrite-elm-json.js"),
-      ]);
+    const [
+      { ensureDirSync, writeFileIfChanged, syncFilesToDirectory },
+      globby,
+      { rewriteElmJson },
+    ] = await Promise.all([
+      import("../file-helpers.js"),
+      import("globby"),
+      import("../rewrite-elm-json.js"),
+    ]);
 
     ensureDirSync(`${projectDirectory}/elm-stuff`);
     ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages`);
@@ -90,8 +92,10 @@ export async function run() {
     await renderer.runGenerator(
       [],
       null,
-      await requireElm(outputPath),
-      "IntrospectAll"
+      await requireElm(outputPath, { suppressConsoleLog: true }),
+      "IntrospectAll",
+      undefined,
+      { suppressConsoleLogDuringInit: true }
     );
   } catch (error) {
     printCaughtError(error, restoreColorSafe);
@@ -100,11 +104,13 @@ export async function run() {
 }
 
 /**
- * Recursively find all .elm files that expose `schemaInfo` and return module names.
+ * Recursively find all .elm files that expose `run` and return module names.
  */
-function findIntrospectableScripts(sourceDir) {
+function findIntrospectableScripts(sourceDirs) {
   const modules = [];
-  findElmFilesRecursive(sourceDir, sourceDir, modules);
+  for (const sourceDir of sourceDirs) {
+    findElmFilesRecursive(sourceDir, sourceDir, modules);
+  }
   return modules;
 }
 
@@ -115,7 +121,10 @@ function findElmFilesRecursive(baseDir, currentDir, results) {
     if (entry.isDirectory()) {
       findElmFilesRecursive(baseDir, fullPath, results);
     } else if (entry.name.endsWith(".elm")) {
-      if (moduleExposesValue(fullPath, "schemaInfo")) {
+      if (
+        moduleExposesValue(fullPath, "run") &&
+        moduleImportsPagesScript(fullPath)
+      ) {
         const relativePath = path.relative(baseDir, fullPath);
         const moduleName = filePathToModuleName(relativePath);
         // Path relative to where `elm-pages introspect` is run
@@ -126,8 +135,16 @@ function findElmFilesRecursive(baseDir, currentDir, results) {
   }
 }
 
+function moduleImportsPagesScript(filePath) {
+  try {
+    return fs.readFileSync(filePath, "utf8").includes("Pages.Script");
+  } catch (_) {
+    return false;
+  }
+}
+
 /**
- * Resolve the script project and source directories.
+ * Resolve the script project and local source directories.
  * Standard elm-pages layout: script/elm.json with script/src/
  * Fallback: ./elm.json with its source-directories
  */
@@ -146,15 +163,23 @@ function resolveScriptDirectories() {
   const projectDirectory = path.resolve(path.dirname(elmJsonPath));
   const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
   const srcDirs = elmJson["source-directories"] || ["src"];
-  const sourceDirectory = path.resolve(
-    projectDirectory,
-    srcDirs.find((d) => !d.startsWith("..") && d !== ".elm-pages") || "src"
-  );
+  const sourceDirectories = srcDirs
+    .filter((d) => !d.startsWith("..") && d !== ".elm-pages")
+    .map((dir) => path.resolve(projectDirectory, dir));
 
-  if (!fs.existsSync(sourceDirectory)) {
-    console.error(`Source directory ${sourceDirectory} not found.`);
+  if (sourceDirectories.length === 0) {
+    console.error("No local source directories found.");
     process.exit(1);
   }
 
-  return { projectDirectory, sourceDirectory };
+  const missingSourceDirectory = sourceDirectories.find(
+    (dir) => !fs.existsSync(dir)
+  );
+
+  if (missingSourceDirectory) {
+    console.error(`Source directory ${missingSourceDirectory} not found.`);
+    process.exit(1);
+  }
+
+  return { projectDirectory, sourceDirectories };
 }

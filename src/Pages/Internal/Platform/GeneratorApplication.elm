@@ -69,21 +69,24 @@ app config =
         baseCliConfig : Program.Config (BackendTask FatalError ())
         baseCliConfig =
             case config.data of
-                Pages.Internal.Script.Script toConfig ->
-                    toConfig HtmlPrinter.htmlToString
+                Pages.Internal.Script.Script script ->
+                    script.toConfig HtmlPrinter.htmlToString
 
         cliConfig : Program.Config (BackendTask FatalError ())
         cliConfig =
-            case config.introspect of
-                Just introspectFn ->
+            case
+                Pages.Internal.Script.metadata
+                    { moduleName = config.scriptModuleName
+                    , path = ""
+                    }
+                    config.data
+            of
+                Just metadata ->
                     baseCliConfig
                         |> Program.add
                             (OptionsParser.build
                                 (logInternal
-                                    (introspectFn
-                                        { moduleName = config.scriptModuleName
-                                        , path = ""
-                                        }
+                                    (metadata
                                         |> Encode.encode 0
                                     )
                                 )
@@ -284,7 +287,6 @@ perform config effect =
                 |> Cmd.map never
 
 
-
 logInternal : String -> BackendTask FatalError ()
 logInternal message =
     BackendTask.Internal.Request.request
@@ -297,6 +299,7 @@ logInternal message =
                 )
         , expect = BackendTask.Http.expectJson (Decode.succeed ())
         }
+
 
 
 -- TODO use Json.Decode.Value for flagsDecoder instead of hardcoded record flags
