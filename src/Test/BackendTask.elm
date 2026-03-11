@@ -340,7 +340,8 @@ init =
 {-| Seed a file into the virtual filesystem.
 
     BackendTaskTest.init
-        |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
+        |> BackendTaskTest.withFile "config.json"
+            """{"key":"value"}"""
 
 -}
 withFile : String -> String -> TestSetup -> TestSetup
@@ -354,7 +355,9 @@ withFile =
 
     BackendTaskTest.init
         |> BackendTaskTest.withBinaryFile "data.bin"
-            (Bytes.Encode.encode (Bytes.Encode.unsignedInt8 42))
+            (Bytes.Encode.encode
+            (Bytes.Encode.unsignedInt8 42)
+            )
 
 -}
 withBinaryFile : String -> Bytes -> TestSetup -> TestSetup
@@ -390,7 +393,7 @@ withEnv =
     import Time
 
     BackendTaskTest.init
-        |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)
+        |> BackendTaskTest.withTime (Time.millisToPosix 0)
 
 -}
 withTime : Time.Posix -> TestSetup -> TestSetup
