@@ -24,6 +24,7 @@ import Pages.Script as Script
 import Random
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest exposing (Output(..))
+import Test.BackendTask.Time as BackendTaskTime
 import Test.Runner
 import Time
 
@@ -1240,6 +1241,95 @@ Actual:
                         |> BackendTaskTest.simulateCommand "ls" "file1.txt\nfile2.txt"
                         |> BackendTaskTest.ensureStdout [ "file1.txt\nfile2.txt" ]
                         |> BackendTaskTest.expectSuccess
+            , test "command with withVirtualEffects writes to VFS" <|
+                \() ->
+                    Script.exec "elm" [ "make", "--docs=docs.json" ]
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.withVirtualEffects
+                            (\name body ->
+                                case name of
+                                    "elm" ->
+                                        let
+                                            args : List String
+                                            args =
+                                                Decode.decodeValue (Decode.list Decode.string) body
+                                                    |> Result.withDefault []
+
+                                            docsPath : Maybe String
+                                            docsPath =
+                                                args
+                                                    |> List.filterMap
+                                                        (\arg ->
+                                                            if String.startsWith "--docs=" arg then
+                                                                Just (String.dropLeft 7 arg)
+
+                                                            else
+                                                                Nothing
+                                                        )
+                                                    |> List.head
+                                        in
+                                        case docsPath of
+                                            Just path ->
+                                                [ BackendTaskTest.writeFileEffect path "{\"docs\":true}" ]
+
+                                            Nothing ->
+                                                []
+
+                                    _ ->
+                                        []
+                            )
+                        |> BackendTaskTest.simulateCommand "elm" ""
+                        |> BackendTaskTest.ensureFile "docs.json" "{\"docs\":true}"
+                        |> BackendTaskTest.expectSuccess
+            , test "command with withVirtualEffects removes file from VFS" <|
+                \() ->
+                    Script.exec "rm" [ "temp.txt" ]
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withFile "temp.txt" "data"
+                            )
+                        |> BackendTaskTest.withVirtualEffects
+                            (\name _ ->
+                                case name of
+                                    "rm" ->
+                                        [ BackendTaskTest.removeFileEffect "temp.txt" ]
+
+                                    _ ->
+                                        []
+                            )
+                        |> BackendTaskTest.ensureFile "temp.txt" "data"
+                        |> BackendTaskTest.simulateCommand "rm" ""
+                        |> BackendTaskTest.ensureNoFile "temp.txt"
+                        |> BackendTaskTest.expectSuccess
+            , test "ensureCommand checks args before simulation" <|
+                \() ->
+                    Script.exec "elm" [ "make", "--docs=docs.json" ]
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureCommand "elm"
+                            (\args -> Expect.equal [ "make", "--docs=docs.json" ] args)
+                        |> BackendTaskTest.simulateCommand "elm" ""
+                        |> BackendTaskTest.expectSuccess
+            , test "ensureCommand fails when args don't match" <|
+                \() ->
+                    Script.exec "elm" [ "make", "--output=/dev/null" ]
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureCommand "elm"
+                            (\args -> Expect.equal [ "make", "--docs=docs.json" ] args)
+                        |> BackendTaskTest.simulateCommand "elm" ""
+                        |> BackendTaskTest.expectSuccess
+                        |> isFailingExpectation
+            , test "ensureCommand with wrong name gives helpful error" <|
+                \() ->
+                    Script.exec "elm" [ "make" ]
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.ensureCommand "grep"
+                            (\_ -> Expect.pass)
+                        |> BackendTaskTest.expectTestError
+                            (\msg ->
+                                msg
+                                    |> String.contains "grep"
+                                    |> Expect.equal True
+                            )
             , test "wrong command name gives helpful error" <|
                 \() ->
                     Stream.fromString "input"
@@ -1793,7 +1883,7 @@ but the pending requests are:
                             )
                         |> BackendTaskTest.fromBackendTaskWith
                             (BackendTaskTest.init
-                                |> BackendTaskTest.withTimeZone BackendTaskTest.utc
+                                |> BackendTaskTime.withTimeZone BackendTaskTime.utc
                             )
                         |> BackendTaskTest.ensureStdout [ "0" ]
                         |> BackendTaskTest.expectSuccess
@@ -1807,7 +1897,7 @@ but the pending requests are:
                             )
                         |> BackendTaskTest.fromBackendTaskWith
                             (BackendTaskTest.init
-                                |> BackendTaskTest.withTimeZone (BackendTaskTest.fixedOffsetZone -300)
+                                |> BackendTaskTime.withTimeZone (BackendTaskTime.fixedOffsetZone -300)
                             )
                         |> BackendTaskTest.ensureStdout [ "19" ]
                         |> BackendTaskTest.expectSuccess
@@ -1820,7 +1910,7 @@ but the pending requests are:
                             )
                         |> BackendTaskTest.fromBackendTaskWith
                             (BackendTaskTest.init
-                                |> BackendTaskTest.withTimeZone BackendTaskTest.utc
+                                |> BackendTaskTime.withTimeZone BackendTaskTime.utc
                             )
                         |> BackendTaskTest.ensureStdout [ "0" ]
                         |> BackendTaskTest.expectSuccess
@@ -1834,7 +1924,7 @@ but the pending requests are:
                                 ("BackendTask.Time.zone requires a virtual timezone.\n\n"
                                     ++ "Use withTimeZone in your TestSetup:\n\n"
                                     ++ "    BackendTaskTest.init\n"
-                                    ++ "        |> BackendTaskTest.withTimeZone BackendTaskTest.utc"
+                                    ++ "        |> BackendTaskTime.withTimeZone BackendTaskTime.utc"
                                 )
                             )
             , test "zoneByName returns configured named timezone" <|
@@ -1847,8 +1937,8 @@ but the pending requests are:
                             )
                         |> BackendTaskTest.fromBackendTaskWith
                             (BackendTaskTest.init
-                                |> BackendTaskTest.withTimeZoneByName "America/Chicago"
-                                    (BackendTaskTest.fixedOffsetZone -360)
+                                |> BackendTaskTime.withTimeZoneByName "America/Chicago"
+                                    (BackendTaskTime.fixedOffsetZone -360)
                             )
                         |> BackendTaskTest.ensureStdout [ "18" ]
                         |> BackendTaskTest.expectSuccess
@@ -1862,8 +1952,8 @@ but the pending requests are:
                                 ("BackendTask.Time.zoneByName \"America/New_York\" requires a virtual timezone.\n\n"
                                     ++ "Use withTimeZoneByName in your TestSetup:\n\n"
                                     ++ "    BackendTaskTest.init\n"
-                                    ++ "        |> BackendTaskTest.withTimeZoneByName \"America/New_York\"\n"
-                                    ++ "            (BackendTaskTest.fixedOffsetZone -300)"
+                                    ++ "        |> BackendTaskTime.withTimeZoneByName \"America/New_York\"\n"
+                                    ++ "            (BackendTaskTime.fixedOffsetZone -300)"
                                 )
                             )
             , test "customTimeZone with DST eras works" <|
@@ -1873,10 +1963,12 @@ but the pending requests are:
                             (\z ->
                                 let
                                     -- Mar 10, 2024 08:00 UTC (after spring forward)
+                                    summerHour : Int
                                     summerHour =
                                         Time.toHour z (Time.millisToPosix 1710057600000)
 
                                     -- Jan 1, 2024 00:00 UTC (winter, before spring forward)
+                                    winterHour : Int
                                     winterHour =
                                         Time.toHour z (Time.millisToPosix 1704067200000)
                                 in
@@ -1884,8 +1976,8 @@ but the pending requests are:
                             )
                         |> BackendTaskTest.fromBackendTaskWith
                             (BackendTaskTest.init
-                                |> BackendTaskTest.withTimeZone
-                                    (BackendTaskTest.customTimeZone -300
+                                |> BackendTaskTime.withTimeZone
+                                    (BackendTaskTime.customTimeZone -300
                                         [ { start = 28500900, offset = -240 } -- Mar 10, 2024 07:00 UTC -> EDT
                                         ]
                                     )

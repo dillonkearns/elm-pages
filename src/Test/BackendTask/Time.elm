@@ -6,6 +6,8 @@ module Test.BackendTask.Time exposing
 
 {-| Configure virtual time zones for BackendTask tests.
 
+To set the virtual time itself, see [`Test.BackendTask.withTime`](Test-BackendTask#withTime).
+
 
 ## TimeZone
 
@@ -62,12 +64,14 @@ fixedOffsetZone offsetMinutes =
 
 
 {-| A time zone with a default offset and a list of era transitions. Each era
-specifies a start time (milliseconds since epoch) and its UTC offset in minutes.
+specifies a start time (minutes since epoch) and its UTC offset in minutes.
+These values match the format used by [`Time.customZone`](https://package.elm-lang.org/packages/elm/time/latest/Time#customZone).
 
     import Test.BackendTask.Time as BackendTaskTime
 
+    -- Mar 10, 2024 07:00 UTC = 1710054000000 ms / 60000 = 28500900 minutes
     BackendTaskTime.customTimeZone -300
-        [ { start = 1710057600000, offset = -240 } ]
+        [ { start = 28500900, offset = -240 } ]
 
 -}
 customTimeZone : Int -> List { start : Int, offset : Int } -> TimeZone

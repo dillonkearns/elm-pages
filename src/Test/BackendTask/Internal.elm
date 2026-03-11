@@ -1,11 +1,10 @@
 module Test.BackendTask.Internal exposing
-    ( BackendTaskTest(..), TestSetup(..)
-    , Output(..), SimulatedEffect(..), TimeZoneData
+    ( BackendTaskTest(..), TestSetup(..), Output(..), SimulatedEffect(..), TimeZoneData
     , fromBackendTask, fromBackendTaskWith, fromScript, fromScriptWith
     , init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , simulateQuestion, simulateReadKey
-    , ensureHttpGet, ensureHttpPost, ensureCustom, ensureFileWritten
+    , ensureHttpGet, ensureHttpPost, ensureCustom, ensureCommand, ensureFileWritten
     , ensureStdout, ensureStderr, ensureOutputWith
     , ensureFile, ensureFileExists, ensureNoFile
     , withVirtualEffects, writeFileEffect, removeFileEffect
@@ -43,7 +42,7 @@ only when you need type annotations or pattern matching on internal types.
 
 ## Assertions
 
-@docs ensureHttpGet, ensureHttpPost, ensureCustom, ensureFileWritten
+@docs ensureHttpGet, ensureHttpPost, ensureCustom, ensureCommand, ensureFileWritten
 
 @docs ensureStdout, ensureStderr, ensureOutputWith
 
@@ -791,6 +790,7 @@ type alias StreamPartInfo =
     , path : Maybe String
     , string : Maybe String
     , command : Maybe String
+    , args : List String
     , portName : Maybe String
     , url : Maybe String
     }
@@ -801,17 +801,37 @@ streamPipelineDecoder =
     Decode.map2 StreamPipeline
         (Decode.field "kind" Decode.string)
         (Decode.field "parts"
-            (Decode.list
-                (Decode.map6 StreamPartInfo
-                    (Decode.field "name" Decode.string)
-                    (Decode.maybe (Decode.field "path" Decode.string))
-                    (Decode.maybe (Decode.field "string" Decode.string))
-                    (Decode.maybe (Decode.field "command" Decode.string))
-                    (Decode.maybe (Decode.field "portName" Decode.string))
-                    (Decode.maybe (Decode.field "url" Decode.string))
-                )
-            )
+            (Decode.list streamPartDecoder)
         )
+
+
+streamPartDecoder : Decode.Decoder StreamPartInfo
+streamPartDecoder =
+    Decode.map6
+        (\name path string command portName url ->
+            { name = name
+            , path = path
+            , string = string
+            , command = command
+            , args = []
+            , portName = portName
+            , url = url
+            }
+        )
+        (Decode.field "name" Decode.string)
+        (Decode.maybe (Decode.field "path" Decode.string))
+        (Decode.maybe (Decode.field "string" Decode.string))
+        (Decode.maybe (Decode.field "command" Decode.string))
+        (Decode.maybe (Decode.field "portName" Decode.string))
+        (Decode.maybe (Decode.field "url" Decode.string))
+        |> Decode.andThen
+            (\part ->
+                Decode.oneOf
+                    [ Decode.field "args" (Decode.list Decode.string)
+                        |> Decode.map (\args -> { part | args = args })
+                    , Decode.succeed part
+                    ]
+            )
 
 
 isSimulatablePart : StreamPartInfo -> Bool
@@ -1103,11 +1123,15 @@ autoResponseBody vfs req =
 
                         Nothing ->
                             Err
-                                ("BackendTask.Time.zoneByName \"" ++ tzId ++ "\" requires a virtual timezone.\n\n"
+                                ("BackendTask.Time.zoneByName \""
+                                    ++ tzId
+                                    ++ "\" requires a virtual timezone.\n\n"
                                     ++ "Use withTimeZoneByName in your TestSetup:\n\n"
                                     ++ "    BackendTaskTest.init\n"
-                                    ++ "        |> BackendTaskTest.withTimeZoneByName \"" ++ tzId ++ "\"\n"
-                                    ++ "            (BackendTaskTest.fixedOffsetZone -300)"
+                                    ++ "        |> BackendTaskTime.withTimeZoneByName \""
+                                    ++ tzId
+                                    ++ "\"\n"
+                                    ++ "            (BackendTaskTime.fixedOffsetZone -300)"
                                 )
 
                 Nothing ->
@@ -1120,7 +1144,7 @@ autoResponseBody vfs req =
                                 ("BackendTask.Time.zone requires a virtual timezone.\n\n"
                                     ++ "Use withTimeZone in your TestSetup:\n\n"
                                     ++ "    BackendTaskTest.init\n"
-                                    ++ "        |> BackendTaskTest.withTimeZone BackendTaskTest.utc"
+                                    ++ "        |> BackendTaskTime.withTimeZone BackendTaskTime.utc"
                                 )
 
         "elm-pages-internal://randomSeed" ->
@@ -2158,6 +2182,7 @@ simulateCommand commandName commandOutput scriptTest =
         ("command \"" ++ commandName ++ "\"")
         commandMetadata
         commandOutput
+        (Just commandName)
         scriptTest
 
 
@@ -2191,6 +2216,7 @@ simulateCustomStream portName portOutput scriptTest =
         ("custom stream port \"" ++ portName ++ "\"")
         commandMetadata
         portOutput
+        Nothing
         scriptTest
 
 
@@ -2216,6 +2242,7 @@ simulateStreamHttp url httpOutput scriptTest =
         ("stream HTTP request \"" ++ url ++ "\"")
         (httpStreamMetadata url)
         httpOutput
+        Nothing
         scriptTest
 
 
@@ -2305,9 +2332,11 @@ findMatchingInteractive targetUrl predicate =
 
 
 {-| Internal helper. Shared implementation for simulateCommand, simulateCustomStream, simulateStreamHttp.
+The `maybeEffectsName` parameter, when `Just name`, triggers the `simulatedEffects` handler
+with that name (used by `simulateCommand` so that `withVirtualEffects` fires for commands).
 -}
-simulateStreamByPartName : String -> (StreamPartInfo -> Bool) -> String -> Encode.Value -> String -> BackendTaskTest a -> BackendTaskTest a
-simulateStreamByPartName callerName predicate description metadata opaqueOutput =
+simulateStreamByPartName : String -> (StreamPartInfo -> Bool) -> String -> Encode.Value -> String -> Maybe String -> BackendTaskTest a -> BackendTaskTest a
+simulateStreamByPartName callerName predicate description metadata opaqueOutput maybeEffectsName =
     resolveSimulation callerName
         ("stream with " ++ description)
         (findMatchingStreamByPart predicate)
@@ -2323,12 +2352,37 @@ simulateStreamByPartName callerName predicate description metadata opaqueOutput 
 
                         responseBody =
                             buildStreamResponseBody pipeline.kind metadata simResult
+
+                        matchedPart =
+                            List.filter predicate pipeline.parts
+                                |> List.head
+
+                        effectsBody =
+                            case matchedPart of
+                                Just part ->
+                                    Encode.list Encode.string part.args
+
+                                Nothing ->
+                                    Encode.null
+
+                        handlerEffects =
+                            case maybeEffectsName of
+                                Just effectsName ->
+                                    case state.simulatedEffects of
+                                        Just handler ->
+                                            handler effectsName effectsBody
+
+                                        Nothing ->
+                                            []
+
+                                Nothing ->
+                                    []
                     in
                     advanceOrStay
                         { state
                             | responseEntries = jsonAutoResolveEntry (Request.hash matchedReq) responseBody :: state.responseEntries
                             , pendingRequests = remaining
-                            , virtualFS = simResult.virtualFS
+                            , virtualFS = applySimulatedEffects handlerEffects simResult.virtualFS
                             , trackedEffects = state.trackedEffects ++ simResult.effects
                         }
 
@@ -2891,6 +2945,65 @@ ensureCustom portName bodyAssertion scriptTest =
                     TestError
                         ("ensureCustom: Expected a pending BackendTask.Custom.run call for port \""
                             ++ portName
+                            ++ "\"\n\nbut the pending requests are:\n\n"
+                            ++ formatPendingRequests state.pendingRequests
+                        )
+
+
+{-| Assert that a command with the given name is currently pending, and run an
+assertion on its arguments. Does not resolve the request.
+-}
+ensureCommand : String -> (List String -> Expect.Expectation) -> BackendTaskTest a -> BackendTaskTest a
+ensureCommand commandName argsAssertion scriptTest =
+    let
+        predicate : StreamPartInfo -> Bool
+        predicate part =
+            part.name == "command" && part.command == Just commandName
+    in
+    case scriptTest of
+        TestError _ ->
+            scriptTest
+
+        Done _ ->
+            TestError
+                ("ensureCommand: Expected a pending command \""
+                    ++ commandName
+                    ++ "\"\n\nbut the script has already completed."
+                )
+
+        Running state ->
+            case findMatchingStreamByPart predicate state.pendingRequests of
+                Just ( req, _ ) ->
+                    let
+                        args : List String
+                        args =
+                            case decodeJsonBody streamPipelineDecoder req of
+                                Just pipeline ->
+                                    pipeline.parts
+                                        |> List.filter predicate
+                                        |> List.head
+                                        |> Maybe.map .args
+                                        |> Maybe.withDefault []
+
+                                Nothing ->
+                                    []
+                    in
+                    case Test.Runner.getFailureReason (argsAssertion args) of
+                        Nothing ->
+                            scriptTest
+
+                        Just failure ->
+                            TestError
+                                ("ensureCommand: Command \""
+                                    ++ commandName
+                                    ++ "\" args assertion failed\n\n"
+                                    ++ failure.description
+                                )
+
+                Nothing ->
+                    TestError
+                        ("ensureCommand: Expected a pending command \""
+                            ++ commandName
                             ++ "\"\n\nbut the pending requests are:\n\n"
                             ++ formatPendingRequests state.pendingRequests
                         )

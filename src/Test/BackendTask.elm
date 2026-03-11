@@ -1,14 +1,22 @@
 module Test.BackendTask exposing
-    ( fromBackendTask, fromBackendTaskWith, fromScript, fromScriptWith
-    , init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
-    , TimeZone, utc, fixedOffsetZone, customTimeZone
-    , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, HttpError(..), simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
+    ( fromBackendTask, fromBackendTaskWith
+    , fromScript, fromScriptWith
+    , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRandomSeed, withWhich
+    , withDb, withDbSetTo
+    , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError
+    , HttpError(..)
+    , simulateCommand
+    , simulateCustom
+    , simulateCustomStream, simulateStreamHttp
     , simulateQuestion, simulateReadKey
-    , ensureHttpGet, ensureHttpPost, ensureCustom, ensureFileWritten
     , Output(..), ensureStdout, ensureStderr, ensureOutputWith
-    , ensureFile, ensureFileExists, ensureNoFile
+    , ensureFile, ensureFileExists, ensureNoFile, ensureFileWritten
+    , ensureHttpGet, ensureHttpPost
+    , ensureCustom
+    , ensureCommand
     , SimulatedEffect, withVirtualEffects, writeFileEffect, removeFileEffect
-    , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
+    , expectSuccess, expectSuccessWith, expectFailure, expectFailureWith, expectTestError
+    , expectDb
     )
 
 {-| Write pure tests for your `BackendTask`s and `Script`s that you can run with `elm-test`.
@@ -21,15 +29,8 @@ state you want for your file system and environment variables. Everything
 else will be emulated for you.
 
 You can test a [`BackendTask`](BackendTask) directly using [`fromBackendTask`](#fromBackendTask)
-and [`fromBackendTaskWith`](#fromBackendTaskWith). For a more organized API, see the
-sub-modules:
-
-  - [`Test.BackendTask.Http`](Test-BackendTask-Http) -- simulate HTTP requests
-  - [`Test.BackendTask.Db`](Test-BackendTask-Db) -- seed/assert virtual DB
-  - [`Test.BackendTask.Custom`](Test-BackendTask-Custom) -- simulate `BackendTask.Custom.run`
-  - [`Test.BackendTask.Stream`](Test-BackendTask-Stream) -- simulate stream pipelines
-  - [`Test.BackendTask.Time`](Test-BackendTask-Time) -- configure virtual time zones
-  - [`Test.Script`](Test-Script) -- test full Scripts with CLI args
+and [`fromBackendTaskWith`](#fromBackendTaskWith). For testing full `Script` values
+including CLI option parsing, use [`fromScript`](#fromScript) and [`fromScriptWith`](#fromScriptWith).
 
 
 ## Predictable effects are emulated automatically
@@ -85,37 +86,9 @@ and assert on the results with [`ensureFile`](#ensureFile).
             |> String.join "\n"
 
 
-## Testing a [`Script`](Pages-Script) with [`fromScript`](#fromScript)
+## See Also
 
-You can also test a full `Script` (including CLI option parsing) by using
-[`fromScript`](#fromScript). This gives you the most realistic test since
-everything runs through the same entry point as production, with only
-external effects simulated.
-
-    generateDotEnvScript : Script
-    generateDotEnvScript =
-        Script.withCliOptions
-            (OptionsParser.build identity
-                |> OptionsParser.with
-                    (Option.optionalKeywordArg "output")
-            )
-            (\maybeOutput ->
-                generateDotEnv
-                    (maybeOutput |> Maybe.withDefault ".env")
-            )
-
-    test "writes to custom output path" <|
-        \() ->
-            generateDotEnvScript
-                |> BackendTaskTest.fromScriptWith
-                    (BackendTaskTest.init
-                        |> BackendTaskTest.withFile "config.json"
-                            """{"host": "localhost", "port": 3000, "debug": true}"""
-                    )
-                    [ "--output", ".env.staging" ]
-                |> BackendTaskTest.ensureFile ".env.staging"
-                    "HOST=localhost\nPORT=3000\nDEBUG=true"
-                |> BackendTaskTest.expectSuccess
+  - [`Test.BackendTask.Time`](Test-BackendTask-Time) - configure virtual time zones
 
 
 ## Automatic Virtual State Emulation
@@ -136,7 +109,7 @@ These effects are emulated automatically against virtual state:
 
   - `BackendTask.Env.get`, `BackendTask.Env.expect` ([`withEnv`](#withEnv) sets initial state)
   - `BackendTask.Time.now` ([`withTime`](#withTime) sets initial state)
-  - `BackendTask.Time.zone`, `BackendTask.Time.zoneFor`, `BackendTask.Time.zoneByName`, `BackendTask.Time.zoneByNameFor` ([`withTimeZone`](#withTimeZone) / [`withTimeZoneByName`](#withTimeZoneByName) sets initial state)
+  - `BackendTask.Time.zone`, `BackendTask.Time.zoneFor`, `BackendTask.Time.zoneByName`, `BackendTask.Time.zoneByNameFor` ([`Test.BackendTask.Time.withTimeZone`](Test-BackendTask-Time#withTimeZone) / [`Test.BackendTask.Time.withTimeZoneByName`](Test-BackendTask-Time#withTimeZoneByName) sets initial state)
   - `BackendTask.Random.generate` ([`withRandomSeed`](#withRandomSeed) sets initial state)
   - `Script.which` ([`withWhich`](#withWhich) sets initial state)
 
@@ -154,36 +127,50 @@ These effects are emulated automatically against virtual state:
   - `Stream.fileRead`, `Stream.fileWrite`, `Stream.gzip`, `Stream.unzip`
 
 Everything else represents outside data and effects (HTTP requests, shell commands, [`BackendTask.Custom`](BackendTask-Custom) calls)
-which you [must simulate in order to give the test runner the fake responses and effects to trigger when it runs](#simulating-effects).
+which you must simulate using the functions below.
 If your test case encounters one of these which is not simulated, it will fail with a clear message with instructions for how to
 simulate it.
 
 
 ## Building
 
-@docs fromBackendTask, fromBackendTaskWith, fromScript, fromScriptWith
+@docs fromBackendTask, fromBackendTaskWith
+
+@docs fromScript, fromScriptWith
 
 
 ## Test Setup
 
 Seed initial state before the test starts running.
 
-@docs init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
+@docs init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRandomSeed, withWhich
 
-@docs TimeZone, utc, fixedOffsetZone, customTimeZone
+@docs withDb, withDbSetTo
 
 
-## Simulating Effects
+## Simulating HTTP Responses
 
-Provide responses for effects the framework can't predict.
+@docs simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError
 
-  - `BackendTask.Http.*` -> [`simulateHttpGet`](#simulateHttpGet), [`simulateHttpPost`](#simulateHttpPost), [`simulateHttp`](#simulateHttp), [`simulateHttpError`](#simulateHttpError)
-  - `BackendTask.Custom.run` -> [`simulateCustom`](#simulateCustom)
-  - `Stream.command` / `Script.command` / `Script.exec` -> [`simulateCommand`](#simulateCommand)
-  - `Stream.customRead` / `Stream.customWrite` / `Stream.customDuplex` -> [`simulateCustomStream`](#simulateCustomStream)
-  - `Stream.http` / `Stream.httpWithInput` -> [`simulateStreamHttp`](#simulateStreamHttp)
+@docs HttpError
 
-@docs simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, HttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
+
+## Simulating Commands
+
+@docs simulateCommand
+
+
+## Simulating Custom Ports
+
+@docs simulateCustom
+
+
+## Simulating Streams
+
+@docs simulateCustomStream, simulateStreamHttp
+
+
+## Simulating Interactive Input
 
 @docs simulateQuestion, simulateReadKey
 
@@ -193,19 +180,24 @@ Provide responses for effects the framework can't predict.
 Check conditions mid-pipeline without ending the test. These return the same
 `BackendTaskTest` so you can keep chaining.
 
-@docs ensureHttpGet, ensureHttpPost, ensureCustom, ensureFileWritten
-
 @docs Output, ensureStdout, ensureStderr, ensureOutputWith
 
-@docs ensureFile, ensureFileExists, ensureNoFile
+@docs ensureFile, ensureFileExists, ensureNoFile, ensureFileWritten
+
+@docs ensureHttpGet, ensureHttpPost
+
+@docs ensureCustom
+
+@docs ensureCommand
 
 
 ## Virtual Effects
 
-Declare virtual effects for CustomBackendTask calls. Today these effects update the
+Declare virtual effects for opaque external operations. Today these effects update the
 virtual filesystem. When a call is resolved
-via [`simulateCustom`](#simulateCustom), the registered handler's effects are applied to the
-virtual filesystem automatically.
+via [`simulateCustom`](#simulateCustom) or
+[`simulateCommand`](#simulateCommand), the registered handler's
+effects are applied to the virtual filesystem automatically.
 
 @docs SimulatedEffect, withVirtualEffects, writeFileEffect, removeFileEffect
 
@@ -214,7 +206,9 @@ virtual filesystem automatically.
 
 Every test must end with exactly one of these to produce an `Expectation`.
 
-@docs expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
+@docs expectSuccess, expectSuccessWith, expectFailure, expectFailureWith, expectTestError
+
+@docs expectDb
 
 -}
 
@@ -240,18 +234,7 @@ type Output
     | Stderr String
 
 
-{-| An effect on the virtual filesystem that a CustomBackendTask declares via
-[`withVirtualEffects`](#withVirtualEffects). Create values with
-[`writeFileEffect`](#writeFileEffect) and [`removeFileEffect`](#removeFileEffect).
--}
-type SimulatedEffect
-    = SimWriteFile { path : String, body : String }
-    | SimRemoveFile String
-
-
 {-| The type of HTTP error to simulate with [`simulateHttpError`](#simulateHttpError).
-
-    import Test.BackendTask as BackendTaskTest
 
     BackendTaskTest.simulateHttpError
         "GET"
@@ -264,26 +247,18 @@ type HttpError
     | Timeout
 
 
-{-| Represents a time zone for use in tests. Create values with [`utc`](#utc),
-[`fixedOffsetZone`](#fixedOffsetZone), or [`customTimeZone`](#customTimeZone).
--}
-type TimeZone
-    = TimeZone Internal.TimeZoneData
-
-
 
 -- BUILDING
 
 
-{-| Start a test from a `BackendTask FatalError a`. Internal effects like `Script.log`
-and `Script.writeFile` are automatically resolved. You only need to simulate external
+{-| Start a test from a `BackendTask FatalError a`. Predictable effects like `Script.log`
+and `Script.writeFile` are resolved automatically. You only need to simulate external
 effects like HTTP requests and `BackendTask.Custom.run` calls.
 
     import BackendTask
     import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
-    -- Script.log is auto-resolved, no simulation needed
     Script.log "Hello!"
         |> BackendTask.allowFatal
         |> BackendTaskTest.fromBackendTask
@@ -295,12 +270,10 @@ fromBackendTask =
     Internal.fromBackendTask
 
 
-{-| Start a test with a configured [`TestSetup`](#TestSetup). Use this when you need
-to seed initial files or DB state.
+{-| Start a test with a configured [`TestSetup`](#init).
+Use this when you need to seed initial files, environment variables, or other state.
 
-    import BackendTask
     import BackendTask.File
-    import Pages.Script as Script
     import Test.BackendTask as BackendTaskTest
 
     BackendTask.File.rawFile "config.json"
@@ -319,23 +292,15 @@ fromBackendTaskWith =
     Internal.fromBackendTaskWith
 
 
-{-| Start a test from a [`Script`](Pages-Script#Script) value with simulated CLI arguments.
-This lets you test the full script including CLI option parsing.
+{-| Start a test from a [`Script`](Pages-Script#Script) with simulated CLI arguments.
+This tests the full script including CLI option parsing.
 
-    import Pages.Script as Script exposing (Script)
     import Test.BackendTask as BackendTaskTest
 
-    helloScript : Script
-    helloScript =
-        Script.withoutCliOptions (Script.log "Hello!")
-
-    helloScript
-        |> BackendTaskTest.fromScript []
-        |> BackendTaskTest.ensureStdout [ "Hello!" ]
+    myScript
+        |> BackendTaskTest.fromScript [ "--name", "Dillon" ]
+        |> BackendTaskTest.ensureStdout [ "Hello, Dillon!" ]
         |> BackendTaskTest.expectSuccess
-
-If the CLI arguments don't match the expected options, you get a `TestError`
-with the CLI parser's error message.
 
 -}
 fromScript : List String -> Script -> BackendTaskTest ()
@@ -343,9 +308,8 @@ fromScript =
     Internal.fromScript
 
 
-{-| Like [`fromScript`](#fromScript) but with a configured [`TestSetup`](#TestSetup).
+{-| Like [`fromScript`](#fromScript) but with a configured [`TestSetup`](#init).
 
-    import Pages.Script as Script exposing (Script)
     import Test.BackendTask as BackendTaskTest
 
     myScript
@@ -366,30 +330,17 @@ fromScriptWith =
 -- TEST SETUP
 
 
-{-| An empty test setup with no seeded files or DB state.
+{-| An empty test setup with no seeded state.
 -}
 init : TestSetup
 init =
     Internal.init
 
 
-{-| Seed a file into the virtual filesystem before the test starts running.
+{-| Seed a file into the virtual filesystem.
 
-    import BackendTask
-    import BackendTask.Stream as Stream
-    import Pages.Script as Script
-    import Test.BackendTask as BackendTaskTest
-
-    Stream.fileRead "config.json"
-        |> Stream.read
-        |> BackendTask.allowFatal
-        |> BackendTask.andThen (\{ body } -> Script.log body)
-        |> BackendTaskTest.fromBackendTaskWith
-            (BackendTaskTest.init
-                |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
-            )
-        |> BackendTaskTest.ensureStdout [ """{"key":"value"}""" ]
-        |> BackendTaskTest.expectSuccess
+    BackendTaskTest.init
+        |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
 
 -}
 withFile : String -> String -> TestSetup -> TestSetup
@@ -397,11 +348,9 @@ withFile =
     Internal.withFile
 
 
-{-| Seed a binary file into the virtual filesystem before the test starts running.
-Use this for testing `BackendTask.File.binaryFile`.
+{-| Seed a binary file into the virtual filesystem.
 
     import Bytes.Encode
-    import Test.BackendTask as BackendTaskTest
 
     BackendTaskTest.init
         |> BackendTaskTest.withBinaryFile "data.bin"
@@ -413,47 +362,7 @@ withBinaryFile =
     Internal.withBinaryFile
 
 
-{-| Seed the virtual DB with the default seed value from the generated `testConfig`.
-This is the value produced by running the full migration chain from `V1.seed ()`.
-
-Use [`withDbSetTo`](#withDbSetTo) instead when you need a specific initial value.
-
-    import Pages.Db
-    import Test.BackendTask as BackendTaskTest
-
-    BackendTaskTest.init
-        |> BackendTaskTest.withDb Pages.Db.testConfig
-
--}
-withDb :
-    { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes, seed : db }
-    -> TestSetup
-    -> TestSetup
-withDb =
-    Internal.withDb
-
-
-{-| Seed the virtual DB with a specific initial value before the test starts running.
-
-    import Pages.Db
-    import Test.BackendTask as BackendTaskTest
-
-    BackendTaskTest.init
-        |> BackendTaskTest.withDbSetTo { counter = 0 } Pages.Db.testConfig
-
--}
-withDbSetTo :
-    db
-    -> { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes }
-    -> TestSetup
-    -> TestSetup
-withDbSetTo =
-    Internal.withDbSetTo
-
-
 {-| Seed stdin content for stream pipelines that read from `Stream.stdin`.
-
-    import Test.BackendTask as BackendTaskTest
 
     BackendTaskTest.init
         |> BackendTaskTest.withStdin "hello from stdin"
@@ -465,8 +374,6 @@ withStdin =
 
 
 {-| Seed an environment variable for `BackendTask.Env.get` and `BackendTask.Env.expect`.
-
-    import Test.BackendTask as BackendTaskTest
 
     BackendTaskTest.init
         |> BackendTaskTest.withEnv "API_KEY" "secret123"
@@ -481,7 +388,6 @@ withEnv =
 `BackendTask.Time.now` will produce a test error with a helpful message.
 
     import Time
-    import Test.BackendTask as BackendTaskTest
 
     BackendTaskTest.init
         |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)
@@ -492,41 +398,8 @@ withTime =
     Internal.withTime
 
 
-{-| Set the default virtual time zone for `BackendTask.Time.zone` and
-`BackendTask.Time.zoneFor`.
-
-    import Test.BackendTask as BackendTaskTest
-
-    BackendTaskTest.init
-        |> BackendTaskTest.withTimeZone BackendTaskTest.utc
-
--}
-withTimeZone : TimeZone -> TestSetup -> TestSetup
-withTimeZone (TimeZone tz) =
-    Internal.withTimeZone tz
-
-
-{-| Register a named time zone for `BackendTask.Time.zoneByName` and
-`BackendTask.Time.zoneByNameFor`.
-
-    import Test.BackendTask as BackendTaskTest
-
-    BackendTaskTest.init
-        |> BackendTaskTest.withTimeZoneByName "America/Chicago"
-            (BackendTaskTest.fixedOffsetZone -360)
-        |> BackendTaskTest.withTimeZoneByName "Asia/Kolkata"
-            (BackendTaskTest.fixedOffsetZone 330)
-
--}
-withTimeZoneByName : String -> TimeZone -> TestSetup -> TestSetup
-withTimeZoneByName name (TimeZone tz) =
-    Internal.withTimeZoneByName name tz
-
-
 {-| Set a fixed random seed for `BackendTask.Random.int32` and `BackendTask.Random.generate`.
 Without this, any use of `BackendTask.Random` will produce a test error with a helpful message.
-
-    import Test.BackendTask as BackendTaskTest
 
     BackendTaskTest.init
         |> BackendTaskTest.withRandomSeed 42
@@ -538,14 +411,10 @@ withRandomSeed =
 
 
 {-| Register a command as available for `Script.which` and `Script.expectWhich`.
-The first argument is the command name, the second is its full path.
-
-    import Test.BackendTask as BackendTaskTest
+Commands not registered will return `Nothing` from `Script.which`.
 
     BackendTaskTest.init
         |> BackendTaskTest.withWhich "node" "/usr/bin/node"
-
-Commands not registered with `withWhich` will return `Nothing` from `Script.which`.
 
 -}
 withWhich : String -> String -> TestSetup -> TestSetup
@@ -553,77 +422,68 @@ withWhich =
     Internal.withWhich
 
 
-{-| UTC time zone (offset 0).
+{-| Seed the virtual DB with the default seed value from the generated `testConfig`.
 
+The [elm-pages Script DB](https://elm-pages.com/docs/elm-pages-scripts-db/) is a
+pure Elm type that is serialized to disk. Since it's just a plain Elm value, the
+test framework can realistically simulate it. Reads, writes, and updates all
+work against an in-memory copy. The only difference from production is that
+instead of reading the initial value from a binary file of the serialized Elm
+type on disk, you provide it directly with this function or [`withDbSetTo`](#withDbSetTo).
+
+    import Pages.Db
     import Test.BackendTask as BackendTaskTest
 
     BackendTaskTest.init
-        |> BackendTaskTest.withTimeZone BackendTaskTest.utc
+        |> BackendTaskTest.withDb Pages.Db.testConfig
 
 -}
-utc : TimeZone
-utc =
-    TimeZone { defaultOffset = 0, eras = [] }
+withDb :
+    { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes, seed : db }
+    -> TestSetup
+    -> TestSetup
+withDb config =
+    Internal.withDb config
 
 
-{-| A time zone with a fixed offset in minutes from UTC. Negative values are
-west of UTC (e.g., -300 for US Eastern Standard Time).
+{-| Seed the virtual DB with a specific initial value.
 
+    import Pages.Db
     import Test.BackendTask as BackendTaskTest
 
-    BackendTaskTest.fixedOffsetZone -300
+    BackendTaskTest.init
+        |> BackendTaskTest.withDbSetTo { counter = 5 } Pages.Db.testConfig
 
 -}
-fixedOffsetZone : Int -> TimeZone
-fixedOffsetZone offsetMinutes =
-    TimeZone { defaultOffset = offsetMinutes, eras = [] }
-
-
-{-| A time zone with a default offset and a list of era transitions. Each era
-specifies a start time (milliseconds since epoch) and its UTC offset in minutes.
-
-    import Test.BackendTask as BackendTaskTest
-
-    BackendTaskTest.customTimeZone -300
-        [ { start = 1710057600000, offset = -240 } ]
-
--}
-customTimeZone : Int -> List { start : Int, offset : Int } -> TimeZone
-customTimeZone defaultOffset eras =
-    TimeZone { defaultOffset = defaultOffset, eras = eras }
+withDbSetTo :
+    db
+    -> { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes }
+    -> TestSetup
+    -> TestSetup
+withDbSetTo initialValue config =
+    Internal.withDbSetTo initialValue config
 
 
 
--- SIMULATING EFFECTS
+-- SIMULATING HTTP
 
 
 {-| Simulate a pending HTTP GET request resolving with the given JSON response body.
-The URL must exactly match the URL used in `BackendTask.Http.getJson` (or `BackendTask.Http.get`).
 
-    import BackendTask
-    import BackendTask.Http
-    import Json.Decode as Decode
     import Json.Encode as Encode
     import Test.BackendTask as BackendTaskTest
 
-    BackendTask.Http.getJson
-        "https://api.github.com/repos/dillonkearns/elm-pages"
-        (Decode.field "stargazers_count" Decode.int)
-        |> BackendTask.allowFatal
-        |> BackendTask.map (\_ -> ())
+    myTask
         |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.simulateHttpGet
-            "https://api.github.com/repos/dillonkearns/elm-pages"
-            (Encode.object [ ( "stargazers_count", Encode.int 86 ) ])
+            "https://api.example.com/data"
+            (Encode.object [ ( "key", Encode.string "value" ) ])
         |> BackendTaskTest.expectSuccess
-
-If the URL doesn't match any pending request, you'll get a helpful error listing the
-actual pending requests.
 
 -}
 simulateHttpGet : String -> Encode.Value -> BackendTaskTest a -> BackendTaskTest a
-simulateHttpGet =
-    Internal.simulateHttpGet
+simulateHttpGet url jsonResponse =
+    Internal.simulateHttpGet url jsonResponse
 
 
 {-| Simulate a pending HTTP POST request resolving with the given JSON response body.
@@ -640,24 +500,23 @@ simulateHttpGet =
 
 -}
 simulateHttpPost : String -> Encode.Value -> BackendTaskTest a -> BackendTaskTest a
-simulateHttpPost =
-    Internal.simulateHttpPost
+simulateHttpPost url jsonResponse =
+    Internal.simulateHttpPost url jsonResponse
 
 
-{-| General-purpose HTTP simulation. Supports any HTTP method, any status code,
-custom response headers, and a response body.
+{-| Simulate any HTTP request with full control over method, status code, headers, and body.
 
-    import Json.Encode as Encode
     import Test.BackendTask as BackendTaskTest
+    import Json.Encode as Encode
 
     myTask
         |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.simulateHttp
-            { method = "GET", url = "https://api.example.com/users/999" }
-            { statusCode = 404
-            , statusText = "Not Found"
+            { method = "PUT", url = "https://api.example.com/item/1" }
+            { statusCode = 204
+            , statusText = "No Content"
             , headers = []
-            , body = Encode.object [ ( "error", Encode.string "User not found" ) ]
+            , body = Encode.null
             }
         |> BackendTaskTest.expectSuccess
 
@@ -667,8 +526,8 @@ simulateHttp :
     -> { statusCode : Int, statusText : String, headers : List ( String, String ), body : Encode.Value }
     -> BackendTaskTest a
     -> BackendTaskTest a
-simulateHttp =
-    Internal.simulateHttp
+simulateHttp request response =
+    Internal.simulateHttp request response
 
 
 {-| Simulate a pending HTTP request failing with an [`HttpError`](#HttpError).
@@ -677,10 +536,7 @@ simulateHttp =
 
     myTask
         |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.simulateHttpError
-            "GET"
-            "https://api.example.com/data"
-            BackendTaskTest.NetworkError
+        |> BackendTaskTest.simulateHttpError "GET" "https://api.example.com/data" BackendTaskTest.NetworkError
         |> BackendTaskTest.expectFailure
 
 -}
@@ -698,6 +554,31 @@ simulateHttpError method url error =
     Internal.simulateHttpError method url errorString
 
 
+
+-- SIMULATING COMMANDS
+
+
+{-| Simulate a pending `Stream.command` / `Script.command` / `Script.exec` call.
+The framework handles simulatable parts around the command. You provide the
+command name and its output.
+
+    import Test.BackendTask as BackendTaskTest
+
+    myTask
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.simulateCommand "grep" "matched line\n"
+        |> BackendTaskTest.expectSuccess
+
+-}
+simulateCommand : String -> String -> BackendTaskTest a -> BackendTaskTest a
+simulateCommand commandName commandOutput =
+    Internal.simulateCommand commandName commandOutput
+
+
+
+-- SIMULATING CUSTOM PORTS
+
+
 {-| Simulate a pending `BackendTask.Custom.run` call resolving with the given JSON value.
 The port name must exactly match the first argument passed to `BackendTask.Custom.run`.
 
@@ -706,34 +587,23 @@ The port name must exactly match the first argument passed to `BackendTask.Custo
 
     myTask
         |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.simulateCustom "hashPassword"
-            (Encode.string "hashed_secret123")
+        |> BackendTaskTest.simulateCustom "hashPassword" (Encode.string "hashed_secret123")
         |> BackendTaskTest.expectSuccess
 
 -}
 simulateCustom : String -> Encode.Value -> BackendTaskTest a -> BackendTaskTest a
-simulateCustom =
-    Internal.simulateCustom
+simulateCustom portName jsonResponse =
+    Internal.simulateCustom portName jsonResponse
 
 
-{-| Simulate a pending stream pipeline that contains a `Stream.command`. The framework
-handles simulatable parts around the command. You only provide the command's output.
 
-    import Test.BackendTask as BackendTaskTest
-
-    myTask
-        |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.simulateCommand "grep" "error: something bad\n"
-        |> BackendTaskTest.expectSuccess
-
--}
-simulateCommand : String -> String -> BackendTaskTest a -> BackendTaskTest a
-simulateCommand =
-    Internal.simulateCommand
+-- SIMULATING STREAMS
 
 
-{-| Simulate a pending stream pipeline that contains a custom stream part (`Stream.customRead`,
-`Stream.customWrite`, or `Stream.customDuplex`). You only provide its output.
+{-| Simulate a pending stream pipeline containing a custom stream part
+(`Stream.customRead`, `Stream.customWrite`, or `Stream.customDuplex`).
+The framework handles simulatable parts around the custom part. You only
+provide its output.
 
     import Test.BackendTask as BackendTaskTest
 
@@ -744,12 +614,13 @@ simulateCommand =
 
 -}
 simulateCustomStream : String -> String -> BackendTaskTest a -> BackendTaskTest a
-simulateCustomStream =
-    Internal.simulateCustomStream
+simulateCustomStream portName portOutput =
+    Internal.simulateCustomStream portName portOutput
 
 
-{-| Simulate a pending stream pipeline that contains an HTTP stream part (`Stream.http` or
-`Stream.httpWithInput`). You only provide the response body.
+{-| Simulate a pending stream pipeline containing an HTTP stream part
+(`Stream.http` or `Stream.httpWithInput`). The framework handles simulatable
+parts around the HTTP request. You only provide the response body.
 
     import Test.BackendTask as BackendTaskTest
 
@@ -760,12 +631,16 @@ simulateCustomStream =
 
 -}
 simulateStreamHttp : String -> String -> BackendTaskTest a -> BackendTaskTest a
-simulateStreamHttp =
-    Internal.simulateStreamHttp
+simulateStreamHttp url httpOutput =
+    Internal.simulateStreamHttp url httpOutput
 
 
-{-| Simulate a pending `Script.question` call resolving with the given answer.
-The prompt must match the prompt text passed to `Script.question`.
+
+-- SIMULATING INTERACTIVE INPUT
+
+
+{-| Simulate a pending `Script.question` call. The prompt must match the prompt
+text passed to `Script.question`.
 
     import Test.BackendTask as BackendTaskTest
 
@@ -777,8 +652,8 @@ The prompt must match the prompt text passed to `Script.question`.
 
 -}
 simulateQuestion : String -> String -> BackendTaskTest a -> BackendTaskTest a
-simulateQuestion =
-    Internal.simulateQuestion
+simulateQuestion prompt answer =
+    Internal.simulateQuestion prompt answer
 
 
 {-| Simulate a pending `Script.readKey` call resolving with the given key.
@@ -793,80 +668,17 @@ simulateQuestion =
 
 -}
 simulateReadKey : String -> BackendTaskTest a -> BackendTaskTest a
-simulateReadKey =
-    Internal.simulateReadKey
+simulateReadKey key =
+    Internal.simulateReadKey key
 
 
 
--- ASSERTIONS
+-- OUTPUT ASSERTIONS
 
 
-{-| Assert that a GET request to the given URL is currently pending, without resolving it.
-This is useful for verifying that requests are issued in parallel.
-
-    import Test.BackendTask as BackendTaskTest
-
-    myTask
-        |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.ensureHttpGet "https://api.example.com/a"
-        |> BackendTaskTest.ensureHttpGet "https://api.example.com/b"
-        |> ...
-
--}
-ensureHttpGet : String -> BackendTaskTest a -> BackendTaskTest a
-ensureHttpGet =
-    Internal.ensureHttpGet
-
-
-{-| Assert that a POST request to the given URL is currently pending, and run an
-assertion on the request body. Does not resolve the request.
-
-    import Expect
-    import Json.Decode as Decode
-    import Test.BackendTask as BackendTaskTest
-
-    myTask
-        |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.ensureHttpPost "https://api.example.com/items"
-            (\body ->
-                Decode.decodeValue (Decode.field "name" Decode.string) body
-                    |> Expect.equal (Ok "test")
-            )
-        |> ...
-
--}
-ensureHttpPost : String -> (Encode.Value -> Expectation) -> BackendTaskTest a -> BackendTaskTest a
-ensureHttpPost =
-    Internal.ensureHttpPost
-
-
-{-| Assert that a `BackendTask.Custom.run` call with the given port name is currently pending,
-and run an assertion on the arguments. Does not resolve the request.
-
-    import Expect
-    import Json.Decode as Decode
-    import Test.BackendTask as BackendTaskTest
-
-    myTask
-        |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.ensureCustom "hashPassword"
-            (\args ->
-                Decode.decodeValue Decode.string args
-                    |> Expect.equal (Ok "secret123")
-            )
-        |> ...
-
--}
-ensureCustom : String -> (Encode.Value -> Expectation) -> BackendTaskTest a -> BackendTaskTest a
-ensureCustom =
-    Internal.ensureCustom
-
-
-{-| Assert that exactly these stdout messages were produced since the last successful
-`ensureStdout`, `ensureStderr`, or `ensureOutputWith` call (or since the start of the test).
-On success, all output (stdout and stderr) is drained.
-
-    import Test.BackendTask as BackendTaskTest
+{-| Assert that exactly these stdout messages were produced since the last drain.
+Fails if any stderr output is present. Use [`ensureOutputWith`](#ensureOutputWith)
+to check both stdout and stderr together.
 
     Script.log "Hello!"
         |> BackendTaskTest.fromBackendTask
@@ -897,11 +709,9 @@ ensureStdout expectedMessages =
         )
 
 
-{-| Assert that exactly these stderr messages were produced since the last successful
-`ensureStdout`, `ensureStderr`, or `ensureOutputWith` call (or since the start of the test).
-On success, all output (stdout and stderr) is drained.
-
-    import Test.BackendTask as BackendTaskTest
+{-| Assert that exactly these stderr messages were produced since the last drain.
+Fails if any stdout output is present. Use [`ensureOutputWith`](#ensureOutputWith)
+to check both stdout and stderr together.
 
     Stream.fromString "warning!"
         |> Stream.pipe Stream.stderr
@@ -961,27 +771,17 @@ formatStringList msgs =
         |> String.join "\n"
 
 
-{-| Assert on the interleaved stdout/stderr output since the last drain, preserving
-the ordering between stdout and stderr messages. Drains on success, preserves on failure.
+{-| Assert on interleaved stdout/stderr output, preserving ordering.
+Drains on success, preserves on failure.
 
     import Test.BackendTask as BackendTaskTest exposing (Output(..))
 
-    Script.log "step 1"
-        |> BackendTask.andThen
-            (\() ->
-                Stream.fromString "warning!"
-                    |> Stream.pipe Stream.stderr
-                    |> Stream.run
-            )
-        |> BackendTask.andThen (\() -> Script.log "step 2")
+    myTask
         |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.ensureOutputWith
             (\outputs ->
                 Expect.equal
-                    [ Stdout "step 1"
-                    , Stderr "warning!"
-                    , Stdout "step 2"
-                    ]
+                    [ Stdout "step 1", Stderr "warning!", Stdout "step 2" ]
                     outputs
             )
         |> BackendTaskTest.expectSuccess
@@ -1005,9 +805,11 @@ convertOutput output =
             Stderr msg
 
 
-{-| Assert that a file exists in the virtual filesystem with the given content.
 
-    import Test.BackendTask as BackendTaskTest
+-- FILE ASSERTIONS
+
+
+{-| Assert that a file exists in the virtual filesystem with the given content.
 
     Script.writeFile { path = "output.txt", body = "hello" }
         |> BackendTask.allowFatal
@@ -1022,9 +824,6 @@ ensureFile =
 
 
 {-| Assert that a file exists in the virtual filesystem (without checking its content).
-
-    BackendTaskTest.ensureFileExists "output.txt"
-
 -}
 ensureFileExists : String -> BackendTaskTest a -> BackendTaskTest a
 ensureFileExists =
@@ -1032,25 +831,18 @@ ensureFileExists =
 
 
 {-| Assert that a file does not exist in the virtual filesystem.
-
-    BackendTaskTest.ensureNoFile "output.txt"
-
 -}
 ensureNoFile : String -> BackendTaskTest a -> BackendTaskTest a
 ensureNoFile =
     Internal.ensureNoFile
 
 
-{-| Assert that a file was written with the given path and body via `Script.writeFile`.
-Both the path and body must match exactly.
+{-| Assert that a file write occurred with the given path and body.
 
-    import Test.BackendTask as BackendTaskTest
-
-    Script.writeFile { path = "output.json", body = """{"key":"value"}""" }
+    Script.writeFile { path = "out.json", body = """{"key":"value"}""" }
         |> BackendTask.allowFatal
         |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.ensureFileWritten
-            { path = "output.json", body = """{"key":"value"}""" }
+        |> BackendTaskTest.ensureFileWritten { path = "out.json", body = """{"key":"value"}""" }
         |> BackendTaskTest.expectSuccess
 
 -}
@@ -1060,85 +852,176 @@ ensureFileWritten =
 
 
 
--- VIRTUAL EFFECTS
+-- HTTP ASSERTIONS
 
 
-{-| Declare virtual effects for CustomBackendTask calls. The handler receives the port name
-and the request body (as JSON), and returns a list of [`SimulatedEffect`](#SimulatedEffect)s
-to apply when the port is resolved via [`simulateCustom`](#simulateCustom).
+{-| Assert that a GET request to the given URL is currently pending, without resolving it.
+Useful for verifying that requests are dispatched in parallel.
 
-    import Json.Encode as Encode
     import Test.BackendTask as BackendTaskTest
 
     myTask
         |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.ensureHttpGet "https://api.example.com/a"
+        |> BackendTaskTest.ensureHttpGet "https://api.example.com/b"
+        |> ...
+
+-}
+ensureHttpGet : String -> BackendTaskTest a -> BackendTaskTest a
+ensureHttpGet url =
+    Internal.ensureHttpGet url
+
+
+{-| Assert that a POST request to the given URL is currently pending, and run an
+assertion on the request body. Does not resolve the request.
+
+    import Expect
+    import Json.Decode as Decode
+    import Test.BackendTask as BackendTaskTest
+
+    myTask
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.ensureHttpPost "https://api.example.com/items"
+            (\body ->
+                Decode.decodeValue (Decode.field "name" Decode.string) body
+                    |> Expect.equal (Ok "test")
+            )
+        |> ...
+
+-}
+ensureHttpPost : String -> (Encode.Value -> Expectation) -> BackendTaskTest a -> BackendTaskTest a
+ensureHttpPost url bodyAssertion =
+    Internal.ensureHttpPost url bodyAssertion
+
+
+
+-- CUSTOM PORT ASSERTIONS
+
+
+{-| Assert that a `BackendTask.Custom.run` call with the given port name is currently
+pending, and run an assertion on the input arguments. Does not resolve the request.
+
+    import Expect
+    import Json.Decode as Decode
+    import Test.BackendTask as BackendTaskTest
+
+    myTask
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.ensureCustom "hashPassword"
+            (\args ->
+                Decode.decodeValue Decode.string args
+                    |> Expect.equal (Ok "secret123")
+            )
+        |> ...
+
+-}
+ensureCustom : String -> (Encode.Value -> Expectation) -> BackendTaskTest a -> BackendTaskTest a
+ensureCustom portName bodyAssertion =
+    Internal.ensureCustom portName bodyAssertion
+
+
+
+-- COMMAND ASSERTIONS
+
+
+{-| Assert that a command with the given name is currently pending, and run an
+assertion on its arguments. Does not resolve the request. Useful for verifying
+commands are called with expected arguments before simulating them.
+
+    import Test.BackendTask as BackendTaskTest
+
+    Script.exec "elm" [ "make", "--docs=docs.json" ]
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.ensureCommand "elm"
+            (\args -> Expect.equal [ "make", "--docs=docs.json" ] args)
+        |> BackendTaskTest.simulateCommand "elm" ""
+        |> BackendTaskTest.expectSuccess
+
+-}
+ensureCommand : String -> (List String -> Expectation) -> BackendTaskTest a -> BackendTaskTest a
+ensureCommand commandName argsAssertion =
+    Internal.ensureCommand commandName argsAssertion
+
+
+
+-- VIRTUAL EFFECTS
+
+
+{-| An effect on the virtual filesystem declared by an opaque external operation
+(shell command or `BackendTask.Custom.run` call) via [`withVirtualEffects`](#withVirtualEffects).
+Create values with [`writeFileEffect`](#writeFileEffect) and [`removeFileEffect`](#removeFileEffect).
+-}
+type SimulatedEffect
+    = SimulatedEffect Internal.SimulatedEffect
+
+
+{-| Declare virtual filesystem effects for opaque external operations. The handler
+receives the operation name (port name or command name) and request body (as JSON,
+or `Encode.null` for commands), and returns a list of [`SimulatedEffect`](#SimulatedEffect)s
+applied to the virtual filesystem when the operation is simulated.
+
+This fires for both [`simulateCustom`](#simulateCustom) and
+[`simulateCommand`](#simulateCommand).
+
+    myTask
+        |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.withVirtualEffects
-            (\portName _ ->
-                case portName of
+            (\name _ ->
+                case name of
+                    "mkdir" ->
+                        [ BackendTaskTest.writeFileEffect "new-dir/.gitkeep" "" ]
+
                     "generateReport" ->
                         [ BackendTaskTest.writeFileEffect "report.pdf" "content" ]
 
                     _ ->
                         []
             )
-        |> BackendTaskTest.simulateCustom "generateReport" Encode.null
-        |> BackendTaskTest.ensureFile "report.pdf" "content"
+        |> BackendTaskTest.simulateCommand "mkdir" ""
+        |> BackendTaskTest.ensureFileExists "new-dir/.gitkeep"
         |> BackendTaskTest.expectSuccess
 
 -}
 withVirtualEffects : (String -> Encode.Value -> List SimulatedEffect) -> BackendTaskTest a -> BackendTaskTest a
 withVirtualEffects handler =
     Internal.withVirtualEffects
-        (\portName body ->
-            handler portName body
-                |> List.map convertSimulatedEffect
+        (\name body ->
+            handler name body
+                |> List.map (\(SimulatedEffect e) -> e)
         )
 
 
-convertSimulatedEffect : SimulatedEffect -> Internal.SimulatedEffect
-convertSimulatedEffect effect =
-    case effect of
-        SimWriteFile record ->
-            Internal.SimWriteFile record
-
-        SimRemoveFile path ->
-            Internal.SimRemoveFile path
-
-
-{-| Declare that a CustomBackendTask writes a file to the virtual filesystem.
+{-| Create a simulated file write effect.
 
     BackendTaskTest.writeFileEffect "output.txt" "file content"
 
 -}
 writeFileEffect : String -> String -> SimulatedEffect
 writeFileEffect path body =
-    SimWriteFile { path = path, body = body }
+    SimulatedEffect (Internal.SimWriteFile { path = path, body = body })
 
 
-{-| Declare that a CustomBackendTask removes a file from the virtual filesystem.
+{-| Create a simulated file removal effect.
 
     BackendTaskTest.removeFileEffect "temp.txt"
 
 -}
 removeFileEffect : String -> SimulatedEffect
 removeFileEffect path =
-    SimRemoveFile path
+    SimulatedEffect (Internal.SimRemoveFile path)
 
 
 
 -- TERMINAL ASSERTIONS
 
 
-{-| Assert that the `BackendTask` completed successfully. This is a terminal assertion.
-It produces an `Expectation` for elm-test, so it should be the last step in your pipeline.
-
-    import Test.BackendTask as BackendTaskTest
+{-| Assert that the `BackendTask` completed successfully.
 
     BackendTask.succeed ()
         |> BackendTaskTest.fromBackendTask
         |> BackendTaskTest.expectSuccess
 
-If the `BackendTask` still has pending requests, the test fails with a message listing them.
+If there are still pending requests, the test fails with a message listing them.
 
 -}
 expectSuccess : BackendTaskTest a -> Expectation
@@ -1146,11 +1029,7 @@ expectSuccess =
     Internal.expectSuccess
 
 
-{-| Like [`expectSuccess`](#expectSuccess), but also runs an assertion on the
-result value.
-
-    import Expect
-    import Test.BackendTask as BackendTaskTest
+{-| Like [`expectSuccess`](#expectSuccess), but also runs an assertion on the result value.
 
     BackendTask.succeed 42
         |> BackendTaskTest.fromBackendTask
@@ -1162,9 +1041,43 @@ expectSuccessWith =
     Internal.expectSuccessWith
 
 
-{-| Assert on the virtual DB state. This is a terminal assertion that also checks
-the script completed successfully. Pass the generated `Pages.Db.testConfig` and
-an assertion function that receives the decoded DB value.
+{-| Assert that the `BackendTask` completed with a `FatalError`.
+-}
+expectFailure : BackendTaskTest a -> Expectation
+expectFailure =
+    Internal.expectFailure
+
+
+{-| Like [`expectFailure`](#expectFailure), but also runs an assertion on the error.
+
+    myTask
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.expectFailureWith
+            (\error -> error.title |> Expect.equal "Http Error")
+
+-}
+expectFailureWith : ({ title : String, body : String } -> Expectation) -> BackendTaskTest a -> Expectation
+expectFailureWith =
+    Internal.expectFailureWith
+
+
+{-| Assert that the test framework itself produced an error (e.g., a simulation that
+didn't match any pending request, or a missing `withTime` configuration).
+
+    BackendTask.Time.now
+        |> BackendTask.andThen (\_ -> BackendTask.succeed ())
+        |> BackendTaskTest.fromBackendTask
+        |> BackendTaskTest.expectTestError
+            (Expect.equal "BackendTask.Time.now requires a virtual time.\\n\\n...")
+
+-}
+expectTestError : (String -> Expectation) -> BackendTaskTest a -> Expectation
+expectTestError =
+    Internal.expectTestError
+
+
+{-| Assert on the virtual DB state after the script completes. This is a terminal
+assertion that also checks the script completed successfully.
 
     import Expect
     import Pages.Db
@@ -1184,68 +1097,5 @@ expectDb :
     -> (db -> Expectation)
     -> BackendTaskTest b
     -> Expectation
-expectDb =
-    Internal.expectDb
-
-
-{-| Assert that the `BackendTask` completed with a `FatalError`.
-
-    import Test.BackendTask as BackendTaskTest
-
-    myTask
-        |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.simulateHttpError
-            "GET"
-            "https://api.example.com/data"
-            BackendTaskTest.NetworkError
-        |> BackendTaskTest.expectFailure
-
--}
-expectFailure : BackendTaskTest a -> Expectation
-expectFailure =
-    Internal.expectFailure
-
-
-{-| Like [`expectFailure`](#expectFailure), but also runs an assertion on the
-[`FatalError`](FatalError#FatalError).
-
-    import Test.BackendTask as BackendTaskTest
-
-    myTask
-        |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.expectFailureWith
-            (\error ->
-                error.title
-                    |> String.contains "Http"
-                    |> Expect.equal True
-            )
-
--}
-expectFailureWith : ({ title : String, body : String } -> Expectation) -> BackendTaskTest a -> Expectation
-expectFailureWith =
-    Internal.expectFailureWith
-
-
-{-| Assert that the test itself produced an error. For example, a `simulateHttpGet` call
-that didn't match any pending request.
-
-    import Expect
-    import Json.Encode as Encode
-    import Test.BackendTask as BackendTaskTest
-
-    BackendTask.succeed ()
-        |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.simulateHttpGet
-            "https://example.com"
-            (Encode.object [])
-        |> BackendTaskTest.expectTestError
-            (\msg ->
-                msg
-                    |> String.contains "already completed"
-                    |> Expect.equal True
-            )
-
--}
-expectTestError : (String -> Expectation) -> BackendTaskTest a -> Expectation
-expectTestError =
-    Internal.expectTestError
+expectDb config assertion =
+    Internal.expectDb config assertion
