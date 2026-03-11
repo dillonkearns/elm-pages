@@ -242,7 +242,7 @@ withSchema :
     , run : cliFlags -> BackendTask FatalError outputType
     }
     -> Script
-withSchema { description, cliOptions, encoder, run } =
+withSchema { cliOptions, encoder, run } =
     Pages.Internal.Script.Script
         (\_ ->
             cliOptions
