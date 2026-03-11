@@ -3,11 +3,10 @@ module Test.BackendTask exposing
     , fromScript, fromScriptWith
     , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRandomSeed, withWhich
     , withDb, withDbSetTo
-    , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError
+    , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateHttpStream
     , HttpError(..)
     , simulateCommand
-    , simulateCustom
-    , simulateCustomStream, simulateStreamHttp
+    , simulateCustom, simulateCustomStream
     , simulateQuestion, simulateReadKey
     , Output(..), ensureStdout, ensureStderr, ensureOutputWith
     , ensureFile, ensureFileExists, ensureNoFile, ensureFileWritten
@@ -148,9 +147,9 @@ Seed initial state before the test starts running.
 @docs withDb, withDbSetTo
 
 
-## Simulating HTTP Responses
+## Simulating HTTP
 
-@docs simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError
+@docs simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateHttpStream
 
 @docs HttpError
 
@@ -162,12 +161,7 @@ Seed initial state before the test starts running.
 
 ## Simulating Custom Ports
 
-@docs simulateCustom
-
-
-## Simulating Streams
-
-@docs simulateCustomStream, simulateStreamHttp
+@docs simulateCustom, simulateCustomStream
 
 
 ## Simulating Interactive Input
@@ -629,12 +623,12 @@ parts around the HTTP request. You only provide the response body.
 
     myTask
         |> BackendTaskTest.fromBackendTask
-        |> BackendTaskTest.simulateStreamHttp "https://api.example.com" "response body"
+        |> BackendTaskTest.simulateHttpStream "https://api.example.com" "response body"
         |> BackendTaskTest.expectSuccess
 
 -}
-simulateStreamHttp : String -> String -> BackendTaskTest a -> BackendTaskTest a
-simulateStreamHttp url httpOutput =
+simulateHttpStream : String -> String -> BackendTaskTest a -> BackendTaskTest a
+simulateHttpStream url httpOutput =
     Internal.simulateStreamHttp url httpOutput
 
 
@@ -959,9 +953,10 @@ type SimulatedEffect
 
 
 {-| Declare virtual filesystem effects for opaque external operations. The handler
-receives the operation name (port name or command name) and request body (as JSON,
-or `Encode.null` for commands), and returns a list of [`SimulatedEffect`](#SimulatedEffect)s
-applied to the virtual filesystem when the operation is simulated.
+receives the operation name (port name or command name) and request body, and returns
+a list of [`SimulatedEffect`](#SimulatedEffect)s applied to the virtual filesystem
+when the operation is simulated. For custom ports the body is the JSON input passed to
+`BackendTask.Custom.run`. For commands the body is the args as a JSON list of strings.
 
 This fires for both [`simulateCustom`](#simulateCustom) and
 [`simulateCommand`](#simulateCommand).

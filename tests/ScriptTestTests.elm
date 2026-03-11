@@ -1454,7 +1454,7 @@ but the pending requests are:
                         |> BackendTask.allowFatal
                         |> BackendTask.andThen (\output -> Script.log output.body)
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.simulateStreamHttp "https://api.example.com/data" "response body"
+                        |> BackendTaskTest.simulateHttpStream "https://api.example.com/data" "response body"
                         |> BackendTaskTest.ensureStdout [ "response body" ]
                         |> BackendTaskTest.expectSuccess
             , test "http stream with fileWrite" <|
@@ -1470,7 +1470,7 @@ but the pending requests are:
                         |> Stream.pipe (Stream.fileWrite "response.json")
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.simulateStreamHttp "https://api.example.com/data" "{\"count\": 42}"
+                        |> BackendTaskTest.simulateHttpStream "https://api.example.com/data" "{\"count\": 42}"
                         |> BackendTaskTest.ensureFile "response.json" "{\"count\": 42}"
                         |> BackendTaskTest.expectSuccess
             , test "wrong URL gives helpful error" <|
@@ -1485,7 +1485,7 @@ but the pending requests are:
                         }
                         |> Stream.run
                         |> BackendTaskTest.fromBackendTask
-                        |> BackendTaskTest.simulateStreamHttp "https://wrong.url/data" "response"
+                        |> BackendTaskTest.simulateHttpStream "https://wrong.url/data" "response"
                         |> BackendTaskTest.expectTestError
                             (\msg ->
                                 Expect.equal
