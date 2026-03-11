@@ -7,8 +7,11 @@ module Pages.Internal.Platform.GeneratorApplication exposing (Program, Flags, Mo
 -}
 
 import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import BackendTask.Internal.Request
 import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
+import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program exposing (FlagsIncludingArgv)
 import Codec
 import Dict
@@ -63,11 +66,32 @@ app :
     -> Program
 app config =
     let
+        baseCliConfig : Program.Config (BackendTask FatalError ())
+        baseCliConfig =
+            case config.data of
+                Pages.Internal.Script.Script toConfig ->
+                    toConfig HtmlPrinter.htmlToString
+
         cliConfig : Program.Config (BackendTask FatalError ())
         cliConfig =
-            case config.data of
-                Pages.Internal.Script.Script script ->
-                    script.cliConfig config.scriptModuleName HtmlPrinter.htmlToString
+            case config.introspect of
+                Just introspectFn ->
+                    baseCliConfig
+                        |> Program.add
+                            (OptionsParser.build
+                                (logInternal
+                                    (introspectFn
+                                        { moduleName = config.scriptModuleName
+                                        , path = ""
+                                        }
+                                        |> Encode.encode 0
+                                    )
+                                )
+                                |> OptionsParser.expectFlag "introspect"
+                            )
+
+                Nothing ->
+                    baseCliConfig
     in
     Program.stateful
         { init =
@@ -259,6 +283,20 @@ perform config effect =
                 |> config.sendPageData
                 |> Cmd.map never
 
+
+
+logInternal : String -> BackendTask FatalError ()
+logInternal message =
+    BackendTask.Internal.Request.request
+        { name = "log"
+        , body =
+            BackendTask.Http.jsonBody
+                (Encode.object
+                    [ ( "message", Encode.string message )
+                    ]
+                )
+        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        }
 
 
 -- TODO use Json.Decode.Value for flagsDecoder instead of hardcoded record flags

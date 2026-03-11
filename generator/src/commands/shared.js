@@ -59,7 +59,8 @@ export async function requireElm(compiledElmPath) {
 
 /**
  * Generate a ScriptMain.elm that batch-introspects multiple scripts.
- * @param {Array<{moduleName: string}>} scripts
+ * Only includes scripts that expose `schemaInfo`.
+ * @param {Array<{moduleName: string, path: string}>} scripts
  */
 export function introspectWrapperFile(scripts) {
   const imports = scripts
@@ -69,9 +70,9 @@ export function introspectWrapperFile(scripts) {
   const entries = scripts
     .map(
       (s) =>
-        `            ( "${s.moduleName}", "${s.path}", ${s.moduleName}.run )`
+        `        ${s.moduleName}.schemaInfo { moduleName = "${s.moduleName}", path = "${s.path}" }`
     )
-    .join("\n            , ");
+    .join("\n        , ");
 
   return `port module ScriptMain exposing (main)
 
@@ -79,7 +80,6 @@ import Bytes exposing (Bytes)
 import Json.Decode
 import Json.Encode
 import Pages.Internal.Platform.GeneratorApplication
-import Pages.Internal.Script exposing (Script(..))
 import Pages.Script as Script
 ${imports}
 
@@ -89,6 +89,7 @@ main =
     Pages.Internal.Platform.GeneratorApplication.app
         { data = introspectAll
         , scriptModuleName = "IntrospectAll"
+        , introspect = Nothing
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , gotBatchSub = gotBatchSub identity
@@ -96,31 +97,17 @@ main =
         }
 
 
-introspectAll : Script
+introspectAll : Script.Script
 introspectAll =
-    let
-        scripts =
-            [ ${entries}
-            ]
-
-        results =
-            scripts
-                |> List.filterMap
-                    (\\( moduleName, scriptPath, script ) ->
-                        case script of
-                            Script { introspect } ->
-                                case introspect of
-                                    Just fn ->
-                                        fn { moduleName = moduleName, path = scriptPath }
-                                            |> Just
-
-                                    Nothing ->
-                                        Nothing
-                    )
-                |> Json.Encode.list identity
-                |> Json.Encode.encode 0
-    in
-    Script.withoutCliOptions (Script.log results)
+    Script.withoutCliOptions
+        (Script.log
+            (Json.Encode.encode 0
+                (Json.Encode.list identity
+                    [ ${entries}
+                    ]
+                )
+            )
+        )
 
 
 port toJsPort : { json : Json.Encode.Value, bytes : List { key : String, data : Bytes } } -> Cmd msg
@@ -136,8 +123,13 @@ port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe
 
 /**
  * @param {string} moduleName
+ * @param {boolean} [hasSchemaInfo] - Whether the module exposes `schemaInfo`
  */
-export function generatorWrapperFile(moduleName) {
+export function generatorWrapperFile(moduleName, hasSchemaInfo) {
+  const introspectValue = hasSchemaInfo
+    ? `Just ${moduleName}.schemaInfo`
+    : "Nothing";
+
   return `port module ScriptMain exposing (main)
 
 import Bytes exposing (Bytes)
@@ -152,6 +144,7 @@ main =
     Pages.Internal.Platform.GeneratorApplication.app
         { data = ${moduleName}.run
         , scriptModuleName = "${moduleName}"
+        , introspect = ${introspectValue}
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , gotBatchSub = gotBatchSub identity
@@ -666,11 +659,13 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
   ensureDirSync(`${projectDirectory}/elm-stuff`);
   ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages`);
 
+  const hasSchemaInfo = moduleExposesValue(elmModulePath, "schemaInfo");
+
   await writeFileIfChanged(
     path.join(
       `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/ScriptMain.elm`
     ),
-    generatorWrapperFile(moduleName)
+    generatorWrapperFile(moduleName, hasSchemaInfo)
   );
   const executableName = await requireLamdera();
   // Copy .elm files from project root to parentDirectory, preserving mtimes
@@ -802,4 +797,26 @@ create a file at ${dbElmInSource} with this template:
 The Db type alias defines the shape of your database. The V1 seed in
 db/Db/Migrate/V1.elm provides the initial value used when
 no db.bin file exists yet.`;
+}
+
+/**
+ * Check if an Elm module exposes a given value name.
+ * @param {string} filePath - Path to the .elm file
+ * @param {string} valueName - The name to look for in the exposing list
+ * @returns {boolean}
+ */
+export function moduleExposesValue(filePath, valueName) {
+  try {
+    const content = fs.readFileSync(filePath, "utf8");
+    const match = content.match(
+      /^module\s+\S+\s+exposing\s*\(([\s\S]*?)\)/m
+    );
+    if (!match) return false;
+    const exposing = match[1];
+    if (exposing.trim() === "..") return true;
+    const pattern = new RegExp(`(?:^|[,\\s])${valueName}(?:$|[,\\s])`);
+    return pattern.test(exposing);
+  } catch (_) {
+    return false;
+  }
 }

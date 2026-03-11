@@ -1,6 +1,6 @@
 module Pages.Script exposing
     ( Script
-    , withCliOptions, withoutCliOptions, withSchema, withDatabasePath
+    , withCliOptions, withoutCliOptions, withSchema, introspect, withDatabasePath
     , writeFile, removeFile, copyFile, move
     , makeDirectory, removeDirectory, makeTempDirectory
     , command, exec
@@ -152,17 +152,15 @@ log message =
 withoutCliOptions : BackendTask FatalError () -> Script
 withoutCliOptions execute =
     Pages.Internal.Script.Script
-        { cliConfig =
-            \_ _ ->
-                Program.config
-                    |> Program.add
-                        (OptionsParser.build ())
-                    |> Program.mapConfig
-                        (\() ->
-                            execute
-                        )
-        , introspect = Nothing
-        }
+        (\_ ->
+            Program.config
+                |> Program.add
+                    (OptionsParser.build ())
+                |> Program.mapConfig
+                    (\() ->
+                        execute
+                    )
+        )
 
 
 {-| Same as [`withoutCliOptions`](#withoutCliOptions), but allows you to define a CLI Options Parser so the user can
@@ -176,12 +174,10 @@ Read more at <https://elm-pages.com/docs/elm-pages-scripts/#adding-command-line-
 withCliOptions : Program.Config cliOptions -> (cliOptions -> BackendTask FatalError ()) -> Script
 withCliOptions config execute =
     Pages.Internal.Script.Script
-        { cliConfig =
-            \_ _ ->
-                config
-                    |> Program.mapConfig execute
-        , introspect = Nothing
-        }
+        (\_ ->
+            config
+                |> Program.mapConfig execute
+        )
 
 
 {-| Like [`withCliOptions`](#withCliOptions), but with a typed output schema.
@@ -247,67 +243,74 @@ withSchema :
     }
     -> Script
 withSchema { description, cliOptions, encoder, run } =
-    let
-        introspectionValue : { moduleName : String, path : String } -> Encode.Value
-        introspectionValue { moduleName, path } =
-            let
-                helpString : String
-                helpString =
-                    case Program.run cliOptions [ "", moduleName, "--help" ] "" Program.WithoutColor of
-                        Program.SystemMessage _ message ->
-                            message
-
-                        Program.CustomMatch _ ->
-                            ""
-            in
-            Encode.object
-                ([ ( "name", Encode.string moduleName )
-                 , ( "description", Encode.string description )
-                 , ( "help", Encode.string helpString )
-                 , ( "outputSchema"
-                   , encoder
-                        |> TsJson.Encode.tsType
-                        |> TsJson.Type.toJsonSchema
-                   )
-                 ]
-                    ++ (if String.isEmpty path then
-                            []
-
-                        else
-                            [ ( "path", Encode.string path ) ]
-                       )
-                )
-    in
     Pages.Internal.Script.Script
-        { cliConfig =
-            \scriptModuleName _ ->
-                cliOptions
-                    |> Program.mapConfig
-                        (\cliFlags ->
-                            run cliFlags
-                                |> BackendTask.andThen
-                                    (\output ->
-                                        log
-                                            (output
-                                                |> TsJson.Encode.encoder encoder
-                                                |> Encode.encode 0
-                                            )
-                                    )
-                        )
-                    |> Program.add
-                        (OptionsParser.build
-                            (log
-                                (introspectionValue
-                                    { moduleName = scriptModuleName
-                                    , path = ""
-                                    }
-                                    |> Encode.encode 0
+        (\_ ->
+            cliOptions
+                |> Program.mapConfig
+                    (\cliFlags ->
+                        run cliFlags
+                            |> BackendTask.andThen
+                                (\output ->
+                                    log
+                                        (output
+                                            |> TsJson.Encode.encoder encoder
+                                            |> Encode.encode 0
+                                        )
                                 )
-                            )
-                            |> OptionsParser.expectFlag "introspect"
-                        )
-        , introspect = Just introspectionValue
+                    )
+        )
+
+
+{-| Get the introspection data for a `withSchema` script.
+
+This is used internally by the batch introspection wrapper and the
+`--introspect` flag handler. Accepts the same config record as `withSchema`
+(extra fields like `run` are ignored).
+
+    config =
+        { description = "Check URL reachability"
+        , cliOptions = ...
+        , encoder = ...
+        , run = ...
         }
+
+    run = Script.withSchema config
+
+    schemaInfo = Script.introspect config
+
+-}
+introspect :
+    { a | description : String, cliOptions : Program.Config cliFlags, encoder : TsJson.Encode.Encoder outputType }
+    -> { moduleName : String, path : String }
+    -> Encode.Value
+introspect config { moduleName, path } =
+    let
+        helpString : String
+        helpString =
+            case Program.run config.cliOptions [ "", moduleName, "--help" ] "" Program.WithoutColor of
+                Program.SystemMessage _ message ->
+                    message
+
+                Program.CustomMatch _ ->
+                    ""
+    in
+    Encode.object
+        ([ ( "name", Encode.string moduleName )
+         , ( "description", Encode.string config.description )
+         , ( "help", Encode.string helpString )
+         , ( "outputSchema"
+           , config.encoder
+                |> TsJson.Encode.tsType
+                |> TsJson.Type.toJsonSchema
+           )
+         ]
+            ++ (if String.isEmpty path then
+                    []
+
+                else
+                    [ ( "path", Encode.string path ) ]
+               )
+        )
 
 
 {-| Configure the default database file path for `Pages.Db.default` in this script run.
@@ -329,18 +332,16 @@ use `Pages.Db.open`.
 
 -}
 withDatabasePath : String -> Script -> Script
-withDatabasePath dbPath (Pages.Internal.Script.Script script) =
+withDatabasePath dbPath (Pages.Internal.Script.Script toConfig) =
     Pages.Internal.Script.Script
-        { cliConfig =
-            \scriptModuleName htmlToString ->
-                script.cliConfig scriptModuleName htmlToString
-                    |> Program.mapConfig
-                        (\task ->
-                            setDatabasePath dbPath
-                                |> BackendTask.andThen (\_ -> task)
-                        )
-        , introspect = script.introspect
-        }
+        (\htmlToString ->
+            toConfig htmlToString
+                |> Program.mapConfig
+                    (\task ->
+                        setDatabasePath dbPath
+                            |> BackendTask.andThen (\_ -> task)
+                    )
+        )
 
 
 setDatabasePath : String -> BackendTask FatalError ()

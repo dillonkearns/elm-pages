@@ -12,18 +12,20 @@ import {
   requireElm,
   requireLamdera,
   introspectWrapperFile,
+  moduleExposesValue,
   printCaughtError,
 } from "./shared.js";
 import { filePathToModuleName } from "../resolve-elm-module.js";
 
 /**
- * Find all .elm files in script/src/ and generate a batch introspection module.
+ * Find all .elm files in script/src/ that expose `schemaInfo` and generate a
+ * batch introspection module.
  */
 export async function run() {
   try {
     const { projectDirectory, sourceDirectory } = resolveScriptDirectories();
 
-    const scripts = findScriptModules(sourceDirectory);
+    const scripts = findIntrospectableScripts(sourceDirectory);
 
     if (scripts.length === 0) {
       console.log("[]");
@@ -98,9 +100,9 @@ export async function run() {
 }
 
 /**
- * Recursively find all .elm files that expose `run` and return module names.
+ * Recursively find all .elm files that expose `schemaInfo` and return module names.
  */
-function findScriptModules(sourceDir) {
+function findIntrospectableScripts(sourceDir) {
   const modules = [];
   findElmFilesRecursive(sourceDir, sourceDir, modules);
   return modules;
@@ -113,7 +115,7 @@ function findElmFilesRecursive(baseDir, currentDir, results) {
     if (entry.isDirectory()) {
       findElmFilesRecursive(baseDir, fullPath, results);
     } else if (entry.name.endsWith(".elm")) {
-      if (moduleExposesRun(fullPath)) {
+      if (moduleExposesValue(fullPath, "schemaInfo")) {
         const relativePath = path.relative(baseDir, fullPath);
         const moduleName = filePathToModuleName(relativePath);
         // Path relative to where `elm-pages introspect` is run
@@ -155,19 +157,4 @@ function resolveScriptDirectories() {
   }
 
   return { projectDirectory, sourceDirectory };
-}
-
-/**
- * Quick check if an Elm module exposes `run` by scanning the module declaration.
- */
-function moduleExposesRun(filePath) {
-  const content = fs.readFileSync(filePath, "utf8");
-  // Match the exposing clause in the module declaration
-  const match = content.match(
-    /^module\s+\S+\s+exposing\s*\(([\s\S]*?)\)/m
-  );
-  if (!match) return false;
-  const exposing = match[1];
-  // Check for `run` as a standalone name (not part of another name)
-  return /(?:^|[,\s])run(?:$|[,\s])/.test(exposing) || exposing.trim() === "..";
 }
