@@ -1103,12 +1103,19 @@ autoResponseBody vfs req =
                     Ok (Encode.int (Time.posixToMillis time))
 
                 Nothing ->
-                    Err
-                        ("BackendTask.Time.now requires a virtual time.\n\n"
-                            ++ "Use withTime in your TestSetup:\n\n"
-                            ++ "    BackendTaskTest.init\n"
-                            ++ "        |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)"
-                        )
+                    if vfs.timeZone /= Nothing || not (Dict.isEmpty vfs.timeZonesByName) then
+                        -- Auto-resolve with epoch 0 when a timezone is configured
+                        -- but no explicit time is set. This avoids requiring withTime
+                        -- just because zone/zoneByName internally chains through now.
+                        Ok (Encode.int 0)
+
+                    else
+                        Err
+                            ("BackendTask.Time.now requires a virtual time.\n\n"
+                                ++ "Use withTime in your TestSetup:\n\n"
+                                ++ "    BackendTaskTest.init\n"
+                                ++ "        |> BackendTaskTest.withTime (Time.millisToPosix 1709827200000)"
+                            )
 
         "elm-pages-internal://timezone" ->
             let

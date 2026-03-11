@@ -206,18 +206,51 @@ between { since, until } =
 
 requestZone : Maybe String -> DateRange -> BackendTask error Time.Zone
 requestZone maybeTzId dateRange =
-    BackendTask.Internal.Request.request
-        { name = "timezone"
-        , body =
-            BackendTask.Http.jsonBody
-                (encodeDateRange maybeTzId dateRange)
-        , expect =
-            BackendTask.Http.expectJson zoneDecoder
-        }
+    toAbsoluteRange dateRange
+        |> BackendTask.andThen
+            (\{ sinceMs, untilMs } ->
+                BackendTask.Internal.Request.request
+                    { name = "timezone"
+                    , body =
+                        BackendTask.Http.jsonBody
+                            (encodeZoneRequest maybeTzId sinceMs untilMs)
+                    , expect =
+                        BackendTask.Http.expectJson zoneDecoder
+                    }
+            )
 
 
-encodeDateRange : Maybe String -> DateRange -> Encode.Value
-encodeDateRange maybeTzId dateRange =
+{-| Milliseconds in an average year (365.25 days, accounting for leap years).
+-}
+msPerYear : Int
+msPerYear =
+    -- 365.25 * 24 * 60 * 60 * 1000
+    31557600000
+
+
+toAbsoluteRange : DateRange -> BackendTask error { sinceMs : Int, untilMs : Int }
+toAbsoluteRange dateRange =
+    case dateRange of
+        Relative { yearsAgo, yearsAhead } ->
+            now
+                |> BackendTask.map
+                    (\currentTime ->
+                        let
+                            nowMs : Int
+                            nowMs =
+                                Time.posixToMillis currentTime
+                        in
+                        { sinceMs = nowMs - yearsAgo * msPerYear
+                        , untilMs = nowMs + yearsAhead * msPerYear
+                        }
+                    )
+
+        Absolute range ->
+            BackendTask.succeed range
+
+
+encodeZoneRequest : Maybe String -> Int -> Int -> Encode.Value
+encodeZoneRequest maybeTzId sinceMs untilMs =
     let
         tzField : List ( String, Encode.Value )
         tzField =
@@ -227,21 +260,13 @@ encodeDateRange maybeTzId dateRange =
 
                 Nothing ->
                     []
-
-        rangeFields : List ( String, Encode.Value )
-        rangeFields =
-            case dateRange of
-                Relative { yearsAgo, yearsAhead } ->
-                    [ ( "yearsAgo", Encode.int yearsAgo )
-                    , ( "yearsAhead", Encode.int yearsAhead )
-                    ]
-
-                Absolute { sinceMs, untilMs } ->
-                    [ ( "sinceMs", Encode.int sinceMs )
-                    , ( "untilMs", Encode.int untilMs )
-                    ]
     in
-    Encode.object (tzField ++ rangeFields)
+    Encode.object
+        (tzField
+            ++ [ ( "sinceMs", Encode.int sinceMs )
+               , ( "untilMs", Encode.int untilMs )
+               ]
+        )
 
 
 dateToEpochMs : Date -> Int
