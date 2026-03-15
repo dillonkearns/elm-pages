@@ -69,14 +69,14 @@ assert data["rowCount"] == 2
 assert len(data["rows"]) == 2
 print("Typed CLI execution OK")
 ')
-(cd test-scripts && json="{\"table\":\"products\",\"limit\":1,\"verbose\":true,\"$cli\":{}}" && npx elm-pages run src/TestDbSchema.elm "$json" | python3 -c '
+(cd test-scripts && json="{\"table\":\"products\",\"limit\":1,\"verbose\":true,\"\$cli\":{}}" && npx elm-pages run src/TestDbSchema.elm "$json" | python3 -c '
 import sys, json
 data = json.load(sys.stdin)
 assert data["table"] == "products"
 assert data["rowCount"] == 1
 print("JSON input mode OK")
 ')
-(cd test-scripts && json="{\"title\":\"Buy groceries\",\"$cli\":{\"subcommand\":\"add\"}}" && npx elm-pages run src/TestTaskManager.elm "$json" | python3 -c '
+(cd test-scripts && json="{\"title\":\"Buy groceries\",\"\$cli\":{\"subcommand\":\"add\"}}" && npx elm-pages run src/TestTaskManager.elm "$json" | python3 -c '
 import sys, json
 data = json.load(sys.stdin)
 assert data["action"] == "added"
