@@ -158,7 +158,7 @@ export async function run(options) {
         build: {
           manifest: "___vite-manifest___.json",
           outDir: "dist",
-          rollupOptions: {
+          rolldownOptions: {
             input: "elm-stuff/elm-pages/index.html",
           },
         },
