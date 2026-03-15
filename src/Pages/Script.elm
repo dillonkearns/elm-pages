@@ -187,7 +187,7 @@ withCliOptions config execute =
 {-| Like [`withCliOptions`](#withCliOptions), but with a typed output schema.
 
 The return value of your `run` function is automatically JSON-encoded and
-printed to stdout using the provided encoder. Running with `--introspect`
+printed to stdout using the provided encoder. Running with `--introspect-cli`
 short-circuits execution and prints metadata including the script's
 `inputSchema` and output JSON Schema instead, so that tools and LLM agents
 can discover how to call the script and what it returns without running it.
@@ -196,7 +196,7 @@ The schema is derived from the same `Encoder` that does the actual encoding,
 so it can never drift out of sync with the real output.
 
 `description` is a short summary of what the script does. It appears in
-`--introspect` output so that tools can decide whether to call it. The
+`--introspect-cli` output so that tools can decide whether to call it. The
 `help` field in the output is the usage synopsis from `--help` (without
 ANSI colors). Scripts defined with `withSchema` are also automatically
 included in `elm-pages introspect`; you do not need to expose any extra
@@ -237,7 +237,7 @@ elm-pages run CheckStatus.elm --url https://example.com
 elm-pages run CheckStatus.elm '{"url":"https://example.com","$cli":{}}'
 # { "reachable": true, "statusCode": 200 }
 
-elm-pages run CheckStatus.elm --introspect
+elm-pages run CheckStatus.elm --introspect-cli
 # { "name": "CheckStatus",
 #   "description": "Check whether a URL is reachable",
 #   "help": "CheckStatus --url <URL>",

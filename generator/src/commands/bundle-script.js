@@ -118,7 +118,7 @@ globalThis.__elmPagesIsIntrospectionRun = (() => {
       return false;
     }
 
-    if (cliOption === "--introspect") {
+    if (cliOption === "--introspect-cli") {
       return true;
     }
   }

@@ -34,7 +34,7 @@ export async function run(elmModulePath, options, options2) {
   );
   const isIntrospectionRun = hasReservedCliFlag(
     unprocessedCliOptions,
-    "--introspect"
+    "--introspect-cli"
   );
   try {
     const { moduleName, projectDirectory, sourceDirectory } =

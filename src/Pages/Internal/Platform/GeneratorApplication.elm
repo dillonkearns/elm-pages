@@ -90,7 +90,7 @@ app config =
                                         |> Encode.encode 0
                                     )
                                 )
-                                |> OptionsParser.expectFlag "introspect"
+                                |> OptionsParser.expectFlag "introspect-cli"
                             )
 
                 Nothing ->

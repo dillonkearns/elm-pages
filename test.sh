@@ -15,8 +15,8 @@ elm-verify-examples --run-tests --elm-test-args '--compiler=lamdera'
 
 (cd test-scripts && npx elm-pages run src/TestBinaryRead.elm)
 
-# withSchema smoke tests - verify --introspect output and normal execution
-(cd test-scripts && npx elm-pages run src/TestWithSchema.elm --introspect | python3 -c '
+# withSchema smoke tests - verify --introspect-cli output and normal execution
+(cd test-scripts && npx elm-pages run src/TestWithSchema.elm --introspect-cli | python3 -c '
 import sys, json
 data = json.load(sys.stdin)
 assert data["name"] == "TestWithSchema"
@@ -31,7 +31,7 @@ assert data["inputSchema"]["properties"]["$cli"]["additionalProperties"] is Fals
 assert "name" in data["inputSchema"]["properties"]
 assert data["inputSchema"]["properties"]["name"]["x-cli-kind"] == "keyword"
 assert "outputSchema" in data
-print("--introspect output OK")
+print("--introspect-cli output OK")
 ')
 (cd test-scripts && npx elm-pages run src/TestWithSchema.elm --name World | python3 -c '
 import sys, json
@@ -39,7 +39,7 @@ data = json.load(sys.stdin)
 assert data["greeting"].startswith("Hello, World")
 print("Normal execution output OK")
 ')
-(cd test-scripts && npx elm-pages run src/TestWithSchemaDebugLog.elm --introspect | python3 -c '
+(cd test-scripts && npx elm-pages run src/TestWithSchemaDebugLog.elm --introspect-cli | python3 -c '
 import sys, json
 data = json.load(sys.stdin)
 assert data["name"] == "TestWithSchemaDebugLog"
@@ -49,7 +49,7 @@ print("Top-level Debug.log introspection OK")
 ')
 
 # Typed schema smoke test - verify typed options produce correct JSON Schema types and JSON input works
-(cd test-scripts && npx elm-pages run src/TestDbSchema.elm --introspect | python3 -c '
+(cd test-scripts && npx elm-pages run src/TestDbSchema.elm --introspect-cli | python3 -c '
 import sys, json
 data = json.load(sys.stdin)
 assert data["name"] == "TestDbSchema"
