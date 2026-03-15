@@ -7,6 +7,16 @@ will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-03-14
+
+### Added
+
+- `elm-pages introspect` command — batch-discovers all scripts defined with `Script.withSchema` and prints a JSON array of their metadata (name, description, help, inputSchema, outputSchema, path). Designed as a lightweight alternative to MCP for tool/agent discovery. See [#583](https://github.com/dillonkearns/elm-pages/pull/583).
+- `--introspect-cli` flag for `elm-pages run` — prints a single script's metadata JSON and exits without running it. Works with scripts defined using `Script.withSchema`.
+- JSON input mode for `elm-pages run` — pass a JSON object as a single argument to invoke a script without CLI flags (e.g. `elm-pages run MyScript.elm '{"key":"value","$cli":{}}'`).
+- Runtime support for `Script.withSchema` — the JS runtime now handles typed output encoding and introspection metadata extraction.
+- `Test.BackendTask` test runner support — the JS runtime now supports the testable `BackendTask` simulation layer for `elm-test`. See [#582](https://github.com/dillonkearns/elm-pages/pull/582).
+
 ## [3.2.0] - 2026-03-04
 
 ### Added

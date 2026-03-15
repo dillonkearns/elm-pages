@@ -7,6 +7,16 @@ will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [12.1.0] - 2026-03-14
+
+### Added
+
+- `Pages.Script.withSchema` — define scripts with a typed output schema and description. The return value is automatically JSON-encoded using the provided encoder. Running with `--introspect-cli` short-circuits execution and prints metadata (name, description, help, inputSchema, outputSchema) so that tools and LLM agents can discover scripts without running them. See [#583](https://github.com/dillonkearns/elm-pages/pull/583).
+- `Pages.Script.metadata` — for internal use by generated code to extract introspection metadata from a `Script`.
+- `Test.BackendTask` module — a test-friendly way to run `BackendTask`s with simulated HTTP responses, file system, and environment variables. Includes `fromScript`, `fromScriptWith`, `simulate`, `expectSuccess`, `expectFailure`, and more. See [#582](https://github.com/dillonkearns/elm-pages/pull/582).
+- `Test.BackendTask.Time` module — testable timezone API with `zone`, `zoneByName`, `zoneFor`, `zoneByNameFor`, and date range helpers (`between`, `withinRange`, `withinYears`).
+- `BackendTask.Time.zone`, `zoneByName`, `zoneFor`, `zoneByNameFor` — new timezone BackendTasks with configurable date ranges for DST transition tables.
+
 ## [12.0.2] - 2026-03-04
 
 ### Fixed
