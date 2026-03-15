@@ -230,20 +230,18 @@ Example: a script that checks whether a URL is reachable.
             , run = checkStatus
             }
 
-```sh
-elm-pages run CheckStatus.elm --url https://example.com
-# { "reachable": true, "statusCode": 200 }
+    elm-pages run CheckStatus.elm --url https://example.com
+    # { "reachable": true, "statusCode": 200 }
 
-elm-pages run CheckStatus.elm '{"url":"https://example.com","$cli":{}}'
-# { "reachable": true, "statusCode": 200 }
+    elm-pages run CheckStatus.elm '{"url":"https://example.com","$cli":{}}'
+    # { "reachable": true, "statusCode": 200 }
 
-elm-pages run CheckStatus.elm --introspect-cli
-# { "name": "CheckStatus",
-#   "description": "Check whether a URL is reachable",
-#   "help": "CheckStatus --url <URL>",
-#   "inputSchema": { ... },
-#   "outputSchema": { ... } }
-```
+    elm-pages run CheckStatus.elm --introspect-cli
+    # { "name": "CheckStatus",
+    #   "description": "Check whether a URL is reachable",
+    #   "help": "CheckStatus --url <URL>",
+    #   "inputSchema": { ... },
+    #   "outputSchema": { ... } }
 
 -}
 withSchema :
@@ -253,7 +251,7 @@ withSchema :
     , run : cliFlags -> BackendTask FatalError outputType
     }
     -> Script
-withSchema ({ description, cliOptions, encoder, run } as config) =
+withSchema ({ cliOptions, encoder, run } as config) =
     Pages.Internal.Script.Script
         { toConfig =
             \_ ->
