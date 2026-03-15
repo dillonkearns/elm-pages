@@ -41,7 +41,7 @@
         },
         "indirect": {
             "Chadtech/elm-bool-extra": "2.4.2",
-            "dillonkearns/elm-cli-options-parser": "5.0.0",
+            "dillonkearns/elm-cli-options-parser": "5.0.1",
             "dillonkearns/elm-date-or-date-time": "2.0.0",
             "elm-community/basics-extra": "4.1.0",
             "elm-community/maybe-extra": "5.3.0",
