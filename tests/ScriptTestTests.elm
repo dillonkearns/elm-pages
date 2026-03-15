@@ -653,7 +653,7 @@ but the file writes are:
 
 Missing required option: --name
 
-elm-pages-test --name <name>"""
+elm-pages-test --name <NAME>"""
                             )
             ]
         , describe "fromBackendTask + expectFailure"

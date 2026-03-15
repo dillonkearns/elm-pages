@@ -2,7 +2,7 @@ module TestListFiles exposing (run)
 
 import BackendTask
 import BackendTask.Glob as Glob
-import Cli.Option as Option
+import Cli.Option.Typed as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
 import Pages.Script as Script exposing (Script)
@@ -16,7 +16,7 @@ config =
             |> Program.add
                 (OptionsParser.build identity
                     |> OptionsParser.with
-                        (Option.optionalKeywordArg "dir")
+                        (Option.optionalKeywordArg "dir" Option.string)
                 )
     , encoder =
         TsEncode.object

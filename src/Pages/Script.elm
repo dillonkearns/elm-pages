@@ -188,9 +188,9 @@ withCliOptions config execute =
 
 The return value of your `run` function is automatically JSON-encoded and
 printed to stdout using the provided encoder. Running with `--introspect`
-short-circuits execution and prints the output's JSON Schema instead, so
-that tools and LLM agents can discover what your script returns without
-running it.
+short-circuits execution and prints metadata including the script's
+`inputSchema` and output JSON Schema instead, so that tools and LLM agents
+can discover how to call the script and what it returns without running it.
 
 The schema is derived from the same `Encoder` that does the actual encoding,
 so it can never drift out of sync with the real output.
@@ -200,7 +200,8 @@ so it can never drift out of sync with the real output.
 `help` field in the output is the usage synopsis from `--help` (without
 ANSI colors). Scripts defined with `withSchema` are also automatically
 included in `elm-pages introspect`; you do not need to expose any extra
-top-level values for that to work.
+top-level values for that to work. To invoke a script with JSON input
+directly, pass the JSON object as a single shell argument.
 
 Example: a script that checks whether a URL is reachable.
 
@@ -233,10 +234,14 @@ Example: a script that checks whether a URL is reachable.
 elm-pages run CheckStatus.elm --url https://example.com
 # { "reachable": true, "statusCode": 200 }
 
+elm-pages run CheckStatus.elm '{"url":"https://example.com","$cli":{}}'
+# { "reachable": true, "statusCode": 200 }
+
 elm-pages run CheckStatus.elm --introspect
 # { "name": "CheckStatus",
 #   "description": "Check whether a URL is reachable",
 #   "help": "CheckStatus --url <URL>",
+#   "inputSchema": { ... },
 #   "outputSchema": { ... } }
 ```
 
@@ -288,6 +293,7 @@ introspectionValue config { moduleName, path } =
         ([ ( "name", Encode.string moduleName )
          , ( "description", Encode.string config.description )
          , ( "help", Encode.string helpString )
+         , ( "inputSchema", Program.toJsonSchema moduleName config.cliOptions )
          , ( "outputSchema"
            , config.encoder
                 |> TsJson.Encode.tsType
