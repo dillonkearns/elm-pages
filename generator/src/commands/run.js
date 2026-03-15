@@ -10,9 +10,14 @@ import * as renderer from "../render.js";
 import { compileCliApp } from "../compile-elm.js";
 import { resolveInputPathOrModuleName } from "../resolve-elm-module.js";
 import { restoreColorSafe } from "../error-formatter.js";
-import { needsRecompilation, needsPortsRecompilation, updateVersionMarker } from "../script-cache.js";
+import {
+  needsRecompilation,
+  needsPortsRecompilation,
+  updateVersionMarker,
+} from "../script-cache.js";
 import {
   compileElmForScript,
+  hasReservedCliFlag,
   requireElm,
   printCaughtError,
 } from "./shared.js";
@@ -27,6 +32,10 @@ export async function run(elmModulePath, options, options2) {
     options2.processedArgs.length,
     options2.args.length
   );
+  const isIntrospectionRun = hasReservedCliFlag(
+    unprocessedCliOptions,
+    "--introspect-cli"
+  );
   try {
     const { moduleName, projectDirectory, sourceDirectory } =
       await resolveInputPathOrModuleName(elmModulePath);
@@ -38,7 +47,11 @@ export async function run(elmModulePath, options, options2) {
       entryModuleName: moduleName,
     });
 
-    await compileElmForScript(elmModulePath, { moduleName, projectDirectory, sourceDirectory }, { usesDb });
+    await compileElmForScript(
+      elmModulePath,
+      { moduleName, projectDirectory, sourceDirectory },
+      { usesDb }
+    );
 
     // Check if custom-backend-task needs recompilation
     const portsCheck = await needsPortsRecompilation(projectDirectory);
@@ -88,12 +101,24 @@ export async function run(elmModulePath, options, options2) {
     process.chdir(projectDirectory);
     // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
 
-    const outputPath = path.join(projectDirectory, "elm-stuff/elm-pages/elm.cjs");
-    const shouldRecompile = await needsRecompilation(projectDirectory, outputPath);
+    const outputPath = path.join(
+      projectDirectory,
+      "elm-stuff/elm-pages/elm.cjs"
+    );
+    const shouldRecompile = await needsRecompilation(
+      projectDirectory,
+      outputPath
+    );
 
     if (shouldRecompile) {
-      const elmEntrypointPath = path.join(projectDirectory, "elm-stuff/elm-pages/.elm-pages/ScriptMain.elm");
-      const elmOutputPath = path.join(projectDirectory, "elm-stuff/elm-pages/elm.js");
+      const elmEntrypointPath = path.join(
+        projectDirectory,
+        "elm-stuff/elm-pages/.elm-pages/ScriptMain.elm"
+      );
+      const elmOutputPath = path.join(
+        projectDirectory,
+        "elm-stuff/elm-pages/elm.js"
+      );
       await compileCliApp(
         { debug: true },
         elmEntrypointPath,
@@ -109,8 +134,12 @@ export async function run(elmModulePath, options, options2) {
       portsPath
         ? await import(url.pathToFileURL(path.resolve(portsPath)).href)
         : null,
-      await requireElm(`${projectDirectory}/elm-stuff/elm-pages/elm.cjs`),
-      moduleName
+      await requireElm(`${projectDirectory}/elm-stuff/elm-pages/elm.cjs`, {
+        suppressConsoleLog: isIntrospectionRun,
+      }),
+      moduleName,
+      undefined,
+      { suppressConsoleLogDuringInit: isIntrospectionRun }
     );
   } catch (error) {
     printCaughtError(error, restoreColorSafe);

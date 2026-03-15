@@ -618,7 +618,7 @@ fromScript =
 
 -}
 fromScriptWith : TestSetup -> List String -> Script -> BackendTaskTest ()
-fromScriptWith setup cliArgs (Pages.Internal.Script.Script toConfig) =
+fromScriptWith setup cliArgs (Pages.Internal.Script.Script { toConfig }) =
     let
         programConfig : Program.Config (BackendTask FatalError ())
         programConfig =

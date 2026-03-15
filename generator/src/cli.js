@@ -163,6 +163,14 @@ async function main() {
     });
 
   program
+    .command("introspect")
+    .description("show schema info for all scripts that use Script.withSchema")
+    .action(async () => {
+      const { run } = await import("./commands/introspect.js");
+      await run();
+    });
+
+  program
     .command("docs")
     .description("open the docs for locally generated modules")
     .option("--port <number>", "serve site at localhost:<port>", "8000")

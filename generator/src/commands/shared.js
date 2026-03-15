@@ -45,16 +45,109 @@ export function printCaughtError(error, restoreColorSafe) {
 
 /**
  * @param {string} compiledElmPath
+ * @param {{ suppressConsoleLog?: boolean }} [options]
  */
-export async function requireElm(compiledElmPath) {
+export async function requireElm(compiledElmPath, options = {}) {
   const warnOriginal = console.warn;
+  const logOriginal = console.log;
   console.warn = function () {};
+  if (options.suppressConsoleLog) {
+    console.log = function () {};
+  }
 
-  let Elm = (
-    await import(url.pathToFileURL(path.resolve(compiledElmPath)).href)
-  ).default;
-  console.warn = warnOriginal;
-  return Elm;
+  try {
+    let Elm = (
+      await import(url.pathToFileURL(path.resolve(compiledElmPath)).href)
+    ).default;
+    return Elm;
+  } finally {
+    console.warn = warnOriginal;
+    console.log = logOriginal;
+  }
+}
+
+/**
+ * Detect whether a reserved CLI flag is present before `--`.
+ *
+ * Flags after `--` are treated as positional arguments, which matches
+ * standard CLI behavior and avoids false positives for explicit passthrough.
+ *
+ * @param {string[]} cliOptions
+ * @param {string} flagName
+ */
+export function hasReservedCliFlag(cliOptions, flagName) {
+  for (const cliOption of cliOptions) {
+    if (cliOption === "--") {
+      return false;
+    }
+
+    if (cliOption === flagName) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Generate a ScriptMain.elm that batch-introspects multiple scripts.
+ * @param {Array<{moduleName: string, path: string}>} scripts
+ */
+export function introspectWrapperFile(scripts) {
+  const imports = scripts.map((s) => `import ${s.moduleName}`).join("\n");
+
+  const entries = scripts
+    .map(
+      (s) =>
+        `                        Script.metadata { moduleName = "${s.moduleName}", path = "${s.path}" } ${s.moduleName}.run`
+    )
+    .join("\n                        , ");
+
+  return `port module ScriptMain exposing (main)
+
+import Bytes exposing (Bytes)
+import Json.Decode
+import Json.Encode
+import Pages.Internal.Platform.GeneratorApplication
+import Pages.Script as Script
+${imports}
+
+
+main : Pages.Internal.Platform.GeneratorApplication.Program
+main =
+    Pages.Internal.Platform.GeneratorApplication.app
+        { data = introspectAll
+        , scriptModuleName = "IntrospectAll"
+        , toJsPort = toJsPort
+        , fromJsPort = fromJsPort identity
+        , gotBatchSub = gotBatchSub identity
+        , sendPageData = \\_ -> Cmd.none
+        }
+
+
+introspectAll : Script.Script
+introspectAll =
+    Script.withoutCliOptions
+        (Script.log
+            (Json.Encode.encode 0
+                (Json.Encode.list identity
+                    (List.filterMap identity
+                        [ ${entries}
+                        ]
+                    )
+                )
+            )
+        )
+
+
+port toJsPort : { json : Json.Encode.Value, bytes : List { key : String, data : Bytes } } -> Cmd msg
+
+
+port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
+
+
+port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe Bytes } -> msg) -> Sub msg
+`;
 }
 
 /**
@@ -74,6 +167,7 @@ main : Pages.Internal.Platform.GeneratorApplication.Program
 main =
     Pages.Internal.Platform.GeneratorApplication.app
         { data = ${moduleName}.run
+        , scriptModuleName = "${moduleName}"
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , gotBatchSub = gotBatchSub identity
@@ -106,13 +200,10 @@ export function generatePagesDbModule(schemaHash, schemaVersion) {
       )
     : [];
   const migrationImports = hasMigrations
-    ? Array.from(
-        { length: schemaVersion - 1 },
-        (_, index) => {
-          const version = index + 2;
-          return `import Db.Migrate.V${version} as MigrateV${version}`;
-        }
-      )
+    ? Array.from({ length: schemaVersion - 1 }, (_, index) => {
+        const version = index + 2;
+        return `import Db.Migrate.V${version} as MigrateV${version}`;
+      })
     : [];
 
   const migrateFunctions = hasMigrations
@@ -512,13 +603,10 @@ export function generatePagesDbSeedModule(schemaVersion) {
   const imports = [
     "import Db",
     "import Db.Migrate.V1 as MigrateV1",
-    ...Array.from(
-      { length: Math.max(0, schemaVersion - 1) },
-      (_, index) => {
-        const version = index + 2;
-        return `import Db.Migrate.V${version} as MigrateV${version}`;
-      }
-    ),
+    ...Array.from({ length: Math.max(0, schemaVersion - 1) }, (_, index) => {
+      const version = index + 2;
+      return `import Db.Migrate.V${version} as MigrateV${version}`;
+    }),
   ];
 
   const pipeline = Array.from(
@@ -527,8 +615,7 @@ export function generatePagesDbSeedModule(schemaVersion) {
       const version = index + 2;
       return `|> MigrateV${version}.seed`;
     }
-  )
-    .join("\n        ");
+  ).join("\n        ");
 
   const seedExpr = pipeline
     ? `MigrateV1.seed ()\n        ${pipeline}`
@@ -561,7 +648,11 @@ export async function requireLamdera() {
   return "lamdera";
 }
 
-export async function compileElmForScript(elmModulePath, resolved, options = {}) {
+export async function compileElmForScript(
+  elmModulePath,
+  resolved,
+  options = {}
+) {
   const [
     { ensureDirSync, writeFileIfChanged, syncFilesToDirectory },
     { needsCodegenInstall, updateCodegenMarker },
@@ -591,7 +682,9 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
     if (shouldRunCodegen) {
       const result = await runElmCodegenInstall();
       if (!result.success) {
-        console.error(`Warning: ${result.message}. This may cause stale generated code or missing module errors.\n`);
+        console.error(
+          `Warning: ${result.message}. This may cause stale generated code or missing module errors.\n`
+        );
         if (result.error) {
           console.error(result.error);
         }
@@ -628,11 +721,10 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
   // Generate Pages.Db module if this script uses the database.
   // This runs AFTER rewriteElmJson so generated modules are available for compile.
   if (options.usesDb) {
-    const {
-      computeSchemaHash, readSchemaVersion,
-      saveSchemaSourceFromFile,
-    } = await import("../db-schema.js");
-    const { validateMigrationChain, copyMigrationElmFiles } = await import("../db-migrate.js");
+    const { computeSchemaHash, readSchemaVersion, saveSchemaSourceFromFile } =
+      await import("../db-schema.js");
+    const { validateMigrationChain, copyMigrationElmFiles } =
+      await import("../db-migrate.js");
 
     // db.bin and db live at the runtime CWD (where the user runs
     // `elm-pages run`), NOT at projectDirectory.
@@ -664,11 +756,19 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
     );
     if (!seedValidation.valid) {
       const issues = [];
-      if (seedValidation.missingFiles && seedValidation.missingFiles.length > 0) {
+      if (
+        seedValidation.missingFiles &&
+        seedValidation.missingFiles.length > 0
+      ) {
         issues.push(`Missing files: ${seedValidation.missingFiles.join(", ")}`);
       }
-      if (seedValidation.unimplemented && seedValidation.unimplemented.length > 0) {
-        issues.push(`Unimplemented migrations: ${seedValidation.unimplemented.join(", ")}`);
+      if (
+        seedValidation.unimplemented &&
+        seedValidation.unimplemented.length > 0
+      ) {
+        issues.push(
+          `Unimplemented migrations: ${seedValidation.unimplemented.join(", ")}`
+        );
       }
       throw `Initial seed is incomplete for schema V${schemaVersion}.\n\nI need a valid seed chain so a fresh install (no db.bin) can initialize safely.\n\n${issues.join("\n")}\n\nImplement the migration stubs in db/Db/Migrate/ and rerun your script.`;
     }
@@ -676,10 +776,7 @@ export async function compileElmForScript(elmModulePath, resolved, options = {})
     try {
       fs.rmSync(compileDbDir, { recursive: true, force: true });
     } catch (_) {}
-    copyMigrationElmFiles(
-      path.join(runtimeDir, "db", "Db"),
-      compileDbDir
-    );
+    copyMigrationElmFiles(path.join(runtimeDir, "db", "Db"), compileDbDir);
 
     ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Pages`);
     await writeFileIfChanged(
@@ -740,4 +837,30 @@ create a file at ${dbElmInSource} with this template:
 The Db type alias defines the shape of your database. The V1 seed in
 db/Db/Migrate/V1.elm provides the initial value used when
 no db.bin file exists yet.`;
+}
+
+/**
+ * Check if an Elm module exposes a given value name.
+ * @param {string} filePath - Path to the .elm file
+ * @param {string} valueName - The name to look for in the exposing list
+ * @returns {boolean}
+ */
+export function moduleExposesValue(filePath, valueName) {
+  try {
+    const content = fs.readFileSync(filePath, "utf8");
+    const match = content.match(/^module\s+\S+\s+exposing\s*\(([\s\S]*?)\)/m);
+    if (!match) return false;
+    const exposing = match[1];
+    if (exposing.trim() === "..") return moduleDefinesValue(content, valueName);
+    const pattern = new RegExp(`(?:^|[,\\s])${valueName}(?:$|[,\\s])`);
+    return pattern.test(exposing);
+  } catch (_) {
+    return false;
+  }
+}
+
+function moduleDefinesValue(content, valueName) {
+  const annotationPattern = new RegExp(`^${valueName}\\s*:`, "m");
+  const definitionPattern = new RegExp(`^${valueName}(?:\\s|=)`, "m");
+  return annotationPattern.test(content) || definitionPattern.test(content);
 }

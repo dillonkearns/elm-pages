@@ -1,6 +1,6 @@
 module Pages.Script exposing
     ( Script
-    , withCliOptions, withoutCliOptions, withDatabasePath
+    , withCliOptions, withoutCliOptions, withSchema, metadata, withDatabasePath
     , writeFile, removeFile, copyFile, move
     , makeDirectory, removeDirectory, makeTempDirectory
     , command, exec
@@ -17,7 +17,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 ## Defining Scripts
 
-@docs withCliOptions, withoutCliOptions, withDatabasePath
+@docs withCliOptions, withoutCliOptions, withSchema, metadata, withDatabasePath
 
 
 ## File System Utilities
@@ -53,6 +53,8 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Script
+import TsJson.Encode
+import TsJson.Type
 
 
 {-| The type for your `run` function that can be executed by `elm-pages run`.
@@ -150,15 +152,17 @@ log message =
 withoutCliOptions : BackendTask FatalError () -> Script
 withoutCliOptions execute =
     Pages.Internal.Script.Script
-        (\_ ->
-            Program.config
-                |> Program.add
-                    (OptionsParser.build ())
-                |> Program.mapConfig
-                    (\() ->
-                        execute
-                    )
-        )
+        { toConfig =
+            \_ ->
+                Program.config
+                    |> Program.add
+                        (OptionsParser.build ())
+                    |> Program.mapConfig
+                        (\() ->
+                            execute
+                        )
+        , metadata = Nothing
+        }
 
 
 {-| Same as [`withoutCliOptions`](#withoutCliOptions), but allows you to define a CLI Options Parser so the user can
@@ -172,10 +176,142 @@ Read more at <https://elm-pages.com/docs/elm-pages-scripts/#adding-command-line-
 withCliOptions : Program.Config cliOptions -> (cliOptions -> BackendTask FatalError ()) -> Script
 withCliOptions config execute =
     Pages.Internal.Script.Script
-        (\_ ->
-            config
-                |> Program.mapConfig execute
+        { toConfig =
+            \_ ->
+                config
+                    |> Program.mapConfig execute
+        , metadata = Nothing
+        }
+
+
+{-| Like [`withCliOptions`](#withCliOptions), but with a typed output schema.
+
+The return value of your `run` function is automatically JSON-encoded and
+printed to stdout using the provided encoder. Running with `--introspect-cli`
+short-circuits execution and prints metadata including the script's
+`inputSchema` and output JSON Schema instead, so that tools and LLM agents
+can discover how to call the script and what it returns without running it.
+
+The schema is derived from the same `Encoder` that does the actual encoding,
+so it can never drift out of sync with the real output.
+
+`description` is a short summary of what the script does. It appears in
+`--introspect-cli` output so that tools can decide whether to call it. The
+`help` field in the output is the usage synopsis from `--help` (without
+ANSI colors). Scripts defined with `withSchema` are also automatically
+included in `elm-pages introspect`; you do not need to expose any extra
+top-level values for that to work. To invoke a script with JSON input
+directly, pass the JSON object as a single shell argument.
+
+Example: a script that checks whether a URL is reachable.
+
+    -- file: script/src/CheckStatus.elm
+    run : Script
+    run =
+        Script.withSchema
+            { description =
+                "Check whether a URL is reachable"
+            , cliOptions =
+                Program.config
+                    |> Program.add
+                        (OptionsParser.build identity
+                            |> OptionsParser.with
+                                (Option.requiredKeywordArg "url")
+                        )
+            , encoder =
+                TsEncode.object
+                    [ TsEncode.required "reachable"
+                        .reachable
+                        TsEncode.bool
+                    , TsEncode.required "statusCode"
+                        .statusCode
+                        TsEncode.int
+                    ]
+            , run = checkStatus
+            }
+
+    elm-pages run CheckStatus.elm --url https://example.com
+    # { "reachable": true, "statusCode": 200 }
+
+    elm-pages run CheckStatus.elm '{"url":"https://example.com","$cli":{}}'
+    # { "reachable": true, "statusCode": 200 }
+
+    elm-pages run CheckStatus.elm --introspect-cli
+    # { "name": "CheckStatus",
+    #   "description": "Check whether a URL is reachable",
+    #   "help": "CheckStatus --url <URL>",
+    #   "inputSchema": { ... },
+    #   "outputSchema": { ... } }
+
+-}
+withSchema :
+    { description : String
+    , cliOptions : Program.Config cliFlags
+    , encoder : TsJson.Encode.Encoder outputType
+    , run : cliFlags -> BackendTask FatalError outputType
+    }
+    -> Script
+withSchema ({ cliOptions, encoder, run } as config) =
+    Pages.Internal.Script.Script
+        { toConfig =
+            \_ ->
+                cliOptions
+                    |> Program.mapConfig
+                        (\cliFlags ->
+                            run cliFlags
+                                |> BackendTask.andThen
+                                    (\output ->
+                                        log
+                                            (output
+                                                |> TsJson.Encode.encoder encoder
+                                                |> Encode.encode 0
+                                            )
+                                    )
+                        )
+        , metadata = Just (introspectionValue config)
+        }
+
+
+introspectionValue :
+    { a | description : String, cliOptions : Program.Config cliFlags, encoder : TsJson.Encode.Encoder outputType }
+    -> { moduleName : String, path : String }
+    -> Encode.Value
+introspectionValue config { moduleName, path } =
+    let
+        helpString : String
+        helpString =
+            case Program.run config.cliOptions [ "", moduleName, "--help" ] "" Program.WithoutColor of
+                Program.SystemMessage _ message ->
+                    message
+
+                Program.CustomMatch _ ->
+                    ""
+    in
+    Encode.object
+        ([ ( "name", Encode.string moduleName )
+         , ( "description", Encode.string config.description )
+         , ( "help", Encode.string helpString )
+         , ( "inputSchema", Program.toJsonSchema moduleName config.cliOptions )
+         , ( "outputSchema"
+           , config.encoder
+                |> TsJson.Encode.tsType
+                |> TsJson.Type.toJsonSchema
+           )
+         ]
+            ++ (if String.isEmpty path then
+                    []
+
+                else
+                    [ ( "path", Encode.string path ) ]
+               )
         )
+
+
+{-| For internal use by generated code. Most users should not need this.
+-}
+metadata : { moduleName : String, path : String } -> Script -> Maybe Encode.Value
+metadata context script =
+    Pages.Internal.Script.metadata context script
 
 
 {-| Configure the default database file path for `Pages.Db.default` in this script run.
@@ -197,16 +333,18 @@ use `Pages.Db.open`.
 
 -}
 withDatabasePath : String -> Script -> Script
-withDatabasePath dbPath (Pages.Internal.Script.Script cliConfig) =
+withDatabasePath dbPath (Pages.Internal.Script.Script script) =
     Pages.Internal.Script.Script
-        (\htmlToString ->
-            cliConfig htmlToString
-                |> Program.mapConfig
-                    (\task ->
-                        setDatabasePath dbPath
-                            |> BackendTask.andThen (\_ -> task)
-                    )
-        )
+        { toConfig =
+            \htmlToString ->
+                script.toConfig htmlToString
+                    |> Program.mapConfig
+                        (\task ->
+                            setDatabasePath dbPath
+                                |> BackendTask.andThen (\_ -> task)
+                        )
+        , metadata = script.metadata
+        }
 
 
 setDatabasePath : String -> BackendTask FatalError ()

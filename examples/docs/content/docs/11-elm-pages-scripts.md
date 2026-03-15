@@ -138,6 +138,62 @@ run script/src/Stars.elm --user elm --name json
 # `--name` <> `--username`
 ```
 
+## Machine-Readable Output Schemas
+
+If you want a script to return structured JSON for tools or LLM agents, use
+`Script.withSchema` with an `elm-ts-json` encoder. The same encoder is used
+for the actual JSON output and for `--introspect`, so the schema stays in sync
+with what the script really returns.
+
+```elm
+module Greeting exposing (run)
+
+import BackendTask
+import Cli.Option as Option
+import Cli.OptionsParser as OptionsParser
+import Cli.Program as Program
+import Pages.Script as Script exposing (Script)
+import TsJson.Encode as TsEncode
+
+
+run : Script
+run =
+    Script.withSchema
+        { description = "Generate a greeting"
+        , cliOptions =
+            Program.config
+                |> Program.add
+                    (OptionsParser.build identity
+                        |> OptionsParser.with
+                            (Option.requiredKeywordArg "name")
+                    )
+        , encoder =
+            TsEncode.object
+                [ TsEncode.required "greeting"
+                    .greeting
+                    TsEncode.string
+                ]
+        , run =
+            \name ->
+                BackendTask.succeed
+                    { greeting = "Hello, " ++ name ++ "!" }
+        }
+```
+
+```shell
+npx elm-pages run script/src/Greeting.elm --name world
+# {"greeting":"Hello, world!"}
+
+npx elm-pages run script/src/Greeting.elm --introspect
+# {"name":"Greeting","description":"Generate a greeting", ...}
+
+npx elm-pages introspect
+# [{"name":"Greeting","description":"Generate a greeting", ...}]
+```
+
+Scripts using `withSchema` are discovered automatically by `elm-pages introspect`.
+You do not need to expose any extra top-level metadata values.
+
 ## `FatalError`'s
 
 If the `BackendTask` in your script resolves to a [`FatalError`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/FatalError), the script will print the error message and exit with a non-zero exit code. As with any `BackendTask`, if you want to ensure that your script will not encounter a `FatalError`, you can ensure that you have handled every possible error by using a value with the type `BackendTask Never ()`.
