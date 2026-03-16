@@ -5,7 +5,7 @@ module Tui exposing
     , Context
     , KeyEvent, Key(..), Direction(..), Modifier(..)
     , MouseEvent(..), MouseButton(..)
-    , toString, toLines
+    , toString, toLines, lineCount
     , encodeScreen
     )
 
@@ -34,7 +34,7 @@ from the `wolfadex/elm-ansi` package:
 
 @docs MouseEvent, MouseButton
 
-@docs toString, toLines
+@docs toString, toLines, lineCount
 
 @docs encodeScreen
 
@@ -290,6 +290,13 @@ toString screen =
     screen
         |> toLines
         |> String.join "\n"
+
+
+{-| Get the number of lines in a Screen. Useful for layout calculations.
+-}
+lineCount : Screen -> Int
+lineCount screen =
+    flattenToSpanLines screen |> List.length
 
 
 {-| Convert a Screen to a list of plain text lines. Useful for testing.
