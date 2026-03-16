@@ -1,8 +1,9 @@
 module MiniGitTests exposing (stepper, suite)
 
 import Ansi.Color
-import Expect
+import Expect exposing (Expectation)
 import Test exposing (Test, describe, test)
+import Test.Runner
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Layout as Layout
@@ -40,12 +41,30 @@ suite =
                         |> TuiTest.expectExit
             ]
         , describe "mouse interactions"
-            [ test "clicking on a commit selects it" <|
+            [ test "clicking on a commit selects it (coordinates)" <|
                 \() ->
                     miniGitTest
                         |> TuiTest.click { row = 2, col = 5 }
                         |> TuiTest.ensureViewHas "▸ def5678"
                         |> TuiTest.expectRunning
+            , test "clickText finds and clicks by content" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.clickText "345cdef"
+                        |> TuiTest.ensureViewHas "▸ 345cdef"
+                        |> TuiTest.expectRunning
+            , test "clickText on last item" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.clickText "bbb2222"
+                        |> TuiTest.ensureViewHas "▸ bbb2222"
+                        |> TuiTest.expectRunning
+            , test "clickText fails with helpful message when text not found" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.clickText "nonexistent"
+                        |> TuiTest.expectRunning
+                        |> expectFailureContaining "nonexistent"
             , test "scroll down moves viewport" <|
                 \() ->
                     miniGitTest
@@ -91,6 +110,32 @@ suite =
                         |> Expect.equal True
             ]
         ]
+
+
+{-| Assert an Expectation is a failure containing the given text.
+-}
+expectFailureContaining : String -> Expectation -> Expectation
+expectFailureContaining needle expectation =
+    case Test.Runner.getFailureReason expectation of
+        Nothing ->
+            Expect.fail
+                ("Expected a failure containing \""
+                    ++ needle
+                    ++ "\" but the test passed."
+                )
+
+        Just { description } ->
+            if String.contains needle description then
+                Expect.pass
+
+            else
+                Expect.fail
+                    ("Expected failure to contain \""
+                        ++ needle
+                        ++ "\" but was: \""
+                        ++ description
+                        ++ "\""
+                    )
 
 
 

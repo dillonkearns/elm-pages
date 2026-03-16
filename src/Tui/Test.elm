@@ -2,7 +2,7 @@ module Tui.Test exposing
     ( TuiTest
     , start, startWithContext
     , pressKey, pressKeyWith, resize
-    , click, scrollDown, scrollUp
+    , click, clickText, scrollDown, scrollUp
     , sendMsg
     , BackendTaskSimulator, resolveEffect
     , ensureView, ensureViewHas, ensureViewDoesNotHave
@@ -49,7 +49,7 @@ or directly with [`sendMsg`](#sendMsg).
 
 @docs pressKey, pressKeyWith, resize
 
-@docs click, scrollDown, scrollUp
+@docs click, clickText, scrollDown, scrollUp
 
 @docs sendMsg
 
@@ -257,6 +257,58 @@ click pos =
     simulateMouseEvent
         ("click (" ++ String.fromInt pos.row ++ "," ++ String.fromInt pos.col ++ ")")
         (Tui.Click { row = pos.row, col = pos.col, button = Tui.LeftButton })
+
+
+{-| Find a line containing the given text and simulate a click on it.
+Like elm-program-test's `clickButton` — finds elements by content instead of
+coordinates, making tests resilient to layout changes.
+
+    test |> TuiTest.clickText "def5678"
+
+Fails with a helpful message if the text is not found on screen.
+
+-}
+clickText : String -> TuiTest model msg -> TuiTest model msg
+clickText needle (TuiTest state) =
+    case ( state.error, state.exited ) of
+        ( Just _, _ ) ->
+            TuiTest state
+
+        ( _, Just _ ) ->
+            TuiTest { state | error = Just "clickText called after TUI exited" }
+
+        ( Nothing, Nothing ) ->
+            let
+                screenLines : List String
+                screenLines =
+                    Tui.toLines (state.view state.context state.model)
+
+                maybeRow : Maybe Int
+                maybeRow =
+                    screenLines
+                        |> List.indexedMap Tuple.pair
+                        |> List.filter (\( _, line ) -> String.contains needle line)
+                        |> List.head
+                        |> Maybe.map Tuple.first
+            in
+            case maybeRow of
+                Just row ->
+                    simulateMouseEvent
+                        ("clickText \"" ++ needle ++ "\"")
+                        (Tui.Click { row = row, col = 1, button = Tui.LeftButton })
+                        (TuiTest state)
+
+                Nothing ->
+                    TuiTest
+                        { state
+                            | error =
+                                Just
+                                    ("clickText: could not find \""
+                                        ++ needle
+                                        ++ "\" on screen.\n\nThe screen contains:\n\n"
+                                        ++ indentScreenText (Tui.toString (state.view state.context state.model))
+                                    )
+                        }
 
 
 {-| Simulate a scroll-down event at the given position.
