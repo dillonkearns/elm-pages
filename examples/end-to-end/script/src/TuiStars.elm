@@ -6,6 +6,7 @@ module TuiStars exposing (run)
 
 -}
 
+import Ansi.Color
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import FatalError exposing (FatalError)
@@ -121,7 +122,7 @@ view : Tui.Context -> Model -> Tui.Screen
 view _ model =
     Tui.lines
         [ Tui.text ""
-        , Tui.styled [ Tui.bold, Tui.foreground Tui.cyan ]
+        , Tui.styled [ Tui.bold, Tui.foreground Ansi.Color.cyan ]
             "  GitHub Stars Fetcher"
         , Tui.text ""
         , Tui.concat
@@ -132,13 +133,13 @@ view _ model =
         , Tui.text ""
         , case ( model.loading, model.result ) of
             ( True, _ ) ->
-                Tui.styled [ Tui.foreground Tui.yellow ] "  ⟳ Fetching..."
+                Tui.styled [ Tui.foreground Ansi.Color.yellow ] "  ⟳ Fetching..."
 
             ( _, Ok stars ) ->
                 Tui.concat
                     [ Tui.text "  "
-                    , Tui.styled [ Tui.foreground Tui.yellow ] "★ "
-                    , Tui.styled [ Tui.bold, Tui.foreground Tui.green ]
+                    , Tui.styled [ Tui.foreground Ansi.Color.yellow ] "★ "
+                    , Tui.styled [ Tui.bold, Tui.foreground Ansi.Color.green ]
                         (String.fromInt stars)
                     , Tui.styled [ Tui.dim ]
                         (" stars on " ++ model.input)
@@ -148,7 +149,7 @@ view _ model =
                 Tui.styled [ Tui.dim ] "  Press Enter to fetch"
 
             ( _, Err errMsg ) ->
-                Tui.styled [ Tui.foreground Tui.red ]
+                Tui.styled [ Tui.foreground Ansi.Color.red ]
                     ("  " ++ errMsg)
         , Tui.text ""
         , Tui.styled [ Tui.dim ] "  Enter    fetch stars"

@@ -2659,10 +2659,24 @@ function tuiApplyStyle(style, text) {
 function tuiColorToAnsi(color, isBackground) {
   const offset = isBackground ? 10 : 0;
   if (typeof color === "string") {
-    const colorMap = { black: 30, red: 31, green: 32, yellow: 33, blue: 34, magenta: 35, cyan: 36, white: 37 };
-    return String((colorMap[color] || 37) + offset);
+    // Standard and bright ANSI colors
+    const colorMap = {
+      black: 30, red: 31, green: 32, yellow: 33, blue: 34, magenta: 35, cyan: 36, white: 37,
+      brightBlack: 90, brightRed: 91, brightGreen: 92, brightYellow: 93,
+      brightBlue: 94, brightMagenta: 95, brightCyan: 96, brightWhite: 97,
+    };
+    const code = colorMap[color];
+    if (code !== undefined) {
+      return String(code >= 90 ? code + (isBackground ? 10 : 0) : code + offset);
+    }
+    return "";
+  }
+  if (color.color256 !== undefined) {
+    // 256-color mode
+    return `${isBackground ? 48 : 38};5;${color.color256}`;
   }
   if (color.r !== undefined) {
+    // Truecolor (24-bit)
     return `${isBackground ? 48 : 38};2;${color.r};${color.g};${color.b}`;
   }
   return "";

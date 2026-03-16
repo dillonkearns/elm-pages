@@ -2,6 +2,7 @@ module TuiTests exposing (suite)
 
 import BackendTask
 import BackendTask.Http
+import Ansi.Color
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
@@ -42,7 +43,7 @@ suite =
                         |> Expect.equal "hello world"
             , test "styled text has plain text content" <|
                 \() ->
-                    Tui.styled [ Tui.bold, Tui.foreground Tui.red ] "warning"
+                    Tui.styled [ Tui.bold, Tui.foreground Ansi.Color.red ] "warning"
                         |> Tui.toString
                         |> Expect.equal "warning"
             , test "empty produces nothing" <|

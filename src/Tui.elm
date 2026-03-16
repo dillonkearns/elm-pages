@@ -2,7 +2,6 @@ module Tui exposing
     ( Screen, text, styled, lines, concat, empty
     , Attribute, bold, dim, italic, underline, strikethrough, inverse
     , foreground, background
-    , Color, black, red, green, yellow, blue, magenta, cyan, white, rgb
     , Context
     , KeyEvent, Key(..), Direction(..), Modifier(..)
     , toString, toLines
@@ -17,12 +16,21 @@ composition. The framework handles rendering, diffing, and terminal management.
 For layout (row/column/fill/border), use a layout package built on top of these
 primitives.
 
+Colors use [`Ansi.Color.Color`](https://package.elm-lang.org/packages/wolfadex/elm-ansi/latest/Ansi-Color)
+from the `wolfadex/elm-ansi` package. This gives you standard ANSI colors,
+bright variants, 256-color, and truecolor out of the box:
+
+    import Ansi.Color
+    import Tui
+
+    Tui.styled [ Tui.foreground Ansi.Color.cyan ] "info"
+    Tui.styled [ Tui.foreground Ansi.Color.brightRed ] "error"
+    Tui.styled [ Tui.foreground (Ansi.Color.rgb { red = 255, green = 128, blue = 0 }) ] "orange"
+
 @docs Screen, text, styled, lines, concat, empty
 
 @docs Attribute, bold, dim, italic, underline, strikethrough, inverse
 @docs foreground, background
-
-@docs Color, black, red, green, yellow, blue, magenta, cyan, white, rgb
 
 @docs Context
 
@@ -34,6 +42,7 @@ primitives.
 
 -}
 
+import Ansi.Color
 import Json.Encode as Encode
 
 
@@ -57,7 +66,9 @@ text =
 
 {-| Styled text.
 
-    Tui.styled [ Tui.bold, Tui.foreground Tui.cyan ] "Hello"
+    import Ansi.Color
+
+    Tui.styled [ Tui.bold, Tui.foreground Ansi.Color.cyan ] "Hello"
 
 -}
 styled : List Attribute -> String -> Screen
@@ -90,7 +101,8 @@ empty =
 -- ATTRIBUTES
 
 
-{-| A styling attribute for text.
+{-| A styling attribute for text. Matches the terminal cell model: foreground
+color, background color, and text decoration flags.
 -}
 type Attribute
     = Bold
@@ -99,8 +111,8 @@ type Attribute
     | Underline
     | Strikethrough
     | Inverse
-    | Foreground Color
-    | Background Color
+    | Foreground Ansi.Color.Color
+    | Background Ansi.Color.Color
 
 
 {-| Bold text.
@@ -147,100 +159,27 @@ inverse =
 
 {-| Set the text foreground color.
 
-    Tui.styled [ Tui.foreground Tui.red ] "error"
+    import Ansi.Color
+
+    Tui.styled [ Tui.foreground Ansi.Color.red ] "error"
+    Tui.styled [ Tui.foreground (Ansi.Color.rgb { red = 255, green = 128, blue = 0 }) ] "orange"
 
 -}
-foreground : Color -> Attribute
+foreground : Ansi.Color.Color -> Attribute
 foreground =
     Foreground
 
 
 {-| Set the text background color.
 
-    Tui.styled [ Tui.background Tui.blue ] "highlighted"
+    import Ansi.Color
+
+    Tui.styled [ Tui.background Ansi.Color.blue ] "highlighted"
 
 -}
-background : Color -> Attribute
+background : Ansi.Color.Color -> Attribute
 background =
     Background
-
-
-
--- COLORS
-
-
-{-| Terminal color.
--}
-type Color
-    = Ansi16 AnsiColor
-    | Rgb255 Int Int Int
-
-
-type AnsiColor
-    = Black
-    | Red
-    | Green
-    | Yellow
-    | Blue
-    | Magenta
-    | Cyan
-    | White
-
-
-{-| -}
-black : Color
-black =
-    Ansi16 Black
-
-
-{-| -}
-red : Color
-red =
-    Ansi16 Red
-
-
-{-| -}
-green : Color
-green =
-    Ansi16 Green
-
-
-{-| -}
-yellow : Color
-yellow =
-    Ansi16 Yellow
-
-
-{-| -}
-blue : Color
-blue =
-    Ansi16 Blue
-
-
-{-| -}
-magenta : Color
-magenta =
-    Ansi16 Magenta
-
-
-{-| -}
-cyan : Color
-cyan =
-    Ansi16 Cyan
-
-
-{-| -}
-white : Color
-white =
-    Ansi16 White
-
-
-{-| Truecolor (24-bit). The framework auto-downgrades on terminals that don't
-support it.
--}
-rgb : Int -> Int -> Int -> Color
-rgb =
-    Rgb255
 
 
 
@@ -340,8 +279,8 @@ type alias Style =
     , underline : Bool
     , strikethrough : Bool
     , inverse : Bool
-    , foreground : Maybe Color
-    , background : Maybe Color
+    , foreground : Maybe Ansi.Color.Color
+    , background : Maybe Ansi.Color.Color
     }
 
 
@@ -505,43 +444,63 @@ encodeStyle style =
         )
 
 
-encodeColor : Color -> Encode.Value
-encodeColor color =
-    case color of
-        Ansi16 ansiColor ->
-            Encode.string (ansiColorName ansiColor)
+encodeColor : Ansi.Color.Color -> Encode.Value
+encodeColor ansiColor =
+    case ansiColor of
+        Ansi.Color.Black ->
+            Encode.string "black"
 
-        Rgb255 r g b ->
+        Ansi.Color.Red ->
+            Encode.string "red"
+
+        Ansi.Color.Green ->
+            Encode.string "green"
+
+        Ansi.Color.Yellow ->
+            Encode.string "yellow"
+
+        Ansi.Color.Blue ->
+            Encode.string "blue"
+
+        Ansi.Color.Magenta ->
+            Encode.string "magenta"
+
+        Ansi.Color.Cyan ->
+            Encode.string "cyan"
+
+        Ansi.Color.White ->
+            Encode.string "white"
+
+        Ansi.Color.BrightBlack ->
+            Encode.string "brightBlack"
+
+        Ansi.Color.BrightRed ->
+            Encode.string "brightRed"
+
+        Ansi.Color.BrightGreen ->
+            Encode.string "brightGreen"
+
+        Ansi.Color.BrightYellow ->
+            Encode.string "brightYellow"
+
+        Ansi.Color.BrightBlue ->
+            Encode.string "brightBlue"
+
+        Ansi.Color.BrightMagenta ->
+            Encode.string "brightMagenta"
+
+        Ansi.Color.BrightCyan ->
+            Encode.string "brightCyan"
+
+        Ansi.Color.BrightWhite ->
+            Encode.string "brightWhite"
+
+        Ansi.Color.Custom256 { color } ->
+            Encode.object [ ( "color256", Encode.int color ) ]
+
+        Ansi.Color.CustomTrueColor { red, green, blue } ->
             Encode.object
-                [ ( "r", Encode.int r )
-                , ( "g", Encode.int g )
-                , ( "b", Encode.int b )
+                [ ( "r", Encode.int red )
+                , ( "g", Encode.int green )
+                , ( "b", Encode.int blue )
                 ]
-
-
-ansiColorName : AnsiColor -> String
-ansiColorName color =
-    case color of
-        Black ->
-            "black"
-
-        Red ->
-            "red"
-
-        Green ->
-            "green"
-
-        Yellow ->
-            "yellow"
-
-        Blue ->
-            "blue"
-
-        Magenta ->
-            "magenta"
-
-        Cyan ->
-            "cyan"
-
-        White ->
-            "white"

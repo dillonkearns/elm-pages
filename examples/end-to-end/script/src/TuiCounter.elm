@@ -11,6 +11,7 @@ Keys:
 
 -}
 
+import Ansi.Color
 import BackendTask exposing (BackendTask)
 import Pages.Script as Script exposing (Script)
 import Tui
@@ -76,7 +77,7 @@ view : Tui.Context -> Model -> Tui.Screen
 view ctx model =
     Tui.lines
         [ Tui.text ""
-        , Tui.styled [ Tui.bold, Tui.foreground Tui.cyan ]
+        , Tui.styled [ Tui.bold, Tui.foreground Ansi.Color.cyan ]
             "  TUI Counter Demo"
         , Tui.text ""
         , Tui.concat
@@ -85,10 +86,10 @@ view ctx model =
                 [ Tui.bold
                 , Tui.foreground
                     (if model.count >= 0 then
-                        Tui.green
+                        Ansi.Color.green
 
                      else
-                        Tui.red
+                        Ansi.Color.red
                     )
                 ]
                 (String.fromInt model.count)
