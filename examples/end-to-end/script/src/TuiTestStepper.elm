@@ -45,6 +45,12 @@ demoSnapshots =
             , { sha = "789abcd", message = "Update documentation" }
             , { sha = "aaa1111", message = "Refactor module structure" }
             , { sha = "bbb2222", message = "Add unit tests" }
+            , { sha = "ccc3333", message = "Improve error handling" }
+            , { sha = "ddd4444", message = "Add CLI options" }
+            , { sha = "eee5555", message = "Fix memory leak" }
+            , { sha = "fff6666", message = "Update dependencies" }
+            , { sha = "aab7777", message = "Add TUI framework" }
+            , { sha = "bbc8888", message = "Mouse support" }
             ]
 
         miniGitTest : TuiTest.TuiTest MiniGitModel MiniGitMsg
@@ -59,13 +65,21 @@ demoSnapshots =
     in
     miniGitTest
         |> TuiTest.withModelToString Debug.toString
+        -- Navigate down through visible commits
         |> TuiTest.pressKey 'j'
         |> TuiTest.pressKey 'j'
         |> TuiTest.pressKey 'j'
-        |> TuiTest.click { row = 1, col = 5 }
+        |> TuiTest.pressKey 'j'
+        -- Now past the 5-row window — viewport scrolls, new commits appear
+        |> TuiTest.pressKey 'j'
+        |> TuiTest.pressKey 'j'
+        |> TuiTest.pressKey 'j'
+        -- Scroll back up — earlier commits come back into view
         |> TuiTest.pressKey 'k'
-        |> TuiTest.scrollDown { row = 3, col = 5 }
-        |> TuiTest.scrollDown { row = 3, col = 5 }
+        |> TuiTest.pressKey 'k'
+        |> TuiTest.pressKey 'k'
+        -- Click on a visible commit
+        |> TuiTest.click { row = 3, col = 5 }
         |> TuiTest.toSnapshots
 
 
