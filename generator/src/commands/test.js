@@ -25,7 +25,7 @@ import {
   compileElmForScript,
   requireElm,
   printCaughtError,
-  moduleExposesValue,
+  findTuiTestValues,
   testStepperWrapperFile,
 } from "./shared.js";
 
@@ -45,24 +45,30 @@ export async function run(elmModulePath, options, options2) {
     const { moduleName, projectDirectory, sourceDirectory } =
       await resolveInputPathOrModuleName(elmModulePath);
 
-    // Verify the module exports `stepper`
+    // Find all exposed TuiTest values by scanning type annotations
     const fullPath = path.resolve(
       sourceDirectory,
       moduleName.replace(/\./g, "/") + ".elm"
     );
 
-    if (!moduleExposesValue(fullPath, "stepper")) {
+    const tuiTestValues = findTuiTestValues(fullPath);
+
+    if (tuiTestValues.length === 0) {
       console.error(
-        `Error: Module ${moduleName} does not expose a \`stepper\` value.\n\n` +
-          "To use elm-pages test, export a TuiTest pipeline:\n\n" +
-          `    module ${moduleName} exposing (stepper, ...)\n\n` +
-          "    stepper =\n" +
-          "        TuiTest.start { data = ..., init = ..., ... }\n" +
-          "            |> TuiTest.withModelToString Debug.toString\n" +
-          "            |> TuiTest.pressKey 'j'\n"
+        `Error: No TuiTest values found in ${moduleName}.\n\n` +
+          "elm-pages test discovers exposed values with a TuiTest type annotation.\n" +
+          "Add a type annotation to your test pipeline:\n\n" +
+          `    myTest : TuiTest.TuiTest Model Msg\n` +
+          `    myTest =\n` +
+          `        TuiTest.start { ... }\n` +
+          `            |> TuiTest.pressKey 'j'\n`
       );
       process.exit(1);
     }
+
+    console.log(
+      `Found ${tuiTestValues.length} TuiTest value${tuiTestValues.length > 1 ? "s" : ""}: ${tuiTestValues.join(", ")}`
+    );
 
     // Generate stepper wrapper
     const [{ ensureDirSync, writeFileIfChanged }] = await Promise.all([
@@ -75,7 +81,7 @@ export async function run(elmModulePath, options, options2) {
       path.join(
         `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/ScriptMain.elm`
       ),
-      testStepperWrapperFile(moduleName)
+      testStepperWrapperFile(moduleName, tuiTestValues)
     );
 
     // Compile (reuses the same pipeline as `run`)
