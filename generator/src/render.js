@@ -2441,6 +2441,7 @@ function getTimezoneDataTemporal(tzId, sinceMs, untilMs) {
 // ── TUI Runtime ──────────────────────────────────────────────────────────────
 
 let tuiActive = false;
+let tuiPrevLines = []; // cached rendered lines for dirty-line diffing
 
 function tuiCleanup() {
   if (!tuiActive) return;
@@ -2471,6 +2472,7 @@ process.on("SIGTERM", () => {
 
 async function runTuiInit(req) {
   tuiActive = true;
+  tuiPrevLines = []; // reset line cache for dirty-line diffing
   const stdout = process.stdout;
 
   // Single atomic write to avoid timing gaps where scroll events could leak.
@@ -2498,23 +2500,46 @@ async function runTuiInit(req) {
 }
 
 async function runTuiRender(req) {
-  const screenData = req.body.args[0];
+  tuiRenderScreen(req.body.args[0]);
+  return jsonResponse(req, null);
+}
+
+/**
+ * Render screen data with dirty-line diffing. Only redraws lines that changed
+ * since the previous frame. This is the same approach tcell uses ("delta rendering").
+ */
+function tuiRenderScreen(screenData) {
   const stdout = process.stdout;
 
-  let output = "\x1b[H"; // move cursor to top-left
-
+  // Build rendered lines for this frame
+  const newLines = [];
   for (const line of screenData) {
+    let rendered = "";
     for (const span of line) {
-      output += tuiApplyStyle(span.style, span.text);
+      rendered += tuiApplyStyle(span.style, span.text);
     }
-    output += "\x1b[K\r\n"; // clear to end of line + newline
+    newLines.push(rendered);
   }
 
-  // Clear from cursor to end of screen
-  output += "\x1b[J";
+  // Diff against previous frame
+  let output = "";
+  const maxLines = Math.max(newLines.length, tuiPrevLines.length);
 
-  stdout.write(output);
-  return jsonResponse(req, null);
+  for (let i = 0; i < maxLines; i++) {
+    const newLine = i < newLines.length ? newLines[i] : "";
+    const prevLine = i < tuiPrevLines.length ? tuiPrevLines[i] : null;
+
+    if (newLine !== prevLine) {
+      // Move cursor to this line and write it
+      output += `\x1b[${i + 1};1H${newLine}\x1b[K`;
+    }
+  }
+
+  if (output) {
+    stdout.write(output);
+  }
+
+  tuiPrevLines = newLines;
 }
 
 async function runTuiWaitEvent(req) {
@@ -2581,23 +2606,8 @@ async function runTuiWaitEventImpl(req, interests) {
 async function runTuiRenderAndWait(req) {
   // Combined render + wait in a single BackendTask round-trip
   const args = req.body.args[0];
-  const screenData = args.screen;
-  const interests = args.interests;
-  const stdout = process.stdout;
-
-  // Render
-  let output = "\x1b[H";
-  for (const line of screenData) {
-    for (const span of line) {
-      output += tuiApplyStyle(span.style, span.text);
-    }
-    output += "\x1b[K\r\n";
-  }
-  output += "\x1b[J";
-  stdout.write(output);
-
-  // Wait (reuse the same logic as runTuiWaitEvent)
-  return runTuiWaitEventImpl(req, interests);
+  tuiRenderScreen(args.screen);
+  return runTuiWaitEventImpl(req, args.interests);
 }
 
 
