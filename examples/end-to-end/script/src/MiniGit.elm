@@ -27,6 +27,7 @@ type alias Model =
     , scrollOffset : Int
     , diffContent : String
     , diffScrollOffset : Int
+    , leftWidth : Int
     }
 
 
@@ -77,6 +78,7 @@ init commits =
       , scrollOffset = 0
       , diffContent = ""
       , diffScrollOffset = 0
+      , leftWidth = 40
       }
     , loadDiff commits
     )
@@ -114,16 +116,16 @@ update msg model =
         KeyPressed event ->
             case event.key of
                 Tui.Character 'j' ->
-                    selectCommit (min maxIndex (model.selected + 1)) model
+                    selectAndLoadDiff (min maxIndex (model.selected + 1)) model
 
                 Tui.Arrow Tui.Down ->
-                    selectCommit (min maxIndex (model.selected + 1)) model
+                    selectAndLoadDiff (min maxIndex (model.selected + 1)) model
 
                 Tui.Character 'k' ->
-                    selectCommit (max 0 (model.selected - 1)) model
+                    selectAndLoadDiff (max 0 (model.selected - 1)) model
 
                 Tui.Arrow Tui.Up ->
-                    selectCommit (max 0 (model.selected - 1)) model
+                    selectAndLoadDiff (max 0 (model.selected - 1)) model
 
                 Tui.Character 'q' ->
                     ( model, Effect.exit )
@@ -136,23 +138,57 @@ update msg model =
 
         Mouse event ->
             case event of
-                Tui.Click { row } ->
-                    let
-                        clickedIndex : Int
-                        clickedIndex =
-                            row - 1 + model.scrollOffset
-                    in
-                    if clickedIndex >= 0 && clickedIndex <= maxIndex then
-                        selectCommit clickedIndex model
+                Tui.Click { row, col } ->
+                    if col < model.leftWidth then
+                        -- Click in left pane: select commit and load diff
+                        let
+                            clickedIndex : Int
+                            clickedIndex =
+                                row - 1 + model.scrollOffset
+                        in
+                        if clickedIndex >= 0 && clickedIndex <= maxIndex then
+                            selectAndLoadDiff clickedIndex model
+
+                        else
+                            ( model, Effect.none )
 
                     else
                         ( model, Effect.none )
 
-                Tui.ScrollDown _ ->
-                    selectCommit (min maxIndex (model.selected + 1)) model
+                Tui.ScrollDown { col } ->
+                    if col < model.leftWidth then
+                        -- Scroll in left pane: move commit selection (no diff load)
+                        ( adjustScroll
+                            { model | selected = min maxIndex (model.selected + 1) }
+                        , Effect.none
+                        )
 
-                Tui.ScrollUp _ ->
-                    selectCommit (max 0 (model.selected - 1)) model
+                    else
+                        -- Scroll in right pane: scroll diff content
+                        ( { model
+                            | diffScrollOffset =
+                                min
+                                    (List.length (String.lines model.diffContent) - 5)
+                                    (model.diffScrollOffset + 3)
+                          }
+                        , Effect.none
+                        )
+
+                Tui.ScrollUp { col } ->
+                    if col < model.leftWidth then
+                        -- Scroll in left pane: move commit selection (no diff load)
+                        ( adjustScroll
+                            { model | selected = max 0 (model.selected - 1) }
+                        , Effect.none
+                        )
+
+                    else
+                        -- Scroll in right pane: scroll diff content
+                        ( { model
+                            | diffScrollOffset = max 0 (model.diffScrollOffset - 3)
+                          }
+                        , Effect.none
+                        )
 
         GotDiff result ->
             ( { model
@@ -169,8 +205,8 @@ update msg model =
             )
 
 
-selectCommit : Int -> Model -> ( Model, Effect.Effect Msg )
-selectCommit newIndex model =
+selectAndLoadDiff : Int -> Model -> ( Model, Effect.Effect Msg )
+selectAndLoadDiff newIndex model =
     if newIndex == model.selected then
         ( model, Effect.none )
 
