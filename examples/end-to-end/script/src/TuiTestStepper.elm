@@ -197,10 +197,25 @@ view ctx model =
                 , Tui.text ""
                 , Tui.styled dimStyle ("  " ++ separator)
                 , Tui.text ""
-                , -- Render the actual screen content indented
-                  snapshot.screen
-                    |> String.lines
-                    |> List.map (\line -> Tui.text ("  │ " ++ line))
+                , -- Re-render the snapshot at the stepper's available width
+                  let
+                    innerCtx : Tui.Context
+                    innerCtx =
+                        { width = ctx.width - 6, height = ctx.height - 12 }
+
+                    renderedScreen : Tui.Screen
+                    renderedScreen =
+                        snapshot.rerender innerCtx
+                  in
+                  renderedScreen
+                    |> Tui.toLines
+                    |> List.map
+                        (\line ->
+                            Tui.concat
+                                [ Tui.styled dimStyle "  │ "
+                                , Tui.text line
+                                ]
+                        )
                     |> Tui.lines
                 , Tui.text ""
                 , Tui.styled dimStyle ("  " ++ separator)

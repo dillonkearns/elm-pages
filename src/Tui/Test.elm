@@ -6,7 +6,7 @@ module Tui.Test exposing
     , BackendTaskSimulator, resolveEffect
     , ensureView, ensureViewHas, ensureViewDoesNotHave
     , expectRunning, expectExit, expectExitWith
-    , Snapshot, toSnapshots
+    , Snapshot, toSnapshots, renderSnapshotAt
     )
 
 {-| Write pure tests for TUI scripts. No terminal, no I/O — just regular
@@ -59,7 +59,7 @@ or directly with [`sendMsg`](#sendMsg).
 
 ## Snapshots
 
-@docs Snapshot, toSnapshots
+@docs Snapshot, toSnapshots, renderSnapshotAt
 
 -}
 
@@ -95,10 +95,19 @@ type alias State model msg =
 
 {-| A snapshot of the TUI state at a point in the test pipeline. Used by
 [`toSnapshots`](#toSnapshots) for the interactive test stepper.
+
+`screen` is the `Tui.Screen` value (preserving styling), not a plain string.
+Use `Tui.toString` to get plain text, or render it through the TUI pipeline
+for styled output.
+
+`rerender` lets you render the view at a different terminal size than the
+one used during the test.
+
 -}
 type alias Snapshot =
     { label : String
-    , screen : String
+    , screen : Screen
+    , rerender : Context -> Screen
     , hasPendingEffects : Bool
     }
 
@@ -163,7 +172,8 @@ startWithContext context config =
         , error = Nothing
         , snapshots =
             [ { label = "init"
-              , screen = Tui.toString (config.view context initialModel)
+              , screen = config.view context initialModel
+              , rerender = \ctx -> config.view ctx initialModel
               , hasPendingEffects = not (List.isEmpty pendingEffects)
               }
             ]
@@ -520,10 +530,15 @@ applyMsg label msg (TuiTest state) =
                 newPendingEffects =
                     extractBackendTasks effect
 
+                viewFn : Context -> Screen
+                viewFn =
+                    \ctx -> state.view ctx newModel
+
                 snapshot : Snapshot
                 snapshot =
                     { label = label
-                    , screen = Tui.toString (state.view state.context newModel)
+                    , screen = state.view state.context newModel
+                    , rerender = viewFn
                     , hasPendingEffects = not (List.isEmpty newPendingEffects)
                     }
             in
@@ -578,10 +593,15 @@ resolveNextEffect simulate (TuiTest state) =
                                 newPendingEffects =
                                     rest ++ extractBackendTasks newEffect
 
+                                viewFn : Context -> Screen
+                                viewFn =
+                                    \ctx -> state.view ctx newModel
+
                                 snapshot : Snapshot
                                 snapshot =
                                     { label = "resolveEffect"
-                                    , screen = Tui.toString (state.view state.context newModel)
+                                    , screen = state.view state.context newModel
+                                    , rerender = viewFn
                                     , hasPendingEffects = not (List.isEmpty newPendingEffects)
                                     }
                             in
@@ -671,15 +691,44 @@ toSnapshots : TuiTest model msg -> List Snapshot
 toSnapshots (TuiTest state) =
     case state.error of
         Just errorMsg ->
+            let
+                errorScreen : Screen
+                errorScreen =
+                    Tui.styled
+                        { fg = Nothing, bg = Nothing, attributes = [] }
+                        errorMsg
+            in
             state.snapshots
                 ++ [ { label = "ERROR"
-                     , screen = errorMsg
+                     , screen = errorScreen
+                     , rerender = \_ -> errorScreen
                      , hasPendingEffects = False
                      }
                    ]
 
         Nothing ->
             state.snapshots
+
+
+{-| Re-render a specific snapshot at a different terminal size. Returns the
+`Screen` rendered at the given `Context`, or `Nothing` if the index is out of
+bounds.
+
+This is the key advantage of storing the view function rather than a pre-rendered
+string — you can see how your TUI looks at any terminal size without re-running
+the test.
+
+    counterTest
+        |> TuiTest.pressKey 'k'
+        |> TuiTest.renderSnapshotAt { width = 120, height = 40 } 0
+
+-}
+renderSnapshotAt : Context -> Int -> TuiTest model msg -> Maybe Screen
+renderSnapshotAt context index (TuiTest state) =
+    state.snapshots
+        |> List.drop index
+        |> List.head
+        |> Maybe.map (\snapshot -> snapshot.rerender context)
 
 
 keyEventLabel : KeyEvent -> String

@@ -322,12 +322,12 @@ suite =
                         |> TuiTest.toSnapshots
                         |> List.length
                         |> Expect.equal 1
-            , test "initial snapshot has the right screen content" <|
+            , test "initial snapshot screen is a Screen (use Tui.toString to query)" <|
                 \() ->
                     counterTest
                         |> TuiTest.toSnapshots
                         |> List.head
-                        |> Maybe.map .screen
+                        |> Maybe.map (.screen >> Tui.toString)
                         |> Maybe.withDefault ""
                         |> String.contains "Count: 0"
                         |> Expect.equal True
@@ -358,7 +358,7 @@ suite =
                                 |> TuiTest.toSnapshots
                     in
                     snapshots
-                        |> List.map .screen
+                        |> List.map (.screen >> Tui.toString)
                         |> List.map (String.contains "Count: 0")
                         |> Expect.equal [ True, False, False ]
             , test "snapshots have descriptive labels" <|
@@ -388,6 +388,30 @@ suite =
                         |> TuiTest.toSnapshots
                         |> List.length
                         |> Expect.equal 3
+            , test "snapshots re-render at custom context size" <|
+                \() ->
+                    TuiTest.startWithContext { width = 40, height = 10 }
+                        { data = ()
+                        , init = counterInit
+                        , update = counterUpdate
+                        , view = counterView
+                        , subscriptions = counterSubscriptions
+                        }
+                        |> TuiTest.toSnapshots
+                        |> List.head
+                        |> Maybe.map (.screen >> Tui.toString)
+                        |> Maybe.withDefault ""
+                        |> String.contains "40×10"
+                        |> Expect.equal True
+            , test "renderSnapshotAt lets you re-render a snapshot at a different size" <|
+                \() ->
+                    counterTest
+                        |> TuiTest.pressKey 'k'
+                        |> TuiTest.renderSnapshotAt { width = 100, height = 50 } 1
+                        |> Maybe.map Tui.toString
+                        |> Maybe.withDefault ""
+                        |> String.contains "100×50"
+                        |> Expect.equal True
             ]
         ]
 
