@@ -26,6 +26,11 @@ to subscribe to resize events.
 
 @docs getInterests, routeEvent
 
+
+## Internal
+
+@docs RawEvent, decodeRawEvent
+
 -}
 
 import Json.Decode as Decode

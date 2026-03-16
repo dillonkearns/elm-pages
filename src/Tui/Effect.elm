@@ -28,7 +28,12 @@ update cycle.
 
 @docs map
 
-@docs toBackendTask
+
+## Internal
+
+Used by the framework and test harness. You should not need these directly.
+
+@docs EffectResult, toBackendTask
 
 -}
 
@@ -150,6 +155,9 @@ map f effect =
 -- INTERNAL
 
 
+{-| The result of processing an effect. Used internally by the TUI loop and
+test harness.
+-}
 type EffectResult msg
     = EffectDone
     | EffectMsg msg

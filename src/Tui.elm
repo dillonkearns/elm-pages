@@ -103,41 +103,63 @@ type Attribute
     | Background Color
 
 
+{-| Bold text.
+-}
 bold : Attribute
 bold =
     Bold
 
 
+{-| Dim (faint) text.
+-}
 dim : Attribute
 dim =
     Dim
 
 
+{-| Italic text.
+-}
 italic : Attribute
 italic =
     Italic
 
 
+{-| Underlined text.
+-}
 underline : Attribute
 underline =
     Underline
 
 
+{-| Strikethrough text.
+-}
 strikethrough : Attribute
 strikethrough =
     Strikethrough
 
 
+{-| Inverse (swap foreground and background) text.
+-}
 inverse : Attribute
 inverse =
     Inverse
 
 
+{-| Set the text foreground color.
+
+    Tui.styled [ Tui.foreground Tui.red ] "error"
+
+-}
 foreground : Color -> Attribute
 foreground =
     Foreground
 
 
+{-| Set the text background color.
+
+    Tui.styled [ Tui.background Tui.blue ] "highlighted"
+
+-}
 background : Color -> Attribute
 background =
     Background
@@ -165,41 +187,49 @@ type AnsiColor
     | White
 
 
+{-| -}
 black : Color
 black =
     Ansi16 Black
 
 
+{-| -}
 red : Color
 red =
     Ansi16 Red
 
 
+{-| -}
 green : Color
 green =
     Ansi16 Green
 
 
+{-| -}
 yellow : Color
 yellow =
     Ansi16 Yellow
 
 
+{-| -}
 blue : Color
 blue =
     Ansi16 Blue
 
 
+{-| -}
 magenta : Color
 magenta =
     Ansi16 Magenta
 
 
+{-| -}
 cyan : Color
 cyan =
     Ansi16 Cyan
 
 
+{-| -}
 white : Color
 white =
     Ansi16 White
