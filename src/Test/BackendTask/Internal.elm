@@ -9,6 +9,7 @@ module Test.BackendTask.Internal exposing
     , ensureFile, ensureFileExists, ensureNoFile
     , withVirtualEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
+    , toResult
     )
 
 {-| Internal implementation for [`Test.BackendTask`](Test-BackendTask) and its sub-modules.
@@ -3616,6 +3617,28 @@ expectSuccessWith assertion scriptTest =
 
         TestError msg ->
             Expect.fail msg
+
+
+{-| Extract the result from a completed `BackendTaskTest`. Returns `Err` if the
+BackendTask has pending requests, encountered a test error, or failed. Used
+internally by `Tui.Test` to resolve effects.
+-}
+toResult : BackendTaskTest a -> Result String a
+toResult scriptTest =
+    case scriptTest of
+        Done { result } ->
+            case result of
+                Ok value ->
+                    Ok value
+
+                Err err ->
+                    Err ("BackendTask failed: " ++ fatalErrorToString err)
+
+        Running state ->
+            Err (stillRunningError state.pendingRequests)
+
+        TestError msg ->
+            Err msg
 
 
 {-| Assert on the virtual DB state. This is a terminal assertion that also checks

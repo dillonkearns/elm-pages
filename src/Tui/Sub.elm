@@ -1,6 +1,6 @@
 module Tui.Sub exposing
     ( Sub
-    , none, batch, onKeyPress, onResize, every
+    , none, batch, onKeyPress, every
     , map
     , getInterests, routeEvent
     , RawEvent(..), decodeRawEvent
@@ -10,16 +10,17 @@ module Tui.Sub exposing
 inspectable — the framework and test harness can see what events are subscribed
 to and route them accordingly.
 
-    subscriptions : Model -> Sub Msg
+Terminal resize is handled automatically by the framework — `view` always
+receives the current terminal dimensions via `Tui.Context`. You do not need
+to subscribe to resize events.
+
+    subscriptions : Model -> Tui.Sub Msg
     subscriptions _ =
-        Sub.batch
-            [ Sub.onKeyPress KeyPressed
-            , Sub.onResize Resized
-            ]
+        Tui.Sub.onKeyPress KeyPressed
 
 @docs Sub
 
-@docs none, batch, onKeyPress, onResize, every
+@docs none, batch, onKeyPress, every
 
 @docs map
 
@@ -38,7 +39,6 @@ type Sub msg
     = SubNone
     | SubBatch (List (Sub msg))
     | OnKeyPress (KeyEvent -> msg)
-    | OnResize ({ width : Int, height : Int } -> msg)
     | Every Float msg
 
 
@@ -63,13 +63,6 @@ onKeyPress =
     OnKeyPress
 
 
-{-| Subscribe to terminal resize events.
--}
-onResize : ({ width : Int, height : Int } -> msg) -> Sub msg
-onResize =
-    OnResize
-
-
 {-| Periodic tick. The `Float` is the interval in milliseconds.
 -}
 every : Float -> msg -> Sub msg
@@ -91,9 +84,6 @@ map f sub =
         OnKeyPress toMsg ->
             OnKeyPress (\event -> f (toMsg event))
 
-        OnResize toMsg ->
-            OnResize (\size -> f (toMsg size))
-
         Every interval msg ->
             Every interval (f msg)
 
@@ -103,7 +93,8 @@ map f sub =
 
 
 {-| Extract the set of event types this subscription is interested in.
-Encoded as JSON for the JS runtime.
+Encoded as JSON for the JS runtime. Resize is always included — the framework
+handles it automatically.
 -}
 getInterests : Sub msg -> Encode.Value
 getInterests sub =
@@ -120,19 +111,19 @@ getInterests sub =
                 OnKeyPress _ ->
                     "keypress" :: acc
 
-                OnResize _ ->
-                    "resize" :: acc
-
                 Every _ _ ->
                     "tick" :: acc
     in
     collect sub []
+        -- Always include resize so the framework can update Context
+        |> (\interests -> "resize" :: interests)
         |> List.reverse
         |> Encode.list Encode.string
 
 
 {-| Route a raw event through a subscription to produce a user message.
 Returns Nothing if the event doesn't match any subscription.
+Resize events are NOT routed to user code — they are handled by the framework.
 -}
 routeEvent : Sub msg -> RawEvent -> Maybe msg
 routeEvent sub event =
@@ -149,14 +140,6 @@ routeEvent sub event =
             case event of
                 RawKeyPress keyEvent ->
                     Just (toMsg keyEvent)
-
-                _ ->
-                    Nothing
-
-        OnResize toMsg ->
-            case event of
-                RawResize size ->
-                    Just (toMsg size)
 
                 _ ->
                     Nothing

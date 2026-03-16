@@ -136,6 +136,19 @@ processEffectsThenRenderAndWait config context model effect =
 
                     Effect.EffectExit code ->
                         tuiExit code
+                            |> BackendTask.andThen
+                                (\() ->
+                                    if code /= 0 then
+                                        BackendTask.fail
+                                            (FatalError.build
+                                                { title = "TUI exited with code " ++ String.fromInt code
+                                                , body = ""
+                                                }
+                                            )
+
+                                    else
+                                        BackendTask.succeed ()
+                                )
             )
 
 
@@ -169,17 +182,26 @@ renderAndWait config context model =
                                     { width = response.width
                                     , height = response.height
                                     }
-                            in
-                            case Sub.routeEvent sub (decodeRawEvent response.event) of
-                                Just msg ->
-                                    let
-                                        ( newModel, newEffect ) =
-                                            config.update msg model
-                                    in
-                                    processEffectsThenRenderAndWait config newContext newModel newEffect
 
-                                Nothing ->
+                                rawEvent =
+                                    decodeRawEvent response.event
+                            in
+                            case rawEvent of
+                                Sub.RawResize _ ->
+                                    -- Resize is framework-managed: just re-render with new context
                                     renderAndWait config newContext model
+
+                                _ ->
+                                    case Sub.routeEvent sub rawEvent of
+                                        Just msg ->
+                                            let
+                                                ( newModel, newEffect ) =
+                                                    config.update msg model
+                                            in
+                                            processEffectsThenRenderAndWait config newContext newModel newEffect
+
+                                        Nothing ->
+                                            renderAndWait config newContext model
                         )
             )
 

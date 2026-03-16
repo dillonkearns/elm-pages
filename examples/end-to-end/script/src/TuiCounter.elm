@@ -12,11 +12,10 @@ Keys:
 -}
 
 import BackendTask exposing (BackendTask)
-import FatalError exposing (FatalError)
 import Pages.Script as Script exposing (Script)
 import Tui
 import Tui.Effect as Effect
-import Tui.Sub as TuiSub
+import Tui.Sub
 
 
 type alias Model =
@@ -26,7 +25,6 @@ type alias Model =
 
 type Msg
     = KeyPressed Tui.KeyEvent
-    | Resized { width : Int, height : Int }
 
 
 run : Script
@@ -73,9 +71,6 @@ update msg model =
                 _ ->
                     ( model, Effect.none )
 
-        Resized _ ->
-            ( model, Effect.none )
-
 
 view : Tui.Context -> Model -> Tui.Screen
 view ctx model =
@@ -112,9 +107,6 @@ view ctx model =
         ]
 
 
-subscriptions : Model -> TuiSub.Sub Msg
+subscriptions : Model -> Tui.Sub.Sub Msg
 subscriptions _ =
-    TuiSub.batch
-        [ TuiSub.onKeyPress KeyPressed
-        , TuiSub.onResize Resized
-        ]
+    Tui.Sub.onKeyPress KeyPressed

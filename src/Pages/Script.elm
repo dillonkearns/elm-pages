@@ -1,7 +1,7 @@
 module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions, withSchema, metadata, withDatabasePath
-    , tui
+    , tui, tuiWithCliOptions
     , writeFile, removeFile, copyFile, move
     , makeDirectory, removeDirectory, makeTempDirectory
     , command, exec
@@ -23,7 +23,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 ## TUI Scripts
 
-@docs tui
+@docs tui, tuiWithCliOptions
 
 
 ## File System Utilities
@@ -407,6 +407,72 @@ tui config =
                         }
                         loadedData
                 )
+        )
+
+
+{-| Like [`tui`](#tui), but with CLI option parsing.
+
+    module FileBrowser exposing (run)
+
+    import Cli.Option as Option
+    import Cli.OptionsParser as OptionsParser
+    import Cli.Program as Program
+    import Pages.Script as Script exposing (Script)
+    import Tui
+
+    run : Script
+    run =
+        Script.tuiWithCliOptions
+            (Program.config
+                |> Program.add
+                    (OptionsParser.build identity
+                        |> OptionsParser.with
+                            (Option.optionalKeywordArg "dir"
+                                |> Option.withDefault "."
+                            )
+                    )
+            )
+            (\dir ->
+                { data = loadFiles dir
+                , init = init
+                , update = update
+                , view = view
+                , subscriptions = subscriptions
+                }
+            )
+
+-}
+tuiWithCliOptions :
+    Program.Config cliOptions
+    ->
+        (cliOptions
+         ->
+            { data : BackendTask FatalError data
+            , init : data -> ( model, Tui.Effect.Effect msg )
+            , update : msg -> model -> ( model, Tui.Effect.Effect msg )
+            , view : Tui.Context -> model -> Tui.Screen
+            , subscriptions : model -> Tui.Sub.Sub msg
+            }
+        )
+    -> Script
+tuiWithCliOptions cliConfig toTuiConfig =
+    withCliOptions cliConfig
+        (\cliOptions ->
+            let
+                config =
+                    toTuiConfig cliOptions
+            in
+            config.data
+                |> BackendTask.andThen
+                    (\loadedData ->
+                        Tui.Internal.run
+                            { init = config.init
+                            , update = config.update
+                            , view = config.view
+                            , subscriptions = config.subscriptions
+                            }
+                            loadedData
+                    )
         )
 
 

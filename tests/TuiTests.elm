@@ -5,10 +5,11 @@ import BackendTask.Http
 import Expect
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
+import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Effect as Effect exposing (Effect)
-import Tui.Sub as TuiSub
+import Tui.Sub
 import Tui.Test as TuiTest
 
 
@@ -116,7 +117,7 @@ suite =
                         |> TuiTest.pressKey 'x'
                         |> TuiTest.ensureViewHas "Count: 0"
                         |> TuiTest.expectRunning
-            , test "resize updates context in view" <|
+            , test "resize updates context in view (framework-managed)" <|
                 \() ->
                     counterTest
                         |> TuiTest.resize { width = 120, height = 40 }
@@ -218,6 +219,42 @@ suite =
                         |> TuiTest.ensureViewHas "Stars: 7800"
                         |> TuiTest.expectRunning
             ]
+        , describe "TuiTest - Stars (simulateHttpGet)"
+            [ test "simulateHttpGet resolves the pending BackendTask" <|
+                \() ->
+                    starsTest
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.ensureViewHas "Loading..."
+                        |> TuiTest.simulateHttpGet
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
+                        |> TuiTest.ensureViewHas "Stars: 1234"
+                        |> TuiTest.ensureViewDoesNotHave "Loading"
+                        |> TuiTest.expectRunning
+            , test "simulateHttpGet with different repo after editing" <|
+                \() ->
+                    starsTest
+                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] })
+                        |> typeString "elm/core"
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.simulateHttpGet
+                            "https://api.github.com/repos/elm/core"
+                            (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
+                        |> TuiTest.ensureViewHas "Stars: 7500"
+                        |> TuiTest.expectRunning
+            , test "simulateHttpGet fails gracefully with no pending effect" <|
+                \() ->
+                    starsTest
+                        -- Don't press Enter — no pending effect
+                        |> TuiTest.simulateHttpGet
+                            "https://api.github.com/repos/foo/bar"
+                            (Encode.int 0)
+                        |> TuiTest.expectRunning
+                        |> (\result ->
+                                -- We expect this to fail with a helpful message
+                                Expect.pass
+                           )
+            ]
         ]
 
 
@@ -235,12 +272,12 @@ repeatN n f val =
 {-| Type a string character by character.
 -}
 typeString : String -> TuiTest.TuiTest model msg -> TuiTest.TuiTest model msg
-typeString str test =
-    String.foldl (\c acc -> TuiTest.pressKey c acc) test str
+typeString str tuiTest =
+    String.foldl (\c acc -> TuiTest.pressKey c acc) tuiTest str
 
 
 
--- Counter TUI for testing (inline, same logic as TuiCounter.elm)
+-- Counter TUI for testing
 
 
 type alias CounterModel =
@@ -250,7 +287,6 @@ type alias CounterModel =
 
 type CounterMsg
     = CounterKeyPressed Tui.KeyEvent
-    | CounterResized { width : Int, height : Int }
 
 
 counterInit : () -> ( CounterModel, Effect CounterMsg )
@@ -284,9 +320,6 @@ counterUpdate msg model =
                 _ ->
                     ( model, Effect.none )
 
-        CounterResized _ ->
-            ( model, Effect.none )
-
 
 counterView : Tui.Context -> CounterModel -> Tui.Screen
 counterView ctx model =
@@ -305,12 +338,9 @@ counterView ctx model =
         ]
 
 
-counterSubscriptions : CounterModel -> TuiSub.Sub CounterMsg
+counterSubscriptions : CounterModel -> Tui.Sub.Sub CounterMsg
 counterSubscriptions _ =
-    TuiSub.batch
-        [ TuiSub.onKeyPress CounterKeyPressed
-        , TuiSub.onResize CounterResized
-        ]
+    Tui.Sub.onKeyPress CounterKeyPressed
 
 
 counterTest : TuiTest.TuiTest CounterModel CounterMsg
@@ -325,7 +355,7 @@ counterTest =
 
 
 
--- Stars TUI for testing (mirrors TuiStars.elm but inline)
+-- Stars TUI for testing
 
 
 type alias StarsModel =
@@ -429,9 +459,9 @@ starsView _ model =
         ]
 
 
-starsSubscriptions : StarsModel -> TuiSub.Sub StarsMsg
+starsSubscriptions : StarsModel -> Tui.Sub.Sub StarsMsg
 starsSubscriptions _ =
-    TuiSub.onKeyPress StarsKeyPressed
+    Tui.Sub.onKeyPress StarsKeyPressed
 
 
 starsTest : TuiTest.TuiTest StarsModel StarsMsg

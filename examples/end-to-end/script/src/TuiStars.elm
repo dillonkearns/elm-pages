@@ -13,7 +13,7 @@ import Json.Decode as Decode
 import Pages.Script as Script exposing (Script)
 import Tui
 import Tui.Effect as Effect
-import Tui.Sub as TuiSub
+import Tui.Sub
 
 
 type alias Model =
@@ -156,6 +156,6 @@ view _ model =
         ]
 
 
-subscriptions : Model -> TuiSub.Sub Msg
+subscriptions : Model -> Tui.Sub.Sub Msg
 subscriptions _ =
-    TuiSub.onKeyPress KeyPressed
+    Tui.Sub.onKeyPress KeyPressed

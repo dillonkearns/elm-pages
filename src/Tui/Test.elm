@@ -3,6 +3,7 @@ module Tui.Test exposing
     , start, startWithContext
     , pressKey, pressKeyWith, resize
     , sendMsg
+    , simulateHttpGet, simulateHttpPost, simulateHttp, simulateCommand, simulateCustom
     , ensureView, ensureViewHas, ensureViewDoesNotHave
     , expectRunning, expectExit, expectExitWith
     )
@@ -10,25 +11,31 @@ module Tui.Test exposing
 {-| Write pure tests for TUI scripts. No terminal, no I/O — just regular
 Elm tests.
 
+Effects returned by `update` are tracked and can be resolved using simulation
+functions from `Test.BackendTask`, or directly with `sendMsg`.
+
     import Expect
+    import Json.Encode as Encode
     import Test exposing (test)
     import Tui
     import Tui.Test as TuiTest
 
-    test "counter increments on k" <|
+    test "fetches stars on Enter" <|
         \() ->
             TuiTest.start
                 { data = ()
-                , init = Counter.init
-                , update = Counter.update
-                , view = Counter.view
-                , subscriptions = Counter.subscriptions
+                , init = Stars.init
+                , update = Stars.update
+                , view = Stars.view
+                , subscriptions = Stars.subscriptions
                 }
-                |> TuiTest.ensureViewHas "Count: 0"
-                |> TuiTest.pressKey 'k'
-                |> TuiTest.ensureViewHas "Count: 1"
-                |> TuiTest.pressKey 'q'
-                |> TuiTest.expectExit
+                |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                |> TuiTest.ensureViewHas "Loading..."
+                |> TuiTest.simulateHttpGet
+                    "https://api.github.com/repos/dillonkearns/elm-pages"
+                    (Encode.int 1234)
+                |> TuiTest.ensureViewHas "Stars: 1234"
+                |> TuiTest.expectRunning
 
 @docs TuiTest
 
@@ -38,13 +45,19 @@ Elm tests.
 
 @docs sendMsg
 
+@docs simulateHttpGet, simulateHttpPost, simulateHttp, simulateCommand, simulateCustom
+
 @docs ensureView, ensureViewHas, ensureViewDoesNotHave
 
 @docs expectRunning, expectExit, expectExitWith
 
 -}
 
+import BackendTask exposing (BackendTask)
 import Expect exposing (Expectation)
+import FatalError exposing (FatalError)
+import Json.Encode as Encode
+import Test.BackendTask.Internal as BackendTaskTest
 import Test.Runner
 import Tui exposing (Context, KeyEvent, Screen)
 import Tui.Effect as Effect exposing (Effect)
@@ -64,6 +77,7 @@ type alias State model msg =
     , view : Context -> model -> Screen
     , subscriptions : model -> Sub msg
     , context : Context
+    , pendingEffects : List (BackendTask FatalError msg)
     , exited : Maybe Int
     , error : Maybe String
     }
@@ -120,6 +134,7 @@ startWithContext context config =
         , view = config.view
         , subscriptions = config.subscriptions
         , context = context
+        , pendingEffects = extractBackendTasks initialEffect
         , exited = checkForExit initialEffect
         , error = Nothing
         }
@@ -167,7 +182,8 @@ pressKeyWith keyEvent (TuiTest state) =
                     TuiTest state
 
 
-{-| Simulate a terminal resize.
+{-| Simulate a terminal resize. The framework handles resize automatically —
+this just updates the `Context` that `view` receives. No user message is sent.
 -}
 resize : { width : Int, height : Int } -> TuiTest model msg -> TuiTest model msg
 resize size (TuiTest state) =
@@ -179,33 +195,101 @@ resize size (TuiTest state) =
             TuiTest { state | error = Just "resize called after TUI exited" }
 
         ( Nothing, Nothing ) ->
-            let
-                newState =
-                    { state | context = size }
-
-                sub =
-                    state.subscriptions state.model
-            in
-            case Sub.routeEvent sub (Sub.RawResize size) of
-                Just msg ->
-                    applyMsg msg (TuiTest newState)
-
-                Nothing ->
-                    TuiTest newState
+            TuiTest { state | context = size }
 
 
 {-| Send a message directly through `update`. Useful for simulating
-`BackendTask` results without needing the actual `BackendTask` infrastructure.
+`BackendTask` results without needing the full simulation infrastructure.
 
     test
-        |> TuiTest.pressKey 's'  -- triggers a BackendTask
-        |> TuiTest.sendMsg (StagingComplete "file.elm")  -- simulate it completing
+        |> TuiTest.pressKey 's'
+        |> TuiTest.sendMsg (StagingComplete "file.elm")
         |> TuiTest.ensureViewHas "staged"
 
 -}
 sendMsg : msg -> TuiTest model msg -> TuiTest model msg
 sendMsg msg =
     applyMsg msg
+
+
+
+-- BACKENDTASK SIMULATION
+
+
+{-| Resolve a pending HTTP GET by URL with the given JSON response body.
+The pending `BackendTask` (from the most recent `Effect.perform` or
+`Effect.attempt`) is run through the `Test.BackendTask` infrastructure and the
+result is fed through `update`.
+
+    test
+        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+        |> TuiTest.simulateHttpGet
+            "https://api.github.com/repos/elm/core"
+            (Encode.int 7500)
+        |> TuiTest.ensureViewHas "7500"
+
+-}
+simulateHttpGet : String -> Encode.Value -> TuiTest model msg -> TuiTest model msg
+simulateHttpGet url jsonResponse =
+    resolveNextEffect
+        (\bt ->
+            bt
+                |> BackendTaskTest.fromBackendTask
+                |> BackendTaskTest.simulateHttpGet url jsonResponse
+        )
+
+
+{-| Resolve a pending HTTP POST by URL with the given JSON response body.
+-}
+simulateHttpPost : String -> Encode.Value -> TuiTest model msg -> TuiTest model msg
+simulateHttpPost url jsonResponse =
+    resolveNextEffect
+        (\bt ->
+            bt
+                |> BackendTaskTest.fromBackendTask
+                |> BackendTaskTest.simulateHttpPost url jsonResponse
+        )
+
+
+{-| Resolve a pending HTTP request with full control over method, status,
+headers, and body.
+-}
+simulateHttp :
+    { method : String, url : String }
+    -> { statusCode : Int, statusText : String, headers : List ( String, String ), body : Encode.Value }
+    -> TuiTest model msg
+    -> TuiTest model msg
+simulateHttp request response =
+    resolveNextEffect
+        (\bt ->
+            bt
+                |> BackendTaskTest.fromBackendTask
+                |> BackendTaskTest.simulateHttp request response
+        )
+
+
+{-| Resolve a pending shell command with the given stdout output.
+-}
+simulateCommand : String -> String -> TuiTest model msg -> TuiTest model msg
+simulateCommand commandName commandOutput =
+    resolveNextEffect
+        (\bt ->
+            bt
+                |> BackendTaskTest.fromBackendTask
+                |> BackendTaskTest.simulateCommand commandName commandOutput
+        )
+
+
+{-| Resolve a pending `BackendTask.Custom.run` call with the given JSON value.
+-}
+simulateCustom : String -> Encode.Value -> TuiTest model msg -> TuiTest model msg
+simulateCustom portName jsonResponse =
+    resolveNextEffect
+        (\bt ->
+            bt
+                |> BackendTaskTest.fromBackendTask
+                |> BackendTaskTest.simulateCustom portName jsonResponse
+        )
 
 
 
@@ -393,8 +477,79 @@ applyMsg msg (TuiTest state) =
             TuiTest
                 { state
                     | model = newModel
+                    , pendingEffects = extractBackendTasks effect
                     , exited = checkForExit effect
                 }
+
+
+{-| Resolve the next pending BackendTask effect using a simulation function.
+The simulation function takes the raw BackendTask and returns a BackendTaskTest
+that has been configured with the appropriate simulation.
+-}
+resolveNextEffect :
+    (BackendTask FatalError msg -> BackendTaskTest.BackendTaskTest msg)
+    -> TuiTest model msg
+    -> TuiTest model msg
+resolveNextEffect simulate (TuiTest state) =
+    case ( state.error, state.exited ) of
+        ( Just _, _ ) ->
+            TuiTest state
+
+        ( _, Just _ ) ->
+            TuiTest { state | error = Just "simulateEffect called after TUI exited" }
+
+        ( Nothing, Nothing ) ->
+            case state.pendingEffects of
+                [] ->
+                    TuiTest
+                        { state
+                            | error =
+                                Just "No pending BackendTask effect to resolve. Did you forget to trigger an action (e.g., press Enter) before simulating?"
+                        }
+
+                bt :: rest ->
+                    let
+                        testResult =
+                            simulate bt
+                                |> BackendTaskTest.toResult
+                    in
+                    case testResult of
+                        Ok msg ->
+                            let
+                                ( newModel, newEffect ) =
+                                    state.update msg state.model
+                            in
+                            TuiTest
+                                { state
+                                    | model = newModel
+                                    , pendingEffects = rest ++ extractBackendTasks newEffect
+                                    , exited = checkForExit newEffect
+                                }
+
+                        Err errMsg ->
+                            TuiTest { state | error = Just ("Effect resolution failed: " ++ errMsg) }
+
+
+extractBackendTasks : Effect msg -> List (BackendTask FatalError msg)
+extractBackendTasks effect =
+    case effect of
+        Effect.None ->
+            []
+
+        Effect.Batch effects ->
+            List.concatMap extractBackendTasks effects
+
+        Effect.RunBackendTask bt ->
+            [ bt ]
+
+        Effect.SuspendBackendTask bt ->
+            [ bt ]
+
+        Effect.Exit ->
+            []
+
+        Effect.ExitWithCode _ ->
+            []
 
 
 checkForExit : Effect msg -> Maybe Int
@@ -423,9 +578,6 @@ indentScreenText screenText =
         |> String.join "\n"
 
 
-{-| Extract failure message from an Expectation, if it failed.
-Uses Test.Runner.getFailureReason from elm-explorations/test.
--}
 getFailureMessage : Expectation -> Maybe String
 getFailureMessage expectation =
     case Test.Runner.getFailureReason expectation of
