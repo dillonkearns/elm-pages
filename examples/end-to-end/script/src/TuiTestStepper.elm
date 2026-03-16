@@ -3,7 +3,7 @@ module TuiTestStepper exposing (run)
 {-| Interactive test stepper — step through a TUI test pipeline and see the
 rendered screen at each step.
 
-    elm-pages run script/src/TuiTestStepper.elm
+    elm - pages run script / src / TuiTestStepper.elm
 
 Navigate with ← → arrow keys, q to quit.
 
@@ -52,21 +52,30 @@ demoSnapshots =
                 }
     in
     starsTest
-        |> TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] }
-        |> TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] }
-        |> TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] }
-        |> TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] }
-        |> TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] }
-        |> TuiTest.pressKey 'e'
-        |> TuiTest.pressKey 'l'
-        |> TuiTest.pressKey 'm'
+        -- Edit: delete "elm-pages" (9 chars) and type "elm-graphql"
+        |> repeatN 9 (TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] })
+        |> typeChars "elm-graphql"
         |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
         |> TuiTest.resolveEffect
             (BackendTaskTest.simulateHttpGet
-                "https://api.github.com/repos/dillonkearns/elm"
-                (Encode.object [ ( "stargazers_count", Encode.int 42 ) ])
+                "https://api.github.com/repos/dillonkearns/elm-graphql"
+                (Encode.object [ ( "stargazers_count", Encode.int 780 ) ])
             )
         |> TuiTest.toSnapshots
+
+
+repeatN : Int -> (a -> a) -> a -> a
+repeatN n f val =
+    if n <= 0 then
+        val
+
+    else
+        repeatN (n - 1) f (f val)
+
+
+typeChars : String -> TuiTest.TuiTest model msg -> TuiTest.TuiTest model msg
+typeChars str tuiTest =
+    String.foldl (\c acc -> TuiTest.pressKey c acc) tuiTest str
 
 
 
@@ -158,7 +167,7 @@ view ctx model =
                                     (" ● " ++ snapshot.label ++ " ")
 
                             else
-                                Tui.styled dimStyle (" ○ ")
+                                Tui.styled dimStyle " ○ "
                         )
                 )
     in

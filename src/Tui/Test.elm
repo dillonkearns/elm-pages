@@ -661,12 +661,25 @@ getFailureMessage expectation =
 pipeline (start, pressKey, resolveEffect, sendMsg) records a snapshot of the
 screen, the action label, and whether effects are pending.
 
+If the pipeline encountered an error, a final snapshot with the error message
+is appended so it's visible in the stepper.
+
 Use this with the interactive test stepper to visualize a test run step by step.
 
 -}
 toSnapshots : TuiTest model msg -> List Snapshot
 toSnapshots (TuiTest state) =
-    state.snapshots
+    case state.error of
+        Just errorMsg ->
+            state.snapshots
+                ++ [ { label = "ERROR"
+                     , screen = errorMsg
+                     , hasPendingEffects = False
+                     }
+                   ]
+
+        Nothing ->
+            state.snapshots
 
 
 keyEventLabel : KeyEvent -> String
