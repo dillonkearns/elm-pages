@@ -2694,6 +2694,11 @@ async function runTuiExit(req) {
   return jsonResponse(req, null);
 }
 
+/**
+ * Parse terminal input, potentially containing multiple escape sequences.
+ * Returns the first parseable event, and queues any additional events found
+ * in the same data chunk (fixes dropped events from concatenated sequences).
+ */
 function tuiParseTerminalInput(data) {
   const s = data.toString();
 
@@ -2702,104 +2707,141 @@ function tuiParseTerminalInput(data) {
     return { _exit: true };
   }
 
-  // SGR extended mouse: \x1b[<Cb;Cx;CyM (press) or \x1b[<Cb;Cx;Cym (release)
-  const sgrMouseMatch = s.match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])$/);
+  // Try to parse multiple sequences from one data chunk.
+  // Terminal emulators can concatenate escape sequences (especially during
+  // fast scroll where iTerm2 sends N sequences from one OS event).
+  const events = tuiParseAllEvents(s);
+  if (events.length === 0) {
+    return null;
+  }
+  // Queue additional events beyond the first
+  for (let i = 1; i < events.length; i++) {
+    if (tuiEventResolve) {
+      const resolve = tuiEventResolve;
+      tuiEventResolve = null;
+      resolve(events[i]);
+    } else {
+      tuiEventQueue.push(events[i]);
+    }
+  }
+  return events[0];
+}
+
+function tuiParseAllEvents(s) {
+  const events = [];
+  let remaining = s;
+
+  while (remaining.length > 0) {
+    const result = tuiParseSingleEvent(remaining);
+    if (result) {
+      if (result.event) events.push(result.event);
+      remaining = result.remaining;
+    } else {
+      break; // unparseable, stop
+    }
+  }
+  return events;
+}
+
+function tuiParseSingleEvent(s) {
+  // SGR extended mouse: \x1b[<Cb;Cx;CyM or \x1b[<Cb;Cx;Cym
+  const sgrMouseMatch = s.match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
   if (sgrMouseMatch) {
+    const consumed = sgrMouseMatch[0].length;
     const cb = parseInt(sgrMouseMatch[1], 10);
-    const cx = parseInt(sgrMouseMatch[2], 10) - 1; // 1-based to 0-based
+    const cx = parseInt(sgrMouseMatch[2], 10) - 1;
     const cy = parseInt(sgrMouseMatch[3], 10) - 1;
     const isRelease = sgrMouseMatch[4] === "m";
     const isWheel = (cb & 0x40) !== 0;
     const low2 = cb & 0x03;
 
     if (isWheel) {
-      // Scroll events (no release)
       return {
-        type: "mouse",
-        action: low2 === 0 ? "scrollUp" : "scrollDown",
-        row: cy,
-        col: cx,
+        event: { type: "mouse", action: low2 === 0 ? "scrollUp" : "scrollDown", row: cy, col: cx },
+        remaining: s.slice(consumed),
       };
     }
-
     if (isRelease) {
-      return null; // ignore release events for now
+      return { event: null, remaining: s.slice(consumed) }; // skip releases
     }
-
-    // Button press
     const buttons = ["left", "middle", "right"];
     return {
-      type: "mouse",
-      action: "click",
-      button: buttons[low2] || "left",
-      row: cy,
-      col: cx,
+      event: { type: "mouse", action: "click", button: buttons[low2] || "left", row: cy, col: cx },
+      remaining: s.slice(consumed),
     };
   }
 
-  // Escape sequences
-  if (s.startsWith("\x1b[")) {
-    switch (s) {
-      case "\x1b[A":
-        return { type: "keypress", key: { tag: "Arrow", direction: "Up" }, modifiers: [] };
-      case "\x1b[B":
-        return { type: "keypress", key: { tag: "Arrow", direction: "Down" }, modifiers: [] };
-      case "\x1b[C":
-        return { type: "keypress", key: { tag: "Arrow", direction: "Right" }, modifiers: [] };
-      case "\x1b[D":
-        return { type: "keypress", key: { tag: "Arrow", direction: "Left" }, modifiers: [] };
-      case "\x1b[H":
-        return { type: "keypress", key: { tag: "Home" }, modifiers: [] };
-      case "\x1b[F":
-        return { type: "keypress", key: { tag: "End" }, modifiers: [] };
-      case "\x1b[5~":
-        return { type: "keypress", key: { tag: "PageUp" }, modifiers: [] };
-      case "\x1b[6~":
-        return { type: "keypress", key: { tag: "PageDown" }, modifiers: [] };
-      case "\x1b[3~":
-        return { type: "keypress", key: { tag: "Delete" }, modifiers: [] };
-      default:
-        return null;
+  // X10/normal mouse: \x1b[M followed by 3 raw bytes (Cb Cx Cy)
+  // Used by Termux and older terminals that don't support SGR mode
+  if (s.length >= 6 && s.startsWith("\x1b[M")) {
+    const cb = s.charCodeAt(3) - 32;
+    const cx = s.charCodeAt(4) - 33; // 0-based
+    const cy = s.charCodeAt(5) - 33;
+    const isWheel = (cb & 0x40) !== 0;
+    const low2 = cb & 0x03;
+
+    if (isWheel) {
+      return {
+        event: { type: "mouse", action: low2 === 0 ? "scrollUp" : "scrollDown", row: cy, col: cx },
+        remaining: s.slice(6),
+      };
+    }
+    if (low2 === 3) {
+      return { event: null, remaining: s.slice(6) }; // release in X10 mode
+    }
+    const buttons = ["left", "middle", "right"];
+    return {
+      event: { type: "mouse", action: "click", button: buttons[low2] || "left", row: cy, col: cx },
+      remaining: s.slice(6),
+    };
+  }
+
+  // Known escape sequences (fixed length)
+  const escapeMap = {
+    "\x1b[A": { type: "keypress", key: { tag: "Arrow", direction: "Up" }, modifiers: [] },
+    "\x1b[B": { type: "keypress", key: { tag: "Arrow", direction: "Down" }, modifiers: [] },
+    "\x1b[C": { type: "keypress", key: { tag: "Arrow", direction: "Right" }, modifiers: [] },
+    "\x1b[D": { type: "keypress", key: { tag: "Arrow", direction: "Left" }, modifiers: [] },
+    "\x1b[H": { type: "keypress", key: { tag: "Home" }, modifiers: [] },
+    "\x1b[F": { type: "keypress", key: { tag: "End" }, modifiers: [] },
+    "\x1b[5~": { type: "keypress", key: { tag: "PageUp" }, modifiers: [] },
+    "\x1b[6~": { type: "keypress", key: { tag: "PageDown" }, modifiers: [] },
+    "\x1b[3~": { type: "keypress", key: { tag: "Delete" }, modifiers: [] },
+  };
+
+  for (const [seq, event] of Object.entries(escapeMap)) {
+    if (s.startsWith(seq)) {
+      return { event, remaining: s.slice(seq.length) };
     }
   }
 
-  // Escape key
-  if (s === "\x1b") {
-    return { type: "keypress", key: { tag: "Escape" }, modifiers: [] };
+  // Escape key alone
+  if (s.startsWith("\x1b") && s.length === 1) {
+    return { event: { type: "keypress", key: { tag: "Escape" }, modifiers: [] }, remaining: "" };
   }
 
-  // Enter
-  if (s === "\r" || s === "\n") {
-    return { type: "keypress", key: { tag: "Enter" }, modifiers: [] };
+  // Single-byte characters
+  if (s.length >= 1) {
+    const c = s.charCodeAt(0);
+
+    if (c === 0x03) return { event: { _exit: true }, remaining: s.slice(1) };
+    if (c === 0x0d || c === 0x0a) return { event: { type: "keypress", key: { tag: "Enter" }, modifiers: [] }, remaining: s.slice(1) };
+    if (c === 0x09) return { event: { type: "keypress", key: { tag: "Tab" }, modifiers: [] }, remaining: s.slice(1) };
+    if (c === 0x7f) return { event: { type: "keypress", key: { tag: "Backspace" }, modifiers: [] }, remaining: s.slice(1) };
+
+    // Ctrl+letter
+    if (c >= 1 && c <= 26) {
+      const letter = String.fromCharCode(c + 96);
+      return { event: { type: "keypress", key: { tag: "Character", char: letter }, modifiers: ["Ctrl"] }, remaining: s.slice(1) };
+    }
+
+    // Regular printable character
+    if (c >= 32) {
+      return { event: { type: "keypress", key: { tag: "Character", char: s.charAt(0) }, modifiers: [] }, remaining: s.slice(1) };
+    }
   }
 
-  // Tab
-  if (s === "\t") {
-    return { type: "keypress", key: { tag: "Tab" }, modifiers: [] };
-  }
-
-  // Backspace
-  if (s === "\x7f") {
-    return { type: "keypress", key: { tag: "Backspace" }, modifiers: [] };
-  }
-
-  // Ctrl+letter (except Ctrl+C handled above)
-  if (s.length === 1 && s.charCodeAt(0) >= 1 && s.charCodeAt(0) <= 26) {
-    const letter = String.fromCharCode(s.charCodeAt(0) + 96);
-    return { type: "keypress", key: { tag: "Character", char: letter }, modifiers: ["Ctrl"] };
-  }
-
-  // Regular printable character
-  if (s.length === 1 && s.charCodeAt(0) >= 32) {
-    return { type: "keypress", key: { tag: "Character", char: s }, modifiers: [] };
-  }
-
-  // Multi-byte UTF-8 character
-  if (s.length > 1 && !s.startsWith("\x1b")) {
-    return { type: "keypress", key: { tag: "Character", char: s.charAt(0) }, modifiers: [] };
-  }
-
-  return null;
+  return null; // unparseable
 }
 
 function tuiColorToAnsi(color, isBackground) {
