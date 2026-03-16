@@ -2445,6 +2445,7 @@ function tuiCleanup() {
   tuiActive = false;
   const stdout = process.stdout;
   stdout.write("\x1b[?1000l\x1b[?1006l"); // disable mouse reporting
+  stdout.write("\x1b[?1007h"); // restore alternate scroll mode
   stdout.write("\x1b[?25h"); // show cursor
   stdout.write("\x1b[?1049l"); // exit alternate screen
   if (process.stdin.isTTY && process.stdin.isRaw) {
@@ -2472,7 +2473,11 @@ async function runTuiInit(req) {
   stdout.write("\x1b[?1049h");
   // Hide cursor
   stdout.write("\x1b[?25l");
-  // Enable SGR extended mouse reporting (button press/release + SGR encoding)
+  // Disable alternate scroll mode — prevents terminal from converting scroll
+  // wheel into scrollback navigation. This is what tcell/lazygit do.
+  stdout.write("\x1b[?1007l");
+  // Enable mouse: button tracking + SGR extended encoding
+  // 1000=button events, 1006=SGR encoding (decimal coords, no size limit)
   stdout.write("\x1b[?1000h\x1b[?1006h");
   // Clear screen
   stdout.write("\x1b[2J\x1b[H");
