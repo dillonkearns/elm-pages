@@ -6,6 +6,7 @@ module Tui.Test exposing
     , BackendTaskSimulator, resolveEffect
     , ensureView, ensureViewHas, ensureViewDoesNotHave
     , expectRunning, expectExit, expectExitWith
+    , Snapshot, toSnapshots
     )
 
 {-| Write pure tests for TUI scripts. No terminal, no I/O — just regular
@@ -55,6 +56,11 @@ or directly with [`sendMsg`](#sendMsg).
 
 @docs expectRunning, expectExit, expectExitWith
 
+
+## Snapshots
+
+@docs Snapshot, toSnapshots
+
 -}
 
 import BackendTask exposing (BackendTask)
@@ -83,6 +89,17 @@ type alias State model msg =
     , pendingEffects : List (BackendTask FatalError msg)
     , exited : Maybe Int
     , error : Maybe String
+    , snapshots : List Snapshot
+    }
+
+
+{-| A snapshot of the TUI state at a point in the test pipeline. Used by
+[`toSnapshots`](#toSnapshots) for the interactive test stepper.
+-}
+type alias Snapshot =
+    { label : String
+    , screen : String
+    , hasPendingEffects : Bool
     }
 
 
@@ -130,6 +147,10 @@ startWithContext context config =
     let
         ( initialModel, initialEffect ) =
             config.init config.data
+
+        pendingEffects : List (BackendTask FatalError msg)
+        pendingEffects =
+            extractBackendTasks initialEffect
     in
     TuiTest
         { model = initialModel
@@ -137,9 +158,15 @@ startWithContext context config =
         , view = config.view
         , subscriptions = config.subscriptions
         , context = context
-        , pendingEffects = extractBackendTasks initialEffect
+        , pendingEffects = pendingEffects
         , exited = checkForExit initialEffect
         , error = Nothing
+        , snapshots =
+            [ { label = "init"
+              , screen = Tui.toString (config.view context initialModel)
+              , hasPendingEffects = not (List.isEmpty pendingEffects)
+              }
+            ]
         }
 
 
@@ -181,7 +208,7 @@ pressKeyWith keyEvent (TuiTest state) =
             in
             case Sub.routeEvent sub (Sub.RawKeyPress keyEvent) of
                 Just msg ->
-                    applyMsg msg (TuiTest state)
+                    applyMsg (keyEventLabel keyEvent) msg (TuiTest state)
 
                 Nothing ->
                     TuiTest state
@@ -214,7 +241,7 @@ resize size (TuiTest state) =
 -}
 sendMsg : msg -> TuiTest model msg -> TuiTest model msg
 sendMsg msg =
-    applyMsg msg
+    applyMsg "sendMsg" msg
 
 
 
@@ -475,8 +502,8 @@ pendingEffectsError count =
 -- HELPERS
 
 
-applyMsg : msg -> TuiTest model msg -> TuiTest model msg
-applyMsg msg (TuiTest state) =
+applyMsg : String -> msg -> TuiTest model msg -> TuiTest model msg
+applyMsg label msg (TuiTest state) =
     case ( state.error, state.exited ) of
         ( Just _, _ ) ->
             TuiTest state
@@ -488,12 +515,24 @@ applyMsg msg (TuiTest state) =
             let
                 ( newModel, effect ) =
                     state.update msg state.model
+
+                newPendingEffects : List (BackendTask FatalError msg)
+                newPendingEffects =
+                    extractBackendTasks effect
+
+                snapshot : Snapshot
+                snapshot =
+                    { label = label
+                    , screen = Tui.toString (state.view state.context newModel)
+                    , hasPendingEffects = not (List.isEmpty newPendingEffects)
+                    }
             in
             TuiTest
                 { state
                     | model = newModel
-                    , pendingEffects = extractBackendTasks effect
+                    , pendingEffects = newPendingEffects
                     , exited = checkForExit effect
+                    , snapshots = state.snapshots ++ [ snapshot ]
                 }
 
 
@@ -534,12 +573,24 @@ resolveNextEffect simulate (TuiTest state) =
                             let
                                 ( newModel, newEffect ) =
                                     state.update msg state.model
+
+                                newPendingEffects : List (BackendTask FatalError msg)
+                                newPendingEffects =
+                                    rest ++ extractBackendTasks newEffect
+
+                                snapshot : Snapshot
+                                snapshot =
+                                    { label = "resolveEffect"
+                                    , screen = Tui.toString (state.view state.context newModel)
+                                    , hasPendingEffects = not (List.isEmpty newPendingEffects)
+                                    }
                             in
                             TuiTest
                                 { state
                                     | model = newModel
-                                    , pendingEffects = rest ++ extractBackendTasks newEffect
+                                    , pendingEffects = newPendingEffects
                                     , exited = checkForExit newEffect
+                                    , snapshots = state.snapshots ++ [ snapshot ]
                                 }
 
                         Err errMsg ->
@@ -604,3 +655,90 @@ getFailureMessage expectation =
 
         Nothing ->
             Nothing
+
+
+{-| Extract the recorded snapshots from a test pipeline. Each step in the
+pipeline (start, pressKey, resolveEffect, sendMsg) records a snapshot of the
+screen, the action label, and whether effects are pending.
+
+Use this with the interactive test stepper to visualize a test run step by step.
+
+-}
+toSnapshots : TuiTest model msg -> List Snapshot
+toSnapshots (TuiTest state) =
+    state.snapshots
+
+
+keyEventLabel : KeyEvent -> String
+keyEventLabel event =
+    let
+        keyName : String
+        keyName =
+            case event.key of
+                Tui.Character c ->
+                    "'" ++ String.fromChar c ++ "'"
+
+                Tui.Enter ->
+                    "Enter"
+
+                Tui.Escape ->
+                    "Escape"
+
+                Tui.Tab ->
+                    "Tab"
+
+                Tui.Backspace ->
+                    "Backspace"
+
+                Tui.Delete ->
+                    "Delete"
+
+                Tui.Arrow dir ->
+                    "Arrow "
+                        ++ (case dir of
+                                Tui.Up ->
+                                    "Up"
+
+                                Tui.Down ->
+                                    "Down"
+
+                                Tui.Left ->
+                                    "Left"
+
+                                Tui.Right ->
+                                    "Right"
+                           )
+
+                Tui.FunctionKey n ->
+                    "F" ++ String.fromInt n
+
+                Tui.Home ->
+                    "Home"
+
+                Tui.End ->
+                    "End"
+
+                Tui.PageUp ->
+                    "PageUp"
+
+                Tui.PageDown ->
+                    "PageDown"
+
+        modPrefix : String
+        modPrefix =
+            event.modifiers
+                |> List.map
+                    (\m ->
+                        case m of
+                            Tui.Ctrl ->
+                                "Ctrl+"
+
+                            Tui.Alt ->
+                                "Alt+"
+
+                            Tui.Shift ->
+                                "Shift+"
+                    )
+                |> String.concat
+    in
+    "pressKey " ++ modPrefix ++ keyName

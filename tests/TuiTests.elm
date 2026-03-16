@@ -315,7 +315,99 @@ suite =
                         |> TuiTest.expectRunning
                         |> expectFailureContaining "Count: 0"
             ]
+        , describe "TuiTest - Snapshots"
+            [ test "toSnapshots captures initial state" <|
+                \() ->
+                    counterTest
+                        |> TuiTest.toSnapshots
+                        |> List.length
+                        |> Expect.equal 1
+            , test "initial snapshot has the right screen content" <|
+                \() ->
+                    counterTest
+                        |> TuiTest.toSnapshots
+                        |> List.head
+                        |> Maybe.map .screen
+                        |> Maybe.withDefault ""
+                        |> String.contains "Count: 0"
+                        |> Expect.equal True
+            , test "initial snapshot label is init" <|
+                \() ->
+                    counterTest
+                        |> TuiTest.toSnapshots
+                        |> List.head
+                        |> Maybe.map .label
+                        |> Expect.equal (Just "init")
+            , test "each pressKey adds a snapshot" <|
+                \() ->
+                    counterTest
+                        |> TuiTest.pressKey 'k'
+                        |> TuiTest.pressKey 'k'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.toSnapshots
+                        |> List.length
+                        |> Expect.equal 4
+            , test "snapshots capture screen at each step" <|
+                \() ->
+                    let
+                        snapshots : List TuiTest.Snapshot
+                        snapshots =
+                            counterTest
+                                |> TuiTest.pressKey 'k'
+                                |> TuiTest.pressKey 'k'
+                                |> TuiTest.toSnapshots
+                    in
+                    snapshots
+                        |> List.map .screen
+                        |> List.map (String.contains "Count: 0")
+                        |> Expect.equal [ True, False, False ]
+            , test "snapshots have descriptive labels" <|
+                \() ->
+                    counterTest
+                        |> TuiTest.pressKey 'k'
+                        |> TuiTest.pressKeyWith { key = Tui.Arrow Tui.Down, modifiers = [] }
+                        |> TuiTest.toSnapshots
+                        |> List.map .label
+                        |> Expect.equal [ "init", "pressKey 'k'", "pressKey Arrow Down" ]
+            , test "snapshots track pending effects" <|
+                \() ->
+                    starsTest
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.toSnapshots
+                        |> List.map .hasPendingEffects
+                        |> Expect.equal [ False, True ]
+            , test "resolveEffect adds a snapshot" <|
+                \() ->
+                    starsTest
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.resolveEffect
+                            (BackendTaskTest.simulateHttpGet
+                                "https://api.github.com/repos/dillonkearns/elm-pages"
+                                (Encode.object [ ( "stargazers_count", Encode.int 42 ) ])
+                            )
+                        |> TuiTest.toSnapshots
+                        |> List.length
+                        |> Expect.equal 3
+            ]
         ]
+
+
+{-| Apply a function N times.
+-}
+repeatN : Int -> (a -> a) -> a -> a
+repeatN n f val =
+    if n <= 0 then
+        val
+
+    else
+        repeatN (n - 1) f (f val)
+
+
+{-| Type a string character by character.
+-}
+typeString : String -> TuiTest.TuiTest model msg -> TuiTest.TuiTest model msg
+typeString str tuiTest =
+    String.foldl (\c acc -> TuiTest.pressKey c acc) tuiTest str
 
 
 {-| Helper: assert that an Expectation is a failure containing a substring.
@@ -342,24 +434,6 @@ expectFailureContaining needle expectation =
                         ++ description
                         ++ "\""
                     )
-
-
-{-| Apply a function N times.
--}
-repeatN : Int -> (a -> a) -> a -> a
-repeatN n f val =
-    if n <= 0 then
-        val
-
-    else
-        repeatN (n - 1) f (f val)
-
-
-{-| Type a string character by character.
--}
-typeString : String -> TuiTest.TuiTest model msg -> TuiTest.TuiTest model msg
-typeString str tuiTest =
-    String.foldl (\c acc -> TuiTest.pressKey c acc) tuiTest str
 
 
 
