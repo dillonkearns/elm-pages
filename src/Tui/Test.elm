@@ -6,7 +6,7 @@ module Tui.Test exposing
     , BackendTaskSimulator, resolveEffect
     , ensureView, ensureViewHas, ensureViewDoesNotHave
     , expectRunning, expectExit, expectExitWith
-    , Snapshot, toSnapshots
+    , Snapshot, toSnapshots, withModelToString
     )
 
 {-| Write pure tests for TUI scripts. No terminal, no I/O — just regular
@@ -59,7 +59,7 @@ or directly with [`sendMsg`](#sendMsg).
 
 ## Snapshots
 
-@docs Snapshot, toSnapshots
+@docs Snapshot, toSnapshots, withModelToString
 
 -}
 
@@ -90,6 +90,7 @@ type alias State model msg =
     , exited : Maybe Int
     , error : Maybe String
     , snapshots : List Snapshot
+    , modelToString : Maybe (model -> String)
     }
 
 
@@ -109,6 +110,7 @@ type alias Snapshot =
     , screen : Screen
     , rerender : Context -> Screen
     , hasPendingEffects : Bool
+    , modelState : Maybe String
     }
 
 
@@ -175,8 +177,10 @@ startWithContext context config =
               , screen = config.view context initialModel
               , rerender = \ctx -> config.view ctx initialModel
               , hasPendingEffects = not (List.isEmpty pendingEffects)
+              , modelState = Nothing
               }
             ]
+        , modelToString = Nothing
         }
 
 
@@ -540,6 +544,7 @@ applyMsg label msg (TuiTest state) =
                     , screen = state.view state.context newModel
                     , rerender = viewFn
                     , hasPendingEffects = not (List.isEmpty newPendingEffects)
+                    , modelState = Maybe.map (\f -> f newModel) state.modelToString
                     }
             in
             TuiTest
@@ -603,6 +608,7 @@ resolveNextEffect simulate (TuiTest state) =
                                     , screen = state.view state.context newModel
                                     , rerender = viewFn
                                     , hasPendingEffects = not (List.isEmpty newPendingEffects)
+                                    , modelState = Maybe.map (\f -> f newModel) state.modelToString
                                     }
                             in
                             TuiTest
@@ -677,6 +683,45 @@ getFailureMessage expectation =
             Nothing
 
 
+{-| Enable model state inspection in snapshots. Pass `Debug.toString` (or any
+`model -> String` function) and each snapshot will include the pretty-printed
+model state.
+
+Since published packages cannot use `Debug.toString` directly, this must be
+called from your test code:
+
+    counterTest
+        |> TuiTest.withModelToString Debug.toString
+        |> TuiTest.pressKey 'k'
+        |> TuiTest.toSnapshots
+        |> List.map .modelState
+        -- [ Just "{ count = 0 }", Just "{ count = 1 }" ]
+
+For nicer formatting, use `prettifyValue Debug.toString` from
+`dillonkearns/elm-snapshot` if you have it as a dependency.
+
+-}
+withModelToString : (model -> String) -> TuiTest model msg -> TuiTest model msg
+withModelToString modelToString (TuiTest state) =
+    let
+        updatedSnapshots : List Snapshot
+        updatedSnapshots =
+            state.snapshots
+                |> List.map
+                    (\snapshot ->
+                        { snapshot
+                            | modelState =
+                                Just (modelToString state.model)
+                        }
+                    )
+    in
+    TuiTest
+        { state
+            | modelToString = Just modelToString
+            , snapshots = updatedSnapshots
+        }
+
+
 {-| Extract the recorded snapshots from a test pipeline. Each step in the
 pipeline (start, pressKey, resolveEffect, sendMsg) records a snapshot of the
 screen, the action label, and whether effects are pending.
@@ -703,6 +748,7 @@ toSnapshots (TuiTest state) =
                      , screen = errorScreen
                      , rerender = \_ -> errorScreen
                      , hasPendingEffects = False
+                     , modelState = Nothing
                      }
                    ]
 

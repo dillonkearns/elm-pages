@@ -52,6 +52,7 @@ demoSnapshots =
                 }
     in
     starsTest
+        |> TuiTest.withModelToString Debug.toString
         -- Edit: delete "elm-pages" (9 chars) and type "elm-graphql"
         |> repeatN 9 (TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] })
         |> typeChars "elm-graphql"
@@ -219,6 +220,23 @@ view ctx model =
                     |> Tui.lines
                 , Tui.text ""
                 , Tui.styled dimStyle ("  " ++ separator)
+                , case snapshot.modelState of
+                    Just modelStr ->
+                        Tui.lines
+                            [ Tui.text ""
+                            , Tui.styled
+                                { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.bold ] }
+                                "  Model:"
+                            , modelStr
+                                |> String.lines
+                                |> List.map (\line -> Tui.styled dimStyle ("    " ++ line))
+                                |> Tui.lines
+                            , Tui.text ""
+                            , Tui.styled dimStyle ("  " ++ separator)
+                            ]
+
+                    Nothing ->
+                        Tui.empty
                 , Tui.text ""
                 , stepIndicator
                 , Tui.text ""

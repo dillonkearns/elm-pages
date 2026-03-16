@@ -388,6 +388,33 @@ suite =
                         |> TuiTest.toSnapshots
                         |> List.length
                         |> Expect.equal 3
+            , test "snapshots have no modelState by default" <|
+                \() ->
+                    counterTest
+                        |> TuiTest.pressKey 'k'
+                        |> TuiTest.toSnapshots
+                        |> List.map .modelState
+                        |> Expect.equal [ Nothing, Nothing ]
+            , test "withModelToString captures model state at each step" <|
+                \() ->
+                    counterTest
+                        |> TuiTest.withModelToString Debug.toString
+                        |> TuiTest.pressKey 'k'
+                        |> TuiTest.toSnapshots
+                        |> List.map .modelState
+                        |> List.map (Maybe.withDefault "")
+                        |> List.map (String.contains "count")
+                        |> Expect.equal [ True, True ]
+            , test "withModelToString shows changing values" <|
+                \() ->
+                    counterTest
+                        |> TuiTest.withModelToString Debug.toString
+                        |> TuiTest.pressKey 'k'
+                        |> TuiTest.pressKey 'k'
+                        |> TuiTest.toSnapshots
+                        |> List.filterMap .modelState
+                        |> List.map (String.contains "count = 2")
+                        |> Expect.equal [ False, False, True ]
             , test "snapshot.rerender re-renders at a different terminal size" <|
                 \() ->
                     counterTest
