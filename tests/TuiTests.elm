@@ -1,6 +1,10 @@
 module TuiTests exposing (suite)
 
+import BackendTask
+import BackendTask.Http
 import Expect
+import FatalError exposing (FatalError)
+import Json.Decode as Decode
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Effect as Effect exposing (Effect)
@@ -142,7 +146,97 @@ suite =
                         |> TuiTest.ensureViewHas "Count: 1"
                         |> TuiTest.expectRunning
             ]
+        , describe "TuiTest - Stars (BackendTask Effects)"
+            [ test "initial view shows default repo and prompt" <|
+                \() ->
+                    starsTest
+                        |> TuiTest.ensureViewHas "dillonkearns/elm-pages"
+                        |> TuiTest.ensureViewHas "Press Enter to fetch"
+                        |> TuiTest.expectRunning
+            , test "typing clears results and updates input" <|
+                \() ->
+                    starsTest
+                        -- clear default input
+                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] })
+                        |> TuiTest.pressKey 'f'
+                        |> TuiTest.pressKey 'o'
+                        |> TuiTest.pressKey 'o'
+                        |> TuiTest.ensureViewHas "Repo: foo"
+                        |> TuiTest.ensureViewDoesNotHave "dillonkearns"
+                        |> TuiTest.expectRunning
+            , test "Enter triggers loading state" <|
+                \() ->
+                    starsTest
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.ensureViewHas "Loading..."
+                        |> TuiTest.expectRunning
+            , test "simulating BackendTask result shows stars" <|
+                \() ->
+                    starsTest
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.ensureViewHas "Loading..."
+                        -- Simulate the BackendTask completing with 1234 stars
+                        |> TuiTest.sendMsg (GotStars (Ok 1234))
+                        |> TuiTest.ensureViewHas "Stars: 1234"
+                        |> TuiTest.ensureViewDoesNotHave "Loading"
+                        |> TuiTest.expectRunning
+            , test "simulating BackendTask error shows error" <|
+                \() ->
+                    starsTest
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.sendMsg (GotStars (Err (FatalError.fromString "Not Found")))
+                        |> TuiTest.ensureViewHas "Request failed"
+                        |> TuiTest.ensureViewDoesNotHave "Loading"
+                        |> TuiTest.expectRunning
+            , test "typing after results clears them" <|
+                \() ->
+                    starsTest
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.sendMsg (GotStars (Ok 999))
+                        |> TuiTest.ensureViewHas "Stars: 999"
+                        -- Now type something — results should clear
+                        |> TuiTest.pressKey 'x'
+                        |> TuiTest.ensureViewDoesNotHave "Stars:"
+                        |> TuiTest.ensureViewHas "Press Enter to fetch"
+                        |> TuiTest.expectRunning
+            , test "full flow: type, fetch, see result, edit, fetch again" <|
+                \() ->
+                    starsTest
+                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] })
+                        |> typeString "elm/core"
+                        |> TuiTest.ensureViewHas "Repo: elm/core"
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.ensureViewHas "Loading..."
+                        |> TuiTest.sendMsg (GotStars (Ok 7500))
+                        |> TuiTest.ensureViewHas "Stars: 7500"
+                        -- Edit: remove "core" (4 chars) and type "compiler"
+                        |> repeatN 4 (TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] })
+                        |> typeString "compiler"
+                        |> TuiTest.ensureViewHas "Repo: elm/compiler"
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.sendMsg (GotStars (Ok 7800))
+                        |> TuiTest.ensureViewHas "Stars: 7800"
+                        |> TuiTest.expectRunning
+            ]
         ]
+
+
+{-| Apply a function N times.
+-}
+repeatN : Int -> (a -> a) -> a -> a
+repeatN n f val =
+    if n <= 0 then
+        val
+
+    else
+        repeatN (n - 1) f (f val)
+
+
+{-| Type a string character by character.
+-}
+typeString : String -> TuiTest.TuiTest model msg -> TuiTest.TuiTest model msg
+typeString str test =
+    String.foldl (\c acc -> TuiTest.pressKey c acc) test str
 
 
 
@@ -227,4 +321,125 @@ counterTest =
         , update = counterUpdate
         , view = counterView
         , subscriptions = counterSubscriptions
+        }
+
+
+
+-- Stars TUI for testing (mirrors TuiStars.elm but inline)
+
+
+type alias StarsModel =
+    { input : String
+    , result : Result String Int
+    , loading : Bool
+    }
+
+
+type StarsMsg
+    = StarsKeyPressed Tui.KeyEvent
+    | GotStars (Result FatalError Int)
+
+
+starsInit : () -> ( StarsModel, Effect StarsMsg )
+starsInit () =
+    ( { input = "dillonkearns/elm-pages"
+      , result = Err ""
+      , loading = False
+      }
+    , Effect.none
+    )
+
+
+starsUpdate : StarsMsg -> StarsModel -> ( StarsModel, Effect StarsMsg )
+starsUpdate msg model =
+    case msg of
+        StarsKeyPressed event ->
+            case event.key of
+                Tui.Escape ->
+                    ( model, Effect.exit )
+
+                Tui.Enter ->
+                    ( { model | loading = True, result = Err "Loading..." }
+                    , starsFetch model.input
+                    )
+
+                Tui.Backspace ->
+                    ( { model
+                        | input = String.dropRight 1 model.input
+                        , result = Err ""
+                      }
+                    , Effect.none
+                    )
+
+                Tui.Character c ->
+                    ( { model
+                        | input = model.input ++ String.fromChar c
+                        , result = Err ""
+                      }
+                    , Effect.none
+                    )
+
+                _ ->
+                    ( model, Effect.none )
+
+        GotStars result ->
+            ( { model
+                | loading = False
+                , result =
+                    case result of
+                        Ok stars ->
+                            Ok stars
+
+                        Err _ ->
+                            Err "Request failed"
+              }
+            , Effect.none
+            )
+
+
+starsFetch : String -> Effect StarsMsg
+starsFetch repo =
+    BackendTask.Http.getJson
+        ("https://api.github.com/repos/" ++ repo)
+        (Decode.field "stargazers_count" Decode.int)
+        |> BackendTask.allowFatal
+        |> Effect.attempt GotStars
+
+
+starsView : Tui.Context -> StarsModel -> Tui.Screen
+starsView _ model =
+    Tui.lines
+        [ Tui.styled [ Tui.bold ] "GitHub Stars"
+        , Tui.concat
+            [ Tui.text "Repo: "
+            , Tui.text model.input
+            ]
+        , case ( model.loading, model.result ) of
+            ( True, _ ) ->
+                Tui.text "Loading..."
+
+            ( _, Ok stars ) ->
+                Tui.text ("Stars: " ++ String.fromInt stars)
+
+            ( _, Err "" ) ->
+                Tui.text "Press Enter to fetch"
+
+            ( _, Err errMsg ) ->
+                Tui.text errMsg
+        ]
+
+
+starsSubscriptions : StarsModel -> TuiSub.Sub StarsMsg
+starsSubscriptions _ =
+    TuiSub.onKeyPress StarsKeyPressed
+
+
+starsTest : TuiTest.TuiTest StarsModel StarsMsg
+starsTest =
+    TuiTest.start
+        { data = ()
+        , init = starsInit
+        , update = starsUpdate
+        , view = starsView
+        , subscriptions = starsSubscriptions
         }
