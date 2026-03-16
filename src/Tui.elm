@@ -4,6 +4,7 @@ module Tui exposing
     , Attribute, bold, dim, italic, underline, strikethrough, inverse
     , Context
     , KeyEvent, Key(..), Direction(..), Modifier(..)
+    , MouseEvent(..), MouseButton(..)
     , toString, toLines
     , encodeScreen
     )
@@ -30,6 +31,8 @@ from the `wolfadex/elm-ansi` package:
 @docs Context
 
 @docs KeyEvent, Key, Direction, Modifier
+
+@docs MouseEvent, MouseButton
 
 @docs toString, toLines
 
@@ -248,6 +251,26 @@ type Modifier
     = Ctrl
     | Alt
     | Shift
+
+
+{-| Mouse event from the terminal. Uses SGR extended mouse mode for accurate
+coordinates on any terminal size.
+
+Coordinates are 0-based: `{ row = 0, col = 0 }` is the top-left corner.
+
+-}
+type MouseEvent
+    = Click { row : Int, col : Int, button : MouseButton }
+    | ScrollUp { row : Int, col : Int }
+    | ScrollDown { row : Int, col : Int }
+
+
+{-| Mouse button for click events.
+-}
+type MouseButton
+    = LeftButton
+    | MiddleButton
+    | RightButton
 
 
 

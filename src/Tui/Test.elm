@@ -2,6 +2,7 @@ module Tui.Test exposing
     ( TuiTest
     , start, startWithContext
     , pressKey, pressKeyWith, resize
+    , click, scrollDown, scrollUp
     , sendMsg
     , BackendTaskSimulator, resolveEffect
     , ensureView, ensureViewHas, ensureViewDoesNotHave
@@ -47,6 +48,8 @@ or directly with [`sendMsg`](#sendMsg).
 @docs start, startWithContext
 
 @docs pressKey, pressKeyWith, resize
+
+@docs click, scrollDown, scrollUp
 
 @docs sendMsg
 
@@ -242,6 +245,59 @@ resize size (TuiTest state) =
 
         ( Nothing, Nothing ) ->
             TuiTest { state | context = size }
+
+
+{-| Simulate a left mouse click at the given row and column (0-based).
+
+    test |> TuiTest.click { row = 3, col = 5 }
+
+-}
+click : { row : Int, col : Int } -> TuiTest model msg -> TuiTest model msg
+click pos =
+    simulateMouseEvent
+        ("click (" ++ String.fromInt pos.row ++ "," ++ String.fromInt pos.col ++ ")")
+        (Tui.Click { row = pos.row, col = pos.col, button = Tui.LeftButton })
+
+
+{-| Simulate a scroll-down event at the given position.
+-}
+scrollDown : { row : Int, col : Int } -> TuiTest model msg -> TuiTest model msg
+scrollDown pos =
+    simulateMouseEvent
+        ("scrollDown (" ++ String.fromInt pos.row ++ "," ++ String.fromInt pos.col ++ ")")
+        (Tui.ScrollDown { row = pos.row, col = pos.col })
+
+
+{-| Simulate a scroll-up event at the given position.
+-}
+scrollUp : { row : Int, col : Int } -> TuiTest model msg -> TuiTest model msg
+scrollUp pos =
+    simulateMouseEvent
+        ("scrollUp (" ++ String.fromInt pos.row ++ "," ++ String.fromInt pos.col ++ ")")
+        (Tui.ScrollUp { row = pos.row, col = pos.col })
+
+
+simulateMouseEvent : String -> Tui.MouseEvent -> TuiTest model msg -> TuiTest model msg
+simulateMouseEvent label mouseEvent (TuiTest state) =
+    case ( state.error, state.exited ) of
+        ( Just _, _ ) ->
+            TuiTest state
+
+        ( _, Just _ ) ->
+            TuiTest { state | error = Just "mouse event after TUI exited" }
+
+        ( Nothing, Nothing ) ->
+            let
+                sub : Sub msg
+                sub =
+                    state.subscriptions state.model
+            in
+            case Sub.routeEvent sub (Sub.RawMouse mouseEvent) of
+                Just msg ->
+                    applyMsg label msg (TuiTest state)
+
+                Nothing ->
+                    TuiTest state
 
 
 {-| Send a message directly through `update`. Useful for simulating

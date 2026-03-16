@@ -2444,6 +2444,7 @@ function tuiCleanup() {
   if (!tuiActive) return;
   tuiActive = false;
   const stdout = process.stdout;
+  stdout.write("\x1b[?1000l\x1b[?1006l"); // disable mouse reporting
   stdout.write("\x1b[?25h"); // show cursor
   stdout.write("\x1b[?1049l"); // exit alternate screen
   if (process.stdin.isTTY && process.stdin.isRaw) {
@@ -2471,6 +2472,8 @@ async function runTuiInit(req) {
   stdout.write("\x1b[?1049h");
   // Hide cursor
   stdout.write("\x1b[?25l");
+  // Enable SGR extended mouse reporting (button press/release + SGR encoding)
+  stdout.write("\x1b[?1000h\x1b[?1006h");
   // Clear screen
   stdout.write("\x1b[2J\x1b[H");
 
@@ -2535,7 +2538,7 @@ async function runTuiWaitEvent(req) {
     }
 
     let onDataHandler = null;
-    if (interests.includes("keypress")) {
+    if (interests.includes("keypress") || interests.includes("mouse")) {
       onDataHandler = (data) => {
         const event = tuiParseTerminalInput(data);
         if (!event) return; // unknown input, ignore
@@ -2575,6 +2578,41 @@ function tuiParseTerminalInput(data) {
   // Ctrl+C
   if (s === "\x03") {
     return { _exit: true };
+  }
+
+  // SGR extended mouse: \x1b[<Cb;Cx;CyM (press) or \x1b[<Cb;Cx;Cym (release)
+  const sgrMouseMatch = s.match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])$/);
+  if (sgrMouseMatch) {
+    const cb = parseInt(sgrMouseMatch[1], 10);
+    const cx = parseInt(sgrMouseMatch[2], 10) - 1; // 1-based to 0-based
+    const cy = parseInt(sgrMouseMatch[3], 10) - 1;
+    const isRelease = sgrMouseMatch[4] === "m";
+    const isWheel = (cb & 0x40) !== 0;
+    const low2 = cb & 0x03;
+
+    if (isWheel) {
+      // Scroll events (no release)
+      return {
+        type: "mouse",
+        action: low2 === 0 ? "scrollUp" : "scrollDown",
+        row: cy,
+        col: cx,
+      };
+    }
+
+    if (isRelease) {
+      return null; // ignore release events for now
+    }
+
+    // Button press
+    const buttons = ["left", "middle", "right"];
+    return {
+      type: "mouse",
+      action: "click",
+      button: buttons[low2] || "left",
+      row: cy,
+      col: cx,
+    };
   }
 
   // Escape sequences

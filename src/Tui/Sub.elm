@@ -1,6 +1,6 @@
 module Tui.Sub exposing
     ( Sub
-    , none, batch, onKeyPress, every
+    , none, batch, onKeyPress, onMouse, every
     , map
     , getInterests, routeEvent
     , RawEvent(..), decodeRawEvent
@@ -20,7 +20,7 @@ to subscribe to resize events.
 
 @docs Sub
 
-@docs none, batch, onKeyPress, every
+@docs none, batch, onKeyPress, onMouse, every
 
 @docs map
 
@@ -35,7 +35,7 @@ to subscribe to resize events.
 
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Tui exposing (KeyEvent)
+import Tui exposing (KeyEvent, MouseEvent)
 
 
 {-| A TUI subscription — declares which terminal events to listen for.
@@ -44,6 +44,7 @@ type Sub msg
     = SubNone
     | SubBatch (List (Sub msg))
     | OnKeyPress (KeyEvent -> msg)
+    | OnMouse (MouseEvent -> msg)
     | Every Float msg
 
 
@@ -68,6 +69,14 @@ onKeyPress =
     OnKeyPress
 
 
+{-| Subscribe to mouse events (click, scroll). Enables SGR extended mouse
+reporting in the terminal when subscribed.
+-}
+onMouse : (MouseEvent -> msg) -> Sub msg
+onMouse =
+    OnMouse
+
+
 {-| Periodic tick. The `Float` is the interval in milliseconds.
 -}
 every : Float -> msg -> Sub msg
@@ -89,6 +98,9 @@ map f sub =
 
         OnKeyPress toMsg ->
             OnKeyPress (\event -> f (toMsg event))
+
+        OnMouse toMsg ->
+            OnMouse (\event -> f (toMsg event))
 
         Every interval msg ->
             Every interval (f msg)
@@ -117,6 +129,9 @@ getInterests sub =
 
                 OnKeyPress _ ->
                     "keypress" :: acc
+
+                OnMouse _ ->
+                    "mouse" :: acc
 
                 Every _ _ ->
                     "tick" :: acc
@@ -152,6 +167,14 @@ routeEvent sub event =
                 _ ->
                     Nothing
 
+        OnMouse toMsg ->
+            case event of
+                RawMouse mouseEvent ->
+                    Just (toMsg mouseEvent)
+
+                _ ->
+                    Nothing
+
         Every _ msg ->
             case event of
                 RawTick ->
@@ -165,6 +188,7 @@ routeEvent sub event =
 -}
 type RawEvent
     = RawKeyPress KeyEvent
+    | RawMouse MouseEvent
     | RawResize { width : Int, height : Int }
     | RawTick
 
@@ -179,6 +203,9 @@ decodeRawEvent =
                 case eventType of
                     "keypress" ->
                         Decode.map RawKeyPress decodeKeyEvent
+
+                    "mouse" ->
+                        Decode.map RawMouse decodeMouseEvent
 
                     "resize" ->
                         Decode.map RawResize
@@ -294,4 +321,56 @@ decodeModifier =
 
                     _ ->
                         Decode.fail ("Unknown modifier: " ++ s)
+            )
+
+
+decodeMouseEvent : Decode.Decoder MouseEvent
+decodeMouseEvent =
+    Decode.field "action" Decode.string
+        |> Decode.andThen
+            (\action ->
+                let
+                    coords : Decode.Decoder { row : Int, col : Int }
+                    coords =
+                        Decode.map2 (\r c -> { row = r, col = c })
+                            (Decode.field "row" Decode.int)
+                            (Decode.field "col" Decode.int)
+                in
+                case action of
+                    "click" ->
+                        Decode.map2
+                            (\pos button ->
+                                Tui.Click { row = pos.row, col = pos.col, button = button }
+                            )
+                            coords
+                            (Decode.field "button" decodeMouseButton)
+
+                    "scrollUp" ->
+                        Decode.map Tui.ScrollUp coords
+
+                    "scrollDown" ->
+                        Decode.map Tui.ScrollDown coords
+
+                    _ ->
+                        Decode.fail ("Unknown mouse action: " ++ action)
+            )
+
+
+decodeMouseButton : Decode.Decoder Tui.MouseButton
+decodeMouseButton =
+    Decode.string
+        |> Decode.andThen
+            (\s ->
+                case s of
+                    "left" ->
+                        Decode.succeed Tui.LeftButton
+
+                    "middle" ->
+                        Decode.succeed Tui.MiddleButton
+
+                    "right" ->
+                        Decode.succeed Tui.RightButton
+
+                    _ ->
+                        Decode.fail ("Unknown mouse button: " ++ s)
             )
