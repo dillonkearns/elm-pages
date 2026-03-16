@@ -760,6 +760,14 @@ async function runInternalJob(
         return [requestHash, await runDbMigrateRead(requestToPerform)];
       case "elm-pages-internal://db-migrate-write":
         return [requestHash, await runDbMigrateWrite(requestToPerform)];
+      case "elm-pages-internal://tui-init":
+        return [requestHash, await runTuiInit(requestToPerform)];
+      case "elm-pages-internal://tui-render":
+        return [requestHash, await runTuiRender(requestToPerform)];
+      case "elm-pages-internal://tui-wait-event":
+        return [requestHash, await runTuiWaitEvent(requestToPerform)];
+      case "elm-pages-internal://tui-exit":
+        return [requestHash, await runTuiExit(requestToPerform)];
       default:
         throw `Unexpected internal BackendTask request format: ${kleur.yellow(
           JSON.stringify(2, null, requestToPerform)
@@ -2426,4 +2434,236 @@ function getTimezoneDataTemporal(tzId, sinceMs, untilMs) {
   // elm/time expects eras sorted newest-first
   eras.reverse();
   return { defaultOffset, eras };
+}
+
+// ── TUI Runtime ──────────────────────────────────────────────────────────────
+
+let tuiActive = false;
+
+function tuiCleanup() {
+  if (!tuiActive) return;
+  tuiActive = false;
+  const stdout = process.stdout;
+  stdout.write("\x1b[?25h"); // show cursor
+  stdout.write("\x1b[?1049l"); // exit alternate screen
+  if (process.stdin.isTTY && process.stdin.isRaw) {
+    process.stdin.setRawMode(false);
+  }
+  process.stdin.pause();
+}
+
+// Ensure terminal is restored on unexpected exit
+process.on("exit", tuiCleanup);
+process.on("SIGINT", () => {
+  tuiCleanup();
+  process.exit(130);
+});
+process.on("SIGTERM", () => {
+  tuiCleanup();
+  process.exit(143);
+});
+
+async function runTuiInit(req) {
+  tuiActive = true;
+  const stdout = process.stdout;
+
+  // Enter alternate screen buffer
+  stdout.write("\x1b[?1049h");
+  // Hide cursor
+  stdout.write("\x1b[?25l");
+  // Clear screen
+  stdout.write("\x1b[2J\x1b[H");
+
+  // Set raw mode
+  if (process.stdin.isTTY) {
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding("utf8");
+  }
+
+  return jsonResponse(req, {
+    width: stdout.columns || 80,
+    height: stdout.rows || 24,
+  });
+}
+
+async function runTuiRender(req) {
+  const screenData = req.body.args[0];
+  const stdout = process.stdout;
+
+  let output = "\x1b[H"; // move cursor to top-left
+
+  for (const line of screenData) {
+    for (const span of line) {
+      output += tuiApplyStyle(span.style, span.text);
+    }
+    output += "\x1b[K\r\n"; // clear to end of line + newline
+  }
+
+  // Clear from cursor to end of screen
+  output += "\x1b[J";
+
+  stdout.write(output);
+  return jsonResponse(req, null);
+}
+
+async function runTuiWaitEvent(req) {
+  const interests = req.body.args[0];
+  const stdin = process.stdin;
+  const stdout = process.stdout;
+
+  return new Promise((resolve) => {
+    // Handle resize events
+    let resizeHandler = null;
+    if (interests.includes("resize")) {
+      resizeHandler = () => {
+        if (onDataHandler) stdin.removeListener("data", onDataHandler);
+        if (resizeHandler) stdout.removeListener("resize", resizeHandler);
+        resolve(
+          jsonResponse(req, {
+            event: {
+              type: "resize",
+              width: stdout.columns || 80,
+              height: stdout.rows || 24,
+            },
+            width: stdout.columns || 80,
+            height: stdout.rows || 24,
+          })
+        );
+      };
+      stdout.on("resize", resizeHandler);
+    }
+
+    let onDataHandler = null;
+    if (interests.includes("keypress")) {
+      onDataHandler = (data) => {
+        const event = tuiParseTerminalInput(data);
+        if (!event) return; // unknown input, ignore
+
+        // Ctrl+C always exits
+        if (event._exit) {
+          if (resizeHandler) stdout.removeListener("resize", resizeHandler);
+          stdin.removeListener("data", onDataHandler);
+          tuiCleanup();
+          process.exit(130);
+          return;
+        }
+
+        if (resizeHandler) stdout.removeListener("resize", resizeHandler);
+        stdin.removeListener("data", onDataHandler);
+        resolve(
+          jsonResponse(req, {
+            event: event,
+            width: stdout.columns || 80,
+            height: stdout.rows || 24,
+          })
+        );
+      };
+      stdin.on("data", onDataHandler);
+    }
+  });
+}
+
+async function runTuiExit(req) {
+  tuiCleanup();
+  return jsonResponse(req, null);
+}
+
+function tuiParseTerminalInput(data) {
+  const s = data.toString();
+
+  // Ctrl+C
+  if (s === "\x03") {
+    return { _exit: true };
+  }
+
+  // Escape sequences
+  if (s.startsWith("\x1b[")) {
+    switch (s) {
+      case "\x1b[A":
+        return { type: "keypress", key: { tag: "Arrow", direction: "Up" }, modifiers: [] };
+      case "\x1b[B":
+        return { type: "keypress", key: { tag: "Arrow", direction: "Down" }, modifiers: [] };
+      case "\x1b[C":
+        return { type: "keypress", key: { tag: "Arrow", direction: "Right" }, modifiers: [] };
+      case "\x1b[D":
+        return { type: "keypress", key: { tag: "Arrow", direction: "Left" }, modifiers: [] };
+      case "\x1b[H":
+        return { type: "keypress", key: { tag: "Home" }, modifiers: [] };
+      case "\x1b[F":
+        return { type: "keypress", key: { tag: "End" }, modifiers: [] };
+      case "\x1b[5~":
+        return { type: "keypress", key: { tag: "PageUp" }, modifiers: [] };
+      case "\x1b[6~":
+        return { type: "keypress", key: { tag: "PageDown" }, modifiers: [] };
+      case "\x1b[3~":
+        return { type: "keypress", key: { tag: "Delete" }, modifiers: [] };
+      default:
+        return null;
+    }
+  }
+
+  // Escape key
+  if (s === "\x1b") {
+    return { type: "keypress", key: { tag: "Escape" }, modifiers: [] };
+  }
+
+  // Enter
+  if (s === "\r" || s === "\n") {
+    return { type: "keypress", key: { tag: "Enter" }, modifiers: [] };
+  }
+
+  // Tab
+  if (s === "\t") {
+    return { type: "keypress", key: { tag: "Tab" }, modifiers: [] };
+  }
+
+  // Backspace
+  if (s === "\x7f") {
+    return { type: "keypress", key: { tag: "Backspace" }, modifiers: [] };
+  }
+
+  // Ctrl+letter (except Ctrl+C handled above)
+  if (s.length === 1 && s.charCodeAt(0) >= 1 && s.charCodeAt(0) <= 26) {
+    const letter = String.fromCharCode(s.charCodeAt(0) + 96);
+    return { type: "keypress", key: { tag: "Character", char: letter }, modifiers: ["Ctrl"] };
+  }
+
+  // Regular printable character
+  if (s.length === 1 && s.charCodeAt(0) >= 32) {
+    return { type: "keypress", key: { tag: "Character", char: s }, modifiers: [] };
+  }
+
+  // Multi-byte UTF-8 character
+  if (s.length > 1 && !s.startsWith("\x1b")) {
+    return { type: "keypress", key: { tag: "Character", char: s.charAt(0) }, modifiers: [] };
+  }
+
+  return null;
+}
+
+function tuiApplyStyle(style, text) {
+  const codes = [];
+  if (style.bold) codes.push("1");
+  if (style.dim) codes.push("2");
+  if (style.italic) codes.push("3");
+  if (style.underline) codes.push("4");
+  if (style.strikethrough) codes.push("9");
+  if (style.inverse) codes.push("7");
+  if (style.foreground) codes.push(tuiColorToAnsi(style.foreground, false));
+  if (style.background) codes.push(tuiColorToAnsi(style.background, true));
+  if (codes.length === 0) return text;
+  return `\x1b[${codes.join(";")}m${text}\x1b[0m`;
+}
+
+function tuiColorToAnsi(color, isBackground) {
+  const offset = isBackground ? 10 : 0;
+  if (typeof color === "string") {
+    const colorMap = { black: 30, red: 31, green: 32, yellow: 33, blue: 34, magenta: 35, cyan: 36, white: 37 };
+    return String((colorMap[color] || 37) + offset);
+  }
+  if (color.r !== undefined) {
+    return `${isBackground ? 48 : 38};2;${color.r};${color.g};${color.b}`;
+  }
+  return "";
 }

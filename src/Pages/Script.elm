@@ -1,6 +1,7 @@
 module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions, withSchema, metadata, withDatabasePath
+    , tui
     , writeFile, removeFile, copyFile, move
     , makeDirectory, removeDirectory, makeTempDirectory
     , command, exec
@@ -18,6 +19,11 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 ## Defining Scripts
 
 @docs withCliOptions, withoutCliOptions, withSchema, metadata, withDatabasePath
+
+
+## TUI Scripts
+
+@docs tui
 
 
 ## File System Utilities
@@ -53,6 +59,10 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Script
+import Tui
+import Tui.Effect
+import Tui.Internal
+import Tui.Sub
 import TsJson.Encode
 import TsJson.Type
 
@@ -345,6 +355,59 @@ withDatabasePath dbPath (Pages.Internal.Script.Script script) =
                         )
         , metadata = script.metadata
         }
+
+
+{-| Define a TUI (Terminal User Interface) script. The lifecycle mirrors a
+Route Module:
+
+  - `data` loads initial data before the TUI starts (normal terminal mode)
+  - `init` creates the initial model from loaded data
+  - `update` handles terminal events and BackendTask results
+  - `view` renders the model to the terminal
+  - `subscriptions` declares which terminal events to listen for
+
+Example:
+
+    module Counter exposing (run)
+
+    import Pages.Script as Script exposing (Script)
+    import Tui
+    import Tui.Effect as Effect
+    import Tui.Sub as Sub
+
+    run : Script
+    run =
+        Script.tui
+            { data = BackendTask.succeed ()
+            , init = \() -> ( { count = 0 }, Effect.none )
+            , update = update
+            , view = view
+            , subscriptions = \_ -> Sub.onKeyPress KeyPressed
+            }
+
+-}
+tui :
+    { data : BackendTask FatalError data
+    , init : data -> ( model, Tui.Effect.Effect msg )
+    , update : msg -> model -> ( model, Tui.Effect.Effect msg )
+    , view : Tui.Context -> model -> Tui.Screen
+    , subscriptions : model -> Tui.Sub.Sub msg
+    }
+    -> Script
+tui config =
+    withoutCliOptions
+        (config.data
+            |> BackendTask.andThen
+                (\loadedData ->
+                    Tui.Internal.run
+                        { init = config.init
+                        , update = config.update
+                        , view = config.view
+                        , subscriptions = config.subscriptions
+                        }
+                        loadedData
+                )
+        )
 
 
 setDatabasePath : String -> BackendTask FatalError ()
