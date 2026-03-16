@@ -265,7 +265,7 @@ scrollDown : { row : Int, col : Int } -> TuiTest model msg -> TuiTest model msg
 scrollDown pos =
     simulateMouseEvent
         ("scrollDown (" ++ String.fromInt pos.row ++ "," ++ String.fromInt pos.col ++ ")")
-        (Tui.ScrollDown { row = pos.row, col = pos.col })
+        (Tui.ScrollDown { row = pos.row, col = pos.col, amount = 1 })
 
 
 {-| Simulate a scroll-up event at the given position.
@@ -274,7 +274,7 @@ scrollUp : { row : Int, col : Int } -> TuiTest model msg -> TuiTest model msg
 scrollUp pos =
     simulateMouseEvent
         ("scrollUp (" ++ String.fromInt pos.row ++ "," ++ String.fromInt pos.col ++ ")")
-        (Tui.ScrollUp { row = pos.row, col = pos.col })
+        (Tui.ScrollUp { row = pos.row, col = pos.col, amount = 1 })
 
 
 simulateMouseEvent : String -> Tui.MouseEvent -> TuiTest model msg -> TuiTest model msg

@@ -2617,22 +2617,17 @@ async function runTuiWaitEventImpl(req, interests) {
     }
 
     let onDataHandler = null;
+    let scrollCoalesce = null; // { action, row, col, amount, timer }
+
     if (interests.includes("keypress") || interests.includes("mouse")) {
-      onDataHandler = (data) => {
-        const event = tuiParseTerminalInput(data);
-        if (!event) return; // unknown input, ignore
-
-        // Ctrl+C always exits
-        if (event._exit) {
-          if (resizeHandler) stdout.removeListener("resize", resizeHandler);
-          stdin.removeListener("data", onDataHandler);
-          tuiCleanup();
-          process.exit(130);
-          return;
-        }
-
+      const cleanup = () => {
         if (resizeHandler) stdout.removeListener("resize", resizeHandler);
         stdin.removeListener("data", onDataHandler);
+        if (scrollCoalesce && scrollCoalesce.timer) clearTimeout(scrollCoalesce.timer);
+      };
+
+      const resolveWith = (event) => {
+        cleanup();
         resolve(
           jsonResponse(req, {
             event: event,
@@ -2640,6 +2635,46 @@ async function runTuiWaitEventImpl(req, interests) {
             height: stdout.rows || 24,
           })
         );
+      };
+
+      onDataHandler = (data) => {
+        const event = tuiParseTerminalInput(data);
+        if (!event) return;
+
+        if (event._exit) {
+          cleanup();
+          tuiCleanup();
+          process.exit(130);
+          return;
+        }
+
+        // Scroll coalescing: batch rapid scroll events within 8ms
+        // This is the gocui "drain all events before rendering" pattern
+        if (event.type === "mouse" && (event.action === "scrollUp" || event.action === "scrollDown")) {
+          if (scrollCoalesce && scrollCoalesce.action === event.action) {
+            // Same direction — accumulate
+            scrollCoalesce.amount++;
+            clearTimeout(scrollCoalesce.timer);
+          } else {
+            // New direction or first scroll — start fresh
+            if (scrollCoalesce && scrollCoalesce.timer) clearTimeout(scrollCoalesce.timer);
+            scrollCoalesce = { action: event.action, row: event.row, col: event.col, amount: 1, timer: null };
+          }
+          // Flush after 8ms of quiet (roughly 1 frame at 120fps)
+          scrollCoalesce.timer = setTimeout(() => {
+            resolveWith({
+              type: "mouse",
+              action: scrollCoalesce.action,
+              row: scrollCoalesce.row,
+              col: scrollCoalesce.col,
+              amount: scrollCoalesce.amount,
+            });
+          }, 8);
+          return;
+        }
+
+        // Non-scroll events resolve immediately
+        resolveWith(event);
       };
       stdin.on("data", onDataHandler);
     }

@@ -155,39 +155,45 @@ update msg model =
                     else
                         ( model, Effect.none )
 
-                Tui.ScrollDown { col } ->
+                Tui.ScrollDown { col, amount } ->
+                    let
+                        delta : Int
+                        delta =
+                            amount * 3
+                    in
                     if col < model.leftWidth then
-                        -- Scroll in left pane: scroll the commit list viewport
                         ( { model
                             | scrollOffset =
                                 min
                                     (max 0 (List.length model.commits - 5))
-                                    (model.scrollOffset + 3)
+                                    (model.scrollOffset + delta)
                           }
                         , Effect.none
                         )
 
                     else
-                        -- Scroll in right pane: scroll diff content
                         ( { model
                             | diffScrollOffset =
                                 min
                                     (max 0 (List.length (String.lines model.diffContent) - 5))
-                                    (model.diffScrollOffset + 3)
+                                    (model.diffScrollOffset + delta)
                           }
                         , Effect.none
                         )
 
-                Tui.ScrollUp { col } ->
+                Tui.ScrollUp { col, amount } ->
+                    let
+                        delta : Int
+                        delta =
+                            amount * 3
+                    in
                     if col < model.leftWidth then
-                        -- Scroll in left pane: scroll the commit list viewport
-                        ( { model | scrollOffset = max 0 (model.scrollOffset - 3) }
+                        ( { model | scrollOffset = max 0 (model.scrollOffset - delta) }
                         , Effect.none
                         )
 
                     else
-                        -- Scroll in right pane: scroll diff content
-                        ( { model | diffScrollOffset = max 0 (model.diffScrollOffset - 3) }
+                        ( { model | diffScrollOffset = max 0 (model.diffScrollOffset - delta) }
                         , Effect.none
                         )
 

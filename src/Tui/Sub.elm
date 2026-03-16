@@ -346,10 +346,22 @@ decodeMouseEvent =
                             (Decode.field "button" decodeMouseButton)
 
                     "scrollUp" ->
-                        Decode.map Tui.ScrollUp coords
+                        Decode.map2
+                            (\pos amt -> Tui.ScrollUp { row = pos.row, col = pos.col, amount = amt })
+                            coords
+                            (Decode.field "amount" Decode.int
+                                |> Decode.maybe
+                                |> Decode.map (Maybe.withDefault 1)
+                            )
 
                     "scrollDown" ->
-                        Decode.map Tui.ScrollDown coords
+                        Decode.map2
+                            (\pos amt -> Tui.ScrollDown { row = pos.row, col = pos.col, amount = amt })
+                            coords
+                            (Decode.field "amount" Decode.int
+                                |> Decode.maybe
+                                |> Decode.map (Maybe.withDefault 1)
+                            )
 
                     _ ->
                         Decode.fail ("Unknown mouse action: " ++ action)

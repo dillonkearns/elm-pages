@@ -258,11 +258,16 @@ coordinates on any terminal size.
 
 Coordinates are 0-based: `{ row = 0, col = 0 }` is the top-left corner.
 
+`amount` on scroll events is the number of coalesced scroll steps. Rapid
+scrolling batches events on the JS side (like gocui's event drain) so you
+get one event with `amount = 5` instead of 5 separate events. Multiply your
+scroll distance by `amount` for responsive feel.
+
 -}
 type MouseEvent
     = Click { row : Int, col : Int, button : MouseButton }
-    | ScrollUp { row : Int, col : Int }
-    | ScrollDown { row : Int, col : Int }
+    | ScrollUp { row : Int, col : Int, amount : Int }
+    | ScrollDown { row : Int, col : Int, amount : Int }
 
 
 {-| Mouse button for click events.
