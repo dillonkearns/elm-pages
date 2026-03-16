@@ -178,11 +178,6 @@ view ctx model =
     in
     case maybeSnapshot of
         Just snapshot ->
-            let
-                renderedScreen : Tui.Screen
-                renderedScreen =
-                    snapshot.rerender { width = ctx.width - 6, height = ctx.height - 14 }
-            in
             Tui.lines
                 ([ Tui.styled headerStyle
                     ("  Test Stepper — Step "
@@ -208,7 +203,7 @@ view ctx model =
                  , Tui.styled dimStyle ("  " ++ separator)
                  , Tui.text ""
                  ]
-                    ++ (renderedScreen
+                    ++ (snapshot.screen
                             |> Tui.toLines
                             |> List.map
                                 (\line ->
