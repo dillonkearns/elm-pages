@@ -2444,6 +2444,9 @@ let tuiActive = false;
 let tuiPrevLines = []; // cached rendered lines for dirty-line diffing
 let tuiEventQueue = []; // events that arrived during Elm processing
 let tuiEventResolve = null; // pending promise resolver for next wait
+let tuiLastRenderTime = 0; // timestamp of last actual terminal write
+let tuiPendingRender = null; // deferred render to ensure final frame is shown
+const TUI_MIN_RENDER_INTERVAL = 16; // ms — ~60fps cap, like Bubble Tea
 
 function tuiCleanup() {
   if (!tuiActive) return;
@@ -2560,7 +2563,31 @@ function tuiRenderScreen(screenData) {
     newLines.push(rendered);
   }
 
-  // Diff against previous frame, wrapped in synchronized output
+  // Frame rate throttle (like Bubble Tea's 60fps renderer cap).
+  // Skip intermediate renders so slow displays (e-ink) aren't overwhelmed.
+  // Schedule a deferred render so the final frame is always shown.
+  const now = Date.now();
+  if (now - tuiLastRenderTime < TUI_MIN_RENDER_INTERVAL) {
+    // Too soon — schedule deferred render for when the interval elapses
+    if (tuiPendingRender) clearTimeout(tuiPendingRender);
+    tuiPendingRender = setTimeout(() => {
+      tuiPendingRender = null;
+      tuiFlushLines(stdout, newLines);
+    }, TUI_MIN_RENDER_INTERVAL - (now - tuiLastRenderTime));
+    return;
+  }
+  tuiLastRenderTime = now;
+  if (tuiPendingRender) {
+    clearTimeout(tuiPendingRender);
+    tuiPendingRender = null;
+  }
+
+  tuiFlushLines(stdout, newLines);
+}
+
+/** Diff newLines against tuiPrevLines and write only changed lines to terminal */
+function tuiFlushLines(stdout, newLines) {
+  tuiLastRenderTime = Date.now();
   let output = "\x1b[?2026h"; // begin synchronized update
   let dirty = false;
   const maxLines = Math.max(newLines.length, tuiPrevLines.length);
