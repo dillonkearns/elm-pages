@@ -164,6 +164,7 @@ renderAndWait :
 renderAndWait config context model =
     -- elm-review: known-unoptimized-recursion
     let
+        screen : Screen
         screen =
             config.view context model
     in
@@ -171,6 +172,7 @@ renderAndWait config context model =
         |> BackendTask.andThen
             (\() ->
                 let
+                    sub : Sub msg
                     sub =
                         config.subscriptions model
                 in
@@ -178,11 +180,13 @@ renderAndWait config context model =
                     |> BackendTask.andThen
                         (\response ->
                             let
+                                newContext : Context
                                 newContext =
                                     { width = response.width
                                     , height = response.height
                                     }
 
+                                rawEvent : Sub.RawEvent
                                 rawEvent =
                                     decodeRawEvent response.event
                             in

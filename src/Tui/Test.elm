@@ -3,7 +3,7 @@ module Tui.Test exposing
     , start, startWithContext
     , pressKey, pressKeyWith, resize
     , sendMsg
-    , resolveEffect
+    , BackendTaskSimulator, resolveEffect
     , ensureView, ensureViewHas, ensureViewDoesNotHave
     , expectRunning, expectExit, expectExitWith
     )
@@ -49,7 +49,7 @@ or directly with [`sendMsg`](#sendMsg).
 
 @docs sendMsg
 
-@docs resolveEffect
+@docs BackendTaskSimulator, resolveEffect
 
 @docs ensureView, ensureViewHas, ensureViewDoesNotHave
 
@@ -160,6 +160,7 @@ pressKey char =
 {-| Simulate pressing any key, including special keys and modifiers.
 
     test |> TuiTest.pressKeyWith { key = Tui.Arrow Tui.Down, modifiers = [] }
+
     test |> TuiTest.pressKeyWith { key = Tui.Character 's', modifiers = [ Tui.Ctrl ] }
 
 -}
@@ -174,6 +175,7 @@ pressKeyWith keyEvent (TuiTest state) =
 
         ( Nothing, Nothing ) ->
             let
+                sub : Sub msg
                 sub =
                     state.subscriptions state.model
             in
@@ -219,6 +221,14 @@ sendMsg msg =
 -- BACKENDTASK SIMULATION
 
 
+{-| The type of the `Test.BackendTask` pipeline used with
+[`resolveEffect`](#resolveEffect). This is `Test.BackendTask.Internal.BackendTaskTest`
+— the same type that `Test.BackendTask` functions operate on.
+-}
+type alias BackendTaskSimulator msg =
+    BackendTaskTest.BackendTaskTest msg
+
+
 {-| Resolve a pending `BackendTask` effect using the full `Test.BackendTask`
 API. The next pending `BackendTask` (from the most recent `Effect.perform` or
 `Effect.attempt`) is run through `Test.BackendTask.fromBackendTask`, then your
@@ -246,7 +256,7 @@ You can chain multiple simulations for BackendTasks that require more than one:
 
 -}
 resolveEffect :
-    (BackendTaskTest.BackendTaskTest msg -> BackendTaskTest.BackendTaskTest msg)
+    (BackendTaskSimulator msg -> BackendTaskSimulator msg)
     -> TuiTest model msg
     -> TuiTest model msg
 resolveEffect simulate =
@@ -285,9 +295,11 @@ ensureView assertion (TuiTest state) =
 
         Nothing ->
             let
+                screenText : String
                 screenText =
                     Tui.toString (state.view state.context state.model)
 
+                result : Expectation
                 result =
                     assertion screenText
             in
@@ -312,6 +324,7 @@ ensureViewHas needle (TuiTest state) =
 
         Nothing ->
             let
+                screenText : String
                 screenText =
                     Tui.toString (state.view state.context state.model)
             in
@@ -341,6 +354,7 @@ ensureViewDoesNotHave needle (TuiTest state) =
 
         Nothing ->
             let
+                screenText : String
                 screenText =
                     Tui.toString (state.view state.context state.model)
             in
@@ -446,14 +460,6 @@ expectExitWith expectedCode (TuiTest state) =
 
 pendingEffectsError : Int -> String
 pendingEffectsError count =
-    let
-        noun =
-            if count == 1 then
-                "effect"
-
-            else
-                "effects"
-    in
     "There "
         ++ (if count == 1 then
                 "is 1 pending BackendTask effect"
@@ -518,6 +524,7 @@ resolveNextEffect simulate (TuiTest state) =
 
                 bt :: rest ->
                     let
+                        testResult : Result String msg
                         testResult =
                             simulate bt
                                 |> BackendTaskTest.toResult
@@ -541,6 +548,7 @@ resolveNextEffect simulate (TuiTest state) =
 
 extractBackendTasks : Effect msg -> List (BackendTask FatalError msg)
 extractBackendTasks effect =
+    -- elm-review: known-unoptimized-recursion
     case effect of
         Effect.None ->
             []
@@ -563,6 +571,7 @@ extractBackendTasks effect =
 
 checkForExit : Effect msg -> Maybe Int
 checkForExit effect =
+    -- elm-review: known-unoptimized-recursion
     case effect of
         Effect.Exit ->
             Just 0

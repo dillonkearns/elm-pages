@@ -1,8 +1,8 @@
 module TuiTests exposing (suite)
 
+import Ansi.Color
 import BackendTask
 import BackendTask.Http
-import Ansi.Color
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Json.Decode as Decode

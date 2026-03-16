@@ -2,7 +2,7 @@ module TuiStars exposing (run)
 
 {-| TUI demo: type a GitHub repo name, press Enter to fetch star count.
 
-    elm-pages run script/src/TuiStars.elm
+    elm - pages run script / src / TuiStars.elm
 
 -}
 

@@ -79,6 +79,7 @@ every =
 -}
 map : (a -> b) -> Sub a -> Sub b
 map f sub =
+    -- elm-review: known-unoptimized-recursion
     case sub of
         SubNone ->
             SubNone
@@ -106,6 +107,7 @@ getInterests sub =
     let
         collect : Sub msg -> List String -> List String
         collect s acc =
+            -- elm-review: known-unoptimized-recursion
             case s of
                 SubNone ->
                     acc
@@ -132,6 +134,7 @@ Resize events are NOT routed to user code — they are handled by the framework.
 -}
 routeEvent : Sub msg -> RawEvent -> Maybe msg
 routeEvent sub event =
+    -- elm-review: known-unoptimized-recursion
     case sub of
         SubNone ->
             Nothing

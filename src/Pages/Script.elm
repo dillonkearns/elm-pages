@@ -59,12 +59,12 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Script
+import TsJson.Encode
+import TsJson.Type
 import Tui
 import Tui.Effect
 import Tui.Internal
 import Tui.Sub
-import TsJson.Encode
-import TsJson.Type
 
 
 {-| The type for your `run` function that can be executed by `elm-pages run`.
@@ -458,22 +458,30 @@ tuiWithCliOptions :
 tuiWithCliOptions cliConfig toTuiConfig =
     withCliOptions cliConfig
         (\cliOptions ->
-            let
-                config =
-                    toTuiConfig cliOptions
-            in
-            config.data
-                |> BackendTask.andThen
-                    (\loadedData ->
-                        Tui.Internal.run
-                            { init = config.init
-                            , update = config.update
-                            , view = config.view
-                            , subscriptions = config.subscriptions
-                            }
-                            loadedData
-                    )
+            tuiFromConfig (toTuiConfig cliOptions)
         )
+
+
+tuiFromConfig :
+    { data : BackendTask FatalError data
+    , init : data -> ( model, Tui.Effect.Effect msg )
+    , update : msg -> model -> ( model, Tui.Effect.Effect msg )
+    , view : Tui.Context -> model -> Tui.Screen
+    , subscriptions : model -> Tui.Sub.Sub msg
+    }
+    -> BackendTask FatalError ()
+tuiFromConfig config =
+    config.data
+        |> BackendTask.andThen
+            (\loadedData ->
+                Tui.Internal.run
+                    { init = config.init
+                    , update = config.update
+                    , view = config.view
+                    , subscriptions = config.subscriptions
+                    }
+                    loadedData
+            )
 
 
 setDatabasePath : String -> BackendTask FatalError ()

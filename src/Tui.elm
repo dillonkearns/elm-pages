@@ -310,6 +310,7 @@ defaultFlatStyle =
 styleToFlatStyle : Style -> FlatStyle
 styleToFlatStyle s =
     let
+        base : FlatStyle
         base =
             { defaultFlatStyle
                 | foreground = s.fg
@@ -346,6 +347,7 @@ styled spans.
 -}
 flattenToSpanLines : Screen -> List (List Span)
 flattenToSpanLines screen =
+    -- elm-review: known-unoptimized-recursion
     case screen of
         ScreenEmpty ->
             []
@@ -360,14 +362,15 @@ flattenToSpanLines screen =
                     |> List.map (\line -> [ { text = line, style = defaultFlatStyle } ])
 
         ScreenStyled stl s ->
-            let
-                flatStyle =
-                    styleToFlatStyle stl
-            in
             if String.isEmpty s then
                 [ [] ]
 
             else
+                let
+                    flatStyle : FlatStyle
+                    flatStyle =
+                        styleToFlatStyle stl
+                in
                 s
                     |> String.split "\n"
                     |> List.map (\line -> [ { text = line, style = flatStyle } ])
@@ -377,6 +380,7 @@ flattenToSpanLines screen =
 
         ScreenConcat items ->
             let
+                allFirstLineSpans : List Span
                 allFirstLineSpans =
                     items
                         |> List.concatMap

@@ -131,6 +131,7 @@ suspend toMsg bt =
 -}
 map : (a -> b) -> Effect a -> Effect b
 map f effect =
+    -- elm-review: known-unoptimized-recursion
     case effect of
         None ->
             None
@@ -193,6 +194,7 @@ toBackendTask effect =
 
 processBatch : List (Effect msg) -> BackendTask FatalError (EffectResult msg)
 processBatch effects =
+    -- elm-review: known-unoptimized-recursion
     case effects of
         [] ->
             BackendTask.succeed EffectDone

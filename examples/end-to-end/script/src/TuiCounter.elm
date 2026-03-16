@@ -2,12 +2,12 @@ module TuiCounter exposing (run)
 
 {-| A minimal TUI demo — a counter you can increment/decrement with keyboard.
 
-    elm-pages run script/src/TuiCounter.elm
+    elm - pages run script / src / TuiCounter.elm
 
 Keys:
-  k / ↑  — increment
-  j / ↓  — decrement
-  q / Esc — quit
+k / ↑ — increment
+j / ↓ — decrement
+q / Esc — quit
 
 -}
 
