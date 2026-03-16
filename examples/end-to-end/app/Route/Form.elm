@@ -2,6 +2,7 @@ module Route.Form exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import Date exposing (Date)
+import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Form
@@ -12,6 +13,7 @@ import Form.Validation as Validation
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Html.Events
 import Html.Styled
 import Pages.Form
 import PagesMsg exposing (PagesMsg)
@@ -27,8 +29,8 @@ type alias Model =
     {}
 
 
-type alias Msg =
-    ()
+type Msg
+    = FirstNameUpdated String
 
 
 type alias RouteParams =
@@ -122,7 +124,7 @@ form =
                     , fieldView "Price" username
                     , fieldView "Image" email
                     , fieldView "Image" dob
-                    , Html.button []
+                    , Html.button [ Attr.id "update" ]
                         [ Html.text
                             (if formState.submitting then
                                 "Updating..."
@@ -174,14 +176,19 @@ form =
         |> Form.field "checkbox" Field.checkbox
 
 
-route : StatelessRoute RouteParams Data ActionData
+route : RouteBuilder.StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
         , action = action
         }
-        |> RouteBuilder.buildNoState { view = view }
+        |> RouteBuilder.buildWithLocalState
+            { init = init
+            , update = update
+            , subscriptions = \_ _ _ _ -> Sub.none
+            , view = view
+            }
 
 
 type alias Data =
@@ -221,11 +228,32 @@ head static =
     []
 
 
+init : App Data ActionData RouteParams -> Shared.Model -> ( Model, Effect msg )
+init _ _ =
+    ( {}, Effect.none )
+
+
+update :
+    App Data ActionData RouteParams
+    -> Shared.Model
+    -> Msg
+    -> Model
+    -> ( Model, Effect msg )
+update _ _ msg model =
+    case msg of
+        FirstNameUpdated new ->
+            ( model
+            , Effect.SetField
+                { formId = "user-form", name = "first", value = new }
+            )
+
+
 view :
     App Data ActionData RouteParams
     -> Shared.Model
+    -> Model
     -> View (PagesMsg Msg)
-view app shared =
+view app shared _ =
     let
         user : User
         user =
@@ -261,6 +289,14 @@ view app shared =
                     |> Form.withServerResponse (app.action |> Maybe.map .formResponse)
                 )
                 app
+        , Html.button
+            [ Html.Events.onClick <|
+                PagesMsg.fromMsg <|
+                    FirstNameUpdated "Jim"
+            , Attr.style "width" "100%"
+            , Attr.id "fill-jim"
+            ]
+            [ Html.text "Set first name to Jim" ]
         ]
             |> List.map Html.Styled.fromUnstyled
     }
