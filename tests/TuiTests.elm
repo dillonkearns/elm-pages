@@ -7,6 +7,7 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
+import Test.BackendTask as BackendTaskTest
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Sub
@@ -219,38 +220,44 @@ suite =
                         |> TuiTest.ensureViewHas "Stars: 7800"
                         |> TuiTest.expectRunning
             ]
-        , describe "TuiTest - Stars (simulateHttpGet)"
-            [ test "simulateHttpGet resolves the pending BackendTask" <|
+        , describe "TuiTest - resolveEffect (Test.BackendTask integration)"
+            [ test "resolveEffect with simulateHttpGet resolves the pending BackendTask" <|
                 \() ->
                     starsTest
                         |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
-                        |> TuiTest.simulateHttpGet
-                            "https://api.github.com/repos/dillonkearns/elm-pages"
-                            (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
+                        |> TuiTest.resolveEffect
+                            (BackendTaskTest.simulateHttpGet
+                                "https://api.github.com/repos/dillonkearns/elm-pages"
+                                (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
+                            )
                         |> TuiTest.ensureViewHas "Stars: 1234"
                         |> TuiTest.ensureViewDoesNotHave "Loading"
                         |> TuiTest.expectRunning
-            , test "simulateHttpGet with different repo after editing" <|
+            , test "resolveEffect with different repo after editing" <|
                 \() ->
                     starsTest
                         |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] })
                         |> typeString "elm/core"
                         |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
-                        |> TuiTest.simulateHttpGet
-                            "https://api.github.com/repos/elm/core"
-                            (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
+                        |> TuiTest.resolveEffect
+                            (BackendTaskTest.simulateHttpGet
+                                "https://api.github.com/repos/elm/core"
+                                (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
+                            )
                         |> TuiTest.ensureViewHas "Stars: 7500"
                         |> TuiTest.expectRunning
-            , test "simulateHttpGet fails gracefully with no pending effect" <|
+            , test "resolveEffect fails gracefully with no pending effect" <|
                 \() ->
                     starsTest
                         -- Don't press Enter — no pending effect
-                        |> TuiTest.simulateHttpGet
-                            "https://api.github.com/repos/foo/bar"
-                            (Encode.int 0)
+                        |> TuiTest.resolveEffect
+                            (BackendTaskTest.simulateHttpGet
+                                "https://api.github.com/repos/foo/bar"
+                                (Encode.int 0)
+                            )
                         |> TuiTest.expectRunning
-                        |> (\result ->
+                        |> (\_ ->
                                 -- We expect this to fail with a helpful message
                                 Expect.pass
                            )

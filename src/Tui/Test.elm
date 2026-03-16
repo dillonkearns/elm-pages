@@ -3,7 +3,7 @@ module Tui.Test exposing
     , start, startWithContext
     , pressKey, pressKeyWith, resize
     , sendMsg
-    , simulateHttpGet, simulateHttpPost, simulateHttp, simulateCommand, simulateCustom
+    , resolveEffect
     , ensureView, ensureViewHas, ensureViewDoesNotHave
     , expectRunning, expectExit, expectExitWith
     )
@@ -11,12 +11,14 @@ module Tui.Test exposing
 {-| Write pure tests for TUI scripts. No terminal, no I/O — just regular
 Elm tests.
 
-Effects returned by `update` are tracked and can be resolved using simulation
-functions from `Test.BackendTask`, or directly with `sendMsg`.
+Effects returned by `update` are tracked and can be resolved using
+[`resolveEffect`](#resolveEffect) with the full `Test.BackendTask` API,
+or directly with [`sendMsg`](#sendMsg).
 
     import Expect
     import Json.Encode as Encode
     import Test exposing (test)
+    import Test.BackendTask as BackendTaskTest
     import Tui
     import Tui.Test as TuiTest
 
@@ -31,9 +33,11 @@ functions from `Test.BackendTask`, or directly with `sendMsg`.
                 }
                 |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
                 |> TuiTest.ensureViewHas "Loading..."
-                |> TuiTest.simulateHttpGet
-                    "https://api.github.com/repos/dillonkearns/elm-pages"
-                    (Encode.int 1234)
+                |> TuiTest.resolveEffect
+                    (BackendTaskTest.simulateHttpGet
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
+                    )
                 |> TuiTest.ensureViewHas "Stars: 1234"
                 |> TuiTest.expectRunning
 
@@ -45,7 +49,7 @@ functions from `Test.BackendTask`, or directly with `sendMsg`.
 
 @docs sendMsg
 
-@docs simulateHttpGet, simulateHttpPost, simulateHttp, simulateCommand, simulateCustom
+@docs resolveEffect
 
 @docs ensureView, ensureViewHas, ensureViewDoesNotHave
 
@@ -56,7 +60,6 @@ functions from `Test.BackendTask`, or directly with `sendMsg`.
 import BackendTask exposing (BackendTask)
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
-import Json.Encode as Encode
 import Test.BackendTask.Internal as BackendTaskTest
 import Test.Runner
 import Tui exposing (Context, KeyEvent, Screen)
@@ -216,79 +219,42 @@ sendMsg msg =
 -- BACKENDTASK SIMULATION
 
 
-{-| Resolve a pending HTTP GET by URL with the given JSON response body.
-The pending `BackendTask` (from the most recent `Effect.perform` or
-`Effect.attempt`) is run through the `Test.BackendTask` infrastructure and the
-result is fed through `update`.
+{-| Resolve a pending `BackendTask` effect using the full `Test.BackendTask`
+API. The next pending `BackendTask` (from the most recent `Effect.perform` or
+`Effect.attempt`) is run through `Test.BackendTask.fromBackendTask`, then your
+simulation function is applied, and the resolved result is fed through `update`.
 
-    test
-        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
-        |> TuiTest.simulateHttpGet
-            "https://api.github.com/repos/elm/core"
-            (Encode.int 7500)
-        |> TuiTest.ensureViewHas "7500"
+    import Test.BackendTask as BackendTaskTest
 
--}
-simulateHttpGet : String -> Encode.Value -> TuiTest model msg -> TuiTest model msg
-simulateHttpGet url jsonResponse =
-    resolveNextEffect
-        (\bt ->
-            bt
-                |> BackendTaskTest.fromBackendTask
-                |> BackendTaskTest.simulateHttpGet url jsonResponse
+    test "fetches stars on Enter" <|
+        \() ->
+            starsTest
+                |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                |> TuiTest.resolveEffect
+                    (BackendTaskTest.simulateHttpGet
+                        "https://api.github.com/repos/elm/core"
+                        (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
+                    )
+                |> TuiTest.ensureViewHas "Stars: 7500"
+
+You can chain multiple simulations for BackendTasks that require more than one:
+
+    |> TuiTest.resolveEffect
+        (BackendTaskTest.simulateCommand "git" "M src/Main.elm"
+            >> BackendTaskTest.simulateCommand "git" "main"
         )
 
-
-{-| Resolve a pending HTTP POST by URL with the given JSON response body.
 -}
-simulateHttpPost : String -> Encode.Value -> TuiTest model msg -> TuiTest model msg
-simulateHttpPost url jsonResponse =
-    resolveNextEffect
-        (\bt ->
-            bt
-                |> BackendTaskTest.fromBackendTask
-                |> BackendTaskTest.simulateHttpPost url jsonResponse
-        )
-
-
-{-| Resolve a pending HTTP request with full control over method, status,
-headers, and body.
--}
-simulateHttp :
-    { method : String, url : String }
-    -> { statusCode : Int, statusText : String, headers : List ( String, String ), body : Encode.Value }
+resolveEffect :
+    (BackendTaskTest.BackendTaskTest msg -> BackendTaskTest.BackendTaskTest msg)
     -> TuiTest model msg
     -> TuiTest model msg
-simulateHttp request response =
+resolveEffect simulate =
     resolveNextEffect
         (\bt ->
             bt
                 |> BackendTaskTest.fromBackendTask
-                |> BackendTaskTest.simulateHttp request response
-        )
-
-
-{-| Resolve a pending shell command with the given stdout output.
--}
-simulateCommand : String -> String -> TuiTest model msg -> TuiTest model msg
-simulateCommand commandName commandOutput =
-    resolveNextEffect
-        (\bt ->
-            bt
-                |> BackendTaskTest.fromBackendTask
-                |> BackendTaskTest.simulateCommand commandName commandOutput
-        )
-
-
-{-| Resolve a pending `BackendTask.Custom.run` call with the given JSON value.
--}
-simulateCustom : String -> Encode.Value -> TuiTest model msg -> TuiTest model msg
-simulateCustom portName jsonResponse =
-    resolveNextEffect
-        (\bt ->
-            bt
-                |> BackendTaskTest.fromBackendTask
-                |> BackendTaskTest.simulateCustom portName jsonResponse
+                |> simulate
         )
 
 
