@@ -155,18 +155,13 @@ update msg model =
                     else
                         ( model, Effect.none )
 
-                Tui.ScrollDown { col, amount } ->
-                    let
-                        delta : Int
-                        delta =
-                            amount * 3
-                    in
+                Tui.ScrollDown { col } ->
                     if col < model.leftWidth then
                         ( { model
                             | scrollOffset =
                                 min
                                     (max 0 (List.length model.commits - 5))
-                                    (model.scrollOffset + delta)
+                                    (model.scrollOffset + 2)
                           }
                         , Effect.none
                         )
@@ -176,24 +171,19 @@ update msg model =
                             | diffScrollOffset =
                                 min
                                     (max 0 (List.length (String.lines model.diffContent) - 5))
-                                    (model.diffScrollOffset + delta)
+                                    (model.diffScrollOffset + 2)
                           }
                         , Effect.none
                         )
 
-                Tui.ScrollUp { col, amount } ->
-                    let
-                        delta : Int
-                        delta =
-                            amount * 3
-                    in
+                Tui.ScrollUp { col } ->
                     if col < model.leftWidth then
-                        ( { model | scrollOffset = max 0 (model.scrollOffset - delta) }
+                        ( { model | scrollOffset = max 0 (model.scrollOffset - 2) }
                         , Effect.none
                         )
 
                     else
-                        ( { model | diffScrollOffset = max 0 (model.diffScrollOffset - delta) }
+                        ( { model | diffScrollOffset = max 0 (model.diffScrollOffset - 2) }
                         , Effect.none
                         )
 
