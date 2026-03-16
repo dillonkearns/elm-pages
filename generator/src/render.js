@@ -2511,18 +2511,30 @@ async function runTuiRender(req) {
 function tuiRenderScreen(screenData) {
   const stdout = process.stdout;
 
-  // Build rendered lines for this frame
+  // Build rendered lines for this frame with SGR state tracking:
+  // only emit style changes when the style actually differs from current state
   const newLines = [];
   for (const line of screenData) {
     let rendered = "";
+    let curStyle = null; // track current SGR state across spans
     for (const span of line) {
-      rendered += tuiApplyStyle(span.style, span.text);
+      const nextStyle = tuiStyleKey(span.style);
+      if (nextStyle !== curStyle) {
+        // Style changed — reset and apply new style
+        if (curStyle !== null) rendered += "\x1b[0m";
+        const codes = tuiStyleCodes(span.style);
+        if (codes) rendered += `\x1b[${codes}m`;
+        curStyle = nextStyle;
+      }
+      rendered += span.text;
     }
+    if (curStyle !== null && curStyle !== "") rendered += "\x1b[0m";
     newLines.push(rendered);
   }
 
-  // Diff against previous frame
-  let output = "";
+  // Diff against previous frame, wrapped in synchronized output
+  let output = "\x1b[?2026h"; // begin synchronized update
+  let dirty = false;
   const maxLines = Math.max(newLines.length, tuiPrevLines.length);
 
   for (let i = 0; i < maxLines; i++) {
@@ -2530,16 +2542,47 @@ function tuiRenderScreen(screenData) {
     const prevLine = i < tuiPrevLines.length ? tuiPrevLines[i] : null;
 
     if (newLine !== prevLine) {
-      // Move cursor to this line and write it
       output += `\x1b[${i + 1};1H${newLine}\x1b[K`;
+      dirty = true;
     }
   }
 
-  if (output) {
+  output += "\x1b[?2026l"; // end synchronized update
+
+  if (dirty) {
     stdout.write(output);
   }
 
   tuiPrevLines = newLines;
+}
+
+/** Generate a cache key for a style object for quick comparison */
+function tuiStyleKey(style) {
+  if (!style) return "";
+  let key = "";
+  if (style.bold) key += "B";
+  if (style.dim) key += "D";
+  if (style.italic) key += "I";
+  if (style.underline) key += "U";
+  if (style.strikethrough) key += "S";
+  if (style.inverse) key += "V";
+  if (style.foreground) key += "f" + JSON.stringify(style.foreground);
+  if (style.background) key += "b" + JSON.stringify(style.background);
+  return key;
+}
+
+/** Generate SGR codes string for a style (without the ESC[ prefix or m suffix) */
+function tuiStyleCodes(style) {
+  const codes = [];
+  if (style.bold) codes.push("1");
+  if (style.dim) codes.push("2");
+  if (style.italic) codes.push("3");
+  if (style.underline) codes.push("4");
+  if (style.strikethrough) codes.push("9");
+  if (style.inverse) codes.push("7");
+  if (style.foreground) codes.push(tuiColorToAnsi(style.foreground, false));
+  if (style.background) codes.push(tuiColorToAnsi(style.background, true));
+  return codes.join(";");
 }
 
 async function runTuiWaitEvent(req) {
@@ -2722,20 +2765,6 @@ function tuiParseTerminalInput(data) {
   }
 
   return null;
-}
-
-function tuiApplyStyle(style, text) {
-  const codes = [];
-  if (style.bold) codes.push("1");
-  if (style.dim) codes.push("2");
-  if (style.italic) codes.push("3");
-  if (style.underline) codes.push("4");
-  if (style.strikethrough) codes.push("9");
-  if (style.inverse) codes.push("7");
-  if (style.foreground) codes.push(tuiColorToAnsi(style.foreground, false));
-  if (style.background) codes.push(tuiColorToAnsi(style.background, true));
-  if (codes.length === 0) return text;
-  return `\x1b[${codes.join(";")}m${text}\x1b[0m`;
 }
 
 function tuiColorToAnsi(color, isBackground) {
