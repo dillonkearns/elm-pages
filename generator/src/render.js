@@ -2442,6 +2442,8 @@ function getTimezoneDataTemporal(tzId, sinceMs, untilMs) {
 
 let tuiActive = false;
 let tuiPrevLines = []; // cached rendered lines for dirty-line diffing
+let tuiEventQueue = []; // events that arrived during Elm processing
+let tuiEventResolve = null; // pending promise resolver for next wait
 
 function tuiCleanup() {
   if (!tuiActive) return;
@@ -2492,6 +2494,32 @@ async function runTuiInit(req) {
     process.stdin.resume();
     process.stdin.setEncoding("utf8");
   }
+
+  // Persistent stdin listener — stays active during Elm processing so events
+  // arriving between waits get queued instead of lost. This is gocui's pattern:
+  // events queue up, and the next wait drains them all at once.
+  tuiEventQueue = [];
+  tuiEventResolve = null;
+  process.stdin.on("data", (data) => {
+    const event = tuiParseTerminalInput(data);
+    if (!event) return;
+
+    if (event._exit) {
+      tuiCleanup();
+      process.exit(130);
+      return;
+    }
+
+    if (tuiEventResolve) {
+      // A wait is pending — resolve immediately (zero latency)
+      const resolve = tuiEventResolve;
+      tuiEventResolve = null;
+      resolve(event);
+    } else {
+      // No wait pending (Elm is processing) — queue for next wait
+      tuiEventQueue.push(event);
+    }
+  });
 
   return jsonResponse(req, {
     width: stdout.columns || 80,
@@ -2586,62 +2614,40 @@ function tuiStyleCodes(style) {
 }
 
 async function runTuiWaitEvent(req) {
-  const interests = req.body.args[0];
-  return runTuiWaitEventImpl(req, interests);
+  return runTuiWaitEventImpl(req);
 }
 
-async function runTuiWaitEventImpl(req, interests) {
-  const stdin = process.stdin;
+async function runTuiWaitEventImpl(req) {
   const stdout = process.stdout;
 
+  const makeResponse = (events) => {
+    if (events.length === 1) {
+      return jsonResponse(req, {
+        event: events[0],
+        width: stdout.columns || 80,
+        height: stdout.rows || 24,
+      });
+    }
+    return jsonResponse(req, {
+      events: events,
+      width: stdout.columns || 80,
+      height: stdout.rows || 24,
+    });
+  };
+
+  // If events queued up during Elm processing, return them all immediately.
+  // This is the gocui drain pattern — zero latency, natural batching.
+  if (tuiEventQueue.length > 0) {
+    const events = tuiEventQueue;
+    tuiEventQueue = [];
+    return makeResponse(events);
+  }
+
+  // No queued events — wait for the next one
   return new Promise((resolve) => {
-    // Handle resize events
-    let resizeHandler = null;
-    if (interests.includes("resize")) {
-      resizeHandler = () => {
-        if (onDataHandler) stdin.removeListener("data", onDataHandler);
-        if (resizeHandler) stdout.removeListener("resize", resizeHandler);
-        resolve(
-          jsonResponse(req, {
-            event: {
-              type: "resize",
-              width: stdout.columns || 80,
-              height: stdout.rows || 24,
-            },
-            width: stdout.columns || 80,
-            height: stdout.rows || 24,
-          })
-        );
-      };
-      stdout.on("resize", resizeHandler);
-    }
-
-    let onDataHandler = null;
-    if (interests.includes("keypress") || interests.includes("mouse")) {
-      onDataHandler = (data) => {
-        const event = tuiParseTerminalInput(data);
-        if (!event) return;
-
-        if (event._exit) {
-          if (resizeHandler) stdout.removeListener("resize", resizeHandler);
-          stdin.removeListener("data", onDataHandler);
-          tuiCleanup();
-          process.exit(130);
-          return;
-        }
-
-        if (resizeHandler) stdout.removeListener("resize", resizeHandler);
-        stdin.removeListener("data", onDataHandler);
-        resolve(
-          jsonResponse(req, {
-            event: event,
-            width: stdout.columns || 80,
-            height: stdout.rows || 24,
-          })
-        );
-      };
-      stdin.on("data", onDataHandler);
-    }
+    tuiEventResolve = (event) => {
+      resolve(makeResponse([event]));
+    };
   });
 }
 
@@ -2654,6 +2660,9 @@ async function runTuiRenderAndWait(req) {
 
 
 async function runTuiExit(req) {
+  tuiEventResolve = null;
+  tuiEventQueue = [];
+  process.stdin.removeAllListeners("data");
   tuiCleanup();
   return jsonResponse(req, null);
 }
