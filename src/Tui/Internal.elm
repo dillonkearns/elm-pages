@@ -58,29 +58,20 @@ tuiInit =
         }
 
 
-{-| Send a rendered screen to the JS runtime for display.
+{-| Render screen and wait for next event in a single request. This halves
+the round-trip latency compared to separate render + wait calls.
 -}
-tuiRender : Screen -> BackendTask FatalError ()
-tuiRender screen =
+tuiRenderAndWait : Screen -> Sub msg -> BackendTask FatalError { event : Decode.Value, width : Int, height : Int }
+tuiRenderAndWait screen sub =
     BackendTask.Internal.Request.request
-        { name = "tui-render"
+        { name = "tui-render-and-wait"
         , body =
             BackendTask.Http.jsonBody
-                (Tui.encodeScreen screen)
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
-        }
-
-
-{-| Wait for the next terminal event. Sends subscription interests so the JS
-side knows what to listen for. Returns the event and current terminal size.
--}
-tuiWaitEvent : Sub msg -> BackendTask FatalError { event : Decode.Value, width : Int, height : Int }
-tuiWaitEvent sub =
-    BackendTask.Internal.Request.request
-        { name = "tui-wait-event"
-        , body =
-            BackendTask.Http.jsonBody
-                (Sub.getInterests sub)
+                (Encode.object
+                    [ ( "screen", Tui.encodeScreen screen )
+                    , ( "interests", Sub.getInterests sub )
+                    ]
+                )
         , expect =
             BackendTask.Http.expectJson
                 (Decode.map3 (\e w h -> { event = e, width = w, height = h })
@@ -167,46 +158,40 @@ renderAndWait config context model =
         screen : Screen
         screen =
             config.view context model
+
+        sub : Sub msg
+        sub =
+            config.subscriptions model
     in
-    tuiRender screen
+    tuiRenderAndWait screen sub
         |> BackendTask.andThen
-            (\() ->
+            (\response ->
                 let
-                    sub : Sub msg
-                    sub =
-                        config.subscriptions model
+                    newContext : Context
+                    newContext =
+                        { width = response.width
+                        , height = response.height
+                        }
+
+                    rawEvent : Sub.RawEvent
+                    rawEvent =
+                        decodeRawEvent response.event
                 in
-                tuiWaitEvent sub
-                    |> BackendTask.andThen
-                        (\response ->
-                            let
-                                newContext : Context
-                                newContext =
-                                    { width = response.width
-                                    , height = response.height
-                                    }
+                case rawEvent of
+                    Sub.RawResize _ ->
+                        renderAndWait config newContext model
 
-                                rawEvent : Sub.RawEvent
-                                rawEvent =
-                                    decodeRawEvent response.event
-                            in
-                            case rawEvent of
-                                Sub.RawResize _ ->
-                                    -- Resize is framework-managed: just re-render with new context
-                                    renderAndWait config newContext model
+                    _ ->
+                        case Sub.routeEvent sub rawEvent of
+                            Just msg ->
+                                let
+                                    ( newModel, newEffect ) =
+                                        config.update msg model
+                                in
+                                processEffectsThenRenderAndWait config newContext newModel newEffect
 
-                                _ ->
-                                    case Sub.routeEvent sub rawEvent of
-                                        Just msg ->
-                                            let
-                                                ( newModel, newEffect ) =
-                                                    config.update msg model
-                                            in
-                                            processEffectsThenRenderAndWait config newContext newModel newEffect
-
-                                        Nothing ->
-                                            renderAndWait config newContext model
-                        )
+                            Nothing ->
+                                renderAndWait config newContext model
             )
 
 

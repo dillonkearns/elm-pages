@@ -766,6 +766,8 @@ async function runInternalJob(
         return [requestHash, await runTuiRender(requestToPerform)];
       case "elm-pages-internal://tui-wait-event":
         return [requestHash, await runTuiWaitEvent(requestToPerform)];
+      case "elm-pages-internal://tui-render-and-wait":
+        return [requestHash, await runTuiRenderAndWait(requestToPerform)];
       case "elm-pages-internal://tui-exit":
         return [requestHash, await runTuiExit(requestToPerform)];
       default:
@@ -2517,6 +2519,10 @@ async function runTuiRender(req) {
 
 async function runTuiWaitEvent(req) {
   const interests = req.body.args[0];
+  return runTuiWaitEventImpl(req, interests);
+}
+
+async function runTuiWaitEventImpl(req, interests) {
   const stdin = process.stdin;
   const stdout = process.stdout;
 
@@ -2571,6 +2577,29 @@ async function runTuiWaitEvent(req) {
     }
   });
 }
+
+async function runTuiRenderAndWait(req) {
+  // Combined render + wait in a single BackendTask round-trip
+  const args = req.body.args[0];
+  const screenData = args.screen;
+  const interests = args.interests;
+  const stdout = process.stdout;
+
+  // Render
+  let output = "\x1b[H";
+  for (const line of screenData) {
+    for (const span of line) {
+      output += tuiApplyStyle(span.style, span.text);
+    }
+    output += "\x1b[K\r\n";
+  }
+  output += "\x1b[J";
+  stdout.write(output);
+
+  // Wait (reuse the same logic as runTuiWaitEvent)
+  return runTuiWaitEventImpl(req, interests);
+}
+
 
 async function runTuiExit(req) {
   tuiCleanup();
