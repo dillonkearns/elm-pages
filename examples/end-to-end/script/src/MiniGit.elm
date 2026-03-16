@@ -157,9 +157,13 @@ update msg model =
 
                 Tui.ScrollDown { col } ->
                     if col < model.leftWidth then
-                        -- Scroll in left pane: move commit selection (no diff load)
-                        ( adjustScroll
-                            { model | selected = min maxIndex (model.selected + 1) }
+                        -- Scroll in left pane: scroll the commit list viewport
+                        ( { model
+                            | scrollOffset =
+                                min
+                                    (max 0 (List.length model.commits - 5))
+                                    (model.scrollOffset + 3)
+                          }
                         , Effect.none
                         )
 
@@ -168,7 +172,7 @@ update msg model =
                         ( { model
                             | diffScrollOffset =
                                 min
-                                    (List.length (String.lines model.diffContent) - 5)
+                                    (max 0 (List.length (String.lines model.diffContent) - 5))
                                     (model.diffScrollOffset + 3)
                           }
                         , Effect.none
@@ -176,17 +180,14 @@ update msg model =
 
                 Tui.ScrollUp { col } ->
                     if col < model.leftWidth then
-                        -- Scroll in left pane: move commit selection (no diff load)
-                        ( adjustScroll
-                            { model | selected = max 0 (model.selected - 1) }
+                        -- Scroll in left pane: scroll the commit list viewport
+                        ( { model | scrollOffset = max 0 (model.scrollOffset - 3) }
                         , Effect.none
                         )
 
                     else
                         -- Scroll in right pane: scroll diff content
-                        ( { model
-                            | diffScrollOffset = max 0 (model.diffScrollOffset - 3)
-                          }
+                        ( { model | diffScrollOffset = max 0 (model.diffScrollOffset - 3) }
                         , Effect.none
                         )
 
