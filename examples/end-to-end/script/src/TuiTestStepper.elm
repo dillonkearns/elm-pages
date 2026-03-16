@@ -55,7 +55,7 @@ demoSnapshots =
 
         miniGitTest : TuiTest.TuiTest MiniGitModel MiniGitMsg
         miniGitTest =
-            TuiTest.start
+            TuiTest.startWithContext { width = 60, height = 12 }
                 { data = sampleCommits
                 , init = miniGitInit
                 , update = miniGitUpdate
