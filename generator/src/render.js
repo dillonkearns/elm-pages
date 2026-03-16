@@ -2618,7 +2618,16 @@ async function runTuiWaitEventImpl(req, interests) {
 
     let onDataHandler = null;
     if (interests.includes("keypress") || interests.includes("mouse")) {
+      // Event drain: like gocui's processRemainingEvents(), we collect all
+      // events that arrive in the same tick, then send them as a batch.
+      // This means holding an arrow key or fast scrolling produces one
+      // Elm round-trip with multiple events instead of one per event.
+      let pendingEvents = [];
+      let drainScheduled = false;
+
       onDataHandler = (data) => {
+        // A single stdin data chunk can contain multiple escape sequences
+        // (e.g., rapid scroll events). Parse them all.
         const event = tuiParseTerminalInput(data);
         if (!event) return;
 
@@ -2630,15 +2639,37 @@ async function runTuiWaitEventImpl(req, interests) {
           return;
         }
 
-        if (resizeHandler) stdout.removeListener("resize", resizeHandler);
-        stdin.removeListener("data", onDataHandler);
-        resolve(
-          jsonResponse(req, {
-            event: event,
-            width: stdout.columns || 80,
-            height: stdout.rows || 24,
-          })
-        );
+        pendingEvents.push(event);
+
+        if (!drainScheduled) {
+          drainScheduled = true;
+          // setImmediate fires after all pending I/O callbacks in this tick,
+          // so any additional stdin data events get processed first.
+          setImmediate(() => {
+            if (resizeHandler) stdout.removeListener("resize", resizeHandler);
+            stdin.removeListener("data", onDataHandler);
+
+            if (pendingEvents.length === 1) {
+              // Single event — send directly (common case)
+              resolve(
+                jsonResponse(req, {
+                  event: pendingEvents[0],
+                  width: stdout.columns || 80,
+                  height: stdout.rows || 24,
+                })
+              );
+            } else {
+              // Multiple events batched — send as array
+              resolve(
+                jsonResponse(req, {
+                  events: pendingEvents,
+                  width: stdout.columns || 80,
+                  height: stdout.rows || 24,
+                })
+              );
+            }
+          });
+        }
       };
       stdin.on("data", onDataHandler);
     }

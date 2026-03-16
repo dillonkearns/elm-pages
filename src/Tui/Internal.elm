@@ -58,10 +58,10 @@ tuiInit =
         }
 
 
-{-| Render screen and wait for next event in a single request. This halves
-the round-trip latency compared to separate render + wait calls.
+{-| Render screen and wait for next event(s). Returns either a single event
+or a batch of events that arrived in the same tick (like gocui's event drain).
 -}
-tuiRenderAndWait : Screen -> Sub msg -> BackendTask FatalError { event : Decode.Value, width : Int, height : Int }
+tuiRenderAndWait : Screen -> Sub msg -> BackendTask FatalError { events : List Decode.Value, width : Int, height : Int }
 tuiRenderAndWait screen sub =
     BackendTask.Internal.Request.request
         { name = "tui-render-and-wait"
@@ -74,10 +74,16 @@ tuiRenderAndWait screen sub =
                 )
         , expect =
             BackendTask.Http.expectJson
-                (Decode.map3 (\e w h -> { event = e, width = w, height = h })
-                    (Decode.field "event" Decode.value)
-                    (Decode.field "width" Decode.int)
-                    (Decode.field "height" Decode.int)
+                (Decode.map2 (\evts wh -> { events = evts, width = wh.width, height = wh.height })
+                    (Decode.oneOf
+                        [ Decode.field "events" (Decode.list Decode.value)
+                        , Decode.field "event" Decode.value |> Decode.map List.singleton
+                        ]
+                    )
+                    (Decode.map2 (\w h -> { width = w, height = h })
+                        (Decode.field "width" Decode.int)
+                        (Decode.field "height" Decode.int)
+                    )
                 )
         }
 
@@ -172,27 +178,61 @@ renderAndWait config context model =
                         { width = response.width
                         , height = response.height
                         }
-
-                    rawEvent : Sub.RawEvent
-                    rawEvent =
-                        decodeRawEvent response.event
                 in
-                case rawEvent of
-                    Sub.RawResize _ ->
-                        renderAndWait config newContext model
-
-                    _ ->
-                        case Sub.routeEvent sub rawEvent of
-                            Just msg ->
-                                let
-                                    ( newModel, newEffect ) =
-                                        config.update msg model
-                                in
-                                processEffectsThenRenderAndWait config newContext newModel newEffect
-
-                            Nothing ->
-                                renderAndWait config newContext model
+                -- Process all batched events through update sequentially
+                -- (like gocui's processRemainingEvents drain), then render once
+                processBatchedEvents config sub newContext model response.events
             )
+
+
+{-| Process a list of raw events through update, folding the model.
+Only the final model gets rendered.
+-}
+processBatchedEvents :
+    { init : data -> ( model, Effect msg )
+    , update : msg -> model -> ( model, Effect msg )
+    , view : Context -> model -> Screen
+    , subscriptions : model -> Sub msg
+    }
+    -> Sub msg
+    -> Context
+    -> model
+    -> List Decode.Value
+    -> BackendTask FatalError ()
+processBatchedEvents config sub context model events =
+    case events of
+        [] ->
+            renderAndWait config context model
+
+        rawValue :: rest ->
+            let
+                rawEvent : Sub.RawEvent
+                rawEvent =
+                    decodeRawEvent rawValue
+            in
+            case rawEvent of
+                Sub.RawResize _ ->
+                    -- Apply resize context, continue processing
+                    processBatchedEvents config sub context model rest
+
+                _ ->
+                    case Sub.routeEvent sub rawEvent of
+                        Just msg ->
+                            let
+                                ( newModel, newEffect ) =
+                                    config.update msg model
+                            in
+                            case rest of
+                                [] ->
+                                    -- Last event — process effects and render
+                                    processEffectsThenRenderAndWait config context newModel newEffect
+
+                                _ ->
+                                    -- More events queued — fold model, skip effects for now
+                                    processBatchedEvents config sub context newModel rest
+
+                        Nothing ->
+                            processBatchedEvents config sub context model rest
 
 
 {-| Decode a raw JSON event into a RawEvent.
