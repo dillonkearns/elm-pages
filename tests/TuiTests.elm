@@ -388,26 +388,14 @@ suite =
                         |> TuiTest.toSnapshots
                         |> List.length
                         |> Expect.equal 3
-            , test "snapshots re-render at custom context size" <|
-                \() ->
-                    TuiTest.startWithContext { width = 40, height = 10 }
-                        { data = ()
-                        , init = counterInit
-                        , update = counterUpdate
-                        , view = counterView
-                        , subscriptions = counterSubscriptions
-                        }
-                        |> TuiTest.toSnapshots
-                        |> List.head
-                        |> Maybe.map (.screen >> Tui.toString)
-                        |> Maybe.withDefault ""
-                        |> String.contains "40×10"
-                        |> Expect.equal True
-            , test "renderSnapshotAt lets you re-render a snapshot at a different size" <|
+            , test "snapshot.rerender re-renders at a different terminal size" <|
                 \() ->
                     counterTest
                         |> TuiTest.pressKey 'k'
-                        |> TuiTest.renderSnapshotAt { width = 100, height = 50 } 1
+                        |> TuiTest.toSnapshots
+                        |> List.drop 1
+                        |> List.head
+                        |> Maybe.map (\s -> s.rerender { width = 100, height = 50 })
                         |> Maybe.map Tui.toString
                         |> Maybe.withDefault ""
                         |> String.contains "100×50"

@@ -6,7 +6,7 @@ module Tui.Test exposing
     , BackendTaskSimulator, resolveEffect
     , ensureView, ensureViewHas, ensureViewDoesNotHave
     , expectRunning, expectExit, expectExitWith
-    , Snapshot, toSnapshots, renderSnapshotAt
+    , Snapshot, toSnapshots
     )
 
 {-| Write pure tests for TUI scripts. No terminal, no I/O — just regular
@@ -59,7 +59,7 @@ or directly with [`sendMsg`](#sendMsg).
 
 ## Snapshots
 
-@docs Snapshot, toSnapshots, renderSnapshotAt
+@docs Snapshot, toSnapshots
 
 -}
 
@@ -708,27 +708,6 @@ toSnapshots (TuiTest state) =
 
         Nothing ->
             state.snapshots
-
-
-{-| Re-render a specific snapshot at a different terminal size. Returns the
-`Screen` rendered at the given `Context`, or `Nothing` if the index is out of
-bounds.
-
-This is the key advantage of storing the view function rather than a pre-rendered
-string — you can see how your TUI looks at any terminal size without re-running
-the test.
-
-    counterTest
-        |> TuiTest.pressKey 'k'
-        |> TuiTest.renderSnapshotAt { width = 120, height = 40 } 0
-
--}
-renderSnapshotAt : Context -> Int -> TuiTest model msg -> Maybe Screen
-renderSnapshotAt context index (TuiTest state) =
-    state.snapshots
-        |> List.drop index
-        |> List.head
-        |> Maybe.map (\snapshot -> snapshot.rerender context)
 
 
 keyEventLabel : KeyEvent -> String
