@@ -151,6 +151,45 @@ port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe
 }
 
 /**
+ * Generate a ScriptMain.elm that runs the test stepper on a module's
+ * `stepper` export.
+ * @param {string} moduleName
+ */
+export function testStepperWrapperFile(moduleName) {
+  return `port module ScriptMain exposing (main)
+
+import Bytes exposing (Bytes)
+import Json.Decode
+import Json.Encode
+import Pages.Internal.Platform.GeneratorApplication
+import Tui.Test.Stepper
+import ${moduleName}
+
+
+main : Pages.Internal.Platform.GeneratorApplication.Program
+main =
+    Pages.Internal.Platform.GeneratorApplication.app
+        { data = Tui.Test.Stepper.run ${moduleName}.stepper
+        , scriptModuleName = "${moduleName}.Stepper"
+        , toJsPort = toJsPort
+        , fromJsPort = fromJsPort identity
+        , gotBatchSub = gotBatchSub identity
+        , sendPageData = \\_ -> Cmd.none
+        }
+
+
+port toJsPort : { json : Json.Encode.Value, bytes : List { key : String, data : Bytes } } -> Cmd msg
+
+
+port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
+
+
+port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe Bytes } -> msg) -> Sub msg
+`;
+}
+
+
+/**
  * @param {string} moduleName
  */
 export function generatorWrapperFile(moduleName) {

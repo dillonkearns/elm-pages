@@ -1,284 +1,105 @@
-module TuiTestStepper exposing (run)
+module TuiTestStepper exposing (run, stepper)
 
-{-| Interactive test stepper — step through a TUI test pipeline and see the
-rendered screen at each step.
+{-| TUI test with interactive stepper support.
 
-    elm - pages run script / src / TuiTestStepper.elm
+Run as a script:
+elm-pages run script/src/TuiTestStepper.elm
 
-Navigate with ← → arrow keys, q to quit.
+Run through the interactive stepper:
+elm-pages test script/src/TuiTestStepper.elm
 
 -}
 
 import Ansi.Color
-import BackendTask exposing (BackendTask)
-import FatalError exposing (FatalError)
-import Pages.Script as Script exposing (Script)
+import Pages.Script exposing (Script)
 import Tui
 import Tui.Effect as Effect
 import Tui.Sub
 import Tui.Test as TuiTest
+import Tui.Test.Stepper
 
 
-run : Script
-run =
-    Script.tui
-        { data = BackendTask.succeed ()
-        , init = init
-        , update = update
-        , view = view
-        , subscriptions = subscriptions
+{-| The test pipeline — shared between unit tests and the stepper.
+-}
+stepper : TuiTest.TuiTest Model Msg
+stepper =
+    TuiTest.startWithContext { width = 60, height = 12 }
+        { data = sampleCommits
+        , init = miniGitInit
+        , update = miniGitUpdate
+        , view = miniGitView
+        , subscriptions = miniGitSubscriptions
         }
-
-
-
--- The demo test pipeline we're stepping through
-
-
-demoSnapshots : List TuiTest.Snapshot
-demoSnapshots =
-    let
-        sampleCommits : List MiniGitCommit
-        sampleCommits =
-            [ { sha = "abc1234", message = "Initial commit" }
-            , { sha = "def5678", message = "Add feature X" }
-            , { sha = "345cdef", message = "Fix bug in parser" }
-            , { sha = "789abcd", message = "Update documentation" }
-            , { sha = "aaa1111", message = "Refactor module structure" }
-            , { sha = "bbb2222", message = "Add unit tests" }
-            , { sha = "ccc3333", message = "Improve error handling" }
-            , { sha = "ddd4444", message = "Add CLI options" }
-            , { sha = "eee5555", message = "Fix memory leak" }
-            , { sha = "fff6666", message = "Update dependencies" }
-            , { sha = "aab7777", message = "Add TUI framework" }
-            , { sha = "bbc8888", message = "Mouse support" }
-            ]
-
-        miniGitTest : TuiTest.TuiTest MiniGitModel MiniGitMsg
-        miniGitTest =
-            TuiTest.startWithContext { width = 60, height = 12 }
-                { data = sampleCommits
-                , init = miniGitInit
-                , update = miniGitUpdate
-                , view = miniGitView
-                , subscriptions = miniGitSubscriptions
-                }
-    in
-    miniGitTest
         |> TuiTest.withModelToString Debug.toString
         -- Navigate down through visible commits
         |> TuiTest.pressKey 'j'
         |> TuiTest.pressKey 'j'
         |> TuiTest.pressKey 'j'
         |> TuiTest.pressKey 'j'
-        -- Now past the 5-row window — viewport scrolls, new commits appear
+        -- Past the 5-row window — viewport scrolls, new commits appear
         |> TuiTest.pressKey 'j'
         |> TuiTest.pressKey 'j'
         |> TuiTest.pressKey 'j'
-        -- Scroll back up — earlier commits come back into view
+        -- Scroll back up
         |> TuiTest.pressKey 'k'
         |> TuiTest.pressKey 'k'
         |> TuiTest.pressKey 'k'
         -- Click on a visible commit
         |> TuiTest.click { row = 3, col = 5 }
-        |> TuiTest.toSnapshots
+
+
+{-| Run the stepper as a script (for elm-pages run).
+-}
+run : Script
+run =
+    Tui.Test.Stepper.run stepper
 
 
 
--- Stepper model
+-- Inline MiniGit
 
 
-type alias Model =
-    { snapshots : List TuiTest.Snapshot
-    , currentIndex : Int
-    }
-
-
-type Msg
-    = KeyPressed Tui.KeyEvent
-
-
-init : () -> ( Model, Effect.Effect Msg )
-init () =
-    ( { snapshots = demoSnapshots
-      , currentIndex = 0
-      }
-    , Effect.none
-    )
-
-
-update : Msg -> Model -> ( Model, Effect.Effect Msg )
-update msg model =
-    case msg of
-        KeyPressed event ->
-            case event.key of
-                Tui.Arrow Tui.Right ->
-                    ( { model
-                        | currentIndex =
-                            min (List.length model.snapshots - 1) (model.currentIndex + 1)
-                      }
-                    , Effect.none
-                    )
-
-                Tui.Arrow Tui.Left ->
-                    ( { model
-                        | currentIndex = max 0 (model.currentIndex - 1)
-                      }
-                    , Effect.none
-                    )
-
-                Tui.Character 'q' ->
-                    ( model, Effect.exit )
-
-                Tui.Escape ->
-                    ( model, Effect.exit )
-
-                _ ->
-                    ( model, Effect.none )
-
-
-view : Tui.Context -> Model -> Tui.Screen
-view ctx model =
-    let
-        maybeSnapshot : Maybe TuiTest.Snapshot
-        maybeSnapshot =
-            model.snapshots
-                |> List.drop model.currentIndex
-                |> List.head
-
-        dimStyle : Tui.Style
-        dimStyle =
-            { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
-
-        headerStyle : Tui.Style
-        headerStyle =
-            { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.bold ] }
-
-        separator : String
-        separator =
-            String.repeat (ctx.width - 4) "─"
-
-        stepIndicator : Tui.Screen
-        stepIndicator =
-            Tui.concat
-                (model.snapshots
-                    |> List.indexedMap
-                        (\i snapshot ->
-                            if i == model.currentIndex then
-                                Tui.styled
-                                    { fg = Just Ansi.Color.cyan
-                                    , bg = Nothing
-                                    , attributes = [ Tui.bold ]
-                                    }
-                                    (" ● " ++ snapshot.label ++ " ")
-
-                            else
-                                Tui.styled dimStyle " ○ "
-                        )
-                )
-    in
-    case maybeSnapshot of
-        Just snapshot ->
-            Tui.lines
-                ([ Tui.styled headerStyle
-                    ("  Test Stepper — Step "
-                        ++ String.fromInt (model.currentIndex + 1)
-                        ++ " of "
-                        ++ String.fromInt (List.length model.snapshots)
-                    )
-                 , Tui.text ""
-                 , Tui.concat
-                    [ Tui.styled dimStyle "  Action: "
-                    , Tui.styled
-                        { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [ Tui.bold ] }
-                        snapshot.label
-                    , if snapshot.hasPendingEffects then
-                        Tui.styled
-                            { fg = Just Ansi.Color.magenta, bg = Nothing, attributes = [] }
-                            "  ⟳ pending effect"
-
-                      else
-                        Tui.empty
-                    ]
-                 , Tui.text ""
-                 , Tui.styled dimStyle ("  " ++ separator)
-                 , Tui.text ""
-                 ]
-                    ++ (snapshot.screen
-                            |> Tui.toLines
-                            |> List.map
-                                (\line ->
-                                    Tui.concat
-                                        [ Tui.styled dimStyle "  │ "
-                                        , Tui.text line
-                                        ]
-                                )
-                       )
-                    ++ [ Tui.text ""
-                       , Tui.styled dimStyle ("  " ++ separator)
-                       , case snapshot.modelState of
-                            Just modelStr ->
-                                Tui.lines
-                                    [ Tui.text ""
-                                    , Tui.styled
-                                        { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.bold ] }
-                                        "  Model:"
-                                    , modelStr
-                                        |> String.lines
-                                        |> List.map (\line -> Tui.styled dimStyle ("    " ++ line))
-                                        |> Tui.lines
-                                    ]
-
-                            Nothing ->
-                                Tui.empty
-                       , Tui.text ""
-                       , stepIndicator
-                       , Tui.text ""
-                       , Tui.styled dimStyle "  ← → navigate   q quit"
-                       ]
-                )
-
-        Nothing ->
-            Tui.styled dimStyle "  No snapshots"
-
-
-subscriptions : Model -> Tui.Sub.Sub Msg
-subscriptions _ =
-    Tui.Sub.onKeyPress KeyPressed
-
-
-
--- Inline MiniGit (same logic as MiniGitTests.elm)
-
-
-type alias MiniGitCommit =
+type alias Commit =
     { sha : String
     , message : String
     }
 
 
-type alias MiniGitModel =
-    { commits : List MiniGitCommit
+type alias Model =
+    { commits : List Commit
     , selected : Int
     , scrollOffset : Int
     }
 
 
-type MiniGitMsg
-    = MiniGitKeyPressed Tui.KeyEvent
-    | MiniGitMouse Tui.MouseEvent
+type Msg
+    = KeyPressed Tui.KeyEvent
+    | Mouse Tui.MouseEvent
 
 
-miniGitInit : List MiniGitCommit -> ( MiniGitModel, Effect.Effect MiniGitMsg )
+sampleCommits : List Commit
+sampleCommits =
+    [ { sha = "abc1234", message = "Initial commit" }
+    , { sha = "def5678", message = "Add feature X" }
+    , { sha = "345cdef", message = "Fix bug in parser" }
+    , { sha = "789abcd", message = "Update documentation" }
+    , { sha = "aaa1111", message = "Refactor module structure" }
+    , { sha = "bbb2222", message = "Add unit tests" }
+    , { sha = "ccc3333", message = "Improve error handling" }
+    , { sha = "ddd4444", message = "Add CLI options" }
+    , { sha = "eee5555", message = "Fix memory leak" }
+    , { sha = "fff6666", message = "Update dependencies" }
+    , { sha = "aab7777", message = "Add TUI framework" }
+    , { sha = "bbc8888", message = "Mouse support" }
+    ]
+
+
+miniGitInit : List Commit -> ( Model, Effect.Effect Msg )
 miniGitInit commits =
-    ( { commits = commits
-      , selected = 0
-      , scrollOffset = 0
-      }
-    , Effect.none
-    )
+    ( { commits = commits, selected = 0, scrollOffset = 0 }, Effect.none )
 
 
-miniGitUpdate : MiniGitMsg -> MiniGitModel -> ( MiniGitModel, Effect.Effect MiniGitMsg )
+miniGitUpdate : Msg -> Model -> ( Model, Effect.Effect Msg )
 miniGitUpdate msg model =
     let
         maxIndex : Int
@@ -286,7 +107,7 @@ miniGitUpdate msg model =
             List.length model.commits - 1
     in
     case msg of
-        MiniGitKeyPressed event ->
+        KeyPressed event ->
             case event.key of
                 Tui.Character 'j' ->
                     ( adjustScroll { model | selected = min maxIndex (model.selected + 1) }, Effect.none )
@@ -300,7 +121,7 @@ miniGitUpdate msg model =
                 _ ->
                     ( model, Effect.none )
 
-        MiniGitMouse event ->
+        Mouse event ->
             case event of
                 Tui.Click { row } ->
                     let
@@ -321,7 +142,7 @@ miniGitUpdate msg model =
                     ( adjustScroll { model | selected = min maxIndex (model.selected + 1) }, Effect.none )
 
 
-adjustScroll : MiniGitModel -> MiniGitModel
+adjustScroll : Model -> Model
 adjustScroll model =
     if model.selected < model.scrollOffset then
         { model | scrollOffset = model.selected }
@@ -333,7 +154,7 @@ adjustScroll model =
         model
 
 
-miniGitView : Tui.Context -> MiniGitModel -> Tui.Screen
+miniGitView : Tui.Context -> Model -> Tui.Screen
 miniGitView ctx model =
     let
         dimStyle : Tui.Style
@@ -344,16 +165,12 @@ miniGitView ctx model =
         visibleRows =
             max 3 (ctx.height - 7)
 
-        visibleCommits : List ( Int, MiniGitCommit )
+        visibleCommits : List ( Int, Commit )
         visibleCommits =
             model.commits
                 |> List.indexedMap Tuple.pair
                 |> List.drop model.scrollOffset
                 |> List.take visibleRows
-
-        selectedCommit : Maybe MiniGitCommit
-        selectedCommit =
-            model.commits |> List.drop model.selected |> List.head
     in
     Tui.lines
         ([ Tui.styled { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.bold ] } "Mini Git Log"
@@ -382,14 +199,11 @@ miniGitView ctx model =
                 )
                 visibleCommits
             ++ [ Tui.text ""
-               , case selectedCommit of
+               , case model.commits |> List.drop model.selected |> List.head of
                     Just commit ->
                         Tui.lines
                             [ Tui.styled dimStyle "───────────"
-                            , Tui.concat
-                                [ Tui.styled dimStyle "SHA: "
-                                , Tui.text commit.sha
-                                ]
+                            , Tui.concat [ Tui.styled dimStyle "SHA: ", Tui.text commit.sha ]
                             , Tui.text commit.message
                             ]
 
@@ -399,9 +213,9 @@ miniGitView ctx model =
         )
 
 
-miniGitSubscriptions : MiniGitModel -> Tui.Sub.Sub MiniGitMsg
+miniGitSubscriptions : Model -> Tui.Sub.Sub Msg
 miniGitSubscriptions _ =
     Tui.Sub.batch
-        [ Tui.Sub.onKeyPress MiniGitKeyPressed
-        , Tui.Sub.onMouse MiniGitMouse
+        [ Tui.Sub.onKeyPress KeyPressed
+        , Tui.Sub.onMouse Mouse
         ]

@@ -51,6 +51,7 @@
         "Tui.Effect",
         "Tui.Sub",
         "Tui.Test",
+        "Tui.Test.Stepper",
         "Test.BackendTask",
         "Test.BackendTask.Time"
     ],
