@@ -75,31 +75,37 @@ update msg model =
 
 view : Tui.Context -> Model -> Tui.Screen
 view ctx model =
+    let
+        dimStyle =
+            { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
+    in
     Tui.lines
         [ Tui.text ""
-        , Tui.styled [ Tui.bold, Tui.foreground Ansi.Color.cyan ]
+        , Tui.styled { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.bold ] }
             "  TUI Counter Demo"
         , Tui.text ""
         , Tui.concat
             [ Tui.text "  Count: "
             , Tui.styled
-                [ Tui.bold
-                , Tui.foreground
-                    (if model.count >= 0 then
-                        Ansi.Color.green
+                { fg =
+                    Just
+                        (if model.count >= 0 then
+                            Ansi.Color.green
 
-                     else
-                        Ansi.Color.red
-                    )
-                ]
+                         else
+                            Ansi.Color.red
+                        )
+                , bg = Nothing
+                , attributes = [ Tui.bold ]
+                }
                 (String.fromInt model.count)
             ]
         , Tui.text ""
-        , Tui.styled [ Tui.dim ] "  k/↑  increment"
-        , Tui.styled [ Tui.dim ] "  j/↓  decrement"
-        , Tui.styled [ Tui.dim ] "  q    quit"
+        , Tui.styled dimStyle "  k/↑  increment"
+        , Tui.styled dimStyle "  j/↓  decrement"
+        , Tui.styled dimStyle "  q    quit"
         , Tui.text ""
-        , Tui.styled [ Tui.dim ]
+        , Tui.styled dimStyle
             ("  Terminal: "
                 ++ String.fromInt ctx.width
                 ++ "×"

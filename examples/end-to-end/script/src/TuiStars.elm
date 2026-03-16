@@ -120,40 +120,44 @@ fetchStars repo =
 
 view : Tui.Context -> Model -> Tui.Screen
 view _ model =
+    let
+        dimStyle =
+            { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
+    in
     Tui.lines
         [ Tui.text ""
-        , Tui.styled [ Tui.bold, Tui.foreground Ansi.Color.cyan ]
+        , Tui.styled { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.bold ] }
             "  GitHub Stars Fetcher"
         , Tui.text ""
         , Tui.concat
-            [ Tui.styled [ Tui.dim ] "  Repo: "
-            , Tui.styled [ Tui.bold ] model.input
-            , Tui.styled [ Tui.dim ] "▌"
+            [ Tui.styled dimStyle "  Repo: "
+            , Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.bold ] } model.input
+            , Tui.styled dimStyle "▌"
             ]
         , Tui.text ""
         , case ( model.loading, model.result ) of
             ( True, _ ) ->
-                Tui.styled [ Tui.foreground Ansi.Color.yellow ] "  ⟳ Fetching..."
+                Tui.styled { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [] } "  ⟳ Fetching..."
 
             ( _, Ok stars ) ->
                 Tui.concat
                     [ Tui.text "  "
-                    , Tui.styled [ Tui.foreground Ansi.Color.yellow ] "★ "
-                    , Tui.styled [ Tui.bold, Tui.foreground Ansi.Color.green ]
+                    , Tui.styled { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [] } "★ "
+                    , Tui.styled { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.bold ] }
                         (String.fromInt stars)
-                    , Tui.styled [ Tui.dim ]
+                    , Tui.styled dimStyle
                         (" stars on " ++ model.input)
                     ]
 
             ( _, Err "" ) ->
-                Tui.styled [ Tui.dim ] "  Press Enter to fetch"
+                Tui.styled dimStyle "  Press Enter to fetch"
 
             ( _, Err errMsg ) ->
-                Tui.styled [ Tui.foreground Ansi.Color.red ]
+                Tui.styled { fg = Just Ansi.Color.red, bg = Nothing, attributes = [] }
                     ("  " ++ errMsg)
         , Tui.text ""
-        , Tui.styled [ Tui.dim ] "  Enter    fetch stars"
-        , Tui.styled [ Tui.dim ] "  Esc      quit"
+        , Tui.styled dimStyle "  Enter    fetch stars"
+        , Tui.styled dimStyle "  Esc      quit"
         ]
 
 

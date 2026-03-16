@@ -43,7 +43,7 @@ suite =
                         |> Expect.equal "hello world"
             , test "styled text has plain text content" <|
                 \() ->
-                    Tui.styled [ Tui.bold, Tui.foreground Ansi.Color.red ] "warning"
+                    Tui.styled { fg = Just Ansi.Color.red, bg = Nothing, attributes = [ Tui.bold ] } "warning"
                         |> Tui.toString
                         |> Expect.equal "warning"
             , test "empty produces nothing" <|
@@ -410,7 +410,7 @@ counterUpdate msg model =
 counterView : Tui.Context -> CounterModel -> Tui.Screen
 counterView ctx model =
     Tui.lines
-        [ Tui.styled [ Tui.bold ] "Counter"
+        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.bold ] } "Counter"
         , Tui.concat
             [ Tui.text "Count: "
             , Tui.text (String.fromInt model.count)
@@ -525,7 +525,7 @@ starsFetch repo =
 starsView : Tui.Context -> StarsModel -> Tui.Screen
 starsView _ model =
     Tui.lines
-        [ Tui.styled [ Tui.bold ] "GitHub Stars"
+        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.bold ] } "GitHub Stars"
         , Tui.concat
             [ Tui.text "Repo: "
             , Tui.text model.input

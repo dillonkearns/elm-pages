@@ -1,7 +1,7 @@
 module Tui exposing
     ( Screen, text, styled, lines, concat, empty
+    , Style, plain
     , Attribute, bold, dim, italic, underline, strikethrough, inverse
-    , foreground, background
     , Context
     , KeyEvent, Key(..), Direction(..), Modifier(..)
     , toString, toLines
@@ -13,24 +13,19 @@ module Tui exposing
 `Tui.Screen` is the primitive view type — styled text with vertical and horizontal
 composition. The framework handles rendering, diffing, and terminal management.
 
-For layout (row/column/fill/border), use a layout package built on top of these
-primitives.
-
 Colors use [`Ansi.Color.Color`](https://package.elm-lang.org/packages/wolfadex/elm-ansi/latest/Ansi-Color)
-from the `wolfadex/elm-ansi` package. This gives you standard ANSI colors,
-bright variants, 256-color, and truecolor out of the box:
+from the `wolfadex/elm-ansi` package:
 
     import Ansi.Color
     import Tui
 
-    Tui.styled [ Tui.foreground Ansi.Color.cyan ] "info"
-    Tui.styled [ Tui.foreground Ansi.Color.brightRed ] "error"
-    Tui.styled [ Tui.foreground (Ansi.Color.rgb { red = 255, green = 128, blue = 0 }) ] "orange"
+    Tui.styled { Tui.plain | fg = Just Ansi.Color.red, attributes = [ Tui.bold ] } "error"
 
 @docs Screen, text, styled, lines, concat, empty
 
+@docs Style, plain
+
 @docs Attribute, bold, dim, italic, underline, strikethrough, inverse
-@docs foreground, background
 
 @docs Context
 
@@ -51,7 +46,7 @@ the framework.
 -}
 type Screen
     = ScreenText String
-    | ScreenStyled (List Attribute) String
+    | ScreenStyled Style String
     | ScreenLines (List Screen)
     | ScreenConcat (List Screen)
     | ScreenEmpty
@@ -64,14 +59,22 @@ text =
     ScreenText
 
 
-{-| Styled text.
+{-| Styled text. Takes a [`Style`](#Style) record specifying foreground color,
+background color, and text attributes.
 
     import Ansi.Color
 
-    Tui.styled [ Tui.bold, Tui.foreground Ansi.Color.cyan ] "Hello"
+    -- Bold red text
+    Tui.styled { Tui.plain | fg = Just Ansi.Color.red, attributes = [ Tui.bold ] } "error"
+
+    -- Just bold, default colors
+    Tui.styled { Tui.plain | attributes = [ Tui.bold ] } "important"
+
+    -- Foreground color only
+    Tui.styled { Tui.plain | fg = Just Ansi.Color.cyan } "info"
 
 -}
-styled : List Attribute -> String -> Screen
+styled : Style -> String -> Screen
 styled =
     ScreenStyled
 
@@ -98,11 +101,45 @@ empty =
 
 
 
+-- STYLE
+
+
+{-| Terminal cell style — foreground color, background color, and text
+attributes. Matches the terminal cell model (one fg, one bg, set of decoration
+flags).
+
+    { fg = Just Ansi.Color.red
+    , bg = Nothing
+    , attributes = [ Tui.bold, Tui.underline ]
+    }
+
+-}
+type alias Style =
+    { fg : Maybe Ansi.Color.Color
+    , bg : Maybe Ansi.Color.Color
+    , attributes : List Attribute
+    }
+
+
+{-| Default style — no colors, no decorations. Use record update to customize:
+
+    { Tui.plain | fg = Just Ansi.Color.cyan }
+    { Tui.plain | attributes = [ Tui.bold ] }
+
+-}
+plain : Style
+plain =
+    { fg = Nothing
+    , bg = Nothing
+    , attributes = []
+    }
+
+
+
 -- ATTRIBUTES
 
 
-{-| A styling attribute for text. Matches the terminal cell model: foreground
-color, background color, and text decoration flags.
+{-| A text decoration attribute.
 -}
 type Attribute
     = Bold
@@ -111,8 +148,6 @@ type Attribute
     | Underline
     | Strikethrough
     | Inverse
-    | Foreground Ansi.Color.Color
-    | Background Ansi.Color.Color
 
 
 {-| Bold text.
@@ -155,31 +190,6 @@ strikethrough =
 inverse : Attribute
 inverse =
     Inverse
-
-
-{-| Set the text foreground color.
-
-    import Ansi.Color
-
-    Tui.styled [ Tui.foreground Ansi.Color.red ] "error"
-    Tui.styled [ Tui.foreground (Ansi.Color.rgb { red = 255, green = 128, blue = 0 }) ] "orange"
-
--}
-foreground : Ansi.Color.Color -> Attribute
-foreground =
-    Foreground
-
-
-{-| Set the text background color.
-
-    import Ansi.Color
-
-    Tui.styled [ Tui.background Ansi.Color.blue ] "highlighted"
-
--}
-background : Ansi.Color.Color -> Attribute
-background =
-    Background
 
 
 
@@ -268,11 +278,11 @@ toLines screen =
 
 type alias Span =
     { text : String
-    , style : Style
+    , style : FlatStyle
     }
 
 
-type alias Style =
+type alias FlatStyle =
     { bold : Bool
     , dim : Bool
     , italic : Bool
@@ -284,8 +294,8 @@ type alias Style =
     }
 
 
-defaultStyle : Style
-defaultStyle =
+defaultFlatStyle : FlatStyle
+defaultFlatStyle =
     { bold = False
     , dim = False
     , italic = False
@@ -297,37 +307,38 @@ defaultStyle =
     }
 
 
-attrsToStyle : List Attribute -> Style
-attrsToStyle attrs =
-    List.foldl applyAttr defaultStyle attrs
+styleToFlatStyle : Style -> FlatStyle
+styleToFlatStyle s =
+    let
+        base =
+            { defaultFlatStyle
+                | foreground = s.fg
+                , background = s.bg
+            }
+    in
+    List.foldl applyAttr base s.attributes
 
 
-applyAttr : Attribute -> Style -> Style
-applyAttr attr style =
+applyAttr : Attribute -> FlatStyle -> FlatStyle
+applyAttr attr flatStyle =
     case attr of
         Bold ->
-            { style | bold = True }
+            { flatStyle | bold = True }
 
         Dim ->
-            { style | dim = True }
+            { flatStyle | dim = True }
 
         Italic ->
-            { style | italic = True }
+            { flatStyle | italic = True }
 
         Underline ->
-            { style | underline = True }
+            { flatStyle | underline = True }
 
         Strikethrough ->
-            { style | strikethrough = True }
+            { flatStyle | strikethrough = True }
 
         Inverse ->
-            { style | inverse = True }
-
-        Foreground c ->
-            { style | foreground = Just c }
-
-        Background c ->
-            { style | background = Just c }
+            { flatStyle | inverse = True }
 
 
 {-| Flatten a Screen tree into a list of lines, where each line is a list of
@@ -346,12 +357,12 @@ flattenToSpanLines screen =
             else
                 s
                     |> String.split "\n"
-                    |> List.map (\line -> [ { text = line, style = defaultStyle } ])
+                    |> List.map (\line -> [ { text = line, style = defaultFlatStyle } ])
 
-        ScreenStyled attrs s ->
+        ScreenStyled stl s ->
             let
-                style =
-                    attrsToStyle attrs
+                flatStyle =
+                    styleToFlatStyle stl
             in
             if String.isEmpty s then
                 [ [] ]
@@ -359,7 +370,7 @@ flattenToSpanLines screen =
             else
                 s
                     |> String.split "\n"
-                    |> List.map (\line -> [ { text = line, style = style } ])
+                    |> List.map (\line -> [ { text = line, style = flatStyle } ])
 
         ScreenLines items ->
             List.concatMap flattenToSpanLines items
@@ -400,46 +411,46 @@ encodeSpan : Span -> Encode.Value
 encodeSpan span =
     Encode.object
         [ ( "text", Encode.string span.text )
-        , ( "style", encodeStyle span.style )
+        , ( "style", encodeFlatStyle span.style )
         ]
 
 
-encodeStyle : Style -> Encode.Value
-encodeStyle style =
+encodeFlatStyle : FlatStyle -> Encode.Value
+encodeFlatStyle flatStyle =
     Encode.object
         (List.filterMap identity
-            [ if style.bold then
+            [ if flatStyle.bold then
                 Just ( "bold", Encode.bool True )
 
               else
                 Nothing
-            , if style.dim then
+            , if flatStyle.dim then
                 Just ( "dim", Encode.bool True )
 
               else
                 Nothing
-            , if style.italic then
+            , if flatStyle.italic then
                 Just ( "italic", Encode.bool True )
 
               else
                 Nothing
-            , if style.underline then
+            , if flatStyle.underline then
                 Just ( "underline", Encode.bool True )
 
               else
                 Nothing
-            , if style.strikethrough then
+            , if flatStyle.strikethrough then
                 Just ( "strikethrough", Encode.bool True )
 
               else
                 Nothing
-            , if style.inverse then
+            , if flatStyle.inverse then
                 Just ( "inverse", Encode.bool True )
 
               else
                 Nothing
-            , style.foreground |> Maybe.map (\c -> ( "foreground", encodeColor c ))
-            , style.background |> Maybe.map (\c -> ( "background", encodeColor c ))
+            , flatStyle.foreground |> Maybe.map (\c -> ( "foreground", encodeColor c ))
+            , flatStyle.background |> Maybe.map (\c -> ( "background", encodeColor c ))
             ]
         )
 
