@@ -9,243 +9,268 @@ import Tui.Layout as Layout
 suite : Test
 suite =
     describe "Tui.Layout"
-        [ describe "Pane rendering"
-            [ test "single pane with title and border" <|
+        [ describe "Rendering"
+            [ test "single pane shows title in border" <|
                 \() ->
                     Layout.horizontal
-                        [ Layout.pane
-                            { title = "My Pane"
-                            , width = Layout.fill
-                            , scroll = Layout.initScroll
-                            }
-                            (Tui.text "hello")
+                        [ Layout.pane "main"
+                            { title = "My Pane", width = Layout.fill }
+                            (Layout.content [ Tui.text "hello" ])
                         ]
-                        |> Layout.toScreen { width = 20, height = 5 }
-                        |> Tui.toString
+                        |> renderAt { width = 20, height = 5 }
                         |> String.contains "My Pane"
                         |> Expect.equal True
             , test "single pane shows content" <|
                 \() ->
                     Layout.horizontal
-                        [ Layout.pane
-                            { title = "Test"
-                            , width = Layout.fill
-                            , scroll = Layout.initScroll
-                            }
-                            (Tui.lines
+                        [ Layout.pane "main"
+                            { title = "Test", width = Layout.fill }
+                            (Layout.content
                                 [ Tui.text "line 1"
                                 , Tui.text "line 2"
                                 ]
                             )
                         ]
-                        |> Layout.toScreen { width = 20, height = 6 }
-                        |> Tui.toString
+                        |> renderAt { width = 20, height = 6 }
                         |> String.contains "line 1"
                         |> Expect.equal True
             , test "pane draws box borders" <|
                 \() ->
-                    let
-                        screen : String
-                        screen =
-                            Layout.horizontal
-                                [ Layout.pane
-                                    { title = "Box"
-                                    , width = Layout.fill
-                                    , scroll = Layout.initScroll
-                                    }
-                                    (Tui.text "content")
-                                ]
-                                |> Layout.toScreen { width = 15, height = 5 }
-                                |> Tui.toString
-                    in
-                    Expect.all
-                        [ \s -> s |> String.contains "┌" |> Expect.equal True
-                        , \s -> s |> String.contains "┐" |> Expect.equal True
-                        , \s -> s |> String.contains "└" |> Expect.equal True
-                        , \s -> s |> String.contains "┘" |> Expect.equal True
-                        , \s -> s |> String.contains "│" |> Expect.equal True
+                    Layout.horizontal
+                        [ Layout.pane "box"
+                            { title = "Box", width = Layout.fill }
+                            (Layout.content [ Tui.text "content" ])
                         ]
-                        screen
+                        |> renderAt { width = 15, height = 5 }
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "┌" |> Expect.equal True
+                                    , \str -> str |> String.contains "┐" |> Expect.equal True
+                                    , \str -> str |> String.contains "└" |> Expect.equal True
+                                    , \str -> str |> String.contains "┘" |> Expect.equal True
+                                    ]
+                                    s
+                           )
             ]
-        , describe "Split layout"
-            [ test "two panes side by side" <|
+        , describe "Split layout with integer weights"
+            [ test "two panes with fill split evenly" <|
                 \() ->
-                    let
-                        screen : String
-                        screen =
-                            Layout.horizontal
-                                [ Layout.pane
-                                    { title = "Left"
-                                    , width = Layout.fraction (1 / 2)
-                                    , scroll = Layout.initScroll
-                                    }
-                                    (Tui.text "left content")
-                                , Layout.pane
-                                    { title = "Right"
-                                    , width = Layout.fill
-                                    , scroll = Layout.initScroll
-                                    }
-                                    (Tui.text "right content")
-                                ]
-                                |> Layout.toScreen { width = 40, height = 6 }
-                                |> Tui.toString
-                    in
-                    Expect.all
-                        [ \s -> s |> String.contains "Left" |> Expect.equal True
-                        , \s -> s |> String.contains "Right" |> Expect.equal True
-                        , \s -> s |> String.contains "left content" |> Expect.equal True
-                        , \s -> s |> String.contains "right content" |> Expect.equal True
+                    Layout.horizontal
+                        [ Layout.pane "left"
+                            { title = "Left", width = Layout.fill }
+                            (Layout.content [ Tui.text "left" ])
+                        , Layout.pane "right"
+                            { title = "Right", width = Layout.fill }
+                            (Layout.content [ Tui.text "right" ])
                         ]
-                        screen
-            , test "two panes share border at junction" <|
+                        |> renderAt { width = 40, height = 5 }
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "Left" |> Expect.equal True
+                                    , \str -> str |> String.contains "Right" |> Expect.equal True
+                                    ]
+                                    s
+                           )
+            , test "fillPortion 2 and fill give 2:1 ratio" <|
                 \() ->
-                    let
-                        screen : String
-                        screen =
-                            Layout.horizontal
-                                [ Layout.pane
-                                    { title = "A"
-                                    , width = Layout.fraction (1 / 2)
-                                    , scroll = Layout.initScroll
-                                    }
-                                    (Tui.text "a")
-                                , Layout.pane
-                                    { title = "B"
-                                    , width = Layout.fill
-                                    , scroll = Layout.initScroll
-                                    }
-                                    (Tui.text "b")
-                                ]
-                                |> Layout.toScreen { width = 30, height = 5 }
-                                |> Tui.toString
-                    in
-                    -- Should have ┬ at top junction and ┴ at bottom
-                    Expect.all
-                        [ \s -> s |> String.contains "┬" |> Expect.equal True
-                        , \s -> s |> String.contains "┴" |> Expect.equal True
+                    Layout.horizontal
+                        [ Layout.pane "big"
+                            { title = "Big", width = Layout.fillPortion 2 }
+                            (Layout.content [ Tui.text "big content" ])
+                        , Layout.pane "small"
+                            { title = "Small", width = Layout.fill }
+                            (Layout.content [ Tui.text "small" ])
                         ]
-                        screen
+                        |> renderAt { width = 30, height = 5 }
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "big content" |> Expect.equal True
+                                    , \str -> str |> String.contains "small" |> Expect.equal True
+                                    ]
+                                    s
+                           )
+            , test "px gives fixed width" <|
+                \() ->
+                    Layout.horizontal
+                        [ Layout.pane "fixed"
+                            { title = "F", width = Layout.px 10 }
+                            (Layout.content [ Tui.text "fixed" ])
+                        , Layout.pane "flex"
+                            { title = "X", width = Layout.fill }
+                            (Layout.content [ Tui.text "flex" ])
+                        ]
+                        |> renderAt { width = 30, height = 5 }
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "fixed" |> Expect.equal True
+                                    , \str -> str |> String.contains "flex" |> Expect.equal True
+                                    ]
+                                    s
+                           )
+            , test "shared border junction" <|
+                \() ->
+                    Layout.horizontal
+                        [ Layout.pane "a"
+                            { title = "A", width = Layout.fill }
+                            (Layout.content [ Tui.text "a" ])
+                        , Layout.pane "b"
+                            { title = "B", width = Layout.fill }
+                            (Layout.content [ Tui.text "b" ])
+                        ]
+                        |> renderAt { width = 30, height = 5 }
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "┬" |> Expect.equal True
+                                    , \str -> str |> String.contains "┴" |> Expect.equal True
+                                    ]
+                                    s
+                           )
             ]
-        , describe "Scrolling"
-            [ test "scroll offset clips content" <|
+        , describe "Selectable list"
+            [ test "selectableList renders items with default style" <|
                 \() ->
-                    let
-                        scroll : Layout.Scroll
-                        scroll =
-                            Layout.initScroll |> Layout.scrollBy 2
-
-                        screen : String
-                        screen =
-                            Layout.horizontal
-                                [ Layout.pane
-                                    { title = "List"
-                                    , width = Layout.fill
-                                    , scroll = scroll
-                                    }
-                                    (Tui.lines
-                                        [ Tui.text "line 0"
-                                        , Tui.text "line 1"
-                                        , Tui.text "line 2"
-                                        , Tui.text "line 3"
-                                        , Tui.text "line 4"
-                                        ]
-                                    )
-                                ]
-                                |> Layout.toScreen { width = 20, height = 5 }
-                                |> Tui.toString
-                    in
-                    Expect.all
-                        [ \s -> s |> String.contains "line 0" |> Expect.equal False
-                        , \s -> s |> String.contains "line 1" |> Expect.equal False
-                        , \s -> s |> String.contains "line 2" |> Expect.equal True
+                    Layout.horizontal
+                        [ Layout.pane "list"
+                            { title = "Items", width = Layout.fill }
+                            (Layout.selectableList
+                                { onSelect = identity
+                                , selected = \item -> Tui.text ("▸ " ++ item)
+                                , default = \item -> Tui.text ("  " ++ item)
+                                }
+                                [ "apple", "banana", "cherry" ]
+                            )
                         ]
-                        screen
-            , test "scrollDown updates scroll state" <|
+                        |> renderAt { width = 25, height = 7 }
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "▸ apple" |> Expect.equal True
+                                    , \str -> str |> String.contains "  banana" |> Expect.equal True
+                                    , \str -> str |> String.contains "  cherry" |> Expect.equal True
+                                    ]
+                                    s
+                           )
+            , test "selectableList highlights selected item after keyboard nav" <|
                 \() ->
                     let
-                        scroll : Layout.Scroll
-                        scroll =
-                            Layout.initScroll
-                                |> Layout.scrollBy 3
-                                |> Layout.scrollBy -1
+                        state : Layout.State
+                        state =
+                            Layout.init
+                                |> Layout.navigateDown "list"
                     in
-                    Layout.scrollOffset scroll
+                    Layout.horizontal
+                        [ Layout.pane "list"
+                            { title = "Items", width = Layout.fill }
+                            (Layout.selectableList
+                                { onSelect = identity
+                                , selected = \item -> Tui.text ("▸ " ++ item)
+                                , default = \item -> Tui.text ("  " ++ item)
+                                }
+                                [ "apple", "banana", "cherry" ]
+                            )
+                        ]
+                        |> renderWithState state { width = 25, height = 7 }
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "  apple" |> Expect.equal True
+                                    , \str -> str |> String.contains "▸ banana" |> Expect.equal True
+                                    ]
+                                    s
+                           )
+            , test "selectedItem returns the currently selected item" <|
+                \() ->
+                    let
+                        state : Layout.State
+                        state =
+                            Layout.init
+                                |> Layout.navigateDown "list"
+                                |> Layout.navigateDown "list"
+                    in
+                    Layout.selectedIndex "list" state
                         |> Expect.equal 2
+            , test "selection clamps at list bounds" <|
+                \() ->
+                    let
+                        state : Layout.State
+                        state =
+                            Layout.init
+                                |> Layout.navigateUp "list"
+                                |> Layout.navigateUp "list"
+                    in
+                    Layout.selectedIndex "list" state
+                        |> Expect.equal 0
             ]
         , describe "Mouse dispatch"
-            [ test "onScroll in pane dispatches to correct handler" <|
+            [ test "clicking a selectable item selects it" <|
                 \() ->
                     let
-                        layout : Layout.Layout Msg
+                        items : List String
+                        items =
+                            [ "apple", "banana", "cherry" ]
+
+                        layout : Layout.Layout Int
                         layout =
                             Layout.horizontal
-                                [ Layout.pane
-                                    { title = "Left"
-                                    , width = Layout.fraction (1 / 2)
-                                    , scroll = Layout.initScroll
-                                    }
-                                    (Tui.text "left")
-                                    |> Layout.onScroll LeftScroll
-                                , Layout.pane
-                                    { title = "Right"
-                                    , width = Layout.fill
-                                    , scroll = Layout.initScroll
-                                    }
-                                    (Tui.text "right")
-                                    |> Layout.onScroll RightScroll
+                                [ Layout.pane "list"
+                                    { title = "Items", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("▸ " ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        items
+                                    )
                                 ]
 
-                        -- Scroll in left pane (col 5, within first half of 40 cols)
-                        result : Maybe Msg
-                        result =
+                        -- Click row 2 (0-indexed), which is the second content row
+                        ( newState, maybeMsg ) =
+                            Layout.handleMouse
+                                (Tui.Click { row = 2, col = 5, button = Tui.LeftButton })
+                                layout
+                                Layout.init
+                    in
+                    Expect.all
+                        [ \_ -> maybeMsg |> Expect.equal (Just 1)
+                        , \_ -> Layout.selectedIndex "list" newState |> Expect.equal 1
+                        ]
+                        ()
+            , test "scroll in pane updates scroll offset" <|
+                \() ->
+                    let
+                        layout : Layout.Layout Int
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "list"
+                                    { title = "Items", width = Layout.fill }
+                                    (Layout.content
+                                        (List.range 1 20
+                                            |> List.map (\i -> Tui.text ("item " ++ String.fromInt i))
+                                        )
+                                    )
+                                ]
+
+                        ( newState, _ ) =
                             Layout.handleMouse
                                 (Tui.ScrollDown { row = 2, col = 5, amount = 1 })
-                                { width = 40, height = 6 }
                                 layout
+                                Layout.init
                     in
-                    result
-                        |> Maybe.map isLeftScroll
-                        |> Expect.equal (Just True)
-            , test "onClick in pane dispatches with local coordinates" <|
-                \() ->
-                    let
-                        layout : Layout.Layout Msg
-                        layout =
-                            Layout.horizontal
-                                [ Layout.pane
-                                    { title = "List"
-                                    , width = Layout.fill
-                                    , scroll = Layout.initScroll
-                                    }
-                                    (Tui.text "items")
-                                    |> Layout.onClick (\pos -> Clicked pos.row)
-                                ]
-
-                        -- Click at row 3, col 5 — pane content starts at row 1
-                        result : Maybe Msg
-                        result =
-                            Layout.handleMouse
-                                (Tui.Click { row = 3, col = 5, button = Tui.LeftButton })
-                                { width = 30, height = 8 }
-                                layout
-                    in
-                    result
-                        |> Expect.equal (Just (Clicked 2))
+                    Layout.scrollPosition "list" newState
+                        |> Expect.equal 3
             ]
         ]
 
 
-type Msg
-    = LeftScroll Layout.ScrollEvent
-    | RightScroll Layout.ScrollEvent
-    | Clicked Int
+{-| Helper: render layout with default state at given dimensions.
+-}
+renderAt : { width : Int, height : Int } -> Layout.Layout msg -> String
+renderAt size layout =
+    renderWithState Layout.init size layout
 
 
-isLeftScroll : Msg -> Bool
-isLeftScroll msg =
-    case msg of
-        LeftScroll _ ->
-            True
-
-        _ ->
-            False
+{-| Helper: render layout with specific state at given dimensions.
+-}
+renderWithState : Layout.State -> { width : Int, height : Int } -> Layout.Layout msg -> String
+renderWithState state size layout =
+    layout
+        |> Layout.toScreen (Layout.withContext size state)
+        |> Tui.toString

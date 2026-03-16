@@ -1,99 +1,111 @@
 module Tui.Layout exposing
     ( Layout, Pane, horizontal, pane
-    , Width, fill, fraction, px
-    , Scroll, ScrollEvent, ScrollDirection(..), initScroll, scrollBy, scrollOffset
-    , onScroll, onClick
-    , toScreen, handleMouse
+    , PaneContent, content, selectableList
+    , Width, fill, fillPortion, px
+    , State, init, withContext
+    , navigateDown, navigateUp, selectedIndex, scrollPosition
+    , handleMouse
+    , toScreen
     )
 
-{-| Split-pane layout with bordered panes, scrolling, and mouse dispatch.
+{-| Split-pane layout with opaque state, selectable lists, and mouse dispatch.
 
-Built on top of `Tui.Screen` primitives. Inspired by gocui's View system
-but with Elm idioms — user owns scroll state in their Model, the package
-handles rendering and mouse hit-testing.
+Inspired by gocui/Ratatui. The framework tracks scroll offsets, selection
+indices, and terminal dimensions in an opaque `State`. The user stores one
+`State` field in their Model.
 
     import Tui.Layout as Layout
 
+    type alias Model =
+        { layout : Layout.State
+        , commits : List Commit
+        }
+
     view ctx model =
         Layout.horizontal
-            [ Layout.pane
-                { title = "Commits"
-                , width = Layout.fraction (1 / 3)
-                , scroll = model.commitScroll
-                }
-                (commitListView model)
-                |> Layout.onScroll CommitScroll
-                |> Layout.onClick (\pos -> ClickedCommit pos.row)
-            , Layout.pane
-                { title = "Diff"
-                , width = Layout.fill
-                , scroll = model.diffScroll
-                }
-                (diffView model)
-                |> Layout.onScroll DiffScroll
+            [ Layout.pane "commits"
+                { title = "Commits", width = Layout.fill }
+                (Layout.selectableList
+                    { onSelect = SelectCommit
+                    , selected = \c -> Tui.text ("▸ " ++ c.sha)
+                    , default = \c -> Tui.text ("  " ++ c.sha)
+                    }
+                    model.commits
+                )
             ]
-            |> Layout.toScreen { width = ctx.width, height = ctx.height }
+            |> Layout.toScreen (Layout.withContext ctx model.layout)
 
 @docs Layout, Pane, horizontal, pane
 
-@docs Width, fill, fraction, px
+@docs PaneContent, content, selectableList
 
-@docs Scroll, ScrollEvent, ScrollDirection, initScroll, scrollBy, scrollOffset
+@docs Width, fill, fillPortion, px
 
-@docs onScroll, onClick
+@docs State, init, withContext
 
-@docs toScreen, handleMouse
+@docs navigateDown, navigateUp, selectedIndex, scrollPosition
+
+@docs handleMouse
+
+@docs toScreen
 
 -}
 
+import Dict exposing (Dict)
 import Tui exposing (MouseEvent, Screen)
 
 
 {-| A layout of panes.
 -}
 type Layout msg
-    = Horizontal (List (Pane msg))
+    = Horizontal (List (PaneConfig msg))
 
 
-{-| A single pane in a layout.
--}
-type Pane msg
-    = Pane
-        { title : String
-        , width : Width
-        , scroll : Scroll
-        , content : Screen
-        , onScrollHandler : Maybe (ScrollEvent -> msg)
-        , onClickHandler : Maybe ({ row : Int, col : Int } -> msg)
-        }
-
-
-{-| Width specification for a pane.
--}
-type Width
-    = Fill
-    | Fraction Float
-    | Px Int
-
-
-{-| Opaque scroll state. Maintain in your Model, update with `scrollBy`.
--}
-type Scroll
-    = Scroll { offset : Int }
-
-
-{-| Scroll event data passed to `onScroll` handlers.
--}
-type alias ScrollEvent =
-    { direction : ScrollDirection
-    , amount : Int
+type alias PaneConfig msg =
+    { id : String
+    , title : String
+    , width : Width
+    , paneContent : PaneContent msg
     }
 
 
-{-| -}
-type ScrollDirection
-    = Up
-    | Down
+{-| A pane in a layout (opaque).
+-}
+type Pane msg
+    = PaneConstructor (PaneConfig msg)
+
+
+{-| Content for a pane — either a static list of screens or a selectable list.
+-}
+type PaneContent msg
+    = StaticContent (List Screen)
+    | SelectableContent
+        { items : List ( Screen, Screen )
+        , onSelect : Int -> msg
+        }
+
+
+{-| Width specification using integer weights (like elm-ui).
+-}
+type Width
+    = Fill Int
+    | Px Int
+
+
+{-| Opaque state tracking scroll offsets, selection indices, and terminal
+dimensions for all panes. Store ONE of these in your Model.
+-}
+type State
+    = State
+        { paneStates : Dict String PaneState
+        , context : { width : Int, height : Int }
+        }
+
+
+type alias PaneState =
+    { scrollOffset : Int
+    , selectedIndex : Int
+    }
 
 
 
@@ -103,27 +115,61 @@ type ScrollDirection
 {-| Create a horizontal split layout.
 -}
 horizontal : List (Pane msg) -> Layout msg
-horizontal =
-    Horizontal
+horizontal panes =
+    Horizontal (List.map (\(PaneConstructor config) -> config) panes)
 
 
-{-| Create a pane with a title, width, scroll state, and content.
+{-| Create a pane.
+
+    Layout.pane "commits"
+        { title = "Commits", width = Layout.fill }
+        (Layout.selectableList { ... } items)
+
 -}
-pane :
-    { title : String
-    , width : Width
-    , scroll : Scroll
-    }
-    -> Screen
-    -> Pane msg
-pane config content =
-    Pane
-        { title = config.title
+pane : String -> { title : String, width : Width } -> PaneContent msg -> Pane msg
+pane id config paneContent =
+    PaneConstructor
+        { id = id
+        , title = config.title
         , width = config.width
-        , scroll = config.scroll
-        , content = content
-        , onScrollHandler = Nothing
-        , onClickHandler = Nothing
+        , paneContent = paneContent
+        }
+
+
+{-| Static content — a list of screens, one per line. No selection behavior.
+-}
+content : List Screen -> PaneContent msg
+content =
+    StaticContent
+
+
+{-| A selectable list. The framework tracks which item is selected and renders
+the appropriate variant. Handles click-to-select and keyboard navigation.
+
+    Layout.selectableList
+        { onSelect = SelectCommit
+        , selected = \commit -> Tui.styled selectedStyle commit.sha
+        , default = \commit -> Tui.text commit.sha
+        }
+        model.commits
+
+-}
+selectableList :
+    { onSelect : Int -> msg
+    , selected : item -> Screen
+    , default : item -> Screen
+    }
+    -> List item
+    -> PaneContent msg
+selectableList config items =
+    SelectableContent
+        { items =
+            items
+                |> List.map
+                    (\item ->
+                        ( config.default item, config.selected item )
+                    )
+        , onSelect = config.onSelect
         }
 
 
@@ -131,21 +177,22 @@ pane config content =
 -- WIDTH
 
 
-{-| Fill remaining space.
+{-| Fill remaining space with weight 1.
 -}
 fill : Width
 fill =
+    Fill 1
+
+
+{-| Fill remaining space with a weight. Two panes with `fillPortion 2` and
+`fillPortion 1` split space 2:1, matching elm-ui's `fillPortion`.
+-}
+fillPortion : Int -> Width
+fillPortion =
     Fill
 
 
-{-| Fraction of available width (0.0 to 1.0).
--}
-fraction : Float -> Width
-fraction =
-    Fraction
-
-
-{-| Fixed pixel (column) width.
+{-| Fixed column width.
 -}
 px : Int -> Width
 px =
@@ -153,91 +200,249 @@ px =
 
 
 
--- SCROLL
+-- STATE
 
 
-{-| Initial scroll state (offset 0).
+{-| Initial empty state.
 -}
-initScroll : Scroll
-initScroll =
-    Scroll { offset = 0 }
+init : State
+init =
+    State
+        { paneStates = Dict.empty
+        , context = { width = 80, height = 24 }
+        }
 
 
-{-| Adjust scroll by a delta. Positive = down, negative = up. Clamps at 0.
+{-| Update the terminal dimensions in the state. Call this with the `Context`
+from your `view` function.
 -}
-scrollBy : Int -> Scroll -> Scroll
-scrollBy delta (Scroll s) =
-    Scroll { offset = max 0 (s.offset + delta) }
+withContext : { width : Int, height : Int } -> State -> State
+withContext ctx (State s) =
+    State { s | context = ctx }
 
 
-{-| Get the current scroll offset.
+{-| Move selection down in a pane.
 -}
-scrollOffset : Scroll -> Int
-scrollOffset (Scroll s) =
-    s.offset
+navigateDown : String -> State -> State
+navigateDown paneId (State s) =
+    let
+        ps : PaneState
+        ps =
+            Dict.get paneId s.paneStates
+                |> Maybe.withDefault defaultPaneState
+    in
+    State
+        { s
+            | paneStates =
+                Dict.insert paneId
+                    { ps | selectedIndex = ps.selectedIndex + 1 }
+                    s.paneStates
+        }
 
 
-
--- EVENT HANDLERS
-
-
-{-| Attach a scroll handler to a pane. When the user scrolls over this pane,
-your message receives the scroll direction and amount.
+{-| Move selection up in a pane.
 -}
-onScroll : (ScrollEvent -> msg) -> Pane msg -> Pane msg
-onScroll handler (Pane p) =
-    Pane { p | onScrollHandler = Just handler }
+navigateUp : String -> State -> State
+navigateUp paneId (State s) =
+    let
+        ps : PaneState
+        ps =
+            Dict.get paneId s.paneStates
+                |> Maybe.withDefault defaultPaneState
+    in
+    State
+        { s
+            | paneStates =
+                Dict.insert paneId
+                    { ps | selectedIndex = max 0 (ps.selectedIndex - 1) }
+                    s.paneStates
+        }
 
 
-{-| Attach a click handler to a pane. Coordinates are local to the pane content
-(row 0 is the first content line, not the border).
+{-| Get the currently selected index for a pane.
 -}
-onClick : ({ row : Int, col : Int } -> msg) -> Pane msg -> Pane msg
-onClick handler (Pane p) =
-    Pane { p | onClickHandler = Just handler }
+selectedIndex : String -> State -> Int
+selectedIndex paneId (State s) =
+    Dict.get paneId s.paneStates
+        |> Maybe.map .selectedIndex
+        |> Maybe.withDefault 0
+
+
+{-| Get the current scroll position for a pane.
+-}
+scrollPosition : String -> State -> Int
+scrollPosition paneId (State s) =
+    Dict.get paneId s.paneStates
+        |> Maybe.map .scrollOffset
+        |> Maybe.withDefault 0
+
+
+defaultPaneState : PaneState
+defaultPaneState =
+    { scrollOffset = 0, selectedIndex = 0 }
+
+
+
+-- MOUSE DISPATCH
+
+
+{-| Handle a mouse event. Updates internal state (scroll, selection) and
+returns the updated state plus an optional user message from click handlers.
+-}
+handleMouse : MouseEvent -> Layout msg -> State -> ( State, Maybe msg )
+handleMouse mouseEvent (Horizontal panes) ((State s) as state) =
+    let
+        widths : List Int
+        widths =
+            resolveWidths s.context.width (List.map .width panes)
+
+        panesWithBounds : List { config : PaneConfig msg, startCol : Int, endCol : Int }
+        panesWithBounds =
+            List.map2 Tuple.pair panes widths
+                |> List.foldl
+                    (\( paneConfig, w ) ( acc, col ) ->
+                        ( acc ++ [ { config = paneConfig, startCol = col, endCol = col + w } ]
+                        , col + w
+                        )
+                    )
+                    ( [], 0 )
+                |> Tuple.first
+    in
+    case mouseEvent of
+        Tui.ScrollDown { col, amount } ->
+            case findPaneAt col panesWithBounds of
+                Just { config } ->
+                    let
+                        ps : PaneState
+                        ps =
+                            Dict.get config.id s.paneStates
+                                |> Maybe.withDefault defaultPaneState
+
+                        delta : Int
+                        delta =
+                            amount * 3
+                    in
+                    ( State
+                        { s
+                            | paneStates =
+                                Dict.insert config.id
+                                    { ps | scrollOffset = ps.scrollOffset + delta }
+                                    s.paneStates
+                        }
+                    , Nothing
+                    )
+
+                Nothing ->
+                    ( state, Nothing )
+
+        Tui.ScrollUp { col, amount } ->
+            case findPaneAt col panesWithBounds of
+                Just { config } ->
+                    let
+                        ps : PaneState
+                        ps =
+                            Dict.get config.id s.paneStates
+                                |> Maybe.withDefault defaultPaneState
+
+                        delta : Int
+                        delta =
+                            amount * 3
+                    in
+                    ( State
+                        { s
+                            | paneStates =
+                                Dict.insert config.id
+                                    { ps | scrollOffset = max 0 (ps.scrollOffset - delta) }
+                                    s.paneStates
+                        }
+                    , Nothing
+                    )
+
+                Nothing ->
+                    ( state, Nothing )
+
+        Tui.Click { row, col } ->
+            case findPaneAt col panesWithBounds of
+                Just { config } ->
+                    case config.paneContent of
+                        SelectableContent { onSelect } ->
+                            let
+                                contentRow : Int
+                                contentRow =
+                                    row - 1
+
+                                ps : PaneState
+                                ps =
+                                    Dict.get config.id s.paneStates
+                                        |> Maybe.withDefault defaultPaneState
+
+                                clickedIndex : Int
+                                clickedIndex =
+                                    contentRow + ps.scrollOffset
+                            in
+                            ( State
+                                { s
+                                    | paneStates =
+                                        Dict.insert config.id
+                                            { ps | selectedIndex = clickedIndex }
+                                            s.paneStates
+                                }
+                            , Just (onSelect clickedIndex)
+                            )
+
+                        StaticContent _ ->
+                            ( state, Nothing )
+
+                Nothing ->
+                    ( state, Nothing )
+
+
+findPaneAt : Int -> List { config : PaneConfig msg, startCol : Int, endCol : Int } -> Maybe { config : PaneConfig msg, startCol : Int, endCol : Int }
+findPaneAt col panesWithBounds =
+    panesWithBounds
+        |> List.filter (\{ startCol, endCol } -> col >= startCol && col < endCol)
+        |> List.head
 
 
 
 -- RENDERING
 
 
-{-| Render the layout to a `Tui.Screen` at the given dimensions.
+{-| Render the layout to a Screen using the given state.
 -}
-toScreen : { width : Int, height : Int } -> Layout msg -> Screen
-toScreen size (Horizontal panes) =
+toScreen : State -> Layout msg -> Screen
+toScreen (State s) (Horizontal panes) =
     let
+        totalWidth : Int
+        totalWidth =
+            s.context.width
+
+        totalHeight : Int
+        totalHeight =
+            s.context.height
+
         widths : List Int
         widths =
-            resolveWidths size.width panes
+            resolveWidths totalWidth (List.map .width panes)
 
-        panesWithWidths : List ( Pane msg, Int )
+        panesWithWidths : List ( PaneConfig msg, Int )
         panesWithWidths =
             List.map2 Tuple.pair panes widths
 
-        height : Int
-        height =
-            size.height
-    in
-    renderHorizontalPanes panesWithWidths height
-
-
-renderHorizontalPanes : List ( Pane msg, Int ) -> Int -> Screen
-renderHorizontalPanes panesWithWidths height =
-    let
         paneCount : Int
         paneCount =
-            List.length panesWithWidths
+            List.length panes
 
         renderRow : Int -> Screen
         renderRow row =
             Tui.concat
                 (panesWithWidths
                     |> List.indexedMap
-                        (\paneIndex ( Pane p, w ) ->
+                        (\paneIdx ( paneConfig, w ) ->
                             let
                                 innerW : Int
                                 innerW =
-                                    if paneIndex == 0 then
+                                    if paneIdx == 0 then
                                         w - 2
 
                                     else
@@ -245,14 +450,13 @@ renderHorizontalPanes panesWithWidths height =
 
                                 isFirstPane : Bool
                                 isFirstPane =
-                                    paneIndex == 0
+                                    paneIdx == 0
 
                                 isLastPane : Bool
                                 isLastPane =
-                                    paneIndex == paneCount - 1
+                                    paneIdx == paneCount - 1
                             in
                             if row == 0 then
-                                -- Top border
                                 Tui.concat
                                     [ Tui.text
                                         (if isFirstPane then
@@ -261,8 +465,8 @@ renderHorizontalPanes panesWithWidths height =
                                          else
                                             "┬"
                                         )
-                                    , Tui.text p.title
-                                    , Tui.text (String.repeat (innerW - String.length p.title) "─")
+                                    , Tui.text paneConfig.title
+                                    , Tui.text (String.repeat (max 0 (innerW - String.length paneConfig.title)) "─")
                                     , if isLastPane then
                                         Tui.text "┐"
 
@@ -270,8 +474,7 @@ renderHorizontalPanes panesWithWidths height =
                                         Tui.empty
                                     ]
 
-                            else if row == height - 1 then
-                                -- Bottom border
+                            else if row == totalHeight - 1 then
                                 Tui.concat
                                     [ Tui.text
                                         (if isFirstPane then
@@ -289,24 +492,24 @@ renderHorizontalPanes panesWithWidths height =
                                     ]
 
                             else
-                                -- Content row
                                 let
-                                    contentLines : List String
-                                    contentLines =
-                                        p.content
-                                            |> Tui.toLines
-                                            |> List.drop (scrollOffset p.scroll)
+                                    ps : PaneState
+                                    ps =
+                                        Dict.get paneConfig.id s.paneStates
+                                            |> Maybe.withDefault defaultPaneState
 
                                     contentRow : Int
                                     contentRow =
                                         row - 1
 
+                                    lineScreen : Screen
+                                    lineScreen =
+                                        getContentLine paneConfig ps contentRow
+
                                     lineText : String
                                     lineText =
-                                        contentLines
-                                            |> List.drop contentRow
-                                            |> List.head
-                                            |> Maybe.withDefault ""
+                                        lineScreen
+                                            |> Tui.toString
                                             |> padAndTruncate innerW
                                 in
                                 Tui.concat
@@ -321,60 +524,88 @@ renderHorizontalPanes panesWithWidths height =
                         )
                 )
     in
-    List.range 0 (height - 1)
+    List.range 0 (totalHeight - 1)
         |> List.map renderRow
         |> Tui.lines
 
 
-resolveWidths : Int -> List (Pane msg) -> List Int
-resolveWidths totalWidth panes =
+getContentLine : PaneConfig msg -> PaneState -> Int -> Screen
+getContentLine paneConfig ps contentRow =
     let
-        fixed : List ( Bool, Maybe Int )
-        fixed =
-            panes
-                |> List.map
-                    (\(Pane p) ->
-                        case p.width of
-                            Px n ->
-                                ( False, Just n )
-
-                            Fraction f ->
-                                ( False, Just (round (toFloat totalWidth * f)) )
-
-                            Fill ->
-                                ( True, Nothing )
-                    )
-
-        fillCount : Int
-        fillCount =
-            fixed
-                |> List.filter (\( isFill, _ ) -> isFill)
-                |> List.length
-
-        fillWidth : Int
-        fillWidth =
-            if fillCount > 0 then
-                let
-                    fixedTotal : Int
-                    fixedTotal =
-                        fixed
-                            |> List.filterMap Tuple.second
-                            |> List.sum
-                in
-                (totalWidth - fixedTotal) // fillCount
-
-            else
-                0
+        scrolledRow : Int
+        scrolledRow =
+            contentRow + ps.scrollOffset
     in
-    fixed
-        |> List.map
-            (\( _, maybeW ) ->
-                case maybeW of
-                    Just w ->
-                        w
+    case paneConfig.paneContent of
+        StaticContent lines ->
+            lines
+                |> List.drop scrolledRow
+                |> List.head
+                |> Maybe.withDefault Tui.empty
 
-                    Nothing ->
-                        fillWidth
+        SelectableContent { items } ->
+            items
+                |> List.indexedMap
+                    (\i ( defaultView, selectedView ) ->
+                        if i == ps.selectedIndex then
+                            selectedView
+
+                        else
+                            defaultView
+                    )
+                |> List.drop scrolledRow
+                |> List.head
+                |> Maybe.withDefault Tui.empty
+
+
+resolveWidths : Int -> List Width -> List Int
+resolveWidths totalWidth widthSpecs =
+    let
+        fixedTotal : Int
+        fixedTotal =
+            widthSpecs
+                |> List.filterMap
+                    (\w ->
+                        case w of
+                            Px n ->
+                                Just n
+
+                            Fill _ ->
+                                Nothing
+                    )
+                |> List.sum
+
+        totalWeight : Int
+        totalWeight =
+            widthSpecs
+                |> List.filterMap
+                    (\w ->
+                        case w of
+                            Fill weight ->
+                                Just weight
+
+                            Px _ ->
+                                Nothing
+                    )
+                |> List.sum
+
+        remaining : Int
+        remaining =
+            totalWidth - fixedTotal
+    in
+    widthSpecs
+        |> List.map
+            (\w ->
+                case w of
+                    Px n ->
+                        n
+
+                    Fill weight ->
+                        if totalWeight > 0 then
+                            (remaining * weight) // totalWeight
+
+                        else
+                            0
             )
 
 
@@ -390,84 +621,3 @@ padAndTruncate width str =
                 str
     in
     truncated ++ String.repeat (width - String.length truncated) " "
-
-
-
--- MOUSE DISPATCH
-
-
-{-| Dispatch a mouse event to the appropriate pane handler. Returns the
-message if a handler matched, or Nothing if the event was outside all panes
-or no handler was registered.
-
-Coordinates are translated to pane-local: row 0 is the first content line
-(below the top border), col 0 is the first content column (after the left
-border).
-
--}
-handleMouse : MouseEvent -> { width : Int, height : Int } -> Layout msg -> Maybe msg
-handleMouse mouseEvent size (Horizontal panes) =
-    let
-        widths : List Int
-        widths =
-            resolveWidths size.width panes
-
-        panesWithBounds : List { thePane : Pane msg, startCol : Int, endCol : Int }
-        panesWithBounds =
-            List.map2 Tuple.pair panes widths
-                |> List.foldl
-                    (\( p, w ) ( acc, col ) ->
-                        ( acc ++ [ { thePane = p, startCol = col, endCol = col + w } ]
-                        , col + w
-                        )
-                    )
-                    ( [], 0 )
-                |> Tuple.first
-    in
-    case mouseEvent of
-        Tui.ScrollDown { col, amount } ->
-            findPaneAt col panesWithBounds
-                |> Maybe.andThen
-                    (\{ thePane } ->
-                        paneScrollHandler thePane
-                            |> Maybe.map (\handler -> handler { direction = Down, amount = amount })
-                    )
-
-        Tui.ScrollUp { col, amount } ->
-            findPaneAt col panesWithBounds
-                |> Maybe.andThen
-                    (\{ thePane } ->
-                        paneScrollHandler thePane
-                            |> Maybe.map (\handler -> handler { direction = Up, amount = amount })
-                    )
-
-        Tui.Click { row, col } ->
-            findPaneAt col panesWithBounds
-                |> Maybe.andThen
-                    (\{ thePane, startCol } ->
-                        paneClickHandler thePane
-                            |> Maybe.map
-                                (\handler ->
-                                    handler
-                                        { row = row - 1
-                                        , col = col - startCol - 1
-                                        }
-                                )
-                    )
-
-
-findPaneAt : Int -> List { thePane : Pane msg, startCol : Int, endCol : Int } -> Maybe { thePane : Pane msg, startCol : Int, endCol : Int }
-findPaneAt col panesWithBounds =
-    panesWithBounds
-        |> List.filter (\{ startCol, endCol } -> col >= startCol && col < endCol)
-        |> List.head
-
-
-paneScrollHandler : Pane msg -> Maybe (ScrollEvent -> msg)
-paneScrollHandler (Pane p) =
-    p.onScrollHandler
-
-
-paneClickHandler : Pane msg -> Maybe ({ row : Int, col : Int } -> msg)
-paneClickHandler (Pane p) =
-    p.onClickHandler
