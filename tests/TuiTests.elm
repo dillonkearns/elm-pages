@@ -2,12 +2,13 @@ module TuiTests exposing (suite)
 
 import BackendTask
 import BackendTask.Http
-import Expect
+import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
+import Test.Runner
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Sub
@@ -171,6 +172,7 @@ suite =
                     starsTest
                         |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
+                        |> TuiTest.sendMsg (GotStars (Ok 0))
                         |> TuiTest.expectRunning
             , test "simulating BackendTask result shows stars" <|
                 \() ->
@@ -262,7 +264,83 @@ suite =
                                 Expect.pass
                            )
             ]
+        , describe "TuiTest - error messages"
+            [ test "expectRunning fails with helpful message when effects are pending" <|
+                \() ->
+                    starsTest
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        -- Don't resolve the HTTP effect
+                        |> TuiTest.expectRunning
+                        |> expectFailureContaining "pending BackendTask"
+            , test "expectExit fails with helpful message when effects are pending" <|
+                \() ->
+                    starsTest
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.expectExit
+                        |> expectFailureContaining "pending BackendTask"
+            , test "resolveEffect with no pending effect fails with helpful message" <|
+                \() ->
+                    starsTest
+                        -- Don't press Enter — no effect triggered
+                        |> TuiTest.resolveEffect
+                            (BackendTaskTest.simulateHttpGet
+                                "https://api.github.com/repos/foo/bar"
+                                (Encode.int 0)
+                            )
+                        |> TuiTest.expectRunning
+                        |> expectFailureContaining "No pending BackendTask"
+            , test "pressKey after exit fails with helpful message" <|
+                \() ->
+                    counterTest
+                        |> TuiTest.pressKey 'q'
+                        |> TuiTest.pressKey 'k'
+                        |> TuiTest.expectExit
+                        |> expectFailureContaining "after TUI exited"
+            , test "resolveEffect with wrong URL surfaces Test.BackendTask error" <|
+                \() ->
+                    starsTest
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.resolveEffect
+                            (BackendTaskTest.simulateHttpGet
+                                "https://WRONG-URL.com"
+                                (Encode.int 0)
+                            )
+                        |> TuiTest.expectRunning
+                        |> expectFailureContaining "WRONG-URL"
+            , test "ensureViewHas failure shows actual screen content" <|
+                \() ->
+                    counterTest
+                        |> TuiTest.ensureViewHas "this text is not on screen"
+                        |> TuiTest.expectRunning
+                        |> expectFailureContaining "Count: 0"
+            ]
         ]
+
+
+{-| Helper: assert that an Expectation is a failure containing a substring.
+-}
+expectFailureContaining : String -> Expectation -> Expectation
+expectFailureContaining needle expectation =
+    case Test.Runner.getFailureReason expectation of
+        Nothing ->
+            Expect.fail
+                ("Expected a failure containing:\n\n    \""
+                    ++ needle
+                    ++ "\"\n\nbut the test passed."
+                )
+
+        Just { description } ->
+            if String.contains needle description then
+                Expect.pass
+
+            else
+                Expect.fail
+                    ("Expected failure message to contain:\n\n    \""
+                        ++ needle
+                        ++ "\"\n\nbut the failure message was:\n\n    \""
+                        ++ description
+                        ++ "\""
+                    )
 
 
 {-| Apply a function N times.

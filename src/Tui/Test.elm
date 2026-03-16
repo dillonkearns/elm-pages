@@ -365,6 +365,9 @@ ensureViewDoesNotHave needle (TuiTest state) =
 
 
 {-| Assert that the TUI is still running (has not exited).
+Fails if there are unresolved pending `BackendTask` effects — use
+[`resolveEffect`](#resolveEffect) or [`sendMsg`](#sendMsg) to resolve them
+before calling this.
 -}
 expectRunning : TuiTest model msg -> Expectation
 expectRunning (TuiTest state) =
@@ -373,15 +376,19 @@ expectRunning (TuiTest state) =
             Expect.fail msg
 
         Nothing ->
-            case state.exited of
-                Nothing ->
+            case ( state.exited, state.pendingEffects ) of
+                ( Nothing, [] ) ->
                     Expect.pass
 
-                Just code ->
+                ( Nothing, pending ) ->
+                    Expect.fail (pendingEffectsError (List.length pending))
+
+                ( Just code, _ ) ->
                     Expect.fail ("Expected TUI to be running, but it exited with code " ++ String.fromInt code)
 
 
 {-| Assert that the TUI exited with code 0.
+Fails if there are unresolved pending `BackendTask` effects.
 -}
 expectExit : TuiTest model msg -> Expectation
 expectExit (TuiTest state) =
@@ -390,18 +397,26 @@ expectExit (TuiTest state) =
             Expect.fail msg
 
         Nothing ->
-            case state.exited of
-                Just 0 ->
+            case ( state.exited, state.pendingEffects ) of
+                ( Just 0, [] ) ->
                     Expect.pass
 
-                Just code ->
+                ( Just 0, pending ) ->
+                    Expect.fail (pendingEffectsError (List.length pending))
+
+                ( Just code, _ ) ->
                     Expect.fail ("Expected exit code 0, but got " ++ String.fromInt code)
 
-                Nothing ->
-                    Expect.fail "Expected TUI to exit, but it is still running"
+                ( Nothing, pending ) ->
+                    if List.isEmpty pending then
+                        Expect.fail "Expected TUI to exit, but it is still running"
+
+                    else
+                        Expect.fail (pendingEffectsError (List.length pending))
 
 
 {-| Assert that the TUI exited with a specific exit code.
+Fails if there are unresolved pending `BackendTask` effects.
 -}
 expectExitWith : Int -> TuiTest model msg -> Expectation
 expectExitWith expectedCode (TuiTest state) =
@@ -410,16 +425,44 @@ expectExitWith expectedCode (TuiTest state) =
             Expect.fail msg
 
         Nothing ->
-            case state.exited of
-                Just code ->
+            case ( state.exited, state.pendingEffects ) of
+                ( Just code, [] ) ->
                     if code == expectedCode then
                         Expect.pass
 
                     else
                         Expect.fail ("Expected exit code " ++ String.fromInt expectedCode ++ ", but got " ++ String.fromInt code)
 
-                Nothing ->
-                    Expect.fail ("Expected TUI to exit with code " ++ String.fromInt expectedCode ++ ", but it is still running")
+                ( Just _, pending ) ->
+                    Expect.fail (pendingEffectsError (List.length pending))
+
+                ( Nothing, pending ) ->
+                    if List.isEmpty pending then
+                        Expect.fail ("Expected TUI to exit with code " ++ String.fromInt expectedCode ++ ", but it is still running")
+
+                    else
+                        Expect.fail (pendingEffectsError (List.length pending))
+
+
+pendingEffectsError : Int -> String
+pendingEffectsError count =
+    let
+        noun =
+            if count == 1 then
+                "effect"
+
+            else
+                "effects"
+    in
+    "There "
+        ++ (if count == 1 then
+                "is 1 pending BackendTask effect"
+
+            else
+                "are " ++ String.fromInt count ++ " pending BackendTask effects"
+           )
+        ++ " that must be resolved before ending the test.\n\n"
+        ++ "Use TuiTest.resolveEffect to simulate the response, or TuiTest.sendMsg to skip the BackendTask and provide the resulting Msg directly."
 
 
 
