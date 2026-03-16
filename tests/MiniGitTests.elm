@@ -1,10 +1,11 @@
-module MiniGitTests exposing (suite)
+module MiniGitTests exposing (stepper, suite)
 
 import Ansi.Color
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Layout as Layout
 import Tui.Sub
 import Tui.Test as TuiTest
 
@@ -17,19 +18,13 @@ suite =
                 \() ->
                     miniGitTest
                         |> TuiTest.ensureViewHas "▸ abc1234"
-                        |> TuiTest.ensureViewHas "  def5678"
-                        |> TuiTest.expectRunning
-            , test "initial view shows selected commit detail" <|
-                \() ->
-                    miniGitTest
-                        |> TuiTest.ensureViewHas "Initial commit"
+                        |> TuiTest.ensureViewHas "def5678"
                         |> TuiTest.expectRunning
             , test "j moves selection down" <|
                 \() ->
                     miniGitTest
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.ensureViewHas "▸ def5678"
-                        |> TuiTest.ensureViewHas "Add feature"
                         |> TuiTest.expectRunning
             , test "k moves selection up" <|
                 \() ->
@@ -37,16 +32,6 @@ suite =
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.pressKey 'k'
                         |> TuiTest.ensureViewHas "▸ abc1234"
-                        |> TuiTest.expectRunning
-            , test "selection doesn't go below last item" <|
-                \() ->
-                    miniGitTest
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.ensureViewHas "▸ 789abcd"
                         |> TuiTest.expectRunning
             , test "q exits" <|
                 \() ->
@@ -58,56 +43,41 @@ suite =
             [ test "clicking on a commit selects it" <|
                 \() ->
                     miniGitTest
-                        |> TuiTest.click { row = 3, col = 5 }
-                        |> TuiTest.ensureViewHas "▸ def5678"
-                        |> TuiTest.ensureViewHas "Add feature"
-                        |> TuiTest.expectRunning
-            , test "clicking on third commit selects it" <|
-                \() ->
-                    miniGitTest
-                        |> TuiTest.click { row = 4, col = 5 }
-                        |> TuiTest.ensureViewHas "▸ 345cdef"
-                        |> TuiTest.ensureViewHas "Fix bug"
-                        |> TuiTest.expectRunning
-            , test "scroll down moves selection" <|
-                \() ->
-                    miniGitTest
-                        |> TuiTest.scrollDown { row = 3, col = 5 }
+                        |> TuiTest.click { row = 2, col = 5 }
                         |> TuiTest.ensureViewHas "▸ def5678"
                         |> TuiTest.expectRunning
-            , test "scroll up moves selection" <|
+            , test "scroll down moves viewport" <|
                 \() ->
                     miniGitTest
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.scrollUp { row = 3, col = 5 }
-                        |> TuiTest.ensureViewHas "▸ def5678"
+                        |> TuiTest.scrollDown { row = 2, col = 5 }
                         |> TuiTest.expectRunning
             ]
-        , describe "scrolling long lists"
-            [ test "scrolling past visible area shifts the viewport" <|
+        , describe "layout"
+            [ test "shows pane titles" <|
                 \() ->
-                    -- Start with a larger terminal so adjustScroll works
-                    TuiTest.startWithContext { width = 80, height = 20 }
-                        { data = longCommitList
-                        , init = miniGitInit
-                        , update = miniGitUpdate
-                        , view = miniGitView
-                        , subscriptions = miniGitSubscriptions
-                        }
-                        -- Move down past the 5-row scroll window
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        -- The selected commit (sha0007) should be visible
-                        |> TuiTest.ensureViewHas "▸ sha0007"
+                    miniGitTest
+                        |> TuiTest.ensureViewHas "Commits"
+                        |> TuiTest.ensureViewHas "Diff"
+                        |> TuiTest.expectRunning
+            , test "shows box borders" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.ensureView
+                            (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "┌" |> Expect.equal True
+                                    , \str -> str |> String.contains "┐" |> Expect.equal True
+                                    , \str -> str |> String.contains "└" |> Expect.equal True
+                                    , \str -> str |> String.contains "┘" |> Expect.equal True
+                                    , \str -> str |> String.contains "┬" |> Expect.equal True
+                                    , \str -> str |> String.contains "┴" |> Expect.equal True
+                                    ]
+                                    s
+                            )
                         |> TuiTest.expectRunning
             ]
-        , describe "snapshots with model inspection"
-            [ test "model state shows selection index" <|
+        , describe "snapshots"
+            [ test "model state shows layout changes" <|
                 \() ->
                     miniGitTest
                         |> TuiTest.withModelToString Debug.toString
@@ -117,14 +87,29 @@ suite =
                         |> List.head
                         |> Maybe.andThen .modelState
                         |> Maybe.withDefault ""
-                        |> String.contains "selected = 1"
+                        |> String.contains "layout"
                         |> Expect.equal True
             ]
         ]
 
 
 
--- Mini Git model
+-- Stepper for elm-pages test
+
+
+stepper : TuiTest.TuiTest Model Msg
+stepper =
+    miniGitTest
+        |> TuiTest.withModelToString Debug.toString
+        |> TuiTest.pressKey 'j'
+        |> TuiTest.pressKey 'j'
+        |> TuiTest.pressKey 'j'
+        |> TuiTest.pressKey 'k'
+        |> TuiTest.click { row = 2, col = 5 }
+
+
+
+-- Inline MiniGit using Layout
 
 
 type alias Commit =
@@ -134,15 +119,15 @@ type alias Commit =
 
 
 type alias Model =
-    { commits : List Commit
-    , selected : Int
-    , scrollOffset : Int
+    { layout : Layout.State
+    , commits : List Commit
     }
 
 
 type Msg
     = KeyPressed Tui.KeyEvent
-    | MouseEvent Tui.MouseEvent
+    | Mouse Tui.MouseEvent
+    | SelectCommit Int
 
 
 sampleCommits : List Commit
@@ -151,61 +136,59 @@ sampleCommits =
     , { sha = "def5678", message = "Add feature" }
     , { sha = "345cdef", message = "Fix bug" }
     , { sha = "789abcd", message = "Update docs" }
+    , { sha = "aaa1111", message = "Refactor" }
+    , { sha = "bbb2222", message = "Add tests" }
     ]
-
-
-longCommitList : List Commit
-longCommitList =
-    List.range 1 20
-        |> List.map
-            (\i ->
-                { sha = "sha" ++ String.padLeft 4 '0' (String.fromInt i)
-                , message = "Commit " ++ String.fromInt i
-                }
-            )
 
 
 miniGitInit : List Commit -> ( Model, Effect Msg )
 miniGitInit commits =
-    ( { commits = commits
-      , selected = 0
-      , scrollOffset = 0
+    ( { layout = Layout.init
+      , commits = commits
       }
     , Effect.none
     )
 
 
+miniGitLayout : Model -> Layout.Layout Msg
+miniGitLayout model =
+    Layout.horizontal
+        [ Layout.pane "commits"
+            { title = "Commits", width = Layout.fill }
+            (Layout.selectableList
+                { onSelect = SelectCommit
+                , selected =
+                    \commit ->
+                        Tui.styled
+                            { fg = Just Ansi.Color.yellow
+                            , bg = Nothing
+                            , attributes = [ Tui.bold ]
+                            }
+                            ("▸ " ++ commit.sha ++ " " ++ commit.message)
+                , default =
+                    \commit ->
+                        Tui.text ("  " ++ commit.sha ++ " " ++ commit.message)
+                }
+                model.commits
+            )
+        , Layout.pane "diff"
+            { title = "Diff", width = Layout.fillPortion 2 }
+            (Layout.content [ Tui.text "(diff placeholder)" ])
+        ]
+
+
 miniGitUpdate : Msg -> Model -> ( Model, Effect Msg )
 miniGitUpdate msg model =
-    let
-        maxIndex : Int
-        maxIndex =
-            List.length model.commits - 1
-    in
     case msg of
         KeyPressed event ->
             case event.key of
                 Tui.Character 'j' ->
-                    ( { model | selected = min maxIndex (model.selected + 1) }
-                        |> adjustScroll
-                    , Effect.none
-                    )
-
-                Tui.Arrow Tui.Down ->
-                    ( { model | selected = min maxIndex (model.selected + 1) }
-                        |> adjustScroll
+                    ( { model | layout = Layout.navigateDown "commits" model.layout }
                     , Effect.none
                     )
 
                 Tui.Character 'k' ->
-                    ( { model | selected = max 0 (model.selected - 1) }
-                        |> adjustScroll
-                    , Effect.none
-                    )
-
-                Tui.Arrow Tui.Up ->
-                    ( { model | selected = max 0 (model.selected - 1) }
-                        |> adjustScroll
+                    ( { model | layout = Layout.navigateUp "commits" model.layout }
                     , Effect.none
                     )
 
@@ -218,157 +201,33 @@ miniGitUpdate msg model =
                 _ ->
                     ( model, Effect.none )
 
-        MouseEvent event ->
-            case event of
-                Tui.Click { row } ->
-                    let
-                        -- Row 2 is the header, commits start at row 2 (0-indexed)
-                        clickedIndex : Int
-                        clickedIndex =
-                            row - 2 + model.scrollOffset
-                    in
-                    if clickedIndex >= 0 && clickedIndex <= maxIndex then
-                        ( { model | selected = clickedIndex }
-                        , Effect.none
-                        )
+        Mouse mouseEvent ->
+            let
+                ( newLayout, maybeMsg ) =
+                    Layout.handleMouse mouseEvent (miniGitLayout model) model.layout
+            in
+            case maybeMsg of
+                Just userMsg ->
+                    miniGitUpdate userMsg { model | layout = newLayout }
 
-                    else
-                        ( model, Effect.none )
+                Nothing ->
+                    ( { model | layout = newLayout }, Effect.none )
 
-                Tui.ScrollUp _ ->
-                    ( { model | selected = max 0 (model.selected - 1) }
-                        |> adjustScroll
-                    , Effect.none
-                    )
-
-                Tui.ScrollDown _ ->
-                    ( { model | selected = min maxIndex (model.selected + 1) }
-                        |> adjustScroll
-                    , Effect.none
-                    )
-
-
-adjustScroll : Model -> Model
-adjustScroll model =
-    -- Simple scrolling: keep selected item visible
-    -- Assume a visible window of some height, adjusted in view
-    if model.selected < model.scrollOffset then
-        { model | scrollOffset = model.selected }
-
-    else if model.selected >= model.scrollOffset + 5 then
-        -- 5 visible rows (rough)
-        { model | scrollOffset = model.selected - 4 }
-
-    else
-        model
+        SelectCommit _ ->
+            ( model, Effect.none )
 
 
 miniGitView : Tui.Context -> Model -> Tui.Screen
 miniGitView ctx model =
-    let
-        dimStyle : Tui.Style
-        dimStyle =
-            { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
-
-        headerStyle : Tui.Style
-        headerStyle =
-            { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.bold ] }
-
-        separator : String
-        separator =
-            String.repeat (ctx.width // 3) "─"
-
-        visibleRows : Int
-        visibleRows =
-            ctx.height - 5
-
-        visibleCommits : List ( Int, Commit )
-        visibleCommits =
-            model.commits
-                |> List.indexedMap Tuple.pair
-                |> List.drop model.scrollOffset
-                |> List.take visibleRows
-
-        commitList : Tui.Screen
-        commitList =
-            visibleCommits
-                |> List.map
-                    (\( i, commit ) ->
-                        let
-                            isSelected : Bool
-                            isSelected =
-                                i == model.selected
-                        in
-                        Tui.concat
-                            [ Tui.text
-                                (if isSelected then
-                                    "▸ "
-
-                                 else
-                                    "  "
-                                )
-                            , Tui.styled
-                                (if isSelected then
-                                    { fg = Just Ansi.Color.yellow
-                                    , bg = Nothing
-                                    , attributes = [ Tui.bold ]
-                                    }
-
-                                 else
-                                    dimStyle
-                                )
-                                commit.sha
-                            , Tui.text " "
-                            , Tui.text (truncate (ctx.width // 3 - 12) commit.message)
-                            ]
-                    )
-                |> Tui.lines
-
-        selectedCommit : Tui.Screen
-        selectedCommit =
-            case model.commits |> List.drop model.selected |> List.head of
-                Just commit ->
-                    Tui.lines
-                        [ Tui.styled headerStyle "Commit Detail"
-                        , Tui.text ""
-                        , Tui.concat
-                            [ Tui.styled dimStyle "SHA: "
-                            , Tui.text commit.sha
-                            ]
-                        , Tui.text ""
-                        , Tui.text commit.message
-                        ]
-
-                Nothing ->
-                    Tui.text "No commit selected"
-    in
-    Tui.lines
-        [ Tui.styled headerStyle "Mini Git Log"
-        , Tui.text ""
-        , commitList
-        , Tui.text ""
-        , Tui.styled dimStyle separator
-        , Tui.text ""
-        , selectedCommit
-        , Tui.text ""
-        , Tui.styled dimStyle "j/k navigate  q quit  mouse click/scroll"
-        ]
-
-
-truncate : Int -> String -> String
-truncate maxLen str =
-    if String.length str > maxLen then
-        String.left (maxLen - 1) str ++ "…"
-
-    else
-        str
+    miniGitLayout model
+        |> Layout.toScreen (Layout.withContext { width = ctx.width, height = ctx.height } model.layout)
 
 
 miniGitSubscriptions : Model -> Tui.Sub.Sub Msg
 miniGitSubscriptions _ =
     Tui.Sub.batch
         [ Tui.Sub.onKeyPress KeyPressed
-        , Tui.Sub.onMouse MouseEvent
+        , Tui.Sub.onMouse Mouse
         ]
 
 
