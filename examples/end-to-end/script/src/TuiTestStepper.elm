@@ -11,12 +11,8 @@ Navigate with ← → arrow keys, q to quit.
 
 import Ansi.Color
 import BackendTask exposing (BackendTask)
-import BackendTask.Http
 import FatalError exposing (FatalError)
-import Json.Decode as Decode
-import Json.Encode as Encode
 import Pages.Script as Script exposing (Script)
-import Test.BackendTask as BackendTaskTest
 import Tui
 import Tui.Effect as Effect
 import Tui.Sub
@@ -41,42 +37,36 @@ run =
 demoSnapshots : List TuiTest.Snapshot
 demoSnapshots =
     let
-        starsTest : TuiTest.TuiTest StarsModel StarsMsg
-        starsTest =
+        sampleCommits : List MiniGitCommit
+        sampleCommits =
+            [ { sha = "abc1234", message = "Initial commit" }
+            , { sha = "def5678", message = "Add feature X" }
+            , { sha = "345cdef", message = "Fix bug in parser" }
+            , { sha = "789abcd", message = "Update documentation" }
+            , { sha = "aaa1111", message = "Refactor module structure" }
+            , { sha = "bbb2222", message = "Add unit tests" }
+            ]
+
+        miniGitTest : TuiTest.TuiTest MiniGitModel MiniGitMsg
+        miniGitTest =
             TuiTest.start
-                { data = ()
-                , init = starsInit
-                , update = starsUpdate
-                , view = starsView
-                , subscriptions = starsSubscriptions
+                { data = sampleCommits
+                , init = miniGitInit
+                , update = miniGitUpdate
+                , view = miniGitView
+                , subscriptions = miniGitSubscriptions
                 }
     in
-    starsTest
+    miniGitTest
         |> TuiTest.withModelToString Debug.toString
-        -- Edit: delete "elm-pages" (9 chars) and type "elm-graphql"
-        |> repeatN 9 (TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] })
-        |> typeChars "elm-graphql"
-        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
-        |> TuiTest.resolveEffect
-            (BackendTaskTest.simulateHttpGet
-                "https://api.github.com/repos/dillonkearns/elm-graphql"
-                (Encode.object [ ( "stargazers_count", Encode.int 780 ) ])
-            )
+        |> TuiTest.pressKey 'j'
+        |> TuiTest.pressKey 'j'
+        |> TuiTest.pressKey 'j'
+        |> TuiTest.click { row = 1, col = 5 }
+        |> TuiTest.pressKey 'k'
+        |> TuiTest.scrollDown { row = 3, col = 5 }
+        |> TuiTest.scrollDown { row = 3, col = 5 }
         |> TuiTest.toSnapshots
-
-
-repeatN : Int -> (a -> a) -> a -> a
-repeatN n f val =
-    if n <= 0 then
-        val
-
-    else
-        repeatN (n - 1) f (f val)
-
-
-typeChars : String -> TuiTest.TuiTest model msg -> TuiTest.TuiTest model msg
-typeChars str tuiTest =
-    String.foldl (\c acc -> TuiTest.pressKey c acc) tuiTest str
 
 
 
@@ -151,7 +141,7 @@ view ctx model =
 
         separator : String
         separator =
-            String.repeat ctx.width "─"
+            String.repeat (ctx.width - 4) "─"
 
         stepIndicator : Tui.Screen
         stepIndicator =
@@ -174,15 +164,20 @@ view ctx model =
     in
     case maybeSnapshot of
         Just snapshot ->
+            let
+                renderedScreen : Tui.Screen
+                renderedScreen =
+                    snapshot.rerender { width = ctx.width - 6, height = ctx.height - 14 }
+            in
             Tui.lines
-                [ Tui.styled headerStyle
+                ([ Tui.styled headerStyle
                     ("  Test Stepper — Step "
                         ++ String.fromInt (model.currentIndex + 1)
                         ++ " of "
                         ++ String.fromInt (List.length model.snapshots)
                     )
-                , Tui.text ""
-                , Tui.concat
+                 , Tui.text ""
+                 , Tui.concat
                     [ Tui.styled dimStyle "  Action: "
                     , Tui.styled
                         { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [ Tui.bold ] }
@@ -195,53 +190,43 @@ view ctx model =
                       else
                         Tui.empty
                     ]
-                , Tui.text ""
-                , Tui.styled dimStyle ("  " ++ separator)
-                , Tui.text ""
-                , -- Re-render the snapshot at the stepper's available width
-                  let
-                    innerCtx : Tui.Context
-                    innerCtx =
-                        { width = ctx.width - 6, height = ctx.height - 12 }
+                 , Tui.text ""
+                 , Tui.styled dimStyle ("  " ++ separator)
+                 , Tui.text ""
+                 ]
+                    ++ (renderedScreen
+                            |> Tui.toLines
+                            |> List.map
+                                (\line ->
+                                    Tui.concat
+                                        [ Tui.styled dimStyle "  │ "
+                                        , Tui.text line
+                                        ]
+                                )
+                       )
+                    ++ [ Tui.text ""
+                       , Tui.styled dimStyle ("  " ++ separator)
+                       , case snapshot.modelState of
+                            Just modelStr ->
+                                Tui.lines
+                                    [ Tui.text ""
+                                    , Tui.styled
+                                        { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.bold ] }
+                                        "  Model:"
+                                    , modelStr
+                                        |> String.lines
+                                        |> List.map (\line -> Tui.styled dimStyle ("    " ++ line))
+                                        |> Tui.lines
+                                    ]
 
-                    renderedScreen : Tui.Screen
-                    renderedScreen =
-                        snapshot.rerender innerCtx
-                  in
-                  renderedScreen
-                    |> Tui.toLines
-                    |> List.map
-                        (\line ->
-                            Tui.concat
-                                [ Tui.styled dimStyle "  │ "
-                                , Tui.text line
-                                ]
-                        )
-                    |> Tui.lines
-                , Tui.text ""
-                , Tui.styled dimStyle ("  " ++ separator)
-                , case snapshot.modelState of
-                    Just modelStr ->
-                        Tui.lines
-                            [ Tui.text ""
-                            , Tui.styled
-                                { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.bold ] }
-                                "  Model:"
-                            , modelStr
-                                |> String.lines
-                                |> List.map (\line -> Tui.styled dimStyle ("    " ++ line))
-                                |> Tui.lines
-                            , Tui.text ""
-                            , Tui.styled dimStyle ("  " ++ separator)
-                            ]
-
-                    Nothing ->
-                        Tui.empty
-                , Tui.text ""
-                , stepIndicator
-                , Tui.text ""
-                , Tui.styled dimStyle "  ← → navigate   q quit"
-                ]
+                            Nothing ->
+                                Tui.empty
+                       , Tui.text ""
+                       , stepIndicator
+                       , Tui.text ""
+                       , Tui.styled dimStyle "  ← → navigate   q quit"
+                       ]
+                )
 
         Nothing ->
             Tui.styled dimStyle "  No snapshots"
@@ -253,104 +238,151 @@ subscriptions _ =
 
 
 
--- Inline Stars TUI (same as test)
+-- Inline MiniGit (same logic as MiniGitTests.elm)
 
 
-type alias StarsModel =
-    { input : String
-    , result : Result String Int
-    , loading : Bool
+type alias MiniGitCommit =
+    { sha : String
+    , message : String
     }
 
 
-type StarsMsg
-    = StarsKeyPressed Tui.KeyEvent
-    | GotStars (Result FatalError Int)
+type alias MiniGitModel =
+    { commits : List MiniGitCommit
+    , selected : Int
+    , scrollOffset : Int
+    }
 
 
-starsInit : () -> ( StarsModel, Effect.Effect StarsMsg )
-starsInit () =
-    ( { input = "dillonkearns/elm-pages"
-      , result = Err ""
-      , loading = False
+type MiniGitMsg
+    = MiniGitKeyPressed Tui.KeyEvent
+    | MiniGitMouse Tui.MouseEvent
+
+
+miniGitInit : List MiniGitCommit -> ( MiniGitModel, Effect.Effect MiniGitMsg )
+miniGitInit commits =
+    ( { commits = commits
+      , selected = 0
+      , scrollOffset = 0
       }
     , Effect.none
     )
 
 
-starsUpdate : StarsMsg -> StarsModel -> ( StarsModel, Effect.Effect StarsMsg )
-starsUpdate msg model =
+miniGitUpdate : MiniGitMsg -> MiniGitModel -> ( MiniGitModel, Effect.Effect MiniGitMsg )
+miniGitUpdate msg model =
+    let
+        maxIndex : Int
+        maxIndex =
+            List.length model.commits - 1
+    in
     case msg of
-        StarsKeyPressed event ->
+        MiniGitKeyPressed event ->
             case event.key of
-                Tui.Escape ->
+                Tui.Character 'j' ->
+                    ( adjustScroll { model | selected = min maxIndex (model.selected + 1) }, Effect.none )
+
+                Tui.Character 'k' ->
+                    ( adjustScroll { model | selected = max 0 (model.selected - 1) }, Effect.none )
+
+                Tui.Character 'q' ->
                     ( model, Effect.exit )
-
-                Tui.Enter ->
-                    ( { model | loading = True, result = Err "Loading..." }
-                    , BackendTask.Http.getJson
-                        ("https://api.github.com/repos/" ++ model.input)
-                        (Decode.field "stargazers_count" Decode.int)
-                        |> BackendTask.allowFatal
-                        |> Effect.attempt GotStars
-                    )
-
-                Tui.Backspace ->
-                    ( { model | input = String.dropRight 1 model.input, result = Err "" }
-                    , Effect.none
-                    )
-
-                Tui.Character c ->
-                    ( { model | input = model.input ++ String.fromChar c, result = Err "" }
-                    , Effect.none
-                    )
 
                 _ ->
                     ( model, Effect.none )
 
-        GotStars result ->
-            ( { model
-                | loading = False
-                , result =
-                    case result of
-                        Ok stars ->
-                            Ok stars
+        MiniGitMouse event ->
+            case event of
+                Tui.Click { row } ->
+                    let
+                        clickedIndex : Int
+                        clickedIndex =
+                            row - 2 + model.scrollOffset
+                    in
+                    if clickedIndex >= 0 && clickedIndex <= maxIndex then
+                        ( { model | selected = clickedIndex }, Effect.none )
 
-                        Err _ ->
-                            Err "Request failed"
-              }
-            , Effect.none
-            )
+                    else
+                        ( model, Effect.none )
+
+                Tui.ScrollUp _ ->
+                    ( adjustScroll { model | selected = max 0 (model.selected - 1) }, Effect.none )
+
+                Tui.ScrollDown _ ->
+                    ( adjustScroll { model | selected = min maxIndex (model.selected + 1) }, Effect.none )
 
 
-starsView : Tui.Context -> StarsModel -> Tui.Screen
-starsView _ model =
+adjustScroll : MiniGitModel -> MiniGitModel
+adjustScroll model =
+    if model.selected < model.scrollOffset then
+        { model | scrollOffset = model.selected }
+
+    else if model.selected >= model.scrollOffset + 5 then
+        { model | scrollOffset = model.selected - 4 }
+
+    else
+        model
+
+
+miniGitView : Tui.Context -> MiniGitModel -> Tui.Screen
+miniGitView _ model =
     let
         dimStyle : Tui.Style
         dimStyle =
             { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
+
+        selectedCommit : Maybe MiniGitCommit
+        selectedCommit =
+            model.commits |> List.drop model.selected |> List.head
     in
     Tui.lines
-        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.bold ] } "GitHub Stars"
-        , Tui.concat
-            [ Tui.text "Repo: "
-            , Tui.text model.input
-            ]
-        , case ( model.loading, model.result ) of
-            ( True, _ ) ->
-                Tui.text "Loading..."
+        ([ Tui.styled { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.bold ] } "Mini Git Log"
+         , Tui.text ""
+         ]
+            ++ (model.commits
+                    |> List.indexedMap
+                        (\i commit ->
+                            Tui.concat
+                                [ Tui.text
+                                    (if i == model.selected then
+                                        "▸ "
 
-            ( _, Ok stars ) ->
-                Tui.text ("Stars: " ++ String.fromInt stars)
+                                     else
+                                        "  "
+                                    )
+                                , Tui.styled
+                                    (if i == model.selected then
+                                        { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [ Tui.bold ] }
 
-            ( _, Err "" ) ->
-                Tui.styled dimStyle "Press Enter to fetch"
+                                     else
+                                        dimStyle
+                                    )
+                                    commit.sha
+                                , Tui.text (" " ++ commit.message)
+                                ]
+                        )
+               )
+            ++ [ Tui.text ""
+               , case selectedCommit of
+                    Just commit ->
+                        Tui.lines
+                            [ Tui.styled dimStyle "───────────"
+                            , Tui.concat
+                                [ Tui.styled dimStyle "SHA: "
+                                , Tui.text commit.sha
+                                ]
+                            , Tui.text commit.message
+                            ]
 
-            ( _, Err errMsg ) ->
-                Tui.text errMsg
+                    Nothing ->
+                        Tui.empty
+               ]
+        )
+
+
+miniGitSubscriptions : MiniGitModel -> Tui.Sub.Sub MiniGitMsg
+miniGitSubscriptions _ =
+    Tui.Sub.batch
+        [ Tui.Sub.onKeyPress MiniGitKeyPressed
+        , Tui.Sub.onMouse MiniGitMouse
         ]
-
-
-starsSubscriptions : StarsModel -> Tui.Sub.Sub StarsMsg
-starsSubscriptions _ =
-    Tui.Sub.onKeyPress StarsKeyPressed
