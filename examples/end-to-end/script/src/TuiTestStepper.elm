@@ -339,11 +339,22 @@ adjustScroll model =
 
 
 miniGitView : Tui.Context -> MiniGitModel -> Tui.Screen
-miniGitView _ model =
+miniGitView ctx model =
     let
         dimStyle : Tui.Style
         dimStyle =
             { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
+
+        visibleRows : Int
+        visibleRows =
+            max 3 (ctx.height - 7)
+
+        visibleCommits : List ( Int, MiniGitCommit )
+        visibleCommits =
+            model.commits
+                |> List.indexedMap Tuple.pair
+                |> List.drop model.scrollOffset
+                |> List.take visibleRows
 
         selectedCommit : Maybe MiniGitCommit
         selectedCommit =
@@ -353,29 +364,28 @@ miniGitView _ model =
         ([ Tui.styled { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.bold ] } "Mini Git Log"
          , Tui.text ""
          ]
-            ++ (model.commits
-                    |> List.indexedMap
-                        (\i commit ->
-                            Tui.concat
-                                [ Tui.text
-                                    (if i == model.selected then
-                                        "▸ "
+            ++ List.map
+                (\( i, commit ) ->
+                    Tui.concat
+                        [ Tui.text
+                            (if i == model.selected then
+                                "▸ "
 
-                                     else
-                                        "  "
-                                    )
-                                , Tui.styled
-                                    (if i == model.selected then
-                                        { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [ Tui.bold ] }
+                             else
+                                "  "
+                            )
+                        , Tui.styled
+                            (if i == model.selected then
+                                { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [ Tui.bold ] }
 
-                                     else
-                                        dimStyle
-                                    )
-                                    commit.sha
-                                , Tui.text (" " ++ commit.message)
-                                ]
-                        )
-               )
+                             else
+                                dimStyle
+                            )
+                            commit.sha
+                        , Tui.text (" " ++ commit.message)
+                        ]
+                )
+                visibleCommits
             ++ [ Tui.text ""
                , case selectedCommit of
                     Just commit ->
