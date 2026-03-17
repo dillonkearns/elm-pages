@@ -526,17 +526,34 @@ toScreen (State s) (Horizontal panes) =
                                     lineScreen =
                                         getContentLine paneConfig ps contentRow
 
+                                    lineText : String
+                                    lineText =
+                                        Tui.toString lineScreen
+
                                     lineWidth : Int
                                     lineWidth =
-                                        String.length (Tui.toString lineScreen)
+                                        String.length lineText
+
+                                    truncatedLine : Screen
+                                    truncatedLine =
+                                        if lineWidth > innerW then
+                                            -- Re-render truncated (lose styles for long lines)
+                                            Tui.text (String.left (innerW - 1) lineText ++ "…")
+
+                                        else
+                                            lineScreen
+
+                                    actualWidth : Int
+                                    actualWidth =
+                                        min lineWidth innerW
 
                                     padding : Int
                                     padding =
-                                        max 0 (innerW - lineWidth)
+                                        max 0 (innerW - actualWidth)
                                 in
                                 Tui.concat
                                     [ Tui.text "│"
-                                    , lineScreen
+                                    , truncatedLine
                                     , Tui.text (String.repeat padding " ")
                                     , if isLastPane then
                                         Tui.text "│"
@@ -630,5 +647,3 @@ resolveWidths totalWidth widthSpecs =
                         else
                             0
             )
-
-
