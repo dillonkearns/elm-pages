@@ -1,6 +1,8 @@
 module LayoutTests exposing (suite)
 
+import Ansi.Color
 import Expect
+import Json.Encode
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Layout as Layout
@@ -51,6 +53,46 @@ suite =
                                     ]
                                     s
                            )
+            ]
+        , describe "Style preservation"
+            [ test "styled content in pane preserves styling in Screen" <|
+                \() ->
+                    let
+                        screen : Tui.Screen
+                        screen =
+                            Layout.horizontal
+                                [ Layout.pane "main"
+                                    { title = "Test", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected =
+                                            \item ->
+                                                Tui.styled
+                                                    { fg = Just Ansi.Color.yellow
+                                                    , bg = Nothing
+                                                    , attributes = [ Tui.bold ]
+                                                    }
+                                                    ("▸ " ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        [ "apple", "banana" ]
+                                    )
+                                ]
+                                |> renderScreenAt { width = 25, height = 5 }
+
+                        -- The Screen should contain styled content, not just plain text.
+                        -- We verify by encoding to JSON and checking for style data.
+                        encoded : String
+                        encoded =
+                            Tui.encodeScreen screen
+                                |> Json.Encode.encode 0
+                    in
+                    -- The encoded JSON should contain bold and foreground color
+                    Expect.all
+                        [ \s -> s |> String.contains "bold" |> Expect.equal True
+                        , \s -> s |> String.contains "yellow" |> Expect.equal True
+                        ]
+                        encoded
             ]
         , describe "Split layout with integer weights"
             [ test "two panes with fill split evenly" <|
@@ -258,6 +300,14 @@ suite =
                         |> Expect.equal 3
             ]
         ]
+
+
+{-| Helper: render layout to Screen (preserving styles).
+-}
+renderScreenAt : { width : Int, height : Int } -> Layout.Layout msg -> Tui.Screen
+renderScreenAt size layout =
+    layout
+        |> Layout.toScreen (Layout.withContext size Layout.init)
 
 
 {-| Helper: render layout with default state at given dimensions.

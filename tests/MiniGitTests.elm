@@ -71,6 +71,20 @@ suite =
                         |> TuiTest.scrollDown { row = 2, col = 5 }
                         |> TuiTest.expectRunning
             ]
+        , describe "Layout.resetScroll"
+            [ test "resetScroll sets scroll to 0" <|
+                \() ->
+                    let
+                        state : Layout.State
+                        state =
+                            Layout.init
+                                |> Layout.navigateDown "list"
+                                |> Layout.navigateDown "list"
+                                |> Layout.resetScroll "list"
+                    in
+                    Layout.scrollPosition "list" state
+                        |> Expect.equal 0
+            ]
         , describe "layout"
             [ test "shows pane titles" <|
                 \() ->

@@ -110,7 +110,9 @@ update msg model =
                     let
                         newLayout : Layout.State
                         newLayout =
-                            Layout.navigateDown "commits" model.layout
+                            model.layout
+                                |> Layout.navigateDown "commits"
+                                |> Layout.resetScroll "diff"
 
                         newIndex : Int
                         newIndex =
@@ -124,7 +126,9 @@ update msg model =
                     let
                         newLayout : Layout.State
                         newLayout =
-                            Layout.navigateDown "commits" model.layout
+                            model.layout
+                                |> Layout.navigateDown "commits"
+                                |> Layout.resetScroll "diff"
 
                         newIndex : Int
                         newIndex =
@@ -138,7 +142,9 @@ update msg model =
                     let
                         newLayout : Layout.State
                         newLayout =
-                            Layout.navigateUp "commits" model.layout
+                            model.layout
+                                |> Layout.navigateUp "commits"
+                                |> Layout.resetScroll "diff"
 
                         newIndex : Int
                         newIndex =
@@ -152,7 +158,9 @@ update msg model =
                     let
                         newLayout : Layout.State
                         newLayout =
-                            Layout.navigateUp "commits" model.layout
+                            model.layout
+                                |> Layout.navigateUp "commits"
+                                |> Layout.resetScroll "diff"
 
                         newIndex : Int
                         newIndex =

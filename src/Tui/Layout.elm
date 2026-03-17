@@ -3,7 +3,7 @@ module Tui.Layout exposing
     , PaneContent, content, selectableList
     , Width, fill, fillPortion, px
     , State, init, withContext
-    , navigateDown, navigateUp, selectedIndex, scrollPosition
+    , navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll
     , handleMouse
     , toScreen
     )
@@ -43,7 +43,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs State, init, withContext
 
-@docs navigateDown, navigateUp, selectedIndex, scrollPosition
+@docs navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll
 
 @docs handleMouse
 
@@ -277,6 +277,26 @@ scrollPosition paneId (State s) =
         |> Maybe.withDefault 0
 
 
+{-| Reset scroll position for a pane to 0. Call when loading new content
+(e.g., reset the diff scroll when selecting a different commit).
+-}
+resetScroll : String -> State -> State
+resetScroll paneId (State s) =
+    let
+        ps : PaneState
+        ps =
+            Dict.get paneId s.paneStates
+                |> Maybe.withDefault defaultPaneState
+    in
+    State
+        { s
+            | paneStates =
+                Dict.insert paneId
+                    { ps | scrollOffset = 0 }
+                    s.paneStates
+        }
+
+
 defaultPaneState : PaneState
 defaultPaneState =
     { scrollOffset = 0, selectedIndex = 0 }
@@ -506,15 +526,18 @@ toScreen (State s) (Horizontal panes) =
                                     lineScreen =
                                         getContentLine paneConfig ps contentRow
 
-                                    lineText : String
-                                    lineText =
-                                        lineScreen
-                                            |> Tui.toString
-                                            |> padAndTruncate innerW
+                                    lineWidth : Int
+                                    lineWidth =
+                                        String.length (Tui.toString lineScreen)
+
+                                    padding : Int
+                                    padding =
+                                        max 0 (innerW - lineWidth)
                                 in
                                 Tui.concat
                                     [ Tui.text "│"
-                                    , Tui.text lineText
+                                    , lineScreen
+                                    , Tui.text (String.repeat padding " ")
                                     , if isLastPane then
                                         Tui.text "│"
 
@@ -609,15 +632,3 @@ resolveWidths totalWidth widthSpecs =
             )
 
 
-padAndTruncate : Int -> String -> String
-padAndTruncate width str =
-    let
-        truncated : String
-        truncated =
-            if String.length str > width then
-                String.left (width - 1) str ++ "…"
-
-            else
-                str
-    in
-    truncated ++ String.repeat (width - String.length truncated) " "
