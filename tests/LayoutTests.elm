@@ -267,6 +267,7 @@ suite =
                         ( newState, maybeMsg ) =
                             Layout.handleMouse
                                 (Tui.Click { row = 2, col = 5, button = Tui.LeftButton })
+                                { width = 30, height = 8 }
                                 layout
                                 Layout.init
                     in
@@ -293,6 +294,7 @@ suite =
                         ( newState, _ ) =
                             Layout.handleMouse
                                 (Tui.ScrollDown { row = 2, col = 5, amount = 1 })
+                                { width = 30, height = 8 }
                                 layout
                                 Layout.init
                     in

@@ -263,7 +263,7 @@ miniGitUpdate msg model =
         Mouse mouseEvent ->
             let
                 ( newLayout, maybeMsg ) =
-                    Layout.handleMouse mouseEvent (miniGitLayout model) model.layout
+                    Layout.handleMouse mouseEvent { width = 80, height = 24 } (miniGitLayout model) model.layout
             in
             case maybeMsg of
                 Just userMsg ->

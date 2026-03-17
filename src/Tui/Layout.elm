@@ -3,7 +3,7 @@ module Tui.Layout exposing
     , PaneContent, content, selectableList
     , Width, fill, fillPortion, px
     , State, init, withContext
-    , navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll
+    , navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll, contextOf
     , handleMouse
     , toScreen
     )
@@ -43,7 +43,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs State, init, withContext
 
-@docs navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll
+@docs navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll, contextOf
 
 @docs handleMouse
 
@@ -297,6 +297,14 @@ resetScroll paneId (State s) =
         }
 
 
+{-| Get the context stored in the state. Useful for passing to `handleMouse`
+when `update` doesn't receive `Context` directly.
+-}
+contextOf : State -> { width : Int, height : Int }
+contextOf (State s) =
+    s.context
+
+
 defaultPaneState : PaneState
 defaultPaneState =
     { scrollOffset = 0, selectedIndex = 0 }
@@ -308,13 +316,14 @@ defaultPaneState =
 
 {-| Handle a mouse event. Updates internal state (scroll, selection) and
 returns the updated state plus an optional user message from click handlers.
+Pass the terminal context for correct pane hit-testing.
 -}
-handleMouse : MouseEvent -> Layout msg -> State -> ( State, Maybe msg )
-handleMouse mouseEvent (Horizontal panes) ((State s) as state) =
+handleMouse : MouseEvent -> { width : Int, height : Int } -> Layout msg -> State -> ( State, Maybe msg )
+handleMouse mouseEvent ctx (Horizontal panes) ((State s) as state) =
     let
         widths : List Int
         widths =
-            resolveWidths s.context.width (List.map .width panes)
+            resolveWidths ctx.width (List.map .width panes)
 
         panesWithBounds : List { config : PaneConfig msg, startCol : Int, endCol : Int }
         panesWithBounds =
@@ -429,6 +438,7 @@ findPaneAt col panesWithBounds =
 
 
 {-| Render the layout to a Screen using the given state.
+Also persists the context dimensions into the state for use by `handleMouse`.
 -}
 toScreen : State -> Layout msg -> Screen
 toScreen (State s) (Horizontal panes) =

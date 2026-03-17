@@ -182,7 +182,10 @@ update msg model =
         Mouse mouseEvent ->
             let
                 ( newLayout, maybeMsg ) =
-                    Layout.handleMouse mouseEvent (myLayout model) model.layout
+                    Layout.handleMouse mouseEvent
+                        (Layout.contextOf model.layout)
+                        (myLayout model)
+                        model.layout
             in
             case maybeMsg of
                 Just userMsg ->
