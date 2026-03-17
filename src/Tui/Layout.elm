@@ -319,8 +319,16 @@ returns the updated state plus an optional user message from click handlers.
 Pass the terminal context for correct pane hit-testing.
 -}
 handleMouse : MouseEvent -> { width : Int, height : Int } -> Layout msg -> State -> ( State, Maybe msg )
-handleMouse mouseEvent ctx (Horizontal panes) ((State s) as state) =
+handleMouse mouseEvent ctx (Horizontal panes) (State s) =
     let
+        -- Persist context so contextOf returns correct values next time
+        sWithCtx :
+            { paneStates : Dict String PaneState
+            , context : { width : Int, height : Int }
+            }
+        sWithCtx =
+            { s | context = ctx }
+
         widths : List Int
         widths =
             resolveWidths ctx.width (List.map .width panes)
@@ -344,7 +352,7 @@ handleMouse mouseEvent ctx (Horizontal panes) ((State s) as state) =
                     let
                         ps : PaneState
                         ps =
-                            Dict.get config.id s.paneStates
+                            Dict.get config.id sWithCtx.paneStates
                                 |> Maybe.withDefault defaultPaneState
 
                         delta : Int
@@ -352,17 +360,17 @@ handleMouse mouseEvent ctx (Horizontal panes) ((State s) as state) =
                             amount * 3
                     in
                     ( State
-                        { s
+                        { sWithCtx
                             | paneStates =
                                 Dict.insert config.id
                                     { ps | scrollOffset = ps.scrollOffset + delta }
-                                    s.paneStates
+                                    sWithCtx.paneStates
                         }
                     , Nothing
                     )
 
                 Nothing ->
-                    ( state, Nothing )
+                    ( State sWithCtx, Nothing )
 
         Tui.ScrollUp { col, amount } ->
             case findPaneAt col panesWithBounds of
@@ -370,7 +378,7 @@ handleMouse mouseEvent ctx (Horizontal panes) ((State s) as state) =
                     let
                         ps : PaneState
                         ps =
-                            Dict.get config.id s.paneStates
+                            Dict.get config.id sWithCtx.paneStates
                                 |> Maybe.withDefault defaultPaneState
 
                         delta : Int
@@ -378,17 +386,17 @@ handleMouse mouseEvent ctx (Horizontal panes) ((State s) as state) =
                             amount * 3
                     in
                     ( State
-                        { s
+                        { sWithCtx
                             | paneStates =
                                 Dict.insert config.id
                                     { ps | scrollOffset = max 0 (ps.scrollOffset - delta) }
-                                    s.paneStates
+                                    sWithCtx.paneStates
                         }
                     , Nothing
                     )
 
                 Nothing ->
-                    ( state, Nothing )
+                    ( State sWithCtx, Nothing )
 
         Tui.Click { row, col } ->
             case findPaneAt col panesWithBounds of
@@ -402,7 +410,7 @@ handleMouse mouseEvent ctx (Horizontal panes) ((State s) as state) =
 
                                 ps : PaneState
                                 ps =
-                                    Dict.get config.id s.paneStates
+                                    Dict.get config.id sWithCtx.paneStates
                                         |> Maybe.withDefault defaultPaneState
 
                                 clickedIndex : Int
@@ -414,16 +422,16 @@ handleMouse mouseEvent ctx (Horizontal panes) ((State s) as state) =
                                     | paneStates =
                                         Dict.insert config.id
                                             { ps | selectedIndex = clickedIndex }
-                                            s.paneStates
+                                            sWithCtx.paneStates
                                 }
                             , Just (onSelect clickedIndex)
                             )
 
                         StaticContent _ ->
-                            ( state, Nothing )
+                            ( State sWithCtx, Nothing )
 
                 Nothing ->
-                    ( state, Nothing )
+                    ( State sWithCtx, Nothing )
 
 
 findPaneAt : Int -> List { config : PaneConfig msg, startCol : Int, endCol : Int } -> Maybe { config : PaneConfig msg, startCol : Int, endCol : Int }
@@ -438,7 +446,6 @@ findPaneAt col panesWithBounds =
 
 
 {-| Render the layout to a Screen using the given state.
-Also persists the context dimensions into the state for use by `handleMouse`.
 -}
 toScreen : State -> Layout msg -> Screen
 toScreen (State s) (Horizontal panes) =
