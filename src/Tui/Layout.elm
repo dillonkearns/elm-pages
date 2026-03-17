@@ -415,6 +415,37 @@ clampScroll contentLen visibleHeight offset =
     clamp 0 (max 0 (contentLen - visibleHeight)) offset
 
 
+scrollbarBorder : Tui.Style -> PaneContent msg -> PaneState -> Int -> Int -> Screen
+scrollbarBorder borderStyle paneContents ps contentRow totalHeight =
+    let
+        contentLen : Int
+        contentLen =
+            contentLineCount paneContents
+
+        visibleHeight : Int
+        visibleHeight =
+            totalHeight - 2
+    in
+    if contentLen > visibleHeight then
+        let
+            thumbSize : Int
+            thumbSize =
+                max 1 (visibleHeight * visibleHeight // contentLen)
+
+            thumbPos : Int
+            thumbPos =
+                ps.scrollOffset * (visibleHeight - thumbSize) // max 1 (contentLen - visibleHeight)
+        in
+        if contentRow >= thumbPos && contentRow < thumbPos + thumbSize then
+            Tui.styled borderStyle "█"
+
+        else
+            Tui.styled borderStyle "│"
+
+    else
+        Tui.styled borderStyle "│"
+
+
 
 -- MOUSE DISPATCH
 
@@ -715,7 +746,7 @@ toScreen (State s) (Horizontal panes) =
                                     , truncatedLine
                                     , Tui.text (String.repeat padding " ")
                                     , if isLastPane then
-                                        Tui.styled borderStyle "│"
+                                        scrollbarBorder borderStyle paneConfig.paneContent ps contentRow totalHeight
 
                                       else
                                         Tui.empty
