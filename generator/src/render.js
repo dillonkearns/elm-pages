@@ -2535,6 +2535,23 @@ async function runTuiInit(req) {
     }
   });
 
+  // Listen for terminal resize — triggers a re-render with new dimensions
+  process.stdout.on("resize", () => {
+    const resizeEvent = {
+      type: "resize",
+      width: process.stdout.columns || 80,
+      height: process.stdout.rows || 24,
+    };
+
+    if (tuiEventResolve) {
+      const resolve = tuiEventResolve;
+      tuiEventResolve = null;
+      resolve(resizeEvent);
+    } else {
+      tuiEventQueue.push(resizeEvent);
+    }
+  });
+
   return jsonResponse(req, {
     width: stdout.columns || 80,
     height: stdout.rows || 24,
