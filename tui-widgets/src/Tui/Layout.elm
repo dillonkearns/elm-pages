@@ -7,7 +7,7 @@ module Tui.Layout exposing
     , focusPane, focusedPane
     , withPrefix, withFooter
     , handleMouse
-    , toScreen
+    , toScreen, toRows
     )
 
 {-| Split-pane layout with opaque state, selectable lists, and mouse dispatch.
@@ -53,7 +53,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs handleMouse
 
-@docs toScreen
+@docs toScreen, toRows
 
 -}
 
@@ -605,7 +605,18 @@ findPaneAt col panesWithBounds =
 {-| Render the layout to a Screen using the given state.
 -}
 toScreen : State -> Layout msg -> Screen
-toScreen (State s) (Horizontal panes) =
+toScreen state layout =
+    Tui.lines (toRows state layout)
+
+
+{-| Render the layout to a list of row Screens (one per terminal row).
+
+This is useful for compositing modals or overlays on top of the layout —
+you can replace specific rows with modal content, then wrap with `Tui.lines`.
+
+-}
+toRows : State -> Layout msg -> List Screen
+toRows (State s) (Horizontal panes) =
     let
         totalWidth : Int
         totalWidth =
@@ -770,7 +781,6 @@ toScreen (State s) (Horizontal panes) =
     in
     List.range 0 (totalHeight - 1)
         |> List.map renderRow
-        |> Tui.lines
 
 
 getContentLine : PaneConfig msg -> PaneState -> Int -> Screen

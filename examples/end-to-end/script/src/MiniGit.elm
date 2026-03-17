@@ -12,7 +12,9 @@ import FatalError exposing (FatalError)
 import Pages.Script as Script exposing (Script)
 import Tui
 import Tui.Effect as Effect
+import Tui.Input as Input
 import Tui.Layout as Layout
+import Tui.Modal
 import Tui.Sub
 
 
@@ -26,6 +28,13 @@ type alias Model =
     { layout : Layout.State
     , commits : List Commit
     , diffContent : String
+    , modal : Maybe ModalState
+    , lastAction : String
+    }
+
+
+type alias ModalState =
+    { input : Input.State
     }
 
 
@@ -76,6 +85,8 @@ init commits =
     ( { layout = Layout.init |> Layout.focusPane "commits"
       , commits = commits
       , diffContent = ""
+      , modal = Nothing
+      , lastAction = ""
       }
     , loadDiffForIndex 0 commits
     )
@@ -104,82 +115,135 @@ loadDiffForIndex index commits =
 
 update : Msg -> Model -> ( Model, Effect.Effect Msg )
 update msg model =
-    case msg of
-        KeyPressed event ->
-            case event.key of
-                Tui.Character 'j' ->
-                    navigateInFocusedPane 1 model
+    case model.modal of
+        Just modalState ->
+            -- Modal is active — route keyboard to the modal
+            case msg of
+                KeyPressed event ->
+                    case event.key of
+                        Tui.Escape ->
+                            -- Dismiss modal
+                            ( { model | modal = Nothing }, Effect.none )
 
-                Tui.Arrow Tui.Down ->
-                    navigateInFocusedPane 1 model
+                        Tui.Enter ->
+                            -- "Commit" — close modal and show what was typed
+                            let
+                                commitMsg =
+                                    Input.text modalState.input
+                            in
+                            ( { model
+                                | modal = Nothing
+                                , lastAction =
+                                    if String.isEmpty commitMsg then
+                                        "(empty commit message)"
 
-                Tui.Character 'k' ->
-                    navigateInFocusedPane -1 model
+                                    else
+                                        "Committed: " ++ commitMsg
+                              }
+                            , Effect.none
+                            )
 
-                Tui.Arrow Tui.Up ->
-                    navigateInFocusedPane -1 model
+                        _ ->
+                            -- All other keys go to the text input
+                            ( { model
+                                | modal =
+                                    Just { input = Input.update event modalState.input }
+                              }
+                            , Effect.none
+                            )
 
-                Tui.Tab ->
-                    -- Cycle focus between panes
-                    let
-                        nextFocus : String
-                        nextFocus =
-                            if Layout.focusedPane model.layout == Just "commits" then
-                                "diff"
-
-                            else
-                                "commits"
-                    in
-                    ( { model | layout = Layout.focusPane nextFocus model.layout }
+                GotContext ctx ->
+                    ( { model | layout = Layout.withContext ctx model.layout }
                     , Effect.none
                     )
 
-                Tui.Character 'q' ->
-                    ( model, Effect.exit )
-
-                Tui.Escape ->
-                    ( model, Effect.exit )
-
                 _ ->
+                    -- Ignore mouse and other events while modal is open
                     ( model, Effect.none )
 
-        Mouse mouseEvent ->
-            let
-                ( newLayout, maybeMsg ) =
-                    Layout.handleMouse mouseEvent
-                        (Layout.contextOf model.layout)
-                        (myLayout model)
-                        model.layout
-            in
-            case maybeMsg of
-                Just userMsg ->
-                    update userMsg { model | layout = newLayout }
+        Nothing ->
+            -- No modal — normal event handling
+            case msg of
+                KeyPressed event ->
+                    case event.key of
+                        Tui.Character 'c' ->
+                            -- Open commit dialog
+                            ( { model | modal = Just { input = Input.init "" } }
+                            , Effect.none
+                            )
 
-                Nothing ->
-                    ( { model | layout = newLayout }, Effect.none )
+                        Tui.Character 'j' ->
+                            navigateInFocusedPane 1 model
 
-        GotContext ctx ->
-            ( { model | layout = Layout.withContext ctx model.layout }
-            , Effect.none
-            )
+                        Tui.Arrow Tui.Down ->
+                            navigateInFocusedPane 1 model
 
-        SelectCommit index ->
-            ( model
-            , loadDiffForIndex index model.commits
-            )
+                        Tui.Character 'k' ->
+                            navigateInFocusedPane -1 model
 
-        GotDiff result ->
-            ( { model
-                | diffContent =
-                    case result of
-                        Ok content ->
-                            content
+                        Tui.Arrow Tui.Up ->
+                            navigateInFocusedPane -1 model
 
-                        Err _ ->
-                            "(error loading diff)"
-              }
-            , Effect.none
-            )
+                        Tui.Tab ->
+                            let
+                                nextFocus : String
+                                nextFocus =
+                                    if Layout.focusedPane model.layout == Just "commits" then
+                                        "diff"
+
+                                    else
+                                        "commits"
+                            in
+                            ( { model | layout = Layout.focusPane nextFocus model.layout }
+                            , Effect.none
+                            )
+
+                        Tui.Character 'q' ->
+                            ( model, Effect.exit )
+
+                        Tui.Escape ->
+                            ( model, Effect.exit )
+
+                        _ ->
+                            ( model, Effect.none )
+
+                Mouse mouseEvent ->
+                    let
+                        ( newLayout, maybeMsg ) =
+                            Layout.handleMouse mouseEvent
+                                (Layout.contextOf model.layout)
+                                (myLayout model)
+                                model.layout
+                    in
+                    case maybeMsg of
+                        Just userMsg ->
+                            update userMsg { model | layout = newLayout }
+
+                        Nothing ->
+                            ( { model | layout = newLayout }, Effect.none )
+
+                GotContext ctx ->
+                    ( { model | layout = Layout.withContext ctx model.layout }
+                    , Effect.none
+                    )
+
+                SelectCommit index ->
+                    ( model
+                    , loadDiffForIndex index model.commits
+                    )
+
+                GotDiff result ->
+                    ( { model
+                        | diffContent =
+                            case result of
+                                Ok content_ ->
+                                    content_
+
+                                Err _ ->
+                                    "(error loading diff)"
+                      }
+                    , Effect.none
+                    )
 
 
 navigateInFocusedPane : Int -> Model -> ( Model, Effect.Effect Msg )
@@ -271,8 +335,49 @@ myLayout model =
 
 view : Tui.Context -> Model -> Tui.Screen
 view ctx model =
-    myLayout model
-        |> Layout.toScreen (Layout.withContext { width = ctx.width, height = ctx.height } model.layout)
+    let
+        layoutState : Layout.State
+        layoutState =
+            Layout.withContext { width = ctx.width, height = ctx.height } model.layout
+
+        bgRows : List Tui.Screen
+        bgRows =
+            Layout.toRows layoutState (myLayout model)
+
+        statusRow : String
+        statusRow =
+            if String.isEmpty model.lastAction then
+                ""
+
+            else
+                " " ++ model.lastAction
+
+        rows : List Tui.Screen
+        rows =
+            case model.modal of
+                Just modalState ->
+                    let
+                        modalWidth : Int
+                        modalWidth =
+                            min 60 (ctx.width - 4)
+                    in
+                    Tui.Modal.overlay
+                        { title = "Commit"
+                        , body =
+                            [ Tui.text ""
+                            , Input.view { width = modalWidth - 2 } modalState.input
+                            , Tui.text ""
+                            ]
+                        , footer = "Enter: confirm │ Esc: cancel"
+                        , width = modalWidth
+                        }
+                        { termWidth = ctx.width, termHeight = ctx.height }
+                        bgRows
+
+                Nothing ->
+                    bgRows
+    in
+    Tui.lines rows
 
 
 styleDiffLine : String -> Tui.Screen
