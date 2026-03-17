@@ -1,6 +1,6 @@
 module Tui.Sub exposing
     ( Sub
-    , none, batch, onKeyPress, onMouse, onContext, every
+    , none, batch, onKeyPress, onMouse, onPaste, onContext, every
     , map
     , getInterests, routeEvent
     , RawEvent(..), decodeRawEvent
@@ -20,7 +20,7 @@ to subscribe to resize events.
 
 @docs Sub
 
-@docs none, batch, onKeyPress, onMouse, onContext, every
+@docs none, batch, onKeyPress, onMouse, onPaste, onContext, every
 
 @docs map
 
@@ -45,6 +45,7 @@ type Sub msg
     | SubBatch (List (Sub msg))
     | OnKeyPress (KeyEvent -> msg)
     | OnMouse (MouseEvent -> msg)
+    | OnPaste (String -> msg)
     | OnContext ({ width : Int, height : Int } -> msg)
     | Every Float msg
 
@@ -76,6 +77,19 @@ reporting in the terminal when subscribed.
 onMouse : (MouseEvent -> msg) -> Sub msg
 onMouse =
     OnMouse
+
+
+{-| Subscribe to paste events. When the terminal has bracketed paste mode
+enabled, pasted text arrives as a single event rather than individual
+keypresses. Essential for text inputs — without this, pasting multi-line
+text triggers keybindings for each character.
+
+    Tui.Sub.onPaste GotPaste
+
+-}
+onPaste : (String -> msg) -> Sub msg
+onPaste =
+    OnPaste
 
 
 {-| Subscribe to terminal context (dimension) changes. Fires on init with the
@@ -114,6 +128,9 @@ map f sub =
         OnMouse toMsg ->
             OnMouse (\event -> f (toMsg event))
 
+        OnPaste toMsg ->
+            OnPaste (\text -> f (toMsg text))
+
         OnContext toMsg ->
             OnContext (\ctx -> f (toMsg ctx))
 
@@ -147,6 +164,9 @@ getInterests sub =
 
                 OnMouse _ ->
                     "mouse" :: acc
+
+                OnPaste _ ->
+                    "paste" :: acc
 
                 OnContext _ ->
                     -- Context events are framework-generated, not from stdin
@@ -194,6 +214,14 @@ routeEvent sub event =
                 _ ->
                     Nothing
 
+        OnPaste toMsg ->
+            case event of
+                RawPaste pastedText ->
+                    Just (toMsg pastedText)
+
+                _ ->
+                    Nothing
+
         OnContext toMsg ->
             case event of
                 RawContext ctx ->
@@ -216,6 +244,7 @@ routeEvent sub event =
 type RawEvent
     = RawKeyPress KeyEvent
     | RawMouse MouseEvent
+    | RawPaste String
     | RawResize { width : Int, height : Int }
     | RawContext { width : Int, height : Int }
     | RawTick
@@ -234,6 +263,10 @@ decodeRawEvent =
 
                     "mouse" ->
                         Decode.map RawMouse decodeMouseEvent
+
+                    "paste" ->
+                        Decode.map RawPaste
+                            (Decode.field "text" Decode.string)
 
                     "resize" ->
                         Decode.map RawResize

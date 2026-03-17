@@ -1,7 +1,7 @@
 module Tui.Test exposing
     ( TuiTest
     , start, startWithContext
-    , pressKey, pressKeyWith, resize
+    , pressKey, pressKeyWith, paste, resize
     , click, clickText, scrollDown, scrollUp
     , sendMsg
     , BackendTaskSimulator, resolveEffect
@@ -229,6 +229,48 @@ pressKeyWith keyEvent (TuiTest state) =
 
                 Nothing ->
                     TuiTest state
+
+
+{-| Simulate a bracketed paste event. Delivers the text as a single `OnPaste`
+event, just like a real terminal with bracketed paste mode enabled. Use this
+instead of typing character-by-character when testing paste behavior.
+
+    test
+        |> TuiTest.pressKey 'c'              -- open commit dialog
+        |> TuiTest.paste "fix: null pointer"  -- paste commit message
+        |> TuiTest.ensureViewHas "fix: null pointer"
+
+-}
+paste : String -> TuiTest model msg -> TuiTest model msg
+paste pastedText (TuiTest state) =
+    case ( state.error, state.exited ) of
+        ( Just _, _ ) ->
+            TuiTest state
+
+        ( _, Just _ ) ->
+            TuiTest { state | error = Just "paste called after TUI exited" }
+
+        ( Nothing, Nothing ) ->
+            let
+                sub : Sub msg
+                sub =
+                    state.subscriptions state.model
+            in
+            case Sub.routeEvent sub (Sub.RawPaste pastedText) of
+                Just msg ->
+                    applyMsg ("paste \"" ++ truncateLabel pastedText ++ "\"") msg (TuiTest state)
+
+                Nothing ->
+                    TuiTest state
+
+
+truncateLabel : String -> String
+truncateLabel s =
+    if String.length s > 30 then
+        String.left 27 s ++ "..."
+
+    else
+        s
 
 
 {-| Simulate a terminal resize. The framework handles resize automatically —

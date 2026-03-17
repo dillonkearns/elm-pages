@@ -41,6 +41,7 @@ type alias ModalState =
 type Msg
     = KeyPressed Tui.KeyEvent
     | Mouse Tui.MouseEvent
+    | GotPaste String
     | GotContext { width : Int, height : Int }
     | SelectCommit Int
     | GotDiff (Result FatalError String)
@@ -152,6 +153,15 @@ update msg model =
                             , Effect.none
                             )
 
+                GotPaste pastedText ->
+                    -- Paste into the text input
+                    ( { model
+                        | modal =
+                            Just { input = Input.insertText pastedText modalState.input }
+                      }
+                    , Effect.none
+                    )
+
                 GotContext ctx ->
                     ( { model | layout = Layout.withContext ctx model.layout }
                     , Effect.none
@@ -221,6 +231,10 @@ update msg model =
 
                         Nothing ->
                             ( { model | layout = newLayout }, Effect.none )
+
+                GotPaste _ ->
+                    -- Ignore paste when no modal is open
+                    ( model, Effect.none )
 
                 GotContext ctx ->
                     ( { model | layout = Layout.withContext ctx model.layout }
@@ -403,5 +417,6 @@ subscriptions _ =
     Tui.Sub.batch
         [ Tui.Sub.onKeyPress KeyPressed
         , Tui.Sub.onMouse Mouse
+        , Tui.Sub.onPaste GotPaste
         , Tui.Sub.onContext GotContext
         ]

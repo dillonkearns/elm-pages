@@ -1,4 +1,4 @@
-module Tui.Input exposing (State, init, update, view, text)
+module Tui.Input exposing (State, init, update, insertText, view, text)
 
 {-| Text input primitive for TUI applications.
 
@@ -19,7 +19,7 @@ with an inverse-video cursor indicator (the standard TUI convention).
     -- In view:
     Input.view { width = 40 } model.input
 
-@docs State, init, update, view, text
+@docs State, init, update, insertText, view, text
 
 -}
 
@@ -47,6 +47,32 @@ init str =
 text : State -> String
 text (State s) =
     s.content
+
+
+{-| Insert a string at the cursor position. Useful for handling paste events —
+when bracketed paste delivers a chunk of text, insert it all at once.
+
+    case msg of
+        GotPaste pastedText ->
+            { model | input = Input.insertText pastedText model.input }
+
+-}
+insertText : String -> State -> State
+insertText str (State s) =
+    let
+        -- Strip newlines for single-line input
+        cleaned =
+            str
+                |> String.replace "\n" " "
+                |> String.replace "\r" ""
+    in
+    State
+        { content =
+            String.left s.cursorPos s.content
+                ++ cleaned
+                ++ String.dropLeft s.cursorPos s.content
+        , cursorPos = s.cursorPos + String.length cleaned
+        }
 
 
 {-| Handle a key event. Returns updated state.

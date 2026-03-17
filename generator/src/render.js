@@ -2620,6 +2620,7 @@ function tuiCleanup() {
   // Single atomic write to fully restore terminal state
   stdout.write(
     "\x1b[0m" +                  // reset all text attributes
+    "\x1b[?2004l" +              // disable bracketed paste mode
     "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l" + // disable all mouse modes
     "\x1b[?25h" +                // show cursor
     "\x1b[?1l\x1b>" +            // reset cursor keys to normal mode (DECRST + DECKPNM)
@@ -2651,6 +2652,7 @@ async function runTuiInit(req) {
     "\x1b[?25l" +   // hide cursor
     "\x1b[?1000h" + // enable button event mouse tracking (captures scroll)
     "\x1b[?1006h" + // enable SGR mouse encoding (decimal, no coord limit)
+    "\x1b[?2004h" + // enable bracketed paste mode
     "\x1b[2J\x1b[H" // clear screen, cursor to top-left
   );
 
@@ -2909,6 +2911,27 @@ function tuiParseAllEvents(s) {
 }
 
 function tuiParseSingleEvent(s) {
+  // Bracketed paste: \x1b[200~ ... \x1b[201~
+  // Content between markers is pasted text, delivered as a single event
+  if (s.startsWith("\x1b[200~")) {
+    const endMarker = "\x1b[201~";
+    const endIdx = s.indexOf(endMarker, 6);
+    if (endIdx >= 0) {
+      const pastedText = s.slice(6, endIdx);
+      const consumed = endIdx + endMarker.length;
+      return {
+        event: { type: "paste", text: pastedText },
+        remaining: s.slice(consumed),
+      };
+    }
+    // No end marker yet — treat entire remaining content as paste
+    // (terminal should always send the end marker, but be defensive)
+    return {
+      event: { type: "paste", text: s.slice(6) },
+      remaining: "",
+    };
+  }
+
   // SGR extended mouse: \x1b[<Cb;Cx;CyM or \x1b[<Cb;Cx;Cym
   const sgrMouseMatch = s.match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
   if (sgrMouseMatch) {
