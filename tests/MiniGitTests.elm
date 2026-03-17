@@ -98,10 +98,10 @@ suite =
                         |> TuiTest.ensureView
                             (\s ->
                                 Expect.all
-                                    [ \str -> str |> String.contains "┌" |> Expect.equal True
-                                    , \str -> str |> String.contains "┐" |> Expect.equal True
-                                    , \str -> str |> String.contains "└" |> Expect.equal True
-                                    , \str -> str |> String.contains "┘" |> Expect.equal True
+                                    [ \str -> str |> String.contains "╭" |> Expect.equal True
+                                    , \str -> str |> String.contains "╮" |> Expect.equal True
+                                    , \str -> str |> String.contains "╰" |> Expect.equal True
+                                    , \str -> str |> String.contains "╯" |> Expect.equal True
                                     , \str -> str |> String.contains "┬" |> Expect.equal True
                                     , \str -> str |> String.contains "┴" |> Expect.equal True
                                     ]

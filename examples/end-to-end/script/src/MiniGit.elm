@@ -107,67 +107,30 @@ update msg model =
         KeyPressed event ->
             case event.key of
                 Tui.Character 'j' ->
-                    let
-                        newLayout : Layout.State
-                        newLayout =
-                            model.layout
-                                |> Layout.navigateDown "commits"
-                                |> Layout.resetScroll "diff"
-
-                        newIndex : Int
-                        newIndex =
-                            Layout.selectedIndex "commits" newLayout
-                    in
-                    ( { model | layout = newLayout }
-                    , loadDiffForIndex newIndex model.commits
-                    )
+                    navigateInFocusedPane 1 model
 
                 Tui.Arrow Tui.Down ->
-                    let
-                        newLayout : Layout.State
-                        newLayout =
-                            model.layout
-                                |> Layout.navigateDown "commits"
-                                |> Layout.resetScroll "diff"
-
-                        newIndex : Int
-                        newIndex =
-                            Layout.selectedIndex "commits" newLayout
-                    in
-                    ( { model | layout = newLayout }
-                    , loadDiffForIndex newIndex model.commits
-                    )
+                    navigateInFocusedPane 1 model
 
                 Tui.Character 'k' ->
-                    let
-                        newLayout : Layout.State
-                        newLayout =
-                            model.layout
-                                |> Layout.navigateUp "commits"
-                                |> Layout.resetScroll "diff"
-
-                        newIndex : Int
-                        newIndex =
-                            Layout.selectedIndex "commits" newLayout
-                    in
-                    ( { model | layout = newLayout }
-                    , loadDiffForIndex newIndex model.commits
-                    )
+                    navigateInFocusedPane -1 model
 
                 Tui.Arrow Tui.Up ->
-                    let
-                        newLayout : Layout.State
-                        newLayout =
-                            model.layout
-                                |> Layout.navigateUp "commits"
-                                |> Layout.resetScroll "diff"
+                    navigateInFocusedPane -1 model
 
-                        newIndex : Int
-                        newIndex =
-                            Layout.selectedIndex "commits" newLayout
+                Tui.Tab ->
+                    -- Cycle focus between panes
+                    let
+                        nextFocus : String
+                        nextFocus =
+                            if Layout.focusedPane model.layout == Just "commits" then
+                                "diff"
+
+                            else
+                                "commits"
                     in
-                    ( { model | layout = newLayout }
-                    , loadDiffForIndex newIndex model.commits
+                    ( { model | layout = Layout.focusPane nextFocus model.layout }
+                    , Effect.none
                     )
 
                 Tui.Character 'q' ->
@@ -211,6 +174,50 @@ update msg model =
               }
             , Effect.none
             )
+
+
+navigateInFocusedPane : Int -> Model -> ( Model, Effect.Effect Msg )
+navigateInFocusedPane direction model =
+    case Layout.focusedPane model.layout of
+        Just "commits" ->
+            let
+                newLayout : Layout.State
+                newLayout =
+                    (if direction > 0 then
+                        Layout.navigateDown "commits"
+
+                     else
+                        Layout.navigateUp "commits"
+                    )
+                        model.layout
+                        |> Layout.resetScroll "diff"
+
+                newIndex : Int
+                newIndex =
+                    Layout.selectedIndex "commits" newLayout
+            in
+            ( { model | layout = newLayout }
+            , loadDiffForIndex newIndex model.commits
+            )
+
+        Just "diff" ->
+            let
+                scrollDelta : Int
+                scrollDelta =
+                    direction * 3
+
+                newLayout : Layout.State
+                newLayout =
+                    if scrollDelta > 0 then
+                        Layout.scrollDown "diff" scrollDelta model.layout
+
+                    else
+                        Layout.scrollUp "diff" (abs scrollDelta) model.layout
+            in
+            ( { model | layout = newLayout }, Effect.none )
+
+        _ ->
+            ( model, Effect.none )
 
 
 myLayout : Model -> Layout.Layout Msg

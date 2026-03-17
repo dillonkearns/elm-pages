@@ -3,7 +3,7 @@ module Tui.Layout exposing
     , PaneContent, content, selectableList
     , Width, fill, fillPortion, px
     , State, init, withContext
-    , navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll, contextOf
+    , navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll, scrollDown, scrollUp, contextOf
     , focusPane, focusedPane
     , withPrefix, withFooter
     , handleMouse
@@ -45,7 +45,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs State, init, withContext
 
-@docs navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll, contextOf
+@docs navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll, scrollDown, scrollUp, contextOf
 
 @docs focusPane, focusedPane
 
@@ -310,6 +310,44 @@ resetScroll paneId (State s) =
         }
 
 
+{-| Scroll a pane down by the given number of lines.
+-}
+scrollDown : String -> Int -> State -> State
+scrollDown paneId delta (State s) =
+    let
+        ps : PaneState
+        ps =
+            Dict.get paneId s.paneStates
+                |> Maybe.withDefault defaultPaneState
+    in
+    State
+        { s
+            | paneStates =
+                Dict.insert paneId
+                    { ps | scrollOffset = ps.scrollOffset + delta }
+                    s.paneStates
+        }
+
+
+{-| Scroll a pane up by the given number of lines.
+-}
+scrollUp : String -> Int -> State -> State
+scrollUp paneId delta (State s) =
+    let
+        ps : PaneState
+        ps =
+            Dict.get paneId s.paneStates
+                |> Maybe.withDefault defaultPaneState
+    in
+    State
+        { s
+            | paneStates =
+                Dict.insert paneId
+                    { ps | scrollOffset = max 0 (ps.scrollOffset - delta) }
+                    s.paneStates
+        }
+
+
 {-| Set focus to a pane by ID. The focused pane gets green borders and
 the active selection highlight style (like gocui's `SetCurrentView`).
 -}
@@ -418,6 +456,7 @@ handleMouse mouseEvent ctx (Horizontal panes) (State s) =
                                 Dict.insert config.id
                                     { ps | scrollOffset = ps.scrollOffset + delta }
                                     sWithCtx.paneStates
+                            , focusedPaneId = Just config.id
                         }
                     , Nothing
                     )
@@ -471,17 +510,18 @@ handleMouse mouseEvent ctx (Horizontal panes) (State s) =
                                     contentRow + ps.scrollOffset
                             in
                             ( State
-                                { s
+                                { sWithCtx
                                     | paneStates =
                                         Dict.insert config.id
                                             { ps | selectedIndex = clickedIndex }
                                             sWithCtx.paneStates
+                                    , focusedPaneId = Just config.id
                                 }
                             , Just (onSelect clickedIndex)
                             )
 
                         StaticContent _ ->
-                            ( State sWithCtx, Nothing )
+                            ( State { sWithCtx | focusedPaneId = Just config.id }, Nothing )
 
                 Nothing ->
                     ( State sWithCtx, Nothing )
@@ -571,7 +611,7 @@ toScreen (State s) (Horizontal panes) =
                                 Tui.concat
                                     [ Tui.styled borderStyle
                                         (if isFirstPane then
-                                            "┌"
+                                            "╭"
 
                                          else
                                             "┬"
@@ -579,7 +619,7 @@ toScreen (State s) (Horizontal panes) =
                                     , Tui.styled borderStyle titleText
                                     , Tui.styled borderStyle (String.repeat fillLen "─")
                                     , if isLastPane then
-                                        Tui.styled borderStyle "┐"
+                                        Tui.styled borderStyle "╮"
 
                                       else
                                         Tui.empty
@@ -602,7 +642,7 @@ toScreen (State s) (Horizontal panes) =
                                 Tui.concat
                                     [ Tui.styled borderStyle
                                         (if isFirstPane then
-                                            "└"
+                                            "╰"
 
                                          else
                                             "┴"
@@ -614,7 +654,7 @@ toScreen (State s) (Horizontal panes) =
                                       else
                                         Tui.empty
                                     , if isLastPane then
-                                        Tui.styled borderStyle "┘"
+                                        Tui.styled borderStyle "╯"
 
                                       else
                                         Tui.empty

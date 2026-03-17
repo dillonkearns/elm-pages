@@ -46,10 +46,10 @@ suite =
                         |> renderAt { width = 15, height = 5 }
                         |> (\s ->
                                 Expect.all
-                                    [ \str -> str |> String.contains "┌" |> Expect.equal True
-                                    , \str -> str |> String.contains "┐" |> Expect.equal True
-                                    , \str -> str |> String.contains "└" |> Expect.equal True
-                                    , \str -> str |> String.contains "┘" |> Expect.equal True
+                                    [ \str -> str |> String.contains "╭" |> Expect.equal True
+                                    , \str -> str |> String.contains "╮" |> Expect.equal True
+                                    , \str -> str |> String.contains "╰" |> Expect.equal True
+                                    , \str -> str |> String.contains "╯" |> Expect.equal True
                                     ]
                                     s
                            )
