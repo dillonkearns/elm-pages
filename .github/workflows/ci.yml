@@ -105,7 +105,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./examples/base-path/dist
       - name: Elm Publish
-        uses: dillonkearns/elm-publish-action@v2
+        uses: dillonkearns/elm-publish-action@dc1b045a364a4108e6d412c63bc7f8ffb9ad28ac
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-elm: ./node_modules/.bin/elm
