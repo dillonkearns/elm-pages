@@ -2535,7 +2535,8 @@ async function runTuiInit(req) {
     }
   });
 
-  // Listen for terminal resize — triggers a re-render with new dimensions
+  // Listen for terminal resize — triggers a re-render with new dimensions.
+  // Coalesce: replace any pending resize in the queue (only latest matters).
   process.stdout.on("resize", () => {
     const resizeEvent = {
       type: "resize",
@@ -2548,7 +2549,13 @@ async function runTuiInit(req) {
       tuiEventResolve = null;
       resolve(resizeEvent);
     } else {
-      tuiEventQueue.push(resizeEvent);
+      // Replace any existing resize event in queue instead of appending
+      const existingIdx = tuiEventQueue.findIndex(e => e.type === "resize");
+      if (existingIdx >= 0) {
+        tuiEventQueue[existingIdx] = resizeEvent;
+      } else {
+        tuiEventQueue.push(resizeEvent);
+      }
     }
   });
 
