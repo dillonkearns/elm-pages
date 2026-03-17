@@ -745,11 +745,7 @@ toScreen (State s) (Horizontal panes) =
                                     [ Tui.styled borderStyle "│"
                                     , truncatedLine
                                     , Tui.text (String.repeat padding " ")
-                                    , if isLastPane then
-                                        scrollbarBorder borderStyle paneConfig.paneContent ps contentRow totalHeight
-
-                                      else
-                                        Tui.empty
+                                    , scrollbarBorder borderStyle paneConfig.paneContent ps contentRow totalHeight
                                     ]
                         )
                 )
