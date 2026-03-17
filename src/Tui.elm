@@ -5,6 +5,7 @@ module Tui exposing
     , Context
     , KeyEvent, Key(..), Direction(..), Modifier(..)
     , MouseEvent(..), MouseButton(..)
+    , truncateWidth
     , toString, toLines, lineCount
     , encodeScreen
     )
@@ -33,6 +34,8 @@ from the `wolfadex/elm-ansi` package:
 @docs KeyEvent, Key, Direction, Modifier
 
 @docs MouseEvent, MouseButton
+
+@docs truncateWidth
 
 @docs toString, toLines, lineCount
 
@@ -290,6 +293,106 @@ toString screen =
     screen
         |> toLines
         |> String.join "\n"
+
+
+{-| Truncate a Screen to a maximum width in columns, preserving styles.
+Adds "…" if truncated. Works on the first line only (for single-line content).
+-}
+truncateWidth : Int -> Screen -> Screen
+truncateWidth maxWidth screen =
+    let
+        spans : List Span
+        spans =
+            case flattenToSpanLines screen of
+                first :: _ ->
+                    first
+
+                [] ->
+                    []
+
+        truncated : List Span
+        truncated =
+            truncateSpans maxWidth spans
+    in
+    case truncated of
+        [] ->
+            empty
+
+        _ ->
+            truncated
+                |> List.map
+                    (\span ->
+                        ScreenStyled
+                            { fg = span.style.foreground
+                            , bg = span.style.background
+                            , attributes = flatStyleToAttrs span.style
+                            }
+                            span.text
+                    )
+                |> ScreenConcat
+
+
+truncateSpans : Int -> List Span -> List Span
+truncateSpans remaining spans =
+    -- elm-review: known-unoptimized-recursion
+    case spans of
+        [] ->
+            []
+
+        span :: rest ->
+            if remaining <= 0 then
+                []
+
+            else
+                let
+                    spanLen : Int
+                    spanLen =
+                        String.length span.text
+                in
+                if spanLen <= remaining then
+                    span :: truncateSpans (remaining - spanLen) rest
+
+                else if remaining <= 1 then
+                    [ { span | text = "…" } ]
+
+                else
+                    [ { span | text = String.left (remaining - 1) span.text ++ "…" } ]
+
+
+flatStyleToAttrs : FlatStyle -> List Attribute
+flatStyleToAttrs s =
+    List.filterMap identity
+        [ if s.bold then
+            Just Bold
+
+          else
+            Nothing
+        , if s.dim then
+            Just Dim
+
+          else
+            Nothing
+        , if s.italic then
+            Just Italic
+
+          else
+            Nothing
+        , if s.underline then
+            Just Underline
+
+          else
+            Nothing
+        , if s.strikethrough then
+            Just Strikethrough
+
+          else
+            Nothing
+        , if s.inverse then
+            Just Inverse
+
+          else
+            Nothing
+        ]
 
 
 {-| Get the number of lines in a Screen. Useful for layout calculations.

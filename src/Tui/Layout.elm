@@ -553,12 +553,7 @@ toScreen (State s) (Horizontal panes) =
 
                                     truncatedLine : Screen
                                     truncatedLine =
-                                        if lineWidth > innerW then
-                                            -- Re-render truncated (lose styles for long lines)
-                                            Tui.text (String.left (innerW - 1) lineText ++ "…")
-
-                                        else
-                                            lineScreen
+                                        Tui.truncateWidth innerW lineScreen
 
                                     actualWidth : Int
                                     actualWidth =
