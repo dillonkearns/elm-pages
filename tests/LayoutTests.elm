@@ -301,6 +301,70 @@ suite =
                     Layout.scrollPosition "list" newState
                         |> Expect.equal 3
             ]
+        , describe "Focus"
+            [ test "focused pane border contains green styling" <|
+                \() ->
+                    let
+                        state : Layout.State
+                        state =
+                            Layout.init |> Layout.focusPane "left"
+
+                        screen : Tui.Screen
+                        screen =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.content [ Tui.text "a" ])
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content [ Tui.text "b" ])
+                                ]
+                                |> Layout.toScreen (Layout.withContext { width = 40, height = 5 } state)
+
+                        encoded : String
+                        encoded =
+                            Tui.encodeScreen screen |> Json.Encode.encode 0
+                    in
+                    -- Focused pane border should have green color
+                    encoded
+                        |> String.contains "green"
+                        |> Expect.equal True
+            , test "focusedPane returns the focused pane id" <|
+                \() ->
+                    Layout.init
+                        |> Layout.focusPane "commits"
+                        |> Layout.focusedPane
+                        |> Expect.equal (Just "commits")
+            , test "no focus by default" <|
+                \() ->
+                    Layout.init
+                        |> Layout.focusedPane
+                        |> Expect.equal Nothing
+            ]
+        , describe "Title badges and footer"
+            [ test "pane with prefix shows it in border" <|
+                \() ->
+                    Layout.horizontal
+                        [ Layout.pane "commits"
+                            { title = "Commits", width = Layout.fill }
+                            (Layout.content [ Tui.text "a" ])
+                            |> Layout.withPrefix "[4]"
+                        ]
+                        |> renderAt { width = 30, height = 5 }
+                        |> String.contains "[4]"
+                        |> Expect.equal True
+            , test "pane with footer shows count on bottom border" <|
+                \() ->
+                    Layout.horizontal
+                        [ Layout.pane "commits"
+                            { title = "Commits", width = Layout.fill }
+                            (Layout.content [ Tui.text "a" ])
+                            |> Layout.withFooter "3 of 300"
+                        ]
+                        |> renderAt { width = 30, height = 5 }
+                        |> String.contains "3 of 300"
+                        |> Expect.equal True
+            ]
         ]
 
 

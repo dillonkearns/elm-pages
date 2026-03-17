@@ -72,7 +72,7 @@ parseCommits output =
 
 init : List Commit -> ( Model, Effect.Effect Msg )
 init commits =
-    ( { layout = Layout.init
+    ( { layout = Layout.init |> Layout.focusPane "commits"
       , commits = commits
       , diffContent = ""
       }
@@ -215,6 +215,15 @@ update msg model =
 
 myLayout : Model -> Layout.Layout Msg
 myLayout model =
+    let
+        selectedIdx : Int
+        selectedIdx =
+            Layout.selectedIndex "commits" model.layout
+
+        commitCount : Int
+        commitCount =
+            List.length model.commits
+    in
     Layout.horizontal
         [ Layout.pane "commits"
             { title = "Commits", width = Layout.fill }
@@ -224,7 +233,7 @@ myLayout model =
                     \commit ->
                         Tui.styled
                             { fg = Just Ansi.Color.yellow
-                            , bg = Nothing
+                            , bg = Just Ansi.Color.blue
                             , attributes = [ Tui.bold ]
                             }
                             ("▸ " ++ commit.sha ++ " " ++ commit.message)
@@ -234,6 +243,8 @@ myLayout model =
                 }
                 model.commits
             )
+            |> Layout.withPrefix "[1]"
+            |> Layout.withFooter (String.fromInt (selectedIdx + 1) ++ " of " ++ String.fromInt commitCount)
         , Layout.pane "diff"
             { title = "Diff", width = Layout.fillPortion 2 }
             (Layout.content

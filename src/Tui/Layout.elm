@@ -4,6 +4,8 @@ module Tui.Layout exposing
     , Width, fill, fillPortion, px
     , State, init, withContext
     , navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll, contextOf
+    , focusPane, focusedPane
+    , withPrefix, withFooter
     , handleMouse
     , toScreen
     )
@@ -45,12 +47,17 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll, contextOf
 
+@docs focusPane, focusedPane
+
+@docs withPrefix, withFooter
+
 @docs handleMouse
 
 @docs toScreen
 
 -}
 
+import Ansi.Color
 import Dict exposing (Dict)
 import Tui exposing (MouseEvent, Screen)
 
@@ -66,6 +73,8 @@ type alias PaneConfig msg =
     , title : String
     , width : Width
     , paneContent : PaneContent msg
+    , prefix : Maybe String
+    , footer : Maybe String
     }
 
 
@@ -99,6 +108,7 @@ type State
     = State
         { paneStates : Dict String PaneState
         , context : { width : Int, height : Int }
+        , focusedPaneId : Maybe String
         }
 
 
@@ -133,6 +143,8 @@ pane id config paneContent =
         , title = config.title
         , width = config.width
         , paneContent = paneContent
+        , prefix = Nothing
+        , footer = Nothing
         }
 
 
@@ -210,6 +222,7 @@ init =
     State
         { paneStates = Dict.empty
         , context = { width = 80, height = 24 }
+        , focusedPaneId = Nothing
         }
 
 
@@ -297,6 +310,45 @@ resetScroll paneId (State s) =
         }
 
 
+{-| Set focus to a pane by ID. The focused pane gets green borders and
+the active selection highlight style (like gocui's `SetCurrentView`).
+-}
+focusPane : String -> State -> State
+focusPane paneId (State s) =
+    State { s | focusedPaneId = Just paneId }
+
+
+{-| Get the currently focused pane ID, if any.
+-}
+focusedPane : State -> Maybe String
+focusedPane (State s) =
+    s.focusedPaneId
+
+
+{-| Add a prefix badge to the pane title (rendered before the title in the border).
+Like gocui's `TitlePrefix` — used for keyboard shortcut indicators like `[4]`.
+
+    Layout.pane "commits" { ... } content
+        |> Layout.withPrefix "[4]"
+
+-}
+withPrefix : String -> Pane msg -> Pane msg
+withPrefix prefixText (PaneConstructor config) =
+    PaneConstructor { config | prefix = Just prefixText }
+
+
+{-| Add a footer to the pane (rendered right-aligned on the bottom border).
+Like gocui's `Footer` — used for item counts like `3 of 300`.
+
+    Layout.pane "commits" { ... } content
+        |> Layout.withFooter "3 of 300"
+
+-}
+withFooter : String -> Pane msg -> Pane msg
+withFooter footerText (PaneConstructor config) =
+    PaneConstructor { config | footer = Just footerText }
+
+
 {-| Get the context stored in the state. Useful for passing to `handleMouse`
 when `update` doesn't receive `Context` directly.
 -}
@@ -325,6 +377,7 @@ handleMouse mouseEvent ctx (Horizontal panes) (State s) =
         sWithCtx :
             { paneStates : Dict String PaneState
             , context : { width : Int, height : Int }
+            , focusedPaneId : Maybe String
             }
         sWithCtx =
             { s | context = ctx }
@@ -492,37 +545,76 @@ toScreen (State s) (Horizontal panes) =
                                 isLastPane : Bool
                                 isLastPane =
                                     paneIdx == paneCount - 1
+
+                                isFocused : Bool
+                                isFocused =
+                                    s.focusedPaneId == Just paneConfig.id
+
+                                borderStyle : Tui.Style
+                                borderStyle =
+                                    if isFocused then
+                                        { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.bold ] }
+
+                                    else
+                                        { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
                             in
                             if row == 0 then
+                                let
+                                    titleText : String
+                                    titleText =
+                                        (paneConfig.prefix |> Maybe.withDefault "") ++ paneConfig.title
+
+                                    fillLen : Int
+                                    fillLen =
+                                        max 0 (innerW - String.length titleText)
+                                in
                                 Tui.concat
-                                    [ Tui.text
+                                    [ Tui.styled borderStyle
                                         (if isFirstPane then
                                             "┌"
 
                                          else
                                             "┬"
                                         )
-                                    , Tui.text paneConfig.title
-                                    , Tui.text (String.repeat (max 0 (innerW - String.length paneConfig.title)) "─")
+                                    , Tui.styled borderStyle titleText
+                                    , Tui.styled borderStyle (String.repeat fillLen "─")
                                     , if isLastPane then
-                                        Tui.text "┐"
+                                        Tui.styled borderStyle "┐"
 
                                       else
                                         Tui.empty
                                     ]
 
                             else if row == totalHeight - 1 then
+                                let
+                                    footerText : String
+                                    footerText =
+                                        paneConfig.footer |> Maybe.withDefault ""
+
+                                    footerLen : Int
+                                    footerLen =
+                                        String.length footerText
+
+                                    dashLen : Int
+                                    dashLen =
+                                        max 0 (innerW - footerLen)
+                                in
                                 Tui.concat
-                                    [ Tui.text
+                                    [ Tui.styled borderStyle
                                         (if isFirstPane then
                                             "└"
 
                                          else
                                             "┴"
                                         )
-                                    , Tui.text (String.repeat innerW "─")
+                                    , Tui.styled borderStyle (String.repeat dashLen "─")
+                                    , if footerLen > 0 then
+                                        Tui.styled borderStyle footerText
+
+                                      else
+                                        Tui.empty
                                     , if isLastPane then
-                                        Tui.text "┘"
+                                        Tui.styled borderStyle "┘"
 
                                       else
                                         Tui.empty
@@ -564,11 +656,11 @@ toScreen (State s) (Horizontal panes) =
                                         max 0 (innerW - actualWidth)
                                 in
                                 Tui.concat
-                                    [ Tui.text "│"
+                                    [ Tui.styled borderStyle "│"
                                     , truncatedLine
                                     , Tui.text (String.repeat padding " ")
                                     , if isLastPane then
-                                        Tui.text "│"
+                                        Tui.styled borderStyle "│"
 
                                       else
                                         Tui.empty
