@@ -2445,6 +2445,7 @@ let tuiPrevLines = []; // cached rendered lines for dirty-line diffing
 let tuiEventQueue = []; // events that arrived during Elm processing
 let tuiEventResolve = null; // pending promise resolver for next wait
 let tuiLastRenderTime = 0; // timestamp of last actual terminal write
+let tuiLastScreenLines = []; // last rendered lines for instant resize redraw
 let tuiPendingRender = null; // deferred render to ensure final frame is shown
 const TUI_MIN_RENDER_INTERVAL = 16; // ms — ~60fps cap, like Bubble Tea
 
@@ -2535,9 +2536,23 @@ async function runTuiInit(req) {
     }
   });
 
-  // Listen for terminal resize — triggers a re-render with new dimensions.
-  // Coalesce: replace any pending resize in the queue (only latest matters).
+  // Listen for terminal resize.
+  // 1. Immediately re-render last frame (instant visual feedback, no Elm round-trip)
+  // 2. Queue a resize event for Elm to update Layout with new dimensions
   process.stdout.on("resize", () => {
+    // Instant redraw: clear screen and re-render last known frame
+    // This gives immediate visual feedback while Elm processes the new context
+    if (tuiLastScreenLines.length > 0) {
+      let output = "\x1b[?2026h\x1b[H"; // sync start, cursor home
+      for (const line of tuiLastScreenLines) {
+        output += line + "\x1b[K\r\n";
+      }
+      output += "\x1b[J\x1b[?2026l"; // clear below, sync end
+      process.stdout.write(output);
+      tuiPrevLines = []; // invalidate cache so next Elm render does full redraw
+    }
+
+    // Queue resize event for Elm (coalesce: replace any existing resize)
     const resizeEvent = {
       type: "resize",
       width: process.stdout.columns || 80,
@@ -2549,7 +2564,6 @@ async function runTuiInit(req) {
       tuiEventResolve = null;
       resolve(resizeEvent);
     } else {
-      // Replace any existing resize event in queue instead of appending
       const existingIdx = tuiEventQueue.findIndex(e => e.type === "resize");
       if (existingIdx >= 0) {
         tuiEventQueue[existingIdx] = resizeEvent;
@@ -2623,6 +2637,8 @@ function tuiRenderScreen(screenData) {
 /** Diff newLines against tuiPrevLines and write only changed lines to terminal */
 function tuiFlushLines(stdout, newLines) {
   tuiLastRenderTime = Date.now();
+  tuiLastScreenLines = newLines; // save for instant resize redraw
+
   let output = "\x1b[?2026h"; // begin synchronized update
   let dirty = false;
   const maxLines = Math.max(newLines.length, tuiPrevLines.length);
