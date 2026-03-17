@@ -32,8 +32,23 @@ run config loadedData =
                 let
                     ( initialModel, initialEffect ) =
                         config.init loadedData
+
+                    -- Fire initial context through subscriptions so the user
+                    -- can store terminal dimensions (e.g., in Layout.State)
+                    sub : Sub msg
+                    sub =
+                        config.subscriptions initialModel
+
+                    modelWithContext : model
+                    modelWithContext =
+                        case Sub.routeEvent sub (Sub.RawContext context) of
+                            Just msg ->
+                                config.update msg initialModel |> Tuple.first
+
+                            Nothing ->
+                                initialModel
                 in
-                processEffectsThenRenderAndWait config context initialModel initialEffect
+                processEffectsThenRenderAndWait config context modelWithContext initialEffect
             )
 
 
@@ -178,10 +193,22 @@ renderAndWait config context model =
                         { width = response.width
                         , height = response.height
                         }
+
+                    -- Fire context change through subscription if dimensions changed
+                    modelAfterContext : model
+                    modelAfterContext =
+                        if newContext /= context then
+                            case Sub.routeEvent sub (Sub.RawContext newContext) of
+                                Just msg ->
+                                    config.update msg model |> Tuple.first
+
+                                Nothing ->
+                                    model
+
+                        else
+                            model
                 in
-                -- Process all batched events through update sequentially
-                -- (like gocui's processRemainingEvents drain), then render once
-                processBatchedEvents config sub newContext model response.events
+                processBatchedEvents config sub newContext modelAfterContext response.events
             )
 
 

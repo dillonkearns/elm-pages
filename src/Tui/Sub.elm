@@ -1,6 +1,6 @@
 module Tui.Sub exposing
     ( Sub
-    , none, batch, onKeyPress, onMouse, every
+    , none, batch, onKeyPress, onMouse, onContext, every
     , map
     , getInterests, routeEvent
     , RawEvent(..), decodeRawEvent
@@ -20,7 +20,7 @@ to subscribe to resize events.
 
 @docs Sub
 
-@docs none, batch, onKeyPress, onMouse, every
+@docs none, batch, onKeyPress, onMouse, onContext, every
 
 @docs map
 
@@ -45,6 +45,7 @@ type Sub msg
     | SubBatch (List (Sub msg))
     | OnKeyPress (KeyEvent -> msg)
     | OnMouse (MouseEvent -> msg)
+    | OnContext ({ width : Int, height : Int } -> msg)
     | Every Float msg
 
 
@@ -77,6 +78,17 @@ onMouse =
     OnMouse
 
 
+{-| Subscribe to terminal context (dimension) changes. Fires on init with the
+initial terminal size, and whenever the terminal is resized.
+
+    Tui.Sub.onContext (\ctx -> GotContext ctx)
+
+-}
+onContext : ({ width : Int, height : Int } -> msg) -> Sub msg
+onContext =
+    OnContext
+
+
 {-| Periodic tick. The `Float` is the interval in milliseconds.
 -}
 every : Float -> msg -> Sub msg
@@ -101,6 +113,9 @@ map f sub =
 
         OnMouse toMsg ->
             OnMouse (\event -> f (toMsg event))
+
+        OnContext toMsg ->
+            OnContext (\ctx -> f (toMsg ctx))
 
         Every interval msg ->
             Every interval (f msg)
@@ -132,6 +147,10 @@ getInterests sub =
 
                 OnMouse _ ->
                     "mouse" :: acc
+
+                OnContext _ ->
+                    -- Context events are framework-generated, not from stdin
+                    acc
 
                 Every _ _ ->
                     "tick" :: acc
@@ -175,6 +194,14 @@ routeEvent sub event =
                 _ ->
                     Nothing
 
+        OnContext toMsg ->
+            case event of
+                RawContext ctx ->
+                    Just (toMsg ctx)
+
+                _ ->
+                    Nothing
+
         Every _ msg ->
             case event of
                 RawTick ->
@@ -190,6 +217,7 @@ type RawEvent
     = RawKeyPress KeyEvent
     | RawMouse MouseEvent
     | RawResize { width : Int, height : Int }
+    | RawContext { width : Int, height : Int }
     | RawTick
 
 

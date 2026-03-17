@@ -32,6 +32,7 @@ type alias Model =
 type Msg
     = KeyPressed Tui.KeyEvent
     | Mouse Tui.MouseEvent
+    | GotContext { width : Int, height : Int }
     | SelectCommit Int
     | GotDiff (Result FatalError String)
 
@@ -156,6 +157,11 @@ update msg model =
 
                 Nothing ->
                     ( { model | layout = newLayout }, Effect.none )
+
+        GotContext ctx ->
+            ( { model | layout = Layout.withContext ctx model.layout }
+            , Effect.none
+            )
 
         SelectCommit index ->
             ( model
@@ -292,4 +298,5 @@ subscriptions _ =
     Tui.Sub.batch
         [ Tui.Sub.onKeyPress KeyPressed
         , Tui.Sub.onMouse Mouse
+        , Tui.Sub.onContext GotContext
         ]
