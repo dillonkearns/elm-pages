@@ -2452,16 +2452,27 @@ function tuiCleanup() {
   if (!tuiActive) return;
   tuiActive = false;
   const stdout = process.stdout;
-  // Single atomic write to restore terminal state
-  stdout.write(
-    "\x1b[?1000l\x1b[?1006l" + // disable mouse reporting
-    "\x1b[?25h" +               // show cursor
-    "\x1b[?1049l"               // exit alternate screen
-  );
+
+  // Remove all listeners we added
+  process.stdin.removeAllListeners("data");
+  process.stdout.removeAllListeners("resize");
+  tuiEventResolve = null;
+  tuiEventQueue = [];
+
+  // Restore raw mode BEFORE writing escape sequences
   if (process.stdin.isTTY && process.stdin.isRaw) {
     process.stdin.setRawMode(false);
   }
   process.stdin.pause();
+
+  // Single atomic write to fully restore terminal state
+  stdout.write(
+    "\x1b[0m" +                  // reset all text attributes
+    "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l" + // disable all mouse modes
+    "\x1b[?25h" +                // show cursor
+    "\x1b[?1l\x1b>" +            // reset cursor keys to normal mode (DECRST + DECKPNM)
+    "\x1b[?1049l"                // exit alternate screen (restores saved screen)
+  );
 }
 
 // Ensure terminal is restored on unexpected exit
