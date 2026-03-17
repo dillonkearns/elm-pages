@@ -400,6 +400,21 @@ defaultPaneState =
     { scrollOffset = 0, selectedIndex = 0 }
 
 
+contentLineCount : PaneContent msg -> Int
+contentLineCount paneContent =
+    case paneContent of
+        StaticContent lines ->
+            List.length lines
+
+        SelectableContent { items } ->
+            List.length items
+
+
+clampScroll : Int -> Int -> Int -> Int
+clampScroll contentLen visibleHeight offset =
+    clamp 0 (max 0 (contentLen - visibleHeight)) offset
+
+
 
 -- MOUSE DISPATCH
 
@@ -454,7 +469,7 @@ handleMouse mouseEvent ctx (Horizontal panes) (State s) =
                         { sWithCtx
                             | paneStates =
                                 Dict.insert config.id
-                                    { ps | scrollOffset = ps.scrollOffset + delta }
+                                    { ps | scrollOffset = clampScroll (contentLineCount config.paneContent) (ctx.height - 2) (ps.scrollOffset + delta) }
                                     sWithCtx.paneStates
                             , focusedPaneId = Just config.id
                         }
