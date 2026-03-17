@@ -2441,13 +2441,159 @@ function getTimezoneDataTemporal(tzId, sinceMs, untilMs) {
 // ── TUI Runtime ──────────────────────────────────────────────────────────────
 
 let tuiActive = false;
-let tuiPrevLines = []; // cached rendered lines for dirty-line diffing
 let tuiEventQueue = []; // events that arrived during Elm processing
 let tuiEventResolve = null; // pending promise resolver for next wait
 let tuiLastRenderTime = 0; // timestamp of last actual terminal write
-let tuiLastScreenLines = []; // last rendered lines for instant resize redraw
 let tuiPendingRender = null; // deferred render to ensure final frame is shown
 const TUI_MIN_RENDER_INTERVAL = 16; // ms — ~60fps cap, like Bubble Tea
+
+// === Cell-level diffing state ===
+// Replaces line-level tuiPrevLines approach. Each cell stores the character
+// and its pre-computed SGR attribute string. Diffing per-cell instead of per-line
+// means only changed characters emit escape sequences — the approach used by
+// tcell (gocui/lazygit) and Ratatui's Buffer.
+let tuiCellWidth = 0;
+let tuiCellHeight = 0;
+let tuiCurrCells = null; // current frame: flat array of {ch, sgr}
+let tuiPrevCells = null; // previous frame: for diffing
+let tuiLastScreenData = null; // raw screen data for resize bridge
+
+/** Allocate or resize cell buffers. Sentinel-fills prev to force full redraw. */
+function tuiEnsureCellBuffers(w, h) {
+  if (w <= 0 || h <= 0) return;
+  if (w === tuiCellWidth && h === tuiCellHeight && tuiCurrCells) return;
+  tuiCellWidth = w;
+  tuiCellHeight = h;
+  const size = w * h;
+  tuiCurrCells = new Array(size);
+  tuiPrevCells = new Array(size);
+  for (let i = 0; i < size; i++) {
+    tuiCurrCells[i] = { ch: ' ', sgr: '' };
+    tuiPrevCells[i] = { ch: '\x00', sgr: '\x00' }; // sentinel → forces full redraw
+  }
+}
+
+/** Mark all prev cells as dirty so next flush redraws everything. */
+function tuiInvalidatePrevCells() {
+  if (!tuiPrevCells) return;
+  for (let i = 0; i < tuiPrevCells.length; i++) {
+    tuiPrevCells[i].ch = '\x00';
+    tuiPrevCells[i].sgr = '\x00';
+  }
+}
+
+/** Fill current cell buffer from Elm screen data (array of lines of styled spans). */
+function tuiFillCells(screenData) {
+  const w = tuiCellWidth;
+  const h = tuiCellHeight;
+  // Clear all cells to spaces with no style
+  for (let i = 0; i < w * h; i++) {
+    tuiCurrCells[i].ch = ' ';
+    tuiCurrCells[i].sgr = '';
+  }
+  if (!screenData) return;
+  // Fill from screen data spans
+  const lineCount = Math.min(screenData.length, h);
+  for (let row = 0; row < lineCount; row++) {
+    let col = 0;
+    for (const span of screenData[row]) {
+      const sgr = tuiStyleCodes(span.style);
+      // Iterate codepoints (handles multi-byte chars like box-drawing ╭─╮)
+      for (const ch of span.text) {
+        if (col >= w) break;
+        const idx = row * w + col;
+        tuiCurrCells[idx].ch = ch;
+        tuiCurrCells[idx].sgr = sgr;
+        col++;
+      }
+    }
+  }
+}
+
+/**
+ * Diff current cells against previous cells, write only changes to terminal.
+ * Three key optimizations from tcell/ratatui:
+ * 1. Skip unchanged cells entirely (the big win)
+ * 2. Cache cursor position — skip movement for adjacent dirty cells
+ * 3. Cache active SGR — skip style sequences for same-styled cells
+ */
+function tuiFlushCells(stdout) {
+  tuiLastRenderTime = Date.now();
+  const w = tuiCellWidth;
+  const h = tuiCellHeight;
+  if (!tuiCurrCells || !tuiPrevCells || w === 0 || h === 0) return;
+
+  let buf = '\x1b[?2026h'; // begin synchronized update
+  let dirty = false;
+  let cRow = -1; // tracked cursor row (0-indexed)
+  let cCol = -1; // tracked cursor col (0-indexed)
+  let cSgr = null; // currently active SGR string on the terminal
+
+  for (let row = 0; row < h; row++) {
+    for (let col = 0; col < w; col++) {
+      const idx = row * w + col;
+      const curr = tuiCurrCells[idx];
+      const prev = tuiPrevCells[idx];
+
+      // Skip unchanged cells
+      if (curr.ch === prev.ch && curr.sgr === prev.sgr) continue;
+
+      dirty = true;
+
+      // Cursor movement: only emit when cursor isn't already here
+      if (cRow !== row || cCol !== col) {
+        if (cRow === row) {
+          // Same row — use CUF (relative) or CHA (absolute column)
+          const gap = col - cCol;
+          if (gap === 1) {
+            buf += '\x1b[C';
+          } else if (gap > 1 && gap <= 4) {
+            buf += `\x1b[${gap}C`;
+          } else {
+            buf += `\x1b[${col + 1}G`;
+          }
+        } else {
+          // Different row — CUP (absolute positioning)
+          buf += `\x1b[${row + 1};${col + 1}H`;
+        }
+      }
+
+      // Style: only emit when SGR differs from current terminal state.
+      // Use separate reset + apply (not combined \x1b[0;...m) to avoid
+      // parser issues with 256-color/truecolor sub-parameter sequences.
+      if (curr.sgr !== cSgr) {
+        buf += '\x1b[0m';
+        if (curr.sgr !== '') {
+          buf += `\x1b[${curr.sgr}m`;
+        }
+        cSgr = curr.sgr;
+      }
+
+      buf += curr.ch;
+      cCol = col + 1; // cursor auto-advances after write
+      cRow = row;
+
+      // Sync prev buffer so next frame diffs correctly
+      prev.ch = curr.ch;
+      prev.sgr = curr.sgr;
+    }
+
+    // Note: no \x1b[K here — unlike the old line-level approach, cell-level
+    // diffing explicitly tracks every cell including trailing spaces, so EL
+    // is not needed and would destructively erase unchanged cells to the right.
+  }
+
+  // Reset style at end of frame to leave terminal clean
+  if (cSgr !== null && cSgr !== '') {
+    buf += '\x1b[0m';
+  }
+
+  buf += '\x1b[?2026l'; // end synchronized update
+
+  if (dirty) {
+    stdout.write(buf);
+  }
+}
 
 function tuiCleanup() {
   if (!tuiActive) return;
@@ -2459,6 +2605,11 @@ function tuiCleanup() {
   process.stdout.removeAllListeners("resize");
   tuiEventResolve = null;
   tuiEventQueue = [];
+  tuiCurrCells = null;
+  tuiPrevCells = null;
+  tuiLastScreenData = null;
+  tuiCellWidth = 0;
+  tuiCellHeight = 0;
 
   // Restore raw mode BEFORE writing escape sequences
   if (process.stdin.isTTY && process.stdin.isRaw) {
@@ -2489,7 +2640,7 @@ process.on("SIGTERM", () => {
 
 async function runTuiInit(req) {
   tuiActive = true;
-  tuiPrevLines = []; // reset line cache for dirty-line diffing
+  tuiLastScreenData = null; // reset for cell-level diffing
   const stdout = process.stdout;
 
   // Single atomic write to avoid timing gaps where scroll events could leak.
@@ -2540,23 +2691,21 @@ async function runTuiInit(req) {
   // 1. Immediately re-render last frame (instant visual feedback, no Elm round-trip)
   // 2. Queue a resize event for Elm to update Layout with new dimensions
   process.stdout.on("resize", () => {
-    // Instant redraw: clear screen and re-render last known frame
-    // This gives immediate visual feedback while Elm processes the new context
-    if (tuiLastScreenLines.length > 0) {
-      let output = "\x1b[?2026h\x1b[H"; // sync start, cursor home
-      for (const line of tuiLastScreenLines) {
-        output += line + "\x1b[K\r\n";
-      }
-      output += "\x1b[J\x1b[?2026l"; // clear below, sync end
-      process.stdout.write(output);
-      tuiPrevLines = []; // invalidate cache so next Elm render does full redraw
+    // Instant redraw: re-fill cell buffer from last screen data at new dimensions
+    const newW = process.stdout.columns || 80;
+    const newH = process.stdout.rows || 24;
+    tuiEnsureCellBuffers(newW, newH);
+    if (tuiLastScreenData && tuiLastScreenData.length > 0) {
+      tuiFillCells(tuiLastScreenData);
+      tuiInvalidatePrevCells();
+      tuiFlushCells(process.stdout);
     }
 
     // Queue resize event for Elm (coalesce: replace any existing resize)
     const resizeEvent = {
       type: "resize",
-      width: process.stdout.columns || 80,
-      height: process.stdout.rows || 24,
+      width: newW,
+      height: newH,
     };
 
     if (tuiEventResolve) {
@@ -2573,6 +2722,9 @@ async function runTuiInit(req) {
     }
   });
 
+  // Initialize cell buffers for cell-level diffing
+  tuiEnsureCellBuffers(stdout.columns || 80, stdout.rows || 24);
+
   return jsonResponse(req, {
     width: stdout.columns || 80,
     height: stdout.rows || 24,
@@ -2585,35 +2737,26 @@ async function runTuiRender(req) {
 }
 
 /**
- * Render screen data with dirty-line diffing. Only redraws lines that changed
- * since the previous frame. This is the same approach tcell uses ("delta rendering").
+ * Render screen data with cell-level diffing. Fills cell buffer from screen data,
+ * then diffs each cell against the previous frame. Only changed cells emit escape
+ * sequences — the tcell/ratatui approach ("cell-level delta rendering").
  */
 function tuiRenderScreen(screenData) {
   const stdout = process.stdout;
+  const w = stdout.columns || 80;
+  const h = stdout.rows || 24;
 
-  // Build rendered lines for this frame with SGR state tracking:
-  // only emit style changes when the style actually differs from current state
-  const newLines = [];
-  for (const line of screenData) {
-    let rendered = "";
-    let curStyle = null; // track current SGR state across spans
-    for (const span of line) {
-      const nextStyle = tuiStyleKey(span.style);
-      if (nextStyle !== curStyle) {
-        // Style changed — reset and apply new style
-        if (curStyle !== null) rendered += "\x1b[0m";
-        const codes = tuiStyleCodes(span.style);
-        if (codes) rendered += `\x1b[${codes}m`;
-        curStyle = nextStyle;
-      }
-      rendered += span.text;
-    }
-    if (curStyle !== null && curStyle !== "") rendered += "\x1b[0m";
-    newLines.push(rendered);
-  }
+  // Save for resize bridge
+  tuiLastScreenData = screenData;
+
+  // Ensure cell buffers match terminal dimensions
+  tuiEnsureCellBuffers(w, h);
+
+  // Fill current cell buffer from screen data
+  tuiFillCells(screenData);
 
   // Frame rate throttle (like Bubble Tea's 60fps renderer cap).
-  // Skip intermediate renders so slow displays (e-ink) aren't overwhelmed.
+  // Skip intermediate renders so slow displays aren't overwhelmed.
   // Schedule a deferred render so the final frame is always shown.
   const now = Date.now();
   if (now - tuiLastRenderTime < TUI_MIN_RENDER_INTERVAL) {
@@ -2621,45 +2764,16 @@ function tuiRenderScreen(screenData) {
     if (tuiPendingRender) clearTimeout(tuiPendingRender);
     tuiPendingRender = setTimeout(() => {
       tuiPendingRender = null;
-      tuiFlushLines(stdout, newLines);
+      tuiFlushCells(stdout);
     }, TUI_MIN_RENDER_INTERVAL - (now - tuiLastRenderTime));
     return;
   }
-  tuiLastRenderTime = now;
   if (tuiPendingRender) {
     clearTimeout(tuiPendingRender);
     tuiPendingRender = null;
   }
 
-  tuiFlushLines(stdout, newLines);
-}
-
-/** Diff newLines against tuiPrevLines and write only changed lines to terminal */
-function tuiFlushLines(stdout, newLines) {
-  tuiLastRenderTime = Date.now();
-  tuiLastScreenLines = newLines; // save for instant resize redraw
-
-  let output = "\x1b[?2026h"; // begin synchronized update
-  let dirty = false;
-  const maxLines = Math.max(newLines.length, tuiPrevLines.length);
-
-  for (let i = 0; i < maxLines; i++) {
-    const newLine = i < newLines.length ? newLines[i] : "";
-    const prevLine = i < tuiPrevLines.length ? tuiPrevLines[i] : null;
-
-    if (newLine !== prevLine) {
-      output += `\x1b[${i + 1};1H${newLine}\x1b[K`;
-      dirty = true;
-    }
-  }
-
-  output += "\x1b[?2026l"; // end synchronized update
-
-  if (dirty) {
-    stdout.write(output);
-  }
-
-  tuiPrevLines = newLines;
+  tuiFlushCells(stdout);
 }
 
 /** Generate a cache key for a style object for quick comparison */

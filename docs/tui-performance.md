@@ -108,15 +108,36 @@ immediately through update, but terminal writes are rate-limited. Rapid
 scrolling produces many model updates but only ~60 actual screen refreshes
 per second.
 
-### 5. Dirty-line diffing
+### 5. Cell-level diffing
 
-**Impact:** Medium — reduces terminal write size
+**Impact:** High — dramatically reduces terminal write size
 
-JS renderer caches `tuiPrevLines` and only writes lines that changed since
-the previous frame. For a scroll event where the highlight moves one row,
-only 2-3 lines are redrawn instead of the full screen (~216 bytes vs ~2KB).
+JS renderer maintains two flat cell buffers (`tuiCurrCells` / `tuiPrevCells`),
+each sized to `width × height`. Each cell stores a character and its
+pre-computed SGR attribute string. On each frame:
 
-Same approach as tcell's `draw()` (though tcell is cell-level, not line-level).
+1. `tuiFillCells()` clears the current buffer to spaces, then fills it
+   from Elm's span-based screen data (iterating codepoints, not bytes)
+2. `tuiFlushCells()` walks both buffers cell-by-cell, emitting escape
+   sequences only for cells where `curr.ch !== prev.ch || curr.sgr !== prev.sgr`
+
+Three sub-optimizations inside the flush loop (all from tcell/ratatui):
+- **Skip unchanged cells** — the core win. A scroll that moves the highlight
+  one row only rewrites the ~40 cells that changed, not the full screen.
+- **Cursor position caching** — tracks the implicit cursor position after
+  each write. Adjacent dirty cells need zero cursor movement (the cursor
+  auto-advances). Small same-row gaps use CUF (relative forward) instead
+  of CUP (absolute positioning).
+- **SGR state caching** — tracks the currently active SGR string on the
+  terminal. Adjacent dirty cells with the same style skip all SGR output.
+  Style changes use separate reset + apply sequences (`\x1b[0m` then
+  `\x1b[${sgr}m`) to avoid parser issues with 256-color sub-parameters.
+
+Previously this was line-level diffing (compare rendered line strings,
+rewrite entire lines + EL on change). Cell-level is strictly better:
+changing one character in a status bar rewrites ~15 bytes instead of ~200+.
+
+Source: tcell `drawCell()` in `tscreen.go`, ratatui `BufferDiff` in `diff.rs`.
 
 ### 6. Synchronized output (DEC mode 2026)
 
@@ -133,8 +154,14 @@ Harmless no-op on unsupported terminals.
 
 **Impact:** Low-Medium — reduces escape code overhead
 
-Only emit style escape codes when the style changes between adjacent spans.
-Previously every span did reset (`\x1b[0m`) + full style reapply.
+Only emit style escape codes when the style changes between adjacent cells.
+The cell-level flush loop tracks `cSgr` (the currently active SGR string
+on the terminal) and skips emission entirely when the next dirty cell has
+the same style. Style transitions use separate `\x1b[0m` reset followed by
+`\x1b[${sgr}m` apply — not a combined `\x1b[0;${sgr}m` — to avoid
+ambiguity with 256-color (`38;5;N`) and truecolor (`38;2;R;G;B`)
+sub-parameter sequences that some terminal parsers handle differently
+when preceded by a `0;` in the same CSI.
 
 Source: tcell tracks `curstyle` and only emits SGR when `style != curstyle`.
 
@@ -199,7 +226,7 @@ quickly (persistent queue + batch processing + render throttle).
 2. Event drain — multiple rapid events → one render
 3. Synchronized output — atomic frame swaps
 4. Only visible rows rendered
-5. Cell-level dirty tracking (we use line-level, nearly as good)
+5. Cell-level dirty tracking — we now match this exactly
 
 Our architecture matches 2-5. The IPC latency (#1) is inherent to the
 BackendTask loop (~1-5ms per cycle). The TEA-based runtime would eliminate
