@@ -58,6 +58,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 -}
 
 import Ansi.Color
+import Array
 import Dict exposing (Dict)
 import Tui exposing (MouseEvent, Screen)
 
@@ -85,11 +86,18 @@ type Pane msg
 
 
 {-| Content for a pane — either a static list of screens or a selectable list.
+
+SelectableContent stores items lazily: the render functions are only applied
+when `getContentLine` needs a specific visible item. This means a list of
+10,000 items only renders the ~30 that are on screen (viewport-only rendering,
+inspired by lazygit's `renderOnlyVisibleLines` and Ratatui's `ListState`).
 -}
 type PaneContent msg
     = StaticContent (List Screen)
     | SelectableContent
-        { items : List ( Screen, Screen )
+        { itemCount : Int
+        , renderItem : Int -> Screen -- renders default view for item at index
+        , renderSelected : Int -> Screen -- renders selected view for item at index
         , onSelect : Int -> msg
         }
 
@@ -174,13 +182,23 @@ selectableList :
     -> List item
     -> PaneContent msg
 selectableList config items =
+    let
+        itemArray : Array.Array item
+        itemArray =
+            Array.fromList items
+    in
     SelectableContent
-        { items =
-            items
-                |> List.map
-                    (\item ->
-                        ( config.default item, config.selected item )
-                    )
+        { itemCount = Array.length itemArray
+        , renderItem =
+            \i ->
+                Array.get i itemArray
+                    |> Maybe.map config.default
+                    |> Maybe.withDefault Tui.empty
+        , renderSelected =
+            \i ->
+                Array.get i itemArray
+                    |> Maybe.map config.selected
+                    |> Maybe.withDefault Tui.empty
         , onSelect = config.onSelect
         }
 
@@ -406,8 +424,8 @@ contentLineCount paneContent =
         StaticContent lines ->
             List.length lines
 
-        SelectableContent { items } ->
-            List.length items
+        SelectableContent { itemCount } ->
+            itemCount
 
 
 clampScroll : Int -> Int -> Int -> Int
@@ -769,19 +787,12 @@ getContentLine paneConfig ps contentRow =
                 |> List.head
                 |> Maybe.withDefault Tui.empty
 
-        SelectableContent { items } ->
-            items
-                |> List.indexedMap
-                    (\i ( defaultView, selectedView ) ->
-                        if i == ps.selectedIndex then
-                            selectedView
+        SelectableContent { renderItem, renderSelected } ->
+            if scrolledRow == ps.selectedIndex then
+                renderSelected scrolledRow
 
-                        else
-                            defaultView
-                    )
-                |> List.drop scrolledRow
-                |> List.head
-                |> Maybe.withDefault Tui.empty
+            else
+                renderItem scrolledRow
 
 
 resolveWidths : Int -> List Width -> List Int
