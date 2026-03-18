@@ -2546,7 +2546,6 @@ function tuiFlushCells(stdout) {
       if (curr.ch === prev.ch && curr.sgr === prev.sgr) continue;
 
       dirty = true;
-      dirtyCellCount++;
       // Cursor movement: only emit when cursor isn't already here
       if (cRow !== row || cCol !== col) {
         if (cRow === row) {
