@@ -518,7 +518,7 @@ miniGitLayout model =
                         Tui.styled
                             { fg = Just Ansi.Color.yellow
                             , bg = Nothing
-                            , attributes = [ Tui.bold ]
+                            , attributes = [ Tui.Bold ]
                             }
                             ("▸ " ++ commit.sha ++ " " ++ commit.message)
                 , default =
@@ -796,7 +796,7 @@ miniGitView ctx model =
                             case helpState.mode of
                                 HelpSearch ->
                                     [ Tui.concat
-                                        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] } "/"
+                                        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] } "/"
                                         , Input.view { width = 40 } helpState.filter
                                         ]
                                     , Tui.text ""
@@ -804,7 +804,7 @@ miniGitView ctx model =
 
                                 HelpBrowse ->
                                     if not (String.isEmpty filterText) then
-                                        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] } ("/" ++ filterText)
+                                        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] } ("/" ++ filterText)
                                         , Tui.text ""
                                         ]
 

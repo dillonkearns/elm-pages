@@ -495,7 +495,7 @@ myLayout model =
                         Tui.styled
                             { fg = Just Ansi.Color.yellow
                             , bg = Just Ansi.Color.blue
-                            , attributes = [ Tui.bold ]
+                            , attributes = [ Tui.Bold ]
                             }
                             ("▸ " ++ commit.sha ++ " " ++ commit.message)
                 , default =
@@ -578,7 +578,7 @@ view ctx model =
                                 HelpSearch ->
                                     [ Tui.concat
                                         [ Tui.styled
-                                            { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
+                                            { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
                                             "/"
                                         , Input.view { width = modalWidth - 3 } helpState.filter
                                         ]
@@ -588,7 +588,7 @@ view ctx model =
                                 HelpBrowse ->
                                     if not (String.isEmpty filterText) then
                                         [ Tui.styled
-                                            { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
+                                            { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
                                             ("/" ++ filterText)
                                         , Tui.text ""
                                         ]
@@ -634,7 +634,7 @@ styleDiffLine line =
         Tui.styled { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [] } line
 
     else
-        Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] } line
+        Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] } line
 
 
 subscriptions : Model -> Tui.Sub.Sub Msg

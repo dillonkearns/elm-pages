@@ -366,15 +366,15 @@ helpRowsWithSelection selectedIdx filter groups =
 
         selectedStyle : Tui.Style
         selectedStyle =
-            { fg = Just Ansi.Color.white, bg = Just Ansi.Color.blue, attributes = [ Tui.bold ] }
+            { fg = Just Ansi.Color.white, bg = Just Ansi.Color.blue, attributes = [ Tui.Bold ] }
 
         selectedKeyStyle : Tui.Style
         selectedKeyStyle =
-            { fg = Just Ansi.Color.cyan, bg = Just Ansi.Color.blue, attributes = [ Tui.bold ] }
+            { fg = Just Ansi.Color.cyan, bg = Just Ansi.Color.blue, attributes = [ Tui.Bold ] }
 
         sectionStyle : Tui.Style
         sectionStyle =
-            { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.bold ] }
+            { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.Bold ] }
 
         renderBinding : Int -> Binding msg -> Tui.Screen
         renderBinding bindingIdx b =
@@ -478,5 +478,5 @@ infoRow keyLabel description =
 -}
 sectionHeader : String -> Tui.Screen
 sectionHeader name =
-    Tui.styled { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.bold ] }
+    Tui.styled { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.Bold ] }
         ("--- " ++ name ++ " ---")

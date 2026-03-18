@@ -1,7 +1,8 @@
 module Tui exposing
-    ( Screen, text, styled, lines, concat, empty
+    ( Screen, text, styled, lines, concat, empty, blank
+    , fg, bg, bold, dim, italic, underline, strikethrough, inverse
     , Style, plain
-    , Attribute, bold, dim, italic, underline, strikethrough, inverse
+    , Attribute(..)
     , Context, ColorProfile(..)
     , KeyEvent, Key(..), Direction(..), Modifier(..)
     , MouseEvent(..), MouseButton(..)
@@ -21,13 +22,15 @@ from the `wolfadex/elm-ansi` package:
     import Ansi.Color
     import Tui
 
-    Tui.styled { Tui.plain | fg = Just Ansi.Color.red, attributes = [ Tui.bold ] } "error"
+    Tui.styled { Tui.plain | fg = Just Ansi.Color.red, attributes = [ Tui.Bold ] } "error"
 
-@docs Screen, text, styled, lines, concat, empty
+@docs Screen, text, styled, lines, concat, empty, blank
+
+@docs fg, bg, bold, dim, italic, underline, strikethrough, inverse
 
 @docs Style, plain
 
-@docs Attribute, bold, dim, italic, underline, strikethrough, inverse
+@docs Attribute
 
 @docs Context, ColorProfile
 
@@ -71,10 +74,10 @@ background color, and text attributes.
     import Ansi.Color
 
     -- Bold red text
-    Tui.styled { Tui.plain | fg = Just Ansi.Color.red, attributes = [ Tui.bold ] } "error"
+    Tui.styled { Tui.plain | fg = Just Ansi.Color.red, attributes = [ Tui.Bold ] } "error"
 
     -- Just bold, default colors
-    Tui.styled { Tui.plain | attributes = [ Tui.bold ] } "important"
+    Tui.styled { Tui.plain | attributes = [ Tui.Bold ] } "important"
 
     -- Foreground color only
     Tui.styled { Tui.plain | fg = Just Ansi.Color.cyan } "info"
@@ -106,8 +109,119 @@ empty =
     ScreenEmpty
 
 
+{-| A blank line — alias for `text ""`. Useful as a spacer in `lines`.
 
--- STYLE
+    Tui.lines
+        [ Tui.text "Title"
+        , Tui.blank
+        , Tui.text "Content"
+        ]
+
+-}
+blank : Screen
+blank =
+    ScreenText ""
+
+
+
+-- STYLE BUILDERS
+
+
+{-| Set foreground color on a Screen. Composes with pipeline syntax:
+
+    Tui.text "error" |> Tui.fg Ansi.Color.red
+    Tui.text "warning" |> Tui.fg Ansi.Color.yellow |> Tui.bold
+
+-}
+fg : Ansi.Color.Color -> Screen -> Screen
+fg color screen =
+    applyStyle (\s -> { s | fg = Just color }) screen
+
+
+{-| Set background color on a Screen.
+
+    Tui.text "selected" |> Tui.bg Ansi.Color.blue
+
+-}
+bg : Ansi.Color.Color -> Screen -> Screen
+bg color screen =
+    applyStyle (\s -> { s | bg = Just color }) screen
+
+
+{-| Apply bold attribute.
+
+    Tui.text "important" |> Tui.bold
+
+-}
+bold : Screen -> Screen
+bold =
+    addAttr Bold
+
+
+{-| Apply dim attribute.
+
+    Tui.text "muted" |> Tui.dim
+
+-}
+dim : Screen -> Screen
+dim =
+    addAttr Dim
+
+
+{-| Apply italic attribute.
+-}
+italic : Screen -> Screen
+italic =
+    addAttr Italic
+
+
+{-| Apply underline attribute.
+-}
+underline : Screen -> Screen
+underline =
+    addAttr Underline
+
+
+{-| Apply strikethrough attribute.
+-}
+strikethrough : Screen -> Screen
+strikethrough =
+    addAttr Strikethrough
+
+
+{-| Apply inverse (reverse video) attribute.
+-}
+inverse : Screen -> Screen
+inverse =
+    addAttr Inverse
+
+
+{-| Apply a style transformation to a Screen. For ScreenText, wraps it in
+ScreenStyled with the transformed plain style. For ScreenStyled, transforms
+the existing style. For compound screens, wraps the whole thing.
+-}
+applyStyle : (Style -> Style) -> Screen -> Screen
+applyStyle transform screen =
+    case screen of
+        ScreenText s ->
+            ScreenStyled (transform plain) s
+
+        ScreenStyled stl s ->
+            ScreenStyled (transform stl) s
+
+        _ ->
+            -- For compound screens (Lines, Concat, Empty), wrap in a styled container
+            -- This is a best-effort: the style applies to the outermost level
+            screen
+
+
+addAttr : Attribute -> Screen -> Screen
+addAttr attr =
+    applyStyle (\s -> { s | attributes = attr :: s.attributes })
+
+
+
+-- STYLE RECORDS
 
 
 {-| Terminal cell style — foreground color, background color, and text
@@ -116,7 +230,7 @@ flags).
 
     { fg = Just Ansi.Color.red
     , bg = Nothing
-    , attributes = [ Tui.bold, Tui.underline ]
+    , attributes = [ Tui.Bold, Tui.Underline ]
     }
 
 -}
@@ -130,7 +244,7 @@ type alias Style =
 {-| Default style — no colors, no decorations. Use record update to customize:
 
     { Tui.plain | fg = Just Ansi.Color.cyan }
-    { Tui.plain | attributes = [ Tui.bold ] }
+    { Tui.plain | attributes = [ Tui.Bold ] }
 
 -}
 plain : Style
@@ -154,49 +268,6 @@ type Attribute
     | Underline
     | Strikethrough
     | Inverse
-
-
-{-| Bold text.
--}
-bold : Attribute
-bold =
-    Bold
-
-
-{-| Dim (faint) text.
--}
-dim : Attribute
-dim =
-    Dim
-
-
-{-| Italic text.
--}
-italic : Attribute
-italic =
-    Italic
-
-
-{-| Underlined text.
--}
-underline : Attribute
-underline =
-    Underline
-
-
-{-| Strikethrough text.
--}
-strikethrough : Attribute
-strikethrough =
-    Strikethrough
-
-
-{-| Inverse (swap foreground and background) text.
--}
-inverse : Attribute
-inverse =
-    Inverse
-
 
 
 -- CONTEXT

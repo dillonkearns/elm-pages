@@ -196,7 +196,7 @@ stepperView ctx model =
     let
         dimStyle : Tui.Style
         dimStyle =
-            { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
+            { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
 
         maybeSnapshot : Maybe TuiTest.Snapshot
         maybeSnapshot =
@@ -209,7 +209,7 @@ stepperView ctx model =
             let
                 headerStyle : Tui.Style
                 headerStyle =
-                    { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.bold ] }
+                    { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.Bold ] }
 
                 separator : String
                 separator =
@@ -250,7 +250,7 @@ stepperView ctx model =
                                         Tui.styled
                                             { fg = Just Ansi.Color.cyan
                                             , bg = Nothing
-                                            , attributes = [ Tui.bold ]
+                                            , attributes = [ Tui.Bold ]
                                             }
                                             (" ● " ++ snapshotForIndicator.label ++ " ")
 
@@ -265,7 +265,7 @@ stepperView ctx model =
                  , Tui.concat
                     [ Tui.styled dimStyle "  Action: "
                     , Tui.styled
-                        { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [ Tui.bold ] }
+                        { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [ Tui.Bold ] }
                         snapshot.label
                     , if snapshot.hasPendingEffects then
                         Tui.styled
@@ -298,7 +298,7 @@ stepperView ctx model =
                                     , Tui.styled
                                         { fg = Just Ansi.Color.green
                                         , bg = Nothing
-                                        , attributes = [ Tui.bold ]
+                                        , attributes = [ Tui.Bold ]
                                         }
                                         "  Model:"
                                     , modelStr

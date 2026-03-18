@@ -64,7 +64,7 @@ overlay config term bgRows =
 
         borderStyle : Tui.Style
         borderStyle =
-            { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.bold ] }
+            { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.Bold ] }
 
         -- Composite a modal strip onto a background row:
         -- [background left edge] [modal content] [right fill]

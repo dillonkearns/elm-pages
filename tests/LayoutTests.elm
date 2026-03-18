@@ -70,7 +70,7 @@ suite =
                                                 Tui.styled
                                                     { fg = Just Ansi.Color.yellow
                                                     , bg = Nothing
-                                                    , attributes = [ Tui.bold ]
+                                                    , attributes = [ Tui.Bold ]
                                                     }
                                                     ("▸ " ++ item)
                                         , default = \item -> Tui.text ("  " ++ item)

@@ -251,9 +251,9 @@ init =
 {-| Update the terminal dimensions in the state. Call this with the `Context`
 from your `view` function.
 -}
-withContext : { width : Int, height : Int } -> State -> State
+withContext : { a | width : Int, height : Int } -> State -> State
 withContext ctx (State s) =
-    State { s | context = ctx }
+    State { s | context = { width = ctx.width, height = ctx.height } }
 
 
 {-| Move selection down in a pane.
@@ -692,10 +692,10 @@ toRows (State s) (Horizontal panes) =
                                 borderStyle : Tui.Style
                                 borderStyle =
                                     if isFocused then
-                                        { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.bold ] }
+                                        { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.Bold ] }
 
                                     else
-                                        { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
+                                        { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
                             in
                             if row == 0 then
                                 let

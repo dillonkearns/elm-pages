@@ -193,7 +193,7 @@ view { width } (State s) =
     Tui.concat
         [ Tui.text beforeCursor
         , Tui.styled
-            { fg = Nothing, bg = Nothing, attributes = [ Tui.inverse ] }
+            { fg = Nothing, bg = Nothing, attributes = [ Tui.Inverse ] }
             cursorChar
         , Tui.text afterCursor
         ]
