@@ -31,7 +31,7 @@ function findNearestElmJson(filePath) {
   return searchForElmJson(path.dirname(filePath));
 }
 
-function getElmModuleName(inputPath) {
+function getElmModuleName(inputPath, { extraSourceDirs = [] } = {}) {
   const filePath = path.normalize(
     path.isAbsolute(inputPath) ? inputPath : path.resolve(inputPath)
   );
@@ -51,7 +51,8 @@ function getElmModuleName(inputPath) {
     );
   }
 
-  const matchingSourceDir = sourceDirectories
+  const allSourceDirs = [...sourceDirectories, ...extraSourceDirs];
+  const matchingSourceDir = allSourceDirs
     .map((sourceDir) => path.join(projectDirectory, sourceDir))
     .find((absoluteSourceDir) => filePath.startsWith(absoluteSourceDir));
 
@@ -67,7 +68,20 @@ function getElmModuleName(inputPath) {
   return { projectDirectory, moduleName, sourceDirectory: matchingSourceDir };
 }
 
-export async function resolveInputPathOrModuleName(inputPathOrModuleName) {
+/**
+ * Like resolveInputPathOrModuleName but also checks `tests/` as a source
+ * directory, matching elm-test's convention. Used by `elm-pages test`.
+ */
+export async function resolveTestInputPath(inputPathOrModuleName) {
+  return resolveInputPathOrModuleName(inputPathOrModuleName, {
+    extraSourceDirs: ["tests", "snapshot-tests/src"],
+  });
+}
+
+export async function resolveInputPathOrModuleName(
+  inputPathOrModuleName,
+  options = {}
+) {
   const parsed = parse(inputPathOrModuleName);
   if (parsed) {
     const { filePath } = parsed;
@@ -84,7 +98,7 @@ export async function resolveInputPathOrModuleName(inputPathOrModuleName) {
       sourceDirectory: path.resolve("./script/src"),
     };
   } else {
-    return getElmModuleName(inputPathOrModuleName);
+    return getElmModuleName(inputPathOrModuleName, options);
   }
 }
 

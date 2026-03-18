@@ -15,7 +15,10 @@ import * as esbuild from "esbuild";
 import * as globby from "globby";
 import * as renderer from "../render.js";
 import { compileCliApp } from "../compile-elm.js";
-import { resolveInputPathOrModuleName } from "../resolve-elm-module.js";
+import {
+  resolveInputPathOrModuleName,
+  resolveTestInputPath,
+} from "../resolve-elm-module.js";
 import { restoreColorSafe } from "../error-formatter.js";
 import {
   needsPortsRecompilation,
@@ -34,16 +37,18 @@ export async function run(elmModulePath, options, options2) {
     console.log(
       "Usage: elm-pages test <path-to-module>\n\n" +
         "Run a TUI test through the interactive stepper.\n" +
-        'The module must export a `stepper` value of type `TuiTest model msg`.\n\n' +
+        "The module must expose a value with a TuiTest type annotation.\n" +
+        "Test files in tests/ are automatically discovered (like elm-test).\n\n" +
         "Example:\n" +
-        "  elm-pages test tests/MyTuiTest.elm\n"
+        "  elm-pages test tests/MyTuiTest.elm\n" +
+        "  elm-pages test script/tests/DocsTuiTest.elm\n"
     );
     return;
   }
 
   try {
     const { moduleName, projectDirectory, sourceDirectory } =
-      await resolveInputPathOrModuleName(elmModulePath);
+      await resolveTestInputPath(elmModulePath);
 
     // Find all exposed TuiTest values by scanning type annotations
     const fullPath = path.resolve(
@@ -84,11 +89,13 @@ export async function run(elmModulePath, options, options2) {
       testStepperWrapperFile(moduleName, tuiTestValues)
     );
 
-    // Compile (reuses the same pipeline as `run`)
+    // Compile (reuses the same pipeline as `run`).
+    // Include tests/ and snapshot-tests/src/ as extra source directories
+    // so test files outside source-directories can be compiled.
     await compileElmForScript(
       elmModulePath,
       { moduleName, projectDirectory, sourceDirectory },
-      { usesDb: false }
+      { usesDb: false, extraSourceDirs: ["tests", "snapshot-tests/src"] }
     );
 
     const portsCheck = await needsPortsRecompilation(projectDirectory);

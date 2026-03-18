@@ -769,7 +769,7 @@ export async function compileElmForScript(
   await rewriteElmJson(
     `${projectDirectory}/elm.json`,
     `${projectDirectory}/elm-stuff/elm-pages/elm.json`,
-    {}
+    { extraSourceDirs: options.extraSourceDirs }
   );
 
   // Generate Pages.Db module if this script uses the database.
