@@ -274,6 +274,42 @@ suite =
                         |> TuiTest.ensureViewDoesNotHave "Quit"
                         |> TuiTest.expectRunning
             ]
+        , describe "diff scroll reset"
+            [ test "selecting a new commit resets diff scroll to top" <|
+                \() ->
+                    miniGitTest
+                        -- Tab to focus the diff pane and scroll down
+                        |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        -- Scrolled down — top lines should be gone
+                        |> TuiTest.ensureViewDoesNotHave "commit abc1234"
+                        -- Tab back to commits, navigate to a new commit
+                        |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
+                        |> TuiTest.pressKey 'j'
+                        -- Should see the TOP of the new commit's diff
+                        |> TuiTest.ensureViewHas "commit def5678"
+                        |> TuiTest.ensureViewHas "Message for def5678"
+                        |> TuiTest.expectRunning
+            , test "clicking a commit resets diff scroll to top" <|
+                \() ->
+                    miniGitTest
+                        -- Tab to diff pane and scroll down
+                        |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.ensureViewDoesNotHave "commit abc1234"
+                        -- Click on a different commit
+                        |> TuiTest.clickText "def5678"
+                        -- Should see the TOP of the new diff
+                        |> TuiTest.ensureViewHas "commit def5678"
+                        |> TuiTest.ensureViewHas "Message for def5678"
+                        |> TuiTest.expectRunning
+            ]
         , describe "keybinding dispatch"
             [ test "j navigates via keybinding dispatch" <|
                 \() ->
@@ -359,6 +395,7 @@ type alias Commit =
 type alias Model =
     { layout : Layout.State
     , commits : List Commit
+    , diffContent : String
     , modal : Maybe ModalState
     , lastAction : String
     }
@@ -383,6 +420,7 @@ type HelpMode
 
 type Action
     = DoNavigate Int
+    | DoScrollDiff Int
     | DoQuit
     | DoSwitchPane
     | DoOpenCommit
@@ -416,9 +454,24 @@ testCommitBindings =
         ]
 
 
-testActiveBindings : List (Keybinding.Group Action)
-testActiveBindings =
-    [ testCommitBindings, testGlobalBindings ]
+testDiffBindings : Keybinding.Group Action
+testDiffBindings =
+    Keybinding.group "Diff"
+        [ Keybinding.binding (Tui.Character 'j') "Scroll down" (DoScrollDiff 3)
+            |> Keybinding.withAlternate (Tui.Arrow Tui.Down)
+        , Keybinding.binding (Tui.Character 'k') "Scroll up" (DoScrollDiff -3)
+            |> Keybinding.withAlternate (Tui.Arrow Tui.Up)
+        ]
+
+
+testActiveBindings : Model -> List (Keybinding.Group Action)
+testActiveBindings model =
+    case Layout.focusedPane model.layout of
+        Just "diff" ->
+            [ testDiffBindings, testGlobalBindings ]
+
+        _ ->
+            [ testCommitBindings, testGlobalBindings ]
 
 
 sampleCommits : List Commit
@@ -436,11 +489,21 @@ miniGitInit : List Commit -> ( Model, Effect Msg )
 miniGitInit commits =
     ( { layout = Layout.init |> Layout.focusPane "commits"
       , commits = commits
+      , diffContent = diffForCommit "abc1234"
       , modal = Nothing
       , lastAction = ""
       }
     , Effect.none
     )
+
+
+diffForCommit : String -> String
+diffForCommit sha =
+    "commit " ++ sha ++ "\nAuthor: Test\nDate: today\n\n    Message for " ++ sha ++ "\n---\n"
+        ++ (List.range 1 40
+                |> List.map (\i -> "+ line " ++ String.fromInt i ++ " of diff for " ++ sha)
+                |> String.join "\n"
+           )
 
 
 miniGitLayout : Model -> Layout.Layout Msg
@@ -466,7 +529,12 @@ miniGitLayout model =
             )
         , Layout.pane "diff"
             { title = "Diff", width = Layout.fillPortion 2 }
-            (Layout.content [ Tui.text "(diff placeholder)" ])
+            (Layout.content
+                (model.diffContent
+                    |> String.lines
+                    |> List.map Tui.text
+                )
+            )
         ]
 
 
@@ -568,7 +636,7 @@ miniGitUpdate msg model =
         Nothing ->
             case msg of
                 KeyPressed event ->
-                    case Keybinding.dispatch testActiveBindings event of
+                    case Keybinding.dispatch (testActiveBindings model) event of
                         Just action ->
                             handleAction action model
 
@@ -587,6 +655,22 @@ miniGitUpdate msg model =
                         Nothing ->
                             ( { model | layout = newLayout }, Effect.none )
 
+                SelectCommit index ->
+                    let
+                        sha =
+                            model.commits
+                                |> List.drop index
+                                |> List.head
+                                |> Maybe.map .sha
+                                |> Maybe.withDefault ""
+                    in
+                    ( { model
+                        | layout = Layout.resetScroll "diff" model.layout
+                        , diffContent = diffForCommit sha
+                      }
+                    , Effect.none
+                    )
+
                 _ ->
                     ( model, Effect.none )
 
@@ -595,8 +679,8 @@ handleAction : Action -> Model -> ( Model, Effect Msg )
 handleAction action model =
     case action of
         DoNavigate direction ->
-            ( { model
-                | layout =
+            let
+                newLayout =
                     (if direction > 0 then
                         Layout.navigateDown "commits"
 
@@ -604,6 +688,21 @@ handleAction action model =
                         Layout.navigateUp "commits"
                     )
                         model.layout
+                        |> Layout.resetScroll "diff"
+
+                newIndex =
+                    Layout.selectedIndex "commits" newLayout
+
+                sha =
+                    model.commits
+                        |> List.drop newIndex
+                        |> List.head
+                        |> Maybe.map .sha
+                        |> Maybe.withDefault ""
+            in
+            ( { model
+                | layout = newLayout
+                , diffContent = diffForCommit sha
               }
             , Effect.none
             )
@@ -612,7 +711,26 @@ handleAction action model =
             ( model, Effect.exit )
 
         DoSwitchPane ->
-            ( model, Effect.none )
+            let
+                nextFocus =
+                    if Layout.focusedPane model.layout == Just "commits" then
+                        "diff"
+
+                    else
+                        "commits"
+            in
+            ( { model | layout = Layout.focusPane nextFocus model.layout }, Effect.none )
+
+        DoScrollDiff delta ->
+            let
+                newLayout =
+                    if delta > 0 then
+                        Layout.scrollDown "diff" delta model.layout
+
+                    else
+                        Layout.scrollUp "diff" (abs delta) model.layout
+            in
+            ( { model | layout = newLayout }, Effect.none )
 
         DoOpenCommit ->
             ( { model | modal = Just (CommitModal { input = Input.init "" }) }, Effect.none )
@@ -662,14 +780,17 @@ miniGitView ctx model =
                         filterText =
                             Input.text helpState.filter
 
+                        groups =
+                            testActiveBindings model
+
                         rowCount =
-                            Keybinding.helpRowCount filterText testActiveBindings
+                            Keybinding.helpRowCount filterText groups
 
                         clampedIdx =
                             clamp 0 (max 0 (rowCount - 1)) helpState.selectedIndex
 
                         helpBody =
-                            Keybinding.helpRowsWithSelection clampedIdx filterText testActiveBindings
+                            Keybinding.helpRowsWithSelection clampedIdx filterText groups
 
                         searchRow =
                             case helpState.mode of
