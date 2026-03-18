@@ -128,6 +128,7 @@ type State
         , context : { width : Int, height : Int }
         , focusedPaneId : Maybe String
         , maximizedPaneId : Maybe String
+        , activeTabMap : Dict String String
         }
 
 
@@ -348,6 +349,7 @@ init =
         , context = { width = 80, height = 24 }
         , focusedPaneId = Nothing
         , maximizedPaneId = Nothing
+        , activeTabMap = Dict.empty
         }
 
 
@@ -905,6 +907,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
             , context : { width : Int, height : Int }
             , focusedPaneId : Maybe String
             , maximizedPaneId : Maybe String
+            , activeTabMap : Dict String String
             }
         sWithCtx =
             { s | context = ctx }
