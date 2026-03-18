@@ -8,6 +8,7 @@ module Tui exposing
     , MouseEvent(..), MouseButton(..)
     , truncateWidth
     , toString, toLines, lineCount
+    , extractStyle
     , encodeScreen
     )
 
@@ -38,7 +39,7 @@ from the `wolfadex/elm-ansi` package:
 
 @docs MouseEvent, MouseButton
 
-@docs truncateWidth
+@docs truncateWidth, extractStyle
 
 @docs toString, toLines, lineCount
 
@@ -386,6 +387,32 @@ toString screen =
     screen
         |> toLines
         |> String.join "\n"
+
+
+{-| Extract the outermost style from a Screen. Returns `plain` for unstyled
+text. Useful for extending a row's style to fill remaining width (e.g.,
+making a selection highlight span the full pane width).
+
+    style = Tui.extractStyle selectedLine
+    padding = Tui.styled style (String.repeat n " ")
+
+-}
+extractStyle : Screen -> Style
+extractStyle screen =
+    case screen of
+        ScreenStyled stl _ ->
+            stl
+
+        ScreenConcat items ->
+            case items of
+                (ScreenStyled stl _) :: _ ->
+                    stl
+
+                _ ->
+                    plain
+
+        _ ->
+            plain
 
 
 {-| Truncate a Screen to a maximum width in columns, preserving styles.

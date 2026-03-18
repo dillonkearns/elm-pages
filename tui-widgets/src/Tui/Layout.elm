@@ -3,7 +3,7 @@ module Tui.Layout exposing
     , PaneContent, content, selectableList
     , Width, fill, fillPortion, px
     , State, init, withContext
-    , navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll, scrollDown, scrollUp, contextOf
+    , navigateDown, navigateUp, selectedIndex, setSelectedIndex, scrollPosition, resetScroll, scrollDown, scrollUp, contextOf
     , focusPane, focusedPane
     , withPrefix, withFooter
     , handleMouse
@@ -46,7 +46,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs State, init, withContext
 
-@docs navigateDown, navigateUp, selectedIndex, scrollPosition, resetScroll, scrollDown, scrollUp, contextOf
+@docs navigateDown, navigateUp, selectedIndex, setSelectedIndex, scrollPosition, resetScroll, scrollDown, scrollUp, contextOf
 
 @docs focusPane, focusedPane
 
@@ -396,6 +396,29 @@ selectedIndex paneId (State s) =
     Dict.get paneId s.paneStates
         |> Maybe.map .selectedIndex
         |> Maybe.withDefault 0
+
+
+{-| Set the selected index for a pane. Useful for restoring selection when
+switching tabs, or programmatic navigation to a specific item.
+
+    Layout.setSelectedIndex "modules" savedIndex model.layout
+
+-}
+setSelectedIndex : String -> Int -> State -> State
+setSelectedIndex paneId index (State s) =
+    let
+        ps : PaneState
+        ps =
+            Dict.get paneId s.paneStates
+                |> Maybe.withDefault defaultPaneState
+    in
+    State
+        { s
+            | paneStates =
+                Dict.insert paneId
+                    { ps | selectedIndex = max 0 index }
+                    s.paneStates
+        }
 
 
 {-| Get the current scroll position for a pane.
@@ -888,11 +911,32 @@ toRows (State s) (Horizontal panes) =
                                     padding : Int
                                     padding =
                                         max 0 (innerW - actualWidth)
+
+                                    -- For selected rows in selectable lists, extend the
+                                    -- selection highlight across the full pane width
+                                    -- (lazygit fills the entire row with the highlight color)
+                                    isSelectedRow : Bool
+                                    isSelectedRow =
+                                        case paneConfig.paneContent of
+                                            SelectableContent _ ->
+                                                (contentRow + ps.scrollOffset) == ps.selectedIndex
+
+                                            StaticContent _ ->
+                                                False
+
+                                    paddingScreen : Screen
+                                    paddingScreen =
+                                        if isSelectedRow && padding > 0 then
+                                            -- Extend the selection highlight across full pane width
+                                            Tui.styled (Tui.extractStyle lineScreen) (String.repeat padding " ")
+
+                                        else
+                                            Tui.text (String.repeat padding " ")
                                 in
                                 Tui.concat
                                     [ Tui.styled borderStyle "│"
                                     , truncatedLine
-                                    , Tui.text (String.repeat padding " ")
+                                    , paddingScreen
                                     , scrollbarBorder borderStyle paneConfig.paneContent ps contentRow totalHeight
                                     ]
                         )
