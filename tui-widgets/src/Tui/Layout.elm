@@ -258,16 +258,32 @@ withContext ctx (State s) =
     State { s | context = { width = ctx.width, height = ctx.height } }
 
 
-{-| Move selection down in a pane. Returns the updated state and the new
-selected index. Clamps at item bounds and auto-scrolls to keep the
-selection visible with padding (lazygit-style: 2 items visible below
-when scrolling down, snap back into view after mouse scroll).
+{-| Move selection down in a pane. Returns the updated state and fires
+`onSelect` when the selection changes — the same message that click
+produces. This means keyboard nav and mouse click are handled identically:
 
-    ( newLayout, newIndex ) =
-        Layout.navigateDown "commits" (myLayout model) model.layout
+    -- In handleAction:
+    DoNavigate direction ->
+        let
+            ( newLayout, maybeMsg ) =
+                if direction > 0 then
+                    Layout.navigateDown "commits" (myLayout model) model.layout
+                else
+                    Layout.navigateUp "commits" (myLayout model) model.layout
+        in
+        case maybeMsg of
+            Just userMsg ->
+                update userMsg { model | layout = newLayout }
+
+            Nothing ->
+                ( { model | layout = newLayout }, Effect.none )
+
+Clamps at item bounds and auto-scrolls to keep the selection visible
+with padding (lazygit-style). Returns `Nothing` when already at the
+boundary (selection didn't change).
 
 -}
-navigateDown : String -> Layout msg -> State -> ( State, Int )
+navigateDown : String -> Layout msg -> State -> ( State, Maybe msg )
 navigateDown paneId layout (State s) =
     let
         ps : PaneState
@@ -283,12 +299,10 @@ navigateDown paneId layout (State s) =
         visibleHeight =
             s.context.height - 2
 
-        -- Clamp to valid range
         newIndex : Int
         newIndex =
             min (max 0 (itemCount - 1)) (ps.selectedIndex + 1)
 
-        -- Auto-scroll: keep selection in view with padding
         scrollPadding : Int
         scrollPadding =
             2
@@ -296,6 +310,10 @@ navigateDown paneId layout (State s) =
         newOffset : Int
         newOffset =
             ensureVisible newIndex ps.scrollOffset visibleHeight itemCount scrollPadding
+
+        selectionChanged : Bool
+        selectionChanged =
+            newIndex /= ps.selectedIndex
     in
     ( State
         { s
@@ -304,19 +322,19 @@ navigateDown paneId layout (State s) =
                     { selectedIndex = newIndex, scrollOffset = newOffset }
                     s.paneStates
         }
-    , newIndex
+    , if selectionChanged then
+        getOnSelectForPane paneId layout
+            |> Maybe.map (\onSelect -> onSelect newIndex)
+
+      else
+        Nothing
     )
 
 
-{-| Move selection up in a pane. Returns the updated state and the new
-selected index. Clamps at 0 and auto-scrolls to keep the selection
-visible with padding.
-
-    ( newLayout, newIndex ) =
-        Layout.navigateUp "commits" (myLayout model) model.layout
-
+{-| Move selection up in a pane. Returns the updated state and fires
+`onSelect` when the selection changes. See `navigateDown` for usage.
 -}
-navigateUp : String -> Layout msg -> State -> ( State, Int )
+navigateUp : String -> Layout msg -> State -> ( State, Maybe msg )
 navigateUp paneId layout (State s) =
     let
         ps : PaneState
@@ -343,6 +361,10 @@ navigateUp paneId layout (State s) =
         newOffset : Int
         newOffset =
             ensureVisible newIndex ps.scrollOffset visibleHeight itemCount scrollPadding
+
+        selectionChanged : Bool
+        selectionChanged =
+            newIndex /= ps.selectedIndex
     in
     ( State
         { s
@@ -351,7 +373,12 @@ navigateUp paneId layout (State s) =
                     { selectedIndex = newIndex, scrollOffset = newOffset }
                     s.paneStates
         }
-    , newIndex
+    , if selectionChanged then
+        getOnSelectForPane paneId layout
+            |> Maybe.map (\onSelect -> onSelect newIndex)
+
+      else
+        Nothing
     )
 
 
@@ -376,6 +403,26 @@ ensureVisible index scrollOffset visibleHeight itemCount padding =
     else
         -- Selection is in the comfortable zone: don't scroll
         scrollOffset
+
+
+{-| Extract the onSelect callback for a pane from a Layout.
+-}
+getOnSelectForPane : String -> Layout msg -> Maybe (Int -> msg)
+getOnSelectForPane paneId layout =
+    case layout of
+        Horizontal panes ->
+            panes
+                |> List.filter (\p -> p.id == paneId)
+                |> List.head
+                |> Maybe.andThen
+                    (\p ->
+                        case p.paneContent of
+                            SelectableContent { onSelect } ->
+                                Just onSelect
+
+                            StaticContent _ ->
+                                Nothing
+                    )
 
 
 {-| Get item count for a specific pane from a Layout.

@@ -677,7 +677,7 @@ handleAction action model =
     case action of
         DoNavigate direction ->
             let
-                ( newLayout, newIndex ) =
+                ( newLayout, maybeMsg ) =
                     (if direction > 0 then
                         Layout.navigateDown "commits" (miniGitLayout model)
 
@@ -685,20 +685,14 @@ handleAction action model =
                         Layout.navigateUp "commits" (miniGitLayout model)
                     )
                         model.layout
-
-                sha =
-                    model.commits
-                        |> List.drop newIndex
-                        |> List.head
-                        |> Maybe.map .sha
-                        |> Maybe.withDefault ""
             in
-            ( { model
-                | layout = Layout.resetScroll "diff" newLayout
-                , diffContent = diffForCommit sha
-              }
-            , Effect.none
-            )
+            -- navigateDown/Up fires SelectCommit when selection changes
+            case maybeMsg of
+                Just userMsg ->
+                    miniGitUpdate userMsg { model | layout = newLayout }
+
+                Nothing ->
+                    ( { model | layout = newLayout }, Effect.none )
 
         DoQuit ->
             ( model, Effect.exit )

@@ -169,15 +169,15 @@ suite =
                            )
             ]
         , describe "Navigate with auto-scroll (lazygit-style)"
-            [ test "navigateDown returns new index" <|
+            [ test "navigateDown fires onSelect with new index" <|
                 \() ->
                     let
-                        ( _, newIndex ) =
+                        ( _, maybeMsg ) =
                             Layout.navigateDown "list" tallList
                                 (Layout.init |> Layout.withContext { width = 30, height = 12 })
                     in
-                    newIndex |> Expect.equal 1
-            , test "navigateDown clamps at item count" <|
+                    maybeMsg |> Expect.equal (Just 1)
+            , test "navigateDown fires onSelect at boundary (Nothing when clamped)" <|
                 \() ->
                     let
                         state : Layout.State
@@ -185,21 +185,36 @@ suite =
                             Layout.init |> Layout.withContext { width = 30, height = 12 }
 
                         -- Navigate 20 times on a 10-item list
-                        ( finalState, lastIndex ) =
+                        ( _, lastMsg ) =
                             List.range 1 20
                                 |> List.foldl
                                     (\_ ( s, _ ) -> Layout.navigateDown "list" tallList s)
-                                    ( state, 0 )
+                                    ( state, Nothing )
                     in
-                    lastIndex |> Expect.equal 9
-            , test "navigateUp clamps at 0" <|
+                    -- Last navigate was at boundary, should be Nothing
+                    lastMsg |> Expect.equal Nothing
+            , test "navigateDown clamps selectedIndex at item count" <|
                 \() ->
                     let
-                        ( _, newIndex ) =
+                        state : Layout.State
+                        state =
+                            Layout.init |> Layout.withContext { width = 30, height = 12 }
+
+                        ( finalState, _ ) =
+                            List.range 1 20
+                                |> List.foldl
+                                    (\_ ( s, _ ) -> Layout.navigateDown "list" tallList s)
+                                    ( state, Nothing )
+                    in
+                    Layout.selectedIndex "list" finalState |> Expect.equal 9
+            , test "navigateUp fires Nothing when already at 0" <|
+                \() ->
+                    let
+                        ( _, maybeMsg ) =
                             Layout.navigateUp "list" tallList
                                 (Layout.init |> Layout.withContext { width = 30, height = 12 })
                     in
-                    newIndex |> Expect.equal 0
+                    maybeMsg |> Expect.equal Nothing
             , test "scrolling down keeps items visible below selection" <|
                 \() ->
                     -- Navigate down repeatedly. The selection should stay in view
@@ -215,7 +230,7 @@ suite =
                             List.range 1 6
                                 |> List.foldl
                                     (\_ ( s, _ ) -> Layout.navigateDown "list" tallList s)
-                                    ( state, 0 )
+                                    ( state, Nothing )
                     in
                     -- The selected item (index 6) should be visible in the rendered output
                     tallList
@@ -234,7 +249,7 @@ suite =
                             List.range 1 6
                                 |> List.foldl
                                     (\_ ( s, _ ) -> Layout.navigateDown "list" tallList s)
-                                    ( state, 0 )
+                                    ( state, Nothing )
                     in
                     -- Items 7 and 8 (indices after selection) should still be visible
                     tallList
@@ -258,13 +273,13 @@ suite =
                             List.range 1 8
                                 |> List.foldl
                                     (\_ ( s, _ ) -> Layout.navigateDown "list" tallList s)
-                                    ( state, 0 )
+                                    ( state, Nothing )
 
                         ( upState, _ ) =
                             List.range 1 6
                                 |> List.foldl
                                     (\_ ( s, _ ) -> Layout.navigateUp "list" tallList s)
-                                    ( downState, 0 )
+                                    ( downState, Nothing )
                     in
                     -- Selected item (index 2) should be visible
                     tallList
@@ -284,13 +299,17 @@ suite =
                             Layout.scrollDown "list" 6 state
 
                         -- Now press j (navigateDown) — should snap selection into view
-                        ( snappedState, newIndex ) =
+                        ( snappedState, _ ) =
                             Layout.navigateDown "list" tallList scrolledState
+
+                        snappedIndex : Int
+                        snappedIndex =
+                            Layout.selectedIndex "list" snappedState
                     in
                     -- Selection should be visible after snapping
                     tallList
                         |> renderWithState snappedState { width = 30, height = 7 }
-                        |> String.contains ("▸ item " ++ String.fromInt newIndex)
+                        |> String.contains ("▸ item " ++ String.fromInt snappedIndex)
                         |> Expect.equal True
             , test "mouse scroll takes selection out of view, k snaps back" <|
                 \() ->
@@ -304,7 +323,7 @@ suite =
                             List.range 1 9
                                 |> List.foldl
                                     (\_ ( s, _ ) -> Layout.navigateDown "list" tallList s)
-                                    ( state, 0 )
+                                    ( state, Nothing )
 
                         -- Mouse scroll up moves viewport to top
                         scrolledState : Layout.State
@@ -312,12 +331,16 @@ suite =
                             Layout.scrollUp "list" 20 downState
 
                         -- Press k — should snap selection into view
-                        ( snappedState, newIndex ) =
+                        ( snappedState, _ ) =
                             Layout.navigateUp "list" tallList scrolledState
+
+                        snappedIndex : Int
+                        snappedIndex =
+                            Layout.selectedIndex "list" snappedState
                     in
                     tallList
                         |> renderWithState snappedState { width = 30, height = 7 }
-                        |> String.contains ("▸ item " ++ String.fromInt newIndex)
+                        |> String.contains ("▸ item " ++ String.fromInt snappedIndex)
                         |> Expect.equal True
             ]
         , describe "Selectable list"

@@ -451,7 +451,7 @@ navigateInFocusedPane direction model =
     case Layout.focusedPane model.layout of
         Just "commits" ->
             let
-                ( newLayout, newIndex ) =
+                ( newLayout, maybeMsg ) =
                     (if direction > 0 then
                         Layout.navigateDown "commits" (myLayout model)
 
@@ -460,9 +460,14 @@ navigateInFocusedPane direction model =
                     )
                         model.layout
             in
-            ( { model | layout = Layout.resetScroll "diff" newLayout }
-            , loadDiffForIndex newIndex model.commits
-            )
+            -- navigateDown/Up fires onSelect (SelectCommit) when selection changes.
+            -- Handle it through update just like a click — unified path!
+            case maybeMsg of
+                Just userMsg ->
+                    update userMsg { model | layout = newLayout }
+
+                Nothing ->
+                    ( { model | layout = newLayout }, Effect.none )
 
         _ ->
             ( model, Effect.none )
