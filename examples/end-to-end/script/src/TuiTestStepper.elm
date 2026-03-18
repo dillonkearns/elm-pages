@@ -23,7 +23,7 @@ import Tui.Test.Stepper
 -}
 stepper : TuiTest.TuiTest Model Msg
 stepper =
-    TuiTest.startWithContext { width = 60, height = 12 }
+    TuiTest.startWithContext { width = 60, height = 12, colorProfile = Tui.TrueColor }
         { data = sampleCommits
         , init = miniGitInit
         , update = miniGitUpdate
@@ -159,7 +159,7 @@ miniGitView ctx model =
     let
         dimStyle : Tui.Style
         dimStyle =
-            { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
+            { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
 
         visibleRows : Int
         visibleRows =
@@ -173,7 +173,7 @@ miniGitView ctx model =
                 |> List.take visibleRows
     in
     Tui.lines
-        ([ Tui.styled { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.bold ] } "Mini Git Log"
+        ([ Tui.styled { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.Bold ] } "Mini Git Log"
          , Tui.text ""
          ]
             ++ List.map
@@ -188,7 +188,7 @@ miniGitView ctx model =
                             )
                         , Tui.styled
                             (if i == model.selected then
-                                { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [ Tui.bold ] }
+                                { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [ Tui.Bold ] }
 
                              else
                                 dimStyle
