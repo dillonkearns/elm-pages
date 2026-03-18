@@ -157,6 +157,7 @@ processEffectsThenRenderAndWait :
 processEffectsThenRenderAndWait config context model effect =
     -- elm-review: known-unoptimized-recursion
     Effect.toBackendTask effect
+        |> BackendTask.quiet
         |> BackendTask.andThen
             (\result ->
                 case result of

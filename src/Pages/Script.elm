@@ -397,6 +397,7 @@ tui :
 tui config =
     withoutCliOptions
         (config.data
+            |> BackendTask.quiet
             |> BackendTask.andThen
                 (\loadedData ->
                     Tui.Internal.run
