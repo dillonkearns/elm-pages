@@ -36,7 +36,19 @@ type alias Model =
 
 type ModalState
     = CommitModal { input : Input.State }
-    | HelpModal { filter : Input.State }
+    | HelpModal HelpState
+
+
+type alias HelpState =
+    { mode : HelpMode
+    , filter : Input.State
+    , selectedIndex : Int
+    }
+
+
+type HelpMode
+    = HelpBrowse
+    | HelpSearch
 
 
 type Action
@@ -212,7 +224,16 @@ handleAction action model =
             )
 
         DoOpenHelp ->
-            ( { model | modal = Just (HelpModal { filter = Input.init "" }) }
+            ( { model
+                | modal =
+                    Just
+                        (HelpModal
+                            { mode = HelpBrowse
+                            , filter = Input.init ""
+                            , selectedIndex = 0
+                            }
+                        )
+              }
             , Effect.none
             )
 
@@ -278,19 +299,88 @@ update msg model =
         Just (HelpModal helpState) ->
             case msg of
                 KeyPressed event ->
-                    case event.key of
-                        Tui.Escape ->
-                            ( { model | modal = Nothing }, Effect.none )
+                    case helpState.mode of
+                        HelpBrowse ->
+                            case event.key of
+                                Tui.Escape ->
+                                    ( { model | modal = Nothing }, Effect.none )
 
-                        _ ->
-                            ( { model | modal = Just (HelpModal { filter = Input.update event helpState.filter }) }
+                                Tui.Character '/' ->
+                                    -- Enter search mode
+                                    ( { model | modal = Just (HelpModal { helpState | mode = HelpSearch }) }
+                                    , Effect.none
+                                    )
+
+                                Tui.Character 'j' ->
+                                    ( { model | modal = Just (HelpModal { helpState | selectedIndex = helpState.selectedIndex + 1 }) }
+                                    , Effect.none
+                                    )
+
+                                Tui.Arrow Tui.Down ->
+                                    ( { model | modal = Just (HelpModal { helpState | selectedIndex = helpState.selectedIndex + 1 }) }
+                                    , Effect.none
+                                    )
+
+                                Tui.Character 'k' ->
+                                    ( { model | modal = Just (HelpModal { helpState | selectedIndex = max 0 (helpState.selectedIndex - 1) }) }
+                                    , Effect.none
+                                    )
+
+                                Tui.Arrow Tui.Up ->
+                                    ( { model | modal = Just (HelpModal { helpState | selectedIndex = max 0 (helpState.selectedIndex - 1) }) }
+                                    , Effect.none
+                                    )
+
+                                _ ->
+                                    ( model, Effect.none )
+
+                        HelpSearch ->
+                            case event.key of
+                                Tui.Escape ->
+                                    -- Exit search mode back to browse (don't close modal)
+                                    ( { model | modal = Just (HelpModal { helpState | mode = HelpBrowse }) }
+                                    , Effect.none
+                                    )
+
+                                Tui.Enter ->
+                                    -- Confirm search, return to browse
+                                    ( { model | modal = Just (HelpModal { helpState | mode = HelpBrowse, selectedIndex = 0 }) }
+                                    , Effect.none
+                                    )
+
+                                _ ->
+                                    -- Type into filter
+                                    ( { model
+                                        | modal =
+                                            Just
+                                                (HelpModal
+                                                    { helpState
+                                                        | filter = Input.update event helpState.filter
+                                                        , selectedIndex = 0
+                                                    }
+                                                )
+                                      }
+                                    , Effect.none
+                                    )
+
+                GotPaste pastedText ->
+                    case helpState.mode of
+                        HelpSearch ->
+                            ( { model
+                                | modal =
+                                    Just
+                                        (HelpModal
+                                            { helpState
+                                                | filter = Input.insertText pastedText helpState.filter
+                                                , selectedIndex = 0
+                                            }
+                                        )
+                              }
                             , Effect.none
                             )
 
-                GotPaste pastedText ->
-                    ( { model | modal = Just (HelpModal { filter = Input.insertText pastedText helpState.filter }) }
-                    , Effect.none
-                    )
+                        HelpBrowse ->
+                            ( model, Effect.none )
 
                 GotContext ctx ->
                     ( { model | layout = Layout.withContext ctx model.layout }, Effect.none )
@@ -462,21 +552,54 @@ view ctx model =
                         modalWidth =
                             min 60 (ctx.width - 4)
 
-                        helpBody =
-                            Keybinding.helpRows filterText (allBindings model)
+                        groups =
+                            allBindings model
 
-                        filterRow =
-                            Tui.concat
-                                [ Tui.styled
-                                    { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
-                                    "Filter: "
-                                , Input.view { width = modalWidth - 10 } helpState.filter
-                                ]
+                        -- Clamp selected index to valid range
+                        rowCount =
+                            Keybinding.helpRowCount filterText groups
+
+                        clampedIdx =
+                            clamp 0 (max 0 (rowCount - 1)) helpState.selectedIndex
+
+                        helpBody =
+                            Keybinding.helpRowsWithSelection clampedIdx filterText groups
+
+                        searchRow =
+                            case helpState.mode of
+                                HelpSearch ->
+                                    [ Tui.concat
+                                        [ Tui.styled
+                                            { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
+                                            "/"
+                                        , Input.view { width = modalWidth - 3 } helpState.filter
+                                        ]
+                                    , Tui.text ""
+                                    ]
+
+                                HelpBrowse ->
+                                    if not (String.isEmpty filterText) then
+                                        [ Tui.styled
+                                            { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
+                                            ("/" ++ filterText)
+                                        , Tui.text ""
+                                        ]
+
+                                    else
+                                        []
+
+                        footer =
+                            case helpState.mode of
+                                HelpSearch ->
+                                    "Enter: confirm │ Esc: cancel"
+
+                                HelpBrowse ->
+                                    "j/k: navigate │ /: search │ Esc: close"
                     in
                     Tui.Modal.overlay
                         { title = "Keybindings"
-                        , body = filterRow :: Tui.text "" :: helpBody
-                        , footer = "Esc: close │ @: filter by key"
+                        , body = searchRow ++ helpBody
+                        , footer = footer
                         , width = modalWidth
                         }
                         { termWidth = ctx.width, termHeight = ctx.height }

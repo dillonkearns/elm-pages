@@ -3,7 +3,7 @@ module Tui.Keybinding exposing
     , Group, group
     , dispatch
     , formatKey, formatBinding
-    , helpRows
+    , helpRows, helpRowsWithSelection, helpRowCount
     )
 
 {-| Declarative keybinding system with scoped dispatch and auto-generated help.
@@ -37,7 +37,7 @@ and rendered as a searchable help screen.
 @docs Group, group
 @docs dispatch
 @docs formatKey, formatBinding
-@docs helpRows
+@docs helpRows, helpRowsWithSelection, helpRowCount
 
 -}
 
@@ -287,6 +287,21 @@ Returns `List Screen` suitable for use as a `Tui.Modal.overlay` body.
 -}
 helpRows : String -> List (Group msg) -> List Tui.Screen
 helpRows filter groups =
+    helpRowsWithSelection -1 filter groups
+
+
+{-| Count the number of selectable binding rows (excluding headers/separators).
+Useful for clamping a selected index.
+-}
+helpRowCount : String -> List (Group msg) -> Int
+helpRowCount filter groups =
+    filteredBindings filter groups
+        |> List.concatMap .bindings
+        |> List.length
+
+
+filteredBindings : String -> List (Group msg) -> List (Group msg)
+filteredBindings filter groups =
     let
         isFiltering : Bool
         isFiltering =
@@ -298,7 +313,6 @@ helpRows filter groups =
                 True
 
             else if String.startsWith "@" filter then
-                -- Filter by key label
                 let
                     keyFilter : String
                     keyFilter =
@@ -313,20 +327,32 @@ helpRows filter groups =
                         )
 
             else
-                -- Filter by description
                 String.toLower b.description
                     |> String.contains (String.toLower filter)
+    in
+    groups
+        |> List.map (\g -> { g | bindings = List.filter matchesFilter g.bindings })
+        |> List.filter (\g -> not (List.isEmpty g.bindings))
 
-        filteredGroups : List (Group msg)
-        filteredGroups =
-            groups
-                |> List.map (\g -> { g | bindings = List.filter matchesFilter g.bindings })
-                |> List.filter (\g -> not (List.isEmpty g.bindings))
+
+{-| Like `helpRows` but highlights the binding at the given index.
+Pass -1 for no selection. Used by the help modal's browse mode.
+-}
+helpRowsWithSelection : Int -> String -> List (Group msg) -> List Tui.Screen
+helpRowsWithSelection selectedIdx filter groups =
+    let
+        isFiltering : Bool
+        isFiltering =
+            not (String.isEmpty filter)
+
+        fGroups : List (Group msg)
+        fGroups =
+            filteredBindings filter groups
 
         -- Right-align key labels: find max width across all visible bindings
         maxKeyWidth : Int
         maxKeyWidth =
-            filteredGroups
+            fGroups
                 |> List.concatMap .bindings
                 |> List.map (\b -> String.length (formatBinding b))
                 |> List.maximum
@@ -336,12 +362,20 @@ helpRows filter groups =
         cyanStyle =
             { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [] }
 
+        selectedStyle : Tui.Style
+        selectedStyle =
+            { fg = Just Ansi.Color.white, bg = Just Ansi.Color.blue, attributes = [ Tui.bold ] }
+
+        selectedKeyStyle : Tui.Style
+        selectedKeyStyle =
+            { fg = Just Ansi.Color.cyan, bg = Just Ansi.Color.blue, attributes = [ Tui.bold ] }
+
         sectionStyle : Tui.Style
         sectionStyle =
             { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.bold ] }
 
-        renderBinding : Binding msg -> Tui.Screen
-        renderBinding b =
+        renderBinding : Int -> Binding msg -> Tui.Screen
+        renderBinding bindingIdx b =
             let
                 keyLabel : String
                 keyLabel =
@@ -350,20 +384,33 @@ helpRows filter groups =
                 padding : String
                 padding =
                     String.repeat (maxKeyWidth - String.length keyLabel) " "
+
+                isSelected : Bool
+                isSelected =
+                    bindingIdx == selectedIdx
             in
-            Tui.concat
-                [ Tui.text "  "
-                , Tui.styled cyanStyle (padding ++ keyLabel)
-                , Tui.text "  "
-                , Tui.text b.description
-                ]
+            if isSelected then
+                Tui.concat
+                    [ Tui.styled selectedStyle "  "
+                    , Tui.styled selectedKeyStyle (padding ++ keyLabel)
+                    , Tui.styled selectedStyle "  "
+                    , Tui.styled selectedStyle b.description
+                    ]
+
+            else
+                Tui.concat
+                    [ Tui.text "  "
+                    , Tui.styled cyanStyle (padding ++ keyLabel)
+                    , Tui.text "  "
+                    , Tui.text b.description
+                    ]
 
         sectionHeader : String -> Tui.Screen
         sectionHeader name =
             Tui.styled sectionStyle ("--- " ++ name ++ " ---")
 
-        renderGroup : Bool -> Group msg -> List Tui.Screen
-        renderGroup isFirst g =
+        renderGroup : Bool -> Int -> Group msg -> ( List Tui.Screen, Int )
+        renderGroup isFirst bindingOffset g =
             let
                 separator : List Tui.Screen
                 separator =
@@ -380,9 +427,25 @@ helpRows filter groups =
 
                     else
                         [ sectionHeader g.name ]
+
+                bindingRows : List Tui.Screen
+                bindingRows =
+                    g.bindings
+                        |> List.indexedMap
+                            (\i b -> renderBinding (bindingOffset + i) b)
             in
-            separator ++ header ++ List.map renderBinding g.bindings
+            ( separator ++ header ++ bindingRows
+            , bindingOffset + List.length g.bindings
+            )
     in
-    filteredGroups
-        |> List.indexedMap (\i g -> renderGroup (i == 0) g)
-        |> List.concat
+    fGroups
+        |> List.foldl
+            (\g ( accRows, isFirst, offset ) ->
+                let
+                    ( rows, newOffset ) =
+                        renderGroup isFirst offset g
+                in
+                ( accRows ++ rows, False, newOffset )
+            )
+            ( [], True, 0 )
+        |> (\( rows, _, _ ) -> rows)

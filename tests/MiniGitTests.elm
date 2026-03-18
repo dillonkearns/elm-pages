@@ -223,10 +223,11 @@ suite =
                         |> TuiTest.pressKeyWith { key = Tui.Escape, modifiers = [] }
                         |> TuiTest.ensureViewDoesNotHave "Keybindings"
                         |> TuiTest.expectRunning
-            , test "typing in help modal filters by description" <|
+            , test "/ enters search mode, typing filters by description" <|
                 \() ->
                     miniGitTest
                         |> TuiTest.pressKey '?'
+                        |> TuiTest.pressKey '/'
                         |> TuiTest.pressKey 'q'
                         |> TuiTest.pressKey 'u'
                         |> TuiTest.pressKey 'i'
@@ -234,10 +235,30 @@ suite =
                         |> TuiTest.ensureViewHas "Quit"
                         |> TuiTest.ensureViewDoesNotHave "Next commit"
                         |> TuiTest.expectRunning
-            , test "@ prefix filters by key name" <|
+            , test "Esc in search mode returns to browse, not close" <|
                 \() ->
                     miniGitTest
                         |> TuiTest.pressKey '?'
+                        |> TuiTest.pressKey '/'
+                        |> TuiTest.pressKey 'q'
+                        |> TuiTest.pressKeyWith { key = Tui.Escape, modifiers = [] }
+                        -- Should still show help modal (back to browse mode)
+                        |> TuiTest.ensureViewHas "Keybindings"
+                        |> TuiTest.expectRunning
+            , test "j/k navigate in help modal browse mode" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '?'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        -- Navigating, should still show help modal
+                        |> TuiTest.ensureViewHas "Keybindings"
+                        |> TuiTest.expectRunning
+            , test "@ prefix in search mode filters by key name" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '?'
+                        |> TuiTest.pressKey '/'
                         |> TuiTest.pressKey '@'
                         |> TuiTest.pressKey 't'
                         |> TuiTest.pressKey 'a'
@@ -338,7 +359,19 @@ type alias Model =
 
 type ModalState
     = CommitModal { input : Input.State }
-    | HelpModal { filter : Input.State }
+    | HelpModal HelpState
+
+
+type alias HelpState =
+    { mode : HelpMode
+    , filter : Input.State
+    , selectedIndex : Int
+    }
+
+
+type HelpMode
+    = HelpBrowse
+    | HelpSearch
 
 
 type Action
@@ -473,19 +506,48 @@ miniGitUpdate msg model =
         Just (HelpModal helpState) ->
             case msg of
                 KeyPressed event ->
-                    case event.key of
-                        Tui.Escape ->
-                            ( { model | modal = Nothing }, Effect.none )
+                    case helpState.mode of
+                        HelpBrowse ->
+                            case event.key of
+                                Tui.Escape ->
+                                    ( { model | modal = Nothing }, Effect.none )
 
-                        _ ->
-                            ( { model | modal = Just (HelpModal { filter = Input.update event helpState.filter }) }
-                            , Effect.none
-                            )
+                                Tui.Character '/' ->
+                                    ( { model | modal = Just (HelpModal { helpState | mode = HelpSearch }) }, Effect.none )
+
+                                Tui.Character 'j' ->
+                                    ( { model | modal = Just (HelpModal { helpState | selectedIndex = helpState.selectedIndex + 1 }) }, Effect.none )
+
+                                Tui.Arrow Tui.Down ->
+                                    ( { model | modal = Just (HelpModal { helpState | selectedIndex = helpState.selectedIndex + 1 }) }, Effect.none )
+
+                                Tui.Character 'k' ->
+                                    ( { model | modal = Just (HelpModal { helpState | selectedIndex = max 0 (helpState.selectedIndex - 1) }) }, Effect.none )
+
+                                Tui.Arrow Tui.Up ->
+                                    ( { model | modal = Just (HelpModal { helpState | selectedIndex = max 0 (helpState.selectedIndex - 1) }) }, Effect.none )
+
+                                _ ->
+                                    ( model, Effect.none )
+
+                        HelpSearch ->
+                            case event.key of
+                                Tui.Escape ->
+                                    ( { model | modal = Just (HelpModal { helpState | mode = HelpBrowse }) }, Effect.none )
+
+                                Tui.Enter ->
+                                    ( { model | modal = Just (HelpModal { helpState | mode = HelpBrowse, selectedIndex = 0 }) }, Effect.none )
+
+                                _ ->
+                                    ( { model | modal = Just (HelpModal { helpState | filter = Input.update event helpState.filter, selectedIndex = 0 }) }, Effect.none )
 
                 GotPaste pastedText ->
-                    ( { model | modal = Just (HelpModal { filter = Input.insertText pastedText helpState.filter }) }
-                    , Effect.none
-                    )
+                    case helpState.mode of
+                        HelpSearch ->
+                            ( { model | modal = Just (HelpModal { helpState | filter = Input.insertText pastedText helpState.filter, selectedIndex = 0 }) }, Effect.none )
+
+                        HelpBrowse ->
+                            ( model, Effect.none )
 
                 _ ->
                     ( model, Effect.none )
@@ -543,7 +605,18 @@ handleAction action model =
             ( { model | modal = Just (CommitModal { input = Input.init "" }) }, Effect.none )
 
         DoOpenHelp ->
-            ( { model | modal = Just (HelpModal { filter = Input.init "" }) }, Effect.none )
+            ( { model
+                | modal =
+                    Just
+                        (HelpModal
+                            { mode = HelpBrowse
+                            , filter = Input.init ""
+                            , selectedIndex = 0
+                            }
+                        )
+              }
+            , Effect.none
+            )
 
 
 miniGitView : Tui.Context -> Model -> Tui.Screen
@@ -576,19 +649,46 @@ miniGitView ctx model =
                         filterText =
                             Input.text helpState.filter
 
-                        helpBody =
-                            Keybinding.helpRows filterText testActiveBindings
+                        rowCount =
+                            Keybinding.helpRowCount filterText testActiveBindings
 
-                        filterRow =
-                            Tui.concat
-                                [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] } "Filter: "
-                                , Input.view { width = 40 } helpState.filter
-                                ]
+                        clampedIdx =
+                            clamp 0 (max 0 (rowCount - 1)) helpState.selectedIndex
+
+                        helpBody =
+                            Keybinding.helpRowsWithSelection clampedIdx filterText testActiveBindings
+
+                        searchRow =
+                            case helpState.mode of
+                                HelpSearch ->
+                                    [ Tui.concat
+                                        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] } "/"
+                                        , Input.view { width = 40 } helpState.filter
+                                        ]
+                                    , Tui.text ""
+                                    ]
+
+                                HelpBrowse ->
+                                    if not (String.isEmpty filterText) then
+                                        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] } ("/" ++ filterText)
+                                        , Tui.text ""
+                                        ]
+
+                                    else
+                                        []
+
+                        footer =
+                            case helpState.mode of
+                                HelpSearch ->
+                                    "Enter: confirm │ Esc: cancel"
+
+                                HelpBrowse ->
+                                    "j/k: navigate │ /: search │ Esc: close"
                     in
                     Tui.Modal.overlay
                         { title = "Keybindings"
-                        , body = filterRow :: Tui.text "" :: helpBody
-                        , footer = "Esc: close │ @: filter by key"
+                        , body = searchRow ++ helpBody
+                        , footer = footer
                         , width = 50
                         }
                         { termWidth = ctx.width, termHeight = ctx.height }
