@@ -3,7 +3,7 @@ module Tui.Layout exposing
     , PaneContent, content, selectableList
     , Width, fill, fillPortion, px
     , State, init, withContext
-    , navigateDown, navigateUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, resetScroll, scrollDown, scrollUp, contextOf
+    , navigateDown, navigateUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
     , focusPane, focusedPane
     , withPrefix, withFooter, withTitleScreen, withFooterScreen, withInlineFooter
     , handleMouse
@@ -46,7 +46,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs State, init, withContext
 
-@docs navigateDown, navigateUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, resetScroll, scrollDown, scrollUp, contextOf
+@docs navigateDown, navigateUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
 
 @docs focusPane, focusedPane
 
@@ -597,6 +597,36 @@ scrollPosition paneId (State s) =
     Dict.get paneId s.paneStates
         |> Maybe.map .scrollOffset
         |> Maybe.withDefault 0
+
+
+{-| Get scroll information for a pane. Useful for rendering scroll
+position indicators like "42%" or "120/280".
+
+    info = Layout.scrollInfo "docs" layout model.layout
+    -- { offset = 42, visible = 20, total = 280 }
+    -- percentage = info.offset * 100 // info.total
+
+-}
+scrollInfo : String -> Layout msg -> State -> { offset : Int, visible : Int, total : Int }
+scrollInfo paneId layout (State s) =
+    let
+        ps : PaneState
+        ps =
+            Dict.get paneId s.paneStates
+                |> Maybe.withDefault defaultPaneState
+
+        total : Int
+        total =
+            getItemCountForPane paneId layout
+
+        visible : Int
+        visible =
+            s.context.height - 2
+    in
+    { offset = ps.scrollOffset
+    , visible = visible
+    , total = total
+    }
 
 
 {-| Reset scroll position for a pane to 0. Call when loading new content

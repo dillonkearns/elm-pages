@@ -221,7 +221,7 @@ init =
 -}
 withFile : String -> String -> TestSetup -> TestSetup
 withFile path content (TestSetup setup) =
-    TestSetup { setup | virtualFS = insertFile path content setup.virtualFS }
+    TestSetup { setup | virtualFS = insertFile (normalizePath path) content setup.virtualFS }
 
 
 {-| Seed a binary file into the virtual filesystem before the test starts running.
@@ -257,7 +257,7 @@ withBinaryFile path content (TestSetup setup) =
         vfs =
             setup.virtualFS
     in
-    TestSetup { setup | virtualFS = { vfs | binaryFiles = Dict.insert path content vfs.binaryFiles } }
+    TestSetup { setup | virtualFS = { vfs | binaryFiles = Dict.insert (normalizePath path) content vfs.binaryFiles } }
 
 
 {-| Seed the virtual DB with the default seed value from the generated `testConfig`.
