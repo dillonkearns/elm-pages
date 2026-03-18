@@ -1,5 +1,5 @@
 module Tui exposing
-    ( Screen, text, styled, lines, concat, empty, blank
+    ( Screen, text, styled, lines, concat, spaced, empty, blank
     , fg, bg, bold, dim, italic, underline, strikethrough, inverse
     , Style, plain
     , Attribute(..)
@@ -25,7 +25,7 @@ from the `wolfadex/elm-ansi` package:
 
     Tui.styled { Tui.plain | fg = Just Ansi.Color.red, attributes = [ Tui.Bold ] } "error"
 
-@docs Screen, text, styled, lines, concat, empty, blank
+@docs Screen, text, styled, lines, concat, spaced, empty, blank
 
 @docs fg, bg, bold, dim, italic, underline, strikethrough, inverse
 
@@ -101,6 +101,20 @@ lines =
 concat : List Screen -> Screen
 concat =
     ScreenConcat
+
+
+{-| Concatenate screens horizontally with a space between each element.
+
+    Tui.spaced [ badge, name, count ]
+    -- equivalent to:
+    -- Tui.concat [ badge, Tui.text " ", name, Tui.text " ", count ]
+
+-}
+spaced : List Screen -> Screen
+spaced items =
+    items
+        |> List.intersperse (ScreenText " ")
+        |> ScreenConcat
 
 
 {-| Empty screen — renders nothing.

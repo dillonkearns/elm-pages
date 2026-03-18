@@ -495,20 +495,30 @@ myPanes model =
             { onSelect = SelectCommit
             , selected =
                 \commit ->
-                    Tui.styled
-                        { fg = Just Ansi.Color.yellow
-                        , bg = Just Ansi.Color.blue
-                        , attributes = [ Tui.Bold ]
-                        }
-                        ("▸ " ++ commit.sha ++ " " ++ commit.message)
+                    Tui.spaced
+                        [ Tui.text "▸" |> Tui.fg Ansi.Color.yellow
+                        , Tui.text commit.sha |> Tui.fg Ansi.Color.yellow |> Tui.bold
+                        , Tui.text commit.message
+                        ]
+                        |> Tui.bg Ansi.Color.blue
             , default =
                 \commit ->
-                    Tui.text ("  " ++ commit.sha ++ " " ++ commit.message)
+                    Tui.spaced
+                        [ Tui.text " "
+                        , Tui.text commit.sha |> Tui.dim
+                        , Tui.text commit.message
+                        ]
             }
             model.commits
         )
         |> Layout.withPrefix "[1]"
-        |> Layout.withFooter (String.fromInt (selectedIdx + 1) ++ " of " ++ String.fromInt commitCount)
+        |> Layout.withFooterScreen
+            (Tui.spaced
+                [ Tui.text (String.fromInt (selectedIdx + 1)) |> Tui.bold |> Tui.fg Ansi.Color.cyan
+                , Tui.text "of" |> Tui.dim
+                , Tui.text (String.fromInt commitCount) |> Tui.bold |> Tui.fg Ansi.Color.cyan
+                ]
+            )
     , Layout.pane "diff"
         { title = "Diff", width = Layout.fillPortion 2 }
         (Layout.content
@@ -641,19 +651,19 @@ view ctx model =
 styleDiffLine : String -> Tui.Screen
 styleDiffLine line =
     if String.startsWith "+" line && not (String.startsWith "+++" line) then
-        Tui.styled { fg = Just Ansi.Color.green, bg = Nothing, attributes = [] } line
+        Tui.text line |> Tui.fg Ansi.Color.green
 
     else if String.startsWith "-" line && not (String.startsWith "---" line) then
-        Tui.styled { fg = Just Ansi.Color.red, bg = Nothing, attributes = [] } line
+        Tui.text line |> Tui.fg Ansi.Color.red
 
     else if String.startsWith "@@" line then
-        Tui.styled { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [] } line
+        Tui.text line |> Tui.fg Ansi.Color.cyan
 
     else if String.startsWith "commit " line || String.startsWith "Author:" line || String.startsWith "Date:" line then
-        Tui.styled { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [] } line
+        Tui.text line |> Tui.fg Ansi.Color.yellow
 
     else
-        Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] } line
+        Tui.text line |> Tui.dim
 
 
 subscriptions : Model -> Tui.Sub.Sub Msg
