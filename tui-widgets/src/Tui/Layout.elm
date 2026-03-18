@@ -3,9 +3,9 @@ module Tui.Layout exposing
     , PaneContent, content, selectableList
     , Width, fill, fillPortion, px
     , State, init, withContext
-    , navigateDown, navigateUp, selectedIndex, setSelectedIndex, scrollPosition, resetScroll, scrollDown, scrollUp, contextOf
+    , navigateDown, navigateUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, resetScroll, scrollDown, scrollUp, contextOf
     , focusPane, focusedPane
-    , withPrefix, withFooter, withTitleScreen
+    , withPrefix, withFooter, withTitleScreen, withFooterScreen, withInlineFooter
     , handleMouse
     , toScreen, toRows
     , navigationHelpRows
@@ -46,11 +46,11 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs State, init, withContext
 
-@docs navigateDown, navigateUp, selectedIndex, setSelectedIndex, scrollPosition, resetScroll, scrollDown, scrollUp, contextOf
+@docs navigateDown, navigateUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, resetScroll, scrollDown, scrollUp, contextOf
 
 @docs focusPane, focusedPane
 
-@docs withPrefix, withFooter, withTitleScreen
+@docs withPrefix, withFooter, withTitleScreen, withFooterScreen, withInlineFooter
 
 @docs handleMouse
 
@@ -81,6 +81,8 @@ type alias PaneConfig msg =
     , prefix : Maybe String
     , footer : Maybe String
     , titleScreen : Maybe Screen
+    , footerScreen : Maybe Screen
+    , inlineFooter : Maybe Screen
     }
 
 
@@ -159,6 +161,8 @@ pane id config paneContent =
         , prefix = Nothing
         , footer = Nothing
         , titleScreen = Nothing
+        , footerScreen = Nothing
+        , inlineFooter = Nothing
         }
 
 
@@ -291,8 +295,8 @@ navigateDown paneId layout (State s) =
             Dict.get paneId s.paneStates
                 |> Maybe.withDefault defaultPaneState
 
-        itemCount : Int
-        itemCount =
+        paneItemCount : Int
+        paneItemCount =
             getItemCountForPane paneId layout
 
         visibleHeight : Int
@@ -301,7 +305,7 @@ navigateDown paneId layout (State s) =
 
         newIndex : Int
         newIndex =
-            min (max 0 (itemCount - 1)) (ps.selectedIndex + 1)
+            min (max 0 (paneItemCount - 1)) (ps.selectedIndex + 1)
 
         scrollPadding : Int
         scrollPadding =
@@ -309,7 +313,7 @@ navigateDown paneId layout (State s) =
 
         newOffset : Int
         newOffset =
-            ensureVisible newIndex ps.scrollOffset visibleHeight itemCount scrollPadding
+            ensureVisible newIndex ps.scrollOffset visibleHeight paneItemCount scrollPadding
 
         selectionChanged : Bool
         selectionChanged =
@@ -342,8 +346,8 @@ navigateUp paneId layout (State s) =
             Dict.get paneId s.paneStates
                 |> Maybe.withDefault defaultPaneState
 
-        itemCount : Int
-        itemCount =
+        paneItemCount : Int
+        paneItemCount =
             getItemCountForPane paneId layout
 
         visibleHeight : Int
@@ -360,7 +364,7 @@ navigateUp paneId layout (State s) =
 
         newOffset : Int
         newOffset =
-            ensureVisible newIndex ps.scrollOffset visibleHeight itemCount scrollPadding
+            ensureVisible newIndex ps.scrollOffset visibleHeight paneItemCount scrollPadding
 
         selectionChanged : Bool
         selectionChanged =
@@ -386,11 +390,11 @@ navigateUp paneId layout (State s) =
 with scroll padding on each side (lazygit-style).
 -}
 ensureVisible : Int -> Int -> Int -> Int -> Int -> Int
-ensureVisible index scrollOffset visibleHeight itemCount padding =
+ensureVisible index scrollOffset visibleHeight totalItems padding =
     let
         maxOffset : Int
         maxOffset =
-            max 0 (itemCount - visibleHeight)
+            max 0 (totalItems - visibleHeight)
     in
     if index < scrollOffset + padding then
         -- Selection too close to top (or above viewport): scroll up
@@ -468,6 +472,19 @@ setSelectedIndex paneId index (State s) =
                     { ps | selectedIndex = max 0 index }
                     s.paneStates
         }
+
+
+{-| Get the total item count for a pane. Useful for displaying "N of M" counters
+without manually computing `List.length` on your items list.
+
+    footer = String.fromInt (Layout.selectedIndex "list" state + 1)
+        ++ " of "
+        ++ String.fromInt (Layout.itemCount "list" layout)
+
+-}
+itemCount : String -> Layout msg -> Int
+itemCount paneId layout =
+    getItemCountForPane paneId layout
 
 
 {-| Get the current scroll position for a pane.
@@ -597,6 +614,46 @@ withTitleScreen screen (PaneConstructor config) =
     PaneConstructor { config | titleScreen = Just screen }
 
 
+{-| Set a styled Screen as the bottom border footer. Overrides the
+plain-text footer from `withFooter`. Renders right-aligned on the
+bottom border, like the string version but with styling.
+
+    |> Layout.withFooterScreen
+        (Tui.concat
+            [ Tui.text (String.fromInt idx) |> Tui.bold
+            , Tui.text " of " |> Tui.dim
+            , Tui.text (String.fromInt total) |> Tui.bold
+            ]
+        )
+
+-}
+withFooterScreen : Screen -> Pane msg -> Pane msg
+withFooterScreen screen (PaneConstructor config) =
+    PaneConstructor { config | footerScreen = Just screen }
+
+
+{-| Add an inline footer widget inside the pane border, below the content.
+Renders above the bottom border — like lazygit's filter bar.
+
+    Layout.pane "modules"
+        { title = "Modules", width = Layout.fill }
+        (Layout.selectableList { ... } items)
+        |> Layout.withInlineFooter
+            (Tui.concat
+                [ Tui.text "Filter: " |> Tui.dim
+                , Input.view { width = 20 } filterState
+                ]
+            )
+
+The inline footer takes 1 row from the content area. If the pane is too
+short for both content and footer, the footer is still shown.
+
+-}
+withInlineFooter : Screen -> Pane msg -> Pane msg
+withInlineFooter screen (PaneConstructor config) =
+    PaneConstructor { config | inlineFooter = Just screen }
+
+
 {-| Get the context stored in the state. Useful for passing to `handleMouse`
 when `update` doesn't receive `Context` directly.
 -}
@@ -616,8 +673,8 @@ contentLineCount paneContent =
         StaticContent lines ->
             List.length lines
 
-        SelectableContent { itemCount } ->
-            itemCount
+        SelectableContent config ->
+            config.itemCount
 
 
 clampScroll : Int -> Int -> Int -> Int
@@ -932,13 +989,23 @@ toRows (State s) (Horizontal panes) =
 
                             else if row == totalHeight - 1 then
                                 let
-                                    footerText : String
-                                    footerText =
-                                        paneConfig.footer |> Maybe.withDefault ""
+                                    footerContent : Screen
+                                    footerContent =
+                                        case paneConfig.footerScreen of
+                                            Just screen ->
+                                                screen
+
+                                            Nothing ->
+                                                case paneConfig.footer of
+                                                    Just ft ->
+                                                        Tui.styled borderStyle ft
+
+                                                    Nothing ->
+                                                        Tui.empty
 
                                     footerLen : Int
                                     footerLen =
-                                        String.length footerText
+                                        String.length (Tui.toString footerContent)
 
                                     dashLen : Int
                                     dashLen =
@@ -954,7 +1021,7 @@ toRows (State s) (Horizontal panes) =
                                         )
                                     , Tui.styled borderStyle (String.repeat dashLen "─")
                                     , if footerLen > 0 then
-                                        Tui.styled borderStyle footerText
+                                        footerContent
 
                                       else
                                         Tui.empty
@@ -963,6 +1030,32 @@ toRows (State s) (Horizontal panes) =
 
                                       else
                                         Tui.empty
+                                    ]
+
+                            else if paneConfig.inlineFooter /= Nothing && row == totalHeight - 2 then
+                                -- Inline footer: render widget on the last content row
+                                let
+                                    footerScreen : Screen
+                                    footerScreen =
+                                        paneConfig.inlineFooter |> Maybe.withDefault Tui.empty
+
+                                    footerText : String
+                                    footerText =
+                                        Tui.toString footerScreen
+
+                                    footerWidth : Int
+                                    footerWidth =
+                                        String.length footerText
+
+                                    padding : Int
+                                    padding =
+                                        max 0 (innerW - footerWidth)
+                                in
+                                Tui.concat
+                                    [ Tui.styled borderStyle "│"
+                                    , Tui.truncateWidth innerW footerScreen
+                                    , Tui.text (String.repeat padding " ")
+                                    , Tui.styled borderStyle "│"
                                     ]
 
                             else
