@@ -5,7 +5,7 @@ module Tui.Layout exposing
     , State, init, withContext
     , navigateDown, navigateUp, selectedIndex, setSelectedIndex, scrollPosition, resetScroll, scrollDown, scrollUp, contextOf
     , focusPane, focusedPane
-    , withPrefix, withFooter
+    , withPrefix, withFooter, withTitleScreen
     , handleMouse
     , toScreen, toRows
     , navigationHelpRows
@@ -50,7 +50,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs focusPane, focusedPane
 
-@docs withPrefix, withFooter
+@docs withPrefix, withFooter, withTitleScreen
 
 @docs handleMouse
 
@@ -80,6 +80,7 @@ type alias PaneConfig msg =
     , paneContent : PaneContent msg
     , prefix : Maybe String
     , footer : Maybe String
+    , titleScreen : Maybe Screen
     }
 
 
@@ -157,6 +158,7 @@ pane id config paneContent =
         , paneContent = paneContent
         , prefix = Nothing
         , footer = Nothing
+        , titleScreen = Nothing
         }
 
 
@@ -527,6 +529,27 @@ withFooter footerText (PaneConstructor config) =
     PaneConstructor { config | footer = Just footerText }
 
 
+{-| Set a styled Screen as the pane title. Overrides the plain-text title
+from the `pane` constructor. Useful for tab indicators or styled badges:
+
+    Layout.pane "modules"
+        { title = "Modules", width = Layout.fill }
+        myContent
+        |> Layout.withTitleScreen
+            (Tui.concat
+                [ Tui.text "[1]" |> Tui.bold |> Tui.fg Ansi.Color.cyan
+                , Tui.text "Modules" |> Tui.bold
+                , Tui.text " [2]" |> Tui.dim
+                , Tui.text "Changes" |> Tui.dim
+                ]
+            )
+
+-}
+withTitleScreen : Screen -> Pane msg -> Pane msg
+withTitleScreen screen (PaneConstructor config) =
+    PaneConstructor { config | titleScreen = Just screen }
+
+
 {-| Get the context stored in the state. Useful for passing to `handleMouse`
 when `update` doesn't receive `Context` directly.
 -}
@@ -821,9 +844,27 @@ toRows (State s) (Horizontal panes) =
                                     titleText =
                                         (paneConfig.prefix |> Maybe.withDefault "") ++ paneConfig.title
 
+                                    titleContent : Screen
+                                    titleContent =
+                                        case paneConfig.titleScreen of
+                                            Just screen ->
+                                                Tui.truncateWidth innerW screen
+
+                                            Nothing ->
+                                                Tui.styled borderStyle titleText
+
+                                    titleWidth : Int
+                                    titleWidth =
+                                        case paneConfig.titleScreen of
+                                            Just screen ->
+                                                String.length (Tui.toString (Tui.truncateWidth innerW screen))
+
+                                            Nothing ->
+                                                String.length titleText
+
                                     fillLen : Int
                                     fillLen =
-                                        max 0 (innerW - String.length titleText)
+                                        max 0 (innerW - titleWidth)
                                 in
                                 Tui.concat
                                     [ Tui.styled borderStyle
@@ -833,7 +874,7 @@ toRows (State s) (Horizontal panes) =
                                          else
                                             "┬"
                                         )
-                                    , Tui.styled borderStyle titleText
+                                    , titleContent
                                     , Tui.styled borderStyle (String.repeat fillLen "─")
                                     , if isLastPane then
                                         Tui.styled borderStyle "╮"
