@@ -1,5 +1,5 @@
 module Tui.Layout exposing
-    ( Layout, Pane, horizontal, pane
+    ( Layout, Pane, horizontal, vertical, pane
     , PaneContent, content, selectableList
     , Width, fill, fillPortion, px
     , State, init, withContext
@@ -38,7 +38,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
             ]
             |> Layout.toScreen (Layout.withContext ctx model.layout)
 
-@docs Layout, Pane, horizontal, pane
+@docs Layout, Pane, horizontal, vertical, pane
 
 @docs PaneContent, content, selectableList
 
@@ -71,6 +71,7 @@ import Tui.Keybinding
 -}
 type Layout msg
     = Horizontal (List (PaneConfig msg))
+    | Vertical (List (PaneConfig msg))
 
 
 type alias PaneConfig msg =
@@ -137,11 +138,26 @@ type alias PaneState =
 -- CONSTRUCTORS
 
 
-{-| Create a horizontal split layout.
+{-| Create a horizontal split layout (panes side by side).
 -}
 horizontal : List (Pane msg) -> Layout msg
 horizontal panes =
     Horizontal (List.map (\(PaneConstructor config) -> config) panes)
+
+
+{-| Create a vertical split layout (panes stacked top to bottom).
+Each pane spans the full terminal width. The `width` spec controls
+height allocation (same `Fill`/`Px` proportional sizing).
+
+    if ctx.width <= 84 && ctx.height > 45 then
+        Layout.vertical [ commitsPane, diffPane ]
+    else
+        Layout.horizontal [ commitsPane, diffPane ]
+
+-}
+vertical : List (Pane msg) -> Layout msg
+vertical panes =
+    Vertical (List.map (\(PaneConstructor config) -> config) panes)
 
 
 {-| Create a pane.
@@ -413,33 +429,43 @@ ensureVisible index scrollOffset visibleHeight totalItems padding =
 -}
 getOnSelectForPane : String -> Layout msg -> Maybe (Int -> msg)
 getOnSelectForPane paneId layout =
-    case layout of
-        Horizontal panes ->
-            panes
-                |> List.filter (\p -> p.id == paneId)
-                |> List.head
-                |> Maybe.andThen
-                    (\p ->
-                        case p.paneContent of
-                            SelectableContent { onSelect } ->
-                                Just onSelect
+    findPane paneId layout
+        |> Maybe.andThen
+            (\p ->
+                case p.paneContent of
+                    SelectableContent { onSelect } ->
+                        Just onSelect
 
-                            StaticContent _ ->
-                                Nothing
-                    )
+                    StaticContent _ ->
+                        Nothing
+            )
 
 
 {-| Get item count for a specific pane from a Layout.
 -}
 getItemCountForPane : String -> Layout msg -> Int
 getItemCountForPane paneId layout =
-    case layout of
-        Horizontal panes ->
-            panes
-                |> List.filter (\p -> p.id == paneId)
-                |> List.head
-                |> Maybe.map (\p -> contentLineCount p.paneContent)
-                |> Maybe.withDefault 0
+    findPane paneId layout
+        |> Maybe.map (\p -> contentLineCount p.paneContent)
+        |> Maybe.withDefault 0
+
+
+{-| Find a pane config by id in any layout type.
+-}
+findPane : String -> Layout msg -> Maybe (PaneConfig msg)
+findPane paneId layout =
+    let
+        panes =
+            case layout of
+                Horizontal ps ->
+                    ps
+
+                Vertical ps ->
+                    ps
+    in
+    panes
+        |> List.filter (\p -> p.id == paneId)
+        |> List.head
 
 
 {-| Get the currently selected index for a pane.
@@ -722,7 +748,22 @@ returns the updated state plus an optional user message from click handlers.
 Pass the terminal context for correct pane hit-testing.
 -}
 handleMouse : MouseEvent -> { width : Int, height : Int } -> Layout msg -> State -> ( State, Maybe msg )
-handleMouse mouseEvent ctx (Horizontal panes) (State s) =
+handleMouse mouseEvent ctx layout (State s) =
+    let
+        panes : List (PaneConfig msg)
+        panes =
+            case layout of
+                Horizontal ps ->
+                    ps
+
+                Vertical ps ->
+                    ps
+    in
+    handleMouseInternal mouseEvent ctx panes (State s)
+
+
+handleMouseInternal : MouseEvent -> { width : Int, height : Int } -> List (PaneConfig msg) -> State -> ( State, Maybe msg )
+handleMouseInternal mouseEvent ctx panes (State s) =
     let
         -- Persist context so contextOf returns correct values next time
         sWithCtx :
@@ -885,7 +926,20 @@ you can replace specific rows with modal content, then wrap with `Tui.lines`.
 
 -}
 toRows : State -> Layout msg -> List Screen
-toRows (State s) (Horizontal panes) =
+toRows (State s) layout =
+    case layout of
+        Horizontal panes ->
+            toRowsHorizontal s panes
+
+        Vertical panes ->
+            toRowsVertical s panes
+
+
+toRowsHorizontal :
+    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, paneStates : Dict String PaneState }
+    -> List (PaneConfig msg)
+    -> List Screen
+toRowsHorizontal s panes =
     let
         totalWidth : Int
         totalWidth =
@@ -1125,6 +1179,215 @@ toRows (State s) (Horizontal panes) =
     in
     List.range 0 (totalHeight - 1)
         |> List.map renderRow
+
+
+toRowsVertical :
+    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, paneStates : Dict String PaneState }
+    -> List (PaneConfig msg)
+    -> List Screen
+toRowsVertical s panes =
+    let
+        totalWidth : Int
+        totalWidth =
+            s.context.width
+
+        totalHeight : Int
+        totalHeight =
+            s.context.height
+
+        innerW : Int
+        innerW =
+            totalWidth - 2
+
+        heights : List Int
+        heights =
+            resolveWidths totalHeight (List.map .width panes)
+
+        paneCount : Int
+        paneCount =
+            List.length panes
+
+        renderPane : Int -> PaneConfig msg -> Int -> List Screen
+        renderPane paneIdx paneConfig paneHeight =
+            let
+                isFirstPane : Bool
+                isFirstPane =
+                    paneIdx == 0
+
+                isLastPane : Bool
+                isLastPane =
+                    paneIdx == paneCount - 1
+
+                isFocused : Bool
+                isFocused =
+                    s.focusedPaneId == Just paneConfig.id
+
+                borderStyle : Tui.Style
+                borderStyle =
+                    if isFocused then
+                        { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.Bold ] }
+
+                    else
+                        { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
+
+                ps : PaneState
+                ps =
+                    Dict.get paneConfig.id s.paneStates
+                        |> Maybe.withDefault defaultPaneState
+
+                titleText : String
+                titleText =
+                    (paneConfig.prefix |> Maybe.withDefault "") ++ paneConfig.title
+
+                titleContent : Screen
+                titleContent =
+                    case paneConfig.titleScreen of
+                        Just screen ->
+                            Tui.truncateWidth innerW screen
+
+                        Nothing ->
+                            Tui.styled borderStyle titleText
+
+                titleWidth : Int
+                titleWidth =
+                    String.length (Tui.toString titleContent)
+
+                fillLen : Int
+                fillLen =
+                    max 0 (innerW - titleWidth)
+
+                topBorder : Screen
+                topBorder =
+                    Tui.concat
+                        [ Tui.styled borderStyle
+                            (if isFirstPane then
+                                "╭"
+
+                             else
+                                "├"
+                            )
+                        , titleContent
+                        , Tui.styled borderStyle (String.repeat fillLen "─")
+                        , Tui.styled borderStyle
+                            (if isFirstPane then
+                                "╮"
+
+                             else
+                                "┤"
+                            )
+                        ]
+
+                bottomBorder : Screen
+                bottomBorder =
+                    let
+                        footerContent : Screen
+                        footerContent =
+                            case paneConfig.footerScreen of
+                                Just screen ->
+                                    screen
+
+                                Nothing ->
+                                    case paneConfig.footer of
+                                        Just ft ->
+                                            Tui.styled borderStyle ft
+
+                                        Nothing ->
+                                            Tui.empty
+
+                        footerLen : Int
+                        footerLen =
+                            String.length (Tui.toString footerContent)
+
+                        dashLen : Int
+                        dashLen =
+                            max 0 (innerW - footerLen)
+                    in
+                    Tui.concat
+                        [ Tui.styled borderStyle "╰"
+                        , Tui.styled borderStyle (String.repeat dashLen "─")
+                        , if footerLen > 0 then
+                            footerContent
+
+                          else
+                            Tui.empty
+                        , Tui.styled borderStyle "╯"
+                        ]
+
+                -- Content rows: top border + content, last pane also gets bottom border
+                numContentRows : Int
+                numContentRows =
+                    if isLastPane then
+                        paneHeight - 2
+
+                    else
+                        paneHeight - 1
+
+                contentRows : List Screen
+                contentRows =
+                    List.range 0 (numContentRows - 1)
+                        |> List.map
+                            (\contentRow ->
+                                let
+                                    lineScreen : Screen
+                                    lineScreen =
+                                        getContentLine paneConfig ps contentRow
+
+                                    lineText : String
+                                    lineText =
+                                        Tui.toString lineScreen
+
+                                    lineWidth : Int
+                                    lineWidth =
+                                        String.length lineText
+
+                                    truncatedLine : Screen
+                                    truncatedLine =
+                                        Tui.truncateWidth innerW lineScreen
+
+                                    actualWidth : Int
+                                    actualWidth =
+                                        min lineWidth innerW
+
+                                    padding : Int
+                                    padding =
+                                        max 0 (innerW - actualWidth)
+
+                                    isSelectedRow : Bool
+                                    isSelectedRow =
+                                        case paneConfig.paneContent of
+                                            SelectableContent _ ->
+                                                (contentRow + ps.scrollOffset) == ps.selectedIndex
+
+                                            StaticContent _ ->
+                                                False
+
+                                    paddingScreen : Screen
+                                    paddingScreen =
+                                        if isSelectedRow && padding > 0 then
+                                            Tui.styled (Tui.extractStyle lineScreen) (String.repeat padding " ")
+
+                                        else
+                                            Tui.text (String.repeat padding " ")
+                                in
+                                Tui.concat
+                                    [ Tui.styled borderStyle "│"
+                                    , truncatedLine
+                                    , paddingScreen
+                                    , Tui.styled borderStyle "│"
+                                    ]
+                            )
+            in
+            if isLastPane then
+                topBorder :: contentRows ++ [ bottomBorder ]
+
+            else
+                topBorder :: contentRows
+    in
+    List.map3 renderPane
+        (List.range 0 (paneCount - 1))
+        panes
+        heights
+        |> List.concat
 
 
 getContentLine : PaneConfig msg -> PaneState -> Int -> Screen

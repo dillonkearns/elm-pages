@@ -409,7 +409,7 @@ update msg model =
                         ( newLayout, maybeMsg ) =
                             Layout.handleMouse mouseEvent
                                 (Layout.contextOf model.layout)
-                                (myLayout model)
+                                (myLayout (Layout.contextOf model.layout) model)
                                 model.layout
                     in
                     case maybeMsg of
@@ -453,10 +453,10 @@ navigateInFocusedPane direction model =
             let
                 ( newLayout, maybeMsg ) =
                     (if direction > 0 then
-                        Layout.navigateDown "commits" (myLayout model)
+                        Layout.navigateDown "commits" (myLayout (Layout.contextOf model.layout) model)
 
                      else
-                        Layout.navigateUp "commits" (myLayout model)
+                        Layout.navigateUp "commits" (myLayout (Layout.contextOf model.layout) model)
                     )
                         model.layout
             in
@@ -477,8 +477,11 @@ navigateInFocusedPane direction model =
 -- LAYOUT
 
 
-myLayout : Model -> Layout.Layout Msg
-myLayout model =
+{-| Build the layout. Direction is decided by the caller (view function)
+based on terminal dimensions — NOT here, to avoid stale context issues.
+-}
+myPanes : Model -> List (Layout.Pane Msg)
+myPanes model =
     let
         selectedIdx =
             Layout.selectedIndex "commits" model.layout
@@ -486,36 +489,51 @@ myLayout model =
         commitCount =
             List.length model.commits
     in
-    Layout.horizontal
-        [ Layout.pane "commits"
-            { title = "Commits", width = Layout.fill }
-            (Layout.selectableList
-                { onSelect = SelectCommit
-                , selected =
-                    \commit ->
-                        Tui.styled
-                            { fg = Just Ansi.Color.yellow
-                            , bg = Just Ansi.Color.blue
-                            , attributes = [ Tui.Bold ]
-                            }
-                            ("▸ " ++ commit.sha ++ " " ++ commit.message)
-                , default =
-                    \commit ->
-                        Tui.text ("  " ++ commit.sha ++ " " ++ commit.message)
-                }
-                model.commits
+    [ Layout.pane "commits"
+        { title = "Commits", width = Layout.fill }
+        (Layout.selectableList
+            { onSelect = SelectCommit
+            , selected =
+                \commit ->
+                    Tui.styled
+                        { fg = Just Ansi.Color.yellow
+                        , bg = Just Ansi.Color.blue
+                        , attributes = [ Tui.Bold ]
+                        }
+                        ("▸ " ++ commit.sha ++ " " ++ commit.message)
+            , default =
+                \commit ->
+                    Tui.text ("  " ++ commit.sha ++ " " ++ commit.message)
+            }
+            model.commits
+        )
+        |> Layout.withPrefix "[1]"
+        |> Layout.withFooter (String.fromInt (selectedIdx + 1) ++ " of " ++ String.fromInt commitCount)
+    , Layout.pane "diff"
+        { title = "Diff", width = Layout.fillPortion 2 }
+        (Layout.content
+            (model.diffContent
+                |> String.lines
+                |> List.map styleDiffLine
             )
-            |> Layout.withPrefix "[1]"
-            |> Layout.withFooter (String.fromInt (selectedIdx + 1) ++ " of " ++ String.fromInt commitCount)
-        , Layout.pane "diff"
-            { title = "Diff", width = Layout.fillPortion 2 }
-            (Layout.content
-                (model.diffContent
-                    |> String.lines
-                    |> List.map styleDiffLine
-                )
-            )
-        ]
+        )
+    ]
+
+
+{-| Build the layout with direction based on terminal dimensions.
+Lazygit breakpoint: narrow + tall → vertical (portrait) mode.
+-}
+myLayout : { width : Int, height : Int } -> Model -> Layout.Layout Msg
+myLayout dimensions model =
+    let
+        panes =
+            myPanes model
+    in
+    if dimensions.width <= 84 && dimensions.height > 45 then
+        Layout.vertical panes
+
+    else
+        Layout.horizontal panes
 
 
 
@@ -529,7 +547,7 @@ view ctx model =
             Layout.withContext { width = ctx.width, height = ctx.height } model.layout
 
         bgRows =
-            Layout.toRows layoutState (myLayout model)
+            Layout.toRows layoutState (myLayout { width = ctx.width, height = ctx.height } model)
 
         rows =
             case model.modal of
