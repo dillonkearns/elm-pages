@@ -254,6 +254,13 @@ suite =
                         -- Navigating, should still show help modal
                         |> TuiTest.ensureViewHas "Keybindings"
                         |> TuiTest.expectRunning
+            , test "q quits even when help modal is open" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '?'
+                        |> TuiTest.ensureViewHas "Keybindings"
+                        |> TuiTest.pressKey 'q'
+                        |> TuiTest.expectExit
             , test "@ prefix in search mode filters by key name" <|
                 \() ->
                     miniGitTest
@@ -528,7 +535,13 @@ miniGitUpdate msg model =
                                     ( { model | modal = Just (HelpModal { helpState | selectedIndex = max 0 (helpState.selectedIndex - 1) }) }, Effect.none )
 
                                 _ ->
-                                    ( model, Effect.none )
+                                    -- Fall through to global bindings
+                                    case Keybinding.dispatch [ testGlobalBindings ] event of
+                                        Just action ->
+                                            handleAction action { model | modal = Nothing }
+
+                                        Nothing ->
+                                            ( model, Effect.none )
 
                         HelpSearch ->
                             case event.key of

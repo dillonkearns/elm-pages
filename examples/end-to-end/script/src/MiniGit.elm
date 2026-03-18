@@ -332,7 +332,13 @@ update msg model =
                                     )
 
                                 _ ->
-                                    ( model, Effect.none )
+                                    -- Fall through to global bindings (q to quit, etc.)
+                                    case Keybinding.dispatch [ globalBindings ] event of
+                                        Just action ->
+                                            handleAction action { model | modal = Nothing }
+
+                                        Nothing ->
+                                            ( model, Effect.none )
 
                         HelpSearch ->
                             case event.key of
