@@ -211,12 +211,23 @@ inverse =
     addAttr Inverse
 
 
-{-| Apply a style transformation to a Screen. For ScreenText, wraps it in
-ScreenStyled with the transformed plain style. For ScreenStyled, transforms
-the existing style. For compound screens, wraps the whole thing.
+{-| Apply a style transformation to a Screen. Recursively applies to all
+children in compound screens (Concat, Lines), so `Tui.fg` and `Tui.bold`
+work on any Screen — not just text.
+
+    -- All of these work:
+    Tui.text "hello" |> Tui.fg green                    -- single text
+    Tui.concat [ a, b ] |> Tui.bold                     -- applies to both a and b
+    Tui.spaced [ a, b ] |> Tui.bg blue                  -- applies to a, space, and b
+    Tui.lines [ row1, row2 ] |> Tui.dim                 -- applies to all rows
+
+Note: outer styles overwrite inner styles for the same attribute.
+`Tui.text "x" |> Tui.fg red |> Tui.fg green` results in green.
+
 -}
 applyStyle : (Style -> Style) -> Screen -> Screen
 applyStyle transform screen =
+    -- elm-review: known-unoptimized-recursion
     case screen of
         ScreenText s ->
             ScreenStyled (transform plain) s
@@ -224,10 +235,14 @@ applyStyle transform screen =
         ScreenStyled stl s ->
             ScreenStyled (transform stl) s
 
-        _ ->
-            -- For compound screens (Lines, Concat, Empty), wrap in a styled container
-            -- This is a best-effort: the style applies to the outermost level
-            screen
+        ScreenConcat items ->
+            ScreenConcat (List.map (applyStyle transform) items)
+
+        ScreenLines items ->
+            ScreenLines (List.map (applyStyle transform) items)
+
+        ScreenEmpty ->
+            ScreenEmpty
 
 
 addAttr : Attribute -> Screen -> Screen

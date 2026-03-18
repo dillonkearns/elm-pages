@@ -64,6 +64,117 @@ suite =
                         |> Tui.toString
                         |> Expect.equal "a\nb\nc\nd"
             ]
+        , describe "Style builders"
+            [ test "fg on text produces styled output" <|
+                \() ->
+                    Tui.text "hello" |> Tui.fg Ansi.Color.red
+                        |> Tui.encodeScreen
+                        |> Encode.encode 0
+                        |> String.contains "red"
+                        |> Expect.equal True
+            , test "bold on text produces bold output" <|
+                \() ->
+                    Tui.text "hello" |> Tui.bold
+                        |> Tui.encodeScreen
+                        |> Encode.encode 0
+                        |> String.contains "bold"
+                        |> Expect.equal True
+            , test "chaining fg + bold works" <|
+                \() ->
+                    Tui.text "hello" |> Tui.fg Ansi.Color.green |> Tui.bold
+                        |> Tui.encodeScreen
+                        |> Encode.encode 0
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "green" |> Expect.equal True
+                                    , \str -> str |> String.contains "bold" |> Expect.equal True
+                                    ]
+                                    s
+                           )
+            , test "fg on concat applies to all children" <|
+                \() ->
+                    Tui.concat [ Tui.text "a", Tui.text "b" ]
+                        |> Tui.fg Ansi.Color.red
+                        |> Tui.encodeScreen
+                        |> Encode.encode 0
+                        |> (\s ->
+                                -- Both spans should have red
+                                let
+                                    redCount =
+                                        String.indexes "red" s |> List.length
+                                in
+                                (redCount >= 2) |> Expect.equal True
+                           )
+            , test "bold on concat applies to all children" <|
+                \() ->
+                    Tui.concat [ Tui.text "a", Tui.text "b" ]
+                        |> Tui.bold
+                        |> Tui.encodeScreen
+                        |> Encode.encode 0
+                        |> (\s ->
+                                let
+                                    boldCount =
+                                        String.indexes "bold" s |> List.length
+                                in
+                                (boldCount >= 2) |> Expect.equal True
+                           )
+            , test "fg on lines applies to all rows" <|
+                \() ->
+                    Tui.lines [ Tui.text "row1", Tui.text "row2" ]
+                        |> Tui.fg Ansi.Color.cyan
+                        |> Tui.encodeScreen
+                        |> Encode.encode 0
+                        |> (\s ->
+                                let
+                                    cyanCount =
+                                        String.indexes "cyan" s |> List.length
+                                in
+                                (cyanCount >= 2) |> Expect.equal True
+                           )
+            , test "spaced with fg applies to gaps too" <|
+                \() ->
+                    Tui.spaced [ Tui.text "a", Tui.text "b" ]
+                        |> Tui.bg Ansi.Color.blue
+                        |> Tui.encodeScreen
+                        |> Encode.encode 0
+                        |> (\s ->
+                                -- Should have blue on all 3 spans (a, space, b)
+                                let
+                                    blueCount =
+                                        String.indexes "blue" s |> List.length
+                                in
+                                (blueCount >= 3) |> Expect.equal True
+                           )
+            , test "outer style overwrites inner style" <|
+                \() ->
+                    Tui.concat
+                        [ Tui.text "red" |> Tui.fg Ansi.Color.red
+                        , Tui.text "also"
+                        ]
+                        |> Tui.fg Ansi.Color.green
+                        |> Tui.encodeScreen
+                        |> Encode.encode 0
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "green" |> Expect.equal True
+                                    -- red should be gone, replaced by green
+                                    , \str -> str |> String.contains "red" |> Expect.equal False
+                                    ]
+                                    s
+                           )
+            , test "style on empty returns empty" <|
+                \() ->
+                    Tui.empty |> Tui.fg Ansi.Color.red
+                        |> Tui.toString
+                        |> Expect.equal ""
+            , test "text content preserved through style builders" <|
+                \() ->
+                    Tui.concat [ Tui.text "hello ", Tui.text "world" ]
+                        |> Tui.fg Ansi.Color.green
+                        |> Tui.bold
+                        |> Tui.toString
+                        |> Expect.equal "hello world"
+            ]
         , describe "TuiTest - Counter"
             [ test "initial view shows count 0" <|
                 \() ->
