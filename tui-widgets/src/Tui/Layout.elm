@@ -8,6 +8,7 @@ module Tui.Layout exposing
     , withPrefix, withFooter
     , handleMouse
     , toScreen, toRows
+    , navigationHelpRows
     )
 
 {-| Split-pane layout with opaque state, selectable lists, and mouse dispatch.
@@ -55,12 +56,15 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs toScreen, toRows
 
+@docs navigationHelpRows
+
 -}
 
 import Ansi.Color
 import Array
 import Dict exposing (Dict)
 import Tui exposing (MouseEvent, Screen)
+import Tui.Keybinding
 
 
 {-| A layout of panes.
@@ -854,3 +858,21 @@ resolveWidths totalWidth widthSpecs =
                         else
                             0
             )
+
+
+{-| Auto-generated help rows for Layout's built-in mouse interactions.
+Include these in your help screen so users know about scroll and click.
+
+    helpBody =
+        Keybinding.helpRows filterText myBindings
+            ++ [ Tui.text "" ]
+            ++ Layout.navigationHelpRows
+
+-}
+navigationHelpRows : List Screen
+navigationHelpRows =
+    [ Tui.Keybinding.sectionHeader "Navigation"
+    , Tui.Keybinding.infoRow "scroll ↑" "Scroll up"
+    , Tui.Keybinding.infoRow "scroll ↓" "Scroll down"
+    , Tui.Keybinding.infoRow "click" "Select item"
+    ]

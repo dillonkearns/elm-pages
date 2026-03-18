@@ -4,6 +4,7 @@ module Tui.Keybinding exposing
     , dispatch
     , formatKey, formatBinding
     , helpRows, helpRowsWithSelection, helpRowCount
+    , infoRow, sectionHeader
     )
 
 {-| Declarative keybinding system with scoped dispatch and auto-generated help.
@@ -38,6 +39,7 @@ and rendered as a searchable help screen.
 @docs dispatch
 @docs formatKey, formatBinding
 @docs helpRows, helpRowsWithSelection, helpRowCount
+@docs infoRow, sectionHeader
 
 -}
 
@@ -405,8 +407,8 @@ helpRowsWithSelection selectedIdx filter groups =
                     , Tui.text b.description
                     ]
 
-        sectionHeader : String -> Tui.Screen
-        sectionHeader name =
+        renderSectionHeader : String -> Tui.Screen
+        renderSectionHeader name =
             Tui.styled sectionStyle ("--- " ++ name ++ " ---")
 
         renderGroup : Bool -> Int -> Group msg -> ( List Tui.Screen, Int )
@@ -426,7 +428,7 @@ helpRowsWithSelection selectedIdx filter groups =
                         []
 
                     else
-                        [ sectionHeader g.name ]
+                        [ renderSectionHeader g.name ]
 
                 bindingRows : List Tui.Screen
                 bindingRows =
@@ -449,3 +451,32 @@ helpRowsWithSelection selectedIdx filter groups =
             )
             ( [], True, 0 )
         |> (\( rows, _, _ ) -> rows)
+
+
+{-| A display-only help row with the same two-column formatting as binding rows.
+Use this for mouse interactions, framework behaviors, or other non-keyboard
+entries in the help screen. These are not dispatchable — they're informational.
+
+    Keybinding.infoRow "scroll ↑" "Scroll up"
+    Keybinding.infoRow "click" "Select item"
+
+-}
+infoRow : String -> String -> Tui.Screen
+infoRow keyLabel description =
+    Tui.concat
+        [ Tui.text "  "
+        , Tui.styled { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [] } keyLabel
+        , Tui.text "  "
+        , Tui.text description
+        ]
+
+
+{-| A bold green section header for grouping help entries.
+
+    Keybinding.sectionHeader "Navigation"
+
+-}
+sectionHeader : String -> Tui.Screen
+sectionHeader name =
+    Tui.styled { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.bold ] }
+        ("--- " ++ name ++ " ---")

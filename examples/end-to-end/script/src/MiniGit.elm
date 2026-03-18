@@ -570,6 +570,8 @@ view ctx model =
 
                         helpBody =
                             Keybinding.helpRowsWithSelection clampedIdx filterText groups
+                                ++ [ Tui.text "" ]
+                                ++ Layout.navigationHelpRows
 
                         searchRow =
                             case helpState.mode of
