@@ -949,9 +949,14 @@ toRowsHorizontal s panes =
         totalHeight =
             s.context.height
 
+        -- Reserve 1 column per gap between panes (paneCount - 1 gaps)
+        gapCount : Int
+        gapCount =
+            max 0 (List.length panes - 1)
+
         widths : List Int
         widths =
-            resolveWidths totalWidth (List.map .width panes)
+            resolveWidths (totalWidth - gapCount) (List.map .width panes)
 
         panesWithWidths : List ( PaneConfig msg, Int )
         panesWithWidths =
@@ -970,11 +975,7 @@ toRowsHorizontal s panes =
                             let
                                 innerW : Int
                                 innerW =
-                                    if paneIdx == 0 then
-                                        w - 2
-
-                                    else
-                                        w - 1
+                                    w - 2
 
                                 isFirstPane : Bool
                                 isFirstPane =
@@ -1032,28 +1033,21 @@ toRowsHorizontal s panes =
                                     fillLen : Int
                                     fillLen =
                                         max 0 (innerW - titleWidth - prefixWidth)
+
+                                    gap : Screen
+                                    gap =
+                                        if isFirstPane then
+                                            Tui.empty
+
+                                        else
+                                            Tui.text " "
                                 in
                                 Tui.concat
-                                    [ Tui.styled borderStyle
-                                        (if isFirstPane then
-                                            "╭─"
-
-                                         else
-                                            "─"
-                                        )
+                                    [ gap
+                                    , Tui.styled borderStyle "╭─"
                                     , titleContent
                                     , Tui.styled borderStyle (String.repeat fillLen "─")
-                                    , Tui.styled borderStyle
-                                        (if isLastPane then
-                                            "╮"
-
-                                         else if isFirstPane then
-                                            -- Junction between panes: ┬ uses THIS pane's style (green if focused)
-                                            "┬"
-
-                                         else
-                                            ""
-                                        )
+                                    , Tui.styled borderStyle "╮"
                                     ]
 
                             else if row == totalHeight - 1 then
@@ -1080,29 +1074,25 @@ toRowsHorizontal s panes =
                                     dashLen =
                                         max 0 (innerW - footerLen)
                                 in
-                                Tui.concat
-                                    [ Tui.styled borderStyle
-                                        (if isFirstPane then
-                                            "╰"
+                                let
+                                    gap : Screen
+                                    gap =
+                                        if isFirstPane then
+                                            Tui.empty
 
-                                         else
-                                            ""
-                                        )
+                                        else
+                                            Tui.text " "
+                                in
+                                Tui.concat
+                                    [ gap
+                                    , Tui.styled borderStyle "╰"
                                     , Tui.styled borderStyle (String.repeat dashLen "─")
                                     , if footerLen > 0 then
                                         footerContent
 
                                       else
                                         Tui.empty
-                                    , if isLastPane then
-                                        Tui.styled borderStyle "╯"
-
-                                      else if isFirstPane then
-                                        -- Junction uses this pane's style (green if focused)
-                                        Tui.styled borderStyle "┴"
-
-                                      else
-                                        Tui.empty
+                                    , Tui.styled borderStyle "╯"
                                     ]
 
                             else if paneConfig.inlineFooter /= Nothing && row == totalHeight - 2 then
@@ -1187,12 +1177,18 @@ toRowsHorizontal s panes =
                                         else
                                             Tui.text (String.repeat padding " ")
                                 in
-                                Tui.concat
-                                    [ if isFirstPane then
-                                        Tui.styled borderStyle "│"
+                                let
+                                    gap : Screen
+                                    gap =
+                                        if isFirstPane then
+                                            Tui.empty
 
-                                      else
-                                        Tui.empty
+                                        else
+                                            Tui.text " "
+                                in
+                                Tui.concat
+                                    [ gap
+                                    , Tui.styled borderStyle "│"
                                     , truncatedLine
                                     , paddingScreen
                                     , scrollbarBorder borderStyle paneConfig.paneContent ps contentRow totalHeight
