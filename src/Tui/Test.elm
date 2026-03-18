@@ -47,7 +47,7 @@ or directly with [`sendMsg`](#sendMsg).
 
 @docs start, startWithContext
 
-@docs pressKey, pressKeyWith, resize
+@docs pressKey, pressKeyWith, paste, resize
 
 @docs click, clickText, scrollDown, scrollUp
 

@@ -13,6 +13,7 @@ import Pages.Script as Script exposing (Script)
 import Tui
 import Tui.Effect as Effect
 import Tui.Input as Input
+import Tui.Keybinding as Keybinding
 import Tui.Layout as Layout
 import Tui.Modal
 import Tui.Sub
@@ -33,9 +34,18 @@ type alias Model =
     }
 
 
-type alias ModalState =
-    { input : Input.State
-    }
+type ModalState
+    = CommitModal { input : Input.State }
+    | HelpModal { filter : Input.State }
+
+
+type Action
+    = DoNavigate Int
+    | DoSwitchPane
+    | DoQuit
+    | DoOpenCommit
+    | DoOpenHelp
+    | DoScrollDiff Int
 
 
 type Msg
@@ -114,20 +124,125 @@ loadDiffForIndex index commits =
             Effect.none
 
 
+
+-- KEYBINDINGS
+
+
+globalBindings : Keybinding.Group Action
+globalBindings =
+    Keybinding.group "Global"
+        [ Keybinding.binding (Tui.Character 'q') "Quit" DoQuit
+        , Keybinding.binding Tui.Tab "Switch pane" DoSwitchPane
+        , Keybinding.binding (Tui.Character 'c') "Commit" DoOpenCommit
+        , Keybinding.binding (Tui.Character '?') "Help" DoOpenHelp
+        ]
+
+
+commitPaneBindings : Keybinding.Group Action
+commitPaneBindings =
+    Keybinding.group "Commits"
+        [ Keybinding.binding (Tui.Character 'j') "Next commit" (DoNavigate 1)
+            |> Keybinding.withAlternate (Tui.Arrow Tui.Down)
+        , Keybinding.binding (Tui.Character 'k') "Previous commit" (DoNavigate -1)
+            |> Keybinding.withAlternate (Tui.Arrow Tui.Up)
+        ]
+
+
+diffPaneBindings : Keybinding.Group Action
+diffPaneBindings =
+    Keybinding.group "Diff"
+        [ Keybinding.binding (Tui.Character 'j') "Scroll down" (DoScrollDiff 3)
+            |> Keybinding.withAlternate (Tui.Arrow Tui.Down)
+        , Keybinding.binding (Tui.Character 'k') "Scroll up" (DoScrollDiff -3)
+            |> Keybinding.withAlternate (Tui.Arrow Tui.Up)
+        ]
+
+
+activeBindings : Model -> List (Keybinding.Group Action)
+activeBindings model =
+    case Layout.focusedPane model.layout of
+        Just "commits" ->
+            [ commitPaneBindings, globalBindings ]
+
+        Just "diff" ->
+            [ diffPaneBindings, globalBindings ]
+
+        _ ->
+            [ globalBindings ]
+
+
+allBindings : Model -> List (Keybinding.Group Action)
+allBindings model =
+    case Layout.focusedPane model.layout of
+        Just "commits" ->
+            [ commitPaneBindings, globalBindings ]
+
+        Just "diff" ->
+            [ diffPaneBindings, globalBindings ]
+
+        _ ->
+            [ globalBindings ]
+
+
+handleAction : Action -> Model -> ( Model, Effect.Effect Msg )
+handleAction action model =
+    case action of
+        DoNavigate direction ->
+            navigateInFocusedPane direction model
+
+        DoSwitchPane ->
+            let
+                nextFocus =
+                    if Layout.focusedPane model.layout == Just "commits" then
+                        "diff"
+
+                    else
+                        "commits"
+            in
+            ( { model | layout = Layout.focusPane nextFocus model.layout }
+            , Effect.none
+            )
+
+        DoQuit ->
+            ( model, Effect.exit )
+
+        DoOpenCommit ->
+            ( { model | modal = Just (CommitModal { input = Input.init "" }) }
+            , Effect.none
+            )
+
+        DoOpenHelp ->
+            ( { model | modal = Just (HelpModal { filter = Input.init "" }) }
+            , Effect.none
+            )
+
+        DoScrollDiff delta ->
+            let
+                newLayout =
+                    if delta > 0 then
+                        Layout.scrollDown "diff" delta model.layout
+
+                    else
+                        Layout.scrollUp "diff" (abs delta) model.layout
+            in
+            ( { model | layout = newLayout }, Effect.none )
+
+
+
+-- UPDATE
+
+
 update : Msg -> Model -> ( Model, Effect.Effect Msg )
 update msg model =
     case model.modal of
-        Just modalState ->
-            -- Modal is active — route keyboard to the modal
+        Just (CommitModal modalState) ->
             case msg of
                 KeyPressed event ->
                     case event.key of
                         Tui.Escape ->
-                            -- Dismiss modal
                             ( { model | modal = Nothing }, Effect.none )
 
                         Tui.Enter ->
-                            -- "Commit" — close modal and show what was typed
                             let
                                 commitMsg =
                                     Input.text modalState.input
@@ -145,76 +260,52 @@ update msg model =
                             )
 
                         _ ->
-                            -- All other keys go to the text input
-                            ( { model
-                                | modal =
-                                    Just { input = Input.update event modalState.input }
-                              }
+                            ( { model | modal = Just (CommitModal { input = Input.update event modalState.input }) }
                             , Effect.none
                             )
 
                 GotPaste pastedText ->
-                    -- Paste into the text input
-                    ( { model
-                        | modal =
-                            Just { input = Input.insertText pastedText modalState.input }
-                      }
+                    ( { model | modal = Just (CommitModal { input = Input.insertText pastedText modalState.input }) }
                     , Effect.none
                     )
 
                 GotContext ctx ->
-                    ( { model | layout = Layout.withContext ctx model.layout }
-                    , Effect.none
-                    )
+                    ( { model | layout = Layout.withContext ctx model.layout }, Effect.none )
 
                 _ ->
-                    -- Ignore mouse and other events while modal is open
                     ( model, Effect.none )
 
-        Nothing ->
-            -- No modal — normal event handling
+        Just (HelpModal helpState) ->
             case msg of
                 KeyPressed event ->
                     case event.key of
-                        Tui.Character 'c' ->
-                            -- Open commit dialog
-                            ( { model | modal = Just { input = Input.init "" } }
-                            , Effect.none
-                            )
-
-                        Tui.Character 'j' ->
-                            navigateInFocusedPane 1 model
-
-                        Tui.Arrow Tui.Down ->
-                            navigateInFocusedPane 1 model
-
-                        Tui.Character 'k' ->
-                            navigateInFocusedPane -1 model
-
-                        Tui.Arrow Tui.Up ->
-                            navigateInFocusedPane -1 model
-
-                        Tui.Tab ->
-                            let
-                                nextFocus : String
-                                nextFocus =
-                                    if Layout.focusedPane model.layout == Just "commits" then
-                                        "diff"
-
-                                    else
-                                        "commits"
-                            in
-                            ( { model | layout = Layout.focusPane nextFocus model.layout }
-                            , Effect.none
-                            )
-
-                        Tui.Character 'q' ->
-                            ( model, Effect.exit )
-
                         Tui.Escape ->
-                            ( model, Effect.exit )
+                            ( { model | modal = Nothing }, Effect.none )
 
                         _ ->
+                            ( { model | modal = Just (HelpModal { filter = Input.update event helpState.filter }) }
+                            , Effect.none
+                            )
+
+                GotPaste pastedText ->
+                    ( { model | modal = Just (HelpModal { filter = Input.insertText pastedText helpState.filter }) }
+                    , Effect.none
+                    )
+
+                GotContext ctx ->
+                    ( { model | layout = Layout.withContext ctx model.layout }, Effect.none )
+
+                _ ->
+                    ( model, Effect.none )
+
+        Nothing ->
+            case msg of
+                KeyPressed event ->
+                    case Keybinding.dispatch (activeBindings model) event of
+                        Just action ->
+                            handleAction action model
+
+                        Nothing ->
                             ( model, Effect.none )
 
                 Mouse mouseEvent ->
@@ -233,7 +324,6 @@ update msg model =
                             ( { model | layout = newLayout }, Effect.none )
 
                 GotPaste _ ->
-                    -- Ignore paste when no modal is open
                     ( model, Effect.none )
 
                 GotContext ctx ->
@@ -265,7 +355,6 @@ navigateInFocusedPane direction model =
     case Layout.focusedPane model.layout of
         Just "commits" ->
             let
-                newLayout : Layout.State
                 newLayout =
                     (if direction > 0 then
                         Layout.navigateDown "commits"
@@ -276,7 +365,6 @@ navigateInFocusedPane direction model =
                         model.layout
                         |> Layout.resetScroll "diff"
 
-                newIndex : Int
                 newIndex =
                     Layout.selectedIndex "commits" newLayout
             in
@@ -284,34 +372,20 @@ navigateInFocusedPane direction model =
             , loadDiffForIndex newIndex model.commits
             )
 
-        Just "diff" ->
-            let
-                scrollDelta : Int
-                scrollDelta =
-                    direction * 3
-
-                newLayout : Layout.State
-                newLayout =
-                    if scrollDelta > 0 then
-                        Layout.scrollDown "diff" scrollDelta model.layout
-
-                    else
-                        Layout.scrollUp "diff" (abs scrollDelta) model.layout
-            in
-            ( { model | layout = newLayout }, Effect.none )
-
         _ ->
             ( model, Effect.none )
+
+
+
+-- LAYOUT
 
 
 myLayout : Model -> Layout.Layout Msg
 myLayout model =
     let
-        selectedIdx : Int
         selectedIdx =
             Layout.selectedIndex "commits" model.layout
 
-        commitCount : Int
         commitCount =
             List.length model.commits
     in
@@ -347,31 +421,23 @@ myLayout model =
         ]
 
 
+
+-- VIEW
+
+
 view : Tui.Context -> Model -> Tui.Screen
 view ctx model =
     let
-        layoutState : Layout.State
         layoutState =
             Layout.withContext { width = ctx.width, height = ctx.height } model.layout
 
-        bgRows : List Tui.Screen
         bgRows =
             Layout.toRows layoutState (myLayout model)
 
-        statusRow : String
-        statusRow =
-            if String.isEmpty model.lastAction then
-                ""
-
-            else
-                " " ++ model.lastAction
-
-        rows : List Tui.Screen
         rows =
             case model.modal of
-                Just modalState ->
+                Just (CommitModal modalState) ->
                     let
-                        modalWidth : Int
                         modalWidth =
                             min 60 (ctx.width - 4)
                     in
@@ -383,6 +449,34 @@ view ctx model =
                             , Tui.text ""
                             ]
                         , footer = "Enter: confirm │ Esc: cancel"
+                        , width = modalWidth
+                        }
+                        { termWidth = ctx.width, termHeight = ctx.height }
+                        bgRows
+
+                Just (HelpModal helpState) ->
+                    let
+                        filterText =
+                            Input.text helpState.filter
+
+                        modalWidth =
+                            min 60 (ctx.width - 4)
+
+                        helpBody =
+                            Keybinding.helpRows filterText (allBindings model)
+
+                        filterRow =
+                            Tui.concat
+                                [ Tui.styled
+                                    { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
+                                    "Filter: "
+                                , Input.view { width = modalWidth - 10 } helpState.filter
+                                ]
+                    in
+                    Tui.Modal.overlay
+                        { title = "Keybindings"
+                        , body = filterRow :: Tui.text "" :: helpBody
+                        , footer = "Esc: close │ @: filter by key"
                         , width = modalWidth
                         }
                         { termWidth = ctx.width, termHeight = ctx.height }

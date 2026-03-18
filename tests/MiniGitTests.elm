@@ -7,6 +7,7 @@ import Test.Runner
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Input as Input
+import Tui.Keybinding as Keybinding
 import Tui.Layout as Layout
 import Tui.Modal
 import Tui.Sub
@@ -199,6 +200,66 @@ suite =
                         |> TuiTest.ensureViewDoesNotHave "should be ignored"
                         |> TuiTest.expectRunning
             ]
+        , describe "help modal"
+            [ test "? opens help modal" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '?'
+                        |> TuiTest.ensureViewHas "Keybindings"
+                        |> TuiTest.ensureViewHas "Esc: close"
+                        |> TuiTest.expectRunning
+            , test "help shows binding descriptions" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '?'
+                        |> TuiTest.ensureViewHas "Quit"
+                        |> TuiTest.ensureViewHas "Next commit"
+                        |> TuiTest.expectRunning
+            , test "escape closes help" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '?'
+                        |> TuiTest.ensureViewHas "Keybindings"
+                        |> TuiTest.pressKeyWith { key = Tui.Escape, modifiers = [] }
+                        |> TuiTest.ensureViewDoesNotHave "Keybindings"
+                        |> TuiTest.expectRunning
+            , test "typing in help modal filters by description" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '?'
+                        |> TuiTest.pressKey 'q'
+                        |> TuiTest.pressKey 'u'
+                        |> TuiTest.pressKey 'i'
+                        |> TuiTest.pressKey 't'
+                        |> TuiTest.ensureViewHas "Quit"
+                        |> TuiTest.ensureViewDoesNotHave "Next commit"
+                        |> TuiTest.expectRunning
+            , test "@ prefix filters by key name" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '?'
+                        |> TuiTest.pressKey '@'
+                        |> TuiTest.pressKey 't'
+                        |> TuiTest.pressKey 'a'
+                        |> TuiTest.pressKey 'b'
+                        |> TuiTest.ensureViewHas "Switch pane"
+                        |> TuiTest.ensureViewDoesNotHave "Quit"
+                        |> TuiTest.expectRunning
+            ]
+        , describe "keybinding dispatch"
+            [ test "j navigates via keybinding dispatch" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.ensureViewHas "▸ def5678"
+                        |> TuiTest.expectRunning
+            , test "down arrow navigates as alternate key" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKeyWith { key = Tui.Arrow Tui.Down, modifiers = [] }
+                        |> TuiTest.ensureViewHas "▸ def5678"
+                        |> TuiTest.expectRunning
+            ]
         , describe "snapshots"
             [ test "model state shows layout changes" <|
                 \() ->
@@ -270,9 +331,22 @@ type alias Commit =
 type alias Model =
     { layout : Layout.State
     , commits : List Commit
-    , modal : Maybe { input : Input.State }
+    , modal : Maybe ModalState
     , lastAction : String
     }
+
+
+type ModalState
+    = CommitModal { input : Input.State }
+    | HelpModal { filter : Input.State }
+
+
+type Action
+    = DoNavigate Int
+    | DoQuit
+    | DoSwitchPane
+    | DoOpenCommit
+    | DoOpenHelp
 
 
 type Msg
@@ -280,6 +354,31 @@ type Msg
     | Mouse Tui.MouseEvent
     | GotPaste String
     | SelectCommit Int
+
+
+testGlobalBindings : Keybinding.Group Action
+testGlobalBindings =
+    Keybinding.group "Global"
+        [ Keybinding.binding (Tui.Character 'q') "Quit" DoQuit
+        , Keybinding.binding Tui.Tab "Switch pane" DoSwitchPane
+        , Keybinding.binding (Tui.Character 'c') "Commit" DoOpenCommit
+        , Keybinding.binding (Tui.Character '?') "Help" DoOpenHelp
+        ]
+
+
+testCommitBindings : Keybinding.Group Action
+testCommitBindings =
+    Keybinding.group "Commits"
+        [ Keybinding.binding (Tui.Character 'j') "Next commit" (DoNavigate 1)
+            |> Keybinding.withAlternate (Tui.Arrow Tui.Down)
+        , Keybinding.binding (Tui.Character 'k') "Previous commit" (DoNavigate -1)
+            |> Keybinding.withAlternate (Tui.Arrow Tui.Up)
+        ]
+
+
+testActiveBindings : List (Keybinding.Group Action)
+testActiveBindings =
+    [ testCommitBindings, testGlobalBindings ]
 
 
 sampleCommits : List Commit
@@ -295,7 +394,7 @@ sampleCommits =
 
 miniGitInit : List Commit -> ( Model, Effect Msg )
 miniGitInit commits =
-    ( { layout = Layout.init
+    ( { layout = Layout.init |> Layout.focusPane "commits"
       , commits = commits
       , modal = Nothing
       , lastAction = ""
@@ -334,7 +433,7 @@ miniGitLayout model =
 miniGitUpdate : Msg -> Model -> ( Model, Effect Msg )
 miniGitUpdate msg model =
     case model.modal of
-        Just modalState ->
+        Just (CommitModal modalState) ->
             case msg of
                 KeyPressed event ->
                     case event.key of
@@ -359,12 +458,32 @@ miniGitUpdate msg model =
                             )
 
                         _ ->
-                            ( { model | modal = Just { input = Input.update event modalState.input } }
+                            ( { model | modal = Just (CommitModal { input = Input.update event modalState.input }) }
                             , Effect.none
                             )
 
                 GotPaste pastedText ->
-                    ( { model | modal = Just { input = Input.insertText pastedText modalState.input } }
+                    ( { model | modal = Just (CommitModal { input = Input.insertText pastedText modalState.input }) }
+                    , Effect.none
+                    )
+
+                _ ->
+                    ( model, Effect.none )
+
+        Just (HelpModal helpState) ->
+            case msg of
+                KeyPressed event ->
+                    case event.key of
+                        Tui.Escape ->
+                            ( { model | modal = Nothing }, Effect.none )
+
+                        _ ->
+                            ( { model | modal = Just (HelpModal { filter = Input.update event helpState.filter }) }
+                            , Effect.none
+                            )
+
+                GotPaste pastedText ->
+                    ( { model | modal = Just (HelpModal { filter = Input.insertText pastedText helpState.filter }) }
                     , Effect.none
                     )
 
@@ -374,27 +493,11 @@ miniGitUpdate msg model =
         Nothing ->
             case msg of
                 KeyPressed event ->
-                    case event.key of
-                        Tui.Character 'c' ->
-                            ( { model | modal = Just { input = Input.init "" } }, Effect.none )
+                    case Keybinding.dispatch testActiveBindings event of
+                        Just action ->
+                            handleAction action model
 
-                        Tui.Character 'j' ->
-                            ( { model | layout = Layout.navigateDown "commits" model.layout }
-                            , Effect.none
-                            )
-
-                        Tui.Character 'k' ->
-                            ( { model | layout = Layout.navigateUp "commits" model.layout }
-                            , Effect.none
-                            )
-
-                        Tui.Character 'q' ->
-                            ( model, Effect.exit )
-
-                        Tui.Escape ->
-                            ( model, Effect.exit )
-
-                        _ ->
+                        Nothing ->
                             ( model, Effect.none )
 
                 Mouse mouseEvent ->
@@ -413,6 +516,36 @@ miniGitUpdate msg model =
                     ( model, Effect.none )
 
 
+handleAction : Action -> Model -> ( Model, Effect Msg )
+handleAction action model =
+    case action of
+        DoNavigate direction ->
+            ( { model
+                | layout =
+                    (if direction > 0 then
+                        Layout.navigateDown "commits"
+
+                     else
+                        Layout.navigateUp "commits"
+                    )
+                        model.layout
+              }
+            , Effect.none
+            )
+
+        DoQuit ->
+            ( model, Effect.exit )
+
+        DoSwitchPane ->
+            ( model, Effect.none )
+
+        DoOpenCommit ->
+            ( { model | modal = Just (CommitModal { input = Input.init "" }) }, Effect.none )
+
+        DoOpenHelp ->
+            ( { model | modal = Just (HelpModal { filter = Input.init "" }) }, Effect.none )
+
+
 miniGitView : Tui.Context -> Model -> Tui.Screen
 miniGitView ctx model =
     let
@@ -424,7 +557,7 @@ miniGitView ctx model =
 
         rows =
             case model.modal of
-                Just modalState ->
+                Just (CommitModal modalState) ->
                     Tui.Modal.overlay
                         { title = "Commit"
                         , body =
@@ -438,6 +571,29 @@ miniGitView ctx model =
                         { termWidth = ctx.width, termHeight = ctx.height }
                         bgRows
 
+                Just (HelpModal helpState) ->
+                    let
+                        filterText =
+                            Input.text helpState.filter
+
+                        helpBody =
+                            Keybinding.helpRows filterText testActiveBindings
+
+                        filterRow =
+                            Tui.concat
+                                [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] } "Filter: "
+                                , Input.view { width = 40 } helpState.filter
+                                ]
+                    in
+                    Tui.Modal.overlay
+                        { title = "Keybindings"
+                        , body = filterRow :: Tui.text "" :: helpBody
+                        , footer = "Esc: close │ @: filter by key"
+                        , width = 50
+                        }
+                        { termWidth = ctx.width, termHeight = ctx.height }
+                        bgRows
+
                 Nothing ->
                     bgRows
     in
@@ -446,7 +602,6 @@ miniGitView ctx model =
             rows
 
          else
-            -- Replace last row with status
             List.take (List.length rows - 1) rows ++ [ Tui.text (" " ++ model.lastAction) ]
         )
 

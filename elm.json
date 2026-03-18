@@ -49,6 +49,7 @@
         "Pages.Internal.NotFoundReason",
         "Tui",
         "Tui.Effect",
+        "Tui.Input",
         "Tui.Sub",
         "Tui.Test",
         "Tui.Test.Stepper",
