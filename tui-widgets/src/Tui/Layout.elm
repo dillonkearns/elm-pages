@@ -1,5 +1,5 @@
 module Tui.Layout exposing
-    ( Layout, Pane, horizontal, vertical, pane
+    ( Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
     , PaneContent, content, selectableList
     , Width, fill, fillPortion, px
     , State, init, withContext
@@ -38,7 +38,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
             ]
             |> Layout.toScreen (Layout.withContext ctx model.layout)
 
-@docs Layout, Pane, horizontal, vertical, pane
+@docs Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
 
 @docs PaneContent, content, selectableList
 
@@ -158,6 +158,83 @@ height allocation (same `Fill`/`Px` proportional sizing).
 vertical : List (Pane msg) -> Layout msg
 vertical panes =
     Vertical (List.map (\(PaneConstructor config) -> config) panes)
+
+
+{-| Configuration for a tab within a pane group.
+-}
+type alias TabConfig msg =
+    { id : String
+    , label : String
+    , content : PaneContent msg
+    }
+
+
+{-| Create a pane group with tabs — multiple content views sharing one
+pane slot (like lazygit's Files/Worktrees/Submodules tabs). Only the
+active tab's content is rendered. Each tab preserves its own scroll
+and selection state in `Layout.State` (keyed by tab `id`).
+
+Tab labels appear in the title bar, with the active tab bold and
+inactive tabs dim (lazygit-style).
+
+    Layout.paneGroup
+        { tabs =
+            [ { id = "files", label = "Files", content = filesList }
+            , { id = "worktrees", label = "Worktrees", content = worktreesList }
+            ]
+        , activeTab = model.leftTab
+        , width = Layout.fill
+        }
+
+Switch tabs by updating `activeTab` in your model (e.g., on `]`/`[` keys).
+
+-}
+paneGroup :
+    { tabs : List (TabConfig msg)
+    , activeTab : String
+    , width : Width
+    }
+    -> Pane msg
+paneGroup config =
+    let
+        activeContent : PaneContent msg
+        activeContent =
+            config.tabs
+                |> List.filter (\tab -> tab.id == config.activeTab)
+                |> List.head
+                |> Maybe.map .content
+                |> Maybe.withDefault (StaticContent [])
+
+        -- Build styled title: active tab bold, inactive dim
+        titleScreen : Screen
+        titleScreen =
+            config.tabs
+                |> List.map
+                    (\tab ->
+                        if tab.id == config.activeTab then
+                            Tui.text tab.label |> Tui.bold
+
+                        else
+                            Tui.text tab.label |> Tui.dim
+                    )
+                |> List.intersperse (Tui.text " - " |> Tui.dim)
+                |> Tui.concat
+
+        activeId : String
+        activeId =
+            config.activeTab
+    in
+    PaneConstructor
+        { id = activeId
+        , title = ""
+        , width = config.width
+        , paneContent = activeContent
+        , prefix = Nothing
+        , footer = Nothing
+        , titleScreen = Just titleScreen
+        , footerScreen = Nothing
+        , inlineFooter = Nothing
+        }
 
 
 {-| Create a pane.

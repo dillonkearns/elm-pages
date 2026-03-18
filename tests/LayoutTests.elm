@@ -572,6 +572,133 @@ suite =
                         |> Layout.focusedPane
                         |> Expect.equal Nothing
             ]
+        , describe "Pane groups (tabs)"
+            [ test "paneGroup shows active tab content" <|
+                \() ->
+                    Layout.horizontal
+                        [ Layout.paneGroup
+                            { tabs =
+                                [ { id = "files", label = "Files", content = Layout.content [ Tui.text "file-content" ] }
+                                , { id = "worktrees", label = "Worktrees", content = Layout.content [ Tui.text "worktree-content" ] }
+                                ]
+                            , activeTab = "files"
+                            , width = Layout.fill
+                            }
+                        ]
+                        |> renderAt { width = 30, height = 5 }
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "file-content" |> Expect.equal True
+                                    , \str -> str |> String.contains "worktree-content" |> Expect.equal False
+                                    ]
+                                    s
+                           )
+            , test "paneGroup shows other tab content when switched" <|
+                \() ->
+                    Layout.horizontal
+                        [ Layout.paneGroup
+                            { tabs =
+                                [ { id = "files", label = "Files", content = Layout.content [ Tui.text "file-content" ] }
+                                , { id = "worktrees", label = "Worktrees", content = Layout.content [ Tui.text "worktree-content" ] }
+                                ]
+                            , activeTab = "worktrees"
+                            , width = Layout.fill
+                            }
+                        ]
+                        |> renderAt { width = 40, height = 5 }
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "worktree-content" |> Expect.equal True
+                                    , \str -> str |> String.contains "file-content" |> Expect.equal False
+                                    ]
+                                    s
+                           )
+            , test "paneGroup shows tab labels in title" <|
+                \() ->
+                    Layout.horizontal
+                        [ Layout.paneGroup
+                            { tabs =
+                                [ { id = "files", label = "Files", content = Layout.content [] }
+                                , { id = "worktrees", label = "Worktrees", content = Layout.content [] }
+                                ]
+                            , activeTab = "files"
+                            , width = Layout.fill
+                            }
+                        ]
+                        |> renderAt { width = 40, height = 5 }
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "Files" |> Expect.equal True
+                                    , \str -> str |> String.contains "Worktrees" |> Expect.equal True
+                                    ]
+                                    s
+                           )
+            , test "paneGroup preserves selection state per tab" <|
+                \() ->
+                    let
+                        filesTabLayout : Layout.Layout Int
+                        filesTabLayout =
+                            Layout.horizontal
+                                [ Layout.paneGroup
+                                    { tabs =
+                                        [ { id = "files"
+                                          , label = "Files"
+                                          , content =
+                                                Layout.selectableList
+                                                    { onSelect = identity
+                                                    , selected = \item -> Tui.text ("▸ " ++ item)
+                                                    , default = \item -> Tui.text ("  " ++ item)
+                                                    }
+                                                    [ "a.elm", "b.elm", "c.elm" ]
+                                          }
+                                        , { id = "worktrees"
+                                          , label = "Worktrees"
+                                          , content = Layout.content [ Tui.text "wt" ]
+                                          }
+                                        ]
+                                    , activeTab = "files"
+                                    , width = Layout.fill
+                                    }
+                                ]
+
+                        state : Layout.State
+                        state =
+                            Layout.init |> Layout.withContext { width = 30, height = 8 }
+
+                        -- Navigate down in files tab
+                        ( stateAfterNav, _ ) =
+                            Layout.navigateDown "files" filesTabLayout state
+
+                        -- Switch to worktrees tab — files selection should be preserved
+                        worktreesLayout : Layout.Layout Int
+                        worktreesLayout =
+                            Layout.horizontal
+                                [ Layout.paneGroup
+                                    { tabs =
+                                        [ { id = "files"
+                                          , label = "Files"
+                                          , content =
+                                                Layout.selectableList
+                                                    { onSelect = identity
+                                                    , selected = \item -> Tui.text ("▸ " ++ item)
+                                                    , default = \item -> Tui.text ("  " ++ item)
+                                                    }
+                                                    [ "a.elm", "b.elm", "c.elm" ]
+                                          }
+                                        , { id = "worktrees"
+                                          , label = "Worktrees"
+                                          , content = Layout.content [ Tui.text "wt" ]
+                                          }
+                                        ]
+                                    , activeTab = "files"
+                                    , width = Layout.fill
+                                    }
+                                ]
+                    in
+                    -- The files tab should still have index 1 selected
+                    Layout.selectedIndex "files" stateAfterNav
+                        |> Expect.equal 1
+            ]
         , describe "Title badges and footer"
             [ test "pane with prefix shows it in border" <|
                 \() ->
