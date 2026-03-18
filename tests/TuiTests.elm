@@ -422,7 +422,7 @@ suite =
                         |> TuiTest.toSnapshots
                         |> List.drop 1
                         |> List.head
-                        |> Maybe.map (\s -> s.rerender { width = 100, height = 50 })
+                        |> Maybe.map (\s -> s.rerender { width = 100, height = 50, colorProfile = Tui.TrueColor })
                         |> Maybe.map Tui.toString
                         |> Maybe.withDefault ""
                         |> String.contains "100×50"
