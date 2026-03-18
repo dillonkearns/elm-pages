@@ -17,6 +17,7 @@ import Tui.Keybinding as Keybinding
 import Tui.Layout as Layout
 import Tui.Modal
 import Tui.Sub
+import Tui.Toast as Toast
 
 
 type alias Commit =
@@ -30,7 +31,7 @@ type alias Model =
     , commits : List Commit
     , diffContent : String
     , modal : Maybe ModalState
-    , lastAction : String
+    , toasts : Toast.State
     }
 
 
@@ -67,6 +68,7 @@ type Msg
     | GotContext { width : Int, height : Int }
     | SelectCommit Int
     | GotDiff (Result FatalError String)
+    | ToastTick
 
 
 run : Script
@@ -109,7 +111,7 @@ init commits =
       , commits = commits
       , diffContent = ""
       , modal = Nothing
-      , lastAction = ""
+      , toasts = Toast.init
       }
     , loadDiffForIndex 0 commits
     )
@@ -255,6 +257,17 @@ handleAction action model =
 
 update : Msg -> Model -> ( Model, Effect.Effect Msg )
 update msg model =
+    -- Toast ticks run regardless of modal state
+    case msg of
+        ToastTick ->
+            ( { model | toasts = Toast.tick model.toasts }, Effect.none )
+
+        _ ->
+            updateMain msg model
+
+
+updateMain : Msg -> Model -> ( Model, Effect.Effect Msg )
+updateMain msg model =
     case model.modal of
         Just (CommitModal modalState) ->
             case msg of
@@ -270,12 +283,12 @@ update msg model =
                             in
                             ( { model
                                 | modal = Nothing
-                                , lastAction =
+                                , toasts =
                                     if String.isEmpty commitMsg then
-                                        "(empty commit message)"
+                                        Toast.errorToast "(empty commit message)" model.toasts
 
                                     else
-                                        "Committed: " ++ commitMsg
+                                        Toast.toast ("Committed: " ++ commitMsg) model.toasts
                               }
                             , Effect.none
                             )
@@ -444,6 +457,10 @@ update msg model =
                       }
                     , Effect.none
                     )
+
+                ToastTick ->
+                    -- Handled at top level of update
+                    ( model, Effect.none )
 
 
 navigateInFocusedPane : Int -> Model -> ( Model, Effect.Effect Msg )
@@ -644,8 +661,21 @@ view ctx model =
 
                 Nothing ->
                     bgRows
+
+        -- Overlay toast on the last row when active
+        finalRows =
+            if Toast.hasToasts model.toasts then
+                case List.reverse rows of
+                    _ :: rest ->
+                        List.reverse (Toast.view model.toasts :: rest)
+
+                    [] ->
+                        [ Toast.view model.toasts ]
+
+            else
+                rows
     in
-    Tui.lines rows
+    Tui.lines finalRows
 
 
 styleDiffLine : String -> Tui.Screen
@@ -667,10 +697,17 @@ styleDiffLine line =
 
 
 subscriptions : Model -> Tui.Sub.Sub Msg
-subscriptions _ =
+subscriptions model =
     Tui.Sub.batch
-        [ Tui.Sub.onKeyPress KeyPressed
-        , Tui.Sub.onMouse Mouse
-        , Tui.Sub.onPaste GotPaste
-        , Tui.Sub.onContext GotContext
-        ]
+        ([ Tui.Sub.onKeyPress KeyPressed
+         , Tui.Sub.onMouse Mouse
+         , Tui.Sub.onPaste GotPaste
+         , Tui.Sub.onContext GotContext
+         ]
+            ++ (if Toast.hasToasts model.toasts then
+                    [ Tui.Sub.every 100 ToastTick ]
+
+                else
+                    []
+               )
+        )
