@@ -138,7 +138,7 @@ start :
     }
     -> TuiTest model msg
 start config =
-    startWithContext { width = 80, height = 24 } config
+    startWithContext { width = 80, height = 24, colorProfile = Tui.TrueColor } config
 
 
 {-| Like `start` but with a custom terminal size.
@@ -286,7 +286,7 @@ resize size (TuiTest state) =
             TuiTest { state | error = Just "resize called after TUI exited" }
 
         ( Nothing, Nothing ) ->
-            TuiTest { state | context = size }
+            TuiTest { state | context = { width = size.width, height = size.height, colorProfile = state.context.colorProfile } }
 
 
 {-| Simulate a left mouse click at the given row and column (0-based).

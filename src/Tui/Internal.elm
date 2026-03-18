@@ -9,9 +9,32 @@ import BackendTask.Internal.Request
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Tui exposing (Context, Screen)
+import Tui exposing (ColorProfile(..), Context, Screen)
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Sub as Sub exposing (Sub)
+
+
+decodeColorProfile : Decode.Decoder ColorProfile
+decodeColorProfile =
+    Decode.string
+        |> Decode.andThen
+            (\s ->
+                case s of
+                    "truecolor" ->
+                        Decode.succeed TrueColor
+
+                    "256" ->
+                        Decode.succeed Color256
+
+                    "16" ->
+                        Decode.succeed Color16
+
+                    "mono" ->
+                        Decode.succeed Mono
+
+                    _ ->
+                        Decode.succeed Color16
+            )
 
 
 {-| Run the TUI loop. Called by `Script.tui` after the `data` BackendTask
@@ -41,7 +64,7 @@ run config loadedData =
 
                     modelWithContext : model
                     modelWithContext =
-                        case Sub.routeEvent sub (Sub.RawContext context) of
+                        case Sub.routeEvent sub (Sub.RawContext { width = context.width, height = context.height }) of
                             Just msg ->
                                 config.update msg initialModel |> Tuple.first
 
@@ -66,9 +89,10 @@ tuiInit =
         , body = BackendTask.Http.emptyBody
         , expect =
             BackendTask.Http.expectJson
-                (Decode.map2 (\w h -> { width = w, height = h })
+                (Decode.map3 (\w h cp -> { width = w, height = h, colorProfile = cp })
                     (Decode.field "width" Decode.int)
                     (Decode.field "height" Decode.int)
+                    (Decode.field "colorProfile" decodeColorProfile)
                 )
         }
 
@@ -192,13 +216,14 @@ renderAndWait config context model =
                     newContext =
                         { width = response.width
                         , height = response.height
+                        , colorProfile = context.colorProfile
                         }
 
                     -- Fire context change through subscription if dimensions changed
                     modelAfterContext : model
                     modelAfterContext =
-                        if newContext /= context then
-                            case Sub.routeEvent sub (Sub.RawContext newContext) of
+                        if newContext.width /= context.width || newContext.height /= context.height then
+                            case Sub.routeEvent sub (Sub.RawContext { width = newContext.width, height = newContext.height }) of
                                 Just msg ->
                                     config.update msg model |> Tuple.first
 

@@ -2440,6 +2440,7 @@ function getTimezoneDataTemporal(tzId, sinceMs, untilMs) {
 
 // ── TUI Runtime ──────────────────────────────────────────────────────────────
 
+let tuiColorProfile = null; // detected once at init: 'truecolor' | '256' | '16' | 'mono'
 let tuiActive = false;
 let tuiEventQueue = []; // events that arrived during Elm processing
 let tuiEventResolve = null; // pending promise resolver for next wait
@@ -2595,6 +2596,138 @@ function tuiFlushCells(stdout) {
   }
 }
 
+/**
+ * Detect terminal color profile from environment variables.
+ * Follows charmbracelet/colorprofile's precedence order — the most
+ * battle-tested approach across the Go TUI ecosystem.
+ *
+ * Returns: 'truecolor' | '256' | '16' | 'mono'
+ */
+function tuiDetectColorProfile() {
+  const env = process.env;
+
+  // NO_COLOR (https://no-color.org/): any non-empty value disables color.
+  // Keeps bold/italic/underline — only strips color codes.
+  if (env.NO_COLOR != null && env.NO_COLOR !== '') {
+    return 'mono';
+  }
+
+  // COLORTERM: the most reliable truecolor indicator
+  const colorterm = (env.COLORTERM || '').toLowerCase();
+  if (colorterm === 'truecolor' || colorterm === '24bit') {
+    return 'truecolor';
+  }
+
+  const term = (env.TERM || '').toLowerCase();
+
+  // Known truecolor terminals (from charmbracelet/colorprofile)
+  const truecolorTermPrefixes = [
+    'alacritty', 'kitty', 'ghostty', 'wezterm',
+    'foot', 'contour', 'rio', 'st-',
+  ];
+  if (truecolorTermPrefixes.some(t => term.startsWith(t)) || term === 'st') {
+    return 'truecolor';
+  }
+
+  // Windows Terminal
+  if (env.WT_SESSION) {
+    return 'truecolor';
+  }
+
+  // TERM_PROGRAM: iTerm2, Hyper, mintty
+  const termProgram = (env.TERM_PROGRAM || '').toLowerCase();
+  if (['iterm.app', 'hyper', 'mintty'].includes(termProgram)) {
+    return 'truecolor';
+  }
+
+  // TERM suffix checks
+  if (term.endsWith('-direct')) return 'truecolor';
+  if (term.includes('256color')) return '256';
+
+  // CLICOLOR=0 means no color
+  if (env.CLICOLOR === '0') return 'mono';
+
+  // Safe default for any recognized terminal
+  return '16';
+}
+
+
+/**
+ * Convert RGB to nearest 256-color palette index.
+ * Colors 16-231: 6x6x6 RGB cube. Colors 232-255: 24-step grayscale.
+ * Same algorithm used by charmbracelet/colorprofile and Rich.
+ */
+function tuiRgbTo256(r, g, b) {
+  // Check if it's close to grayscale
+  if (Math.abs(r - g) <= 2 && Math.abs(g - b) <= 2) {
+    if (r < 8) return 16;
+    if (r > 248) return 231;
+    return Math.round((r - 8) / 247 * 24) + 232;
+  }
+  // Map to 6x6x6 cube
+  return 16
+    + 36 * Math.round(r / 255 * 5)
+    + 6 * Math.round(g / 255 * 5)
+    + Math.round(b / 255 * 5);
+}
+
+/**
+ * Convert a 256-color index to the nearest ANSI 16-color code.
+ * Standard colors (0-7) map directly. Bright colors (8-15) map to bright.
+ * Extended colors (16-255) use a simplified nearest-match.
+ */
+function tuiColor256To16(index, isBackground) {
+  const offset = isBackground ? 10 : 0;
+  // Standard 16 colors map directly
+  if (index < 8) return 30 + index + offset;
+  if (index < 16) return 82 + index + offset; // 90 + (index - 8) + offset
+
+  // Extended colors: convert to RGB, then find nearest ANSI color
+  let r, g, b;
+  if (index >= 232) {
+    // Grayscale ramp
+    const v = (index - 232) * 10 + 8;
+    r = v; g = v; b = v;
+  } else {
+    // 6x6x6 cube
+    const ci = index - 16;
+    r = Math.floor(ci / 36) * 51;
+    g = Math.floor((ci % 36) / 6) * 51;
+    b = (ci % 6) * 51;
+  }
+  return tuiRgbTo16(r, g, b, isBackground);
+}
+
+/**
+ * Convert RGB to nearest ANSI 16-color SGR code.
+ * Uses weighted distance in RGB space (redmean approximation, same as Rich).
+ */
+function tuiRgbTo16(r, g, b, isBackground) {
+  const offset = isBackground ? 10 : 0;
+  // The 16 ANSI colors in RGB (approximate, terminal-dependent)
+  const ansi16 = [
+    [0,0,0], [170,0,0], [0,170,0], [170,85,0],
+    [0,0,170], [170,0,170], [0,170,170], [170,170,170],
+    [85,85,85], [255,85,85], [85,255,85], [255,255,85],
+    [85,85,255], [255,85,255], [85,255,255], [255,255,255],
+  ];
+  let bestIdx = 0;
+  let bestDist = Infinity;
+  for (let i = 0; i < 16; i++) {
+    const [cr, cg, cb] = ansi16[i];
+    // Redmean weighted distance (better perceptual match than Euclidean)
+    const rmean = (r + cr) / 2;
+    const dr = r - cr, dg = g - cg, db = b - cb;
+    const dist = (2 + rmean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rmean) / 256) * db * db;
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIdx = i;
+    }
+  }
+  return String(bestIdx < 8 ? 30 + bestIdx + offset : 82 + bestIdx + offset);
+}
+
+
 function tuiCleanup() {
   if (!tuiActive) return;
   tuiActive = false;
@@ -2727,9 +2860,13 @@ async function runTuiInit(req) {
   // Initialize cell buffers for cell-level diffing
   tuiEnsureCellBuffers(stdout.columns || 80, stdout.rows || 24);
 
+  // Detect color profile once at init (charmbracelet/colorprofile approach)
+  tuiColorProfile = tuiDetectColorProfile();
+
   return jsonResponse(req, {
     width: stdout.columns || 80,
     height: stdout.rows || 24,
+    colorProfile: tuiColorProfile,
   });
 }
 
@@ -3032,10 +3169,26 @@ function tuiParseSingleEvent(s) {
   return null; // unparseable
 }
 
+/**
+ * Convert a color value to an SGR code string, with automatic degradation
+ * based on the detected terminal color profile.
+ *
+ * The Elm app writes colors in the highest fidelity it wants. The renderer
+ * transparently downgrades based on tuiColorProfile — matching charmbracelet's
+ * approach where the app always writes TrueColor and the framework handles it.
+ *
+ * Degradation path: TrueColor → 256-color → 16-color → mono (no color)
+ */
 function tuiColorToAnsi(color, isBackground) {
+  const profile = tuiColorProfile || 'truecolor';
+
+  // NO_COLOR / mono: strip all color codes (bold/italic preserved in tuiStyleCodes)
+  if (profile === 'mono') return "";
+
   const offset = isBackground ? 10 : 0;
+
   if (typeof color === "string") {
-    // Standard and bright ANSI colors
+    // Named ANSI colors (16-color) — always supported in any non-mono profile
     const colorMap = {
       black: 30, red: 31, green: 32, yellow: 33, blue: 34, magenta: 35, cyan: 36, white: 37,
       brightBlack: 90, brightRed: 91, brightGreen: 92, brightYellow: 93,
@@ -3047,13 +3200,27 @@ function tuiColorToAnsi(color, isBackground) {
     }
     return "";
   }
-  if (color.color256 !== undefined) {
-    // 256-color mode
-    return `${isBackground ? 48 : 38};5;${color.color256}`;
-  }
+
   if (color.r !== undefined) {
-    // Truecolor (24-bit)
-    return `${isBackground ? 48 : 38};2;${color.r};${color.g};${color.b}`;
+    // Truecolor (24-bit) — degrade based on profile
+    if (profile === 'truecolor') {
+      return `${isBackground ? 48 : 38};2;${color.r};${color.g};${color.b}`;
+    }
+    if (profile === '256') {
+      return `${isBackground ? 48 : 38};5;${tuiRgbTo256(color.r, color.g, color.b)}`;
+    }
+    // 16-color: map to nearest ANSI color
+    return tuiRgbTo16(color.r, color.g, color.b, isBackground);
   }
+
+  if (color.color256 !== undefined) {
+    // 256-color — degrade to 16-color if needed
+    if (profile === 'truecolor' || profile === '256') {
+      return `${isBackground ? 48 : 38};5;${color.color256}`;
+    }
+    // 16-color: map 256 to nearest ANSI color
+    return tuiColor256To16(color.color256, isBackground);
+  }
+
   return "";
 }

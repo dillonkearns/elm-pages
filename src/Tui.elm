@@ -2,7 +2,7 @@ module Tui exposing
     ( Screen, text, styled, lines, concat, empty
     , Style, plain
     , Attribute, bold, dim, italic, underline, strikethrough, inverse
-    , Context
+    , Context, ColorProfile(..)
     , KeyEvent, Key(..), Direction(..), Modifier(..)
     , MouseEvent(..), MouseButton(..)
     , truncateWidth
@@ -29,7 +29,7 @@ from the `wolfadex/elm-ansi` package:
 
 @docs Attribute, bold, dim, italic, underline, strikethrough, inverse
 
-@docs Context
+@docs Context, ColorProfile
 
 @docs KeyEvent, Key, Direction, Modifier
 
@@ -207,7 +207,29 @@ inverse =
 type alias Context =
     { width : Int
     , height : Int
+    , colorProfile : ColorProfile
     }
+
+
+{-| Terminal color capability, detected at init from environment variables.
+Follows charmbracelet/colorprofile's detection precedence:
+`$NO_COLOR` → `$COLORTERM` → known terminals → `$TERM` suffix → default.
+
+The renderer automatically degrades colors based on the profile — the Elm app
+can always use the highest fidelity colors and they'll be converted. But this
+field lets apps adapt themes (e.g., use different palettes for 16-color).
+
+    view ctx model =
+        case ctx.colorProfile of
+            Tui.TrueColor -> richColorView model
+            _ -> basicColorView model
+
+-}
+type ColorProfile
+    = TrueColor
+    | Color256
+    | Color16
+    | Mono
 
 
 
