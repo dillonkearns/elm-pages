@@ -78,14 +78,11 @@ suite =
             [ test "resetScroll sets scroll to 0" <|
                 \() ->
                     let
-                        state : Layout.State
-                        state =
-                            Layout.init
-                                |> Layout.navigateDown "list"
-                                |> Layout.navigateDown "list"
-                                |> Layout.resetScroll "list"
+                        ( state, _ ) =
+                            Layout.navigateDown "list" (miniGitLayout { layout = Layout.init |> Layout.withContext { width = 80, height = 24 }, commits = sampleCommits, diffContent = "", modal = Nothing, lastAction = "" })
+                                (Layout.init |> Layout.withContext { width = 80, height = 24 })
                     in
-                    Layout.scrollPosition "list" state
+                    Layout.scrollPosition "list" (Layout.resetScroll "list" state)
                         |> Expect.equal 0
             ]
         , describe "layout"
@@ -680,18 +677,14 @@ handleAction action model =
     case action of
         DoNavigate direction ->
             let
-                newLayout =
+                ( newLayout, newIndex ) =
                     (if direction > 0 then
-                        Layout.navigateDown "commits"
+                        Layout.navigateDown "commits" (miniGitLayout model)
 
                      else
-                        Layout.navigateUp "commits"
+                        Layout.navigateUp "commits" (miniGitLayout model)
                     )
                         model.layout
-                        |> Layout.resetScroll "diff"
-
-                newIndex =
-                    Layout.selectedIndex "commits" newLayout
 
                 sha =
                     model.commits
@@ -701,7 +694,7 @@ handleAction action model =
                         |> Maybe.withDefault ""
             in
             ( { model
-                | layout = newLayout
+                | layout = Layout.resetScroll "diff" newLayout
                 , diffContent = diffForCommit sha
               }
             , Effect.none

@@ -451,20 +451,16 @@ navigateInFocusedPane direction model =
     case Layout.focusedPane model.layout of
         Just "commits" ->
             let
-                newLayout =
+                ( newLayout, newIndex ) =
                     (if direction > 0 then
-                        Layout.navigateDown "commits"
+                        Layout.navigateDown "commits" (myLayout model)
 
                      else
-                        Layout.navigateUp "commits"
+                        Layout.navigateUp "commits" (myLayout model)
                     )
                         model.layout
-                        |> Layout.resetScroll "diff"
-
-                newIndex =
-                    Layout.selectedIndex "commits" newLayout
             in
-            ( { model | layout = newLayout }
+            ( { model | layout = Layout.resetScroll "diff" newLayout }
             , loadDiffForIndex newIndex model.commits
             )
 

@@ -256,42 +256,137 @@ withContext ctx (State s) =
     State { s | context = { width = ctx.width, height = ctx.height } }
 
 
-{-| Move selection down in a pane.
+{-| Move selection down in a pane. Returns the updated state and the new
+selected index. Clamps at item bounds and auto-scrolls to keep the
+selection visible with padding (lazygit-style: 2 items visible below
+when scrolling down, snap back into view after mouse scroll).
+
+    ( newLayout, newIndex ) =
+        Layout.navigateDown "commits" (myLayout model) model.layout
+
 -}
-navigateDown : String -> State -> State
-navigateDown paneId (State s) =
+navigateDown : String -> Layout msg -> State -> ( State, Int )
+navigateDown paneId layout (State s) =
     let
         ps : PaneState
         ps =
             Dict.get paneId s.paneStates
                 |> Maybe.withDefault defaultPaneState
+
+        itemCount : Int
+        itemCount =
+            getItemCountForPane paneId layout
+
+        visibleHeight : Int
+        visibleHeight =
+            s.context.height - 2
+
+        -- Clamp to valid range
+        newIndex : Int
+        newIndex =
+            min (max 0 (itemCount - 1)) (ps.selectedIndex + 1)
+
+        -- Auto-scroll: keep selection in view with padding
+        scrollPadding : Int
+        scrollPadding =
+            2
+
+        newOffset : Int
+        newOffset =
+            ensureVisible newIndex ps.scrollOffset visibleHeight itemCount scrollPadding
     in
-    State
+    ( State
         { s
             | paneStates =
                 Dict.insert paneId
-                    { ps | selectedIndex = ps.selectedIndex + 1 }
+                    { selectedIndex = newIndex, scrollOffset = newOffset }
                     s.paneStates
         }
+    , newIndex
+    )
 
 
-{-| Move selection up in a pane.
+{-| Move selection up in a pane. Returns the updated state and the new
+selected index. Clamps at 0 and auto-scrolls to keep the selection
+visible with padding.
+
+    ( newLayout, newIndex ) =
+        Layout.navigateUp "commits" (myLayout model) model.layout
+
 -}
-navigateUp : String -> State -> State
-navigateUp paneId (State s) =
+navigateUp : String -> Layout msg -> State -> ( State, Int )
+navigateUp paneId layout (State s) =
     let
         ps : PaneState
         ps =
             Dict.get paneId s.paneStates
                 |> Maybe.withDefault defaultPaneState
+
+        itemCount : Int
+        itemCount =
+            getItemCountForPane paneId layout
+
+        visibleHeight : Int
+        visibleHeight =
+            s.context.height - 2
+
+        newIndex : Int
+        newIndex =
+            max 0 (ps.selectedIndex - 1)
+
+        scrollPadding : Int
+        scrollPadding =
+            2
+
+        newOffset : Int
+        newOffset =
+            ensureVisible newIndex ps.scrollOffset visibleHeight itemCount scrollPadding
     in
-    State
+    ( State
         { s
             | paneStates =
                 Dict.insert paneId
-                    { ps | selectedIndex = max 0 (ps.selectedIndex - 1) }
+                    { selectedIndex = newIndex, scrollOffset = newOffset }
                     s.paneStates
         }
+    , newIndex
+    )
+
+
+{-| Adjust scroll offset to keep an index visible within the viewport,
+with scroll padding on each side (lazygit-style).
+-}
+ensureVisible : Int -> Int -> Int -> Int -> Int -> Int
+ensureVisible index scrollOffset visibleHeight itemCount padding =
+    let
+        maxOffset : Int
+        maxOffset =
+            max 0 (itemCount - visibleHeight)
+    in
+    if index < scrollOffset + padding then
+        -- Selection too close to top (or above viewport): scroll up
+        clamp 0 maxOffset (index - padding)
+
+    else if index > scrollOffset + visibleHeight - 1 - padding then
+        -- Selection too close to bottom (or below viewport): scroll down
+        clamp 0 maxOffset (index - visibleHeight + 1 + padding)
+
+    else
+        -- Selection is in the comfortable zone: don't scroll
+        scrollOffset
+
+
+{-| Get item count for a specific pane from a Layout.
+-}
+getItemCountForPane : String -> Layout msg -> Int
+getItemCountForPane paneId layout =
+    case layout of
+        Horizontal panes ->
+            panes
+                |> List.filter (\p -> p.id == paneId)
+                |> List.head
+                |> Maybe.map (\p -> contentLineCount p.paneContent)
+                |> Maybe.withDefault 0
 
 
 {-| Get the currently selected index for a pane.
