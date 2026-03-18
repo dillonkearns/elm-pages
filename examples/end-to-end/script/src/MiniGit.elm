@@ -428,7 +428,7 @@ update msg model =
                     )
 
                 SelectCommit index ->
-                    ( model
+                    ( { model | layout = Layout.resetScroll "diff" model.layout }
                     , loadDiffForIndex index model.commits
                     )
 
