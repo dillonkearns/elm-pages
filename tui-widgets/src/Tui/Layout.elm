@@ -5,6 +5,7 @@ module Tui.Layout exposing
     , State, init, withContext
     , navigateDown, navigateUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
     , focusPane, focusedPane
+    , toggleMaximize, isMaximized
     , withPrefix, withFooter, withTitleScreen, withFooterScreen, withInlineFooter
     , handleMouse
     , toScreen, toRows
@@ -49,6 +50,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 @docs navigateDown, navigateUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
 
 @docs focusPane, focusedPane
+@docs toggleMaximize, isMaximized
 
 @docs withPrefix, withFooter, withTitleScreen, withFooterScreen, withInlineFooter
 
@@ -125,6 +127,7 @@ type State
         { paneStates : Dict String PaneState
         , context : { width : Int, height : Int }
         , focusedPaneId : Maybe String
+        , maximizedPaneId : Maybe String
         }
 
 
@@ -344,6 +347,7 @@ init =
         { paneStates = Dict.empty
         , context = { width = 80, height = 24 }
         , focusedPaneId = Nothing
+        , maximizedPaneId = Nothing
         }
 
 
@@ -702,6 +706,29 @@ focusedPane (State s) =
     s.focusedPaneId
 
 
+{-| Toggle a pane to full width (maximized), hiding siblings. Call again
+to restore the split layout. Inspired by lazygit's Enter/full-screen
+and tmux's Ctrl-z zoom.
+
+    Layout.toggleMaximize "docs" model.layout
+
+-}
+toggleMaximize : String -> State -> State
+toggleMaximize paneId (State s) =
+    if s.maximizedPaneId == Just paneId then
+        State { s | maximizedPaneId = Nothing }
+
+    else
+        State { s | maximizedPaneId = Just paneId }
+
+
+{-| Check if a pane is currently maximized.
+-}
+isMaximized : String -> State -> Bool
+isMaximized paneId (State s) =
+    s.maximizedPaneId == Just paneId
+
+
 {-| Add a prefix badge to the pane title (rendered before the title in the border).
 Like gocui's `TitlePrefix` — used for keyboard shortcut indicators like `[4]`.
 
@@ -877,6 +904,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
             { paneStates : Dict String PaneState
             , context : { width : Int, height : Int }
             , focusedPaneId : Maybe String
+            , maximizedPaneId : Maybe String
             }
         sWithCtx =
             { s | context = ctx }
@@ -1043,11 +1071,21 @@ toRows (State s) layout =
 
 
 toRowsHorizontal :
-    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, paneStates : Dict String PaneState }
+    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState }
     -> List (PaneConfig msg)
     -> List Screen
 toRowsHorizontal s panes =
     let
+        -- When a pane is maximized, only show that pane at full width
+        visiblePanes : List (PaneConfig msg)
+        visiblePanes =
+            case s.maximizedPaneId of
+                Just maxId ->
+                    panes |> List.filter (\p -> p.id == maxId)
+
+                Nothing ->
+                    panes
+
         totalWidth : Int
         totalWidth =
             s.context.width
@@ -1059,19 +1097,19 @@ toRowsHorizontal s panes =
         -- Reserve 1 column per gap between panes (paneCount - 1 gaps)
         gapCount : Int
         gapCount =
-            max 0 (List.length panes - 1)
+            max 0 (List.length visiblePanes - 1)
 
         widths : List Int
         widths =
-            resolveWidths (totalWidth - gapCount) (List.map .width panes)
+            resolveWidths (totalWidth - gapCount) (List.map .width visiblePanes)
 
         panesWithWidths : List ( PaneConfig msg, Int )
         panesWithWidths =
-            List.map2 Tuple.pair panes widths
+            List.map2 Tuple.pair visiblePanes widths
 
         paneCount : Int
         paneCount =
-            List.length panes
+            List.length visiblePanes
 
         renderRow : Int -> Screen
         renderRow row =
@@ -1308,7 +1346,7 @@ toRowsHorizontal s panes =
 
 
 toRowsVertical :
-    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, paneStates : Dict String PaneState }
+    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState }
     -> List (PaneConfig msg)
     -> List Screen
 toRowsVertical s panes =
