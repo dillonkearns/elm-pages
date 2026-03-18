@@ -165,7 +165,110 @@ when preceded by a `0;` in the same CSI.
 
 Source: tcell tracks `curstyle` and only emits SGR when `style != curstyle`.
 
-### 8. X10 mouse protocol fallback
+### 8. Net scroll coalescing (macOS trackpad bounce fix)
+
+**Impact:** Critical — eliminates scroll flicker on Magic Trackpad
+
+macOS trackpads generate two types of scroll events that cause problems for
+TUI applications:
+
+1. **Momentum scrolling**: After lifting the finger, macOS continues
+   generating scroll events with decreasing delta as inertia plays out.
+2. **Rubber-band bounce**: When content hits a scroll boundary (top or
+   bottom), macOS generates **reverse-direction** scroll events as part of
+   the bounce-back physics. These arrive interleaved with the real scroll
+   events: `↑↑↑↑↓↓↑↑↑↓↓`.
+
+The terminal mouse protocol (`\x1b[<64;x;yM` / `\x1b[<65;x;yM`) strips
+all phase and velocity information from these events. The TUI only sees
+bare "scrollUp" / "scrollDown" with no way to distinguish user-initiated
+from momentum/bounce events.
+
+iTerm2's own developer (George Nachman) described macOS scroll wheels as
+"a total shitshow" in `iTermScrollAccumulator.m`.
+
+**The problem**: Without mitigation, each bounce event triggers a full
+render cycle. The content visibly oscillates — e.g., the commit list jumps
+back and forth by 3 lines per bounce event. This was especially severe on
+the Magic Trackpad (external), which applies more aggressive momentum
+curves than the built-in MacBook trackpad.
+
+**Approaches tried and rejected:**
+
+- **Time-based direction suppression** (suppress reverse scroll within
+  150-300ms): Caught bounce events but also suppressed the user's
+  intentional direction changes. The first 300ms of genuine scroll-up
+  events after scrolling down were eaten, causing visible lag.
+
+- **Ratio-based suppression** (suppress minority direction at 3:1 ratio):
+  Similar problem — individual bounce events arrived before the ratio
+  built up, so they got through.
+
+- **Boundary no-op** (gocui pattern: skip state update when scroll would
+  be a no-op at offset=0): Only prevents unnecessary re-renders when
+  already AT the boundary. Doesn't help with bounce events that push
+  content AWAY from the boundary before subsequent events push it back.
+
+**The fix — net scroll coalescing:**
+
+When scroll events arrive while Elm is processing (queued), instead of
+coalescing only same-direction events, we **net ALL scroll events into a
+single delta**. ScrollDown(+5) followed by ScrollUp(-3) becomes
+ScrollDown(+2). The bounce cancels itself mathematically.
+
+```js
+// In the event queue handler:
+const lastDelta = last.action === "scrollDown" ? last.amount : -last.amount;
+const newDelta  = event.action === "scrollDown" ? event.amount : -event.amount;
+const net = lastDelta + newDelta;
+if (net > 0)      { last.action = "scrollDown"; last.amount = net; }
+else if (net < 0) { last.action = "scrollUp";   last.amount = -net; }
+else              { tuiEventQueue.pop(); } // net zero — remove entirely
+```
+
+This works because during the Elm round-trip (~1-5ms), multiple scroll
+events accumulate in the queue. The bounce events arrive interleaved with
+real events. Netting produces the correct cumulative scroll displacement,
+and the single resulting event triggers one clean render.
+
+**Why gocui/lazygit don't need this:**
+
+gocui's `View.ScrollUp()` has an `if amount != 0` guard that makes
+boundary scrolls a no-op. Combined with tcell's cell-level dirty
+tracking, no-op scrolls write zero bytes to the terminal. But more
+importantly, gocui/lazygit process events in-process (Go goroutines,
+microsecond latency) rather than through IPC — so there's less time for
+bounce events to accumulate between renders. Our BackendTask round-trip
+is 1-5ms, giving macOS plenty of time to generate bounce events.
+
+**Sources:**
+- [iTerm2 `iTermScrollAccumulator.m`](https://github.com/gnachman/iTerm2):
+  turnaround detection when delta × accumulated have opposite signs
+- [WezTerm issue #2651](https://github.com/wez/wezterm/issues/2651):
+  "scrolling down in Vim, once every couple of jumps down, the screen will
+  jump up instead" — same macOS trackpad problem
+- [Alacritty issue #2869](https://github.com/alacritty/alacritty/issues/2869):
+  macOS applies different scroll acceleration to mouse wheels vs trackpads
+- [Apple NSEvent documentation](https://developer.apple.com/documentation/appkit/nsevent):
+  momentum phase lifecycle (MayBegin → Began → Changed → Ended)
+- [gocui `view.go` ScrollUp/ScrollDown](https://github.com/jesseduffield/gocui):
+  `if amount != 0` boundary guard pattern
+
+### 9. Scroll boundary no-op (gocui pattern)
+
+**Impact:** Medium — reduces unnecessary re-renders at scroll limits
+
+When a scroll event would produce the same offset (already at top/bottom
+boundary), the Layout returns the exact same State — no Dict.insert, no
+field changes. This follows gocui's `if amount != 0` guard pattern.
+
+Without this, every momentum scroll event at the boundary triggers a full
+Elm update → view → encode → fill → diff cycle, even though zero cells
+change. While the cell diff correctly finds nothing dirty and writes
+nothing to the terminal, the CPU overhead of the encode+fill+diff for
+1920+ cells per frame adds up during rapid trackpad momentum.
+
+### 10. X10 mouse protocol fallback
 
 **Impact:** Compatibility — enables mouse on Termux and older terminals
 
@@ -192,6 +295,11 @@ bursts quickly, not from bigger jumps.
 
 **Lesson:** Consistent scroll distance > variable batched distance for
 perceived smoothness.
+
+**Note:** This was superseded by net scroll coalescing (section 8), which
+uses queue-based coalescing during the Elm round-trip rather than a timer.
+The key difference is that net coalescing handles opposite-direction events
+(bounce cancellation), not just same-direction batching.
 
 ## Key Research Findings
 

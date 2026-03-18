@@ -2442,6 +2442,12 @@ function getTimezoneDataTemporal(tzId, sinceMs, untilMs) {
 
 let tuiColorProfile = null; // detected once at init: 'truecolor' | '256' | '16' | 'mono'
 let tuiActive = false;
+// Scroll bounce suppression: macOS rubber-band effect sends reverse scroll
+// events when hitting a boundary. The Magic Trackpad's aggressive momentum
+// makes this especially visible. Track recent scroll direction + timestamp
+// to suppress bounce-back events within a short window.
+let tuiLastScrollDir = null; // 'scrollUp' | 'scrollDown' | null
+let tuiLastScrollTime = 0;
 let tuiEventQueue = []; // events that arrived during Elm processing
 let tuiEventResolve = null; // pending promise resolver for next wait
 let tuiLastRenderTime = 0; // timestamp of last actual terminal write
@@ -2540,7 +2546,7 @@ function tuiFlushCells(stdout) {
       if (curr.ch === prev.ch && curr.sgr === prev.sgr) continue;
 
       dirty = true;
-
+      dirtyCellCount++;
       // Cursor movement: only emit when cursor isn't already here
       if (cRow !== row || cCol !== col) {
         if (cRow === row) {
@@ -2811,14 +2817,44 @@ async function runTuiInit(req) {
       return;
     }
 
+    // Track scroll for coalescing
+    if (event.type === "mouse" && (event.action === "scrollUp" || event.action === "scrollDown")) {
+      tuiLastScrollDir = event.action;
+      tuiLastScrollTime = Date.now();
+    }
+
     if (tuiEventResolve) {
       // A wait is pending — resolve immediately (zero latency)
       const resolve = tuiEventResolve;
       tuiEventResolve = null;
       resolve(event);
     } else {
-      // No wait pending (Elm is processing) — queue for next wait
-      tuiEventQueue.push(event);
+      // No wait pending (Elm is processing) — queue for next wait.
+      // Net scroll coalescing: merge ALL scroll events (both directions)
+      // into a single net-delta event. This cancels out macOS rubber-band
+      // bounce events mathematically: 5 scrollDowns + 3 scrollUps (bounce)
+      // = net scrollDown with amount 2. One smooth scroll, no oscillation.
+      const last = tuiEventQueue.length > 0 ? tuiEventQueue[tuiEventQueue.length - 1] : null;
+      const isScroll = event.type === "mouse" && (event.action === "scrollUp" || event.action === "scrollDown");
+      const lastIsScroll = last && last.type === "mouse" && (last.action === "scrollUp" || last.action === "scrollDown");
+      if (isScroll && lastIsScroll) {
+        // Net the deltas: down is positive, up is negative
+        const lastDelta = last.action === "scrollDown" ? (last.amount || 1) : -(last.amount || 1);
+        const newDelta = event.action === "scrollDown" ? (event.amount || 1) : -(event.amount || 1);
+        const net = lastDelta + newDelta;
+        if (net > 0) {
+          last.action = "scrollDown";
+          last.amount = net;
+        } else if (net < 0) {
+          last.action = "scrollUp";
+          last.amount = -net;
+        } else {
+          // Net zero — remove the scroll event entirely
+          tuiEventQueue.pop();
+        }
+      } else {
+        tuiEventQueue.push(event);
+      }
     }
   });
 

@@ -517,17 +517,28 @@ handleMouse mouseEvent ctx (Horizontal panes) (State s) =
                         delta : Int
                         delta =
                             amount * 3
+
+                        newOffset : Int
+                        newOffset =
+                            clampScroll (contentLineCount config.paneContent) (ctx.height - 2) (ps.scrollOffset + delta)
                     in
-                    ( State
-                        { sWithCtx
-                            | paneStates =
-                                Dict.insert config.id
-                                    { ps | scrollOffset = clampScroll (contentLineCount config.paneContent) (ctx.height - 2) (ps.scrollOffset + delta) }
-                                    sWithCtx.paneStates
-                            , focusedPaneId = Just config.id
-                        }
-                    , Nothing
-                    )
+                    -- gocui pattern: skip state update entirely when scroll is a no-op
+                    -- at the boundary. This prevents unnecessary re-renders that cause
+                    -- flicker with high-frequency trackpad momentum events.
+                    if newOffset == ps.scrollOffset then
+                        ( State { sWithCtx | focusedPaneId = Just config.id }, Nothing )
+
+                    else
+                        ( State
+                            { sWithCtx
+                                | paneStates =
+                                    Dict.insert config.id
+                                        { ps | scrollOffset = newOffset }
+                                        sWithCtx.paneStates
+                                , focusedPaneId = Just config.id
+                            }
+                        , Nothing
+                        )
 
                 Nothing ->
                     ( State sWithCtx, Nothing )
@@ -544,16 +555,25 @@ handleMouse mouseEvent ctx (Horizontal panes) (State s) =
                         delta : Int
                         delta =
                             amount * 3
+
+                        newOffset : Int
+                        newOffset =
+                            max 0 (ps.scrollOffset - delta)
                     in
-                    ( State
-                        { sWithCtx
-                            | paneStates =
-                                Dict.insert config.id
-                                    { ps | scrollOffset = max 0 (ps.scrollOffset - delta) }
-                                    sWithCtx.paneStates
-                        }
-                    , Nothing
-                    )
+                    -- gocui pattern: skip when at boundary (offset already 0)
+                    if newOffset == ps.scrollOffset then
+                        ( State sWithCtx, Nothing )
+
+                    else
+                        ( State
+                            { sWithCtx
+                                | paneStates =
+                                    Dict.insert config.id
+                                        { ps | scrollOffset = newOffset }
+                                        sWithCtx.paneStates
+                            }
+                        , Nothing
+                        )
 
                 Nothing ->
                     ( State sWithCtx, Nothing )
