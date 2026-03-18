@@ -7,7 +7,7 @@ module Tui exposing
     , KeyEvent, Key(..), Direction(..), Modifier(..)
     , MouseEvent(..), MouseButton(..)
     , truncateWidth
-    , toString, toLines, lineCount
+    , toString, toLines, toScreenLines, lineCount
     , extractStyle
     , encodeScreen
     )
@@ -39,7 +39,7 @@ from the `wolfadex/elm-ansi` package:
 
 @docs MouseEvent, MouseButton
 
-@docs truncateWidth, extractStyle
+@docs truncateWidth, toScreenLines, extractStyle
 
 @docs toString, toLines, lineCount
 
@@ -387,6 +387,36 @@ toString screen =
     screen
         |> toLines
         |> String.join "\n"
+
+
+{-| Split a Screen into a list of row Screens, preserving styles.
+Unlike `toLines` (which returns `List String` and strips styles),
+this returns `List Screen` with full styling information intact.
+
+Useful for compositing: overlay a styled Screen on top of another
+row-by-row, or render a snapshot in the test stepper with colors.
+
+    rows = Tui.toScreenLines myScreen
+    -- Each row is a styled Screen
+
+-}
+toScreenLines : Screen -> List Screen
+toScreenLines screen =
+    flattenToSpanLines screen
+        |> List.map
+            (\spans ->
+                spans
+                    |> List.map
+                        (\span ->
+                            ScreenStyled
+                                { fg = span.style.foreground
+                                , bg = span.style.background
+                                , attributes = flatStyleToAttrs span.style
+                                }
+                                span.text
+                        )
+                    |> ScreenConcat
+            )
 
 
 {-| Extract the outermost style from a Screen. Returns `plain` for unstyled

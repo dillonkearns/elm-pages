@@ -280,12 +280,12 @@ stepperView ctx model =
                  , Tui.text ""
                  ]
                     ++ (snapshot.screen
-                            |> Tui.toLines
+                            |> Tui.toScreenLines
                             |> List.map
                                 (\line ->
                                     Tui.concat
                                         [ Tui.styled dimStyle "  │ "
-                                        , Tui.text line
+                                        , line
                                         ]
                                 )
                        )

@@ -92,10 +92,22 @@ export async function run(elmModulePath, options, options2) {
     // Compile (reuses the same pipeline as `run`).
     // Include tests/ and snapshot-tests/src/ as extra source directories
     // so test files outside source-directories can be compiled.
+    // Only include directories that actually exist.
+    const fs = await import("node:fs");
+    const possibleTestDirs = ["tests", "snapshot-tests/src"];
+    const extraSourceDirs = possibleTestDirs.filter((dir) => {
+      try {
+        fs.default.accessSync(path.join(projectDirectory, dir));
+        return true;
+      } catch (_) {
+        return false;
+      }
+    });
+
     await compileElmForScript(
       elmModulePath,
       { moduleName, projectDirectory, sourceDirectory },
-      { usesDb: false, extraSourceDirs: ["tests", "snapshot-tests/src"] }
+      { usesDb: false, extraSourceDirs }
     );
 
     const portsCheck = await needsPortsRecompilation(projectDirectory);
