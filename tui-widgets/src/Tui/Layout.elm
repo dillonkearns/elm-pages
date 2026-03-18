@@ -1006,7 +1006,7 @@ toRowsHorizontal s panes =
                                     titleContent =
                                         case paneConfig.titleScreen of
                                             Just screen ->
-                                                Tui.truncateWidth innerW screen
+                                                Tui.truncateWidth (innerW - 1) screen
 
                                             Nothing ->
                                                 Tui.styled borderStyle titleText
@@ -1015,30 +1015,45 @@ toRowsHorizontal s panes =
                                     titleWidth =
                                         case paneConfig.titleScreen of
                                             Just screen ->
-                                                String.length (Tui.toString (Tui.truncateWidth innerW screen))
+                                                String.length (Tui.toString (Tui.truncateWidth (innerW - 1) screen))
 
                                             Nothing ->
                                                 String.length titleText
 
+                                    -- Account for prefix dash(es): ╭─ for first, ─ for non-first
+                                    prefixWidth : Int
+                                    prefixWidth =
+                                        if isFirstPane then
+                                            1
+
+                                        else
+                                            1
+
                                     fillLen : Int
                                     fillLen =
-                                        max 0 (innerW - titleWidth)
+                                        max 0 (innerW - titleWidth - prefixWidth)
                                 in
                                 Tui.concat
                                     [ Tui.styled borderStyle
                                         (if isFirstPane then
-                                            "╭"
+                                            "╭─"
 
                                          else
-                                            "┬"
+                                            "─"
                                         )
                                     , titleContent
                                     , Tui.styled borderStyle (String.repeat fillLen "─")
-                                    , if isLastPane then
-                                        Tui.styled borderStyle "╮"
+                                    , Tui.styled borderStyle
+                                        (if isLastPane then
+                                            "╮"
 
-                                      else
-                                        Tui.empty
+                                         else if isFirstPane then
+                                            -- Junction between panes: ┬ uses THIS pane's style (green if focused)
+                                            "┬"
+
+                                         else
+                                            ""
+                                        )
                                     ]
 
                             else if row == totalHeight - 1 then
@@ -1071,7 +1086,7 @@ toRowsHorizontal s panes =
                                             "╰"
 
                                          else
-                                            "┴"
+                                            ""
                                         )
                                     , Tui.styled borderStyle (String.repeat dashLen "─")
                                     , if footerLen > 0 then
@@ -1081,6 +1096,10 @@ toRowsHorizontal s panes =
                                         Tui.empty
                                     , if isLastPane then
                                         Tui.styled borderStyle "╯"
+
+                                      else if isFirstPane then
+                                        -- Junction uses this pane's style (green if focused)
+                                        Tui.styled borderStyle "┴"
 
                                       else
                                         Tui.empty
