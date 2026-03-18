@@ -61,6 +61,7 @@ insertText : String -> State -> State
 insertText str (State s) =
     let
         -- Strip newlines for single-line input
+        cleaned : String
         cleaned =
             str
                 |> String.replace "\n" " "

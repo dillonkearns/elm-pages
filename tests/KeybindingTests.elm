@@ -262,10 +262,12 @@ suite =
             , test "blank line separates groups" <|
                 \() ->
                     let
+                        rows : List String
                         rows =
                             Keybinding.helpRows "" [ sampleCommits, sampleGlobal ]
                                 |> List.map Tui.toString
 
+                        blankLines : List String
                         blankLines =
                             rows |> List.filter (\r -> String.trim r == "")
                     in
