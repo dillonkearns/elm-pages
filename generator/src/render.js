@@ -2448,6 +2448,7 @@ let tuiActive = false;
 // to suppress bounce-back events within a short window.
 let tuiLastScrollDir = null; // 'scrollUp' | 'scrollDown' | null
 let tuiLastScrollTime = 0;
+let tuiTickTimer = null; // setInterval ID for tick events
 let tuiEventQueue = []; // events that arrived during Elm processing
 let tuiEventResolve = null; // pending promise resolver for next wait
 let tuiLastRenderTime = 0; // timestamp of last actual terminal write
@@ -2748,6 +2749,10 @@ function tuiCleanup() {
   tuiLastScreenData = null;
   tuiCellWidth = 0;
   tuiCellHeight = 0;
+  if (tuiTickTimer) {
+    clearInterval(tuiTickTimer);
+    tuiTickTimer = null;
+  }
 
   // Restore raw mode BEFORE writing escape sequences
   if (process.stdin.isTTY && process.stdin.isRaw) {
@@ -3021,7 +3026,33 @@ async function runTuiRenderAndWait(req) {
   // Combined render + wait in a single BackendTask round-trip
   const args = req.body.args[0];
   tuiRenderScreen(args.screen);
-  return runTuiWaitEventImpl(req, args.interests);
+
+  // Start/stop tick timer based on subscription interests.
+  // Like gocui's StartTicking: 50ms timer generates tick events
+  // while any subscription is interested in ticks.
+  const interests = args.interests || [];
+  const wantsTick = interests.includes("tick");
+  if (wantsTick && !tuiTickTimer) {
+    tuiTickTimer = setInterval(() => {
+      const tickEvent = { type: "tick" };
+      if (tuiEventResolve) {
+        const resolve = tuiEventResolve;
+        tuiEventResolve = null;
+        resolve(tickEvent);
+      } else {
+        // Coalesce: only keep one tick in the queue
+        const hasQueuedTick = tuiEventQueue.some(e => e.type === "tick");
+        if (!hasQueuedTick) {
+          tuiEventQueue.push(tickEvent);
+        }
+      }
+    }, 50);
+  } else if (!wantsTick && tuiTickTimer) {
+    clearInterval(tuiTickTimer);
+    tuiTickTimer = null;
+  }
+
+  return runTuiWaitEventImpl(req);
 }
 
 
