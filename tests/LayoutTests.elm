@@ -487,6 +487,51 @@ suite =
                     Layout.scrollPosition "list" newState
                         |> Expect.equal 3
             ]
+        , describe "Scrollbar"
+            [ test "scrollbar shows on right border when content overflows" <|
+                \() ->
+                    tallList
+                        |> renderAt { width = 30, height = 7 }
+                        |> String.contains "█"
+                        |> Expect.equal True
+            , test "two-pane layout has scrollbar as shared border" <|
+                \() ->
+                    let
+                        twoPane : Layout.Layout Int
+                        twoPane =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "L", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("▸ " ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        (List.range 0 20 |> List.map (\i -> "item " ++ String.fromInt i))
+                                    )
+                                , Layout.pane "right"
+                                    { title = "R", width = Layout.fill }
+                                    (Layout.content [ Tui.text "detail" ])
+                                ]
+
+                        rendered : String
+                        rendered =
+                            renderAt { width = 40, height = 10 } twoPane
+
+                        contentLines : List String
+                        contentLines =
+                            rendered
+                                |> String.lines
+                                |> List.filter (String.contains "item")
+                    in
+                    -- Scrollbar █ should appear (left pane has 20+ items in 8 visible rows)
+                    -- It should NOT have █│ (double border) — █ IS the shared border
+                    Expect.all
+                        [ \lines -> lines |> List.any (String.contains "█") |> Expect.equal True
+                        , \lines -> lines |> List.any (String.contains "█│") |> Expect.equal False
+                        ]
+                        contentLines
+            ]
         , describe "Focus"
             [ test "focused pane border contains green styling" <|
                 \() ->

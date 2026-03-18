@@ -1169,7 +1169,11 @@ toRowsHorizontal s panes =
                                             Tui.text (String.repeat padding " ")
                                 in
                                 Tui.concat
-                                    [ Tui.styled borderStyle "│"
+                                    [ if isFirstPane then
+                                        Tui.styled borderStyle "│"
+
+                                      else
+                                        Tui.empty
                                     , truncatedLine
                                     , paddingScreen
                                     , scrollbarBorder borderStyle paneConfig.paneContent ps contentRow totalHeight
