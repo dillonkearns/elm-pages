@@ -135,6 +135,7 @@ counterTest =
                     ]
                 }
         }
+        |> PagesProgram.withModelToString Debug.toString
         |> PagesProgram.clickButton "+1"
         |> PagesProgram.clickButton "+1"
         |> PagesProgram.clickButton "+1"
