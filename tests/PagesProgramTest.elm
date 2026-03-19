@@ -254,6 +254,85 @@ all =
                         |> PagesProgram.ensureViewHas [ Selector.text "Stars: 1234" ]
                         |> PagesProgram.done
             ]
+        , describe "Snapshots"
+            [ test "toSnapshots records init snapshot" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.toSnapshots
+                        |> List.map .label
+                        |> Expect.equal [ "start" ]
+            , test "toSnapshots records each interaction" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { count = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Increment ->
+                                        ( { model | count = model.count + 1 }, [] )
+
+                                    Decrement ->
+                                        ( { model | count = model.count - 1 }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Counter"
+                                , body =
+                                    [ Html.text (String.fromInt model.count)
+                                    , Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "+1"
+                        |> PagesProgram.clickButton "+1"
+                        |> PagesProgram.ensureViewHas [ Selector.text "2" ]
+                        |> PagesProgram.toSnapshots
+                        |> List.map .label
+                        |> Expect.equal [ "start", "clickButton \"+1\"", "clickButton \"+1\"" ]
+            , test "snapshots contain rendered HTML" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { count = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Increment ->
+                                        ( { model | count = model.count + 1 }, [] )
+
+                                    Decrement ->
+                                        ( model, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Count: " ++ String.fromInt model.count
+                                , body =
+                                    [ Html.text ("Count: " ++ String.fromInt model.count)
+                                    , Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "+1"
+                        |> PagesProgram.toSnapshots
+                        |> List.map .title
+                        |> Expect.equal [ "Count: 0", "Count: 1" ]
+            , test "error snapshots include the error" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.clickButton "Missing"
+                        |> PagesProgram.toSnapshots
+                        |> List.length
+                        |> Expect.equal 2
+            ]
         ]
 
 

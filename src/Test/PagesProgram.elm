@@ -6,6 +6,7 @@ module Test.PagesProgram exposing
     , ensureViewHas, ensureViewHasNot, ensureView
     , simulateHttpGet, simulateHttpPost
     , done
+    , Snapshot, toSnapshots, withModelToString
     )
 
 {-| Test elm-pages programs with realistic simulation. The test runner resolves
@@ -25,7 +26,7 @@ simulated.
                 { data = BackendTask.succeed "Hello!"
                 , init = \greeting -> ( { greeting = greeting }, [] )
                 , update = \_ model -> ( model, [] )
-                , view = \model -> { title = "Home", body = [ Html.text model.greeting ] }
+                , view = \() model -> { title = "Home", body = [ Html.text model.greeting ] }
                 }
                 |> PagesProgram.ensureViewHas [ Selector.text "Hello!" ]
                 |> PagesProgram.done
@@ -43,6 +44,14 @@ simulated.
 @docs simulateHttpGet, simulateHttpPost
 
 @docs done
+
+
+## Snapshots
+
+Snapshots record the rendered view at each step of the test pipeline. Use them
+with the visual test runner to step through your test in the browser.
+
+@docs Snapshot, toSnapshots, withModelToString
 
 -}
 
@@ -69,6 +78,26 @@ type ProgramTest model msg
 type alias State model msg =
     { phase : Phase model msg
     , error : Maybe String
+    , snapshots : List Snapshot
+    , modelToString : Maybe (model -> String)
+    }
+
+
+{-| A snapshot of the program state at a point in the test pipeline. Used by
+the visual test runner to step through test execution in the browser.
+
+`body` contains the rendered HTML at this step. `title` is the page title.
+`rerender` lets the viewer re-render the view (e.g., at a different size).
+`modelState` contains the model as a string if `withModelToString` was used.
+
+-}
+type alias Snapshot =
+    { label : String
+    , title : String
+    , body : List (Html Never)
+    , rerender : () -> { title : String, body : List (Html Never) }
+    , hasPendingEffects : Bool
+    , modelState : Maybe String
     }
 
 
@@ -141,10 +170,39 @@ start config =
         phase : Phase model msg
         phase =
             resolveDataPhase bt config.init config.view config.update
+
+        initSnapshot : List Snapshot
+        initSnapshot =
+            case phase of
+                Ready ready ->
+                    let
+                        viewResult =
+                            ready.getView ready.model
+                    in
+                    [ { label = "start"
+                      , title = viewResult.title
+                      , body = (mapViewToSnapshot viewResult).body
+                      , rerender = \() -> mapViewToSnapshot (ready.getView ready.model)
+                      , hasPendingEffects = not (List.isEmpty ready.pendingEffects)
+                      , modelState = Nothing
+                      }
+                    ]
+
+                Resolving _ ->
+                    [ { label = "start"
+                      , title = "(resolving data...)"
+                      , body = []
+                      , rerender = \() -> { title = "(resolving data...)", body = [] }
+                      , hasPendingEffects = True
+                      , modelState = Nothing
+                      }
+                    ]
     in
     ProgramTest
         { phase = phase
         , error = Nothing
+        , snapshots = initSnapshot
+        , modelToString = Nothing
         }
 
 
@@ -236,7 +294,7 @@ clickButton buttonText (ProgramTest state) =
                     in
                     case eventResult of
                         Ok msg ->
-                            applyMsg msg (ProgramTest state)
+                            applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") msg (ProgramTest state)
 
                         Err errMsg ->
                             ProgramTest
@@ -249,7 +307,6 @@ clickButton buttonText (ProgramTest state) =
                                                 ++ errMsg
                                             )
                                 }
-
 
 
 {-| Simulate typing text into an input field. Finds the input by its `id`
@@ -302,7 +359,7 @@ fillIn fieldId value (ProgramTest state) =
                     in
                     case eventResult of
                         Ok msg ->
-                            applyMsg msg (ProgramTest state)
+                            applyMsgWithLabel ("fillIn \"" ++ fieldId ++ "\"") msg (ProgramTest state)
 
                         Err errMsg ->
                             ProgramTest
@@ -378,15 +435,22 @@ resolveEffect simulate (ProgramTest state) =
                                     let
                                         ( newModel, newEffects ) =
                                             ready.update msg ready.model
+
+                                        newReady =
+                                            { ready
+                                                | model = newModel
+                                                , pendingEffects = rest ++ newEffects
+                                            }
+
+                                        viewResult =
+                                            newReady.getView newReady.model
                                     in
                                     ProgramTest
                                         { state
-                                            | phase =
-                                                Ready
-                                                    { ready
-                                                        | model = newModel
-                                                        , pendingEffects = rest ++ newEffects
-                                                    }
+                                            | phase = Ready newReady
+                                            , snapshots =
+                                                state.snapshots
+                                                    ++ [ makeSnapshot "resolveEffect" newReady state.modelToString ]
                                         }
 
                                 Err errMsg ->
@@ -565,6 +629,77 @@ done (ProgramTest state) =
 
 
 
+-- SNAPSHOTS
+
+
+{-| Extract snapshots from a test pipeline. Each step (start, clickButton,
+fillIn, resolveEffect, simulateHttp) records a snapshot of the rendered view.
+
+If the pipeline encountered an error, a final snapshot with the error is
+appended so it's visible in the test stepper.
+
+Use this with the visual test runner to step through test execution in the
+browser.
+
+    myTest
+        |> PagesProgram.toSnapshots
+        |> List.map .label
+        -- [ "start", "clickButton \"+1\"", "clickButton \"+1\"" ]
+
+-}
+toSnapshots : ProgramTest model msg -> List Snapshot
+toSnapshots (ProgramTest state) =
+    case state.error of
+        Just errorMsg ->
+            state.snapshots
+                ++ [ { label = "ERROR"
+                     , title = "Error"
+                     , body = [ Html.text errorMsg ]
+                     , rerender = \() -> { title = "Error", body = [ Html.text errorMsg ] }
+                     , hasPendingEffects = False
+                     , modelState = Nothing
+                     }
+                   ]
+
+        Nothing ->
+            state.snapshots
+
+
+{-| Enable model state inspection in snapshots. Pass `Debug.toString` (or any
+`model -> String` function) and each snapshot will include the model state.
+
+Since published packages cannot use `Debug.toString` directly, this must be
+called from your test code:
+
+    myTest
+        |> PagesProgram.withModelToString Debug.toString
+        |> PagesProgram.clickButton "+1"
+        |> PagesProgram.toSnapshots
+
+-}
+withModelToString : (model -> String) -> ProgramTest model msg -> ProgramTest model msg
+withModelToString fn (ProgramTest state) =
+    let
+        updatedSnapshots =
+            state.snapshots
+                |> List.map
+                    (\snapshot ->
+                        case state.phase of
+                            Ready ready ->
+                                { snapshot | modelState = Just (fn ready.model) }
+
+                            _ ->
+                                snapshot
+                    )
+    in
+    ProgramTest
+        { state
+            | modelToString = Just fn
+            , snapshots = updatedSnapshots
+        }
+
+
+
 -- INTERNAL HELPERS
 
 
@@ -579,7 +714,28 @@ applySimulation sim (ProgramTest state) =
                 Resolving (Resolver resolver) ->
                     case resolver.advance sim of
                         Advanced newPhase ->
-                            ProgramTest { state | phase = newPhase }
+                            let
+                                newState =
+                                    { state | phase = newPhase }
+
+                                simLabel =
+                                    case sim of
+                                        SimHttpGet url _ ->
+                                            "simulateHttpGet " ++ url
+
+                                        SimHttpPost url _ ->
+                                            "simulateHttpPost " ++ url
+
+                                snapshot =
+                                    case newPhase of
+                                        Ready ready ->
+                                            [ makeSnapshot simLabel ready state.modelToString ]
+
+                                        Resolving _ ->
+                                            []
+                            in
+                            ProgramTest
+                                { newState | snapshots = state.snapshots ++ snapshot }
 
                         AdvanceError errMsg ->
                             ProgramTest { state | error = Just errMsg }
@@ -592,10 +748,10 @@ applySimulation sim (ProgramTest state) =
                         }
 
 
-{-| Apply a message through update and re-render.
+{-| Apply a message through update, record a snapshot, and re-render.
 -}
-applyMsg : msg -> ProgramTest model msg -> ProgramTest model msg
-applyMsg msg (ProgramTest state) =
+applyMsgWithLabel : String -> msg -> ProgramTest model msg -> ProgramTest model msg
+applyMsgWithLabel label msg (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -612,16 +768,54 @@ applyMsg msg (ProgramTest state) =
                     let
                         ( newModel, newEffects ) =
                             ready.update msg ready.model
+
+                        newReady =
+                            { ready
+                                | model = newModel
+                                , pendingEffects = newEffects
+                            }
                     in
                     ProgramTest
                         { state
-                            | phase =
-                                Ready
-                                    { ready
-                                        | model = newModel
-                                        , pendingEffects = newEffects
-                                    }
+                            | phase = Ready newReady
+                            , snapshots =
+                                state.snapshots
+                                    ++ [ makeSnapshot label newReady state.modelToString ]
                         }
+
+
+makeSnapshot : String -> ReadyState model msg -> Maybe (model -> String) -> Snapshot
+makeSnapshot label ready modelToString =
+    let
+        viewResult =
+            ready.getView ready.model
+    in
+    { label = label
+    , title = viewResult.title
+    , body = (mapViewToSnapshot viewResult).body
+    , rerender = \() -> mapViewToSnapshot (ready.getView ready.model)
+    , hasPendingEffects = not (List.isEmpty ready.pendingEffects)
+    , modelState = Maybe.map (\fn -> fn ready.model) modelToString
+    }
+
+
+mapViewToSnapshot : { title : String, body : List (Html msg) } -> { title : String, body : List (Html Never) }
+mapViewToSnapshot v =
+    -- We store body as Html Never for the snapshot viewer (non-interactive).
+    -- This is safe because the viewer maps all events to NoOp anyway.
+    { title = v.title, body = unsafeCoerceHtmlList v.body }
+
+
+unsafeCoerceHtmlList : List (Html a) -> List (Html b)
+unsafeCoerceHtmlList =
+    -- elm-explorations/test uses the same trick internally.
+    -- Html is a virtual-dom node; the msg type param is phantom.
+    List.map (Html.map (\_ -> crashNever ()))
+
+
+crashNever : () -> a
+crashNever () =
+    crashNever ()
 
 
 {-| Build a data-phase resolver that hides the `data` type parameter.
@@ -655,10 +849,6 @@ resolveDataPhase bt initFn viewFn updateFn =
                     -- BackendTask completed with FatalError
                     Ready
                         { model =
-                            -- We don't have a model since init was never called.
-                            -- This will show up as an error when the user calls done/expect.
-                            -- For now, we store the error in the error field instead.
-                            -- TODO: handle this more gracefully
                             Tuple.first (initFn (crashData err))
                         , getView = viewFn (crashData err)
                         , update = updateFn
@@ -730,6 +920,4 @@ stillRunningDescription pendingRequests =
 
 crashData : FatalError -> a
 crashData _ =
-    -- This should never be reached in well-formed tests.
-    -- When the data BackendTask fails, the test should check for the failure.
     crashData (FatalError.fromString "unreachable")
