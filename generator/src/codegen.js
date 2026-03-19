@@ -61,6 +61,7 @@ export async function generate(basePath) {
     ),
     writeFileIfChanged("./.elm-pages/Main.elm", browserCode.mainModule),
     writeFileIfChanged("./.elm-pages/Route.elm", browserCode.routesModule),
+    writeFileIfChanged("./.elm-pages/TestApp.elm", browserCode.testAppModule),
     writeFetcherModules("./.elm-pages", browserCode.fetcherModules),
     writeFetcherModules(
       "./elm-stuff/elm-pages/client/.elm-pages",
