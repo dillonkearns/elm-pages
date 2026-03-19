@@ -54,7 +54,8 @@
         "Tui.Test",
         "Tui.Test.Stepper",
         "Test.BackendTask",
-        "Test.BackendTask.Time"
+        "Test.BackendTask.Time",
+        "Test.PagesProgram"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
