@@ -175,6 +175,80 @@ suite =
                         |> Tui.toString
                         |> Expect.equal "hello world"
             ]
+        , describe "wrapWidth"
+            [ test "short text returns single line unchanged" <|
+                \() ->
+                    Tui.text "hello"
+                        |> Tui.wrapWidth 20
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "hello" ]
+            , test "wraps at word boundary" <|
+                \() ->
+                    Tui.text "hello world foo"
+                        |> Tui.wrapWidth 11
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "hello world", "foo" ]
+            , test "wraps long text into multiple lines" <|
+                \() ->
+                    Tui.text "one two three four five"
+                        |> Tui.wrapWidth 10
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "one two", "three four", "five" ]
+            , test "preserves style across wrap" <|
+                \() ->
+                    Tui.text "hello world"
+                        |> Tui.bold
+                        |> Tui.wrapWidth 6
+                        |> List.map (\s -> ( Tui.toString s, Tui.extractStyle s ))
+                        |> Expect.equal
+                            [ ( "hello", { fg = Nothing, bg = Nothing, attributes = [ Tui.Bold ] } )
+                            , ( "world", { fg = Nothing, bg = Nothing, attributes = [ Tui.Bold ] } )
+                            ]
+            , test "preserves styles in concat across wrap boundary" <|
+                \() ->
+                    Tui.concat
+                        [ Tui.text "This is a "
+                        , Tui.text "very important" |> Tui.bold
+                        , Tui.text " paragraph."
+                        ]
+                        |> Tui.wrapWidth 24
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "This is a very important", "paragraph." ]
+            , test "word longer than maxWidth is broken mid-word" <|
+                \() ->
+                    Tui.text "abcdefghij rest"
+                        |> Tui.wrapWidth 5
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "abcde", "fghij", "rest" ]
+            , test "empty screen returns empty list" <|
+                \() ->
+                    Tui.empty
+                        |> Tui.wrapWidth 10
+                        |> Expect.equal []
+            , test "single word exactly at width" <|
+                \() ->
+                    Tui.text "hello"
+                        |> Tui.wrapWidth 5
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "hello" ]
+            , test "multiple spaces treated as break points" <|
+                \() ->
+                    Tui.text "a b c d e"
+                        |> Tui.wrapWidth 5
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "a b c", "d e" ]
+            , test "styled span split preserves style on both halves" <|
+                \() ->
+                    -- "very important" is bold, gets split across lines
+                    Tui.concat
+                        [ Tui.text "xx "
+                        , Tui.text "aaa bbb" |> Tui.fg Ansi.Color.red
+                        , Tui.text " end"
+                        ]
+                        |> Tui.wrapWidth 7
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "xx aaa", "bbb end" ]
+            ]
         , describe "TuiTest - Counter"
             [ test "initial view shows count 0" <|
                 \() ->

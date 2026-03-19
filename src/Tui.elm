@@ -6,7 +6,7 @@ module Tui exposing
     , Context, ColorProfile(..)
     , KeyEvent, Key(..), Direction(..), Modifier(..)
     , MouseEvent(..), MouseButton(..)
-    , truncateWidth
+    , truncateWidth, wrapWidth
     , toString, toLines, toScreenLines, lineCount
     , extractStyle
     , encodeScreen
@@ -39,7 +39,7 @@ from the `wolfadex/elm-ansi` package:
 
 @docs MouseEvent, MouseButton
 
-@docs truncateWidth, toScreenLines, extractStyle
+@docs truncateWidth, wrapWidth, toScreenLines, extractStyle
 
 @docs toString, toLines, lineCount
 
@@ -536,6 +536,226 @@ truncateSpans remaining spans =
 
                 else
                     [ { span | text = String.left (remaining - 1) span.text ++ "…" } ]
+
+
+{-| Wrap a Screen to a maximum width, preserving styles across line breaks.
+Returns a list of Screens, one per wrapped line.
+
+    Tui.concat
+        [ Tui.text "This is a "
+        , Tui.text "very important" |> Tui.bold
+        , Tui.text " paragraph about decoding JSON values."
+        ]
+        |> Tui.wrapWidth 30
+    -- Returns 3 Screens with "very important" still bold
+
+Wraps at word boundaries (spaces). Words longer than `maxWidth` are broken
+mid-word. Returns `[]` for empty screens.
+
+-}
+wrapWidth : Int -> Screen -> List Screen
+wrapWidth maxWidth screen =
+    let
+        spans : List Span
+        spans =
+            case flattenToSpanLines screen of
+                first :: _ ->
+                    first
+
+                [] ->
+                    []
+    in
+    if List.isEmpty spans then
+        []
+
+    else
+        wrapSpans maxWidth spans
+            |> List.map spansToScreen
+
+
+spansToScreen : List Span -> Screen
+spansToScreen spans =
+    case spans of
+        [] ->
+            empty
+
+        _ ->
+            spans
+                |> List.map
+                    (\span ->
+                        ScreenStyled
+                            { fg = span.style.foreground
+                            , bg = span.style.background
+                            , attributes = flatStyleToAttrs span.style
+                            }
+                            span.text
+                    )
+                |> ScreenConcat
+
+
+{-| Wrap a flat list of spans into lines, each fitting within maxWidth.
+Uses a greedy algorithm: walk character by character, tracking column
+and last space position. When adding a character would exceed maxWidth,
+break at the last space (or mid-word if no space found).
+-}
+wrapSpans : Int -> List Span -> List (List Span)
+wrapSpans maxWidth spans =
+    let
+        chars : List { ch : Char, style : FlatStyle }
+        chars =
+            spans
+                |> List.concatMap
+                    (\span ->
+                        String.toList span.text
+                            |> List.map (\ch -> { ch = ch, style = span.style })
+                    )
+    in
+    wrapChars maxWidth chars
+
+
+{-| Greedy word-wrap on a flat character list.
+-}
+wrapChars : Int -> List { ch : Char, style : FlatStyle } -> List (List Span)
+wrapChars maxWidth chars =
+    -- elm-review: known-unoptimized-recursion
+    if List.isEmpty chars then
+        []
+
+    else if List.length chars <= maxWidth then
+        -- Everything fits on one line
+        [ charsToSpans chars ]
+
+    else
+        let
+            -- Take up to maxWidth characters as the candidate line
+            lineChars : List { ch : Char, style : FlatStyle }
+            lineChars =
+                List.take maxWidth chars
+
+            -- Check if the character right after maxWidth is a space
+            -- (natural word boundary — no need to backtrack)
+            nextChar : Maybe Char
+            nextChar =
+                List.drop maxWidth chars |> List.head |> Maybe.map .ch
+
+            -- Check if the last char in lineChars is a space
+            lastCharIsSpace : Bool
+            lastCharIsSpace =
+                List.drop (maxWidth - 1) lineChars |> List.head |> Maybe.map .ch |> (==) (Just ' ')
+        in
+        if nextChar == Just ' ' || lastCharIsSpace then
+            -- Clean break at maxWidth boundary
+            let
+                trimmedLine : List { ch : Char, style : FlatStyle }
+                trimmedLine =
+                    trimTrailingSpaces lineChars
+
+                restChars : List { ch : Char, style : FlatStyle }
+                restChars =
+                    List.drop maxWidth chars |> dropWhile (\c -> c.ch == ' ')
+            in
+            charsToSpans trimmedLine :: wrapChars maxWidth restChars
+
+        else
+            -- Need to backtrack to last space within the window
+            let
+                lastSpaceIdx : Maybe Int
+                lastSpaceIdx =
+                    lineChars
+                        |> List.indexedMap Tuple.pair
+                        |> List.filterMap
+                            (\( i, c ) ->
+                                if c.ch == ' ' then
+                                    Just i
+
+                                else
+                                    Nothing
+                            )
+                        |> List.reverse
+                        |> List.head
+            in
+            case lastSpaceIdx of
+                Just spaceIdx ->
+                    let
+                        linePart : List { ch : Char, style : FlatStyle }
+                        linePart =
+                            List.take spaceIdx lineChars
+
+                        restPart : List { ch : Char, style : FlatStyle }
+                        restPart =
+                            List.drop (spaceIdx + 1) chars
+                    in
+                    charsToSpans linePart :: wrapChars maxWidth restPart
+
+                Nothing ->
+                    -- No space found — forced mid-word break at maxWidth
+                    charsToSpans lineChars
+                        :: wrapChars maxWidth (List.drop maxWidth chars)
+
+
+trimTrailingSpaces : List { ch : Char, style : FlatStyle } -> List { ch : Char, style : FlatStyle }
+trimTrailingSpaces chars =
+    List.reverse chars
+        |> dropWhile (\c -> c.ch == ' ')
+        |> List.reverse
+
+
+dropWhile : (a -> Bool) -> List a -> List a
+dropWhile pred list =
+    -- elm-review: known-unoptimized-recursion
+    case list of
+        [] ->
+            []
+
+        x :: xs ->
+            if pred x then
+                dropWhile pred xs
+
+            else
+                list
+
+
+takeWhile : (a -> Bool) -> List a -> List a
+takeWhile pred list =
+    -- elm-review: known-unoptimized-recursion
+    case list of
+        [] ->
+            []
+
+        x :: xs ->
+            if pred x then
+                x :: takeWhile pred xs
+
+            else
+                []
+
+
+{-| Convert a list of styled characters back into a list of spans,
+merging adjacent characters with the same style.
+-}
+charsToSpans : List { ch : Char, style : FlatStyle } -> List Span
+charsToSpans chars =
+    -- elm-review: known-unoptimized-recursion
+    case chars of
+        [] ->
+            []
+
+        first :: rest ->
+            let
+                sameStyle : List { ch : Char, style : FlatStyle }
+                sameStyle =
+                    takeWhile (\c -> c.style == first.style) rest
+
+                spanText : String
+                spanText =
+                    String.fromList
+                        (first.ch :: List.map .ch sameStyle)
+
+                remaining : List { ch : Char, style : FlatStyle }
+                remaining =
+                    List.drop (List.length sameStyle) rest
+            in
+            { text = spanText, style = first.style } :: charsToSpans remaining
 
 
 flatStyleToAttrs : FlatStyle -> List Attribute
