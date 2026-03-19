@@ -254,6 +254,41 @@ all =
                         |> PagesProgram.ensureViewHas [ Selector.text "Stars: 1234" ]
                         |> PagesProgram.done
             ]
+        , describe "check"
+            [ test "checking a checkbox updates the view" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { agreed = False }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    ToggleAgreed checked ->
+                                        ( { model | agreed = checked }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Form"
+                                , body =
+                                    [ Html.input
+                                        [ Attr.id "agree"
+                                        , Attr.type_ "checkbox"
+                                        , Attr.checked model.agreed
+                                        , Html.Events.onCheck ToggleAgreed
+                                        ]
+                                        []
+                                    , if model.agreed then
+                                        Html.text "Terms accepted"
+
+                                      else
+                                        Html.text "Please accept terms"
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHas [ Selector.text "Please accept terms" ]
+                        |> PagesProgram.check "agree" True
+                        |> PagesProgram.ensureViewHas [ Selector.text "Terms accepted" ]
+                        |> PagesProgram.done
+            ]
         , describe "Snapshots"
             [ test "toSnapshots records init snapshot" <|
                 \() ->
@@ -343,6 +378,10 @@ type CounterMsg
 
 type SearchMsg
     = UpdateQuery String
+
+
+type CheckMsg
+    = ToggleAgreed Bool
 
 
 type StarsMsg

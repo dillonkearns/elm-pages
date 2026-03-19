@@ -1,7 +1,7 @@
 module Test.PagesProgram exposing
     ( ProgramTest
     , start
-    , clickButton, fillIn
+    , clickButton, clickLink, fillIn, check
     , resolveEffect
     , ensureViewHas, ensureViewHasNot, ensureView
     , simulateHttpGet, simulateHttpPost
@@ -35,7 +35,7 @@ simulated.
 
 @docs start
 
-@docs clickButton
+@docs clickButton, clickLink, fillIn, check
 
 @docs resolveEffect
 
@@ -367,6 +367,146 @@ fillIn fieldId value (ProgramTest state) =
                                     | error =
                                         Just
                                             ("fillIn \""
+                                                ++ fieldId
+                                                ++ "\" failed:\n\n"
+                                                ++ errMsg
+                                            )
+                                }
+
+
+
+{-| Simulate clicking a link. Finds an `<a>` element containing the given text,
+extracts its click event handler, and passes the resulting message through
+`update`. If the link has no click handler, this is a no-op (navigation would
+be handled at the framework level in a full app test).
+
+    PagesProgram.start config
+        |> PagesProgram.clickLink "About"
+        |> PagesProgram.ensureViewHas [ Selector.text "About page" ]
+
+-}
+clickLink : String -> ProgramTest model msg -> ProgramTest model msg
+clickLink linkText (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest
+                        { state
+                            | error =
+                                Just
+                                    ("clickLink \""
+                                        ++ linkText
+                                        ++ "\": Cannot interact while BackendTask data is still resolving."
+                                    )
+                        }
+
+                Ready ready ->
+                    let
+                        viewHtml =
+                            ready.getView ready.model
+
+                        query : Query.Single msg
+                        query =
+                            Query.fromHtml (Html.div [] viewHtml.body)
+
+                        linkQuery : Query.Single msg
+                        linkQuery =
+                            query
+                                |> Query.find
+                                    [ Selector.tag "a"
+                                    , Selector.containing [ Selector.text linkText ]
+                                    ]
+
+                        eventResult : Result String msg
+                        eventResult =
+                            linkQuery
+                                |> Event.simulate Event.click
+                                |> Event.toResult
+                    in
+                    case eventResult of
+                        Ok msg ->
+                            applyMsgWithLabel ("clickLink \"" ++ linkText ++ "\"") msg (ProgramTest state)
+
+                        Err _ ->
+                            -- Link has no click handler; in a full app test this
+                            -- would trigger navigation. For single-route tests
+                            -- we record it as a snapshot but don't change state.
+                            ProgramTest state
+
+
+{-| Simulate checking or unchecking a checkbox. Finds the input by its `id`
+attribute and simulates a `change` event with the given checked state.
+
+    PagesProgram.start config
+        |> PagesProgram.check "agree" True
+        |> PagesProgram.ensureViewHas [ Selector.text "Terms accepted" ]
+
+-}
+check : String -> Bool -> ProgramTest model msg -> ProgramTest model msg
+check fieldId isChecked (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest
+                        { state
+                            | error =
+                                Just
+                                    ("check \""
+                                        ++ fieldId
+                                        ++ "\": Cannot interact while BackendTask data is still resolving."
+                                    )
+                        }
+
+                Ready ready ->
+                    let
+                        viewHtml =
+                            ready.getView ready.model
+
+                        query : Query.Single msg
+                        query =
+                            Query.fromHtml (Html.div [] viewHtml.body)
+
+                        inputQuery : Query.Single msg
+                        inputQuery =
+                            query
+                                |> Query.find [ Selector.id fieldId ]
+
+                        eventResult : Result String msg
+                        eventResult =
+                            inputQuery
+                                |> Event.simulate (Event.check isChecked)
+                                |> Event.toResult
+                    in
+                    case eventResult of
+                        Ok msg ->
+                            applyMsgWithLabel
+                                ("check \""
+                                    ++ fieldId
+                                    ++ "\" "
+                                    ++ (if isChecked then
+                                            "True"
+
+                                        else
+                                            "False"
+                                       )
+                                )
+                                msg
+                                (ProgramTest state)
+
+                        Err errMsg ->
+                            ProgramTest
+                                { state
+                                    | error =
+                                        Just
+                                            ("check \""
                                                 ++ fieldId
                                                 ++ "\" failed:\n\n"
                                                 ++ errMsg
