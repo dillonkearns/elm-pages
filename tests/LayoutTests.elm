@@ -149,7 +149,7 @@ suite =
                                     ]
                                     s
                            )
-            , test "shared border junction" <|
+            , test "separate pane boxes with gap" <|
                 \() ->
                     Layout.horizontal
                         [ Layout.pane "a"
@@ -162,8 +162,8 @@ suite =
                         |> renderAt { width = 30, height = 5 }
                         |> (\s ->
                                 Expect.all
-                                    [ \str -> str |> String.contains "┬" |> Expect.equal True
-                                    , \str -> str |> String.contains "┴" |> Expect.equal True
+                                    [ \str -> str |> String.contains "╮ ╭" |> Expect.equal True
+                                    , \str -> str |> String.contains "╯ ╰" |> Expect.equal True
                                     ]
                                     s
                            )
@@ -576,7 +576,7 @@ suite =
             [ test "paneGroup shows active tab content" <|
                 \() ->
                     Layout.horizontal
-                        [ Layout.paneGroup
+                        [ Layout.paneGroup "left"
                             { tabs =
                                 [ { id = "files", label = "Files", content = Layout.content [ Tui.text "file-content" ] }
                                 , { id = "worktrees", label = "Worktrees", content = Layout.content [ Tui.text "worktree-content" ] }
@@ -596,7 +596,7 @@ suite =
             , test "paneGroup shows other tab content when switched" <|
                 \() ->
                     Layout.horizontal
-                        [ Layout.paneGroup
+                        [ Layout.paneGroup "left"
                             { tabs =
                                 [ { id = "files", label = "Files", content = Layout.content [ Tui.text "file-content" ] }
                                 , { id = "worktrees", label = "Worktrees", content = Layout.content [ Tui.text "worktree-content" ] }
@@ -616,7 +616,7 @@ suite =
             , test "paneGroup shows tab labels in title" <|
                 \() ->
                     Layout.horizontal
-                        [ Layout.paneGroup
+                        [ Layout.paneGroup "left"
                             { tabs =
                                 [ { id = "files", label = "Files", content = Layout.content [] }
                                 , { id = "worktrees", label = "Worktrees", content = Layout.content [] }
@@ -639,7 +639,7 @@ suite =
                         filesTabLayout : Layout.Layout Int
                         filesTabLayout =
                             Layout.horizontal
-                                [ Layout.paneGroup
+                                [ Layout.paneGroup "left"
                                     { tabs =
                                         [ { id = "files"
                                           , label = "Files"
@@ -665,38 +665,12 @@ suite =
                         state =
                             Layout.init |> Layout.withContext { width = 30, height = 8 }
 
-                        -- Navigate down in files tab
+                        -- Navigate down in files tab using the GROUP id
                         ( stateAfterNav, _ ) =
-                            Layout.navigateDown "files" filesTabLayout state
-
-                        -- Switch to worktrees tab — files selection should be preserved
-                        worktreesLayout : Layout.Layout Int
-                        worktreesLayout =
-                            Layout.horizontal
-                                [ Layout.paneGroup
-                                    { tabs =
-                                        [ { id = "files"
-                                          , label = "Files"
-                                          , content =
-                                                Layout.selectableList
-                                                    { onSelect = identity
-                                                    , selected = \item -> Tui.text ("▸ " ++ item)
-                                                    , default = \item -> Tui.text ("  " ++ item)
-                                                    }
-                                                    [ "a.elm", "b.elm", "c.elm" ]
-                                          }
-                                        , { id = "worktrees"
-                                          , label = "Worktrees"
-                                          , content = Layout.content [ Tui.text "wt" ]
-                                          }
-                                        ]
-                                    , activeTab = "files"
-                                    , width = Layout.fill
-                                    }
-                                ]
+                            Layout.navigateDown "left" filesTabLayout state
                     in
-                    -- The files tab should still have index 1 selected
-                    Layout.selectedIndex "files" stateAfterNav
+                    -- The files tab should still have index 1 selected via group ID
+                    Layout.selectedIndex "left" stateAfterNav
                         |> Expect.equal 1
             ]
         , describe "Title badges and footer"

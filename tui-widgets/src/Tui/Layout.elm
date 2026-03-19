@@ -4,6 +4,7 @@ module Tui.Layout exposing
     , Width, fill, fillPortion, px
     , State, init, withContext
     , navigateDown, navigateUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
+    , switchTab, activeTab
     , focusPane, focusedPane
     , toggleMaximize, isMaximized
     , withPrefix, withFooter, withTitleScreen, withFooterScreen, withInlineFooter
@@ -49,6 +50,8 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs navigateDown, navigateUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
 
+@docs switchTab, activeTab
+
 @docs focusPane, focusedPane
 @docs toggleMaximize, isMaximized
 
@@ -86,6 +89,7 @@ type alias PaneConfig msg =
     , titleScreen : Maybe Screen
     , footerScreen : Maybe Screen
     , inlineFooter : Maybe Screen
+    , tabMapping : Maybe { activeTab : String, tabIds : List String }
     }
 
 
@@ -194,12 +198,14 @@ Switch tabs by updating `activeTab` in your model (e.g., on `]`/`[` keys).
 
 -}
 paneGroup :
-    { tabs : List (TabConfig msg)
-    , activeTab : String
-    , width : Width
-    }
+    String
+    ->
+        { tabs : List (TabConfig msg)
+        , activeTab : String
+        , width : Width
+        }
     -> Pane msg
-paneGroup config =
+paneGroup groupId config =
     let
         activeContent : PaneContent msg
         activeContent =
@@ -223,13 +229,9 @@ paneGroup config =
                     )
                 |> List.intersperse (Tui.text " - " |> Tui.dim)
                 |> Tui.concat
-
-        activeId : String
-        activeId =
-            config.activeTab
     in
     PaneConstructor
-        { id = activeId
+        { id = groupId
         , title = ""
         , width = config.width
         , paneContent = activeContent
@@ -238,6 +240,7 @@ paneGroup config =
         , titleScreen = Just titleScreen
         , footerScreen = Nothing
         , inlineFooter = Nothing
+        , tabMapping = Just { activeTab = config.activeTab, tabIds = List.map .id config.tabs }
         }
 
 
@@ -260,6 +263,7 @@ pane id config paneContent =
         , titleScreen = Nothing
         , footerScreen = Nothing
         , inlineFooter = Nothing
+        , tabMapping = Nothing
         }
 
 
@@ -389,9 +393,13 @@ boundary (selection didn't change).
 navigateDown : String -> Layout msg -> State -> ( State, Maybe msg )
 navigateDown paneId layout (State s) =
     let
+        stateKey : String
+        stateKey =
+            resolveStateKey paneId layout
+
         ps : PaneState
         ps =
-            Dict.get paneId s.paneStates
+            Dict.get stateKey s.paneStates
                 |> Maybe.withDefault defaultPaneState
 
         paneItemCount : Int
@@ -421,9 +429,15 @@ navigateDown paneId layout (State s) =
     ( State
         { s
             | paneStates =
-                Dict.insert paneId
+                Dict.insert stateKey
                     { selectedIndex = newIndex, scrollOffset = newOffset }
                     s.paneStates
+            , activeTabMap =
+                if stateKey /= paneId then
+                    Dict.insert paneId stateKey s.activeTabMap
+
+                else
+                    s.activeTabMap
         }
     , if selectionChanged then
         getOnSelectForPane paneId layout
@@ -440,9 +454,13 @@ navigateDown paneId layout (State s) =
 navigateUp : String -> Layout msg -> State -> ( State, Maybe msg )
 navigateUp paneId layout (State s) =
     let
+        stateKey : String
+        stateKey =
+            resolveStateKey paneId layout
+
         ps : PaneState
         ps =
-            Dict.get paneId s.paneStates
+            Dict.get stateKey s.paneStates
                 |> Maybe.withDefault defaultPaneState
 
         paneItemCount : Int
@@ -472,9 +490,15 @@ navigateUp paneId layout (State s) =
     ( State
         { s
             | paneStates =
-                Dict.insert paneId
+                Dict.insert stateKey
                     { selectedIndex = newIndex, scrollOffset = newOffset }
                     s.paneStates
+            , activeTabMap =
+                if stateKey /= paneId then
+                    Dict.insert paneId stateKey s.activeTabMap
+
+                else
+                    s.activeTabMap
         }
     , if selectionChanged then
         getOnSelectForPane paneId layout
@@ -533,6 +557,19 @@ getItemCountForPane paneId layout =
         |> Maybe.withDefault 0
 
 
+{-| Resolve a pane ID to the state key used for Dict lookups.
+For regular panes, this is just the pane ID. For pane groups,
+this resolves to the active tab's ID so each tab has its own
+scroll/selection state.
+-}
+resolveStateKey : String -> Layout msg -> String
+resolveStateKey paneId layout =
+    findPane paneId layout
+        |> Maybe.andThen .tabMapping
+        |> Maybe.map .activeTab
+        |> Maybe.withDefault paneId
+
+
 {-| Find a pane config by id in any layout type.
 -}
 findPane : String -> Layout msg -> Maybe (PaneConfig msg)
@@ -551,13 +588,44 @@ findPane paneId layout =
         |> List.head
 
 
-{-| Get the currently selected index for a pane.
+{-| Get the currently selected index for a pane. For pane groups, pass the
+group ID — the selection for the currently active tab is returned.
 -}
 selectedIndex : String -> State -> Int
 selectedIndex paneId (State s) =
-    Dict.get paneId s.paneStates
+    let
+        stateKey : String
+        stateKey =
+            Dict.get paneId s.activeTabMap
+                |> Maybe.withDefault paneId
+    in
+    Dict.get stateKey s.paneStates
         |> Maybe.map .selectedIndex
         |> Maybe.withDefault 0
+
+
+{-| Switch the active tab for a pane group. Updates the internal mapping
+so that subsequent `selectedIndex`, `navigateDown`, etc. operate on the
+new tab's state. Each tab's selection/scroll is preserved independently.
+
+    Layout.switchTab "left" "worktrees" model.layout
+
+-}
+switchTab : String -> String -> State -> State
+switchTab groupId tabId (State s) =
+    State { s | activeTabMap = Dict.insert groupId tabId s.activeTabMap }
+
+
+{-| Get the currently active tab ID for a pane group, or `Nothing` if
+the group has never been navigated or doesn't exist.
+
+    Layout.activeTab "left" model.layout
+    -- → Just "files"
+
+-}
+activeTab : String -> State -> Maybe String
+activeTab groupId (State s) =
+    Dict.get groupId s.activeTabMap
 
 
 {-| Set the selected index for a pane. Useful for restoring selection when
@@ -569,15 +637,20 @@ switching tabs, or programmatic navigation to a specific item.
 setSelectedIndex : String -> Int -> State -> State
 setSelectedIndex paneId index (State s) =
     let
+        stateKey : String
+        stateKey =
+            Dict.get paneId s.activeTabMap
+                |> Maybe.withDefault paneId
+
         ps : PaneState
         ps =
-            Dict.get paneId s.paneStates
+            Dict.get stateKey s.paneStates
                 |> Maybe.withDefault defaultPaneState
     in
     State
         { s
             | paneStates =
-                Dict.insert paneId
+                Dict.insert stateKey
                     { ps | selectedIndex = max 0 index }
                     s.paneStates
         }
@@ -600,7 +673,13 @@ itemCount paneId layout =
 -}
 scrollPosition : String -> State -> Int
 scrollPosition paneId (State s) =
-    Dict.get paneId s.paneStates
+    let
+        stateKey : String
+        stateKey =
+            Dict.get paneId s.activeTabMap
+                |> Maybe.withDefault paneId
+    in
+    Dict.get stateKey s.paneStates
         |> Maybe.map .scrollOffset
         |> Maybe.withDefault 0
 
@@ -616,9 +695,21 @@ position indicators like "42%" or "120/280".
 scrollInfo : String -> Layout msg -> State -> { offset : Int, visible : Int, total : Int }
 scrollInfo paneId layout (State s) =
     let
+        stateKey : String
+        stateKey =
+            resolveStateKey paneId layout
+                |> (\resolved ->
+                        if resolved /= paneId then
+                            resolved
+
+                        else
+                            Dict.get paneId s.activeTabMap
+                                |> Maybe.withDefault paneId
+                   )
+
         ps : PaneState
         ps =
-            Dict.get paneId s.paneStates
+            Dict.get stateKey s.paneStates
                 |> Maybe.withDefault defaultPaneState
 
         total : Int
@@ -641,15 +732,20 @@ scrollInfo paneId layout (State s) =
 resetScroll : String -> State -> State
 resetScroll paneId (State s) =
     let
+        stateKey : String
+        stateKey =
+            Dict.get paneId s.activeTabMap
+                |> Maybe.withDefault paneId
+
         ps : PaneState
         ps =
-            Dict.get paneId s.paneStates
+            Dict.get stateKey s.paneStates
                 |> Maybe.withDefault defaultPaneState
     in
     State
         { s
             | paneStates =
-                Dict.insert paneId
+                Dict.insert stateKey
                     { ps | scrollOffset = 0 }
                     s.paneStates
         }
@@ -660,15 +756,20 @@ resetScroll paneId (State s) =
 scrollDown : String -> Int -> State -> State
 scrollDown paneId delta (State s) =
     let
+        stateKey : String
+        stateKey =
+            Dict.get paneId s.activeTabMap
+                |> Maybe.withDefault paneId
+
         ps : PaneState
         ps =
-            Dict.get paneId s.paneStates
+            Dict.get stateKey s.paneStates
                 |> Maybe.withDefault defaultPaneState
     in
     State
         { s
             | paneStates =
-                Dict.insert paneId
+                Dict.insert stateKey
                     { ps | scrollOffset = ps.scrollOffset + delta }
                     s.paneStates
         }
@@ -679,15 +780,20 @@ scrollDown paneId delta (State s) =
 scrollUp : String -> Int -> State -> State
 scrollUp paneId delta (State s) =
     let
+        stateKey : String
+        stateKey =
+            Dict.get paneId s.activeTabMap
+                |> Maybe.withDefault paneId
+
         ps : PaneState
         ps =
-            Dict.get paneId s.paneStates
+            Dict.get stateKey s.paneStates
                 |> Maybe.withDefault defaultPaneState
     in
     State
         { s
             | paneStates =
-                Dict.insert paneId
+                Dict.insert stateKey
                     { ps | scrollOffset = max 0 (ps.scrollOffset - delta) }
                     s.paneStates
         }
@@ -933,9 +1039,15 @@ handleMouseInternal mouseEvent ctx panes (State s) =
             case findPaneAt col panesWithBounds of
                 Just { config } ->
                     let
+                        mouseStateKey : String
+                        mouseStateKey =
+                            config.tabMapping
+                                |> Maybe.map .activeTab
+                                |> Maybe.withDefault config.id
+
                         ps : PaneState
                         ps =
-                            Dict.get config.id sWithCtx.paneStates
+                            Dict.get mouseStateKey sWithCtx.paneStates
                                 |> Maybe.withDefault defaultPaneState
 
                         delta : Int
@@ -956,7 +1068,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                         ( State
                             { sWithCtx
                                 | paneStates =
-                                    Dict.insert config.id
+                                    Dict.insert mouseStateKey
                                         { ps | scrollOffset = newOffset }
                                         sWithCtx.paneStates
                                 , focusedPaneId = Just config.id
@@ -971,9 +1083,15 @@ handleMouseInternal mouseEvent ctx panes (State s) =
             case findPaneAt col panesWithBounds of
                 Just { config } ->
                     let
+                        mouseStateKey : String
+                        mouseStateKey =
+                            config.tabMapping
+                                |> Maybe.map .activeTab
+                                |> Maybe.withDefault config.id
+
                         ps : PaneState
                         ps =
-                            Dict.get config.id sWithCtx.paneStates
+                            Dict.get mouseStateKey sWithCtx.paneStates
                                 |> Maybe.withDefault defaultPaneState
 
                         delta : Int
@@ -992,7 +1110,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                         ( State
                             { sWithCtx
                                 | paneStates =
-                                    Dict.insert config.id
+                                    Dict.insert mouseStateKey
                                         { ps | scrollOffset = newOffset }
                                         sWithCtx.paneStates
                             }
@@ -1008,13 +1126,19 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                     case config.paneContent of
                         SelectableContent { onSelect } ->
                             let
+                                clickStateKey : String
+                                clickStateKey =
+                                    config.tabMapping
+                                        |> Maybe.map .activeTab
+                                        |> Maybe.withDefault config.id
+
                                 contentRow : Int
                                 contentRow =
                                     row - 1
 
                                 ps : PaneState
                                 ps =
-                                    Dict.get config.id sWithCtx.paneStates
+                                    Dict.get clickStateKey sWithCtx.paneStates
                                         |> Maybe.withDefault defaultPaneState
 
                                 clickedIndex : Int
@@ -1024,7 +1148,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                             ( State
                                 { sWithCtx
                                     | paneStates =
-                                        Dict.insert config.id
+                                        Dict.insert clickStateKey
                                             { ps | selectedIndex = clickedIndex }
                                             sWithCtx.paneStates
                                     , focusedPaneId = Just config.id
@@ -1271,9 +1395,15 @@ toRowsHorizontal s panes =
 
                             else
                                 let
+                                    renderStateKey : String
+                                    renderStateKey =
+                                        paneConfig.tabMapping
+                                            |> Maybe.map .activeTab
+                                            |> Maybe.withDefault paneConfig.id
+
                                     ps : PaneState
                                     ps =
-                                        Dict.get paneConfig.id s.paneStates
+                                        Dict.get renderStateKey s.paneStates
                                             |> Maybe.withDefault defaultPaneState
 
                                     contentRow : Int
@@ -1397,9 +1527,15 @@ toRowsVertical s panes =
                     else
                         { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
 
+                vertStateKey : String
+                vertStateKey =
+                    paneConfig.tabMapping
+                        |> Maybe.map .activeTab
+                        |> Maybe.withDefault paneConfig.id
+
                 ps : PaneState
                 ps =
-                    Dict.get paneConfig.id s.paneStates
+                    Dict.get vertStateKey s.paneStates
                         |> Maybe.withDefault defaultPaneState
 
                 titleText : String
