@@ -76,9 +76,6 @@ import PageServerResponse exposing (PageServerResponse(..))
 import Pages.Internal.Msg
 import Pages.Internal.Platform as Platform
 import Pages.Internal.ResponseSketch as ResponseSketch
-import Pages.StaticHttp.Request
-import Pages.StaticHttpRequest
-import RequestsAndPending
 import Test.BackendTask.Internal as BackendTaskTest
 import Test.Html.Event as Event
 import Test.Html.Query as Query
@@ -243,20 +240,26 @@ directly. The generated `TestApp` module provides the `config` (which is
 
 Where `TestApp.start = PagesProgram.startPlatform Main.config`.
 
-The mock resolver maps outgoing `BackendTask.Http` requests to responses.
-All framework behavior (shared data, shared view, navigation, form state)
-works identically to production because we drive the real Platform code.
+BackendTask resolution uses the `Test.BackendTask` virtual filesystem, so
+file reads, env vars, time, and other auto-resolvable BackendTasks work
+out of the box. File writes in actions automatically update the virtual FS,
+and subsequent data resolution sees the updated files.
 
 -}
-startPlatform config initialPath mockResolver =
+startPlatform config initialPath testSetup =
     let
         baseUrl =
             "https://localhost:1234"
 
         initialUrl =
             makeTestUrl baseUrl initialPath
+
+        initialVirtualFs =
+            case testSetup of
+                BackendTaskTest.TestSetup setup ->
+                    setup.virtualFS
     in
-    case resolveInitialData config initialUrl initialPath mockResolver of
+    case resolveInitialData config initialUrl initialPath initialVirtualFs of
         Err errMsg ->
             ProgramTest
                 { phase =
@@ -271,7 +274,7 @@ startPlatform config initialPath mockResolver =
                 , modelToString = Nothing
                 }
 
-        Ok pageDataBytes ->
+        Ok ( vfsAfterInit, pageDataBytes ) ->
             let
                 flags =
                     Encode.object []
@@ -282,31 +285,34 @@ startPlatform config initialPath mockResolver =
                 ( readyModel, readyEffect ) =
                     Platform.update config (Platform.FrozenViewsReady (Just pageDataBytes)) initModel
 
-                processEffect eff model =
-                    processEffects config mockResolver baseUrl model eff 100
+                ( finalWrapped, _ ) =
+                    processEffectsWrapped config baseUrl
+                        { platformModel = readyModel, virtualFs = vfsAfterInit }
+                        readyEffect
+                        100
 
-                finalModel =
-                    processEffect readyEffect readyModel
-
-                updateFn msg model =
+                updateFn msg wrappedModel =
                     let
-                        ( newModel, effect ) =
-                            Platform.update config msg model
+                        ( newPlatformModel, effect ) =
+                            Platform.update config msg wrappedModel.platformModel
 
-                        processedModel =
-                            processEffect effect newModel
+                        ( processedWrapped, _ ) =
+                            processEffectsWrapped config baseUrl
+                                { wrappedModel | platformModel = newPlatformModel }
+                                effect
+                                100
                     in
-                    ( processedModel, [] )
+                    ( processedWrapped, [] )
 
-                viewFn model =
+                viewFn wrappedModel =
                     let
                         doc =
-                            Platform.view config model
+                            Platform.view config wrappedModel.platformModel
                     in
                     { title = doc.title, body = doc.body }
 
                 ready =
-                    { model = finalModel
+                    { model = finalWrapped
                     , getView = viewFn
                     , update = updateFn
                     , pendingEffects = []
@@ -317,7 +323,7 @@ startPlatform config initialPath mockResolver =
                                     (Browser.Internal (makeTestUrl baseUrl href))
                             )
                     , getBrowserUrl =
-                        Just (\m -> Url.toString m.url)
+                        Just (\m -> Url.toString m.platformModel.url)
                     , onFormSubmit =
                         Just
                             (\{ formId, fields } ->
@@ -336,7 +342,7 @@ startPlatform config initialPath mockResolver =
                     , getFormFields =
                         Just
                             (\m ->
-                                m.pageFormState
+                                m.platformModel.pageFormState
                                     |> Dict.values
                                     |> List.concatMap
                                         (\formState ->
@@ -348,13 +354,13 @@ startPlatform config initialPath mockResolver =
                     }
 
                 viewResult =
-                    viewFn finalModel
+                    viewFn finalWrapped
 
                 initSnapshot =
                     { label = "start"
                     , title = viewResult.title
                     , body = (mapViewToSnapshot viewResult).body
-                    , rerender = \() -> mapViewToSnapshot (viewFn finalModel)
+                    , rerender = \() -> mapViewToSnapshot (viewFn finalWrapped)
                     , hasPendingEffects = False
                     , modelState = Nothing
                     }
@@ -1504,19 +1510,26 @@ crashData _ =
 {-| Resolve shared data, route data, and encode as ResponseSketch bytes for
 Platform.FrozenViewsReady. Returns Err with a message if resolution fails.
 -}
-resolveInitialData config initialUrl initialPath mockResolver =
-    case Pages.StaticHttpRequest.mockResolve identity config.sharedData mockResolver of
+resolveInitialData config initialUrl initialPath virtualFs =
+    let
+        ( vfs1, sharedResult ) =
+            BackendTaskTest.resolveWithVirtualFs virtualFs config.sharedData
+    in
+    case sharedResult of
         Err sharedErr ->
-            Err ("Failed to resolve Shared.template.data: " ++ fatalErrorToString sharedErr)
+            Err ("Failed to resolve Shared.template.data: " ++ sharedErr)
 
         Ok resolvedSharedData ->
             let
                 initialRoute =
                     config.urlToRoute initialUrl
+
+                ( vfs2, handleResult ) =
+                    BackendTaskTest.resolveWithVirtualFs vfs1 (config.handleRoute initialRoute)
             in
-            case Pages.StaticHttpRequest.mockResolve identity (config.handleRoute initialRoute) mockResolver of
+            case handleResult of
                 Err handleErr ->
-                    Err ("Failed to resolve handleRoute: " ++ fatalErrorToString handleErr)
+                    Err ("Failed to resolve handleRoute: " ++ handleErr)
 
                 Ok (Just notFoundReason) ->
                     { reason = notFoundReason
@@ -1524,12 +1537,17 @@ resolveInitialData config initialUrl initialPath mockResolver =
                     }
                         |> ResponseSketch.NotFound
                         |> encodeResponseWithPrefix config
-                        |> Ok
+                        |> (\bytes -> Ok ( vfs2, bytes ))
 
                 Ok Nothing ->
-                    case Pages.StaticHttpRequest.mockResolve identity (config.data platformTestRequest initialRoute) mockResolver of
+                    let
+                        ( vfs3, dataResult ) =
+                            BackendTaskTest.resolveWithVirtualFs vfs2
+                                (config.data platformTestRequest initialRoute)
+                    in
+                    case dataResult of
                         Err dataErr ->
-                            Err ("Failed to resolve route data: " ++ fatalErrorToString dataErr)
+                            Err ("Failed to resolve route data: " ++ dataErr)
 
                         Ok (RenderPage _ pageData) ->
                             ResponseSketch.HotUpdate
@@ -1537,7 +1555,7 @@ resolveInitialData config initialUrl initialPath mockResolver =
                                 resolvedSharedData
                                 Nothing
                                 |> encodeResponseWithPrefix config
-                                |> Ok
+                                |> (\bytes -> Ok ( vfs3, bytes ))
 
                         Ok (ServerResponse serverResponse) ->
                             Err
@@ -1549,34 +1567,35 @@ resolveInitialData config initialUrl initialPath mockResolver =
                             Err "Expected a rendered page but got an error page"
 
 
-{-| Recursively process Platform effects. Resolves framework effects (data
-fetching, navigation) synchronously using the mock resolver. User effects
-are dropped (Phase 1). A depth limit prevents infinite loops.
+{-| Recursively process Platform effects using the Test.BackendTask virtual FS.
+File reads/writes are handled stateully -- action file writes update the
+virtual FS and subsequent data resolution sees the updated files.
+Returns (wrappedModel, trackedEffects) where wrappedModel contains both
+the Platform model and the updated virtual FS.
 -}
-processEffects config mockResolver baseUrl model effect maxDepth =
+processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
     if maxDepth <= 0 then
-        model
+        ( wrappedModel, [] )
 
     else
         case effect of
             Platform.NoEffect ->
-                model
+                ( wrappedModel, [] )
 
             Platform.ScrollToTop ->
-                model
+                ( wrappedModel, [] )
 
             Platform.CancelRequest _ ->
-                model
+                ( wrappedModel, [] )
 
             Platform.RunCmd _ ->
-                model
+                ( wrappedModel, [] )
 
             Platform.UserCmd _ ->
-                model
+                ( wrappedModel, [] )
 
             Platform.BrowserLoadUrl _ ->
-                -- External navigation not supported in tests
-                model
+                ( wrappedModel, [] )
 
             Platform.BrowserPushUrl path ->
                 let
@@ -1584,9 +1603,12 @@ processEffects config mockResolver baseUrl model effect maxDepth =
                         makeTestUrl baseUrl path
 
                     ( newModel, newEffect ) =
-                        Platform.update config (Platform.UrlChanged newUrl) model
+                        Platform.update config (Platform.UrlChanged newUrl) wrappedModel.platformModel
                 in
-                processEffects config mockResolver baseUrl newModel newEffect (maxDepth - 1)
+                processEffectsWrapped config baseUrl
+                    { wrappedModel | platformModel = newModel }
+                    newEffect
+                    (maxDepth - 1)
 
             Platform.BrowserReplaceUrl path ->
                 let
@@ -1594,9 +1616,12 @@ processEffects config mockResolver baseUrl model effect maxDepth =
                         makeTestUrl baseUrl path
 
                     ( newModel, newEffect ) =
-                        Platform.update config (Platform.UrlChanged newUrl) model
+                        Platform.update config (Platform.UrlChanged newUrl) wrappedModel.platformModel
                 in
-                processEffects config mockResolver baseUrl newModel newEffect (maxDepth - 1)
+                processEffectsWrapped config baseUrl
+                    { wrappedModel | platformModel = newModel }
+                    newEffect
+                    (maxDepth - 1)
 
             Platform.FetchFrozenViews { path, body } ->
                 let
@@ -1606,15 +1631,10 @@ processEffects config mockResolver baseUrl model effect maxDepth =
                     route =
                         config.urlToRoute fetchUrl
 
-                    dataResult =
-                        Pages.StaticHttpRequest.mockResolve identity
-                            (config.data platformTestRequest route)
-                            mockResolver
-
-                    actionData =
+                    -- For form submissions, resolve action first (may write files)
+                    ( vfsAfterAction, actionData ) =
                         case body of
                             Just formBody ->
-                                -- Form submission: resolve the action BackendTask
                                 let
                                     actionRequest =
                                         Internal.Request.Request
@@ -1627,10 +1647,14 @@ processEffects config mockResolver baseUrl model effect maxDepth =
                                                     "application/x-www-form-urlencoded"
                                             , cookies = Dict.empty
                                             }
+
+                                    ( vfs1, actionResult ) =
+                                        BackendTaskTest.resolveWithVirtualFs
+                                            wrappedModel.virtualFs
+                                            (config.action actionRequest route)
                                 in
-                                Pages.StaticHttpRequest.mockResolve identity
-                                    (config.action actionRequest route)
-                                    mockResolver
+                                ( vfs1
+                                , actionResult
                                     |> Result.toMaybe
                                     |> Maybe.andThen
                                         (\response ->
@@ -1641,9 +1665,16 @@ processEffects config mockResolver baseUrl model effect maxDepth =
                                                 _ ->
                                                     Nothing
                                         )
+                                )
 
                             Nothing ->
-                                Nothing
+                                ( wrappedModel.virtualFs, Nothing )
+
+                    -- Resolve data with the (possibly updated) virtual FS
+                    ( vfsAfterData, dataResult ) =
+                        BackendTaskTest.resolveWithVirtualFs
+                            vfsAfterAction
+                            (config.data platformTestRequest route)
                 in
                 case dataResult of
                     Ok (RenderPage _ pageData) ->
@@ -1655,16 +1686,17 @@ processEffects config mockResolver baseUrl model effect maxDepth =
                             ( newModel, newEffect ) =
                                 Platform.update config
                                     (Platform.FrozenViewsReady (Just encodedBytes))
-                                    model
+                                    wrappedModel.platformModel
                         in
-                        processEffects config mockResolver baseUrl newModel newEffect (maxDepth - 1)
+                        processEffectsWrapped config baseUrl
+                            { platformModel = newModel, virtualFs = vfsAfterData }
+                            newEffect
+                            (maxDepth - 1)
 
                     _ ->
-                        -- Data resolution failed during navigation; leave model unchanged
-                        model
+                        ( { wrappedModel | virtualFs = vfsAfterData }, [] )
 
             Platform.Submit formData ->
-                -- GET form submissions navigate with query params
                 if formData.method == Form.Get then
                     let
                         newUrl =
@@ -1675,25 +1707,29 @@ processEffects config mockResolver baseUrl model effect maxDepth =
                                 )
 
                         ( newModel, newEffect ) =
-                            Platform.update config (Platform.UrlChanged newUrl) model
+                            Platform.update config (Platform.UrlChanged newUrl) wrappedModel.platformModel
                     in
-                    processEffects config mockResolver baseUrl newModel newEffect (maxDepth - 1)
+                    processEffectsWrapped config baseUrl
+                        { wrappedModel | platformModel = newModel }
+                        newEffect
+                        (maxDepth - 1)
 
                 else
-                    -- POST submissions are handled via FetchFrozenViews
-                    -- (Platform.update for Submit already produces the right effect)
-                    model
+                    ( wrappedModel, [] )
 
             Platform.SubmitFetcher _ _ _ ->
-                -- TODO: Phase 5 - concurrent submissions
-                model
+                ( wrappedModel, [] )
 
             Platform.Batch effects ->
                 List.foldl
-                    (\eff m ->
-                        processEffects config mockResolver baseUrl m eff (maxDepth - 1)
+                    (\eff ( wm, effs ) ->
+                        let
+                            ( newWm, newEffs ) =
+                                processEffectsWrapped config baseUrl wm eff (maxDepth - 1)
+                        in
+                        ( newWm, effs ++ newEffs )
                     )
-                    model
+                    ( wrappedModel, [] )
                     effects
 
 

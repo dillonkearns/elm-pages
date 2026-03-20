@@ -10,6 +10,7 @@ module Test.BackendTask.Internal exposing
     , withVirtualEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
     , toResult
+    , resolveWithVirtualFs, VirtualFS, emptyVirtualFS
     )
 
 {-| Internal implementation for [`Test.BackendTask`](Test-BackendTask) and its sub-modules.
@@ -3639,6 +3640,46 @@ toResult scriptTest =
 
         TestError msg ->
             Err msg
+
+
+{-| Resolve a BackendTask with a VirtualFS and return both the updated VirtualFS
+and the result. Used by `Test.PagesProgram.startPlatform` to resolve data and
+action BackendTasks with stateful file tracking.
+-}
+resolveWithVirtualFs : VirtualFS -> BackendTask FatalError a -> ( VirtualFS, Result String a )
+resolveWithVirtualFs vfs task =
+    let
+        bt =
+            advanceWithAutoResolve
+                { continuation = task
+                , responseEntries = []
+                , responseBytesEntries = Dict.empty
+                , pendingRequests = []
+                , trackedEffects = []
+                , drainedOutputCount = 0
+                , virtualFS = vfs
+                , virtualDB = emptyVirtualDB
+                , simulatedEffects = Nothing
+                }
+    in
+    case bt of
+        Done doneState ->
+            ( doneState.virtualFS
+            , case doneState.result of
+                Ok value ->
+                    Ok value
+
+                Err err ->
+                    Err ("BackendTask failed: " ++ fatalErrorToString err)
+            )
+
+        Running state ->
+            ( state.virtualFS
+            , Err (stillRunningError state.pendingRequests)
+            )
+
+        TestError msg ->
+            ( vfs, Err msg )
 
 
 {-| Assert on the virtual DB state. This is a terminal assertion that also checks

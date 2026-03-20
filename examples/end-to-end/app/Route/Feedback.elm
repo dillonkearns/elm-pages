@@ -1,10 +1,14 @@
 module Route.Feedback exposing (ActionData, Data, Model, Msg, route)
 
-{-| Simple form route for testing the action pipeline.
-Submitting the form echoes the message back as ActionData.
+{-| Form route that reads/writes a file to demonstrate the framework
+data refresh lifecycle. The `data` BackendTask reads "feedback.txt",
+the `action` writes to it, and after submission the framework
+automatically re-resolves `data` showing the updated file content.
 -}
 
 import BackendTask exposing (BackendTask)
+import BackendTask.File
+import BackendTask.Stream as Stream
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Form
@@ -35,7 +39,8 @@ type alias RouteParams =
 
 
 type alias Data =
-    {}
+    { fileContent : String
+    }
 
 
 type alias ActionData =
@@ -55,7 +60,9 @@ route =
 
 data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
 data routeParams request =
-    BackendTask.succeed (Response.render {})
+    BackendTask.File.rawFile "feedback.txt"
+        |> BackendTask.allowFatal
+        |> BackendTask.map (\content -> Response.render { fileContent = content })
 
 
 action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
@@ -69,9 +76,13 @@ action routeParams request =
                         |> Result.withDefault (Just "(validation error)")
                         |> Maybe.withDefault "(empty)"
             in
-            { message = messageValue }
-                |> Response.render
-                |> BackendTask.succeed
+            Stream.fromString messageValue
+                |> Stream.pipe (Stream.fileWrite "feedback.txt")
+                |> Stream.run
+                |> BackendTask.map
+                    (\() ->
+                        Response.render { message = messageValue }
+                    )
 
         Nothing ->
             { message = "No form data received" }
@@ -110,6 +121,8 @@ view app shared =
     { title = "Feedback"
     , body =
         [ Html.h1 [] [ Html.text "Feedback Form" ]
+        , Html.p []
+            [ Html.text ("Current file: " ++ app.data.fileContent) ]
         , case app.action of
             Just actionData ->
                 Html.p []

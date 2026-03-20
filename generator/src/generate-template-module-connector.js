@@ -397,6 +397,7 @@ import Pages.Flags
 import Pages.Internal.Platform
 ${routeImports}
 import Shared
+import Test.BackendTask.Internal
 import Test.PagesProgram
 import Test.PagesProgram.Route
 
@@ -406,13 +407,15 @@ so the visual test runner can discover your tests:
 
     myTest : TestApp.ProgramTest
     myTest =
-        TestApp.start "/" mockData
+        TestApp.start "/" testSetup
             |> PagesProgram.ensureViewHas [ ... ]
 
 -}
 type alias ProgramTest =
     Test.PagesProgram.ProgramTest
-        (Pages.Internal.Platform.Model Main.Model Main.PageData Main.ActionData Shared.Data)
+        { platformModel : Pages.Internal.Platform.Model Main.Model Main.PageData Main.ActionData Shared.Data
+        , virtualFs : Test.BackendTask.Internal.VirtualFS
+        }
         (Pages.Internal.Platform.Msg Main.Msg Main.PageData Main.ActionData Shared.Data ErrorPage.ErrorPage)
 
 
@@ -420,16 +423,14 @@ type alias ProgramTest =
 so that shared data, shared view, navigation, form submission, and all other
 framework behavior works identically to production.
 
-The mock resolver maps outgoing BackendTask.Http requests to responses:
+Use Test.BackendTask.init to set up the virtual filesystem, then pass
+it alongside the initial path:
 
-    mockData request =
-        Json.Encode.object [ ( "message", Json.Encode.string "Hello" ) ]
-            |> RequestsAndPending.JsonBody
-            |> RequestsAndPending.Response Nothing
-            |> Just
-
-    TestApp.start "/" mockData
-        |> PagesProgram.ensureViewHas [ Selector.text "Hello" ]
+    TestApp.start "/"
+        (BackendTaskTest.init
+            |> BackendTaskTest.withFile "greeting.txt" "Hello!"
+        )
+        |> PagesProgram.ensureViewHas [ Selector.text "Hello!" ]
         |> PagesProgram.done
 
 -}
