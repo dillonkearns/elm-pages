@@ -56,22 +56,14 @@ run config loadedData =
                     ( initialModel, initialEffect ) =
                         config.init loadedData
 
-                    -- Fire initial context through subscriptions so the user
-                    -- can store terminal dimensions (e.g., in Layout.State)
-                    sub : Sub msg
-                    sub =
-                        config.subscriptions initialModel
-
-                    modelWithContext : model
-                    modelWithContext =
-                        case Sub.routeEvent sub (Sub.RawContext { width = context.width, height = context.height }) of
-                            Just msg ->
-                                config.update msg initialModel |> Tuple.first
-
-                            Nothing ->
-                                initialModel
+                    ( modelWithContext, contextEffect ) =
+                        applyContextUpdate config.update
+                            (config.subscriptions initialModel)
+                            context
+                            initialModel
                 in
-                processEffectsThenRenderAndWait config context modelWithContext initialEffect
+                processEffectsThenRenderAndWait config context modelWithContext
+                    (Effect.batch [ initialEffect, contextEffect ])
             )
 
 
@@ -107,9 +99,17 @@ tuiRenderAndWait screen sub =
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "screen", Tui.encodeScreen screen )
-                    , ( "interests", Sub.getInterests sub )
-                    ]
+                    ([ ( "screen", Tui.encodeScreen screen )
+                     , ( "interests", Sub.getInterests sub )
+                     ]
+                        ++ (case Sub.getTickInterval sub of
+                                Just interval ->
+                                    [ ( "tickInterval", Encode.float interval ) ]
+
+                                Nothing ->
+                                    []
+                           )
+                    )
                 )
         , expect =
             BackendTask.Http.expectJson
@@ -221,24 +221,20 @@ renderAndWait config context model =
                         }
 
                     -- Fire context change through subscription if dimensions changed
-                    modelAfterContext : model
-                    modelAfterContext =
+                    ( modelAfterContext, contextEffects ) =
                         if newContext.width /= context.width || newContext.height /= context.height then
-                            case Sub.routeEvent sub (Sub.RawContext { width = newContext.width, height = newContext.height }) of
-                                Just msg ->
-                                    config.update msg model |> Tuple.first
-
-                                Nothing ->
-                                    model
+                            applyContextUpdate config.update sub newContext model
+                                |> Tuple.mapSecond effectToList
 
                         else
-                            model
+                            ( model, [] )
                 in
-                processBatchedEvents config sub newContext modelAfterContext response.events
+                processBatchedEventsHelp config sub newContext modelAfterContext contextEffects response.events
             )
 
 
 {-| Process a list of raw events through update, folding the model.
+All effects are accumulated and run after the final event.
 Only the final model gets rendered.
 -}
 processBatchedEvents :
@@ -253,9 +249,32 @@ processBatchedEvents :
     -> List Decode.Value
     -> BackendTask FatalError ()
 processBatchedEvents config sub context model events =
+    processBatchedEventsHelp config sub context model [] events
+
+
+processBatchedEventsHelp :
+    { init : data -> ( model, Effect msg )
+    , update : msg -> model -> ( model, Effect msg )
+    , view : Context -> model -> Screen
+    , subscriptions : model -> Sub msg
+    }
+    -> Sub msg
+    -> Context
+    -> model
+    -> List (Effect msg)
+    -> List Decode.Value
+    -> BackendTask FatalError ()
+processBatchedEventsHelp config sub context model accEffects events =
+    -- elm-review: known-unoptimized-recursion
     case events of
         [] ->
-            renderAndWait config context model
+            case accEffects of
+                [] ->
+                    renderAndWait config context model
+
+                _ ->
+                    processEffectsThenRenderAndWait config context model
+                        (Effect.batch (List.reverse accEffects))
 
         rawValue :: rest ->
             let
@@ -266,7 +285,7 @@ processBatchedEvents config sub context model events =
             case rawEvent of
                 Sub.RawResize _ ->
                     -- Apply resize context, continue processing
-                    processBatchedEvents config sub context model rest
+                    processBatchedEventsHelp config sub context model accEffects rest
 
                 _ ->
                     case Sub.routeEvent sub rawEvent of
@@ -275,17 +294,10 @@ processBatchedEvents config sub context model events =
                                 ( newModel, newEffect ) =
                                     config.update msg model
                             in
-                            case rest of
-                                [] ->
-                                    -- Last event — process effects and render
-                                    processEffectsThenRenderAndWait config context newModel newEffect
-
-                                _ ->
-                                    -- More events queued — fold model, skip effects for now
-                                    processBatchedEvents config sub context newModel rest
+                            processBatchedEventsHelp config sub context newModel (newEffect :: accEffects) rest
 
                         Nothing ->
-                            processBatchedEvents config sub context model rest
+                            processBatchedEventsHelp config sub context model accEffects rest
 
 
 {-| Decode a raw JSON event into a RawEvent.
@@ -299,3 +311,28 @@ decodeRawEvent value =
         Err _ ->
             -- If we can't decode, treat as a tick (will be ignored if not subscribed)
             Sub.RawTick
+
+
+applyContextUpdate :
+    (msg -> model -> ( model, Effect msg ))
+    -> Sub msg
+    -> Context
+    -> model
+    -> ( model, Effect msg )
+applyContextUpdate update sub context model =
+    case Sub.routeEvent sub (Sub.RawContext { width = context.width, height = context.height }) of
+        Just msg ->
+            update msg model
+
+        Nothing ->
+            ( model, Effect.none )
+
+
+effectToList : Effect msg -> List (Effect msg)
+effectToList effect =
+    case effect of
+        Effect.None ->
+            []
+
+        _ ->
+            [ effect ]

@@ -1,7 +1,7 @@
 module Tui.Layout exposing
     ( Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
     , PaneContent, content, selectableList
-    , Width, fill, fillPortion, px
+    , Width, fill, fillPortion, fixed
     , State, init, withContext
     , navigateDown, navigateUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
     , switchTab, activeTab
@@ -44,7 +44,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs PaneContent, content, selectableList
 
-@docs Width, fill, fillPortion, px
+@docs Width, fill, fillPortion, fixed
 
 @docs State, init, withContext
 
@@ -120,7 +120,7 @@ type PaneContent msg
 -}
 type Width
     = Fill Int
-    | Px Int
+    | Fixed Int
 
 
 {-| Opaque state tracking scroll offsets, selection indices, and terminal
@@ -155,7 +155,7 @@ horizontal panes =
 
 {-| Create a vertical split layout (panes stacked top to bottom).
 Each pane spans the full terminal width. The `width` spec controls
-height allocation (same `Fill`/`Px` proportional sizing).
+height allocation (same `Fill`/`Fixed` proportional sizing).
 
     if ctx.width <= 84 && ctx.height > 45 then
         Layout.vertical [ commitsPane, diffPane ]
@@ -333,11 +333,11 @@ fillPortion =
     Fill
 
 
-{-| Fixed column width.
+{-| Fixed column width. Specifies an exact number of terminal cells.
 -}
-px : Int -> Width
-px =
-    Px
+fixed : Int -> Width
+fixed =
+    Fixed
 
 
 
@@ -1724,7 +1724,7 @@ resolveWidths totalWidth widthSpecs =
                 |> List.filterMap
                     (\w ->
                         case w of
-                            Px n ->
+                            Fixed n ->
                                 Just n
 
                             Fill _ ->
@@ -1741,7 +1741,7 @@ resolveWidths totalWidth widthSpecs =
                             Fill weight ->
                                 Just weight
 
-                            Px _ ->
+                            Fixed _ ->
                                 Nothing
                     )
                 |> List.sum
@@ -1754,7 +1754,7 @@ resolveWidths totalWidth widthSpecs =
         |> List.map
             (\w ->
                 case w of
-                    Px n ->
+                    Fixed n ->
                         n
 
                     Fill weight ->

@@ -162,23 +162,35 @@ startWithContext context config =
         ( initialModel, initialEffect ) =
             config.init config.data
 
+        ( modelWithContext, contextEffect ) =
+            case Sub.routeEvent (config.subscriptions initialModel) (Sub.RawContext { width = context.width, height = context.height }) of
+                Just msg ->
+                    config.update msg initialModel
+
+                Nothing ->
+                    ( initialModel, Effect.none )
+
+        combinedEffect : Effect msg
+        combinedEffect =
+            Effect.batch [ initialEffect, contextEffect ]
+
         pendingEffects : List (BackendTask FatalError msg)
         pendingEffects =
-            extractBackendTasks initialEffect
+            extractBackendTasks combinedEffect
     in
     TuiTest
-        { model = initialModel
+        { model = modelWithContext
         , update = config.update
         , view = config.view
         , subscriptions = config.subscriptions
         , context = context
         , pendingEffects = pendingEffects
-        , exited = checkForExit initialEffect
+        , exited = checkForExit combinedEffect
         , error = Nothing
         , snapshots =
             [ { label = "init"
-              , screen = config.view context initialModel
-              , rerender = \ctx -> config.view ctx initialModel
+              , screen = config.view context modelWithContext
+              , rerender = \ctx -> config.view ctx modelWithContext
               , hasPendingEffects = not (List.isEmpty pendingEffects)
               , modelState = Nothing
               }
@@ -274,7 +286,8 @@ truncateLabel s =
 
 
 {-| Simulate a terminal resize. The framework handles resize automatically —
-this just updates the `Context` that `view` receives. No user message is sent.
+this updates the `Context` that `view` receives and routes the new size through
+any `Tui.Sub.onContext` subscriptions.
 -}
 resize : { width : Int, height : Int } -> TuiTest model msg -> TuiTest model msg
 resize size (TuiTest state) =
@@ -286,7 +299,44 @@ resize size (TuiTest state) =
             TuiTest { state | error = Just "resize called after TUI exited" }
 
         ( Nothing, Nothing ) ->
-            TuiTest { state | context = { width = size.width, height = size.height, colorProfile = state.context.colorProfile } }
+            let
+                newContext : Context
+                newContext =
+                    { width = size.width, height = size.height, colorProfile = state.context.colorProfile }
+
+                ( newModel, effect ) =
+                    case Sub.routeEvent (state.subscriptions state.model) (Sub.RawContext { width = newContext.width, height = newContext.height }) of
+                        Just msg ->
+                            state.update msg state.model
+
+                        Nothing ->
+                            ( state.model, Effect.none )
+
+                newPendingEffects : List (BackendTask FatalError msg)
+                newPendingEffects =
+                    state.pendingEffects ++ extractBackendTasks effect
+
+                viewFn : Context -> Screen
+                viewFn =
+                    \ctx -> state.view ctx newModel
+
+                snapshot : Snapshot
+                snapshot =
+                    { label = "resize " ++ String.fromInt size.width ++ "×" ++ String.fromInt size.height
+                    , screen = state.view newContext newModel
+                    , rerender = viewFn
+                    , hasPendingEffects = not (List.isEmpty newPendingEffects)
+                    , modelState = Maybe.map (\f -> f newModel) state.modelToString
+                    }
+            in
+            TuiTest
+                { state
+                    | model = newModel
+                    , context = newContext
+                    , pendingEffects = newPendingEffects
+                    , exited = checkForExit effect
+                    , snapshots = state.snapshots ++ [ snapshot ]
+                }
 
 
 {-| Simulate a left mouse click at the given row and column (0-based).
@@ -873,8 +923,8 @@ withModelToString modelToString (TuiTest state) =
 
 
 {-| Extract the recorded snapshots from a test pipeline. Each step in the
-pipeline (start, pressKey, resolveEffect, sendMsg) records a snapshot of the
-screen, the action label, and whether effects are pending.
+pipeline (start, resize, pressKey, resolveEffect, sendMsg) records a snapshot
+of the screen, the action label, and whether effects are pending.
 
 If the pipeline encountered an error, a final snapshot with the error message
 is appended so it's visible in the stepper.

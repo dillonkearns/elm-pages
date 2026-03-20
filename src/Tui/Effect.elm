@@ -1,6 +1,6 @@
 module Tui.Effect exposing
     ( Effect(..)
-    , none, batch, perform, attempt, exit, exitWithCode, suspend
+    , none, batch, perform, attempt, exit, exitWithCode
     , map
     , EffectResult(..), toBackendTask
     )
@@ -24,7 +24,7 @@ update cycle.
 
 @docs Effect
 
-@docs none, batch, perform, attempt, exit, exitWithCode, suspend
+@docs none, batch, perform, attempt, exit, exitWithCode
 
 @docs map
 
@@ -60,7 +60,9 @@ none =
     None
 
 
-{-| Combine multiple effects. They run concurrently where possible.
+{-| Combine multiple effects. Effects run sequentially — if an effect produces
+a message (via `perform`/`attempt`), remaining effects are skipped and the
+message is fed back into `update`.
 -}
 batch : List (Effect msg) -> Effect msg
 batch =
@@ -118,13 +120,10 @@ exitWithCode =
     ExitWithCode
 
 
-{-| Run a `BackendTask` while temporarily restoring the normal terminal
-(exits alternate screen, disables raw mode). Useful for spawning an editor
-or other interactive process.
+{- INTERNAL: suspend is not yet implemented — the SuspendBackendTask
+   constructor exists for future use but currently behaves identically
+   to RunBackendTask. Not exposed in the public API.
 -}
-suspend : (a -> msg) -> BackendTask FatalError a -> Effect msg
-suspend toMsg bt =
-    SuspendBackendTask (BackendTask.map toMsg bt)
 
 
 {-| Transform the message type of an effect.

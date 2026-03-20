@@ -131,11 +131,11 @@ suite =
                                     ]
                                     s
                            )
-            , test "px gives fixed width" <|
+            , test "fixed gives fixed width" <|
                 \() ->
                     Layout.horizontal
                         [ Layout.pane "fixed"
-                            { title = "F", width = Layout.px 10 }
+                            { title = "F", width = Layout.fixed 10 }
                             (Layout.content [ Tui.text "fixed" ])
                         , Layout.pane "flex"
                             { title = "X", width = Layout.fill }

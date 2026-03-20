@@ -335,6 +335,33 @@ suite =
                         |> TuiTest.ensureViewHas "Count: 1"
                         |> TuiTest.expectRunning
             ]
+        , describe "TuiTest - onContext"
+            [ test "startWithContext routes initial context through subscriptions" <|
+                \() ->
+                    contextTest False { width = 120, height = 40, colorProfile = Tui.TrueColor }
+                        |> TuiTest.ensureViewHas "Stored: 120×40"
+                        |> TuiTest.expectRunning
+            , test "resize routes context through subscriptions" <|
+                \() ->
+                    contextTest False { width = 80, height = 24, colorProfile = Tui.TrueColor }
+                        |> TuiTest.resize { width = 120, height = 40 }
+                        |> TuiTest.ensureViewHas "Stored: 120×40"
+                        |> TuiTest.expectRunning
+            , test "startWithContext keeps effects returned from initial context update" <|
+                \() ->
+                    contextTest True { width = 120, height = 40, colorProfile = Tui.TrueColor }
+                        |> TuiTest.resolveEffect identity
+                        |> TuiTest.ensureViewHas "Effect: 120×40"
+                        |> TuiTest.expectRunning
+            , test "resize keeps effects returned from context update" <|
+                \() ->
+                    contextTest True { width = 80, height = 24, colorProfile = Tui.TrueColor }
+                        |> TuiTest.resolveEffect identity
+                        |> TuiTest.resize { width = 120, height = 40 }
+                        |> TuiTest.resolveEffect identity
+                        |> TuiTest.ensureViewHas "Effect: 120×40"
+                        |> TuiTest.expectRunning
+            ]
         , describe "TuiTest - Stars (BackendTask Effects)"
             [ test "initial view shows default repo and prompt" <|
                 \() ->
@@ -737,6 +764,82 @@ counterTest =
         , subscriptions = counterSubscriptions
         }
 
+
+
+-- Context TUI for testing framework-managed onContext behavior
+
+
+type alias ContextModel =
+    { stored : String
+    , effectStatus : String
+    , triggerEffect : Bool
+    }
+
+
+type ContextMsg
+    = ContextChanged { width : Int, height : Int }
+    | ContextEffectComplete String
+
+
+contextInit : Bool -> () -> ( ContextModel, Effect ContextMsg )
+contextInit triggerEffect () =
+    ( { stored = "none"
+      , effectStatus = "Effect: idle"
+      , triggerEffect = triggerEffect
+      }
+    , Effect.none
+    )
+
+
+contextUpdate : ContextMsg -> ContextModel -> ( ContextModel, Effect ContextMsg )
+contextUpdate msg model =
+    case msg of
+        ContextChanged ctx ->
+            let
+                sizeLabel : String
+                sizeLabel =
+                    formatSize ctx
+            in
+            if model.triggerEffect then
+                ( { model | stored = sizeLabel }
+                , BackendTask.succeed sizeLabel
+                    |> Effect.perform ContextEffectComplete
+                )
+
+            else
+                ( { model | stored = sizeLabel }, Effect.none )
+
+        ContextEffectComplete sizeLabel ->
+            ( { model | effectStatus = "Effect: " ++ sizeLabel }, Effect.none )
+
+
+contextView : Tui.Context -> ContextModel -> Tui.Screen
+contextView _ model =
+    Tui.lines
+        [ Tui.text ("Stored: " ++ model.stored)
+        , Tui.text model.effectStatus
+        ]
+
+
+contextSubscriptions : ContextModel -> Tui.Sub.Sub ContextMsg
+contextSubscriptions _ =
+    Tui.Sub.onContext ContextChanged
+
+
+contextTest : Bool -> Tui.Context -> TuiTest.TuiTest ContextModel ContextMsg
+contextTest triggerEffect context =
+    TuiTest.startWithContext context
+        { data = ()
+        , init = contextInit triggerEffect
+        , update = contextUpdate
+        , view = contextView
+        , subscriptions = contextSubscriptions
+        }
+
+
+formatSize : { a | width : Int, height : Int } -> String
+formatSize ctx =
+    String.fromInt ctx.width ++ "×" ++ String.fromInt ctx.height
 
 
 -- Stars TUI for testing

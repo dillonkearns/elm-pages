@@ -2,7 +2,7 @@ module Tui.Sub exposing
     ( Sub
     , none, batch, onKeyPress, onMouse, onPaste, onContext, every
     , map
-    , getInterests, routeEvent
+    , getInterests, getTickInterval, routeEvent
     , RawEvent(..), decodeRawEvent
     )
 
@@ -24,7 +24,7 @@ to subscribe to resize events.
 
 @docs map
 
-@docs getInterests, routeEvent
+@docs getInterests, getTickInterval, routeEvent
 
 
 ## Internal
@@ -180,6 +180,36 @@ getInterests sub =
         |> (\interests -> "resize" :: interests)
         |> List.reverse
         |> Encode.list Encode.string
+
+
+{-| Extract the tick interval in milliseconds, if any `every` subscription
+is present. Returns the minimum interval if multiple are batched.
+-}
+getTickInterval : Sub msg -> Maybe Float
+getTickInterval sub =
+    let
+        collect : Sub msg -> Maybe Float -> Maybe Float
+        collect s acc =
+            -- elm-review: known-unoptimized-recursion
+            case s of
+                SubNone ->
+                    acc
+
+                SubBatch subs ->
+                    List.foldl (\inner a -> collect inner a) acc subs
+
+                Every interval _ ->
+                    case acc of
+                        Nothing ->
+                            Just interval
+
+                        Just existing ->
+                            Just (min existing interval)
+
+                _ ->
+                    acc
+    in
+    collect sub Nothing
 
 
 {-| Route a raw event through a subscription to produce a user message.
