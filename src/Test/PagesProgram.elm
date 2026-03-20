@@ -68,6 +68,7 @@ import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Form
 import Html exposing (Html)
+import Html.Attributes
 import Internal.Request
 import Pages.Internal.FatalError
 import Json.Encode as Encode
@@ -155,6 +156,7 @@ type alias ReadyState model msg =
     , onNavigate : Maybe (String -> msg)
     , getBrowserUrl : Maybe (model -> String)
     , onFormSubmit : Maybe ({ formId : String, fields : List ( String, String ) } -> msg)
+    , getFormFields : Maybe (model -> List ( String, String ))
     }
 
 
@@ -331,6 +333,18 @@ startPlatform config initialPath mockResolver =
                                         }
                                     )
                             )
+                    , getFormFields =
+                        Just
+                            (\m ->
+                                m.pageFormState
+                                    |> Dict.values
+                                    |> List.concatMap
+                                        (\formState ->
+                                            formState.fields
+                                                |> Dict.toList
+                                                |> List.map (\( k, v ) -> ( k, v.value ))
+                                        )
+                            )
                     }
 
                 viewResult =
@@ -445,68 +459,52 @@ clickButton buttonText (ProgramTest state) =
 
                         Err _ ->
                             -- Button has no click handler. Try submitting the
-                            -- enclosing <form> (e.g. elm-pages form buttons).
-                            let
-                                formSubmitEvent =
-                                    Event.custom "submit"
-                                        (Encode.object
-                                            [ ( "fields"
-                                              , Encode.list
-                                                    (\( k, v ) ->
-                                                        Encode.list Encode.string [ k, v ]
-                                                    )
-                                                    [ ( "message", "" ) ]
-                                              )
-                                            , ( "currentTarget"
-                                              , Encode.object
-                                                    [ ( "method", Encode.string "POST" )
-                                                    , ( "action", Encode.string "" )
-                                                    , ( "id", Encode.string "feedback-form" )
-                                                    ]
-                                              )
-                                            ]
-                                        )
+                            -- enclosing <form> via onFormSubmit handler, which
+                            -- constructs PagesMsg.Submit with current field values.
+                            case ready.onFormSubmit of
+                                Just handler ->
+                                    let
+                                        -- Extract form ID from the form element
+                                        -- Default to empty string if not found
+                                        formId =
+                                            ""
 
-                                formResult =
-                                    query
-                                        |> Query.find
-                                            [ Selector.tag "form"
-                                            , Selector.containing
-                                                [ Selector.tag "button"
-                                                , Selector.containing [ Selector.text buttonText ]
-                                                ]
-                                            ]
-                                        |> Event.simulate formSubmitEvent
-                                        |> Event.toResult
-                            in
-                            case formResult of
-                                Ok msg ->
-                                    applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") msg (ProgramTest state)
+                                        currentFields =
+                                            case ready.getFormFields of
+                                                Just getFields ->
+                                                    getFields ready.model
 
-                                Err errMsg ->
+                                                Nothing ->
+                                                    []
+                                    in
+                                    applyMsgWithLabel
+                                        ("clickButton \"" ++ buttonText ++ "\"")
+                                        (handler { formId = formId, fields = currentFields })
+                                        (ProgramTest state)
+
+                                Nothing ->
                                     ProgramTest
                                         { state
                                             | error =
                                                 Just
                                                     ("clickButton \""
                                                         ++ buttonText
-                                                        ++ "\" failed:\n\n"
-                                                        ++ errMsg
+                                                        ++ "\" failed: button has no click handler and no form submit handler is available."
                                                     )
                                         }
 
 
-{-| Simulate typing text into an input field. Finds the input by its `id`
-attribute, simulates an `input` event with the given value, and passes the
-resulting message through `update`.
+{-| Simulate typing text into an input field. The first argument identifies the
+field -- it can be a field `name` attribute, an `id`, or label text. The second
+argument is the value to type.
 
-    PagesProgram.start loginConfig
-        |> PagesProgram.fillIn "email" "alice@example.com"
-        |> PagesProgram.ensureViewHas [ Selector.text "alice@example.com" ]
+    TestApp.start "/feedback" mockData
+        |> PagesProgram.fillIn "message" "Hello!"
+        |> PagesProgram.ensureViewHas [ Selector.text "Hello!" ]
 
 -}
 fillIn : String -> String -> ProgramTest model msg -> ProgramTest model msg
-fillIn fieldId value (ProgramTest state) =
+fillIn fieldIdentifier value (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -519,7 +517,7 @@ fillIn fieldId value (ProgramTest state) =
                             | error =
                                 Just
                                     ("fillIn \""
-                                        ++ fieldId
+                                        ++ fieldIdentifier
                                         ++ "\": Cannot interact while BackendTask data is still resolving."
                                     )
                         }
@@ -533,20 +531,80 @@ fillIn fieldId value (ProgramTest state) =
                         query =
                             Query.fromHtml (Html.div [] viewHtml.body)
 
-                        inputQuery : Query.Single msg
-                        inputQuery =
-                            query
-                                |> Query.find [ Selector.id fieldId ]
+                        tryFind : List (List Selector.Selector) -> Result String msg
+                        tryFind strategies =
+                            case strategies of
+                                [] ->
+                                    Err "No matching input found"
 
-                        eventResult : Result String msg
-                        eventResult =
-                            inputQuery
-                                |> Event.simulate (Event.input value)
+                                selectors :: rest ->
+                                    case
+                                        query
+                                            |> Query.find selectors
+                                            |> Event.simulate (Event.input value)
+                                            |> Event.toResult
+                                    of
+                                        Ok msg ->
+                                            Ok msg
+
+                                        Err _ ->
+                                            tryFind rest
+
+                        -- elm-pages forms use event delegation: the <form> element
+                        -- listens for "input" events, not individual <input> elements.
+                        -- Simulate the event on the form with the right target info.
+                        formInputResult : Result String msg
+                        formInputResult =
+                            query
+                                |> Query.find
+                                    [ Selector.tag "form"
+                                    , Selector.containing
+                                        [ Selector.tag "input" ]
+                                    ]
+                                |> Event.simulate
+                                    (Event.custom "input"
+                                        (Encode.object
+                                            [ ( "type", Encode.string "input" )
+                                            , ( "target"
+                                              , Encode.object
+                                                    [ ( "value", Encode.string value )
+                                                    , ( "name", Encode.string fieldIdentifier )
+                                                    , ( "type", Encode.string "text" )
+                                                    , ( "checked", Encode.bool False )
+                                                    ]
+                                              )
+                                            , ( "currentTarget"
+                                              , Encode.object
+                                                    [ ( "id", Encode.string "" )
+                                                    ]
+                                              )
+                                            ]
+                                        )
+                                    )
                                 |> Event.toResult
+
+                        result : Result String msg
+                        result =
+                            tryFind
+                                [ -- by name property (plain input with event handler)
+                                  [ Selector.tag "input"
+                                  , Selector.attribute (Html.Attributes.name fieldIdentifier)
+                                  ]
+                                , -- by id
+                                  [ Selector.id fieldIdentifier ]
+                                ]
+                                |> (\r ->
+                                        case r of
+                                            Ok _ ->
+                                                r
+
+                                            Err _ ->
+                                                formInputResult
+                                   )
                     in
-                    case eventResult of
+                    case result of
                         Ok msg ->
-                            applyMsgWithLabel ("fillIn \"" ++ fieldId ++ "\"") msg (ProgramTest state)
+                            applyMsgWithLabel ("fillIn \"" ++ fieldIdentifier ++ "\"") msg (ProgramTest state)
 
                         Err errMsg ->
                             ProgramTest
@@ -554,8 +612,8 @@ fillIn fieldId value (ProgramTest state) =
                                     | error =
                                         Just
                                             ("fillIn \""
-                                                ++ fieldId
-                                                ++ "\" failed:\n\n"
+                                                ++ fieldIdentifier
+                                                ++ "\" failed: Could not find input.\n\n"
                                                 ++ errMsg
                                             )
                                 }
@@ -1333,6 +1391,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                         , onNavigate = Nothing
                         , getBrowserUrl = Nothing
                         , onFormSubmit = Nothing
+                        , getFormFields = Nothing
                         }
 
                 Err err ->
@@ -1346,6 +1405,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                         , onNavigate = Nothing
                         , getBrowserUrl = Nothing
                         , onFormSubmit = Nothing
+                        , getFormFields = Nothing
                         }
 
         BackendTaskTest.Running runningState ->

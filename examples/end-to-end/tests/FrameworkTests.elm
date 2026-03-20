@@ -68,10 +68,8 @@ feedbackFormTest =
     TestApp.start "/feedback" mockData
         |> PagesProgram.ensureViewHas [ text "Feedback Form" ]
         |> PagesProgram.ensureViewHasNot [ text "You said:" ]
-        |> PagesProgram.submitForm
-            { formId = "feedback-form"
-            , fields = [ ( "message", "Hello from tests!" ) ]
-            }
+        |> PagesProgram.fillIn "message" "Hello from tests!"
+        |> PagesProgram.clickButton "Submit Feedback"
         |> PagesProgram.ensureViewHas [ text "You said: Hello from tests!" ]
 
 
