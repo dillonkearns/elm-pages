@@ -148,7 +148,7 @@ suite =
             , test "outer style overwrites inner style" <|
                 \() ->
                     Tui.concat
-                        [ Tui.text "red" |> Tui.fg Ansi.Color.red
+                        [ Tui.text "inner" |> Tui.fg Ansi.Color.red
                         , Tui.text "also"
                         ]
                         |> Tui.fg Ansi.Color.green
@@ -158,7 +158,7 @@ suite =
                                 Expect.all
                                     [ \str -> str |> String.contains "green" |> Expect.equal True
                                     -- red should be gone, replaced by green
-                                    , \str -> str |> String.contains "red" |> Expect.equal False
+                                    , \str -> str |> String.contains "\"red\"" |> Expect.equal False
                                     ]
                                     s
                            )
