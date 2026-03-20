@@ -33,6 +33,7 @@ export async function generate(basePath) {
   ensureDirSync("./.elm-pages");
   ensureDirSync("./gen");
   ensureDirSync("./elm-stuff/elm-pages/.elm-pages");
+  ensureDirSync("./elm-stuff/elm-pages/test-viewer");
 
   const uiFileContent = elmPagesUiFile();
 
