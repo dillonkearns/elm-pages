@@ -4,7 +4,7 @@ import Ansi.Color
 import Expect
 import Json.Encode
 import Test exposing (Test, describe, test)
-import Tui
+import Tui exposing (plain)
 import Tui.Layout as Layout
 
 
@@ -68,10 +68,7 @@ suite =
                                         , selected =
                                             \item ->
                                                 Tui.styled
-                                                    { fg = Just Ansi.Color.yellow
-                                                    , bg = Nothing
-                                                    , attributes = [ Tui.Bold ]
-                                                    }
+                                                    { plain | fg = Just Ansi.Color.yellow, attributes = [ Tui.Bold ] }
                                                     ("▸ " ++ item)
                                         , default = \item -> Tui.text ("  " ++ item)
                                         }
@@ -486,6 +483,125 @@ suite =
                     in
                     Layout.scrollPosition "list" newState
                         |> Expect.equal 3
+            , test "scroll does not change focused pane (lazygit behavior)" <|
+                \() ->
+                    let
+                        layout : Layout.Layout Int
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.content
+                                        (List.range 1 20
+                                            |> List.map (\i -> Tui.text ("left " ++ String.fromInt i))
+                                        )
+                                    )
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content
+                                        (List.range 1 20
+                                            |> List.map (\i -> Tui.text ("right " ++ String.fromInt i))
+                                        )
+                                    )
+                                ]
+
+                        -- Focus the left pane
+                        state : Layout.State
+                        state =
+                            Layout.init |> Layout.focusPane "left"
+
+                        -- Scroll in the RIGHT pane (col > half width)
+                        ( stateAfterScroll, _ ) =
+                            Layout.handleMouse
+                                (Tui.ScrollDown { row = 3, col = 25, amount = 1 })
+                                { width = 40, height = 10 }
+                                layout
+                                state
+                    in
+                    -- Focus should remain on "left", NOT switch to "right"
+                    Expect.all
+                        [ \_ -> Layout.focusedPane stateAfterScroll |> Expect.equal (Just "left")
+                        , \_ -> Layout.scrollPosition "right" stateAfterScroll |> Expect.equal 3
+                        ]
+                        ()
+            , test "scroll up does not change focused pane" <|
+                \() ->
+                    let
+                        layout : Layout.Layout Int
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.content
+                                        (List.range 1 20
+                                            |> List.map (\i -> Tui.text ("left " ++ String.fromInt i))
+                                        )
+                                    )
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content
+                                        (List.range 1 20
+                                            |> List.map (\i -> Tui.text ("right " ++ String.fromInt i))
+                                        )
+                                    )
+                                ]
+
+                        -- Focus the left pane, scroll right pane down first
+                        stateWithScroll : Layout.State
+                        stateWithScroll =
+                            Layout.init
+                                |> Layout.focusPane "left"
+                                |> Layout.scrollDown "right" 6
+
+                        -- Now scroll UP in the right pane
+                        ( stateAfterScroll, _ ) =
+                            Layout.handleMouse
+                                (Tui.ScrollUp { row = 3, col = 25, amount = 1 })
+                                { width = 40, height = 10 }
+                                layout
+                                stateWithScroll
+                    in
+                    Layout.focusedPane stateAfterScroll |> Expect.equal (Just "left")
+            , test "click DOES change focused pane" <|
+                \() ->
+                    let
+                        layout : Layout.Layout Int
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("▸ " ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        [ "a", "b", "c" ]
+                                    )
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("▸ " ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        [ "x", "y", "z" ]
+                                    )
+                                ]
+
+                        state : Layout.State
+                        state =
+                            Layout.init |> Layout.focusPane "left"
+
+                        -- Click in the RIGHT pane
+                        ( stateAfterClick, _ ) =
+                            Layout.handleMouse
+                                (Tui.Click { row = 2, col = 25, button = Tui.LeftButton })
+                                { width = 40, height = 10 }
+                                layout
+                                state
+                    in
+                    -- Click SHOULD change focus to right pane
+                    Layout.focusedPane stateAfterClick |> Expect.equal (Just "right")
             ]
         , describe "Scrollbar"
             [ test "scrollbar shows on right border when content overflows" <|

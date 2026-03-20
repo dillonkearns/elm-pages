@@ -1058,11 +1058,13 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                         newOffset =
                             clampScroll (contentLineCount config.paneContent) (ctx.height - 2) (ps.scrollOffset + delta)
                     in
-                    -- gocui pattern: skip state update entirely when scroll is a no-op
-                    -- at the boundary. This prevents unnecessary re-renders that cause
-                    -- flicker with high-frequency trackpad momentum events.
+                    -- Scroll does NOT change focus (lazygit behavior): hovering
+                    -- over a pane and scrolling it should not steal focus from
+                    -- the currently focused pane.
+                    -- Skip state update entirely when scroll is a no-op at the
+                    -- boundary to prevent unnecessary re-renders (gocui pattern).
                     if newOffset == ps.scrollOffset then
-                        ( State { sWithCtx | focusedPaneId = Just config.id }, Nothing )
+                        ( State sWithCtx, Nothing )
 
                     else
                         ( State
@@ -1071,7 +1073,6 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                                     Dict.insert mouseStateKey
                                         { ps | scrollOffset = newOffset }
                                         sWithCtx.paneStates
-                                , focusedPaneId = Just config.id
                             }
                         , Nothing
                         )
