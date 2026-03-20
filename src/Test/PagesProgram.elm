@@ -1,7 +1,8 @@
 module Test.PagesProgram exposing
     ( ProgramTest
-    , start
+    , start, startPlatform
     , clickButton, clickLink, fillIn, check
+    , navigateTo, ensureBrowserUrl
     , resolveEffect
     , ensureViewHas, ensureViewHasNot, ensureView
     , simulateHttpGet, simulateHttpPost
@@ -9,31 +10,32 @@ module Test.PagesProgram exposing
     , Snapshot, toSnapshots, withModelToString
     )
 
-{-| Test elm-pages programs with realistic simulation. The test runner resolves
-BackendTask data, renders views, and processes user interactions using the same
-logic as the real framework -- only external I/O (HTTP, shell commands, etc.) is
-simulated.
+{-| Test elm-pages programs with realistic simulation.
 
-    import BackendTask
-    import Html
+For full-fidelity route tests, use [`startPlatform`](#startPlatform) with a
+generated `TestApp` module. This drives the real elm-pages framework
+(`Pages.Internal.Platform`) so that shared data, shared view, navigation,
+form submission, and all other framework behavior works identically to
+production. Only external I/O (HTTP, shell commands, etc.) is simulated
+via a mock resolver.
+
+    import TestApp
     import Test exposing (test)
     import Test.Html.Selector as Selector
     import Test.PagesProgram as PagesProgram
 
-    test "renders greeting from data" <|
+    test "renders index page" <|
         \() ->
-            PagesProgram.start
-                { data = BackendTask.succeed "Hello!"
-                , init = \greeting -> ( { greeting = greeting }, [] )
-                , update = \_ model -> ( model, [] )
-                , view = \() model -> { title = "Home", body = [ Html.text model.greeting ] }
-                }
+            TestApp.start "/" mockData
                 |> PagesProgram.ensureViewHas [ Selector.text "Hello!" ]
                 |> PagesProgram.done
 
+For simple, self-contained page-state tests that don't need the full framework,
+use [`start`](#start) with inline config.
+
 @docs ProgramTest
 
-@docs start
+@docs start, startPlatform
 
 @docs clickButton, clickLink, fillIn, check
 
@@ -56,15 +58,31 @@ with the visual test runner to step through your test in the browser.
 -}
 
 import BackendTask exposing (BackendTask)
+import Browser
+import Bytes
+import Bytes.Decode
+import Bytes.Encode
+import Dict
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Html exposing (Html)
+import Internal.Request
+import Pages.Internal.FatalError
 import Json.Encode as Encode
+import PageServerResponse exposing (PageServerResponse(..))
+import Pages.Internal.Platform as Platform
+import Pages.Internal.ResponseSketch as ResponseSketch
+import Pages.StaticHttp.Request
+import Pages.StaticHttpRequest
+import RequestsAndPending
 import Test.BackendTask.Internal as BackendTaskTest
 import Test.Html.Event as Event
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.Runner
+import Time
+import Url exposing (Url)
+import UrlPath
 
 
 {-| An in-progress elm-pages program test. Create one with [`start`](#start),
@@ -131,6 +149,8 @@ type alias ReadyState model msg =
     , getView : model -> { title : String, body : List (Html msg) }
     , update : msg -> model -> ( model, List (BackendTask FatalError msg) )
     , pendingEffects : List (BackendTask FatalError msg)
+    , onNavigate : Maybe (String -> msg)
+    , getBrowserUrl : Maybe (model -> String)
     }
 
 
@@ -204,6 +224,114 @@ start config =
         , snapshots = initSnapshot
         , modelToString = Nothing
         }
+
+
+
+{-| Start a full-fidelity elm-pages test by driving `Pages.Internal.Platform`
+directly. The generated `TestApp` module provides the `config` (which is
+`Main.config`), so the typical usage is:
+
+    TestApp.start "/" mockData
+        |> PagesProgram.ensureViewHas [ Selector.text "Hello" ]
+        |> PagesProgram.done
+
+Where `TestApp.start = PagesProgram.startPlatform Main.config`.
+
+The mock resolver maps outgoing `BackendTask.Http` requests to responses.
+All framework behavior (shared data, shared view, navigation, form state)
+works identically to production because we drive the real Platform code.
+
+-}
+startPlatform config initialPath mockResolver =
+    let
+        baseUrl =
+            "https://localhost:1234"
+
+        initialUrl =
+            makeTestUrl baseUrl initialPath
+    in
+    case resolveInitialData config initialUrl initialPath mockResolver of
+        Err errMsg ->
+            ProgramTest
+                { phase =
+                    Resolving
+                        (Resolver
+                            { advance = \_ -> AdvanceError errMsg
+                            , pendingDescription = errMsg
+                            }
+                        )
+                , error = Just errMsg
+                , snapshots = []
+                , modelToString = Nothing
+                }
+
+        Ok pageDataBytes ->
+            let
+                flags =
+                    Encode.object []
+
+                ( initModel, _ ) =
+                    Platform.init config flags initialUrl Nothing
+
+                ( readyModel, readyEffect ) =
+                    Platform.update config (Platform.FrozenViewsReady (Just pageDataBytes)) initModel
+
+                processEffect eff model =
+                    processEffects config mockResolver baseUrl model eff 100
+
+                finalModel =
+                    processEffect readyEffect readyModel
+
+                updateFn msg model =
+                    let
+                        ( newModel, effect ) =
+                            Platform.update config msg model
+
+                        processedModel =
+                            processEffect effect newModel
+                    in
+                    ( processedModel, [] )
+
+                viewFn model =
+                    let
+                        doc =
+                            Platform.view config model
+                    in
+                    { title = doc.title, body = doc.body }
+
+                ready =
+                    { model = finalModel
+                    , getView = viewFn
+                    , update = updateFn
+                    , pendingEffects = []
+                    , onNavigate =
+                        Just
+                            (\href ->
+                                Platform.LinkClicked
+                                    (Browser.Internal (makeTestUrl baseUrl href))
+                            )
+                    , getBrowserUrl =
+                        Just (\m -> Url.toString m.url)
+                    }
+
+                viewResult =
+                    viewFn finalModel
+
+                initSnapshot =
+                    { label = "start"
+                    , title = viewResult.title
+                    , body = (mapViewToSnapshot viewResult).body
+                    , rerender = \() -> mapViewToSnapshot (viewFn finalModel)
+                    , hasPendingEffects = False
+                    , modelState = Nothing
+                    }
+            in
+            ProgramTest
+                { phase = Ready ready
+                , error = Nothing
+                , snapshots = [ initSnapshot ]
+                , modelToString = Nothing
+                }
 
 
 
@@ -375,18 +503,20 @@ fillIn fieldId value (ProgramTest state) =
 
 
 
-{-| Simulate clicking a link. Finds an `<a>` element containing the given text,
-extracts its click event handler, and passes the resulting message through
-`update`. If the link has no click handler, this is a no-op (navigation would
-be handled at the framework level in a full app test).
+{-| Simulate clicking a link with the given text and href. Verifies that a
+matching `<a>` element exists in the view, then triggers navigation.
 
-    PagesProgram.start config
-        |> PagesProgram.clickLink "About"
-        |> PagesProgram.ensureViewHas [ Selector.text "About page" ]
+In framework-driven tests (`startPlatform`), this dispatches `LinkClicked`
+through the real Platform, which handles URL changes, data loading, and
+re-rendering just like production.
+
+    TestApp.start "/links" mockData
+        |> PagesProgram.clickLink "Counter page" "/counter"
+        |> PagesProgram.ensureViewHas [ Selector.text "Count: 0" ]
 
 -}
-clickLink : String -> ProgramTest model msg -> ProgramTest model msg
-clickLink linkText (ProgramTest state) =
+clickLink : String -> String -> ProgramTest model msg -> ProgramTest model msg
+clickLink linkText href (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -413,29 +543,145 @@ clickLink linkText (ProgramTest state) =
                         query =
                             Query.fromHtml (Html.div [] viewHtml.body)
 
-                        linkQuery : Query.Single msg
-                        linkQuery =
+                        -- Verify link exists in the view
+                        linkExists : Expectation
+                        linkExists =
                             query
                                 |> Query.find
                                     [ Selector.tag "a"
                                     , Selector.containing [ Selector.text linkText ]
                                     ]
-
-                        eventResult : Result String msg
-                        eventResult =
-                            linkQuery
-                                |> Event.simulate Event.click
-                                |> Event.toResult
+                                |> Query.has []
                     in
-                    case eventResult of
-                        Ok msg ->
-                            applyMsgWithLabel ("clickLink \"" ++ linkText ++ "\"") msg (ProgramTest state)
+                    case getFailureMessage linkExists of
+                        Just errMsg ->
+                            ProgramTest
+                                { state
+                                    | error =
+                                        Just
+                                            ("clickLink \""
+                                                ++ linkText
+                                                ++ "\" failed: link not found\n\n"
+                                                ++ errMsg
+                                            )
+                                }
 
-                        Err _ ->
-                            -- Link has no click handler; in a full app test this
-                            -- would trigger navigation. For single-route tests
-                            -- we record it as a snapshot but don't change state.
-                            ProgramTest state
+                        Nothing ->
+                            -- Link exists. Navigate using onNavigate if available.
+                            case ready.onNavigate of
+                                Just navigate ->
+                                    applyMsgWithLabel
+                                        ("clickLink \"" ++ linkText ++ "\"")
+                                        (navigate href)
+                                        (ProgramTest state)
+
+                                Nothing ->
+                                    -- No navigation handler (old API). Try event simulation.
+                                    let
+                                        linkQuery =
+                                            query
+                                                |> Query.find
+                                                    [ Selector.tag "a"
+                                                    , Selector.containing [ Selector.text linkText ]
+                                                    ]
+
+                                        eventResult =
+                                            linkQuery
+                                                |> Event.simulate Event.click
+                                                |> Event.toResult
+                                    in
+                                    case eventResult of
+                                        Ok msg ->
+                                            applyMsgWithLabel ("clickLink \"" ++ linkText ++ "\"") msg (ProgramTest state)
+
+                                        Err _ ->
+                                            ProgramTest state
+
+
+{-| Navigate directly to a URL path. In framework-driven tests, this triggers
+the full Platform navigation cycle: `LinkClicked` -> `UrlChanged` ->
+data loading -> re-render.
+
+    TestApp.start "/" mockData
+        |> PagesProgram.navigateTo "/counter"
+        |> PagesProgram.ensureViewHas [ Selector.text "Count: 0" ]
+
+-}
+navigateTo : String -> ProgramTest model msg -> ProgramTest model msg
+navigateTo path (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest
+                        { state
+                            | error = Just "navigateTo: Cannot navigate while BackendTask data is still resolving."
+                        }
+
+                Ready ready ->
+                    case ready.onNavigate of
+                        Just navigate ->
+                            applyMsgWithLabel
+                                ("navigateTo \"" ++ path ++ "\"")
+                                (navigate path)
+                                (ProgramTest state)
+
+                        Nothing ->
+                            ProgramTest
+                                { state
+                                    | error = Just "navigateTo: Navigation is only supported with startPlatform (framework-driven tests)."
+                                }
+
+
+{-| Assert on the current browser URL. Use with framework-driven tests
+(`startPlatform`) where navigation is tracked by the Platform.
+
+    TestApp.start "/hello" mockData
+        |> PagesProgram.ensureBrowserUrl
+            (\url -> url |> Expect.equal "https://localhost:1234/hello")
+
+-}
+ensureBrowserUrl : (String -> Expectation) -> ProgramTest model msg -> ProgramTest model msg
+ensureBrowserUrl assertion (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest
+                        { state | error = Just "ensureBrowserUrl: Cannot check URL while data is resolving." }
+
+                Ready ready ->
+                    case ready.getBrowserUrl of
+                        Just getUrl ->
+                            let
+                                currentUrl =
+                                    getUrl ready.model
+
+                                result =
+                                    assertion currentUrl
+                            in
+                            case getFailureMessage result of
+                                Just failMsg ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just ("ensureBrowserUrl failed:\n\n" ++ failMsg)
+                                        }
+
+                                Nothing ->
+                                    ProgramTest state
+
+                        Nothing ->
+                            ProgramTest
+                                { state
+                                    | error = Just "ensureBrowserUrl: URL tracking is only supported with startPlatform (framework-driven tests)."
+                                }
 
 
 {-| Simulate checking or unchecking a checkbox. Finds the input by its `id`
@@ -983,6 +1229,8 @@ resolveDataPhase bt initFn viewFn updateFn =
                         , getView = viewFn data
                         , update = updateFn
                         , pendingEffects = effects
+                        , onNavigate = Nothing
+                        , getBrowserUrl = Nothing
                         }
 
                 Err err ->
@@ -993,6 +1241,8 @@ resolveDataPhase bt initFn viewFn updateFn =
                         , getView = viewFn (crashData err)
                         , update = updateFn
                         , pendingEffects = []
+                        , onNavigate = Nothing
+                        , getBrowserUrl = Nothing
                         }
 
         BackendTaskTest.Running runningState ->
@@ -1061,3 +1311,213 @@ stillRunningDescription pendingRequests =
 crashData : FatalError -> a
 crashData _ =
     crashData (FatalError.fromString "unreachable")
+
+
+
+-- PLATFORM HELPERS
+
+
+{-| Resolve shared data, route data, and encode as ResponseSketch bytes for
+Platform.FrozenViewsReady. Returns Err with a message if resolution fails.
+-}
+resolveInitialData config initialUrl initialPath mockResolver =
+    case Pages.StaticHttpRequest.mockResolve identity config.sharedData mockResolver of
+        Err sharedErr ->
+            Err ("Failed to resolve Shared.template.data: " ++ fatalErrorToString sharedErr)
+
+        Ok resolvedSharedData ->
+            let
+                initialRoute =
+                    config.urlToRoute initialUrl
+            in
+            case Pages.StaticHttpRequest.mockResolve identity (config.handleRoute initialRoute) mockResolver of
+                Err handleErr ->
+                    Err ("Failed to resolve handleRoute: " ++ fatalErrorToString handleErr)
+
+                Ok (Just notFoundReason) ->
+                    { reason = notFoundReason
+                    , path = UrlPath.fromString initialPath
+                    }
+                        |> ResponseSketch.NotFound
+                        |> encodeResponseWithPrefix config
+                        |> Ok
+
+                Ok Nothing ->
+                    case Pages.StaticHttpRequest.mockResolve identity (config.data platformTestRequest initialRoute) mockResolver of
+                        Err dataErr ->
+                            Err ("Failed to resolve route data: " ++ fatalErrorToString dataErr)
+
+                        Ok (RenderPage _ pageData) ->
+                            ResponseSketch.HotUpdate
+                                pageData
+                                resolvedSharedData
+                                Nothing
+                                |> encodeResponseWithPrefix config
+                                |> Ok
+
+                        Ok (ServerResponse serverResponse) ->
+                            Err
+                                ("Expected a rendered page but got a server response with status "
+                                    ++ String.fromInt serverResponse.statusCode
+                                )
+
+                        Ok (PageServerResponse.ErrorPage _ _) ->
+                            Err "Expected a rendered page but got an error page"
+
+
+{-| Recursively process Platform effects. Resolves framework effects (data
+fetching, navigation) synchronously using the mock resolver. User effects
+are dropped (Phase 1). A depth limit prevents infinite loops.
+-}
+processEffects config mockResolver baseUrl model effect maxDepth =
+    if maxDepth <= 0 then
+        model
+
+    else
+        case effect of
+            Platform.NoEffect ->
+                model
+
+            Platform.ScrollToTop ->
+                model
+
+            Platform.CancelRequest _ ->
+                model
+
+            Platform.RunCmd _ ->
+                model
+
+            Platform.UserCmd _ ->
+                model
+
+            Platform.BrowserLoadUrl _ ->
+                -- External navigation not supported in tests
+                model
+
+            Platform.BrowserPushUrl path ->
+                let
+                    newUrl =
+                        makeTestUrl baseUrl path
+
+                    ( newModel, newEffect ) =
+                        Platform.update config (Platform.UrlChanged newUrl) model
+                in
+                processEffects config mockResolver baseUrl newModel newEffect (maxDepth - 1)
+
+            Platform.BrowserReplaceUrl path ->
+                let
+                    newUrl =
+                        makeTestUrl baseUrl path
+
+                    ( newModel, newEffect ) =
+                        Platform.update config (Platform.UrlChanged newUrl) model
+                in
+                processEffects config mockResolver baseUrl newModel newEffect (maxDepth - 1)
+
+            Platform.FetchFrozenViews { path } ->
+                let
+                    fetchUrl =
+                        makeTestUrl baseUrl path
+
+                    route =
+                        config.urlToRoute fetchUrl
+
+                    dataResult =
+                        Pages.StaticHttpRequest.mockResolve identity
+                            (config.data platformTestRequest route)
+                            mockResolver
+                in
+                case dataResult of
+                    Ok (RenderPage _ pageData) ->
+                        let
+                            encodedBytes =
+                                ResponseSketch.RenderPage pageData Nothing
+                                    |> encodeResponseWithPrefix config
+
+                            ( newModel, newEffect ) =
+                                Platform.update config
+                                    (Platform.FrozenViewsReady (Just encodedBytes))
+                                    model
+                        in
+                        processEffects config mockResolver baseUrl newModel newEffect (maxDepth - 1)
+
+                    _ ->
+                        -- Data resolution failed during navigation; leave model unchanged
+                        model
+
+            Platform.Submit _ ->
+                -- TODO: Phase 2 - form submissions
+                model
+
+            Platform.SubmitFetcher _ _ _ ->
+                -- TODO: Phase 5 - concurrent submissions
+                model
+
+            Platform.Batch effects ->
+                List.foldl
+                    (\eff m ->
+                        processEffects config mockResolver baseUrl m eff (maxDepth - 1)
+                    )
+                    model
+                    effects
+
+
+{-| Construct a test URL from a base URL and path.
+-}
+makeTestUrl : String -> String -> Url
+makeTestUrl baseUrl path =
+    let
+        fullUrl =
+            if String.startsWith "http" path then
+                path
+
+            else
+                baseUrl ++ path
+    in
+    case Url.fromString fullUrl of
+        Just url ->
+            url
+
+        Nothing ->
+            -- Fallback: construct URL manually
+            { protocol = Url.Https
+            , host = "localhost"
+            , port_ = Just 1234
+            , path = path
+            , query = Nothing
+            , fragment = Nothing
+            }
+
+
+{-| A fake incoming HTTP request for data resolution in tests.
+-}
+platformTestRequest : Internal.Request.Request
+platformTestRequest =
+    Internal.Request.Request
+        { time = Time.millisToPosix 0
+        , method = "GET"
+        , body = Nothing
+        , rawUrl = "http://localhost:1234/"
+        , rawHeaders = Dict.empty
+        , cookies = Dict.empty
+        }
+
+
+{-| Encode a ResponseSketch with the frozen views prefix that decodeResponse
+expects. The prefix is a 4-byte big-endian length (0) indicating zero bytes
+of frozen view data to skip.
+-}
+encodeResponseWithPrefix config sketch =
+    Bytes.Encode.encode
+        (Bytes.Encode.sequence
+            [ Bytes.Encode.unsignedInt32 Bytes.BE 0
+            , config.encodeResponse sketch
+            ]
+        )
+
+
+fatalErrorToString : FatalError -> String
+fatalErrorToString err =
+    case err of
+        Pages.Internal.FatalError.FatalError info ->
+            info.title ++ ": " ++ info.body

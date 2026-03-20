@@ -9,7 +9,7 @@ import Html.Attributes as Attr
 import Json.Decode as Decode
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Path
+import UrlPath as Path
 import RouteBuilder exposing (StatelessRoute, App)
 import Shared
 import View exposing (View)

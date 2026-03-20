@@ -397,6 +397,7 @@ main =
     );
     const testViewerElmJson = { ...elmJson };
     testViewerElmJson["source-directories"] = elmJson["source-directories"]
+      .filter((dir) => !dir.includes("elm-stuff/elm-pages/test-viewer"))
       .map((dir) => path.join("../../..", dir))
       .concat(["../../../tests", "."]);
     fs.writeFileSync(
@@ -405,9 +406,17 @@ main =
     );
 
     try {
-      const { spawnSync } = await import("node:child_process");
+      const { spawnSync, execSync } = await import("node:child_process");
+      // Use lamdera if available (needed for Wire3 codecs), fall back to elm
+      let compiler = "elm";
+      try {
+        execSync("lamdera --help", { stdio: "ignore" });
+        compiler = "lamdera";
+      } catch (e) {
+        // lamdera not available, use elm
+      }
       const result = spawnSync(
-        "elm",
+        compiler,
         [
           "make",
           "TestViewer.elm",

@@ -1,4 +1,4 @@
-module Route.Counter exposing (ActionData, Data, Model, Msg, StaticData, route)
+module Route.Counter exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
@@ -6,24 +6,24 @@ import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
-import Http
-import Pages.PageUrl exposing (PageUrl)
+import Html.Styled.Events as Events
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
-import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
+import RouteBuilder exposing (App, StatefulRoute)
 import Shared
 import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
 type alias Model =
-    { count : Maybe Int
+    { count : Int
     }
 
 
 type Msg
-    = NoOp
-    | GotStargazers (Result Http.Error Int)
+    = Increment
+    | Decrement
+    | Reset
 
 
 type alias RouteParams =
@@ -32,10 +32,6 @@ type alias RouteParams =
 
 type alias ActionData =
     {}
-
-
-type alias StaticData =
-    ()
 
 
 route : StatefulRoute RouteParams Data ActionData Model Msg
@@ -57,7 +53,7 @@ init :
     -> Shared.Model
     -> ( Model, Effect Msg )
 init app sharedModel =
-    ( { count = Nothing }, Effect.GetStargazers GotStargazers )
+    ( { count = 0 }, Effect.none )
 
 
 update :
@@ -68,14 +64,14 @@ update :
     -> ( Model, Effect Msg )
 update app shared msg model =
     case msg of
-        NoOp ->
-            ( model, Effect.none )
+        Increment ->
+            ( { model | count = model.count + 1 }, Effect.none )
 
-        GotStargazers (Ok count) ->
-            ( { count = Just count }, Effect.none )
+        Decrement ->
+            ( { model | count = model.count - 1 }, Effect.none )
 
-        GotStargazers (Err error) ->
-            ( model, Effect.none )
+        Reset ->
+            ( { model | count = 0 }, Effect.none )
 
 
 subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
@@ -105,7 +101,7 @@ head app =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = "TODO"
+        , description = "A simple counter"
         , locale = Nothing
         , title = "Counter"
         }
@@ -120,11 +116,20 @@ view :
 view app sharedModel model =
     { title = "Counter"
     , body =
-        [ case model.count of
-            Nothing ->
-                Html.text "Loading..."
-
-            Just count ->
-                Html.text ("The count is: " ++ String.fromInt count)
+        [ Html.div []
+            [ Html.h1 [] [ Html.text "Counter" ]
+            , Html.p []
+                [ Html.text ("Count: " ++ String.fromInt model.count)
+                ]
+            , Html.button
+                [ Events.onClick (PagesMsg.fromMsg Decrement) ]
+                [ Html.text "-" ]
+            , Html.button
+                [ Events.onClick (PagesMsg.fromMsg Increment) ]
+                [ Html.text "+" ]
+            , Html.button
+                [ Events.onClick (PagesMsg.fromMsg Reset) ]
+                [ Html.text "Reset" ]
+            ]
         ]
     }

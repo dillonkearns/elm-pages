@@ -81,7 +81,7 @@ otherFile routes phaseString routesWithEphemeral =
         --    , reference : Elm.Expression
         --    , referenceFrom : List String -> Elm.Expression
         --    }
-        config =
+        configFields =
             { init = Elm.apply (Elm.val "init") [ Elm.nothing ]
             , update = update.value
             , subscriptions = subscriptions.value
@@ -192,6 +192,9 @@ otherFile routes phaseString routesWithEphemeral =
             , notFoundRoute = Elm.nothing
             }
                 |> make_
+
+        config =
+            configFields
                 |> Elm.withType Type.unit
 
         --|> Elm.withType
@@ -2184,11 +2187,14 @@ otherFile routes phaseString routesWithEphemeral =
                 )
     in
     Elm.file [ "Main" ]
-        [ modelType.declaration
+        [ modelType.declaration |> Elm.expose
         , pageModelType.declaration
-        , msgType.declaration
-        , pageDataType.declaration
-        , actionDataType.declaration
+        , msgType.declaration |> Elm.expose
+        , pageDataType.declaration |> Elm.expose
+        , actionDataType.declaration |> Elm.expose
+        , configFields
+            |> Elm.declaration "config"
+            |> Elm.expose
         , case phase of
             Browser ->
                 Gen.Pages.Internal.Platform.application config

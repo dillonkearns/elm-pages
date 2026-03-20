@@ -138,6 +138,7 @@ export async function run(elmModulePath, options) {
     const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
     const testViewerElmJson = { ...elmJson };
     testViewerElmJson["source-directories"] = elmJson["source-directories"]
+      .filter((dir) => !dir.includes("elm-stuff/elm-pages/test-viewer"))
       .map((dir) => path.join("../../..", dir))
       .concat(["../../../tests", "."]);
     fs.writeFileSync(
@@ -147,8 +148,18 @@ export async function run(elmModulePath, options) {
 
     const { spawnSync } = await import("node:child_process");
 
+    // Use lamdera if available (needed for Wire3 codecs), fall back to elm
+    const { execSync } = await import("node:child_process");
+    let compiler = "elm";
+    try {
+      execSync("lamdera --help", { stdio: "ignore" });
+      compiler = "lamdera";
+    } catch (e) {
+      // lamdera not available, use elm
+    }
+
     const result = spawnSync(
-      "elm",
+      compiler,
       [
         "make",
         "TestViewer.elm",
