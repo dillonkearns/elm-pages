@@ -378,17 +378,27 @@ main =
 
     await writeFileIfChanged(".elm-pages/TestViewer.elm", viewerElm);
 
-    // Compile with tests/ in source dirs
-    const elmJsonPath = path.resolve("elm.json");
-    const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
-    const originalSourceDirs = [...elmJson["source-directories"]];
-    let needsRestore = false;
+    // Compile in an isolated directory with its own elm.json so we don't
+    // pollute the main app's source-directories or trigger Debug errors.
+    const testViewerDir = path.join(
+      process.cwd(),
+      "elm-stuff/elm-pages/test-viewer"
+    );
+    ensureDirSync(testViewerDir);
 
-    if (!elmJson["source-directories"].includes("tests")) {
-      elmJson["source-directories"].push("tests");
-      fs.writeFileSync(elmJsonPath, JSON.stringify(elmJson, null, 4) + "\n");
-      needsRestore = true;
-    }
+    // Create elm.json for the test viewer: same as the project but with
+    // tests/ added to source-directories and paths adjusted to be relative.
+    const elmJson = JSON.parse(
+      fs.readFileSync(path.resolve("elm.json"), "utf8")
+    );
+    const testViewerElmJson = { ...elmJson };
+    testViewerElmJson["source-directories"] = elmJson["source-directories"]
+      .map((dir) => path.join("../../..", dir))
+      .concat(["../../../tests"]);
+    fs.writeFileSync(
+      path.join(testViewerDir, "elm.json"),
+      JSON.stringify(testViewerElmJson, null, 4)
+    );
 
     try {
       const { spawnSync } = await import("node:child_process");
@@ -396,11 +406,11 @@ main =
         "elm",
         [
           "make",
-          ".elm-pages/TestViewer.elm",
-          "--output=.elm-pages/cache/test-viewer.js",
+          "../../../.elm-pages/TestViewer.elm",
+          "--output=../../../.elm-pages/cache/test-viewer.js",
           "--debug",
         ],
-        { stdio: "pipe", cwd: process.cwd() }
+        { stdio: "pipe", cwd: testViewerDir }
       );
 
       if (result.status !== 0) {
@@ -410,14 +420,8 @@ main =
         );
         console.error(kleur.dim(stderr.slice(0, 500)));
       }
-    } finally {
-      if (needsRestore) {
-        elmJson["source-directories"] = originalSourceDirs;
-        fs.writeFileSync(
-          elmJsonPath,
-          JSON.stringify(elmJson, null, 4) + "\n"
-        );
-      }
+    } catch (e) {
+      console.error(kleur.yellow("Test viewer compilation error:"), e.message);
     }
   }
 

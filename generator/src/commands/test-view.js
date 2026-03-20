@@ -123,43 +123,46 @@ export async function run(elmModulePath, options) {
       viewerModule
     );
 
-    // Compile to HTML
-    // Temporarily add tests/ to source-directories so elm can find test modules
+    // Compile to HTML using an isolated directory with its own elm.json
+    // so we don't pollute the main app's source-directories.
     const outputPath = path.resolve("tests/viewer.html");
     ensureDirSync(path.dirname(outputPath));
 
     console.log("Compiling test viewer...");
 
-    const elmJsonPath = path.resolve(projectDirectory || ".", "elm.json");
-    const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
-    const originalSourceDirs = [...elmJson["source-directories"]];
+    const projDir = projectDirectory || ".";
+    const testViewerBuildDir = path.resolve(
+      projDir,
+      "elm-stuff/elm-pages/test-viewer"
+    );
+    ensureDirSync(testViewerBuildDir);
 
-    // Add tests/ if not already present
-    if (!elmJson["source-directories"].includes("tests")) {
-      elmJson["source-directories"].push("tests");
-      fs.writeFileSync(elmJsonPath, JSON.stringify(elmJson, null, 4));
-    }
+    const elmJsonPath = path.resolve(projDir, "elm.json");
+    const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
+    const testViewerElmJson = { ...elmJson };
+    testViewerElmJson["source-directories"] = elmJson["source-directories"]
+      .map((dir) => path.join("../../..", dir))
+      .concat(["../../../tests"]);
+    fs.writeFileSync(
+      path.join(testViewerBuildDir, "elm.json"),
+      JSON.stringify(testViewerElmJson, null, 4)
+    );
 
     const { spawnSync } = await import("node:child_process");
-    const elmBinary = "elm";
 
     const result = spawnSync(
-      elmBinary,
+      "elm",
       [
         "make",
-        path.join(viewerDir, "TestViewer.elm"),
+        path.join("../../..", viewerDir, "TestViewer.elm"),
         `--output=${outputPath}`,
         "--debug",
       ],
       {
         stdio: "inherit",
-        cwd: projectDirectory || ".",
+        cwd: testViewerBuildDir,
       }
     );
-
-    // Restore original source-directories
-    elmJson["source-directories"] = originalSourceDirs;
-    fs.writeFileSync(elmJsonPath, JSON.stringify(elmJson, null, 4));
 
     if (result.status !== 0) {
       console.error("Failed to compile test viewer.");
