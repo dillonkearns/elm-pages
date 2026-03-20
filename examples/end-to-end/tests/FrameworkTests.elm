@@ -2,11 +2,13 @@ module FrameworkTests exposing
     ( counterClicksTest
     , navigationTest
     , navigateAndInteractTest
+    , feedbackFormTest
     )
 
 {-| Framework-driven route tests using the real elm-pages Platform.
 These tests drive Pages.Internal.Platform directly, so shared layout,
-navigation, and all framework behavior works identically to production.
+navigation, form submission, and all framework behavior works identically
+to production.
 
 View in browser: elm-pages test-view tests/FrameworkTests.elm
 -}
@@ -59,6 +61,18 @@ navigateAndInteractTest =
         |> PagesProgram.ensureViewHas [ text "Count: 0" ]
         |> PagesProgram.navigateTo "/hello"
         |> PagesProgram.ensureViewHas [ text "Hello" ]
+
+
+feedbackFormTest : TestApp.ProgramTest
+feedbackFormTest =
+    TestApp.start "/feedback" mockData
+        |> PagesProgram.ensureViewHas [ text "Feedback Form" ]
+        |> PagesProgram.ensureViewHasNot [ text "You said:" ]
+        |> PagesProgram.submitForm
+            { formId = "feedback-form"
+            , fields = [ ( "message", "Hello from tests!" ) ]
+            }
+        |> PagesProgram.ensureViewHas [ text "You said: Hello from tests!" ]
 
 
 mockData : Pages.StaticHttp.Request.Request -> Maybe RequestsAndPending.Response

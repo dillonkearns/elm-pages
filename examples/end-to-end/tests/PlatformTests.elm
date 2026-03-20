@@ -56,6 +56,17 @@ suite =
                     |> PagesProgram.ensureBrowserUrl
                         (\url -> url |> Expect.equal "https://localhost:1234/counter")
                     |> PagesProgram.done
+        , test "feedback form submission renders action data" <|
+            \() ->
+                TestApp.start "/feedback" mockData
+                    |> PagesProgram.ensureViewHas [ text "Feedback Form" ]
+                    |> PagesProgram.ensureViewHasNot [ text "You said:" ]
+                    |> PagesProgram.submitForm
+                        { formId = "feedback-form"
+                        , fields = [ ( "message", "Hello from tests!" ) ]
+                        }
+                    |> PagesProgram.ensureViewHas [ text "You said: Hello from tests!" ]
+                    |> PagesProgram.done
         ]
 
 

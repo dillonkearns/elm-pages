@@ -3,6 +3,7 @@ module Test.PagesProgram exposing
     , start, startPlatform
     , clickButton, clickLink, fillIn, check
     , navigateTo, ensureBrowserUrl
+    , submitForm
     , resolveEffect
     , ensureViewHas, ensureViewHasNot, ensureView
     , simulateHttpGet, simulateHttpPost
@@ -65,11 +66,13 @@ import Bytes.Encode
 import Dict
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
+import Form
 import Html exposing (Html)
 import Internal.Request
 import Pages.Internal.FatalError
 import Json.Encode as Encode
 import PageServerResponse exposing (PageServerResponse(..))
+import Pages.Internal.Msg
 import Pages.Internal.Platform as Platform
 import Pages.Internal.ResponseSketch as ResponseSketch
 import Pages.StaticHttp.Request
@@ -151,6 +154,7 @@ type alias ReadyState model msg =
     , pendingEffects : List (BackendTask FatalError msg)
     , onNavigate : Maybe (String -> msg)
     , getBrowserUrl : Maybe (model -> String)
+    , onFormSubmit : Maybe ({ formId : String, fields : List ( String, String ) } -> msg)
     }
 
 
@@ -312,6 +316,21 @@ startPlatform config initialPath mockResolver =
                             )
                     , getBrowserUrl =
                         Just (\m -> Url.toString m.url)
+                    , onFormSubmit =
+                        Just
+                            (\{ formId, fields } ->
+                                Platform.UserMsg
+                                    (Pages.Internal.Msg.Submit
+                                        { useFetcher = False
+                                        , action = ""
+                                        , method = Form.Post
+                                        , fields = fields
+                                        , msg = Nothing
+                                        , id = formId
+                                        , valid = True
+                                        }
+                                    )
+                            )
                     }
 
                 viewResult =
@@ -424,17 +443,57 @@ clickButton buttonText (ProgramTest state) =
                         Ok msg ->
                             applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") msg (ProgramTest state)
 
-                        Err errMsg ->
-                            ProgramTest
-                                { state
-                                    | error =
-                                        Just
-                                            ("clickButton \""
-                                                ++ buttonText
-                                                ++ "\" failed:\n\n"
-                                                ++ errMsg
-                                            )
-                                }
+                        Err _ ->
+                            -- Button has no click handler. Try submitting the
+                            -- enclosing <form> (e.g. elm-pages form buttons).
+                            let
+                                formSubmitEvent =
+                                    Event.custom "submit"
+                                        (Encode.object
+                                            [ ( "fields"
+                                              , Encode.list
+                                                    (\( k, v ) ->
+                                                        Encode.list Encode.string [ k, v ]
+                                                    )
+                                                    [ ( "message", "" ) ]
+                                              )
+                                            , ( "currentTarget"
+                                              , Encode.object
+                                                    [ ( "method", Encode.string "POST" )
+                                                    , ( "action", Encode.string "" )
+                                                    , ( "id", Encode.string "feedback-form" )
+                                                    ]
+                                              )
+                                            ]
+                                        )
+
+                                formResult =
+                                    query
+                                        |> Query.find
+                                            [ Selector.tag "form"
+                                            , Selector.containing
+                                                [ Selector.tag "button"
+                                                , Selector.containing [ Selector.text buttonText ]
+                                                ]
+                                            ]
+                                        |> Event.simulate formSubmitEvent
+                                        |> Event.toResult
+                            in
+                            case formResult of
+                                Ok msg ->
+                                    applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") msg (ProgramTest state)
+
+                                Err errMsg ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just
+                                                    ("clickButton \""
+                                                        ++ buttonText
+                                                        ++ "\" failed:\n\n"
+                                                        ++ errMsg
+                                                    )
+                                        }
 
 
 {-| Simulate typing text into an input field. Finds the input by its `id`
@@ -681,6 +740,48 @@ ensureBrowserUrl assertion (ProgramTest state) =
                             ProgramTest
                                 { state
                                     | error = Just "ensureBrowserUrl: URL tracking is only supported with startPlatform (framework-driven tests)."
+                                }
+
+
+{-| Submit a form with the given fields. In framework-driven tests, this
+triggers the full action pipeline: the action BackendTask is resolved, and
+the result is rendered as `actionData` in the view.
+
+    TestApp.start "/feedback" mockData
+        |> PagesProgram.submitForm
+            { formId = "feedback-form"
+            , fields = [ ( "message", "Hello!" ) ]
+            }
+        |> PagesProgram.ensureViewHas [ Selector.text "You said: Hello!" ]
+
+-}
+submitForm :
+    { formId : String, fields : List ( String, String ) }
+    -> ProgramTest model msg
+    -> ProgramTest model msg
+submitForm formInfo (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest
+                        { state | error = Just "submitForm: Cannot submit while data is resolving." }
+
+                Ready ready ->
+                    case ready.onFormSubmit of
+                        Just handler ->
+                            applyMsgWithLabel
+                                ("submitForm \"" ++ formInfo.formId ++ "\"")
+                                (handler formInfo)
+                                (ProgramTest state)
+
+                        Nothing ->
+                            ProgramTest
+                                { state
+                                    | error = Just "submitForm: Form submission is only supported with startPlatform (framework-driven tests)."
                                 }
 
 
@@ -1231,6 +1332,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                         , pendingEffects = effects
                         , onNavigate = Nothing
                         , getBrowserUrl = Nothing
+                        , onFormSubmit = Nothing
                         }
 
                 Err err ->
@@ -1243,6 +1345,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                         , pendingEffects = []
                         , onNavigate = Nothing
                         , getBrowserUrl = Nothing
+                        , onFormSubmit = Nothing
                         }
 
         BackendTaskTest.Running runningState ->
@@ -1414,7 +1517,7 @@ processEffects config mockResolver baseUrl model effect maxDepth =
                 in
                 processEffects config mockResolver baseUrl newModel newEffect (maxDepth - 1)
 
-            Platform.FetchFrozenViews { path } ->
+            Platform.FetchFrozenViews { path, body } ->
                 let
                     fetchUrl =
                         makeTestUrl baseUrl path
@@ -1426,12 +1529,46 @@ processEffects config mockResolver baseUrl model effect maxDepth =
                         Pages.StaticHttpRequest.mockResolve identity
                             (config.data platformTestRequest route)
                             mockResolver
+
+                    actionData =
+                        case body of
+                            Just formBody ->
+                                -- Form submission: resolve the action BackendTask
+                                let
+                                    actionRequest =
+                                        Internal.Request.Request
+                                            { time = Time.millisToPosix 0
+                                            , method = "POST"
+                                            , body = Just formBody
+                                            , rawUrl = baseUrl ++ path
+                                            , rawHeaders =
+                                                Dict.singleton "content-type"
+                                                    "application/x-www-form-urlencoded"
+                                            , cookies = Dict.empty
+                                            }
+                                in
+                                Pages.StaticHttpRequest.mockResolve identity
+                                    (config.action actionRequest route)
+                                    mockResolver
+                                    |> Result.toMaybe
+                                    |> Maybe.andThen
+                                        (\response ->
+                                            case response of
+                                                RenderPage _ ad ->
+                                                    Just ad
+
+                                                _ ->
+                                                    Nothing
+                                        )
+
+                            Nothing ->
+                                Nothing
                 in
                 case dataResult of
                     Ok (RenderPage _ pageData) ->
                         let
                             encodedBytes =
-                                ResponseSketch.RenderPage pageData Nothing
+                                ResponseSketch.RenderPage pageData actionData
                                     |> encodeResponseWithPrefix config
 
                             ( newModel, newEffect ) =
@@ -1445,9 +1582,26 @@ processEffects config mockResolver baseUrl model effect maxDepth =
                         -- Data resolution failed during navigation; leave model unchanged
                         model
 
-            Platform.Submit _ ->
-                -- TODO: Phase 2 - form submissions
-                model
+            Platform.Submit formData ->
+                -- GET form submissions navigate with query params
+                if formData.method == Form.Get then
+                    let
+                        newUrl =
+                            makeTestUrl baseUrl
+                                (formData.action
+                                    ++ "?"
+                                    ++ encodeFormFields formData.fields
+                                )
+
+                        ( newModel, newEffect ) =
+                            Platform.update config (Platform.UrlChanged newUrl) model
+                    in
+                    processEffects config mockResolver baseUrl newModel newEffect (maxDepth - 1)
+
+                else
+                    -- POST submissions are handled via FetchFrozenViews
+                    -- (Platform.update for Submit already produces the right effect)
+                    model
 
             Platform.SubmitFetcher _ _ _ ->
                 -- TODO: Phase 5 - concurrent submissions
@@ -1514,6 +1668,16 @@ encodeResponseWithPrefix config sketch =
             , config.encodeResponse sketch
             ]
         )
+
+
+encodeFormFields : List ( String, String ) -> String
+encodeFormFields fields =
+    fields
+        |> List.map
+            (\( name, value ) ->
+                Url.percentEncode name ++ "=" ++ Url.percentEncode value
+            )
+        |> String.join "&"
 
 
 fatalErrorToString : FatalError -> String
