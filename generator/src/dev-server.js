@@ -376,15 +376,19 @@ main =
         ]
 `;
 
-    await writeFileIfChanged(".elm-pages/TestViewer.elm", viewerElm);
-
-    // Compile in an isolated directory with its own elm.json so we don't
-    // pollute the main app's source-directories or trigger Debug errors.
     const testViewerDir = path.join(
       process.cwd(),
       "elm-stuff/elm-pages/test-viewer"
     );
     ensureDirSync(testViewerDir);
+
+    await writeFileIfChanged(
+      path.join(testViewerDir, "TestViewer.elm"),
+      viewerElm
+    );
+
+    // Compile in an isolated directory with its own elm.json so we don't
+    // pollute the main app's source-directories or trigger Debug errors.
 
     // Create elm.json for the test viewer: same as the project but with
     // tests/ added to source-directories and paths adjusted to be relative.
@@ -394,7 +398,7 @@ main =
     const testViewerElmJson = { ...elmJson };
     testViewerElmJson["source-directories"] = elmJson["source-directories"]
       .map((dir) => path.join("../../..", dir))
-      .concat(["../../../tests"]);
+      .concat(["../../../tests", "."]);
     fs.writeFileSync(
       path.join(testViewerDir, "elm.json"),
       JSON.stringify(testViewerElmJson, null, 4)
@@ -406,7 +410,7 @@ main =
         "elm",
         [
           "make",
-          "../../../.elm-pages/TestViewer.elm",
+          "TestViewer.elm",
           "--output=../../../.elm-pages/cache/test-viewer.js",
           "--debug",
         ],

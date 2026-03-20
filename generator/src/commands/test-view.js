@@ -115,16 +115,7 @@ export async function run(elmModulePath, options) {
     );
 
     // Generate viewer wrapper module
-    const viewerModule = generateViewerModule(allTests);
-    const viewerDir = path.resolve(".elm-pages");
-    ensureDirSync(viewerDir);
-    await writeFileIfChanged(
-      path.join(viewerDir, "TestViewer.elm"),
-      viewerModule
-    );
-
-    // Compile to HTML using an isolated directory with its own elm.json
-    // so we don't pollute the main app's source-directories.
+    // Write generated files to the isolated test-viewer build directory
     const outputPath = path.resolve("tests/viewer.html");
     ensureDirSync(path.dirname(outputPath));
 
@@ -137,12 +128,18 @@ export async function run(elmModulePath, options) {
     );
     ensureDirSync(testViewerBuildDir);
 
+    const viewerModule = generateViewerModule(allTests);
+    await writeFileIfChanged(
+      path.join(testViewerBuildDir, "TestViewer.elm"),
+      viewerModule
+    );
+
     const elmJsonPath = path.resolve(projDir, "elm.json");
     const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
     const testViewerElmJson = { ...elmJson };
     testViewerElmJson["source-directories"] = elmJson["source-directories"]
       .map((dir) => path.join("../../..", dir))
-      .concat(["../../../tests"]);
+      .concat(["../../../tests", "."]);
     fs.writeFileSync(
       path.join(testViewerBuildDir, "elm.json"),
       JSON.stringify(testViewerElmJson, null, 4)
@@ -154,7 +151,7 @@ export async function run(elmModulePath, options) {
       "elm",
       [
         "make",
-        path.join("../../..", viewerDir, "TestViewer.elm"),
+        "TestViewer.elm",
         `--output=${outputPath}`,
         "--debug",
       ],
