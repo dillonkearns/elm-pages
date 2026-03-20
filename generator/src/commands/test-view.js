@@ -149,6 +149,7 @@ export async function run(elmModulePath, options) {
         "make",
         path.join(viewerDir, "TestViewer.elm"),
         `--output=${outputPath}`,
+        "--debug",
       ],
       {
         stdio: "inherit",

@@ -398,6 +398,7 @@ main =
           "make",
           ".elm-pages/TestViewer.elm",
           "--output=.elm-pages/cache/test-viewer.js",
+          "--debug",
         ],
         { stdio: "pipe", cwd: process.cwd() }
       );
