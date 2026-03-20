@@ -1,13 +1,17 @@
 module Test.PagesProgram.Route exposing
-    ( testRequest
+    ( fromStatefulRoute
+    , testRequest
     , unwrapResponse
     , makeApp
     , mapPagesMsg
     )
 
 {-| Utilities for adapting elm-pages route modules for use with
-[`Test.PagesProgram`](Test-PagesProgram). These are used by the generated
-`TestApp` module -- most users won't need to import this module directly.
+[`Test.PagesProgram`](Test-PagesProgram). The main entry point is
+[`fromStatefulRoute`](#fromStatefulRoute), which the generated `TestApp`
+module uses. Most users won't need to import this module directly.
+
+@docs fromStatefulRoute
 
 @docs testRequest, unwrapResponse, makeApp, mapPagesMsg
 
@@ -16,6 +20,7 @@ module Test.PagesProgram.Route exposing
 import BackendTask exposing (BackendTask)
 import Dict
 import FatalError exposing (FatalError)
+import Html exposing (Html)
 import Http
 import Internal.Request
 import PageServerResponse exposing (PageServerResponse(..))
@@ -25,6 +30,62 @@ import Pages.Internal.Msg
 import Pages.Navigation
 import Time
 import UrlPath
+
+
+{-| Adapt a route's `StatefulRoute` record into the config format that
+`Test.PagesProgram.start` expects. This is the core adapter -- one function
+handles all route types (static, dynamic, stateless, stateful, single,
+preRender, serverRender) because `RouteBuilder` normalizes them all to the
+same field signatures.
+
+The generated `TestApp` module calls this for each route:
+
+    -- Generated TestApp.elm
+    index routeParams =
+        Test.PagesProgram.Route.fromStatefulRoute projectConfig
+            Route.Index.route
+            routeParams
+
+The `projectConfig` record provides project-specific adapters that are
+defined once and shared across all routes.
+
+-}
+fromStatefulRoute projectConfig route routeParams =
+    let
+        toApp pageData =
+            makeApp
+                { data = pageData
+                , sharedData = projectConfig.sharedData
+                , routeParams = routeParams
+                , path = ""
+                }
+    in
+    { data =
+        route.data testRequest routeParams
+            |> BackendTask.andThen unwrapResponse
+    , init =
+        \pageData ->
+            let
+                ( model, effect ) =
+                    route.init projectConfig.defaultShared (toApp pageData)
+            in
+            ( model, projectConfig.extractEffects effect )
+    , update =
+        \msg model ->
+            let
+                -- The update function needs an App record, but pageData isn't
+                -- available here (it was consumed during init). Most route update
+                -- functions don't read app.data, so this is fine in practice.
+                -- The app record uses a crash placeholder for data.
+                ( newModel, effect, _ ) =
+                    route.update (toApp (crashPlaceholder ())) msg model projectConfig.defaultShared
+            in
+            ( newModel, projectConfig.extractEffects effect )
+    , view =
+        \pageData model ->
+            projectConfig.viewToHtml
+                (route.view projectConfig.defaultShared model (toApp pageData))
+    }
 
 
 {-| A fake `Server.Request.Request` for testing. Uses a GET method with an
@@ -122,3 +183,8 @@ mapPagesMsg pagesMsg =
 
         _ ->
             Nothing
+
+
+crashPlaceholder : () -> a
+crashPlaceholder () =
+    crashPlaceholder ()
