@@ -69,4 +69,14 @@ suite =
                     |> PagesProgram.ensureViewHas [ text "You said: Hello!" ]
                     |> PagesProgram.ensureViewHas [ text "Current file: Hello!" ]
                     |> PagesProgram.done
+        , test "login form redirects to counter" <|
+            \() ->
+                TestApp.start "/simple-login" BackendTaskTest.init
+                    |> PagesProgram.ensureViewHas [ text "Simple Login" ]
+                    |> PagesProgram.fillIn "login-form" "username" "alice"
+                    |> PagesProgram.clickButton "Log In"
+                    |> PagesProgram.ensureBrowserUrl
+                        (\url -> url |> Expect.equal "https://localhost:1234/counter")
+                    |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    |> PagesProgram.done
         ]

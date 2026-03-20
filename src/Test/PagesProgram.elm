@@ -1630,71 +1630,110 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
 
                     route =
                         config.urlToRoute fetchUrl
-
-                    -- For form submissions, resolve action first (may write files)
-                    ( vfsAfterAction, actionData ) =
-                        case body of
-                            Just formBody ->
-                                let
-                                    actionRequest =
-                                        Internal.Request.Request
-                                            { time = Time.millisToPosix 0
-                                            , method = "POST"
-                                            , body = Just formBody
-                                            , rawUrl = baseUrl ++ path
-                                            , rawHeaders =
-                                                Dict.singleton "content-type"
-                                                    "application/x-www-form-urlencoded"
-                                            , cookies = Dict.empty
-                                            }
-
-                                    ( vfs1, actionResult ) =
-                                        BackendTaskTest.resolveWithVirtualFs
-                                            wrappedModel.virtualFs
-                                            (config.action actionRequest route)
-                                in
-                                ( vfs1
-                                , actionResult
-                                    |> Result.toMaybe
-                                    |> Maybe.andThen
-                                        (\response ->
-                                            case response of
-                                                RenderPage _ ad ->
-                                                    Just ad
-
-                                                _ ->
-                                                    Nothing
-                                        )
-                                )
-
-                            Nothing ->
-                                ( wrappedModel.virtualFs, Nothing )
-
-                    -- Resolve data with the (possibly updated) virtual FS
-                    ( vfsAfterData, dataResult ) =
-                        BackendTaskTest.resolveWithVirtualFs
-                            vfsAfterAction
-                            (config.data platformTestRequest route)
                 in
-                case dataResult of
-                    Ok (RenderPage _ pageData) ->
+                case body of
+                    Just formBody ->
+                        -- Form submission: resolve action first, then handle result
                         let
-                            encodedBytes =
-                                ResponseSketch.RenderPage pageData actionData
-                                    |> encodeResponseWithPrefix config
+                            actionRequest =
+                                Internal.Request.Request
+                                    { time = Time.millisToPosix 0
+                                    , method = "POST"
+                                    , body = Just formBody
+                                    , rawUrl = baseUrl ++ path
+                                    , rawHeaders =
+                                        Dict.singleton "content-type"
+                                            "application/x-www-form-urlencoded"
+                                    , cookies = Dict.empty
+                                    }
 
-                            ( newModel, newEffect ) =
-                                Platform.update config
-                                    (Platform.FrozenViewsReady (Just encodedBytes))
-                                    wrappedModel.platformModel
+                            ( vfsAfterAction, actionResult ) =
+                                BackendTaskTest.resolveWithVirtualFs
+                                    wrappedModel.virtualFs
+                                    (config.action actionRequest route)
                         in
-                        processEffectsWrapped config baseUrl
-                            { platformModel = newModel, virtualFs = vfsAfterData }
-                            newEffect
-                            (maxDepth - 1)
+                        case actionResult |> Result.toMaybe of
+                            Just (ServerResponse serverResponse) ->
+                                -- Check for redirect
+                                case PageServerResponse.toRedirect serverResponse of
+                                    Just { location } ->
+                                        -- Redirect: encode as ResponseSketch.Redirect
+                                        let
+                                            encodedBytes =
+                                                ResponseSketch.Redirect location
+                                                    |> encodeResponseWithPrefix config
 
-                    _ ->
-                        ( { wrappedModel | virtualFs = vfsAfterData }, [] )
+                                            ( newModel, newEffect ) =
+                                                Platform.update config
+                                                    (Platform.FrozenViewsReady (Just encodedBytes))
+                                                    wrappedModel.platformModel
+                                        in
+                                        processEffectsWrapped config baseUrl
+                                            { platformModel = newModel, virtualFs = vfsAfterAction }
+                                            newEffect
+                                            (maxDepth - 1)
+
+                                    Nothing ->
+                                        ( { wrappedModel | virtualFs = vfsAfterAction }, [] )
+
+                            Just (RenderPage _ actionData) ->
+                                -- Action rendered: re-resolve data with updated virtual FS
+                                let
+                                    ( vfsAfterData, dataResult ) =
+                                        BackendTaskTest.resolveWithVirtualFs
+                                            vfsAfterAction
+                                            (config.data platformTestRequest route)
+                                in
+                                case dataResult of
+                                    Ok (RenderPage _ pageData) ->
+                                        let
+                                            encodedBytes =
+                                                ResponseSketch.RenderPage pageData (Just actionData)
+                                                    |> encodeResponseWithPrefix config
+
+                                            ( newModel, newEffect ) =
+                                                Platform.update config
+                                                    (Platform.FrozenViewsReady (Just encodedBytes))
+                                                    wrappedModel.platformModel
+                                        in
+                                        processEffectsWrapped config baseUrl
+                                            { platformModel = newModel, virtualFs = vfsAfterData }
+                                            newEffect
+                                            (maxDepth - 1)
+
+                                    _ ->
+                                        ( { wrappedModel | virtualFs = vfsAfterData }, [] )
+
+                            _ ->
+                                ( { wrappedModel | virtualFs = vfsAfterAction }, [] )
+
+                    Nothing ->
+                        -- Navigation (no form body): resolve data only
+                        let
+                            ( vfsAfterData, dataResult ) =
+                                BackendTaskTest.resolveWithVirtualFs
+                                    wrappedModel.virtualFs
+                                    (config.data platformTestRequest route)
+                        in
+                        case dataResult of
+                            Ok (RenderPage _ pageData) ->
+                                let
+                                    encodedBytes =
+                                        ResponseSketch.RenderPage pageData Nothing
+                                            |> encodeResponseWithPrefix config
+
+                                    ( newModel, newEffect ) =
+                                        Platform.update config
+                                            (Platform.FrozenViewsReady (Just encodedBytes))
+                                            wrappedModel.platformModel
+                                in
+                                processEffectsWrapped config baseUrl
+                                    { platformModel = newModel, virtualFs = vfsAfterData }
+                                    newEffect
+                                    (maxDepth - 1)
+
+                            _ ->
+                                ( { wrappedModel | virtualFs = vfsAfterData }, [] )
 
             Platform.Submit formData ->
                 if formData.method == Form.Get then

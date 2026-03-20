@@ -3,6 +3,7 @@ module FrameworkTests exposing
     , navigationTest
     , navigateAndInteractTest
     , feedbackFormTest
+    , loginRedirectTest
     )
 
 {-| Framework-driven route tests using the real elm-pages Platform.
@@ -79,7 +80,23 @@ feedbackFormTest =
         |> PagesProgram.ensureViewHasNot [ text "You said:" ]
         |> PagesProgram.fillIn "feedback-form" "message" "Hello from tests!"
         |> PagesProgram.clickButton "Submit Feedback"
-        -- After submission, action wrote "Hello from tests!" to feedback.txt.
-        -- The framework re-resolved data, which reads the updated file.
         |> PagesProgram.ensureViewHas [ text "You said: Hello from tests!" ]
         |> PagesProgram.ensureViewHas [ text "Current file: Hello from tests!" ]
+
+
+{-| Demonstrates action redirect: submit login form -> redirect to counter page.
+The entire flow happens through the real Platform lifecycle.
+-}
+loginRedirectTest : TestApp.ProgramTest
+loginRedirectTest =
+    TestApp.start "/simple-login" BackendTaskTest.init
+        |> PagesProgram.ensureViewHas [ text "Simple Login" ]
+        |> PagesProgram.ensureBrowserUrl
+            (\url -> url |> Expect.equal "https://localhost:1234/simple-login")
+        |> PagesProgram.fillIn "login-form" "username" "alice"
+        |> PagesProgram.clickButton "Log In"
+        -- Action returned Route.redirectTo Route.Counter
+        -- Framework follows the redirect automatically
+        |> PagesProgram.ensureBrowserUrl
+            (\url -> url |> Expect.equal "https://localhost:1234/counter")
+        |> PagesProgram.ensureViewHas [ text "Count: 0" ]
