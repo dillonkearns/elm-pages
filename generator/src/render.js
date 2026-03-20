@@ -2454,6 +2454,7 @@ let tuiTickInterval = null; // current tick interval in ms
 let tuiEventQueue = []; // events that arrived during Elm processing
 let tuiEventResolve = null; // pending promise resolver for next wait
 let tuiStdinLeftover = ""; // partial escape sequence carried across data chunks
+let tuiDebugLog = null; // file descriptor for debug logging
 let tuiLastRenderTime = 0; // timestamp of last actual terminal write
 let tuiPendingRender = null; // deferred render to ensure final frame is shown
 const TUI_MIN_RENDER_INTERVAL = 16; // ms — ~60fps cap, like Bubble Tea
@@ -2764,6 +2765,14 @@ function tuiRgbTo16(r, g, b, isBackground) {
 function tuiCleanup() {
   if (!tuiActive) return;
   tuiActive = false;
+  if (tuiDebugLog) {
+    try {
+      fs.writeSync(tuiDebugLog, `[${Date.now()}] tuiCleanup called\n`);
+      fs.writeSync(tuiDebugLog, `  queue: ${tuiEventQueue.length}\n`);
+      fs.closeSync(tuiDebugLog);
+    } catch (e) {}
+    tuiDebugLog = null;
+  }
   const stdout = process.stdout;
 
   // Step 1: Disable mouse tracking and bracketed paste FIRST, while still
@@ -2854,8 +2863,41 @@ async function runTuiInit(req) {
   tuiEventQueue = [];
   tuiEventResolve = null;
   tuiStdinLeftover = "";
+
+  // Debug logging: set ELM_TUI_DEBUG=1 to write tui-debug.log for diagnosing input issues
+  if (process.env.ELM_TUI_DEBUG) {
+    try {
+      tuiDebugLog = fs.openSync("tui-debug.log", "w");
+      fs.writeSync(tuiDebugLog, `[${new Date().toISOString()}] TUI init\n`);
+    } catch (e) { tuiDebugLog = null; }
+  }
+
   process.stdin.on("data", (data) => {
+    if (tuiDebugLog) {
+      const raw = data.toString();
+      const escaped = raw.replace(/\x1b/g, "\\x1b").replace(/[\x00-\x1f]/g, (c) => "\\x" + c.charCodeAt(0).toString(16).padStart(2, "0"));
+      fs.writeSync(tuiDebugLog, `[${Date.now()}] stdin(${raw.length}): ${escaped}\n`);
+      if (tuiStdinLeftover) {
+        const loEsc = tuiStdinLeftover.replace(/\x1b/g, "\\x1b").replace(/[\x00-\x1f]/g, (c) => "\\x" + c.charCodeAt(0).toString(16).padStart(2, "0"));
+        fs.writeSync(tuiDebugLog, `  leftover(${tuiStdinLeftover.length}): ${loEsc}\n`);
+      }
+    }
+
     const event = tuiParseTerminalInput(data);
+
+    if (tuiDebugLog) {
+      if (event) {
+        fs.writeSync(tuiDebugLog, `  -> event: ${JSON.stringify(event)}\n`);
+      } else {
+        fs.writeSync(tuiDebugLog, `  -> null (no event)\n`);
+      }
+      if (tuiStdinLeftover) {
+        const loEsc = tuiStdinLeftover.replace(/\x1b/g, "\\x1b").replace(/[\x00-\x1f]/g, (c) => "\\x" + c.charCodeAt(0).toString(16).padStart(2, "0"));
+        fs.writeSync(tuiDebugLog, `  leftover after: ${loEsc}\n`);
+      }
+      fs.writeSync(tuiDebugLog, `  queue: ${tuiEventQueue.length}, resolve: ${!!tuiEventResolve}\n`);
+    }
+
     if (!event) return;
 
     if (event._exit) {
