@@ -126,11 +126,11 @@ loginFlowTest =
         |> PagesProgram.ensureViewHas [ Selector.text "Log In" ]
         |> PagesProgram.clickButton "Log In"
         |> PagesProgram.ensureViewHas [ Selector.text "Email is required" ]
-        |> PagesProgram.fillIn "email" "alice@example.com"
-        |> PagesProgram.fillIn "password" "123"
+        |> PagesProgram.fillIn "email" "email" "alice@example.com"
+        |> PagesProgram.fillIn "password" "password" "123"
         |> PagesProgram.clickButton "Log In"
         |> PagesProgram.ensureViewHas [ Selector.text "Password must be at least 6 characters" ]
-        |> PagesProgram.fillIn "password" "secret123"
+        |> PagesProgram.fillIn "password" "password" "secret123"
         |> PagesProgram.check "remember" True
         |> PagesProgram.clickButton "Log In"
         |> PagesProgram.resolveEffect
@@ -300,7 +300,7 @@ todoAppTest =
         |> PagesProgram.ensureViewHas [ Selector.text "1 of 3 completed" ]
         |> PagesProgram.ensureViewHas [ Selector.text "Learn Elm" ]
         |> PagesProgram.ensureViewHas [ Selector.text "Build elm-pages app" ]
-        |> PagesProgram.fillIn "new-todo" "Deploy to production"
+        |> PagesProgram.fillIn "new-todo" "new-todo" "Deploy to production"
         |> PagesProgram.clickButton "Add"
         |> PagesProgram.ensureViewHas [ Selector.text "Deploy to production" ]
         |> PagesProgram.ensureViewHas [ Selector.text "1 of 4 completed" ]
@@ -383,12 +383,12 @@ searchFilterTest =
         |> PagesProgram.withModelToString Debug.toString
         |> PagesProgram.ensureViewHas [ Selector.text "10 results" ]
         |> PagesProgram.ensureViewHas [ Selector.text "Haskell" ]
-        |> PagesProgram.fillIn "search" "elm"
+        |> PagesProgram.fillIn "search" "search" "elm"
         |> PagesProgram.ensureViewHas [ Selector.text "7 results" ]
         |> PagesProgram.ensureViewHasNot [ Selector.text "Haskell" ]
-        |> PagesProgram.fillIn "search" "elm-"
+        |> PagesProgram.fillIn "search" "search" "elm-"
         |> PagesProgram.ensureViewHas [ Selector.text "5 results" ]
-        |> PagesProgram.fillIn "search" "review"
+        |> PagesProgram.fillIn "search" "search" "review"
         |> PagesProgram.ensureViewHas [ Selector.text "1 results" ]
         |> PagesProgram.ensureViewHas [ Selector.text "elm-review" ]
 

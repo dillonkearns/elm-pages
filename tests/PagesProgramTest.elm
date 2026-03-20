@@ -206,7 +206,7 @@ all =
                                 }
                         }
                         |> PagesProgram.ensureViewHas [ Selector.text "Type to search..." ]
-                        |> PagesProgram.fillIn "search" "elm-pages"
+                        |> PagesProgram.fillIn "search" "search" "elm-pages"
                         |> PagesProgram.ensureViewHas [ Selector.text "Searching for: elm-pages" ]
                         |> PagesProgram.done
             ]

@@ -60,7 +60,7 @@ suite =
             \() ->
                 TestApp.start "/feedback" mockData
                     |> PagesProgram.ensureViewHas [ text "Feedback Form" ]
-                    |> PagesProgram.fillIn "message" "Hello from tests!"
+                    |> PagesProgram.fillIn "feedback-form" "message" "Hello from tests!"
                     |> PagesProgram.clickButton "Submit Feedback"
                     |> PagesProgram.ensureViewHas [ text "You said: Hello from tests!" ]
                     |> PagesProgram.done

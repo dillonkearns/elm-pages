@@ -494,17 +494,27 @@ clickButton buttonText (ProgramTest state) =
                                         }
 
 
-{-| Simulate typing text into an input field. The first argument identifies the
-field -- it can be a field `name` attribute, an `id`, or label text. The second
-argument is the value to type.
+{-| Simulate typing text into an input field.
+
+For elm-pages forms, pass the form ID (from `Form.options`) and the field
+name (from `Form.field`):
 
     TestApp.start "/feedback" mockData
-        |> PagesProgram.fillIn "message" "Hello!"
-        |> PagesProgram.ensureViewHas [ Selector.text "Hello!" ]
+        |> PagesProgram.fillIn "feedback-form" "message" "Hello!"
+        |> PagesProgram.clickButton "Submit Feedback"
+
+For plain inputs, pass the element's `id` attribute and label text:
+
+    |> PagesProgram.fillIn "email" "Email address" "alice@example.com"
+
+Pass empty string as the first argument to find inputs nested inside
+`<label>` elements without an explicit `id`:
+
+    |> PagesProgram.fillIn "" "Username" "alice"
 
 -}
-fillIn : String -> String -> ProgramTest model msg -> ProgramTest model msg
-fillIn fieldIdentifier value (ProgramTest state) =
+fillIn : String -> String -> String -> ProgramTest model msg -> ProgramTest model msg
+fillIn fieldId fieldName value (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -517,7 +527,7 @@ fillIn fieldIdentifier value (ProgramTest state) =
                             | error =
                                 Just
                                     ("fillIn \""
-                                        ++ fieldIdentifier
+                                        ++ fieldName
                                         ++ "\": Cannot interact while BackendTask data is still resolving."
                                     )
                         }
@@ -531,92 +541,103 @@ fillIn fieldIdentifier value (ProgramTest state) =
                         query =
                             Query.fromHtml (Html.div [] viewHtml.body)
 
-                        tryFind : List (List Selector.Selector) -> Result String msg
-                        tryFind strategies =
-                            case strategies of
-                                [] ->
-                                    Err "No matching input found"
+                        stepLabel =
+                            "fillIn \"" ++ fieldName ++ "\""
 
-                                selectors :: rest ->
-                                    case
-                                        query
-                                            |> Query.find selectors
-                                            |> Event.simulate (Event.input value)
-                                            |> Event.toResult
-                                    of
-                                        Ok msg ->
-                                            Ok msg
+                        -- Strategy 1: elm-pages form with event delegation.
+                        -- Find <form id="fieldId">, simulate input event on it
+                        -- with target.name=fieldName and currentTarget.id=fieldId.
+                        formDelegationResult : Result String msg
+                        formDelegationResult =
+                            if fieldId == "" then
+                                Err "no form ID"
 
-                                        Err _ ->
-                                            tryFind rest
+                            else
+                                query
+                                    |> Query.find
+                                        [ Selector.tag "form"
+                                        , Selector.id fieldId
+                                        ]
+                                    |> Event.simulate
+                                        (Event.custom "input"
+                                            (Encode.object
+                                                [ ( "type", Encode.string "input" )
+                                                , ( "target"
+                                                  , Encode.object
+                                                        [ ( "value", Encode.string value )
+                                                        , ( "name", Encode.string fieldName )
+                                                        , ( "type", Encode.string "text" )
+                                                        , ( "checked", Encode.bool False )
+                                                        ]
+                                                  )
+                                                , ( "currentTarget"
+                                                  , Encode.object
+                                                        [ ( "id", Encode.string fieldId )
+                                                        ]
+                                                  )
+                                                ]
+                                            )
+                                        )
+                                    |> Event.toResult
 
-                        -- elm-pages forms use event delegation: the <form> element
-                        -- listens for "input" events, not individual <input> elements.
-                        -- Simulate the event on the form with the right target info.
-                        formInputResult : Result String msg
-                        formInputResult =
+                        -- Strategy 2: Input nested in <label> (implicit association)
+                        labelWrappedResult : Result String msg
+                        labelWrappedResult =
                             query
                                 |> Query.find
-                                    [ Selector.tag "form"
-                                    , Selector.containing
-                                        [ Selector.tag "input" ]
+                                    [ Selector.tag "label"
+                                    , Selector.containing [ Selector.text fieldName ]
                                     ]
-                                |> Event.simulate
-                                    (Event.custom "input"
-                                        (Encode.object
-                                            [ ( "type", Encode.string "input" )
-                                            , ( "target"
-                                              , Encode.object
-                                                    [ ( "value", Encode.string value )
-                                                    , ( "name", Encode.string fieldIdentifier )
-                                                    , ( "type", Encode.string "text" )
-                                                    , ( "checked", Encode.bool False )
-                                                    ]
-                                              )
-                                            , ( "currentTarget"
-                                              , Encode.object
-                                                    [ ( "id", Encode.string "" )
-                                                    ]
-                                              )
-                                            ]
-                                        )
-                                    )
+                                |> Query.find [ Selector.tag "input" ]
+                                |> Event.simulate (Event.input value)
                                 |> Event.toResult
 
-                        result : Result String msg
-                        result =
-                            tryFind
-                                [ -- by name property (plain input with event handler)
-                                  [ Selector.tag "input"
-                                  , Selector.attribute (Html.Attributes.name fieldIdentifier)
-                                  ]
-                                , -- by id
-                                  [ Selector.id fieldIdentifier ]
-                                ]
-                                |> (\r ->
-                                        case r of
-                                            Ok _ ->
-                                                r
+                        -- Strategy 3: Input with id
+                        idResult : Result String msg
+                        idResult =
+                            if fieldId == "" then
+                                Err "no field ID"
 
-                                            Err _ ->
-                                                formInputResult
-                                   )
+                            else
+                                query
+                                    |> Query.find
+                                        [ Selector.id fieldId ]
+                                    |> Event.simulate (Event.input value)
+                                    |> Event.toResult
                     in
-                    case result of
+                    case formDelegationResult of
                         Ok msg ->
-                            applyMsgWithLabel ("fillIn \"" ++ fieldIdentifier ++ "\"") msg (ProgramTest state)
+                            applyMsgWithLabel stepLabel msg (ProgramTest state)
 
-                        Err errMsg ->
-                            ProgramTest
-                                { state
-                                    | error =
-                                        Just
-                                            ("fillIn \""
-                                                ++ fieldIdentifier
-                                                ++ "\" failed: Could not find input.\n\n"
-                                                ++ errMsg
-                                            )
-                                }
+                        Err _ ->
+                            case labelWrappedResult of
+                                Ok msg ->
+                                    applyMsgWithLabel stepLabel msg (ProgramTest state)
+
+                                Err _ ->
+                                    case idResult of
+                                        Ok msg ->
+                                            applyMsgWithLabel stepLabel msg (ProgramTest state)
+
+                                        Err errMsg ->
+                                            ProgramTest
+                                                { state
+                                                    | error =
+                                                        Just
+                                                            (stepLabel
+                                                                ++ " failed: Could not find input.\n\nTried:\n"
+                                                                ++ "  1. <form id=\""
+                                                                ++ fieldId
+                                                                ++ "\"> with delegated input event\n"
+                                                                ++ "  2. <label> containing \""
+                                                                ++ fieldName
+                                                                ++ "\" wrapping an <input>\n"
+                                                                ++ "  3. <input id=\""
+                                                                ++ fieldId
+                                                                ++ "\">\n\n"
+                                                                ++ errMsg
+                                                            )
+                                                }
 
 
 
