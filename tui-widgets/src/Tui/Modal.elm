@@ -21,7 +21,7 @@ popup system.
 -}
 
 import Ansi.Color
-import Tui
+import Tui exposing (plain)
 
 
 {-| Overlay a centered modal dialog on top of background rows.
@@ -64,7 +64,7 @@ overlay config term bgRows =
 
         borderStyle : Tui.Style
         borderStyle =
-            { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.Bold ] }
+            { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
 
         -- Composite a modal strip onto a background row:
         -- [background left edge] [modal content] [right fill]
@@ -73,7 +73,7 @@ overlay config term bgRows =
             Tui.concat
                 [ Tui.truncateWidth leftPad bgRow
                 , modalStrip
-                , Tui.styled { fg = Nothing, bg = Nothing, attributes = [] }
+                , Tui.styled plain
                     (String.repeat (term.termWidth - leftPad - modalWidth) " ")
                 ]
 
@@ -131,7 +131,7 @@ overlay config term bgRows =
             Tui.concat
                 [ Tui.styled borderStyle "│"
                 , Tui.truncateWidth innerWidth content
-                , Tui.styled { fg = Nothing, bg = Nothing, attributes = [] }
+                , Tui.styled plain
                     (String.repeat padding " ")
                 , Tui.styled borderStyle "│"
                 ]

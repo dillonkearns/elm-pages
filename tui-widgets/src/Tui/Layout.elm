@@ -68,7 +68,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 import Ansi.Color
 import Array
 import Dict exposing (Dict)
-import Tui exposing (MouseEvent, Screen)
+import Tui exposing (MouseEvent, Screen, plain)
 import Tui.Keybinding
 
 
@@ -1264,10 +1264,10 @@ toRowsHorizontal s panes =
                                 borderStyle : Tui.Style
                                 borderStyle =
                                     if isFocused then
-                                        { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.Bold ] }
+                                        { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
 
                                     else
-                                        { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
+                                        { plain | attributes = [ Tui.Dim ] }
                             in
                             if row == 0 then
                                 let
@@ -1522,10 +1522,10 @@ toRowsVertical s panes =
                 borderStyle : Tui.Style
                 borderStyle =
                     if isFocused then
-                        { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.Bold ] }
+                        { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
 
                     else
-                        { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
+                        { plain | attributes = [ Tui.Dim ] }
 
                 vertStateKey : String
                 vertStateKey =

@@ -939,9 +939,7 @@ toSnapshots (TuiTest state) =
             let
                 errorScreen : Screen
                 errorScreen =
-                    Tui.styled
-                        { fg = Nothing, bg = Nothing, attributes = [] }
-                        errorMsg
+                    Tui.text errorMsg
             in
             state.snapshots
                 ++ [ { label = "ERROR"

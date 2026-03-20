@@ -10,7 +10,7 @@ import Ansi.Color
 import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
 import Pages.Script as Script exposing (Script)
-import Tui
+import Tui exposing (plain)
 import Tui.Effect as Effect
 import Tui.Input as Input
 import Tui.Keybinding as Keybinding
@@ -624,7 +624,7 @@ view ctx model =
                                 HelpSearch ->
                                     [ Tui.concat
                                         [ Tui.styled
-                                            { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
+                                            { plain | attributes = [ Tui.Dim ] }
                                             "/"
                                         , Input.view { width = modalWidth - 3 } helpState.filter
                                         ]
@@ -634,7 +634,7 @@ view ctx model =
                                 HelpBrowse ->
                                     if not (String.isEmpty filterText) then
                                         [ Tui.styled
-                                            { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
+                                            { plain | attributes = [ Tui.Dim ] }
                                             ("/" ++ filterText)
                                         , Tui.text ""
                                         ]

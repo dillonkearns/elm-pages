@@ -4,7 +4,7 @@ import Ansi.Color
 import Expect exposing (Expectation)
 import Test exposing (Test, describe, test)
 import Test.Runner
-import Tui
+import Tui exposing (plain)
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Input as Input
 import Tui.Keybinding as Keybinding
@@ -783,7 +783,7 @@ miniGitView ctx model =
                             case helpState.mode of
                                 HelpSearch ->
                                     [ Tui.concat
-                                        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] } "/"
+                                        [ Tui.styled { plain | attributes = [ Tui.Dim ] } "/"
                                         , Input.view { width = 40 } helpState.filter
                                         ]
                                     , Tui.text ""
@@ -791,7 +791,7 @@ miniGitView ctx model =
 
                                 HelpBrowse ->
                                     if not (String.isEmpty filterText) then
-                                        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] } ("/" ++ filterText)
+                                        [ Tui.styled { plain | attributes = [ Tui.Dim ] } ("/" ++ filterText)
                                         , Tui.text ""
                                         ]
 

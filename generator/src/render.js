@@ -2477,8 +2477,8 @@ function tuiEnsureCellBuffers(w, h) {
   tuiCurrCells = new Array(size);
   tuiPrevCells = new Array(size);
   for (let i = 0; i < size; i++) {
-    tuiCurrCells[i] = { ch: ' ', sgr: '' };
-    tuiPrevCells[i] = { ch: '\x00', sgr: '\x00' }; // sentinel → forces full redraw
+    tuiCurrCells[i] = { ch: ' ', sgr: '', link: '' };
+    tuiPrevCells[i] = { ch: '\x00', sgr: '\x00', link: '\x00' }; // sentinel → forces full redraw
   }
 }
 
@@ -2488,6 +2488,7 @@ function tuiInvalidatePrevCells() {
   for (let i = 0; i < tuiPrevCells.length; i++) {
     tuiPrevCells[i].ch = '\x00';
     tuiPrevCells[i].sgr = '\x00';
+    tuiPrevCells[i].link = '\x00';
   }
 }
 
@@ -2499,6 +2500,7 @@ function tuiFillCells(screenData) {
   for (let i = 0; i < w * h; i++) {
     tuiCurrCells[i].ch = ' ';
     tuiCurrCells[i].sgr = '';
+    tuiCurrCells[i].link = '';
   }
   if (!screenData) return;
   // Fill from screen data spans
@@ -2507,12 +2509,14 @@ function tuiFillCells(screenData) {
     let col = 0;
     for (const span of screenData[row]) {
       const sgr = tuiStyleCodes(span.style);
+      const link = span.style.hyperlink || '';
       // Iterate codepoints (handles multi-byte chars like box-drawing ╭─╮)
       for (const ch of span.text) {
         if (col >= w) break;
         const idx = row * w + col;
         tuiCurrCells[idx].ch = ch;
         tuiCurrCells[idx].sgr = sgr;
+        tuiCurrCells[idx].link = link;
         col++;
       }
     }
@@ -2537,6 +2541,7 @@ function tuiFlushCells(stdout) {
   let cRow = -1; // tracked cursor row (0-indexed)
   let cCol = -1; // tracked cursor col (0-indexed)
   let cSgr = null; // currently active SGR string on the terminal
+  let cLink = null; // currently active OSC 8 hyperlink URL (null = none)
 
   for (let row = 0; row < h; row++) {
     for (let col = 0; col < w; col++) {
@@ -2545,7 +2550,7 @@ function tuiFlushCells(stdout) {
       const prev = tuiPrevCells[idx];
 
       // Skip unchanged cells
-      if (curr.ch === prev.ch && curr.sgr === prev.sgr) continue;
+      if (curr.ch === prev.ch && curr.sgr === prev.sgr && curr.link === prev.link) continue;
 
       dirty = true;
       // Cursor movement: only emit when cursor isn't already here
@@ -2577,6 +2582,19 @@ function tuiFlushCells(stdout) {
         cSgr = curr.sgr;
       }
 
+      // Hyperlink: emit OSC 8 sequences when link state changes.
+      // Format: \x1b]8;;URL\x1b\\ to open, \x1b]8;;\x1b\\ to close.
+      // Unsupported terminals silently ignore OSC 8.
+      if (curr.link !== cLink) {
+        if (cLink) {
+          buf += '\x1b]8;;\x1b\\'; // close previous link
+        }
+        if (curr.link) {
+          buf += `\x1b]8;;${curr.link}\x1b\\`; // open new link
+        }
+        cLink = curr.link;
+      }
+
       buf += curr.ch;
       cCol = col + 1; // cursor auto-advances after write
       cRow = row;
@@ -2584,11 +2602,17 @@ function tuiFlushCells(stdout) {
       // Sync prev buffer so next frame diffs correctly
       prev.ch = curr.ch;
       prev.sgr = curr.sgr;
+      prev.link = curr.link;
     }
 
     // Note: no \x1b[K here — unlike the old line-level approach, cell-level
     // diffing explicitly tracks every cell including trailing spaces, so EL
     // is not needed and would destructively erase unchanged cells to the right.
+  }
+
+  // Close any open hyperlink at end of frame
+  if (cLink) {
+    buf += '\x1b]8;;\x1b\\';
   }
 
   // Reset style at end of frame to leave terminal clean

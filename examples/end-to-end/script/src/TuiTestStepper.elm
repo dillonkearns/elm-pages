@@ -12,7 +12,7 @@ elm-pages test script/src/TuiTestStepper.elm
 
 import Ansi.Color
 import Pages.Script exposing (Script)
-import Tui
+import Tui exposing (plain)
 import Tui.Effect as Effect
 import Tui.Sub
 import Tui.Test as TuiTest
@@ -159,7 +159,7 @@ miniGitView ctx model =
     let
         dimStyle : Tui.Style
         dimStyle =
-            { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
+            { plain | attributes = [ Tui.Dim ] }
 
         visibleRows : Int
         visibleRows =
@@ -173,7 +173,7 @@ miniGitView ctx model =
                 |> List.take visibleRows
     in
     Tui.lines
-        ([ Tui.styled { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.Bold ] } "Mini Git Log"
+        ([ Tui.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] } "Mini Git Log"
          , Tui.text ""
          ]
             ++ List.map
@@ -188,7 +188,7 @@ miniGitView ctx model =
                             )
                         , Tui.styled
                             (if i == model.selected then
-                                { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [ Tui.Bold ] }
+                                { plain | fg = Just Ansi.Color.yellow, attributes = [ Tui.Bold ] }
 
                              else
                                 dimStyle

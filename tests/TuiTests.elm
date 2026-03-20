@@ -10,7 +10,7 @@ import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
 import Test.Runner
-import Tui
+import Tui exposing (plain)
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Sub
 import Tui.Test as TuiTest
@@ -43,7 +43,7 @@ suite =
                         |> Expect.equal "hello world"
             , test "styled text has plain text content" <|
                 \() ->
-                    Tui.styled { fg = Just Ansi.Color.red, bg = Nothing, attributes = [ Tui.Bold ] } "warning"
+                    Tui.styled { plain | fg = Just Ansi.Color.red, attributes = [ Tui.Bold ] } "warning"
                         |> Tui.toString
                         |> Expect.equal "warning"
             , test "empty produces nothing" <|
@@ -174,6 +174,65 @@ suite =
                         |> Tui.bold
                         |> Tui.toString
                         |> Expect.equal "hello world"
+            , test "link encodes hyperlink in JSON" <|
+                \() ->
+                    Tui.text "elm/core"
+                        |> Tui.link { url = "https://package.elm-lang.org" }
+                        |> Tui.encodeScreen
+                        |> Encode.encode 0
+                        |> String.contains "https://package.elm-lang.org"
+                        |> Expect.equal True
+            , test "link composes with fg and bold" <|
+                \() ->
+                    Tui.text "elm/core"
+                        |> Tui.fg Ansi.Color.blue
+                        |> Tui.underline
+                        |> Tui.link { url = "https://example.com" }
+                        |> Tui.encodeScreen
+                        |> Encode.encode 0
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "https://example.com" |> Expect.equal True
+                                    , \str -> str |> String.contains "blue" |> Expect.equal True
+                                    , \str -> str |> String.contains "underline" |> Expect.equal True
+                                    ]
+                                    s
+                           )
+            , test "link on concat applies to all children" <|
+                \() ->
+                    Tui.concat [ Tui.text "hello ", Tui.text "world" ]
+                        |> Tui.link { url = "https://example.com" }
+                        |> Tui.encodeScreen
+                        |> Encode.encode 0
+                        |> (\s ->
+                                let
+                                    linkCount =
+                                        String.indexes "https://example.com" s |> List.length
+                                in
+                                (linkCount >= 2) |> Expect.equal True
+                           )
+            , test "link stripped by toString" <|
+                \() ->
+                    Tui.text "elm/core"
+                        |> Tui.link { url = "https://example.com" }
+                        |> Tui.toString
+                        |> Expect.equal "elm/core"
+            , test "link preserved by truncateWidth" <|
+                \() ->
+                    Tui.text "long link text"
+                        |> Tui.link { url = "https://example.com" }
+                        |> Tui.truncateWidth 10
+                        |> Tui.encodeScreen
+                        |> Encode.encode 0
+                        |> String.contains "https://example.com"
+                        |> Expect.equal True
+            , test "link preserved by wrapWidth" <|
+                \() ->
+                    Tui.text "hello world"
+                        |> Tui.link { url = "https://example.com" }
+                        |> Tui.wrapWidth 6
+                        |> List.map (\s -> Tui.extractStyle s |> .hyperlink)
+                        |> Expect.equal [ Just "https://example.com", Just "https://example.com" ]
             ]
         , describe "wrapWidth"
             [ test "short text returns single line unchanged" <|
@@ -201,8 +260,8 @@ suite =
                         |> Tui.wrapWidth 6
                         |> List.map (\s -> ( Tui.toString s, Tui.extractStyle s ))
                         |> Expect.equal
-                            [ ( "hello", { fg = Nothing, bg = Nothing, attributes = [ Tui.Bold ] } )
-                            , ( "world", { fg = Nothing, bg = Nothing, attributes = [ Tui.Bold ] } )
+                            [ ( "hello", { plain | attributes = [ Tui.Bold ] } )
+                            , ( "world", { plain | attributes = [ Tui.Bold ] } )
                             ]
             , test "preserves styles in concat across wrap boundary" <|
                 \() ->
@@ -735,7 +794,7 @@ counterUpdate msg model =
 counterView : Tui.Context -> CounterModel -> Tui.Screen
 counterView ctx model =
     Tui.lines
-        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.Bold ] } "Counter"
+        [ Tui.styled { plain | attributes = [ Tui.Bold ] } "Counter"
         , Tui.concat
             [ Tui.text "Count: "
             , Tui.text (String.fromInt model.count)
@@ -926,7 +985,7 @@ starsFetch repo =
 starsView : Tui.Context -> StarsModel -> Tui.Screen
 starsView _ model =
     Tui.lines
-        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.Bold ] } "GitHub Stars"
+        [ Tui.styled { plain | attributes = [ Tui.Bold ] } "GitHub Stars"
         , Tui.concat
             [ Tui.text "Repo: "
             , Tui.text model.input

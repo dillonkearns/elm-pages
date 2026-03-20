@@ -1,6 +1,6 @@
 module Tui exposing
     ( Screen, text, styled, lines, concat, spaced, empty, blank
-    , fg, bg, bold, dim, italic, underline, strikethrough, inverse
+    , fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
     , Style, plain
     , Attribute(..)
     , Context, ColorProfile(..)
@@ -27,7 +27,7 @@ from the `wolfadex/elm-ansi` package:
 
 @docs Screen, text, styled, lines, concat, spaced, empty, blank
 
-@docs fg, bg, bold, dim, italic, underline, strikethrough, inverse
+@docs fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
 
 @docs Style, plain
 
@@ -211,6 +211,21 @@ inverse =
     addAttr Inverse
 
 
+{-| Wrap a Screen in a clickable hyperlink (OSC 8). In terminals that support it,
+the text becomes a clickable link. In unsupported terminals, the escape sequence
+is silently ignored and the text renders normally.
+
+    Tui.text "elm/core"
+        |> Tui.underline
+        |> Tui.fg Ansi.Color.blue
+        |> Tui.link { url = "https://package.elm-lang.org/packages/elm/core/latest" }
+
+-}
+link : { url : String } -> Screen -> Screen
+link { url } =
+    applyStyle (\s -> { s | hyperlink = Just url })
+
+
 {-| Apply a style transformation to a Screen. Recursively applies to all
 children in compound screens (Concat, Lines), so `Tui.fg` and `Tui.bold`
 work on any Screen — not just text.
@@ -254,13 +269,14 @@ addAttr attr =
 -- STYLE RECORDS
 
 
-{-| Terminal cell style — foreground color, background color, and text
-attributes. Matches the terminal cell model (one fg, one bg, set of decoration
-flags).
+{-| Terminal cell style — foreground color, background color, text
+attributes, and optional hyperlink. Matches the terminal cell model
+(one fg, one bg, set of decoration flags, optional OSC 8 link).
 
     { fg = Just Ansi.Color.red
     , bg = Nothing
     , attributes = [ Tui.Bold, Tui.Underline ]
+    , hyperlink = Nothing
     }
 
 -}
@@ -268,6 +284,7 @@ type alias Style =
     { fg : Maybe Ansi.Color.Color
     , bg : Maybe Ansi.Color.Color
     , attributes : List Attribute
+    , hyperlink : Maybe String
     }
 
 
@@ -282,6 +299,7 @@ plain =
     { fg = Nothing
     , bg = Nothing
     , attributes = []
+    , hyperlink = Nothing
     }
 
 
@@ -437,12 +455,7 @@ toScreenLines screen =
                 spans
                     |> List.map
                         (\span ->
-                            ScreenStyled
-                                { fg = span.style.foreground
-                                , bg = span.style.background
-                                , attributes = flatStyleToAttrs span.style
-                                }
-                                span.text
+                            spanToScreen span
                         )
                     |> ScreenConcat
             )
@@ -499,15 +512,7 @@ truncateWidth maxWidth screen =
 
         _ ->
             truncated
-                |> List.map
-                    (\span ->
-                        ScreenStyled
-                            { fg = span.style.foreground
-                            , bg = span.style.background
-                            , attributes = flatStyleToAttrs span.style
-                            }
-                            span.text
-                    )
+                |> List.map spanToScreen
                 |> ScreenConcat
 
 
@@ -581,15 +586,7 @@ spansToScreen spans =
 
         _ ->
             spans
-                |> List.map
-                    (\span ->
-                        ScreenStyled
-                            { fg = span.style.foreground
-                            , bg = span.style.background
-                            , attributes = flatStyleToAttrs span.style
-                            }
-                            span.text
-                    )
+                |> List.map spanToScreen
                 |> ScreenConcat
 
 
@@ -758,6 +755,17 @@ charsToSpans chars =
             { text = spanText, style = first.style } :: charsToSpans remaining
 
 
+spanToScreen : Span -> Screen
+spanToScreen span =
+    ScreenStyled
+        { fg = span.style.foreground
+        , bg = span.style.background
+        , attributes = flatStyleToAttrs span.style
+        , hyperlink = span.style.hyperlink
+        }
+        span.text
+
+
 flatStyleToAttrs : FlatStyle -> List Attribute
 flatStyleToAttrs s =
     List.filterMap identity
@@ -828,6 +836,7 @@ type alias FlatStyle =
     , inverse : Bool
     , foreground : Maybe Ansi.Color.Color
     , background : Maybe Ansi.Color.Color
+    , hyperlink : Maybe String
     }
 
 
@@ -841,6 +850,7 @@ defaultFlatStyle =
     , inverse = False
     , foreground = Nothing
     , background = Nothing
+    , hyperlink = Nothing
     }
 
 
@@ -852,6 +862,7 @@ styleToFlatStyle s =
             { defaultFlatStyle
                 | foreground = s.fg
                 , background = s.bg
+                , hyperlink = s.hyperlink
             }
     in
     List.foldl applyAttr base s.attributes
@@ -992,6 +1003,7 @@ encodeFlatStyle flatStyle =
                 Nothing
             , flatStyle.foreground |> Maybe.map (\c -> ( "foreground", encodeColor c ))
             , flatStyle.background |> Maybe.map (\c -> ( "background", encodeColor c ))
+            , flatStyle.hyperlink |> Maybe.map (\url -> ( "hyperlink", Encode.string url ))
             ]
         )
 

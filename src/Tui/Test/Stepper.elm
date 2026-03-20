@@ -12,7 +12,7 @@ navigate with arrow keys to step through the test.
 import Ansi.Color
 import BackendTask
 import Pages.Script as Script exposing (Script)
-import Tui
+import Tui exposing (plain)
 import Tui.Effect as Effect
 import Tui.Sub
 import Tui.Test as TuiTest
@@ -196,7 +196,7 @@ stepperView ctx model =
     let
         dimStyle : Tui.Style
         dimStyle =
-            { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
+            { plain | attributes = [ Tui.Dim ] }
 
         maybeSnapshot : Maybe TuiTest.Snapshot
         maybeSnapshot =
@@ -209,7 +209,7 @@ stepperView ctx model =
             let
                 headerStyle : Tui.Style
                 headerStyle =
-                    { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.Bold ] }
+                    { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
 
                 separator : String
                 separator =
@@ -248,10 +248,7 @@ stepperView ctx model =
                                 (\i snapshotForIndicator ->
                                     if i == model.currentIndex then
                                         Tui.styled
-                                            { fg = Just Ansi.Color.cyan
-                                            , bg = Nothing
-                                            , attributes = [ Tui.Bold ]
-                                            }
+                                            { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
                                             (" ● " ++ snapshotForIndicator.label ++ " ")
 
                                     else
@@ -265,11 +262,11 @@ stepperView ctx model =
                  , Tui.concat
                     [ Tui.styled dimStyle "  Action: "
                     , Tui.styled
-                        { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [ Tui.Bold ] }
+                        { plain | fg = Just Ansi.Color.yellow, attributes = [ Tui.Bold ] }
                         snapshot.label
                     , if snapshot.hasPendingEffects then
                         Tui.styled
-                            { fg = Just Ansi.Color.magenta, bg = Nothing, attributes = [] }
+                            { plain | fg = Just Ansi.Color.magenta }
                             "  ⟳ pending effect"
 
                       else
@@ -296,10 +293,7 @@ stepperView ctx model =
                                 Tui.lines
                                     [ Tui.text ""
                                     , Tui.styled
-                                        { fg = Just Ansi.Color.green
-                                        , bg = Nothing
-                                        , attributes = [ Tui.Bold ]
-                                        }
+                                        { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
                                         "  Model:"
                                     , modelStr
                                         |> String.lines
