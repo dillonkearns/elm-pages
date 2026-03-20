@@ -1,6 +1,7 @@
 module Pages.Review.NoContractViolationsTest exposing (all)
 
 import Pages.Review.NoContractViolations exposing (rule)
+import Review.Project as Project
 import Review.Test
 import Test exposing (Test, describe, test)
 
@@ -168,6 +169,14 @@ route = {}
 """
                     |> testRouteModule
                     |> Review.Test.expectNoErrors
+        , test "no error for non-route helper modules in Route namespace" <|
+            \() ->
+                """module Route.Ours exposing (helper)
+
+helper = 1
+"""
+                    |> testNonRouteModule
+                    |> Review.Test.expectNoErrors
         , test "error for missing application module definitions" <|
             \() ->
                 [ """module Route.Index exposing (ActionData, Data, Model, Msg, route)
@@ -302,10 +311,41 @@ invalid = Debug.todo ""
         ]
 
 
-testRouteModule : String -> Review.Test.ReviewResult
-testRouteModule routeModule =
+testNonRouteModule : String -> Review.Test.ReviewResult
+testNonRouteModule source =
     Review.Test.runOnModules rule
-        (routeModule :: validCoreModules)
+        (source :: validCoreModules)
+
+
+testRouteModule : String -> Review.Test.ReviewResult
+testRouteModule routeModuleSource =
+    let
+        moduleName =
+            routeModuleSource
+                |> String.lines
+                |> List.head
+                |> Maybe.withDefault ""
+                |> String.words
+                |> (\words ->
+                        case words of
+                            _ :: name :: _ ->
+                                name
+
+                            _ ->
+                                ""
+                   )
+
+        filePath =
+            "app/" ++ String.replace "." "/" moduleName ++ ".elm"
+
+        project =
+            Project.new
+                |> Project.addModule
+                    { path = filePath
+                    , source = routeModuleSource
+                    }
+    in
+    Review.Test.runOnModulesWithProjectData project rule validCoreModules
 
 
 validCoreModules : List String

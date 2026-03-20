@@ -10,4 +10,3 @@ config =
     [ Pages.Review.NoContractViolations.rule
     , Pages.Review.NoInvalidFreeze.rule
     ]
-

@@ -63,24 +63,33 @@ rule =
             (Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
                 >> Rule.withDeclarationVisitor declarationVisitor
             )
-        |> Rule.withModuleContext
+        |> Rule.withModuleContextUsingContextCreator
             { foldProjectContexts = \a b -> { visitedCoreModules = Set.union a.visitedCoreModules b.visitedCoreModules }
-            , fromModuleToProject = \_ moduleName _ -> { visitedCoreModules = Set.singleton (Node.value moduleName) }
+            , fromModuleToProject =
+                Rule.initContextCreator
+                    (\moduleNameNode _ ->
+                        { visitedCoreModules = Set.singleton (Node.value moduleNameNode) }
+                    )
+                    |> Rule.withModuleNameNode
             , fromProjectToModule =
-                \_ moduleName _ ->
-                    { moduleName = Node.value moduleName
-                    , isRouteModule =
-                        if (Node.value moduleName |> List.take 1) == [ "Route" ] && ((Node.value moduleName |> List.length) > 1) then
-                            Just RouteModule
+                Rule.initContextCreator
+                    (\filePath moduleNameNode _ ->
+                        { moduleName = Node.value moduleNameNode
+                        , isRouteModule =
+                            if String.startsWith "app/" filePath && (Node.value moduleNameNode |> List.take 1) == [ "Route" ] && ((Node.value moduleNameNode |> List.length) > 1) then
+                                Just RouteModule
 
-                        else
-                            coreModulesAndExports
-                                |> Dict.get (Node.value moduleName)
-                                |> Maybe.map
-                                    (\requiredExposes ->
-                                        CoreModule { requiredExposes = requiredExposes }
-                                    )
-                    }
+                            else
+                                coreModulesAndExports
+                                    |> Dict.get (Node.value moduleNameNode)
+                                    |> Maybe.map
+                                        (\requiredExposes ->
+                                            CoreModule { requiredExposes = requiredExposes }
+                                        )
+                        }
+                    )
+                    |> Rule.withFilePath
+                    |> Rule.withModuleNameNode
             }
         |> Rule.withFinalProjectEvaluation
             (\context ->
@@ -144,6 +153,7 @@ Note: `Freezable` is intentionally not required here. The framework never refere
 `View.Freezable` directly - it only calls `View.htmlToFreezable`. If `htmlToFreezable`
 is exposed but `Freezable` isn't, Elm's compiler will error since `Freezable` appears
 in `htmlToFreezable`'s type signature. So Elm enforces that constraint for us.
+
 -}
 freezeContractExports : List String
 freezeContractExports =
