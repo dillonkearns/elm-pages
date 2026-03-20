@@ -925,7 +925,35 @@ function moduleDefinesValue(content, valueName) {
  * @param {string} filePath
  * @returns {string[]}
  */
+/**
+ * Scan an Elm source file for exposed ProgramTest values.
+ * @param {string} filePath
+ * @returns {string[]}
+ */
+export function findProgramTestValues(filePath) {
+  return findAnnotatedValues(filePath, /ProgramTest/);
+}
+
+
+/**
+ * Scan an Elm source file for exposed TuiTest values.
+ * @param {string} filePath
+ * @returns {string[]}
+ */
 export function findTuiTestValues(filePath) {
+  return findAnnotatedValues(filePath, /TuiTest|Tui\.Test\.TuiTest/);
+}
+
+
+/**
+ * Scan an Elm source file for exposed values whose type annotation
+ * matches the given pattern. Shared logic for TuiTest and ProgramTest
+ * discovery.
+ * @param {string} filePath
+ * @param {RegExp} typePattern
+ * @returns {string[]}
+ */
+function findAnnotatedValues(filePath, typePattern) {
   try {
     const content = fs.readFileSync(filePath, "utf8");
 
@@ -956,10 +984,10 @@ export function findTuiTestValues(filePath) {
         .map((s) => s.replace(/\(.*\)/, "").trim()); // strip (..) from type exports
     }
 
-    // Filter to values whose type annotation mentions TuiTest
+    // Filter to values whose type annotation matches the pattern
     return exposedNames.filter((name) => {
       const annotationRegex = new RegExp(
-        `^${name}\\s*:.*(?:TuiTest|Tui\\.Test\\.TuiTest)`,
+        `^${name}\\s*:.*${typePattern.source}`,
         "m"
       );
       return annotationRegex.test(content);

@@ -138,6 +138,17 @@ async function main() {
     });
 
   program
+    .command("test-view [elmModulePath]")
+    .description("open page tests in the browser-based visual stepper")
+    .allowUnknownOption()
+    .allowExcessArguments()
+    .helpOption(false)
+    .action(async (elmModulePath, options) => {
+      const { run } = await import("./commands/test-view.js");
+      await run(elmModulePath || "", options);
+    });
+
+  program
     .command("bundle-script <moduleName>")
     .description("bundle an elm-pages script")
     .option(
