@@ -180,6 +180,11 @@ export async function start(options) {
     );
 
     watcher.add(sourceDirs);
+
+    // Also watch tests/ for test viewer live reload
+    if (fs.existsSync("tests")) {
+      watcher.add("tests");
+    }
   }
 
   const vite = await createViteServer(
@@ -286,9 +291,162 @@ export async function start(options) {
   function processRequest(request, response, next) {
     if (request.url && request.url.startsWith("/stream")) {
       handleStream(request, response);
+    } else if (request.url && request.url.startsWith("/__test-viewer")) {
+      handleTestViewer(request, response);
     } else {
       handleNavigationRequest(request, response, next);
     }
+  }
+
+  /**
+   * Serve the visual test viewer at /__test-viewer.
+   * Compiles test-viewer.js on first request, then serves cached HTML.
+   * Live reloads via the same SSE /stream mechanism as the main app.
+   */
+  async function handleTestViewer(request, response) {
+    try {
+      // Ensure test viewer is compiled
+      const viewerJsPath = path.join(
+        process.cwd(),
+        ".elm-pages/cache/test-viewer.js"
+      );
+      if (!fs.existsSync(viewerJsPath)) {
+        await compileTestViewer();
+      }
+
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      response.end(testViewerHtml());
+    } catch (error) {
+      response.writeHead(500, { "Content-Type": "text/plain" });
+      response.end("Failed to compile test viewer:\n\n" + String(error));
+    }
+  }
+
+  async function compileTestViewer() {
+    const { findProgramTestValues } = await import("./commands/shared.js");
+    const { writeFileIfChanged, ensureDirSync } = await import(
+      "./file-helpers.js"
+    );
+
+    // Discover test files with ProgramTest values
+    const testFiles = await import("globby").then((g) =>
+      g.globbySync(["tests/**/*.elm"])
+    );
+    const allTests = [];
+    for (const file of testFiles) {
+      const values = findProgramTestValues(file);
+      if (values.length > 0) {
+        const relPath = path.relative("tests", file);
+        const modName = relPath
+          .replace(/\.elm$/, "")
+          .replace(/[/\\]/g, ".");
+        allTests.push({ moduleName: modName, values });
+      }
+    }
+
+    if (allTests.length === 0) {
+      return;
+    }
+
+    // Generate TestViewer.elm
+    const imports = allTests.map((t) => `import ${t.moduleName}`).join("\n");
+    const entries = allTests
+      .flatMap((t) =>
+        t.values.map(
+          (name) =>
+            `        ( "${t.moduleName}.${name}"\n` +
+            `        , Test.PagesProgram.toSnapshots ${t.moduleName}.${name}\n` +
+            `        )`
+        )
+      )
+      .join("\n        , ");
+
+    const viewerElm = `module TestViewer exposing (main)
+
+{-| Generated test viewer for dev server. -}
+
+${imports}
+import Test.PagesProgram
+import Test.PagesProgram.Viewer as Viewer
+
+main : Program Viewer.Flags Viewer.Model Viewer.Msg
+main =
+    Viewer.app
+        [ ${entries}
+        ]
+`;
+
+    await writeFileIfChanged(".elm-pages/TestViewer.elm", viewerElm);
+
+    // Compile with tests/ in source dirs
+    const elmJsonPath = path.resolve("elm.json");
+    const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
+    const originalSourceDirs = [...elmJson["source-directories"]];
+    let needsRestore = false;
+
+    if (!elmJson["source-directories"].includes("tests")) {
+      elmJson["source-directories"].push("tests");
+      fs.writeFileSync(elmJsonPath, JSON.stringify(elmJson, null, 4) + "\n");
+      needsRestore = true;
+    }
+
+    try {
+      const { spawnSync } = await import("node:child_process");
+      const result = spawnSync(
+        "elm",
+        [
+          "make",
+          ".elm-pages/TestViewer.elm",
+          "--output=.elm-pages/cache/test-viewer.js",
+        ],
+        { stdio: "pipe", cwd: process.cwd() }
+      );
+
+      if (result.status !== 0) {
+        const stderr = result.stderr ? result.stderr.toString() : "";
+        console.error(
+          kleur.yellow("Test viewer compilation failed (non-fatal):")
+        );
+        console.error(kleur.dim(stderr.slice(0, 500)));
+      }
+    } finally {
+      if (needsRestore) {
+        elmJson["source-directories"] = originalSourceDirs;
+        fs.writeFileSync(
+          elmJsonPath,
+          JSON.stringify(elmJson, null, 4) + "\n"
+        );
+      }
+    }
+  }
+
+  function testViewerHtml() {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>elm-pages Test Viewer</title>
+</head>
+<body>
+  <div id="app"></div>
+  <script src="/test-viewer.js"></script>
+  <script>
+    var app = Elm.TestViewer.init({ node: document.getElementById("app") });
+
+    // Live reload via SSE (same mechanism as elm-pages dev)
+    var eventSource = new EventSource("/stream");
+    eventSource.onmessage = function() {
+      // Reload test-viewer.js by replacing the script tag
+      var oldScript = document.querySelector('script[src="/test-viewer.js"]');
+      var newScript = document.createElement("script");
+      newScript.src = "/test-viewer.js?t=" + Date.now();
+      newScript.onload = function() { location.reload(); };
+      oldScript.parentNode.replaceChild(newScript, oldScript);
+    };
+  </script>
+</body>
+</html>`;
   }
 
   watcher.on("all", async function (eventName, pathThatChanged) {
@@ -333,6 +491,8 @@ export async function start(options) {
         Promise.all([clientElmMakeProcess, pendingCliCompile])
           .then(() => {
             elmMakeRunning = false;
+            // Recompile test viewer in background (non-blocking)
+            compileTestViewer().catch(() => {});
           })
           .catch(() => {
             elmMakeRunning = false;
