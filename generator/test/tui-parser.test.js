@@ -65,6 +65,23 @@ describe("tuiParseSingleEvent", () => {
       expect(result.event.key.char).toBe("a");
       expect(result.event.modifiers).toEqual(["Ctrl"]);
     });
+
+    it("parses Shift+Tab (Back Tab)", () => {
+      const result = tuiParseSingleEvent("\x1b[Z");
+      expect(result.event).toEqual({
+        type: "keypress",
+        key: { tag: "Tab" },
+        modifiers: ["Shift"],
+      });
+      expect(result.remaining).toBe("");
+    });
+
+    it("parses Shift+Tab with remaining input", () => {
+      const result = tuiParseSingleEvent("\x1b[Zq");
+      expect(result.event.key.tag).toBe("Tab");
+      expect(result.event.modifiers).toEqual(["Shift"]);
+      expect(result.remaining).toBe("q");
+    });
   });
 
   describe("bracketed paste", () => {
@@ -181,6 +198,17 @@ describe("tuiParseAllEvents", () => {
       const result2 = tuiParseAllEvents(result1.leftover + chunk2);
       expect(result2.events).toHaveLength(1);
       expect(result2.events[0].key.direction).toBe("Up");
+    });
+  });
+
+  describe("leftover cap", () => {
+    it("discards overly long unknown escape sequences instead of accumulating", () => {
+      // An unknown ESC sequence longer than 32 bytes should not stay in leftover
+      const longUnknown = "\x1b[" + "x".repeat(40) + "q";
+      const { events, leftover } = tuiParseAllEvents(longUnknown);
+      // Should recover and parse 'q' after discarding the unknown sequence
+      expect(events.some(e => e.key && e.key.char === "q")).toBe(true);
+      expect(leftover).toBe("");
     });
   });
 

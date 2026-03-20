@@ -97,6 +97,7 @@ export function tuiParseSingleEvent(s) {
     "\x1b[5~": { type: "keypress", key: { tag: "PageUp" }, modifiers: [] },
     "\x1b[6~": { type: "keypress", key: { tag: "PageDown" }, modifiers: [] },
     "\x1b[3~": { type: "keypress", key: { tag: "Delete" }, modifiers: [] },
+    "\x1b[Z": { type: "keypress", key: { tag: "Tab" }, modifiers: ["Shift"] },
   };
 
   for (const [seq, event] of Object.entries(escapeMap)) {
@@ -158,7 +159,15 @@ export function tuiParseAllEvents(s) {
       // If it doesn't start with ESC, discard one byte and continue parsing
       // (prevents garbage bytes from blocking the parser).
       if (remaining.length > 0 && remaining.charCodeAt(0) === 0x1b) {
-        return { events, leftover: remaining };
+        // Cap leftover at 32 bytes — real partial sequences are short
+        // (SGR mouse is ~15 chars max). Longer leftovers mean an unknown
+        // but complete sequence; discard the ESC and continue parsing.
+        if (remaining.length < 32) {
+          return { events, leftover: remaining };
+        }
+        // Too long to be a partial — skip the ESC byte
+        remaining = remaining.slice(1);
+        continue;
       }
       // Discard unrecognizable non-escape byte and try the rest
       remaining = remaining.slice(1);
