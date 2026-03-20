@@ -948,7 +948,8 @@ flattenToSpanLines screen =
 -- ENCODING (for sending to JS runtime)
 
 
-{-| Encode a Screen as JSON for the JS rendering pipeline.
+{-| Encode a Screen as JSON for the JS rendering pipeline. Each line becomes
+a JSON array of styled spans. Useful in tests to inspect styling details.
 -}
 encodeScreen : Screen -> Encode.Value
 encodeScreen screen =

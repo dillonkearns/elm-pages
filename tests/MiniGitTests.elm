@@ -759,7 +759,7 @@ miniGitView ctx model =
                         , footer = "Enter: confirm │ Esc: cancel"
                         , width = 50
                         }
-                        { termWidth = ctx.width, termHeight = ctx.height }
+                        { width = ctx.width, height = ctx.height }
                         bgRows
 
                 Just (HelpModal helpState) ->
@@ -812,7 +812,7 @@ miniGitView ctx model =
                         , footer = footer
                         , width = 50
                         }
-                        { termWidth = ctx.width, termHeight = ctx.height }
+                        { width = ctx.width, height = ctx.height }
                         bgRows
 
                 Nothing ->

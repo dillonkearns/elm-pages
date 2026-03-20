@@ -10,8 +10,9 @@ module Tui.Test exposing
     , Snapshot, toSnapshots, withModelToString
     )
 
-{-| Write pure tests for TUI scripts. No terminal, no I/O — just regular
-Elm tests.
+{-| Write tests for TUI scripts without a real terminal. Events are simulated,
+effects are resolved through `Test.BackendTask`, and screen output is
+asserted as plain text.
 
 Effects returned by `update` are tracked and can be resolved using
 [`resolveEffect`](#resolveEffect) with the full `Test.BackendTask` API,
@@ -117,8 +118,12 @@ type alias Snapshot =
     }
 
 
-{-| Start a TUI test. Provide the same config record you pass to `Script.tui`,
-but with `data` already resolved (not a `BackendTask`).
+{-| Start a TUI test with a default 80×24 terminal and `TrueColor` profile.
+Provide the same config record you pass to `Script.tui`, but with `data`
+already resolved (not a `BackendTask`).
+
+If your app subscribes to `Tui.Sub.onContext`, the initial context is fired
+automatically (matching runtime behavior).
 
     TuiTest.start
         { data = { files = [ "Main.elm" ] }
@@ -127,6 +132,8 @@ but with `data` already resolved (not a `BackendTask`).
         , view = MyTui.view
         , subscriptions = MyTui.subscriptions
         }
+
+Use [`startWithContext`](#startWithContext) for a custom terminal size.
 
 -}
 start :
@@ -141,10 +148,15 @@ start config =
     startWithContext { width = 80, height = 24, colorProfile = Tui.TrueColor } config
 
 
-{-| Like `start` but with a custom terminal size.
+{-| Like `start` but with a custom terminal context (dimensions and color
+profile). Useful for testing responsive layouts or color profile adaptation.
 
-    TuiTest.startWithContext { width = 120, height = 40 }
+    TuiTest.startWithContext
+        { width = 120, height = 40, colorProfile = Tui.TrueColor }
         { data = (), ... }
+
+If your app subscribes to `Tui.Sub.onContext`, the initial context is fired
+automatically (matching runtime behavior).
 
 -}
 startWithContext :

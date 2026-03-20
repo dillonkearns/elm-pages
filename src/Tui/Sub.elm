@@ -92,10 +92,14 @@ onPaste =
     OnPaste
 
 
-{-| Subscribe to terminal context (dimension) changes. Fires on init with the
-initial terminal size, and whenever the terminal is resized.
+{-| Subscribe to terminal dimension changes. Fires on init with the
+initial terminal size, and whenever the terminal is resized. The record
+contains `width` and `height` in columns/rows.
 
-    Tui.Sub.onContext (\ctx -> GotContext ctx)
+Use this to store dimensions in your model (e.g., for `Layout.withContext`
+or `Layout.handleMouse`).
+
+    Tui.Sub.onContext (\{ width, height } -> GotContext width height)
 
 -}
 onContext : ({ width : Int, height : Int } -> msg) -> Sub msg
@@ -103,7 +107,12 @@ onContext =
     OnContext
 
 
-{-| Periodic tick. The `Float` is the interval in milliseconds.
+{-| Periodic tick at the given interval in milliseconds. Useful for animations
+like spinners. If multiple `every` subscriptions are batched, the shortest
+interval is used.
+
+    Tui.Sub.every 50 SpinnerTick  -- fires every 50ms
+
 -}
 every : Float -> msg -> Sub msg
 every =

@@ -882,9 +882,9 @@ withTitleScreen screen (PaneConstructor config) =
     PaneConstructor { config | titleScreen = Just screen }
 
 
-{-| Set a styled Screen as the bottom border footer. Overrides the
-plain-text footer from `withFooter`. Renders right-aligned on the
-bottom border, like the string version but with styling.
+{-| Set a styled Screen as the bottom border footer. If both `withFooter`
+and `withFooterScreen` are used on the same pane, this one wins.
+Renders right-aligned on the bottom border.
 
     |> Layout.withFooterScreen
         (Tui.concat

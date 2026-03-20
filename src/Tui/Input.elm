@@ -82,8 +82,13 @@ Handles: character insertion, Backspace, Delete, Arrow Left/Right,
 Home, End, Ctrl+A (home), Ctrl+E (end), Ctrl+K (kill to end),
 Ctrl+U (kill to start).
 
-Keys the input doesn't care about (Escape, Enter, Tab, etc.) return
-the state unchanged — check for those in your update function FIRST.
+Keys the input doesn't handle (Escape, Enter, Tab, etc.) return
+the state unchanged. Match those keys before calling this:
+
+    case event.key of
+        Tui.Escape -> ( closeInput model, Effect.none )
+        Tui.Enter -> ( submit model, Effect.none )
+        _ -> ( { model | input = Input.update event model.input }, Effect.none )
 
 -}
 update : Tui.KeyEvent -> State -> State

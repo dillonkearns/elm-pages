@@ -13,7 +13,7 @@ popup system.
         , footer = "Enter: confirm"
         , width = 50
         }
-        { termWidth = ctx.width, termHeight = ctx.height }
+        { width = ctx.width, height = ctx.height }
         bgRows
 
 @docs overlay
@@ -37,7 +37,7 @@ overlay :
     , footer : String
     , width : Int
     }
-    -> { termWidth : Int, termHeight : Int }
+    -> { width : Int, height : Int }
     -> List Tui.Screen
     -> List Tui.Screen
 overlay config term bgRows =
@@ -48,7 +48,7 @@ overlay config term bgRows =
 
         modalWidth : Int
         modalWidth =
-            min config.width term.termWidth
+            min config.width term.width
 
         innerWidth : Int
         innerWidth =
@@ -56,11 +56,11 @@ overlay config term bgRows =
 
         startRow : Int
         startRow =
-            (term.termHeight - modalHeight) // 2
+            (term.height - modalHeight) // 2
 
         leftPad : Int
         leftPad =
-            (term.termWidth - modalWidth) // 2
+            (term.width - modalWidth) // 2
 
         borderStyle : Tui.Style
         borderStyle =
@@ -74,7 +74,7 @@ overlay config term bgRows =
                 [ Tui.truncateWidth leftPad bgRow
                 , modalStrip
                 , Tui.styled plain
-                    (String.repeat (term.termWidth - leftPad - modalWidth) " ")
+                    (String.repeat (term.width - leftPad - modalWidth) " ")
                 ]
 
         topBorder : Tui.Screen

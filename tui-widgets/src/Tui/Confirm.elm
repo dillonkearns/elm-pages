@@ -35,7 +35,7 @@ Inspired by lazygit's `Confirm` and `Prompt` APIs. Two modes:
         , footer = Confirm.viewFooter state
         , width = 50
         }
-        dims bgRows
+        { width = ctx.width, height = ctx.height } bgRows
 
 @docs State
 @docs confirm, prompt

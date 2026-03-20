@@ -593,7 +593,7 @@ view ctx model =
                         , footer = "Enter: confirm │ Esc: cancel"
                         , width = modalWidth
                         }
-                        { termWidth = ctx.width, termHeight = ctx.height }
+                        { width = ctx.width, height = ctx.height }
                         bgRows
 
                 Just (HelpModal helpState) ->
@@ -656,7 +656,7 @@ view ctx model =
                         , footer = footer
                         , width = modalWidth
                         }
-                        { termWidth = ctx.width, termHeight = ctx.height }
+                        { width = ctx.width, height = ctx.height }
                         bgRows
 
                 Nothing ->
