@@ -5,6 +5,7 @@ module Test.PagesProgram exposing
     , navigateTo, ensureBrowserUrl
     , submitForm
     , resolveEffect
+    , simulateMsg
     , ensureViewHas, ensureViewHasNot, ensureView
     , simulateHttpGet, simulateHttpPost
     , done
@@ -41,6 +42,8 @@ use [`start`](#start) with inline config.
 @docs clickButton, clickLink, fillIn, check
 
 @docs resolveEffect
+
+@docs simulateMsg
 
 @docs ensureViewHas, ensureViewHasNot, ensureView
 
@@ -458,6 +461,27 @@ body.
 simulateHttpPost : String -> Encode.Value -> ProgramTest model msg -> ProgramTest model msg
 simulateHttpPost url jsonResponse =
     applySimulation (SimHttpPost url jsonResponse)
+
+
+{-| Dispatch a message directly, as if it came from a subscription.
+
+Elm's `Sub msg` is opaque and can't be fired from test code. Instead of
+trying to simulate the subscription itself, send the message that the
+subscription would produce. This works for any subscription type:
+
+    -- Time.every produces a Tick message:
+    |> PagesProgram.simulateMsg (Tick (Time.millisToPosix 1000))
+
+    -- Browser.Events.onResize produces a Resize message:
+    |> PagesProgram.simulateMsg (WindowResized 1920 1080)
+
+    -- An incoming port produces a PortData message:
+    |> PagesProgram.simulateMsg (GotWebSocketData "hello")
+
+-}
+simulateMsg : msg -> ProgramTest model msg -> ProgramTest model msg
+simulateMsg msg programTest =
+    applyMsgWithLabel "simulateMsg" Interaction msg programTest
 
 
 

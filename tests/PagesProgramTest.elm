@@ -538,6 +538,93 @@ all =
                         |> PagesProgram.done
                         |> expectFailContaining "Service unavailable"
             ]
+        , describe "simulateMsg for subscription-produced messages"
+            [ test "can dispatch a message that a subscription would produce" <|
+                \() ->
+                    -- Subscriptions produce messages. Rather than trying to
+                    -- simulate the subscription itself (Sub is opaque), we
+                    -- let users dispatch the message directly.
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { ticks = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    TimerTick ->
+                                        ( { model | ticks = model.ticks + 1 }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Timer"
+                                , body =
+                                    [ Html.text ("Ticks: " ++ String.fromInt model.ticks) ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHas [ Selector.text "Ticks: 0" ]
+                        |> PagesProgram.simulateMsg TimerTick
+                        |> PagesProgram.ensureViewHas [ Selector.text "Ticks: 1" ]
+                        |> PagesProgram.simulateMsg TimerTick
+                        |> PagesProgram.simulateMsg TimerTick
+                        |> PagesProgram.ensureViewHas [ Selector.text "Ticks: 3" ]
+                        |> PagesProgram.done
+            , test "simulateMsg works with effects" <|
+                \() ->
+                    -- A subscription message can trigger effects too
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { data = Nothing }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    PortReceived ->
+                                        ( model
+                                        , [ BackendTask.Http.getJson
+                                                "https://api.example.com/refresh"
+                                                (Decode.field "value" Decode.string)
+                                                |> BackendTask.allowFatal
+                                                |> BackendTask.map GotPortData
+                                          ]
+                                        )
+
+                                    GotPortData value ->
+                                        ( { model | data = Just value }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Port"
+                                , body =
+                                    [ case model.data of
+                                        Just v ->
+                                            Html.text ("Data: " ++ v)
+
+                                        Nothing ->
+                                            Html.text "Waiting..."
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHas [ Selector.text "Waiting..." ]
+                        |> PagesProgram.simulateMsg PortReceived
+                        |> PagesProgram.resolveEffect
+                            (BackendTaskTest.simulateHttpGet
+                                "https://api.example.com/refresh"
+                                (Encode.object [ ( "value", Encode.string "refreshed" ) ])
+                            )
+                        |> PagesProgram.ensureViewHas [ Selector.text "Data: refreshed" ]
+                        |> PagesProgram.done
+            , test "simulateMsg fails when data is still resolving" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.Http.getJson
+                                "https://api.example.com/init"
+                                Decode.string
+                                |> BackendTask.allowFatal
+                        , init = \_ -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.simulateMsg ()
+                        |> PagesProgram.done
+                        |> expectFailContaining "resolving"
+            ]
         , describe "textarea support"
             [ test "fillIn works with textarea" <|
                 \() ->
@@ -596,6 +683,15 @@ type QueueMsg
     = QueueFetch
     | DoOtherThing
     | GotResult String
+
+
+type TimerMsg
+    = TimerTick
+
+
+type PortMsg
+    = PortReceived
+    | GotPortData String
 
 
 {-| Assert that an Expectation is a failure containing the given substring.
