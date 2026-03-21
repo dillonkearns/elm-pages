@@ -305,14 +305,8 @@ export async function start(options) {
    */
   async function handleTestViewer(request, response) {
     try {
-      // Ensure test viewer is compiled
-      const viewerJsPath = path.join(
-        process.cwd(),
-        ".elm-pages/cache/test-viewer.js"
-      );
-      if (!fs.existsSync(viewerJsPath)) {
-        await compileTestViewer();
-      }
+      // Always recompile test viewer to pick up changes
+      await compileTestViewer();
 
       response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       response.end(testViewerHtml());
