@@ -1518,7 +1518,7 @@ applyMsgWithLabel label kind msg (ProgramTest state) =
                         newReady =
                             { ready
                                 | model = newModel
-                                , pendingEffects = newEffects
+                                , pendingEffects = ready.pendingEffects ++ newEffects
                             }
 
                         stepIdx =
@@ -1667,18 +1667,21 @@ resolveDataPhase bt initFn viewFn updateFn =
                         }
 
                 Err err ->
-                    -- BackendTask completed with FatalError
-                    Ready
-                        { model =
-                            Tuple.first (initFn (crashData err))
-                        , getView = viewFn (crashData err)
-                        , update = updateFn
-                        , pendingEffects = []
-                        , onNavigate = Nothing
-                        , getBrowserUrl = Nothing
-                        , onFormSubmit = Nothing
-                        , getFormFields = Nothing
-                        }
+                    -- BackendTask completed with FatalError -- produce a clean error
+                    let
+                        (Pages.Internal.FatalError.FatalError errInfo) =
+                            err
+                    in
+                    Resolving
+                        (Resolver
+                            { advance = \_ -> AdvanceError (errInfo.title ++ ": " ++ errInfo.body)
+                            , pendingDescription =
+                                "Data BackendTask failed with FatalError:\n\n"
+                                    ++ errInfo.title
+                                    ++ "\n"
+                                    ++ errInfo.body
+                            }
+                        )
 
         BackendTaskTest.Running runningState ->
             Resolving
@@ -1742,10 +1745,6 @@ stillRunningDescription pendingRequests =
                 |> String.join "\n"
            )
 
-
-crashData : FatalError -> a
-crashData _ =
-    crashData (FatalError.fromString "unreachable")
 
 
 

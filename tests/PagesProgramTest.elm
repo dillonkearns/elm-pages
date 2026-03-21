@@ -3,7 +3,7 @@ module PagesProgramTest exposing (all)
 import BackendTask
 import BackendTask.Http
 import Expect exposing (Expectation)
-import FatalError exposing (FatalError)
+import FatalError
 import Html
 import Html.Attributes as Attr
 import Html.Events
@@ -415,6 +415,129 @@ all =
                         |> PagesProgram.ensureViewHas [ Selector.text "Clicked!" ]
                         |> PagesProgram.done
             ]
+        , describe "Bug fix: pending effects must not be overwritten"
+            [ test "done fails when effects are pending after another interaction" <|
+                \() ->
+                    -- Bug: clicking a button that triggers an effect, then clicking
+                    -- another button before resolving, used to silently drop the effect.
+                    -- After fix: done should fail because there's still a pending effect.
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { result = Nothing, other = False }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    QueueFetch ->
+                                        ( model
+                                        , [ BackendTask.Http.getJson
+                                                "https://api.example.com/data"
+                                                (Decode.field "value" Decode.string)
+                                                |> BackendTask.allowFatal
+                                                |> BackendTask.map GotResult
+                                          ]
+                                        )
+
+                                    DoOtherThing ->
+                                        ( { model | other = True }, [] )
+
+                                    GotResult value ->
+                                        ( { model | result = Just value }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Queue Test"
+                                , body =
+                                    [ Html.button [ Html.Events.onClick QueueFetch ] [ Html.text "Fetch" ]
+                                    , Html.button [ Html.Events.onClick DoOtherThing ] [ Html.text "Other" ]
+                                    , case model.result of
+                                        Just v ->
+                                            Html.text ("Result: " ++ v)
+
+                                        Nothing ->
+                                            Html.text "No result"
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "Fetch"
+                        -- Click another button BEFORE resolving the effect
+                        |> PagesProgram.clickButton "Other"
+                        -- done should fail: the HTTP effect from "Fetch" is still pending
+                        |> PagesProgram.done
+                        |> expectFailContaining "pending"
+            , test "resolveEffect works after another interaction" <|
+                \() ->
+                    -- The effect from the first click should survive a second click
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { result = Nothing, other = False }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    QueueFetch ->
+                                        ( model
+                                        , [ BackendTask.Http.getJson
+                                                "https://api.example.com/data"
+                                                (Decode.field "value" Decode.string)
+                                                |> BackendTask.allowFatal
+                                                |> BackendTask.map GotResult
+                                          ]
+                                        )
+
+                                    DoOtherThing ->
+                                        ( { model | other = True }, [] )
+
+                                    GotResult value ->
+                                        ( { model | result = Just value }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Queue Test"
+                                , body =
+                                    [ Html.button [ Html.Events.onClick QueueFetch ] [ Html.text "Fetch" ]
+                                    , Html.button [ Html.Events.onClick DoOtherThing ] [ Html.text "Other" ]
+                                    , case model.result of
+                                        Just v ->
+                                            Html.text ("Result: " ++ v)
+
+                                        Nothing ->
+                                            Html.text "No result"
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "Fetch"
+                        |> PagesProgram.clickButton "Other"
+                        -- Should still be able to resolve the effect from "Fetch"
+                        |> PagesProgram.resolveEffect
+                            (BackendTaskTest.simulateHttpGet
+                                "https://api.example.com/data"
+                                (Encode.object [ ( "value", Encode.string "hello" ) ])
+                            )
+                        |> PagesProgram.ensureViewHas [ Selector.text "Result: hello" ]
+                        |> PagesProgram.done
+            ]
+        , describe "Bug fix: FatalError in data produces clean test failure"
+            [ test "done fails cleanly when data BackendTask produces FatalError" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.fail (FatalError.fromString "Database connection failed")
+                        , init = \name -> ( { name = name }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                        }
+                        |> PagesProgram.done
+                        |> expectFailContaining "Database connection failed"
+            , test "ensureViewHas fails cleanly when data BackendTask produces FatalError" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.fail (FatalError.fromString "Service unavailable")
+                        , init = \_ -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.ensureViewHas [ Selector.text "Hello" ]
+                        |> PagesProgram.done
+                        |> expectFailContaining "Service unavailable"
+            ]
         , describe "textarea support"
             [ test "fillIn works with textarea" <|
                 \() ->
@@ -467,6 +590,12 @@ type CheckMsg
 type StarsMsg
     = FetchStars
     | GotStars Int
+
+
+type QueueMsg
+    = QueueFetch
+    | DoOtherThing
+    | GotResult String
 
 
 {-| Assert that an Expectation is a failure containing the given substring.
