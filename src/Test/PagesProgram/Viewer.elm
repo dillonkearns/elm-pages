@@ -1197,7 +1197,14 @@ viewMainPanel model =
                         in
                         Html.div [ Attr.class "main-panel-content" ]
                             [ viewUrlBar previewSnapshot
-                            , viewRenderedPageWithWidth model.viewportWidth previewSnapshot
+                            , viewRenderedPageWithOptions model.viewportWidth
+                                (if hasPrevious && not isStartStep then
+                                    Just model.previewMode
+
+                                 else
+                                    Nothing
+                                )
+                                previewSnapshot
                             , if not isStartStep && hasPrevious then
                                 viewBeforeAfterToggle model.previewMode
 
@@ -1262,13 +1269,22 @@ viewUrlBar snapshot =
 
 viewRenderedPage : Snapshot -> Html Msg
 viewRenderedPage snapshot =
-    viewRenderedPageWithWidth Nothing snapshot
+    viewRenderedPageWithOptions Nothing Nothing snapshot
 
 
 viewRenderedPageWithWidth : Maybe Int -> Snapshot -> Html Msg
 viewRenderedPageWithWidth viewportWidth snapshot =
+    viewRenderedPageWithOptions viewportWidth Nothing snapshot
+
+
+viewRenderedPageWithOptions : Maybe Int -> Maybe PreviewMode -> Snapshot -> Html Msg
+viewRenderedPageWithOptions viewportWidth maybePreviewMode snapshot =
     Html.div
-        ([ Attr.class "rendered-page"
+        ([ Attr.classList
+            [ ( "rendered-page", True )
+            , ( "rendered-page-before", maybePreviewMode == Just Before )
+            , ( "rendered-page-after", maybePreviewMode == Just After )
+            ]
          ]
             ++ (case viewportWidth of
                     Just w ->
@@ -1288,6 +1304,15 @@ viewRenderedPageWithWidth viewportWidth snapshot =
                 , Html.span [ Attr.class "dot dot-green" ] []
                 ]
             , Html.text snapshot.title
+            , case maybePreviewMode of
+                Just Before ->
+                    Html.span [ Attr.class "preview-mode-badge preview-mode-before" ] [ Html.text "BEFORE" ]
+
+                Just After ->
+                    Html.span [ Attr.class "preview-mode-badge preview-mode-after" ] [ Html.text "AFTER" ]
+
+                Nothing ->
+                    Html.text ""
             ]
         , Html.div [ Attr.class "page-body" ]
             (snapshot.body
@@ -1870,6 +1895,43 @@ body {
 
 .page-body {
     padding: 16px;
+}
+
+.rendered-page-before {
+    outline: 2px solid rgba(231, 76, 60, 0.5);
+    outline-offset: -2px;
+}
+
+.rendered-page-before .page-body {
+    background: rgba(231, 76, 60, 0.03);
+}
+
+.rendered-page-after {
+    outline: 2px solid rgba(126, 231, 135, 0.5);
+    outline-offset: -2px;
+}
+
+.rendered-page-after .page-body {
+    background: rgba(126, 231, 135, 0.03);
+}
+
+.preview-mode-badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+}
+
+.preview-mode-before {
+    background: rgba(231, 76, 60, 0.15);
+    color: #e74c3c;
+}
+
+.preview-mode-after {
+    background: rgba(126, 231, 135, 0.15);
+    color: #7ee787;
 }
 
 /* === NETWORK SIDEBAR === */
