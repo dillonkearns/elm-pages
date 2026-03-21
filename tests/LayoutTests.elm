@@ -339,6 +339,57 @@ suite =
                         |> renderWithState snappedState { width = 30, height = 7 }
                         |> String.contains ("▸ item " ++ String.fromInt snappedIndex)
                         |> Expect.equal True
+            , test "pageDown jumps by viewport height" <|
+                \() ->
+                    let
+                        state : Layout.State
+                        state =
+                            Layout.init |> Layout.withContext { width = 30, height = 7 }
+
+                        -- height=7, visible=5 (7-2 borders), so pageDown jumps 5
+                        ( pageState, _ ) =
+                            Layout.pageDown "list" tallList state
+                    in
+                    Layout.selectedIndex "list" pageState
+                        |> Expect.equal 5
+            , test "pageUp jumps back by viewport height" <|
+                \() ->
+                    let
+                        state : Layout.State
+                        state =
+                            Layout.init |> Layout.withContext { width = 30, height = 7 }
+
+                        -- Go to index 9 (last item) first
+                        ( downState, _ ) =
+                            List.range 1 9
+                                |> List.foldl
+                                    (\_ ( s, _ ) -> Layout.navigateDown "list" tallList s)
+                                    ( state, Nothing )
+
+                        -- pageUp from index 9, viewport=5 should go to 4
+                        ( pageState, _ ) =
+                            Layout.pageUp "list" tallList downState
+                    in
+                    Layout.selectedIndex "list" pageState
+                        |> Expect.equal 4
+            , test "pageDown clamps to last item" <|
+                \() ->
+                    let
+                        state : Layout.State
+                        state =
+                            Layout.init |> Layout.withContext { width = 30, height = 7 }
+
+                        -- tallList has 10 items (0-9), viewport=5
+                        -- First pageDown: 0 + 5 = 5
+                        -- Second pageDown: 5 + 5 = 10, clamped to 9
+                        ( page1, _ ) =
+                            Layout.pageDown "list" tallList state
+
+                        ( page2, _ ) =
+                            Layout.pageDown "list" tallList page1
+                    in
+                    Layout.selectedIndex "list" page2
+                        |> Expect.equal 9
             ]
         , describe "Selectable list"
             [ test "selectableList renders items with default style" <|
@@ -482,7 +533,7 @@ suite =
                                 Layout.init
                     in
                     Layout.scrollPosition "list" newState
-                        |> Expect.equal 3
+                        |> Expect.equal 2
             , test "scroll does not change focused pane (lazygit behavior)" <|
                 \() ->
                     let
@@ -521,7 +572,7 @@ suite =
                     -- Focus should remain on "left", NOT switch to "right"
                     Expect.all
                         [ \_ -> Layout.focusedPane stateAfterScroll |> Expect.equal (Just "left")
-                        , \_ -> Layout.scrollPosition "right" stateAfterScroll |> Expect.equal 3
+                        , \_ -> Layout.scrollPosition "right" stateAfterScroll |> Expect.equal 2
                         ]
                         ()
             , test "scroll up does not change focused pane" <|

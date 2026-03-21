@@ -3,7 +3,7 @@ module Tui.Layout exposing
     , PaneContent, content, selectableList
     , Width, fill, fillPortion, fixed
     , State, init, withContext
-    , navigateDown, navigateUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
+    , navigateDown, navigateUp, pageDown, pageUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
     , switchTab, activeTab
     , focusPane, focusedPane
     , toggleMaximize, isMaximized
@@ -48,7 +48,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs State, init, withContext
 
-@docs navigateDown, navigateUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
+@docs navigateDown, navigateUp, pageDown, pageUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
 
 @docs switchTab, activeTab
 
@@ -474,6 +474,129 @@ navigateUp paneId layout (State s) =
         newIndex : Int
         newIndex =
             max 0 (ps.selectedIndex - 1)
+
+        scrollPadding : Int
+        scrollPadding =
+            2
+
+        newOffset : Int
+        newOffset =
+            ensureVisible newIndex ps.scrollOffset visibleHeight paneItemCount scrollPadding
+
+        selectionChanged : Bool
+        selectionChanged =
+            newIndex /= ps.selectedIndex
+    in
+    ( State
+        { s
+            | paneStates =
+                Dict.insert stateKey
+                    { selectedIndex = newIndex, scrollOffset = newOffset }
+                    s.paneStates
+            , activeTabMap =
+                if stateKey /= paneId then
+                    Dict.insert paneId stateKey s.activeTabMap
+
+                else
+                    s.activeTabMap
+        }
+    , if selectionChanged then
+        getOnSelectForPane paneId layout
+            |> Maybe.map (\onSelect -> onSelect newIndex)
+
+      else
+        Nothing
+    )
+
+
+{-| Move selection down by one page (viewport height). Like lazygit's
+PgDn behavior — the selection jumps by the visible height, keeping
+the scroll-off margin.
+-}
+pageDown : String -> Layout msg -> State -> ( State, Maybe msg )
+pageDown paneId layout (State s) =
+    let
+        stateKey : String
+        stateKey =
+            resolveStateKey paneId layout
+
+        ps : PaneState
+        ps =
+            Dict.get stateKey s.paneStates
+                |> Maybe.withDefault defaultPaneState
+
+        paneItemCount : Int
+        paneItemCount =
+            getItemCountForPane paneId layout
+
+        visibleHeight : Int
+        visibleHeight =
+            s.context.height - 2
+
+        newIndex : Int
+        newIndex =
+            min (max 0 (paneItemCount - 1)) (ps.selectedIndex + visibleHeight)
+
+        scrollPadding : Int
+        scrollPadding =
+            2
+
+        newOffset : Int
+        newOffset =
+            ensureVisible newIndex ps.scrollOffset visibleHeight paneItemCount scrollPadding
+
+        selectionChanged : Bool
+        selectionChanged =
+            newIndex /= ps.selectedIndex
+    in
+    ( State
+        { s
+            | paneStates =
+                Dict.insert stateKey
+                    { selectedIndex = newIndex, scrollOffset = newOffset }
+                    s.paneStates
+            , activeTabMap =
+                if stateKey /= paneId then
+                    Dict.insert paneId stateKey s.activeTabMap
+
+                else
+                    s.activeTabMap
+        }
+    , if selectionChanged then
+        getOnSelectForPane paneId layout
+            |> Maybe.map (\onSelect -> onSelect newIndex)
+
+      else
+        Nothing
+    )
+
+
+{-| Move selection up by one page (viewport height). Like lazygit's
+PgUp behavior.
+-}
+pageUp : String -> Layout msg -> State -> ( State, Maybe msg )
+pageUp paneId layout (State s) =
+    let
+        stateKey : String
+        stateKey =
+            resolveStateKey paneId layout
+
+        ps : PaneState
+        ps =
+            Dict.get stateKey s.paneStates
+                |> Maybe.withDefault defaultPaneState
+
+        paneItemCount : Int
+        paneItemCount =
+            getItemCountForPane paneId layout
+
+        visibleHeight : Int
+        visibleHeight =
+            s.context.height - 2
+
+        newIndex : Int
+        newIndex =
+            max 0 (ps.selectedIndex - visibleHeight)
 
         scrollPadding : Int
         scrollPadding =
@@ -1052,7 +1175,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
 
                         delta : Int
                         delta =
-                            amount * 3
+                            amount * 2
 
                         newOffset : Int
                         newOffset =
@@ -1097,7 +1220,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
 
                         delta : Int
                         delta =
-                            amount * 3
+                            amount * 2
 
                         newOffset : Int
                         newOffset =
