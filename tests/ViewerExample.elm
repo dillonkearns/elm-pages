@@ -206,12 +206,12 @@ loginFlowTest =
         |> PagesProgram.clickButton "Log In"
         |> PagesProgram.ensureViewHas [ Selector.text "Email is required" ]
         -- Fill in email but short password
-        |> PagesProgram.fillIn "email" "alice@example.com"
-        |> PagesProgram.fillIn "password" "123"
+        |> PagesProgram.fillIn "email" "Email" "alice@example.com"
+        |> PagesProgram.fillIn "password" "Password" "123"
         |> PagesProgram.clickButton "Log In"
         |> PagesProgram.ensureViewHas [ Selector.text "Password must be at least 6 characters" ]
         -- Fill in valid credentials
-        |> PagesProgram.fillIn "password" "secret123"
+        |> PagesProgram.fillIn "password" "Password" "secret123"
         |> PagesProgram.check "remember" True
         |> PagesProgram.clickButton "Log In"
         -- Resolve the auth API call
@@ -385,7 +385,7 @@ todoAppTest =
         |> PagesProgram.ensureViewHas [ Selector.text "Build elm-pages app" ]
         |> PagesProgram.ensureViewHas [ Selector.text "Write tests" ]
         -- Add a new todo
-        |> PagesProgram.fillIn "new-todo" "Deploy to production"
+        |> PagesProgram.fillIn "new-todo" "" "Deploy to production"
         |> PagesProgram.clickButton "Add"
         |> PagesProgram.ensureViewHas [ Selector.text "Deploy to production" ]
         |> PagesProgram.ensureViewHas [ Selector.text "1 of 4 completed" ]
@@ -539,15 +539,15 @@ searchTest =
         |> PagesProgram.ensureViewHas [ Selector.text "Haskell" ]
         |> PagesProgram.ensureViewHas [ Selector.text "elm-pages" ]
         -- Search for "elm"
-        |> PagesProgram.fillIn "search" "elm"
+        |> PagesProgram.fillIn "search" "" "elm"
         |> PagesProgram.ensureViewHas [ Selector.text "7 results" ]
         |> PagesProgram.ensureViewHasNot [ Selector.text "Haskell" ]
         |> PagesProgram.ensureViewHasNot [ Selector.text "Rust" ]
         -- Narrow to "elm-"
-        |> PagesProgram.fillIn "search" "elm-"
+        |> PagesProgram.fillIn "search" "" "elm-"
         |> PagesProgram.ensureViewHas [ Selector.text "5 results" ]
         |> PagesProgram.ensureViewHasNot [ Selector.text "Elm" ]
         -- Search for something specific
-        |> PagesProgram.fillIn "search" "review"
+        |> PagesProgram.fillIn "search" "" "review"
         |> PagesProgram.ensureViewHas [ Selector.text "1 results" ]
         |> PagesProgram.ensureViewHas [ Selector.text "elm-review" ]

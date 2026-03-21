@@ -60,6 +60,8 @@ type alias Model =
     , sidebarMode : SidebarMode
     , navKey : Nav.Key
     , basePath : String
+    , searchQuery : String
+    , viewportWidth : Maybe Int
     }
 
 
@@ -83,6 +85,8 @@ type Msg
     | ShowTestList
     | ToggleModel
     | KeyDown String
+    | UpdateSearch String
+    | SetViewport (Maybe Int)
     | UrlChanged Url
     | LinkClicked Browser.UrlRequest
     | NoOp
@@ -144,12 +148,14 @@ app tests =
                 in
                 ( { tests = namedTests
                   , currentTestIndex = initialTestIndex
-                  , currentStepIndex = 0
+                  , currentStepIndex = initialStepForTest namedTests initialTestIndex
                   , hoveredStepIndex = Nothing
                   , showModel = False
                   , sidebarMode = initialMode
                   , navKey = key
                   , basePath = basePath
+                  , searchQuery = ""
+                  , viewportWidth = Nothing
                   }
                 , Cmd.none
                 )
@@ -255,6 +261,28 @@ findTestIndex name tests =
         |> Maybe.map Tuple.first
 
 
+{-| If a test has an ERROR step, return its index so we can auto-navigate to it.
+-}
+errorStepIndex : NamedTest -> Maybe Int
+errorStepIndex test =
+    test.snapshots
+        |> List.indexedMap Tuple.pair
+        |> List.filter (\( _, s ) -> s.stepKind == Error)
+        |> List.head
+        |> Maybe.map Tuple.first
+
+
+{-| Get the initial step index for a test -- jump to error if one exists.
+-}
+initialStepForTest : List NamedTest -> Int -> Int
+initialStepForTest tests testIndex =
+    tests
+        |> List.drop testIndex
+        |> List.head
+        |> Maybe.andThen errorStepIndex
+        |> Maybe.withDefault 0
+
+
 pushTestUrl : Model -> Maybe String -> Cmd Msg
 pushTestUrl model maybeName =
     let
@@ -349,15 +377,18 @@ update msg model =
                         |> List.drop clampedIndex
                         |> List.head
                         |> Maybe.map .name
+
+                stepIndex =
+                    initialStepForTest model.tests clampedIndex
             in
             ( { model
                 | currentTestIndex = clampedIndex
-                , currentStepIndex = 0
+                , currentStepIndex = stepIndex
                 , hoveredStepIndex = Nothing
                 , sidebarMode = CommandLog
               }
             , Cmd.batch
-                [ scrollToStep 0
+                [ scrollToStep stepIndex
                 , pushTestUrl model testName
                 ]
             )
@@ -369,7 +400,7 @@ update msg model =
             ( { model | hoveredStepIndex = Nothing }, Cmd.none )
 
         ShowTestList ->
-            ( { model | sidebarMode = TestList, hoveredStepIndex = Nothing }
+            ( { model | sidebarMode = TestList, hoveredStepIndex = Nothing, searchQuery = "" }
             , pushTestUrl model Nothing
             )
 
@@ -411,6 +442,12 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
+        UpdateSearch query ->
+            ( { model | searchQuery = query }, Cmd.none )
+
+        SetViewport width ->
+            ( { model | viewportWidth = width }, Cmd.none )
+
         UrlChanged url ->
             let
                 testName =
@@ -420,13 +457,17 @@ update msg model =
                 Just name ->
                     case findTestIndex name model.tests of
                         Just idx ->
+                            let
+                                stepIndex =
+                                    initialStepForTest model.tests idx
+                            in
                             ( { model
                                 | currentTestIndex = idx
-                                , currentStepIndex = 0
+                                , currentStepIndex = stepIndex
                                 , hoveredStepIndex = Nothing
                                 , sidebarMode = CommandLog
                               }
-                            , scrollToStep 0
+                            , scrollToStep stepIndex
                             )
 
                         Nothing ->
@@ -618,6 +659,7 @@ viewHeader model =
 
                 TestList ->
                     Html.text ""
+            , viewViewportPicker model.viewportWidth
             , Html.button
                 [ Attr.classList
                     [ ( "toggle-button", True )
@@ -628,6 +670,32 @@ viewHeader model =
                 [ Html.text "Model" ]
             ]
         ]
+
+
+viewViewportPicker : Maybe Int -> Html Msg
+viewViewportPicker current =
+    let
+        sizes =
+            [ ( Nothing, "Full" )
+            , ( Just 1280, "1280" )
+            , ( Just 768, "768" )
+            , ( Just 375, "375" )
+            ]
+    in
+    Html.div [ Attr.class "viewport-picker" ]
+        (sizes
+            |> List.map
+                (\( width, label ) ->
+                    Html.button
+                        [ Attr.classList
+                            [ ( "viewport-btn", True )
+                            , ( "viewport-btn-active", current == width )
+                            ]
+                        , Html.Events.onClick (SetViewport width)
+                        ]
+                        [ Html.text label ]
+                )
+        )
 
 
 viewSidebar : Model -> Html Msg
@@ -642,17 +710,42 @@ viewSidebar model =
 
 viewTestListSidebar : Model -> Html Msg
 viewTestListSidebar model =
+    let
+        filteredTests =
+            if String.isEmpty model.searchQuery then
+                model.tests |> List.indexedMap Tuple.pair
+
+            else
+                let
+                    q =
+                        String.toLower model.searchQuery
+                in
+                model.tests
+                    |> List.indexedMap Tuple.pair
+                    |> List.filter (\( _, t ) -> String.contains q (String.toLower t.name))
+    in
     Html.div [ Attr.class "sidebar" ]
         [ Html.div [ Attr.class "sidebar-header" ]
             [ Html.span [ Attr.class "sidebar-title" ]
                 [ Html.text
                     (String.fromInt (List.length model.tests) ++ " Tests")
                 ]
+            , if List.length model.tests > 3 then
+                Html.input
+                    [ Attr.class "search-input"
+                    , Attr.placeholder "Filter tests..."
+                    , Attr.value model.searchQuery
+                    , Html.Events.onInput UpdateSearch
+                    ]
+                    []
+
+              else
+                Html.text ""
             ]
         , Html.div [ Attr.class "sidebar-steps", Attr.id "sidebar-steps" ]
-            (model.tests
-                |> List.indexedMap
-                    (\i test ->
+            (filteredTests
+                |> List.map
+                    (\( i, test ) ->
                         let
                             hasError =
                                 testHasError test
@@ -690,7 +783,7 @@ viewTestListSidebar model =
                                     )
                                 ]
                             , Html.div [ Attr.class "test-list-info" ]
-                                [ Html.div [ Attr.class "test-list-name" ] [ Html.text test.name ]
+                                [ Html.div [ Attr.class "test-list-name", Attr.title test.name ] [ Html.text test.name ]
                                 , Html.div [ Attr.class "test-list-meta" ]
                                     [ Html.text (String.fromInt stepCount ++ " steps") ]
                                 ]
@@ -739,14 +832,18 @@ viewCommandLogSidebar model =
             (snapshots
                 |> List.indexedMap
                     (\i snapshot ->
-                        viewStepRow i snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (failureCauseIndex == Just i)
+                        let
+                            isChild =
+                                snapshot.stepKind == Assertion && i > 0
+                        in
+                        viewStepRow i snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (failureCauseIndex == Just i) isChild
                     )
             )
         ]
 
 
-viewStepRow : Int -> Snapshot -> Int -> Bool -> Bool -> Bool -> Html Msg
-viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause =
+viewStepRow : Int -> Snapshot -> Int -> Bool -> Bool -> Bool -> Bool -> Html Msg
+viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isChild =
     let
         isActive =
             index == currentIndex
@@ -765,6 +862,7 @@ viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause =
             , ( "step-row-past", isPast && not isActive )
             , ( "step-row-error", snapshot.stepKind == Error )
             , ( "step-row-failure-cause", isFailureCause )
+            , ( "step-row-child", isChild )
             ]
         , Attr.id ("step-" ++ String.fromInt index)
         , Html.Events.onClick (GoToStep index)
@@ -778,7 +876,7 @@ viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause =
             , Attr.style "color" kindColor
             ]
             [ Html.text (stepKindIcon snapshot.stepKind) ]
-        , Html.span [ Attr.class "step-label" ]
+        , Html.span [ Attr.class "step-label", Attr.title snapshot.label ]
             [ Html.text snapshot.label ]
         , if snapshot.hasPendingEffects then
             Html.span [ Attr.class "step-pending-badge" ] [ Html.text "pending" ]
@@ -824,7 +922,7 @@ viewMainPanel model =
                             , viewErrorPanel errorMsg
                             , case previousSnapshot of
                                 Just prev ->
-                                    viewRenderedPage prev
+                                    viewRenderedPageWithWidth model.viewportWidth prev
 
                                 Nothing ->
                                     Html.text ""
@@ -841,7 +939,7 @@ viewMainPanel model =
                     Nothing ->
                         Html.div [ Attr.class "main-panel-content" ]
                             [ viewUrlBar snapshot
-                            , viewRenderedPage snapshot
+                            , viewRenderedPageWithWidth model.viewportWidth snapshot
                             , if model.showModel then
                                 viewModelInspector snapshot
 
@@ -857,13 +955,27 @@ viewMainPanel model =
 
 viewErrorPanel : String -> Html Msg
 viewErrorPanel errorMsg =
+    let
+        ( title, details ) =
+            case String.split " failed:\n\n" errorMsg of
+                [ prefix, rest ] ->
+                    ( prefix ++ " failed", rest )
+
+                _ ->
+                    case String.split ":\n\n" errorMsg of
+                        [ prefix, rest ] ->
+                            ( prefix, rest )
+
+                        _ ->
+                            ( "Test Failed", errorMsg )
+    in
     Html.div [ Attr.class "error-panel" ]
         [ Html.div [ Attr.class "error-panel-header" ]
             [ Html.span [ Attr.class "error-panel-icon" ] [ Html.text "!" ]
-            , Html.text "Test Failed"
+            , Html.text title
             ]
         , Html.pre [ Attr.class "error-panel-body" ]
-            [ Html.text errorMsg ]
+            [ Html.text details ]
         ]
 
 
@@ -882,7 +994,25 @@ viewUrlBar snapshot =
 
 viewRenderedPage : Snapshot -> Html Msg
 viewRenderedPage snapshot =
-    Html.div [ Attr.class "rendered-page" ]
+    viewRenderedPageWithWidth Nothing snapshot
+
+
+viewRenderedPageWithWidth : Maybe Int -> Snapshot -> Html Msg
+viewRenderedPageWithWidth viewportWidth snapshot =
+    Html.div
+        ([ Attr.class "rendered-page"
+         ]
+            ++ (case viewportWidth of
+                    Just w ->
+                        [ Attr.style "max-width" (String.fromInt w ++ "px")
+                        , Attr.style "margin-left" "auto"
+                        , Attr.style "margin-right" "auto"
+                        ]
+
+                    Nothing ->
+                        []
+               )
+        )
         [ Html.div [ Attr.class "page-title-bar" ]
             [ Html.span [ Attr.class "page-title-dots" ]
                 [ Html.span [ Attr.class "dot dot-red" ] []
@@ -988,6 +1118,34 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+.viewport-picker {
+    display: flex;
+    gap: 2px;
+    margin-right: 8px;
+}
+
+.viewport-btn {
+    padding: 3px 8px;
+    border: 1px solid #0f3460;
+    background: transparent;
+    color: #556677;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+
+.viewport-btn:hover {
+    background: #0f3460;
+    color: #8899aa;
+}
+
+.viewport-btn-active {
+    background: #0f3460;
+    color: #4cc9f0;
+    border-color: #4cc9f0;
+}
+
 .toggle-button {
     padding: 4px 10px;
     border: 1px solid #0f3460;
@@ -1084,6 +1242,21 @@ body {
     background: rgba(231, 76, 60, 0.05);
 }
 
+.step-row-child {
+    padding-left: 28px;
+    font-size: 11px;
+}
+
+.step-row-child .step-number {
+    font-size: 10px;
+    color: #445566;
+}
+
+.step-row-child .step-label {
+    font-size: 11px;
+    color: #8a9aaa;
+}
+
 .step-number {
     font-size: 11px;
     color: #556677;
@@ -1174,6 +1347,27 @@ body {
     font-size: 11px;
     color: #556677;
     margin-top: 2px;
+}
+
+.search-input {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 5px 8px;
+    background: #0d1117;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    color: #c0c8d0;
+    font-size: 12px;
+    outline: none;
+}
+
+.search-input:focus {
+    border-color: #4cc9f0;
+}
+
+.search-input::placeholder {
+    color: #556677;
 }
 
 .sidebar-back {
