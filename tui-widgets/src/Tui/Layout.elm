@@ -1,6 +1,6 @@
 module Tui.Layout exposing
     ( Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
-    , PaneContent, content, selectableList, withUnfocusedStyle
+    , PaneContent, content, selectableList, withUnfocusedStyle, withFilterable
     , Width, fill, fillPortion, fixed
     , State, init, withContext
     , navigateDown, navigateUp, pageDown, pageUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
@@ -13,6 +13,7 @@ module Tui.Layout exposing
     , handleMouse
     , toScreen, toRows
     , navigationHelpRows
+    , isFilterActive, filterStatusBar
     )
 
 {-| Split-pane layout with opaque state, selectable lists, and mouse dispatch.
@@ -44,7 +45,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
 
-@docs PaneContent, content, selectableList, withUnfocusedStyle
+@docs PaneContent, content, selectableList, withUnfocusedStyle, withFilterable
 
 @docs Width, fill, fillPortion, fixed
 
@@ -67,10 +68,13 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs navigationHelpRows
 
+@docs isFilterActive, filterStatusBar
+
 -}
 
 import Ansi.Color
 import Array
+import Char
 import Dict exposing (Dict)
 import Tui exposing (MouseEvent, Screen, plain)
 import Tui.Keybinding
@@ -119,6 +123,7 @@ type PaneContent msg
         , renderSelected : Int -> Screen -- renders selected view for item at index
         , renderSelectedUnfocused : Int -> Screen -- renders selected view when pane is unfocused
         , onSelect : Int -> msg
+        , filterText : Maybe (Int -> String)
         }
 
 
@@ -140,7 +145,20 @@ type State
         , maximizedPaneId : Maybe String
         , activeTabMap : Dict String String
         , searching : Bool
+        , filterStates : Dict String FilterState
         }
+
+
+type FilterMode
+    = FilterTyping
+    | FilterApplied
+
+
+type alias FilterState =
+    { query : String
+    , mode : FilterMode
+    , filteredIndices : List Int
+    }
 
 
 type alias PaneState =
@@ -333,6 +351,7 @@ selectableList config items =
         , renderSelected = renderSel
         , renderSelectedUnfocused = renderSel
         , onSelect = config.onSelect
+        , filterText = Nothing
         }
 
 
@@ -369,6 +388,47 @@ withUnfocusedStyle renderUnfocused items paneContent =
                             Array.get i itemArray
                                 |> Maybe.map renderUnfocused
                                 |> Maybe.withDefault Tui.empty
+                }
+
+        StaticContent _ ->
+            paneContent
+
+
+{-| Make a selectable list filterable. When the pane is focused, pressing `/`
+opens a filter input (lazygit-style). Items are matched using smart-case
+substring matching.
+
+    Layout.selectableList
+        { onSelect = SelectItem
+        , selected = \item -> Tui.text ("▸ " ++ item)
+        , default = \item -> Tui.text ("  " ++ item)
+        }
+        items
+        |> Layout.withFilterable identity
+
+The first argument converts an item to its searchable text. The second
+argument is the same items list (needed because `PaneContent` erases the
+item type).
+
+-}
+withFilterable : (item -> String) -> List item -> PaneContent msg -> PaneContent msg
+withFilterable toText items paneContent =
+    case paneContent of
+        SelectableContent config ->
+            let
+                itemArray : Array.Array item
+                itemArray =
+                    Array.fromList items
+            in
+            SelectableContent
+                { config
+                    | filterText =
+                        Just
+                            (\i ->
+                                Array.get i itemArray
+                                    |> Maybe.map toText
+                                    |> Maybe.withDefault ""
+                            )
                 }
 
         StaticContent _ ->
@@ -416,6 +476,7 @@ init =
         , maximizedPaneId = Nothing
         , activeTabMap = Dict.empty
         , searching = False
+        , filterStates = Dict.empty
         }
 
 
@@ -464,9 +525,18 @@ navigateDown paneId layout (State s) =
             Dict.get stateKey s.paneStates
                 |> Maybe.withDefault defaultPaneState
 
-        paneItemCount : Int
-        paneItemCount =
-            getItemCountForPane paneId layout
+        filterState : Maybe FilterState
+        filterState =
+            Dict.get stateKey s.filterStates
+
+        effectiveItemCount : Int
+        effectiveItemCount =
+            case filterState of
+                Just fs ->
+                    List.length fs.filteredIndices
+
+                Nothing ->
+                    getItemCountForPane paneId layout
 
         visibleHeight : Int
         visibleHeight =
@@ -474,7 +544,7 @@ navigateDown paneId layout (State s) =
 
         newIndex : Int
         newIndex =
-            min (max 0 (paneItemCount - 1)) (ps.selectedIndex + 1)
+            min (max 0 (effectiveItemCount - 1)) (ps.selectedIndex + 1)
 
         scrollPadding : Int
         scrollPadding =
@@ -482,11 +552,15 @@ navigateDown paneId layout (State s) =
 
         newOffset : Int
         newOffset =
-            ensureVisible newIndex ps.scrollOffset visibleHeight paneItemCount scrollPadding
+            ensureVisible newIndex ps.scrollOffset visibleHeight effectiveItemCount scrollPadding
 
         selectionChanged : Bool
         selectionChanged =
             newIndex /= ps.selectedIndex
+
+        originalIndex : Int
+        originalIndex =
+            mapFilteredIndex newIndex filterState
     in
     ( State
         { s
@@ -503,7 +577,7 @@ navigateDown paneId layout (State s) =
         }
     , if selectionChanged then
         getOnSelectForPane paneId layout
-            |> Maybe.map (\onSelect -> onSelect newIndex)
+            |> Maybe.map (\onSelect -> onSelect originalIndex)
 
       else
         Nothing
@@ -525,9 +599,18 @@ navigateUp paneId layout (State s) =
             Dict.get stateKey s.paneStates
                 |> Maybe.withDefault defaultPaneState
 
-        paneItemCount : Int
-        paneItemCount =
-            getItemCountForPane paneId layout
+        filterState : Maybe FilterState
+        filterState =
+            Dict.get stateKey s.filterStates
+
+        effectiveItemCount : Int
+        effectiveItemCount =
+            case filterState of
+                Just fs ->
+                    List.length fs.filteredIndices
+
+                Nothing ->
+                    getItemCountForPane paneId layout
 
         visibleHeight : Int
         visibleHeight =
@@ -543,11 +626,15 @@ navigateUp paneId layout (State s) =
 
         newOffset : Int
         newOffset =
-            ensureVisible newIndex ps.scrollOffset visibleHeight paneItemCount scrollPadding
+            ensureVisible newIndex ps.scrollOffset visibleHeight effectiveItemCount scrollPadding
 
         selectionChanged : Bool
         selectionChanged =
             newIndex /= ps.selectedIndex
+
+        originalIndex : Int
+        originalIndex =
+            mapFilteredIndex newIndex filterState
     in
     ( State
         { s
@@ -564,7 +651,7 @@ navigateUp paneId layout (State s) =
         }
     , if selectionChanged then
         getOnSelectForPane paneId layout
-            |> Maybe.map (\onSelect -> onSelect newIndex)
+            |> Maybe.map (\onSelect -> onSelect originalIndex)
 
       else
         Nothing
@@ -587,9 +674,18 @@ pageDown paneId layout (State s) =
             Dict.get stateKey s.paneStates
                 |> Maybe.withDefault defaultPaneState
 
-        paneItemCount : Int
-        paneItemCount =
-            getItemCountForPane paneId layout
+        filterState : Maybe FilterState
+        filterState =
+            Dict.get stateKey s.filterStates
+
+        effectiveItemCount : Int
+        effectiveItemCount =
+            case filterState of
+                Just fs ->
+                    List.length fs.filteredIndices
+
+                Nothing ->
+                    getItemCountForPane paneId layout
 
         visibleHeight : Int
         visibleHeight =
@@ -597,7 +693,7 @@ pageDown paneId layout (State s) =
 
         newIndex : Int
         newIndex =
-            min (max 0 (paneItemCount - 1)) (ps.selectedIndex + visibleHeight)
+            min (max 0 (effectiveItemCount - 1)) (ps.selectedIndex + visibleHeight)
 
         scrollPadding : Int
         scrollPadding =
@@ -605,11 +701,15 @@ pageDown paneId layout (State s) =
 
         newOffset : Int
         newOffset =
-            ensureVisible newIndex ps.scrollOffset visibleHeight paneItemCount scrollPadding
+            ensureVisible newIndex ps.scrollOffset visibleHeight effectiveItemCount scrollPadding
 
         selectionChanged : Bool
         selectionChanged =
             newIndex /= ps.selectedIndex
+
+        originalIndex : Int
+        originalIndex =
+            mapFilteredIndex newIndex filterState
     in
     ( State
         { s
@@ -626,7 +726,7 @@ pageDown paneId layout (State s) =
         }
     , if selectionChanged then
         getOnSelectForPane paneId layout
-            |> Maybe.map (\onSelect -> onSelect newIndex)
+            |> Maybe.map (\onSelect -> onSelect originalIndex)
 
       else
         Nothing
@@ -648,9 +748,18 @@ pageUp paneId layout (State s) =
             Dict.get stateKey s.paneStates
                 |> Maybe.withDefault defaultPaneState
 
-        paneItemCount : Int
-        paneItemCount =
-            getItemCountForPane paneId layout
+        filterState : Maybe FilterState
+        filterState =
+            Dict.get stateKey s.filterStates
+
+        effectiveItemCount : Int
+        effectiveItemCount =
+            case filterState of
+                Just fs ->
+                    List.length fs.filteredIndices
+
+                Nothing ->
+                    getItemCountForPane paneId layout
 
         visibleHeight : Int
         visibleHeight =
@@ -666,11 +775,15 @@ pageUp paneId layout (State s) =
 
         newOffset : Int
         newOffset =
-            ensureVisible newIndex ps.scrollOffset visibleHeight paneItemCount scrollPadding
+            ensureVisible newIndex ps.scrollOffset visibleHeight effectiveItemCount scrollPadding
 
         selectionChanged : Bool
         selectionChanged =
             newIndex /= ps.selectedIndex
+
+        originalIndex : Int
+        originalIndex =
+            mapFilteredIndex newIndex filterState
     in
     ( State
         { s
@@ -687,7 +800,7 @@ pageUp paneId layout (State s) =
         }
     , if selectionChanged then
         getOnSelectForPane paneId layout
-            |> Maybe.map (\onSelect -> onSelect newIndex)
+            |> Maybe.map (\onSelect -> onSelect originalIndex)
 
       else
         Nothing
@@ -1032,39 +1145,247 @@ can skip their own key handling for that event).
 -}
 handleKeyEvent : Tui.KeyEvent -> Layout msg -> State -> ( State, Bool )
 handleKeyEvent event layout (State s) =
+    let
+        focusedId : Maybe String
+        focusedId =
+            s.focusedPaneId
+
+        focusedStateKey : Maybe String
+        focusedStateKey =
+            focusedId
+                |> Maybe.map (\pid -> resolveStateKey pid layout)
+
+        activeFilterState : Maybe FilterState
+        activeFilterState =
+            focusedStateKey
+                |> Maybe.andThen (\key -> Dict.get key s.filterStates)
+    in
+    case activeFilterState of
+        Just fs ->
+            -- A filter is active on the focused pane
+            handleFilterKeyEvent event layout fs (State s)
+
+        Nothing ->
+            -- No filter active — check for `/` to start filter, or number keys
+            handleNormalKeyEvent event layout (State s)
+
+
+handleFilterKeyEvent : Tui.KeyEvent -> Layout msg -> FilterState -> State -> ( State, Bool )
+handleFilterKeyEvent event layout fs (State s) =
+    let
+        focusedId : String
+        focusedId =
+            s.focusedPaneId |> Maybe.withDefault ""
+
+        stateKey : String
+        stateKey =
+            resolveStateKey focusedId layout
+    in
+    case fs.mode of
+        FilterTyping ->
+            case event.key of
+                Tui.Character c ->
+                    let
+                        newQuery : String
+                        newQuery =
+                            fs.query ++ String.fromChar c
+
+                        newIndices : List Int
+                        newIndices =
+                            case getFilterTextForPane focusedId layout of
+                                Just getFilterText ->
+                                    computeFilteredIndices newQuery getFilterText (getItemCountForPane focusedId layout)
+
+                                Nothing ->
+                                    fs.filteredIndices
+                    in
+                    ( State
+                        { s
+                            | filterStates =
+                                Dict.insert stateKey
+                                    { query = newQuery
+                                    , mode = FilterTyping
+                                    , filteredIndices = newIndices
+                                    }
+                                    s.filterStates
+                            , paneStates =
+                                Dict.insert stateKey
+                                    { selectedIndex = 0, scrollOffset = 0 }
+                                    s.paneStates
+                        }
+                    , True
+                    )
+
+                Tui.Backspace ->
+                    let
+                        newQuery : String
+                        newQuery =
+                            String.dropRight 1 fs.query
+
+                        newIndices : List Int
+                        newIndices =
+                            case getFilterTextForPane focusedId layout of
+                                Just getFilterText ->
+                                    computeFilteredIndices newQuery getFilterText (getItemCountForPane focusedId layout)
+
+                                Nothing ->
+                                    fs.filteredIndices
+                    in
+                    ( State
+                        { s
+                            | filterStates =
+                                Dict.insert stateKey
+                                    { query = newQuery
+                                    , mode = FilterTyping
+                                    , filteredIndices = newIndices
+                                    }
+                                    s.filterStates
+                            , paneStates =
+                                Dict.insert stateKey
+                                    { selectedIndex = 0, scrollOffset = 0 }
+                                    s.paneStates
+                        }
+                    , True
+                    )
+
+                Tui.Enter ->
+                    if String.isEmpty fs.query then
+                        -- Empty query: clear filter entirely
+                        ( State
+                            { s
+                                | filterStates = Dict.remove stateKey s.filterStates
+                                , searching = False
+                            }
+                        , True
+                        )
+
+                    else
+                        -- Non-empty query: switch to FilterApplied mode
+                        ( State
+                            { s
+                                | filterStates =
+                                    Dict.insert stateKey
+                                        { fs | mode = FilterApplied }
+                                        s.filterStates
+                                , searching = False
+                            }
+                        , True
+                        )
+
+                Tui.Escape ->
+                    -- Clear filter entirely
+                    ( State
+                        { s
+                            | filterStates = Dict.remove stateKey s.filterStates
+                            , searching = False
+                        }
+                    , True
+                    )
+
+                _ ->
+                    ( State s, True )
+
+        FilterApplied ->
+            case event.key of
+                Tui.Escape ->
+                    -- Clear filter
+                    ( State
+                        { s
+                            | filterStates = Dict.remove stateKey s.filterStates
+                            , searching = False
+                        }
+                    , True
+                    )
+
+                Tui.Character '/' ->
+                    -- Re-enter typing mode with current query
+                    ( State
+                        { s
+                            | filterStates =
+                                Dict.insert stateKey
+                                    { fs | mode = FilterTyping }
+                                    s.filterStates
+                            , searching = True
+                        }
+                    , True
+                    )
+
+                _ ->
+                    -- Not consumed — let normal navigation work
+                    ( State s, False )
+
+
+handleNormalKeyEvent : Tui.KeyEvent -> Layout msg -> State -> ( State, Bool )
+handleNormalKeyEvent event layout (State s) =
     case event.key of
         Tui.Character c ->
-            let
-                panes : List (PaneConfig msg)
-                panes =
-                    case layout of
-                        Horizontal ps ->
-                            ps
+            if c == '/' then
+                -- Check if the focused pane is filterable
+                case s.focusedPaneId of
+                    Just focusedId ->
+                        if paneIsFilterable focusedId layout then
+                            let
+                                stateKey : String
+                                stateKey =
+                                    resolveStateKey focusedId layout
 
-                        Vertical ps ->
-                            ps
+                                totalCount : Int
+                                totalCount =
+                                    getItemCountForPane focusedId layout
+                            in
+                            ( State
+                                { s
+                                    | filterStates =
+                                        Dict.insert stateKey
+                                            { query = ""
+                                            , mode = FilterTyping
+                                            , filteredIndices = List.range 0 (totalCount - 1)
+                                            }
+                                            s.filterStates
+                                    , searching = True
+                                }
+                            , True
+                            )
 
-                paneIndex : Maybe Int
-                paneIndex =
-                    case Char.toCode c - Char.toCode '1' of
-                        idx ->
-                            if idx >= 0 && idx < List.length panes then
-                                Just idx
-
-                            else
-                                Nothing
-            in
-            case paneIndex of
-                Just idx ->
-                    case List.drop idx panes |> List.head of
-                        Just paneConfig ->
-                            ( State { s | focusedPaneId = Just paneConfig.id }, True )
-
-                        Nothing ->
+                        else
                             ( State s, False )
 
-                Nothing ->
-                    ( State s, False )
+                    Nothing ->
+                        ( State s, False )
+
+            else
+                -- Number key pane focus
+                let
+                    panes : List (PaneConfig msg)
+                    panes =
+                        case layout of
+                            Horizontal ps ->
+                                ps
+
+                            Vertical ps ->
+                                ps
+
+                    paneIndex : Maybe Int
+                    paneIndex =
+                        case Char.toCode c - Char.toCode '1' of
+                            idx ->
+                                if idx >= 0 && idx < List.length panes then
+                                    Just idx
+
+                                else
+                                    Nothing
+                in
+                case paneIndex of
+                    Just idx ->
+                        case List.drop idx panes |> List.head of
+                            Just paneConfig ->
+                                ( State { s | focusedPaneId = Just paneConfig.id }, True )
+
+                            Nothing ->
+                                ( State s, False )
+
+                    Nothing ->
+                        ( State s, False )
 
         _ ->
             ( State s, False )
@@ -1201,17 +1522,146 @@ contentLineCount paneContent =
             config.itemCount
 
 
+{-| Map a filtered index (position in the filtered list) back to the
+original item index. When no filter is active, returns the index unchanged.
+-}
+mapFilteredIndex : Int -> Maybe FilterState -> Int
+mapFilteredIndex filteredIdx maybeFs =
+    case maybeFs of
+        Just fs ->
+            fs.filteredIndices
+                |> List.drop filteredIdx
+                |> List.head
+                |> Maybe.withDefault filteredIdx
+
+        Nothing ->
+            filteredIdx
+
+
+{-| Smart-case substring matching (lazygit default): if the query contains
+any uppercase characters, the match is case-sensitive; otherwise it is
+case-insensitive.
+-}
+matchesFilter : String -> String -> Bool
+matchesFilter query text =
+    let
+        caseSensitive : Bool
+        caseSensitive =
+            String.any Char.isUpper query
+
+        normalize : String -> String
+        normalize =
+            if caseSensitive then
+                identity
+
+            else
+                String.toLower
+    in
+    String.contains (normalize query) (normalize text)
+
+
+{-| Compute the list of original indices that match the filter query.
+-}
+computeFilteredIndices : String -> (Int -> String) -> Int -> List Int
+computeFilteredIndices query getFilterText totalCount =
+    List.range 0 (totalCount - 1)
+        |> List.filter (\i -> matchesFilter query (getFilterText i))
+
+
+{-| Check if a filter is currently active on a pane (either typing or applied).
+
+    if Layout.isFilterActive "fruits" model.layout then
+        -- show filter indicator
+        ...
+
+-}
+isFilterActive : String -> State -> Bool
+isFilterActive paneId (State s) =
+    let
+        stateKey : String
+        stateKey =
+            Dict.get paneId s.activeTabMap
+                |> Maybe.withDefault paneId
+    in
+    Dict.member stateKey s.filterStates
+
+
+{-| Get the filter status bar for a pane, if a filter is active.
+
+Returns `Just (Tui.text "Filter: {query}")` while typing,
+`Just (Tui.text "Filter: matches for '{query}' <esc>: Exit filter mode")` after Enter,
+or `Nothing` when not filtering.
+
+-}
+filterStatusBar : String -> State -> Maybe Screen
+filterStatusBar paneId (State s) =
+    let
+        stateKey : String
+        stateKey =
+            Dict.get paneId s.activeTabMap
+                |> Maybe.withDefault paneId
+    in
+    Dict.get stateKey s.filterStates
+        |> Maybe.map
+            (\fs ->
+                case fs.mode of
+                    FilterTyping ->
+                        Tui.text ("Filter: " ++ fs.query)
+
+                    FilterApplied ->
+                        Tui.text ("Filter: matches for '" ++ fs.query ++ "' <esc>: Exit filter mode")
+            )
+
+
+{-| Check if a pane has filterable content.
+-}
+paneIsFilterable : String -> Layout msg -> Bool
+paneIsFilterable paneId layout =
+    findPane paneId layout
+        |> Maybe.andThen
+            (\p ->
+                case p.paneContent of
+                    SelectableContent { filterText } ->
+                        filterText |> Maybe.map (\_ -> True)
+
+                    StaticContent _ ->
+                        Nothing
+            )
+        |> Maybe.withDefault False
+
+
+{-| Get the filterText function for a pane, if it exists.
+-}
+getFilterTextForPane : String -> Layout msg -> Maybe (Int -> String)
+getFilterTextForPane paneId layout =
+    findPane paneId layout
+        |> Maybe.andThen
+            (\p ->
+                case p.paneContent of
+                    SelectableContent { filterText } ->
+                        filterText
+
+                    StaticContent _ ->
+                        Nothing
+            )
+
+
 clampScroll : Int -> Int -> Int -> Int
 clampScroll contentLen visibleHeight offset =
     clamp 0 (max 0 (contentLen - visibleHeight)) offset
 
 
-scrollbarBorder : Tui.Style -> PaneContent msg -> PaneState -> Int -> Int -> Screen
-scrollbarBorder borderStyle paneContents ps contentRow totalHeight =
+scrollbarBorder : Tui.Style -> PaneContent msg -> PaneState -> Maybe FilterState -> Int -> Int -> Screen
+scrollbarBorder borderStyle paneContents ps maybeFs contentRow totalHeight =
     let
         contentLen : Int
         contentLen =
-            contentLineCount paneContents
+            case maybeFs of
+                Just fs ->
+                    List.length fs.filteredIndices
+
+                Nothing ->
+                    contentLineCount paneContents
 
         visibleHeight : Int
         visibleHeight =
@@ -1271,6 +1721,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
             , maximizedPaneId : Maybe String
             , activeTabMap : Dict String String
             , searching : Bool
+            , filterStates : Dict String FilterState
             }
         sWithCtx =
             { s | context = ctx }
@@ -1514,7 +1965,7 @@ toRows (State s) layout =
 
 
 toRowsHorizontal :
-    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool }
+    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool, filterStates : Dict String FilterState }
     -> List (PaneConfig msg)
     -> List Screen
 toRowsHorizontal s panes =
@@ -1732,13 +2183,17 @@ toRowsHorizontal s panes =
                                         Dict.get renderStateKey s.paneStates
                                             |> Maybe.withDefault defaultPaneState
 
+                                    renderFilterState : Maybe FilterState
+                                    renderFilterState =
+                                        Dict.get renderStateKey s.filterStates
+
                                     contentRow : Int
                                     contentRow =
                                         row - 1
 
                                     lineScreen : Screen
                                     lineScreen =
-                                        getContentLine isFocused paneConfig ps contentRow
+                                        getContentLine isFocused paneConfig ps renderFilterState contentRow
 
                                     lineText : String
                                     lineText =
@@ -1795,7 +2250,7 @@ toRowsHorizontal s panes =
                                     , Tui.styled borderStyle "│"
                                     , truncatedLine
                                     , paddingScreen
-                                    , scrollbarBorder borderStyle paneConfig.paneContent ps contentRow totalHeight
+                                    , scrollbarBorder borderStyle paneConfig.paneContent ps renderFilterState contentRow totalHeight
                                     ]
                         )
                 )
@@ -1805,7 +2260,7 @@ toRowsHorizontal s panes =
 
 
 toRowsVertical :
-    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool }
+    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool, filterStates : Dict String FilterState }
     -> List (PaneConfig msg)
     -> List Screen
 toRowsVertical s panes =
@@ -1866,6 +2321,10 @@ toRowsVertical s panes =
                 ps =
                     Dict.get vertStateKey s.paneStates
                         |> Maybe.withDefault defaultPaneState
+
+                vertFilterState : Maybe FilterState
+                vertFilterState =
+                    Dict.get vertStateKey s.filterStates
 
                 jumpLabel : String
                 jumpLabel =
@@ -1969,7 +2428,7 @@ toRowsVertical s panes =
                                 let
                                     lineScreen : Screen
                                     lineScreen =
-                                        getContentLine isFocused paneConfig ps contentRow
+                                        getContentLine isFocused paneConfig ps vertFilterState contentRow
 
                                     lineText : String
                                     lineText =
@@ -2029,8 +2488,8 @@ toRowsVertical s panes =
         |> List.concat
 
 
-getContentLine : Bool -> PaneConfig msg -> PaneState -> Int -> Screen
-getContentLine isFocused paneConfig ps contentRow =
+getContentLine : Bool -> PaneConfig msg -> PaneState -> Maybe FilterState -> Int -> Screen
+getContentLine isFocused paneConfig ps maybeFilterState contentRow =
     let
         scrolledRow : Int
         scrolledRow =
@@ -2044,15 +2503,37 @@ getContentLine isFocused paneConfig ps contentRow =
                 |> Maybe.withDefault Tui.empty
 
         SelectableContent { renderItem, renderSelected, renderSelectedUnfocused } ->
-            if scrolledRow == ps.selectedIndex then
-                if isFocused then
-                    renderSelected scrolledRow
+            case maybeFilterState of
+                Just fs ->
+                    if scrolledRow >= List.length fs.filteredIndices then
+                        Tui.empty
 
-                else
-                    renderSelectedUnfocused scrolledRow
+                    else
+                        let
+                            originalIndex : Int
+                            originalIndex =
+                                mapFilteredIndex scrolledRow (Just fs)
+                        in
+                        if scrolledRow == ps.selectedIndex then
+                            if isFocused then
+                                renderSelected originalIndex
 
-            else
-                renderItem scrolledRow
+                            else
+                                renderSelectedUnfocused originalIndex
+
+                        else
+                            renderItem originalIndex
+
+                Nothing ->
+                    if scrolledRow == ps.selectedIndex then
+                        if isFocused then
+                            renderSelected scrolledRow
+
+                        else
+                            renderSelectedUnfocused scrolledRow
+
+                    else
+                        renderItem scrolledRow
 
 
 resolveWidths : Int -> List Width -> List Int
