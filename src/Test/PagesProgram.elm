@@ -8,7 +8,8 @@ module Test.PagesProgram exposing
     , simulateMsg
     , withSimulatedSubscriptions, simulateIncomingPort
     , ensureViewHas, ensureViewHasNot, ensureView
-    , simulateHttpGet, simulateHttpPost
+    , simulateHttpGet, simulateHttpPost, simulateHttpError
+    , selectOption
     , done
     , Snapshot, StepKind(..), NetworkEntry, NetworkStatus(..), toSnapshots, withModelToString
     )
@@ -50,7 +51,9 @@ use [`start`](#start) with inline config.
 
 @docs ensureViewHas, ensureViewHasNot, ensureView
 
-@docs simulateHttpGet, simulateHttpPost
+@docs simulateHttpGet, simulateHttpPost, simulateHttpError
+
+@docs selectOption
 
 @docs done
 
@@ -85,6 +88,7 @@ import Pages.Internal.Msg
 import Pages.Internal.Platform as Platform
 import Pages.Internal.ResponseSketch as ResponseSketch
 import Pages.StaticHttp.Request as StaticHttpRequest
+import Test.BackendTask exposing (HttpError(..))
 import Test.BackendTask.Internal as BackendTaskTest
 import Test.PagesProgram.SimulatedSub as SimulatedSub exposing (SimulatedSub)
 import Test.Html.Event as Event
@@ -185,6 +189,7 @@ type Resolver model msg
 type Simulation
     = SimHttpGet String Encode.Value
     | SimHttpPost String Encode.Value
+    | SimHttpError String String String
 
 
 type AdvanceResult model msg
@@ -470,6 +475,97 @@ body.
 simulateHttpPost : String -> Encode.Value -> ProgramTest model msg -> ProgramTest model msg
 simulateHttpPost url jsonResponse =
     applySimulation (SimHttpPost url jsonResponse)
+
+
+{-| Simulate an HTTP error (network error or timeout) on a pending request.
+Use with `Test.BackendTask.HttpError`:
+
+    import Test.BackendTask exposing (HttpError(..))
+
+    PagesProgram.start { data = myHttpBackendTask, ... }
+        |> PagesProgram.simulateHttpError "GET" "https://api.example.com/data" NetworkError
+
+-}
+simulateHttpError : String -> String -> HttpError -> ProgramTest model msg -> ProgramTest model msg
+simulateHttpError method url error =
+    let
+        errorString =
+            case error of
+                NetworkError ->
+                    "NetworkError"
+
+                Timeout ->
+                    "Timeout"
+    in
+    applySimulation (SimHttpError method url errorString)
+
+
+{-| Select an option from a dropdown `<select>` element. Follows elm-program-test's
+API: provide the element ID, label text, option value, and option text.
+
+    PagesProgram.start counterConfig
+        |> PagesProgram.selectOption "color-select" "Favorite Color" "blue" "Blue"
+        |> PagesProgram.ensureViewHas [ Selector.text "Selected: blue" ]
+
+-}
+selectOption : String -> String -> String -> String -> ProgramTest model msg -> ProgramTest model msg
+selectOption fieldId label optionValue optionText (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest
+                        { state
+                            | error =
+                                Just
+                                    ("selectOption \""
+                                        ++ fieldId
+                                        ++ "\": Cannot interact while BackendTask data is still resolving."
+                                    )
+                        }
+
+                Ready ready ->
+                    let
+                        viewHtml =
+                            ready.getView ready.model
+
+                        query : Query.Single msg
+                        query =
+                            Query.fromHtml (Html.div [] viewHtml.body)
+
+                        selectQuery : Query.Single msg
+                        selectQuery =
+                            query
+                                |> Query.find [ Selector.id fieldId ]
+
+                        eventResult : Result String msg
+                        eventResult =
+                            selectQuery
+                                |> Event.simulate (Event.input optionValue)
+                                |> Event.toResult
+                    in
+                    case eventResult of
+                        Ok msg ->
+                            applyMsgWithLabel
+                                ("selectOption \"" ++ fieldId ++ "\" \"" ++ optionText ++ "\"")
+                                Interaction
+                                msg
+                                (ProgramTest state)
+
+                        Err errMsg ->
+                            ProgramTest
+                                { state
+                                    | error =
+                                        Just
+                                            ("selectOption \""
+                                                ++ fieldId
+                                                ++ "\" failed:\n\n"
+                                                ++ errMsg
+                                            )
+                                }
 
 
 {-| Register a simulated subscriptions function. The function is called with
@@ -1608,6 +1704,9 @@ applySimulation sim (ProgramTest state) =
                                         SimHttpPost url _ ->
                                             ( "simulateHttpPost " ++ url, "POST", url )
 
+                                        SimHttpError method url errorString ->
+                                            ( "simulateHttpError " ++ method ++ " " ++ url ++ " " ++ errorString, method, url )
+
                                 stepIdx =
                                     List.length state.snapshots
 
@@ -1872,6 +1971,9 @@ resolveDataPhase bt initFn viewFn updateFn =
 
                                         SimHttpPost url resp ->
                                             BackendTaskTest.simulateHttpPost url resp bt
+
+                                        SimHttpError method url errorString ->
+                                            BackendTaskTest.simulateHttpError method url errorString bt
                             in
                             Advanced (resolveDataPhase newBt initFn viewFn updateFn)
                     , pendingDescription =

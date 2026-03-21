@@ -12,6 +12,7 @@ import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.Html.Selector as Selector
 import Test.BackendTask as BackendTaskTest
+import Test.BackendTask exposing (HttpError(..))
 import Test.PagesProgram as PagesProgram
 import Test.PagesProgram.SimulatedSub as SimulatedSub
 import Test.Runner
@@ -652,6 +653,86 @@ all =
                         |> PagesProgram.done
                         |> expectFailContaining "not currently subscribed"
             ]
+        , describe "simulateHttpError"
+            [ test "simulates a network error on data loading" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.Http.getJson
+                                "https://api.example.com/data"
+                                Decode.string
+                                |> BackendTask.allowFatal
+                        , init = \value -> ( { value = value }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "Data", body = [ Html.text model.value ] }
+                        }
+                        |> PagesProgram.simulateHttpError "GET"
+                            "https://api.example.com/data"
+                            NetworkError
+                        |> PagesProgram.done
+                        |> expectFailContaining "NetworkError"
+            , test "simulates a timeout on data loading" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.Http.getJson
+                                "https://api.example.com/data"
+                                Decode.string
+                                |> BackendTask.allowFatal
+                        , init = \value -> ( { value = value }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "Data", body = [ Html.text model.value ] }
+                        }
+                        |> PagesProgram.simulateHttpError "GET"
+                            "https://api.example.com/data"
+                            Timeout
+                        |> PagesProgram.done
+                        |> expectFailContaining "Timeout"
+            ]
+        , describe "selectOption"
+            [ test "selecting a dropdown option updates the view" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { color = "red" }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    SelectColor c ->
+                                        ( { model | color = c }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Colors"
+                                , body =
+                                    [ Html.label [ Attr.for "color-select" ] [ Html.text "Favorite Color" ]
+                                    , Html.select
+                                        [ Attr.id "color-select"
+                                        , Html.Events.onInput SelectColor
+                                        ]
+                                        [ Html.option [ Attr.value "red" ] [ Html.text "Red" ]
+                                        , Html.option [ Attr.value "blue" ] [ Html.text "Blue" ]
+                                        , Html.option [ Attr.value "green" ] [ Html.text "Green" ]
+                                        ]
+                                    , Html.text ("Selected: " ++ model.color)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHas [ Selector.text "Selected: red" ]
+                        |> PagesProgram.selectOption "color-select" "Favorite Color" "blue" "Blue"
+                        |> PagesProgram.ensureViewHas [ Selector.text "Selected: blue" ]
+                        |> PagesProgram.done
+            , test "selectOption fails when select element not found" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "No selects" ] }
+                        }
+                        |> PagesProgram.selectOption "missing" "Missing" "val" "text"
+                        |> PagesProgram.done
+                        |> expectFailContaining "selectOption"
+            ]
         , describe "textarea support"
             [ test "fillIn works with textarea" <|
                 \() ->
@@ -719,6 +800,10 @@ type WebSocketMsg
 type ListenerMsg
     = StartListening
     | ReceivedData String
+
+
+type SelectMsg
+    = SelectColor String
 
 
 {-| Assert that an Expectation is a failure containing the given substring.
