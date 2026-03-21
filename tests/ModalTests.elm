@@ -38,10 +38,11 @@ suite =
                         , \_ -> List.length result |> Expect.equal 10
                         ]
                         rendered
-            , test "modal taller than terminal is clamped to terminal height" <|
+            , test "modal taller than terminal is clamped with padding" <|
                 \() ->
                     let
-                        -- 20 body lines + 2 borders = 22 rows, but terminal is only 10
+                        -- 20 body lines + 2 borders = 22, terminal is 10
+                        -- Max body = 10 - 4 (2 borders + 2 padding) = 6
                         bodyLines =
                             List.range 1 20
                                 |> List.map (\i -> Tui.text ("item " ++ String.fromInt i))
@@ -71,21 +72,23 @@ suite =
                           \s -> s |> String.contains "footer" |> Expect.equal True
                         , -- First body item visible
                           \s -> s |> String.contains "item 1" |> Expect.equal True
-                        , -- Last body items truncated (item 20 should NOT appear)
-                          \s -> s |> String.contains "item 20" |> Expect.equal False
+                        , -- item 7+ should be truncated (only 6 body rows fit)
+                          \s -> s |> String.contains "item 7" |> Expect.equal False
                         ]
                         rendered
-            , test "clamped modal shows all available body rows" <|
+            , test "clamped modal leaves padding rows at top and bottom" <|
                 \() ->
                     let
-                        -- 15 body lines, terminal height 8
-                        -- Max body = 8 - 2 (borders) = 6 rows
+                        -- 15 body lines, terminal height 10
+                        -- Max body = 10 - 4 = 6, modal height = 8 (6 body + 2 borders)
+                        -- startRow = (10 - 8) // 2 = 1 (1 row of bg visible above)
                         bodyLines =
                             List.range 1 15
                                 |> List.map (\i -> Tui.text ("row " ++ String.fromInt i))
 
                         bgRows =
-                            List.repeat 8 (Tui.text (String.repeat 40 " "))
+                            List.range 0 9
+                                |> List.map (\i -> Tui.text ("bg" ++ String.fromInt i ++ String.repeat 37 " "))
 
                         result =
                             Modal.overlay
@@ -94,26 +97,31 @@ suite =
                                 , footer = "f"
                                 , width = 30
                                 }
-                                { width = 40, height = 8 }
+                                { width = 40, height = 10 }
                                 bgRows
 
-                        rendered =
-                            result |> List.map Tui.toString |> String.join "\n"
+                        renderedRows =
+                            result |> List.map Tui.toString
                     in
                     Expect.all
-                        [ -- rows 1-6 should be visible (8 height - 2 borders = 6 body rows)
-                          \s -> s |> String.contains "row 1" |> Expect.equal True
-                        , \s -> s |> String.contains "row 6" |> Expect.equal True
-                        , -- row 7 should be truncated
-                          \s -> s |> String.contains "row 7" |> Expect.equal False
+                        [ -- First row should be background (not modal)
+                          \rows -> rows |> List.head |> Maybe.map (String.contains "bg0") |> Expect.equal (Just True)
+                        , -- Last row should be background (not modal)
+                          \rows -> rows |> List.reverse |> List.head |> Maybe.map (String.contains "bg9") |> Expect.equal (Just True)
+                        , -- Body rows 1-6 visible
+                          \rows -> rows |> String.join "\n" |> String.contains "row 1" |> Expect.equal True
+                        , \rows -> rows |> String.join "\n" |> String.contains "row 6" |> Expect.equal True
+                        , -- row 7 truncated
+                          \rows -> rows |> String.join "\n" |> String.contains "row 7" |> Expect.equal False
                         ]
-                        rendered
-            , test "modal exactly fitting terminal renders without clamping" <|
+                        renderedRows
+            , test "modal with fewer body rows than padding allows renders all rows" <|
                 \() ->
                     let
-                        -- 8 body lines + 2 borders = 10 = terminal height (exact fit)
+                        -- 4 body lines + 2 borders = 6, terminal is 10
+                        -- 6 < 10 so no clamping needed, all 4 body rows shown
                         bodyLines =
-                            List.range 1 8
+                            List.range 1 4
                                 |> List.map (\i -> Tui.text ("line " ++ String.fromInt i))
 
                         bgRows =
@@ -121,7 +129,7 @@ suite =
 
                         result =
                             Modal.overlay
-                                { title = "Exact"
+                                { title = "Fits"
                                 , body = bodyLines
                                 , footer = "end"
                                 , width = 30
@@ -134,7 +142,7 @@ suite =
                     in
                     Expect.all
                         [ \s -> s |> String.contains "line 1" |> Expect.equal True
-                        , \s -> s |> String.contains "line 8" |> Expect.equal True
+                        , \s -> s |> String.contains "line 4" |> Expect.equal True
                         , \s -> s |> String.contains "end" |> Expect.equal True
                         ]
                         rendered

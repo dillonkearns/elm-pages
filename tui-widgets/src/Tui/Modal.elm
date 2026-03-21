@@ -47,9 +47,11 @@ overlay :
 overlay config term bgRows =
     let
         -- Clamp body to fit terminal: reserve 2 rows for top/bottom borders
+        -- plus 2 rows of padding (1 top + 1 bottom) so the modal doesn't
+        -- touch the terminal edges (matching lazygit's popup style).
         maxBodyRows : Int
         maxBodyRows =
-            max 0 (term.height - 2)
+            max 0 (term.height - 4)
 
         clampedBody : List Tui.Screen
         clampedBody =
