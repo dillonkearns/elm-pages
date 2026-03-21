@@ -754,6 +754,110 @@ all =
                         |> PagesProgram.expectViewHas [ Selector.text "Goodbye" ]
                         |> expectFailContaining "Goodbye"
             ]
+        , describe "effect tracking"
+            [ test "done reports count of unresolved effects" <|
+                \() ->
+                    -- When there are pending effects at the end, done should
+                    -- report how many AND describe what's pending
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { value = Nothing }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    TriggerEffect ->
+                                        ( model
+                                        , [ BackendTask.Http.getJson
+                                                "https://api.example.com/data"
+                                                (Decode.field "v" Decode.string)
+                                                |> BackendTask.allowFatal
+                                                |> BackendTask.map GotEffectResult
+                                          ]
+                                        )
+
+                                    GotEffectResult v ->
+                                        ( { model | value = Just v }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Effect"
+                                , body =
+                                    [ Html.button [ Html.Events.onClick TriggerEffect ] [ Html.text "Go" ]
+                                    , case model.value of
+                                        Just v ->
+                                            Html.text ("Got: " ++ v)
+
+                                        Nothing ->
+                                            Html.text "Waiting"
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "Go"
+                        |> PagesProgram.done
+                        |> expectFailContaining "1 pending"
+            , test "multiple effects from different interactions all tracked" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { value = Nothing }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    TriggerEffect ->
+                                        ( model
+                                        , [ BackendTask.Http.getJson
+                                                "https://api.example.com/data"
+                                                (Decode.field "v" Decode.string)
+                                                |> BackendTask.allowFatal
+                                                |> BackendTask.map GotEffectResult
+                                          ]
+                                        )
+
+                                    GotEffectResult v ->
+                                        ( { model | value = Just v }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Effect"
+                                , body =
+                                    [ Html.button [ Html.Events.onClick TriggerEffect ] [ Html.text "Go" ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "Go"
+                        |> PagesProgram.clickButton "Go"
+                        |> PagesProgram.done
+                        |> expectFailContaining "2 pending"
+            , test "done describes what effects are pending" <|
+                \() ->
+                    -- done should include the URLs of pending HTTP requests
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { value = Nothing }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    TriggerEffect ->
+                                        ( model
+                                        , [ BackendTask.Http.getJson
+                                                "https://api.example.com/data"
+                                                (Decode.field "v" Decode.string)
+                                                |> BackendTask.allowFatal
+                                                |> BackendTask.map GotEffectResult
+                                          ]
+                                        )
+
+                                    GotEffectResult v ->
+                                        ( { model | value = Just v }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Effect"
+                                , body =
+                                    [ Html.button [ Html.Events.onClick TriggerEffect ] [ Html.text "Go" ] ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "Go"
+                        |> PagesProgram.done
+                        |> expectFailContaining "api.example.com"
+            ]
         , describe "textarea support"
             [ test "fillIn works with textarea" <|
                 \() ->
@@ -825,6 +929,11 @@ type ListenerMsg
 
 type SelectMsg
     = SelectColor String
+
+
+type EffectTrackMsg
+    = TriggerEffect
+    | GotEffectResult String
 
 
 

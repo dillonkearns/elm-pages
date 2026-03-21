@@ -1646,10 +1646,26 @@ done (ProgramTest state) =
                         Expect.pass
 
                     else
+                        let
+                            descriptions =
+                                describeEffects ready.pendingEffects
+
+                            descriptionText =
+                                if List.isEmpty descriptions then
+                                    ""
+
+                                else
+                                    "\n\nPending:\n"
+                                        ++ (descriptions
+                                                |> List.map (\d -> "  - " ++ d)
+                                                |> String.join "\n"
+                                           )
+                        in
                         Expect.fail
                             ("There are "
                                 ++ String.fromInt (List.length ready.pendingEffects)
                                 ++ " pending BackendTask effect(s) that must be resolved before ending the test."
+                                ++ descriptionText
                             )
 
 

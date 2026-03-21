@@ -462,8 +462,16 @@ extractEffects effect =
         Effect.Batch effects ->
             List.concatMap extractEffects effects
 
+        Effect.Cmd _ ->
+            -- Cmd msg is opaque and cannot be introspected by the test framework.
+            -- Use PagesProgram.simulateMsg to test Cmd-driven flows.
+            Debug.log "TestApp: Effect.Cmd discarded (use simulateMsg to dispatch its message directly)" []
+
         _ ->
-            []
+            -- Custom Effect variants are discarded. Use PagesProgram.startPlatform
+            -- for full-fidelity testing, or PagesProgram.simulateMsg to manually
+            -- dispatch messages that custom effects would produce.
+            Debug.log "TestApp: Custom Effect variant discarded" []
 
 
 crashPlaceholder : () -> a
