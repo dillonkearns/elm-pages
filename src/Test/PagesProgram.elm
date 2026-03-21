@@ -3,7 +3,7 @@ module Test.PagesProgram exposing
     , start, startWithEffects, startPlatform
     , clickButton, clickLink, fillIn, check
     , navigateTo, ensureBrowserUrl
-    , submitForm
+    , submitForm, submitFormTo
     , resolveEffect
     , simulateMsg
     , withSimulatedSubscriptions, simulateIncomingPort
@@ -208,7 +208,7 @@ type alias ReadyState model msg =
     , pendingEffects : List (BackendTask FatalError msg)
     , onNavigate : Maybe (String -> msg)
     , getBrowserUrl : Maybe (model -> String)
-    , onFormSubmit : Maybe ({ formId : String, fields : List ( String, String ), useFetcher : Bool } -> msg)
+    , onFormSubmit : Maybe ({ formId : String, action : String, fields : List ( String, String ), useFetcher : Bool } -> msg)
     , getFormFields : Maybe (model -> List ( String, String ))
     }
 
@@ -452,11 +452,11 @@ startPlatform config initialPath testSetup =
                         Just (\m -> Url.toString m.platformModel.url)
                     , onFormSubmit =
                         Just
-                            (\{ formId, fields, useFetcher } ->
+                            (\{ formId, action, fields, useFetcher } ->
                                 Platform.UserMsg
                                     (Pages.Internal.Msg.Submit
                                         { useFetcher = useFetcher
-                                        , action = ""
+                                        , action = action
                                         , method = Form.Post
                                         , fields = fields
                                         , msg = Nothing
@@ -907,7 +907,7 @@ clickButton buttonText (ProgramTest state) =
                                     applyMsgWithLabel
                                         ("clickButton \"" ++ buttonText ++ "\"")
                                         Interaction
-                                        (handler { formId = "", fields = currentFields, useFetcher = isFetcher })
+                                        (handler { formId = "", action = "", fields = currentFields, useFetcher = isFetcher })
                                         (ProgramTest state)
 
                                 Nothing ->
@@ -1287,7 +1287,25 @@ submitForm :
     { formId : String, fields : List ( String, String ) }
     -> ProgramTest model msg
     -> ProgramTest model msg
-submitForm formInfo (ProgramTest state) =
+submitForm formInfo =
+    submitFormTo "" formInfo
+
+
+{-| Submit a form to a specific action URL. Use this for forms that POST
+to a different route (e.g., a logout form that posts to `/logout`).
+
+    |> PagesProgram.submitFormTo "/logout"
+        { formId = "logout-form", fields = [] }
+
+For forms that submit to the current route, use `submitForm` instead.
+
+-}
+submitFormTo :
+    String
+    -> { formId : String, fields : List ( String, String ) }
+    -> ProgramTest model msg
+    -> ProgramTest model msg
+submitFormTo action formInfo (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -1304,7 +1322,7 @@ submitForm formInfo (ProgramTest state) =
                             applyMsgWithLabel
                                 ("submitForm \"" ++ formInfo.formId ++ "\"")
                                 Interaction
-                                (handler { formId = formInfo.formId, fields = formInfo.fields, useFetcher = False })
+                                (handler { formId = formInfo.formId, action = action, fields = formInfo.fields, useFetcher = False })
                                 (ProgramTest state)
 
                         Nothing ->
