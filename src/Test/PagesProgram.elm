@@ -1614,26 +1614,40 @@ resolveInitialData config initialUrl initialPath virtualFs =
                             BackendTaskTest.resolveWithVirtualFs vfs2
                                 (config.data platformTestRequest initialRoute)
                     in
-                    case dataResult of
-                        Err dataErr ->
-                            Err ("Failed to resolve route data: " ++ dataErr)
+                    let
+                        pageData =
+                            case dataResult of
+                                Ok response ->
+                                    extractPageData config (Ok response)
 
-                        Ok (RenderPage _ pageData) ->
+                                Err errMsg ->
+                                    -- BackendTask failed: show error page
+                                    Just (config.errorPageToData (config.internalError errMsg))
+                    in
+                    case pageData of
+                        Just pd ->
                             ResponseSketch.HotUpdate
-                                pageData
+                                pd
                                 resolvedSharedData
                                 Nothing
                                 |> encodeResponseWithPrefix config
                                 |> (\bytes -> Ok ( vfs3, bytes ))
 
-                        Ok (ServerResponse serverResponse) ->
-                            Err
-                                ("Expected a rendered page but got a server response with status "
-                                    ++ String.fromInt serverResponse.statusCode
-                                )
+                        Nothing ->
+                            -- ServerResponse (redirect) from data -- unusual but handle it
+                            case dataResult of
+                                Ok (ServerResponse serverResponse) ->
+                                    case PageServerResponse.toRedirect serverResponse of
+                                        Just { location } ->
+                                            ResponseSketch.Redirect location
+                                                |> encodeResponseWithPrefix config
+                                                |> (\bytes -> Ok ( vfs3, bytes ))
 
-                        Ok (PageServerResponse.ErrorPage _ _) ->
-                            Err "Expected a rendered page but got an error page"
+                                        Nothing ->
+                                            Err ("Unexpected server response with status " ++ String.fromInt serverResponse.statusCode)
+
+                                _ ->
+                                    Err "Failed to resolve route data"
 
 
 {-| Recursively process Platform effects using the Test.BackendTask virtual FS.
@@ -1753,8 +1767,8 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                             vfsAfterAction
                                             (config.data platformTestRequest route)
                                 in
-                                case dataResult of
-                                    Ok (RenderPage _ pageData) ->
+                                case extractPageData config dataResult of
+                                    Just pageData ->
                                         let
                                             encodedBytes =
                                                 ResponseSketch.RenderPage pageData (Just actionData)
@@ -1770,7 +1784,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                             newEffect
                                             (maxDepth - 1)
 
-                                    _ ->
+                                    Nothing ->
                                         ( { wrappedModel | virtualFs = vfsAfterData }, [] )
 
                             _ ->
@@ -1784,8 +1798,8 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                     wrappedModel.virtualFs
                                     (config.data platformTestRequest route)
                         in
-                        case dataResult of
-                            Ok (RenderPage _ pageData) ->
+                        case extractPageData config dataResult of
+                            Just pageData ->
                                 let
                                     encodedBytes =
                                         ResponseSketch.RenderPage pageData Nothing
@@ -1801,7 +1815,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                     newEffect
                                     (maxDepth - 1)
 
-                            _ ->
+                            Nothing ->
                                 ( { wrappedModel | virtualFs = vfsAfterData }, [] )
 
             Platform.Submit formData ->
@@ -1903,6 +1917,21 @@ encodeFormFields fields =
                 Url.percentEncode name ++ "=" ++ Url.percentEncode value
             )
         |> String.join "&"
+
+
+{-| Extract page data from a PageServerResponse result, converting ErrorPage
+responses to page data using config.errorPageToData (matching server behavior).
+-}
+extractPageData config result =
+    case result of
+        Ok (RenderPage _ pageData) ->
+            Just pageData
+
+        Ok (PageServerResponse.ErrorPage errorPage _) ->
+            Just (config.errorPageToData errorPage)
+
+        _ ->
+            Nothing
 
 
 fatalErrorToString : FatalError -> String

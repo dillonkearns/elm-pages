@@ -4,6 +4,7 @@ module FrameworkTests exposing
     , navigateAndInteractTest
     , feedbackFormTest
     , loginRedirectTest
+    , errorPageTest
     )
 
 {-| Framework-driven route tests using the real elm-pages Platform.
@@ -98,3 +99,12 @@ loginRedirectTest =
         |> PagesProgram.ensureBrowserUrl
             (\url -> url |> Expect.equal "https://localhost:1234/counter")
         |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+
+
+{-| When a route's data BackendTask fails with FatalError, the framework
+renders the error page instead of crashing.
+-}
+errorPageTest : TestApp.ProgramTest
+errorPageTest =
+    TestApp.start "/error-handling" BackendTaskTest.init
+        |> PagesProgram.ensureViewHas [ text "Something's Not Right Here" ]

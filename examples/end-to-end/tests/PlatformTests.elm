@@ -69,6 +69,11 @@ suite =
                     |> PagesProgram.ensureViewHas [ text "You said: Hello!" ]
                     |> PagesProgram.ensureViewHas [ text "Current file: Hello!" ]
                     |> PagesProgram.done
+        , test "error page renders when data BackendTask fails" <|
+            \() ->
+                TestApp.start "/error-handling" BackendTaskTest.init
+                    |> PagesProgram.ensureViewHas [ text "Something's Not Right Here" ]
+                    |> PagesProgram.done
         , test "login form redirects to counter" <|
             \() ->
                 TestApp.start "/simple-login" BackendTaskTest.init
