@@ -64,7 +64,13 @@ type alias Model =
     , viewportWidth : Maybe Int
     , showEffects : Bool
     , showNetwork : Bool
+    , previewMode : PreviewMode
     }
+
+
+type PreviewMode
+    = After
+    | Before
 
 
 type alias NamedTest =
@@ -91,6 +97,7 @@ type Msg
     | SetViewport (Maybe Int)
     | ToggleEffects
     | ToggleNetwork
+    | SetPreviewMode PreviewMode
     | UrlChanged Url
     | LinkClicked Browser.UrlRequest
     | NoOp
@@ -173,6 +180,7 @@ app tests =
                   , viewportWidth = Nothing
                   , showEffects = False
                   , showNetwork = False
+                  , previewMode = After
                   }
                 , Cmd.none
                 )
@@ -472,7 +480,7 @@ update msg model =
                     min (currentSnapshotCount model - 1) (model.currentStepIndex + 1)
 
                 newModel =
-                    { model | currentStepIndex = newIndex }
+                    { model | currentStepIndex = newIndex, previewMode = After }
             in
             ( newModel
             , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex ]
@@ -484,7 +492,7 @@ update msg model =
                     max 0 (model.currentStepIndex - 1)
 
                 newModel =
-                    { model | currentStepIndex = newIndex }
+                    { model | currentStepIndex = newIndex, previewMode = After }
             in
             ( newModel
             , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex ]
@@ -496,7 +504,7 @@ update msg model =
                     clamp 0 (currentSnapshotCount model - 1) index
 
                 newModel =
-                    { model | currentStepIndex = newIndex }
+                    { model | currentStepIndex = newIndex, previewMode = After }
             in
             ( newModel
             , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex ]
@@ -592,6 +600,9 @@ update msg model =
 
         ToggleNetwork ->
             ( { model | showNetwork = not model.showNetwork }, Cmd.none )
+
+        SetPreviewMode mode ->
+            ( { model | previewMode = mode }, Cmd.none )
 
         KeyDown key ->
             case key of
@@ -1169,16 +1180,36 @@ viewMainPanel model =
                             ]
 
                     Nothing ->
+                        let
+                            previewSnapshot =
+                                case model.previewMode of
+                                    Before ->
+                                        previousSnapshot |> Maybe.withDefault snapshot
+
+                                    After ->
+                                        snapshot
+
+                            hasPrevious =
+                                previousSnapshot /= Nothing
+
+                            isStartStep =
+                                displayedStepIndex model == 0
+                        in
                         Html.div [ Attr.class "main-panel-content" ]
-                            [ viewUrlBar snapshot
-                            , viewRenderedPageWithWidth model.viewportWidth snapshot
+                            [ viewUrlBar previewSnapshot
+                            , viewRenderedPageWithWidth model.viewportWidth previewSnapshot
+                            , if not isStartStep && hasPrevious then
+                                viewBeforeAfterToggle model.previewMode
+
+                              else
+                                Html.text ""
                             , if model.showEffects then
                                 viewEffectInspector snapshot
 
                               else
                                 Html.text ""
                             , if model.showModel then
-                                viewModelInspector snapshot
+                                viewModelInspector previewSnapshot
 
                               else
                                 Html.text ""
@@ -1262,6 +1293,28 @@ viewRenderedPageWithWidth viewportWidth snapshot =
             (snapshot.body
                 |> List.map (Html.map (\_ -> NoOp))
             )
+        ]
+
+
+viewBeforeAfterToggle : PreviewMode -> Html Msg
+viewBeforeAfterToggle current =
+    Html.div [ Attr.class "before-after-toggle" ]
+        [ Html.button
+            [ Attr.classList
+                [ ( "ba-btn", True )
+                , ( "ba-btn-active", current == Before )
+                ]
+            , Html.Events.onClick (SetPreviewMode Before)
+            ]
+            [ Html.text "Before" ]
+        , Html.button
+            [ Attr.classList
+                [ ( "ba-btn", True )
+                , ( "ba-btn-active", current == After )
+                ]
+            , Html.Events.onClick (SetPreviewMode After)
+            ]
+            [ Html.text "After" ]
         ]
 
 
@@ -1910,6 +1963,46 @@ body {
 .net-badge-pending {
     background: rgba(240, 192, 64, 0.15);
     color: #f0c040;
+}
+
+/* === BEFORE/AFTER TOGGLE === */
+
+.before-after-toggle {
+    display: flex;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 0;
+    flex-shrink: 0;
+}
+
+.ba-btn {
+    padding: 4px 14px;
+    border: 1px solid #0f3460;
+    background: #16213e;
+    color: #8899aa;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.ba-btn:first-child {
+    border-radius: 4px 0 0 4px;
+}
+
+.ba-btn:last-child {
+    border-radius: 0 4px 4px 0;
+}
+
+.ba-btn:hover {
+    background: #1a2a4e;
+    color: #c0c8d0;
+}
+
+.ba-btn-active {
+    background: #4cc9f0;
+    color: #0d1117;
+    border-color: #4cc9f0;
+    font-weight: 600;
 }
 
 /* === EFFECT INSPECTOR === */
