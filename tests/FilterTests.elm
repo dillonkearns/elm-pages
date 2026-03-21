@@ -335,6 +335,95 @@ suite =
                     -- "blueberry" is at original index 3
                     maybeMsg |> Expect.equal (Just 3)
             ]
+        , describe "selection preserved on filter clear (lazygit behavior)"
+            [ test "Escape preserves selected item from filtered list" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 30, height = 12 }
+                                |> Layout.focusPane "fruits"
+
+                        -- Filter to "berry" → blueberry(3), elderberry(6)
+                        s1 =
+                            startFilterWith "berry" state
+
+                        -- Enter to apply filter
+                        ( s2, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Enter, modifiers = [] }
+                                filterableList
+                                s1
+
+                        -- Navigate down to elderberry (filtered index 1)
+                        ( s3, _ ) =
+                            Layout.navigateDown "fruits" filterableList s2
+
+                        -- Escape clears filter
+                        ( s4, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Escape, modifiers = [] }
+                                filterableList
+                                s3
+
+                        -- elderberry is at original index 6
+                        rendered =
+                            filterableList
+                                |> Layout.toScreen s4
+                                |> Tui.toString
+                    in
+                    Expect.all
+                        [ -- Filter should be cleared
+                          \_ -> Layout.isFilterActive "fruits" s4 |> Expect.equal False
+                        , -- elderberry should be selected (▸ prefix)
+                          \r -> r |> String.contains "▸ elderberry" |> Expect.equal True
+                        , -- All items should be visible
+                          \r -> r |> String.contains "apple" |> Expect.equal True
+                        , \r -> r |> String.contains "cherry" |> Expect.equal True
+                        , -- Original index should be 6
+                          \_ -> Layout.selectedIndex "fruits" s4 |> Expect.equal 6
+                        ]
+                        rendered
+            , test "Escape while typing preserves current selection" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 30, height = 12 }
+                                |> Layout.focusPane "fruits"
+
+                        -- Navigate to cherry (index 4) first
+                        ( navState, _ ) =
+                            List.range 1 4
+                                |> List.foldl
+                                    (\_ ( s, _ ) -> Layout.navigateDown "fruits" filterableList s)
+                                    ( state, Nothing )
+
+                        -- Start filter (resets to 0), type "a" → apple(0), apricot(1), banana(2), date(5), grape(8)
+                        s1 =
+                            startFilterWith "a" navState
+
+                        -- Navigate to banana (filtered index 2 → original index 2)
+                        ( s2, _ ) =
+                            Layout.navigateDown "fruits" filterableList s1
+
+                        ( s3, _ ) =
+                            Layout.navigateDown "fruits" filterableList s2
+
+                        -- Escape
+                        ( s4, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Escape, modifiers = [] }
+                                filterableList
+                                s3
+                    in
+                    Expect.all
+                        [ \_ -> Layout.isFilterActive "fruits" s4 |> Expect.equal False
+                        , -- banana is at original index 2
+                          \_ -> Layout.selectedIndex "fruits" s4 |> Expect.equal 2
+                        ]
+                        ()
+            ]
         , describe "smart case matching"
             [ test "lowercase query is case-insensitive" <|
                 \() ->

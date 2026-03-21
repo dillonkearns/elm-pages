@@ -1319,11 +1319,25 @@ handleFilterKeyEvent event layout fs (State s) =
                         )
 
                 Tui.Escape ->
-                    -- Clear filter entirely
+                    -- Clear filter, map selection back to original index (lazygit behavior)
+                    let
+                        ps : PaneState
+                        ps =
+                            Dict.get stateKey s.paneStates
+                                |> Maybe.withDefault defaultPaneState
+
+                        originalIndex : Int
+                        originalIndex =
+                            mapFilteredIndex ps.selectedIndex (Just fs)
+                    in
                     ( State
                         { s
                             | filterStates = Dict.remove stateKey s.filterStates
                             , searching = False
+                            , paneStates =
+                                Dict.insert stateKey
+                                    { ps | selectedIndex = originalIndex }
+                                    s.paneStates
                         }
                     , True
                     )
@@ -1334,11 +1348,25 @@ handleFilterKeyEvent event layout fs (State s) =
         FilterApplied ->
             case event.key of
                 Tui.Escape ->
-                    -- Clear filter
+                    -- Clear filter, map selection back to original index (lazygit behavior)
+                    let
+                        ps : PaneState
+                        ps =
+                            Dict.get stateKey s.paneStates
+                                |> Maybe.withDefault defaultPaneState
+
+                        originalIndex : Int
+                        originalIndex =
+                            mapFilteredIndex ps.selectedIndex (Just fs)
+                    in
                     ( State
                         { s
                             | filterStates = Dict.remove stateKey s.filterStates
                             , searching = False
+                            , paneStates =
+                                Dict.insert stateKey
+                                    { ps | selectedIndex = originalIndex }
+                                    s.paneStates
                         }
                     , True
                     )
