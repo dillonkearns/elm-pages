@@ -30,6 +30,10 @@ Returns a `List Screen` (one per terminal row) suitable for `Tui.lines`.
 Background rows above and below the modal pass through unchanged.
 Modal-covered rows show: background left edge | modal | background right edge.
 
+If the body content exceeds the terminal height, it is clamped to fit
+(like lazygit's popup system). The title and footer borders are always
+visible.
+
 -}
 overlay :
     { title : String
@@ -42,9 +46,18 @@ overlay :
     -> List Tui.Screen
 overlay config term bgRows =
     let
+        -- Clamp body to fit terminal: reserve 2 rows for top/bottom borders
+        maxBodyRows : Int
+        maxBodyRows =
+            max 0 (term.height - 2)
+
+        clampedBody : List Tui.Screen
+        clampedBody =
+            List.take maxBodyRows config.body
+
         modalHeight : Int
         modalHeight =
-            List.length config.body + 2
+            List.length clampedBody + 2
 
         modalWidth : Int
         modalWidth =
@@ -139,7 +152,7 @@ overlay config term bgRows =
         modalStrips : List Tui.Screen
         modalStrips =
             [ topBorder ]
-                ++ List.map bodyStrip config.body
+                ++ List.map bodyStrip clampedBody
                 ++ [ bottomBorder ]
     in
     List.indexedMap
