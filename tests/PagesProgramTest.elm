@@ -754,6 +754,76 @@ all =
                         |> PagesProgram.expectViewHas [ Selector.text "Goodbye" ]
                         |> expectFailContaining "Goodbye"
             ]
+        , describe "startWithEffects (custom Effect type simulation)"
+            [ test "user-defined effects are converted to BackendTasks" <|
+                \() ->
+                    -- Users have a custom Effect type. They provide a function
+                    -- to convert it to BackendTasks the framework can handle.
+                    PagesProgram.startWithEffects
+                        (\effect ->
+                            case effect of
+                                MyEffectNone ->
+                                    []
+
+                                MyEffectBatch effects ->
+                                    List.concatMap
+                                        (\e ->
+                                            case e of
+                                                MyFetchApi toMsg ->
+                                                    [ BackendTask.Http.getJson
+                                                        "https://api.example.com/data"
+                                                        (Decode.field "name" Decode.string)
+                                                        |> BackendTask.allowFatal
+                                                        |> BackendTask.map toMsg
+                                                    ]
+
+                                                _ ->
+                                                    []
+                                        )
+                                        effects
+
+                                MyFetchApi toMsg ->
+                                    [ BackendTask.Http.getJson
+                                        "https://api.example.com/data"
+                                        (Decode.field "name" Decode.string)
+                                        |> BackendTask.allowFatal
+                                        |> BackendTask.map toMsg
+                                    ]
+                        )
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { name = Nothing }, MyEffectNone )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    LoadName ->
+                                        ( model, MyFetchApi GotName )
+
+                                    GotName n ->
+                                        ( { model | name = Just n }, MyEffectNone )
+                        , view =
+                            \_ model ->
+                                { title = "Custom Effect"
+                                , body =
+                                    [ Html.button [ Html.Events.onClick LoadName ] [ Html.text "Load" ]
+                                    , case model.name of
+                                        Just n ->
+                                            Html.text ("Name: " ++ n)
+
+                                        Nothing ->
+                                            Html.text "No name"
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHas [ Selector.text "No name" ]
+                        |> PagesProgram.clickButton "Load"
+                        |> PagesProgram.resolveEffect
+                            (BackendTaskTest.simulateHttpGet
+                                "https://api.example.com/data"
+                                (Encode.object [ ( "name", Encode.string "Alice" ) ])
+                            )
+                        |> PagesProgram.ensureViewHas [ Selector.text "Name: Alice" ]
+                        |> PagesProgram.done
+            ]
         , describe "effect tracking"
             [ test "done reports count of unresolved effects" <|
                 \() ->
@@ -934,6 +1004,17 @@ type SelectMsg
 type EffectTrackMsg
     = TriggerEffect
     | GotEffectResult String
+
+
+type MyEffect msg
+    = MyEffectNone
+    | MyEffectBatch (List (MyEffect msg))
+    | MyFetchApi (String -> msg)
+
+
+type CustomEffectMsg
+    = LoadName
+    | GotName String
 
 
 

@@ -1,6 +1,6 @@
 module Test.PagesProgram exposing
     ( ProgramTest
-    , start, startPlatform
+    , start, startWithEffects, startPlatform
     , clickButton, clickLink, fillIn, check
     , navigateTo, ensureBrowserUrl
     , submitForm
@@ -40,7 +40,7 @@ use [`start`](#start) with inline config.
 
 @docs ProgramTest
 
-@docs start, startPlatform
+@docs start, startWithEffects, startPlatform
 
 @docs clickButton, clickLink, fillIn, check
 
@@ -295,6 +295,62 @@ start config =
         , subscriptions = Nothing
         }
 
+
+
+{-| Like `start`, but for programs that use a custom `Effect` type instead of
+raw `List (BackendTask FatalError msg)`. This is the pattern used by elm-pages
+route modules, where you define your own `Effect msg` type in `app/Effect.elm`.
+
+Provide a function that converts your Effect type into a list of BackendTasks
+the test framework can simulate:
+
+    PagesProgram.startWithEffects
+        (\effect ->
+            case effect of
+                Effect.None -> []
+                Effect.Batch effects -> List.concatMap myExtract effects
+                Effect.FetchApi toMsg ->
+                    [ BackendTask.Http.getJson url decoder
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map toMsg
+                    ]
+                Effect.Cmd _ -> []  -- Cmd is opaque, use simulateMsg instead
+        )
+        { data = ...
+        , init = \d -> ( model, Effect.none )
+        , update = \msg model -> ( newModel, Effect.fetchApi GotResult )
+        , view = \d model -> { title = "...", body = [...] }
+        }
+
+-}
+startWithEffects :
+    (effect -> List (BackendTask FatalError msg))
+    ->
+        { data : BackendTask FatalError data
+        , init : data -> ( model, effect )
+        , update : msg -> model -> ( model, effect )
+        , view : data -> model -> { title : String, body : List (Html msg) }
+        }
+    -> ProgramTest model msg
+startWithEffects extractEffects config =
+    start
+        { data = config.data
+        , init =
+            \pageData ->
+                let
+                    ( model, effect ) =
+                        config.init pageData
+                in
+                ( model, extractEffects effect )
+        , update =
+            \msg model ->
+                let
+                    ( newModel, effect ) =
+                        config.update msg model
+                in
+                ( newModel, extractEffects effect )
+        , view = config.view
+        }
 
 
 {-| Start a full-fidelity elm-pages test by driving `Pages.Internal.Platform`
