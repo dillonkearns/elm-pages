@@ -71,6 +71,7 @@ with the visual test runner to step through your test in the browser.
 -}
 
 import BackendTask exposing (BackendTask)
+import CookieJar exposing (CookieJar)
 import Browser
 import Bytes
 import Bytes.Decode
@@ -412,7 +413,7 @@ startPlatform config initialPath testSetup =
 
                 ( finalWrapped, _ ) =
                     processEffectsWrapped config baseUrl
-                        { platformModel = readyModel, virtualFs = vfsAfterInit }
+                        { platformModel = readyModel, virtualFs = vfsAfterInit, cookieJar = CookieJar.empty }
                         readyEffect
                         100
 
@@ -2188,7 +2189,7 @@ resolveInitialData config initialUrl initialPath virtualFs =
                     let
                         ( vfs3, dataResult ) =
                             BackendTaskTest.resolveWithVirtualFs vfs2
-                                (config.data platformTestRequest initialRoute)
+                                (config.data (platformTestRequest CookieJar.empty) initialRoute)
                     in
                     let
                         pageData =
@@ -2303,7 +2304,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                     , rawHeaders =
                                         Dict.singleton "content-type"
                                             "application/x-www-form-urlencoded"
-                                    , cookies = Dict.empty
+                                    , cookies = CookieJar.toDict wrappedModel.cookieJar
                                     }
 
                             ( vfsAfterAction, actionResult ) =
@@ -2313,6 +2314,12 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                         in
                         case actionResult |> Result.toMaybe of
                             Just (ServerResponse serverResponse) ->
+                                let
+                                    updatedJar =
+                                        wrappedModel.cookieJar
+                                            |> CookieJar.applySetCookieHeaders
+                                                (extractSetCookieHeaders (ServerResponse serverResponse))
+                                in
                                 -- Check for redirect
                                 case PageServerResponse.toRedirect serverResponse of
                                     Just { location } ->
@@ -2328,20 +2335,25 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                                     wrappedModel.platformModel
                                         in
                                         processEffectsWrapped config baseUrl
-                                            { platformModel = newModel, virtualFs = vfsAfterAction }
+                                            { platformModel = newModel, virtualFs = vfsAfterAction, cookieJar = updatedJar }
                                             newEffect
                                             (maxDepth - 1)
 
                                     Nothing ->
-                                        ( { wrappedModel | virtualFs = vfsAfterAction }, [] )
+                                        ( { wrappedModel | virtualFs = vfsAfterAction, cookieJar = updatedJar }, [] )
 
-                            Just (RenderPage _ actionData) ->
-                                -- Action rendered: re-resolve data with updated virtual FS
+                            Just ((RenderPage renderMeta actionData) as renderResponse) ->
+                                -- Action rendered: capture cookies, re-resolve data with updated virtual FS
                                 let
+                                    updatedJar =
+                                        wrappedModel.cookieJar
+                                            |> CookieJar.applySetCookieHeaders
+                                                (extractSetCookieHeaders renderResponse)
+
                                     ( vfsAfterData, dataResult ) =
                                         BackendTaskTest.resolveWithVirtualFs
                                             vfsAfterAction
-                                            (config.data platformTestRequest route)
+                                            (config.data (platformTestRequest updatedJar) route)
                                 in
                                 case extractPageData config dataResult of
                                     Just pageData ->
@@ -2356,12 +2368,12 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                                     wrappedModel.platformModel
                                         in
                                         processEffectsWrapped config baseUrl
-                                            { platformModel = newModel, virtualFs = vfsAfterData }
+                                            { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = updatedJar }
                                             newEffect
                                             (maxDepth - 1)
 
                                     Nothing ->
-                                        ( { wrappedModel | virtualFs = vfsAfterData }, [] )
+                                        ( { wrappedModel | virtualFs = vfsAfterData, cookieJar = updatedJar }, [] )
 
                             _ ->
                                 ( { wrappedModel | virtualFs = vfsAfterAction }, [] )
@@ -2372,7 +2384,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                             ( vfsAfterData, dataResult ) =
                                 BackendTaskTest.resolveWithVirtualFs
                                     wrappedModel.virtualFs
-                                    (config.data platformTestRequest route)
+                                    (config.data (platformTestRequest wrappedModel.cookieJar) route)
                         in
                         case extractPageData config dataResult of
                             Just pageData ->
@@ -2387,7 +2399,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                             wrappedModel.platformModel
                                 in
                                 processEffectsWrapped config baseUrl
-                                    { platformModel = newModel, virtualFs = vfsAfterData }
+                                    { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar }
                                     newEffect
                                     (maxDepth - 1)
 
@@ -2436,7 +2448,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                             , rawHeaders =
                                 Dict.singleton "content-type"
                                     "application/x-www-form-urlencoded"
-                            , cookies = Dict.empty
+                            , cookies = CookieJar.toDict wrappedModel.cookieJar
                             }
 
                     ( vfsAfterAction, actionResult ) =
@@ -2470,7 +2482,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                             modelAfterStarted
                 in
                 processEffectsWrapped config baseUrl
-                    { platformModel = modelAfterComplete, virtualFs = vfsAfterAction }
+                    { platformModel = modelAfterComplete, virtualFs = vfsAfterAction, cookieJar = wrappedModel.cookieJar }
                     completeEffect
                     (maxDepth - 1)
 
@@ -2514,17 +2526,36 @@ makeTestUrl baseUrl path =
             }
 
 
-{-| A fake incoming HTTP request for data resolution in tests.
+{-| Extract Set-Cookie header values from a PageServerResponse.
 -}
-platformTestRequest : Internal.Request.Request
-platformTestRequest =
+extractSetCookieHeaders : PageServerResponse data error -> List String
+extractSetCookieHeaders response =
+    let
+        filterSetCookie headers =
+            headers
+                |> List.filter (\( name, _ ) -> String.toLower name == "set-cookie")
+                |> List.map Tuple.second
+    in
+    case response of
+        RenderPage { headers } _ ->
+            filterSetCookie headers
+
+        ServerResponse serverResponse ->
+            filterSetCookie serverResponse.headers
+
+        PageServerResponse.ErrorPage _ _ ->
+            []
+
+
+platformTestRequest : CookieJar -> Internal.Request.Request
+platformTestRequest cookieJar =
     Internal.Request.Request
         { time = Time.millisToPosix 0
         , method = "GET"
         , body = Nothing
         , rawUrl = "http://localhost:1234/"
         , rawHeaders = Dict.empty
-        , cookies = Dict.empty
+        , cookies = CookieJar.toDict cookieJar
         }
 
 

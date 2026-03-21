@@ -2,6 +2,8 @@ module PagesProgramTest exposing (all)
 
 import BackendTask
 import BackendTask.Http
+import CookieJar
+import Dict
 import Expect exposing (Expectation)
 import FatalError
 import Html
@@ -753,6 +755,74 @@ all =
                         }
                         |> PagesProgram.expectViewHas [ Selector.text "Goodbye" ]
                         |> expectFailContaining "Goodbye"
+            ]
+        , describe "cookie jar"
+            [ test "CookieJar.empty has no cookies" <|
+                \() ->
+                    CookieJar.empty
+                        |> CookieJar.get "anything"
+                        |> Expect.equal Nothing
+            , test "CookieJar.set adds a cookie" <|
+                \() ->
+                    CookieJar.empty
+                        |> CookieJar.set "theme" "dark"
+                        |> CookieJar.get "theme"
+                        |> Expect.equal (Just "dark")
+            , test "CookieJar.fromSetCookieHeaders parses Set-Cookie headers" <|
+                \() ->
+                    CookieJar.empty
+                        |> CookieJar.applySetCookieHeaders
+                            [ "session=abc123; Path=/; HttpOnly"
+                            , "theme=dark; Path=/"
+                            ]
+                        |> CookieJar.get "session"
+                        |> Expect.equal (Just "abc123")
+            , test "CookieJar.toCookieDict produces dict for request" <|
+                \() ->
+                    CookieJar.empty
+                        |> CookieJar.set "a" "1"
+                        |> CookieJar.set "b" "2"
+                        |> CookieJar.toDict
+                        |> Dict.get "a"
+                        |> Expect.equal (Just "1")
+            , test "Set-Cookie with multiple attributes parsed correctly" <|
+                \() ->
+                    CookieJar.empty
+                        |> CookieJar.applySetCookieHeaders
+                            [ "token=xyz789; Path=/; Domain=.example.com; Secure; HttpOnly; SameSite=Strict; Max-Age=3600" ]
+                        |> CookieJar.get "token"
+                        |> Expect.equal (Just "xyz789")
+            , test "multiple Set-Cookie headers accumulate" <|
+                \() ->
+                    let
+                        jar =
+                            CookieJar.empty
+                                |> CookieJar.applySetCookieHeaders
+                                    [ "a=1; Path=/"
+                                    , "b=2; Path=/"
+                                    , "c=3; Path=/"
+                                    ]
+                    in
+                    ( CookieJar.get "a" jar
+                    , CookieJar.get "b" jar
+                    , CookieJar.get "c" jar
+                    )
+                        |> Expect.equal ( Just "1", Just "2", Just "3" )
+            , test "Set-Cookie overwrites existing cookie" <|
+                \() ->
+                    CookieJar.empty
+                        |> CookieJar.set "theme" "light"
+                        |> CookieJar.applySetCookieHeaders
+                            [ "theme=dark; Path=/" ]
+                        |> CookieJar.get "theme"
+                        |> Expect.equal (Just "dark")
+            , test "URL-encoded cookie values are decoded" <|
+                \() ->
+                    CookieJar.empty
+                        |> CookieJar.applySetCookieHeaders
+                            [ "data=hello%20world; Path=/" ]
+                        |> CookieJar.get "data"
+                        |> Expect.equal (Just "hello world")
             ]
         , describe "startWithEffects (custom Effect type simulation)"
             [ test "user-defined effects are converted to BackendTasks" <|
