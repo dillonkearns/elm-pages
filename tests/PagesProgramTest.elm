@@ -328,7 +328,7 @@ all =
                         |> PagesProgram.ensureViewHas [ Selector.text "2" ]
                         |> PagesProgram.toSnapshots
                         |> List.map .label
-                        |> Expect.equal [ "start", "clickButton \"+1\"", "clickButton \"+1\"" ]
+                        |> Expect.equal [ "start", "clickButton \"+1\"", "clickButton \"+1\"", "ensureViewHas [1 selector(s)]" ]
             , test "snapshots contain rendered HTML" <|
                 \() ->
                     PagesProgram.start

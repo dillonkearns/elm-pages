@@ -820,6 +820,7 @@ ensureBrowserUrl assertion (ProgramTest state) =
 
                                 Nothing ->
                                     ProgramTest state
+                                        |> recordAssertionSnapshot ("ensureBrowserUrl " ++ currentUrl)
 
                         Nothing ->
                             ProgramTest
@@ -1079,6 +1080,7 @@ ensureViewHas selectors (ProgramTest state) =
 
                         Nothing ->
                             ProgramTest state
+                                |> recordAssertionSnapshot ("ensureViewHas " ++ selectorLabel selectors)
 
 
 {-| Assert that the rendered view does NOT contain elements matching the given
@@ -1118,6 +1120,7 @@ ensureViewHasNot selectors (ProgramTest state) =
 
                         Nothing ->
                             ProgramTest state
+                                |> recordAssertionSnapshot ("ensureViewHasNot " ++ selectorLabel selectors)
 
 
 {-| Assert on the rendered view using a custom assertion function.
@@ -1165,6 +1168,7 @@ ensureView assertion (ProgramTest state) =
 
                         Nothing ->
                             ProgramTest state
+                                |> recordAssertionSnapshot "ensureView"
 
 
 
@@ -1318,6 +1322,29 @@ applySimulation sim (ProgramTest state) =
                             | error =
                                 Just "No pending BackendTask to simulate. The page is already initialized."
                         }
+
+
+{-| Record a snapshot for an assertion step (like Cypress's command log).
+Assertions show up in the timeline so you can see what was checked.
+-}
+recordAssertionSnapshot : String -> ProgramTest model msg -> ProgramTest model msg
+recordAssertionSnapshot label (ProgramTest state) =
+    case state.phase of
+        Ready ready ->
+            ProgramTest
+                { state
+                    | snapshots =
+                        state.snapshots
+                            ++ [ makeSnapshot label ready state.modelToString ]
+                }
+
+        _ ->
+            ProgramTest state
+
+
+selectorLabel : List Selector.Selector -> String
+selectorLabel selectors =
+    "[" ++ String.fromInt (List.length selectors) ++ " selector(s)]"
 
 
 {-| Apply a message through update, record a snapshot, and re-render.
