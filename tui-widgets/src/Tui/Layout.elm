@@ -13,7 +13,7 @@ module Tui.Layout exposing
     , handleMouse
     , toScreen, toRows
     , navigationHelpRows
-    , isFilterActive, filterStatusBar
+    , isFilterActive, filterStatusBar, activeFilterStatusBar
     )
 
 {-| Split-pane layout with opaque state, selectable lists, and mouse dispatch.
@@ -68,7 +68,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs navigationHelpRows
 
-@docs isFilterActive, filterStatusBar
+@docs isFilterActive, filterStatusBar, activeFilterStatusBar
 
 -}
 
@@ -1542,12 +1542,31 @@ mapFilteredIndex filteredIdx maybeFs =
 any uppercase characters, the match is case-sensitive; otherwise it is
 case-insensitive.
 -}
+-- Smart-case substring matching with space-separated AND terms.
+-- Matches lazygit's default filter behavior:
+-- "json dec" matches "Json.Decode" (both terms must match)
+-- Smart-case per term: case-insensitive unless term has uppercase
 matchesFilter : String -> String -> Bool
 matchesFilter query text =
     let
+        terms : List String
+        terms =
+            String.words query
+                |> List.filter (not << String.isEmpty)
+    in
+    if List.isEmpty terms then
+        True
+
+    else
+        List.all (\term -> termMatches term text) terms
+
+
+termMatches : String -> String -> Bool
+termMatches term text =
+    let
         caseSensitive : Bool
         caseSensitive =
-            String.any Char.isUpper query
+            String.any Char.isUpper term
 
         normalize : String -> String
         normalize =
@@ -1557,7 +1576,7 @@ matchesFilter query text =
             else
                 String.toLower
     in
-    String.contains (normalize query) (normalize text)
+    String.contains (normalize term) (normalize text)
 
 
 {-| Compute the list of original indices that match the filter query.
@@ -1611,6 +1630,30 @@ filterStatusBar paneId (State s) =
                     FilterApplied ->
                         Tui.text ("Filter: matches for '" ++ fs.query ++ "' <esc>: Exit filter mode")
             )
+
+
+{-| Get the filter status bar for whichever pane is currently being filtered.
+Checks all panes — use this instead of checking each pane individually.
+
+    case Layout.activeFilterStatusBar model.layout of
+        Just filterBar -> filterBar
+        Nothing -> myNormalOptionsBar
+
+-}
+activeFilterStatusBar : State -> Maybe Screen
+activeFilterStatusBar (State s) =
+    s.filterStates
+        |> Dict.toList
+        |> List.filterMap
+            (\( _, fs ) ->
+                case fs.mode of
+                    FilterTyping ->
+                        Just (Tui.text ("Filter: " ++ fs.query))
+
+                    FilterApplied ->
+                        Just (Tui.text ("Filter: matches for '" ++ fs.query ++ "' <esc>: Exit filter mode"))
+            )
+        |> List.head
 
 
 {-| Check if a pane has filterable content.

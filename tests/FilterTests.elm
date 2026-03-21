@@ -401,6 +401,85 @@ suite =
                                 |> Layout.focusPane "fruits"
                     in
                     Layout.filterStatusBar "fruits" state |> Expect.equal Nothing
+            , test "activeFilterStatusBar returns status for whichever pane is filtering" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 30, height = 12 }
+                                |> Layout.focusPane "fruits"
+
+                        s =
+                            startFilterWith "ber" state
+
+                        status =
+                            Layout.activeFilterStatusBar s
+                                |> Maybe.map Tui.toString
+                    in
+                    status |> Expect.equal (Just "Filter: ber")
+            , test "activeFilterStatusBar returns Nothing when not filtering" <|
+                \() ->
+                    Layout.activeFilterStatusBar Layout.init |> Expect.equal Nothing
+            ]
+        , describe "space-separated AND matching"
+            [ test "two terms both must match" <|
+                \() ->
+                    let
+                        -- "blue berry" should match "blueberry" (both terms present)
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 30, height = 12 }
+                                |> Layout.focusPane "fruits"
+
+                        s =
+                            startFilterWith "blue berry" state
+
+                        rendered =
+                            filterableList |> Layout.toScreen s |> Tui.toString
+                    in
+                    Expect.all
+                        [ \r -> r |> String.contains "blueberry" |> Expect.equal True
+                        , \r -> r |> String.contains "elderberry" |> Expect.equal False
+                        , \r -> r |> String.contains "apple" |> Expect.equal False
+                        ]
+                        rendered
+            , test "single term matches normally" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 30, height = 12 }
+                                |> Layout.focusPane "fruits"
+
+                        s =
+                            startFilterWith "berry" state
+
+                        rendered =
+                            filterableList |> Layout.toScreen s |> Tui.toString
+                    in
+                    Expect.all
+                        [ \r -> r |> String.contains "blueberry" |> Expect.equal True
+                        , \r -> r |> String.contains "elderberry" |> Expect.equal True
+                        , \r -> r |> String.contains "apple" |> Expect.equal False
+                        ]
+                        rendered
+            , test "terms with different cases use per-term smart-case" <|
+                \() ->
+                    let
+                        -- "Apple" has uppercase → case-sensitive for that term
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 30, height = 12 }
+                                |> Layout.focusPane "fruits"
+
+                        s =
+                            startFilterWith "Apple" state
+
+                        rendered =
+                            filterableList |> Layout.toScreen s |> Tui.toString
+                    in
+                    -- "apple" should NOT match "Apple" (case-sensitive)
+                    rendered |> String.contains "apple" |> Expect.equal False
             ]
         ]
 
