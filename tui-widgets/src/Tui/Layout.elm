@@ -118,7 +118,7 @@ when `getContentLine` needs a specific visible item. This means a list of
 inspired by lazygit's `renderOnlyVisibleLines` and Ratatui's `ListState`).
 -}
 type PaneContent msg
-    = StaticContent { lines : List Screen, searchable : Bool }
+    = StaticContent { lines : Array.Array Screen, lineCount : Int, searchable : Bool }
     | SelectableContent
         { itemCount : Int
         , renderItem : Int -> Screen -- renders default view for item at index
@@ -255,7 +255,7 @@ paneGroup groupId config =
                 |> List.filter (\tab -> tab.id == config.activeTab)
                 |> List.head
                 |> Maybe.map .content
-                |> Maybe.withDefault (StaticContent { lines = [], searchable = False })
+                |> Maybe.withDefault (StaticContent { lines = Array.empty, lineCount = 0, searchable = False })
 
         -- Build styled title: active tab bold, inactive dim
         titleScreen : Screen
@@ -322,7 +322,7 @@ pane id config paneContent =
 -}
 content : List Screen -> PaneContent msg
 content lines =
-    StaticContent { lines = lines, searchable = False }
+    StaticContent { lines = Array.fromList lines, lineCount = List.length lines, searchable = False }
 
 
 {-| A selectable list. The framework tracks which item is selected and renders
@@ -1610,8 +1610,8 @@ defaultPaneState =
 contentLineCount : PaneContent msg -> Int
 contentLineCount paneContent =
     case paneContent of
-        StaticContent { lines } ->
-            List.length lines
+        StaticContent { lineCount } ->
+            lineCount
 
         SelectableContent config ->
             config.itemCount
@@ -1827,7 +1827,7 @@ paneIsSearchable paneId layout =
 
 {-| Get the lines for a searchable pane, if it exists.
 -}
-getSearchLinesForPane : String -> Layout msg -> Maybe (List Screen)
+getSearchLinesForPane : String -> Layout msg -> Maybe (Array.Array Screen)
 getSearchLinesForPane paneId layout =
     findPane paneId layout
         |> Maybe.andThen
@@ -2147,7 +2147,7 @@ handleSearchKeyEvent event layout ss (State s) =
 
 {-| Compute all match positions for a query in a list of lines.
 -}
-computeSearchPositions : String -> List Screen -> List { line : Int, col : Int, len : Int }
+computeSearchPositions : String -> Array.Array Screen -> List { line : Int, col : Int, len : Int }
 computeSearchPositions query lines =
     let
         queryLen : Int
@@ -2170,7 +2170,7 @@ computeSearchPositions query lines =
         normalizedQuery =
             normalize query
     in
-    lines
+    Array.toList lines
         |> List.indexedMap
             (\lineIdx screen ->
                 let
@@ -3133,9 +3133,7 @@ getContentLine isFocused paneConfig ps maybeFilterState maybeSearchState content
             let
                 baseLine : Screen
                 baseLine =
-                    lines
-                        |> List.drop scrolledRow
-                        |> List.head
+                    Array.get scrolledRow lines
                         |> Maybe.withDefault Tui.empty
             in
             case maybeSearchState of
