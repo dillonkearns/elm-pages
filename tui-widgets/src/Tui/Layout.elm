@@ -1,6 +1,6 @@
 module Tui.Layout exposing
     ( Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
-    , PaneContent, content, selectableList
+    , PaneContent, content, selectableList, withUnfocusedStyle
     , Width, fill, fillPortion, fixed
     , State, init, withContext
     , navigateDown, navigateUp, pageDown, pageUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
@@ -42,7 +42,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
 
-@docs PaneContent, content, selectableList
+@docs PaneContent, content, selectableList, withUnfocusedStyle
 
 @docs Width, fill, fillPortion, fixed
 
@@ -112,6 +112,7 @@ type PaneContent msg
         { itemCount : Int
         , renderItem : Int -> Screen -- renders default view for item at index
         , renderSelected : Int -> Screen -- renders selected view for item at index
+        , renderSelectedUnfocused : Int -> Screen -- renders selected view when pane is unfocused
         , onSelect : Int -> msg
         }
 
@@ -298,6 +299,14 @@ selectableList config items =
         itemArray =
             Array.fromList items
     in
+    let
+        renderSel : Int -> Screen
+        renderSel =
+            \i ->
+                Array.get i itemArray
+                    |> Maybe.map config.selected
+                    |> Maybe.withDefault Tui.empty
+    in
     SelectableContent
         { itemCount = Array.length itemArray
         , renderItem =
@@ -305,13 +314,49 @@ selectableList config items =
                 Array.get i itemArray
                     |> Maybe.map config.default
                     |> Maybe.withDefault Tui.empty
-        , renderSelected =
-            \i ->
-                Array.get i itemArray
-                    |> Maybe.map config.selected
-                    |> Maybe.withDefault Tui.empty
+        , renderSelected = renderSel
+        , renderSelectedUnfocused = renderSel
         , onSelect = config.onSelect
         }
+
+
+{-| Set a different render style for the selected item when the pane is
+unfocused. In lazygit, the focused pane shows the selection with a blue
+background, while unfocused panes show it dimmed (bold only).
+
+Without this, unfocused panes use the same `selected` style as focused ones.
+
+    Layout.selectableList
+        { onSelect = SelectItem
+        , selected = \item -> Tui.text ("▸ " ++ item) |> Tui.bg Ansi.Color.blue
+        , default = \item -> Tui.text ("  " ++ item)
+        }
+        items
+        |> Layout.withUnfocusedStyle
+            (\item -> Tui.text ("▸ " ++ item) |> Tui.bold)
+            items
+
+-}
+withUnfocusedStyle : (item -> Screen) -> List item -> PaneContent msg -> PaneContent msg
+withUnfocusedStyle renderUnfocused items paneContent =
+    case paneContent of
+        SelectableContent config ->
+            let
+                itemArray : Array.Array item
+                itemArray =
+                    Array.fromList items
+            in
+            SelectableContent
+                { config
+                    | renderSelectedUnfocused =
+                        \i ->
+                            Array.get i itemArray
+                                |> Maybe.map renderUnfocused
+                                |> Maybe.withDefault Tui.empty
+                }
+
+        StaticContent _ ->
+            paneContent
 
 
 
@@ -1536,7 +1581,7 @@ toRowsHorizontal s panes =
 
                                     lineScreen : Screen
                                     lineScreen =
-                                        getContentLine paneConfig ps contentRow
+                                        getContentLine isFocused paneConfig ps contentRow
 
                                     lineText : String
                                     lineText =
@@ -1757,7 +1802,7 @@ toRowsVertical s panes =
                                 let
                                     lineScreen : Screen
                                     lineScreen =
-                                        getContentLine paneConfig ps contentRow
+                                        getContentLine isFocused paneConfig ps contentRow
 
                                     lineText : String
                                     lineText =
@@ -1817,8 +1862,8 @@ toRowsVertical s panes =
         |> List.concat
 
 
-getContentLine : PaneConfig msg -> PaneState -> Int -> Screen
-getContentLine paneConfig ps contentRow =
+getContentLine : Bool -> PaneConfig msg -> PaneState -> Int -> Screen
+getContentLine isFocused paneConfig ps contentRow =
     let
         scrolledRow : Int
         scrolledRow =
@@ -1831,9 +1876,13 @@ getContentLine paneConfig ps contentRow =
                 |> List.head
                 |> Maybe.withDefault Tui.empty
 
-        SelectableContent { renderItem, renderSelected } ->
+        SelectableContent { renderItem, renderSelected, renderSelectedUnfocused } ->
             if scrolledRow == ps.selectedIndex then
-                renderSelected scrolledRow
+                if isFocused then
+                    renderSelected scrolledRow
+
+                else
+                    renderSelectedUnfocused scrolledRow
 
             else
                 renderItem scrolledRow

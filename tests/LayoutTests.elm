@@ -738,6 +738,112 @@ suite =
                     Layout.init
                         |> Layout.focusedPane
                         |> Expect.equal Nothing
+            , test "unfocused pane uses inactive selection style (lazygit)" <|
+                \() ->
+                    let
+                        layout : Layout.Layout Int
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (let
+                                        items =
+                                            [ "a", "b", "c" ]
+                                     in
+                                     Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("FOCUSED:" ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        items
+                                        |> Layout.withUnfocusedStyle
+                                            (\item -> Tui.text ("dim:" ++ item))
+                                            items
+                                    )
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (let
+                                        items =
+                                            [ "x", "y", "z" ]
+                                     in
+                                     Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("FOCUSED:" ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        items
+                                        |> Layout.withUnfocusedStyle
+                                            (\item -> Tui.text ("dim:" ++ item))
+                                            items
+                                    )
+                                ]
+
+                        -- Focus left pane
+                        state : Layout.State
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 40, height = 7 }
+                                |> Layout.focusPane "left"
+
+                        rendered : String
+                        rendered =
+                            layout
+                                |> Layout.toScreen state
+                                |> Tui.toString
+                    in
+                    Expect.all
+                        [ -- Left pane is focused: selected item uses FOCUSED style
+                          \s -> s |> String.contains "FOCUSED:a" |> Expect.equal True
+                        , -- Right pane is unfocused: selected item uses dim style
+                          \s -> s |> String.contains "dim:x" |> Expect.equal True
+                        , -- Right pane should NOT use focused style
+                          \s -> s |> String.contains "FOCUSED:x" |> Expect.equal False
+                        ]
+                        rendered
+            , test "without withUnfocusedStyle, unfocused pane uses selected style" <|
+                \() ->
+                    let
+                        layout : Layout.Layout Int
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("SEL:" ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        [ "a", "b", "c" ]
+                                    )
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("SEL:" ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        [ "x", "y", "z" ]
+                                    )
+                                ]
+
+                        state : Layout.State
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 40, height = 7 }
+                                |> Layout.focusPane "left"
+
+                        rendered : String
+                        rendered =
+                            layout
+                                |> Layout.toScreen state
+                                |> Tui.toString
+                    in
+                    -- Without withUnfocusedStyle, both panes use the same selected style
+                    Expect.all
+                        [ \s -> s |> String.contains "SEL:a" |> Expect.equal True
+                        , \s -> s |> String.contains "SEL:x" |> Expect.equal True
+                        ]
+                        rendered
             ]
         , describe "Pane groups (tabs)"
             [ test "paneGroup shows active tab content" <|
