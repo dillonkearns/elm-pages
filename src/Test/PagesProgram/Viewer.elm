@@ -62,6 +62,7 @@ type alias Model =
     , basePath : String
     , searchQuery : String
     , viewportWidth : Maybe Int
+    , showEffects : Bool
     }
 
 
@@ -87,6 +88,7 @@ type Msg
     | KeyDown String
     | UpdateSearch String
     | SetViewport (Maybe Int)
+    | ToggleEffects
     | UrlChanged Url
     | LinkClicked Browser.UrlRequest
     | NoOp
@@ -167,6 +169,7 @@ app tests =
                   , basePath = basePath
                   , searchQuery = ""
                   , viewportWidth = Nothing
+                  , showEffects = False
                   }
                 , Cmd.none
                 )
@@ -581,6 +584,9 @@ update msg model =
         ToggleModel ->
             ( { model | showModel = not model.showModel }, Cmd.none )
 
+        ToggleEffects ->
+            ( { model | showEffects = not model.showEffects }, Cmd.none )
+
         KeyDown key ->
             case key of
                 "ArrowRight" ->
@@ -612,6 +618,9 @@ update msg model =
 
                 "m" ->
                     update ToggleModel model
+
+                "e" ->
+                    update ToggleEffects model
 
                 _ ->
                     ( model, Cmd.none )
@@ -841,6 +850,14 @@ viewHeader model =
                 TestList ->
                     Html.text ""
             , viewViewportPicker model.viewportWidth
+            , Html.button
+                [ Attr.classList
+                    [ ( "toggle-button", True )
+                    , ( "toggle-active", model.showEffects )
+                    ]
+                , Html.Events.onClick ToggleEffects
+                ]
+                [ Html.text "Effects" ]
             , Html.button
                 [ Attr.classList
                     [ ( "toggle-button", True )
@@ -1107,6 +1124,14 @@ viewMainPanel model =
 
                                 Nothing ->
                                     Html.text ""
+                            , if model.showEffects then
+                                viewEffectInspector
+                                    (previousSnapshot
+                                        |> Maybe.withDefault snapshot
+                                    )
+
+                              else
+                                Html.text ""
                             , if model.showModel then
                                 viewModelInspector
                                     (previousSnapshot
@@ -1121,6 +1146,11 @@ viewMainPanel model =
                         Html.div [ Attr.class "main-panel-content" ]
                             [ viewUrlBar snapshot
                             , viewRenderedPageWithWidth model.viewportWidth snapshot
+                            , if model.showEffects then
+                                viewEffectInspector snapshot
+
+                              else
+                                Html.text ""
                             , if model.showModel then
                                 viewModelInspector snapshot
 
@@ -1219,6 +1249,52 @@ viewModelInspector snapshot =
                     |> Maybe.withDefault "(use withModelToString to enable)"
                 )
             ]
+        ]
+
+
+viewEffectInspector : Snapshot -> Html Msg
+viewEffectInspector snapshot =
+    Html.div [ Attr.class "effect-inspector" ]
+        [ Html.div [ Attr.class "inspector-header" ]
+            [ Html.text
+                ("Effects ("
+                    ++ String.fromInt (List.length snapshot.pendingEffects)
+                    ++ ")"
+                )
+            ]
+        , if List.isEmpty snapshot.pendingEffects then
+            Html.div [ Attr.class "effect-empty" ]
+                [ Html.text "No pending effects at this step." ]
+
+          else
+            Html.div [ Attr.class "effect-list" ]
+                (snapshot.pendingEffects
+                    |> List.map
+                        (\desc ->
+                            let
+                                ( method, url ) =
+                                    case String.split " " desc of
+                                        m :: rest ->
+                                            ( m, String.join " " rest )
+
+                                        _ ->
+                                            ( "", desc )
+
+                                isHttp =
+                                    List.member method [ "GET", "POST", "PUT", "DELETE", "PATCH" ]
+                            in
+                            Html.div [ Attr.class "effect-item" ]
+                                [ if isHttp then
+                                    Html.span []
+                                        [ Html.span [ Attr.class "effect-method" ] [ Html.text method ]
+                                        , Html.span [ Attr.class "effect-url" ] [ Html.text (" " ++ url) ]
+                                        ]
+
+                                  else
+                                    Html.span [ Attr.class "effect-desc" ] [ Html.text desc ]
+                                ]
+                        )
+                )
         ]
 
 
@@ -1672,6 +1748,48 @@ body {
     padding: 16px;
 }
 
+/* === EFFECT INSPECTOR === */
+
+.effect-inspector {
+    flex-shrink: 0;
+    max-height: 180px;
+    overflow: auto;
+    background: #0d1117;
+    border-top: 1px solid #0f3460;
+    margin: 0 12px;
+    border-radius: 6px 6px 0 0;
+}
+
+.effect-empty {
+    padding: 8px 12px 12px;
+    color: #556677;
+    font-size: 12px;
+    font-style: italic;
+}
+
+.effect-list {
+    padding: 4px 0 8px;
+}
+
+.effect-item {
+    padding: 4px 12px;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 12px;
+}
+
+.effect-method {
+    color: #4cc9f0;
+    font-weight: 600;
+}
+
+.effect-url {
+    color: #f0c040;
+}
+
+.effect-desc {
+    color: #8899aa;
+}
+
 /* === MODEL INSPECTOR === */
 
 .model-inspector {
@@ -1761,7 +1879,7 @@ body {
 /* === KEYBOARD HINT === */
 
 .viewer::after {
-    content: "\\2190 \\2192  step   \\2191 \\2193  test   m  model   esc  back";
+    content: "\\2190 \\2192  step   \\2191 \\2193  test   m  model   e  effects   esc  back";
     position: fixed;
     bottom: 4px;
     right: 12px;

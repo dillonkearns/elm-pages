@@ -77,6 +77,7 @@ import PageServerResponse exposing (PageServerResponse(..))
 import Pages.Internal.Msg
 import Pages.Internal.Platform as Platform
 import Pages.Internal.ResponseSketch as ResponseSketch
+import Pages.StaticHttp.Request as StaticHttpRequest
 import Test.BackendTask.Internal as BackendTaskTest
 import Test.Html.Event as Event
 import Test.Html.Query as Query
@@ -134,6 +135,7 @@ type alias Snapshot =
     , stepKind : StepKind
     , browserUrl : Maybe String
     , errorMessage : Maybe String
+    , pendingEffects : List String
     }
 
 
@@ -228,6 +230,7 @@ start config =
                       , stepKind = Start
                       , browserUrl = ready.getBrowserUrl |> Maybe.map (\getUrl -> getUrl ready.model)
                       , errorMessage = Nothing
+                      , pendingEffects = describeEffects ready.pendingEffects
                       }
                     ]
 
@@ -241,6 +244,7 @@ start config =
                       , stepKind = Start
                       , browserUrl = Nothing
                       , errorMessage = Nothing
+                      , pendingEffects = []
                       }
                     ]
     in
@@ -389,6 +393,7 @@ startPlatform config initialPath testSetup =
                     , stepKind = Start
                     , browserUrl = Just (Url.toString finalWrapped.platformModel.url)
                     , errorMessage = Nothing
+                    , pendingEffects = []
                     }
             in
             ProgramTest
@@ -1320,6 +1325,7 @@ toSnapshots (ProgramTest state) =
                      , stepKind = Error
                      , browserUrl = Nothing
                      , errorMessage = Just errorMsg
+                     , pendingEffects = []
                      }
                    ]
 
@@ -1484,7 +1490,39 @@ makeSnapshot label kind ready modelToString =
     , stepKind = kind
     , browserUrl = ready.getBrowserUrl |> Maybe.map (\getUrl -> getUrl ready.model)
     , errorMessage = Nothing
+    , pendingEffects = describeEffects ready.pendingEffects
     }
+
+
+{-| Convert pending BackendTask effects into human-readable descriptions.
+Each effect is auto-resolved as far as possible, then we extract what's still
+pending (HTTP URLs, commands, etc.).
+-}
+describeEffects : List (BackendTask FatalError msg) -> List String
+describeEffects effects =
+    effects
+        |> List.concatMap
+            (\bt ->
+                case BackendTaskTest.fromBackendTask bt of
+                    BackendTaskTest.Running runningState ->
+                        if List.isEmpty runningState.pendingRequests then
+                            [ "BackendTask (pending)" ]
+
+                        else
+                            runningState.pendingRequests
+                                |> List.map describeHttpRequest
+
+                    BackendTaskTest.Done _ ->
+                        []
+
+                    BackendTaskTest.TestError errMsg ->
+                        [ "Error: " ++ errMsg ]
+            )
+
+
+describeHttpRequest : StaticHttpRequest.Request -> String
+describeHttpRequest req =
+    req.method ++ " " ++ req.url
 
 
 mapViewToSnapshot : { title : String, body : List (Html msg) } -> { title : String, body : List (Html Never) }
