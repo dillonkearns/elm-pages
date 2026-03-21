@@ -8,7 +8,7 @@ module Test.PagesProgram exposing
     , ensureViewHas, ensureViewHasNot, ensureView
     , simulateHttpGet, simulateHttpPost
     , done
-    , Snapshot, toSnapshots, withModelToString
+    , Snapshot, StepKind(..), toSnapshots, withModelToString
     )
 
 {-| Test elm-pages programs with realistic simulation.
@@ -54,7 +54,7 @@ use [`start`](#start) with inline config.
 Snapshots record the rendered view at each step of the test pipeline. Use them
 with the visual test runner to step through your test in the browser.
 
-@docs Snapshot, toSnapshots, withModelToString
+@docs Snapshot, StepKind, toSnapshots, withModelToString
 
 -}
 
@@ -103,12 +103,25 @@ type alias State model msg =
     }
 
 
+{-| The kind of step that produced a snapshot. Used by the visual test runner
+to color-code and categorize steps in the command log.
+-}
+type StepKind
+    = Start
+    | Interaction
+    | Assertion
+    | EffectResolution
+    | Error
+
+
 {-| A snapshot of the program state at a point in the test pipeline. Used by
 the visual test runner to step through test execution in the browser.
 
 `body` contains the rendered HTML at this step. `title` is the page title.
 `rerender` lets the viewer re-render the view (e.g., at a different size).
 `modelState` contains the model as a string if `withModelToString` was used.
+`stepKind` categorizes the step for color-coding in the viewer.
+`browserUrl` is the URL at the time of the snapshot (if URL tracking is enabled).
 
 -}
 type alias Snapshot =
@@ -118,6 +131,9 @@ type alias Snapshot =
     , rerender : () -> { title : String, body : List (Html Never) }
     , hasPendingEffects : Bool
     , modelState : Maybe String
+    , stepKind : StepKind
+    , browserUrl : Maybe String
+    , errorMessage : Maybe String
     }
 
 
@@ -209,6 +225,9 @@ start config =
                       , rerender = \() -> mapViewToSnapshot (ready.getView ready.model)
                       , hasPendingEffects = not (List.isEmpty ready.pendingEffects)
                       , modelState = Nothing
+                      , stepKind = Start
+                      , browserUrl = ready.getBrowserUrl |> Maybe.map (\getUrl -> getUrl ready.model)
+                      , errorMessage = Nothing
                       }
                     ]
 
@@ -219,6 +238,9 @@ start config =
                       , rerender = \() -> { title = "(resolving data...)", body = [] }
                       , hasPendingEffects = True
                       , modelState = Nothing
+                      , stepKind = Start
+                      , browserUrl = Nothing
+                      , errorMessage = Nothing
                       }
                     ]
     in
@@ -364,6 +386,9 @@ startPlatform config initialPath testSetup =
                     , rerender = \() -> mapViewToSnapshot (viewFn finalWrapped)
                     , hasPendingEffects = False
                     , modelState = Nothing
+                    , stepKind = Start
+                    , browserUrl = Just (Url.toString finalWrapped.platformModel.url)
+                    , errorMessage = Nothing
                     }
             in
             ProgramTest
@@ -486,7 +511,7 @@ clickButton buttonText (ProgramTest state) =
                     in
                     case eventResult of
                         Ok msg ->
-                            applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") msg (ProgramTest state)
+                            applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") Interaction msg (ProgramTest state)
 
                         Err _ ->
                             -- Button has no click handler. This is an elm-pages
@@ -520,6 +545,7 @@ clickButton buttonText (ProgramTest state) =
                                     in
                                     applyMsgWithLabel
                                         ("clickButton \"" ++ buttonText ++ "\"")
+                                        Interaction
                                         (handler { formId = "", fields = currentFields, useFetcher = isFetcher })
                                         (ProgramTest state)
 
@@ -666,17 +692,17 @@ fillIn fieldId fieldName value (ProgramTest state) =
                     in
                     case formDelegationResult of
                         Ok msg ->
-                            applyMsgWithLabel stepLabel msg (ProgramTest state)
+                            applyMsgWithLabel stepLabel Interaction msg (ProgramTest state)
 
                         Err _ ->
                             case labelWrappedResult of
                                 Ok msg ->
-                                    applyMsgWithLabel stepLabel msg (ProgramTest state)
+                                    applyMsgWithLabel stepLabel Interaction msg (ProgramTest state)
 
                                 Err _ ->
                                     case idResult of
                                         Ok msg ->
-                                            applyMsgWithLabel stepLabel msg (ProgramTest state)
+                                            applyMsgWithLabel stepLabel Interaction msg (ProgramTest state)
 
                                         Err errMsg ->
                                             ProgramTest
@@ -769,6 +795,7 @@ clickLink linkText href (ProgramTest state) =
                                 Just navigate ->
                                     applyMsgWithLabel
                                         ("clickLink \"" ++ linkText ++ "\"")
+                                        Interaction
                                         (navigate href)
                                         (ProgramTest state)
 
@@ -789,7 +816,7 @@ clickLink linkText href (ProgramTest state) =
                                     in
                                     case eventResult of
                                         Ok msg ->
-                                            applyMsgWithLabel ("clickLink \"" ++ linkText ++ "\"") msg (ProgramTest state)
+                                            applyMsgWithLabel ("clickLink \"" ++ linkText ++ "\"") Interaction msg (ProgramTest state)
 
                                         Err _ ->
                                             ProgramTest state
@@ -823,6 +850,7 @@ navigateTo path (ProgramTest state) =
                         Just navigate ->
                             applyMsgWithLabel
                                 ("navigateTo \"" ++ path ++ "\"")
+                                Interaction
                                 (navigate path)
                                 (ProgramTest state)
 
@@ -914,6 +942,7 @@ submitForm formInfo (ProgramTest state) =
                         Just handler ->
                             applyMsgWithLabel
                                 ("submitForm \"" ++ formInfo.formId ++ "\"")
+                                Interaction
                                 (handler { formId = formInfo.formId, fields = formInfo.fields, useFetcher = False })
                                 (ProgramTest state)
 
@@ -984,6 +1013,7 @@ check fieldId isChecked (ProgramTest state) =
                                             "False"
                                        )
                                 )
+                                Interaction
                                 msg
                                 (ProgramTest state)
 
@@ -1076,7 +1106,7 @@ resolveEffect simulate (ProgramTest state) =
                                             | phase = Ready newReady
                                             , snapshots =
                                                 state.snapshots
-                                                    ++ [ makeSnapshot "resolveEffect" newReady state.modelToString ]
+                                                    ++ [ makeSnapshot "resolveEffect" EffectResolution newReady state.modelToString ]
                                         }
 
                                 Err errMsg ->
@@ -1287,6 +1317,9 @@ toSnapshots (ProgramTest state) =
                      , rerender = \() -> { title = "Error", body = [ Html.text errorMsg ] }
                      , hasPendingEffects = False
                      , modelState = Nothing
+                     , stepKind = Error
+                     , browserUrl = Nothing
+                     , errorMessage = Just errorMsg
                      }
                    ]
 
@@ -1358,7 +1391,7 @@ applySimulation sim (ProgramTest state) =
                                 snapshot =
                                     case newPhase of
                                         Ready ready ->
-                                            [ makeSnapshot simLabel ready state.modelToString ]
+                                            [ makeSnapshot simLabel EffectResolution ready state.modelToString ]
 
                                         Resolving _ ->
                                             []
@@ -1388,7 +1421,7 @@ recordAssertionSnapshot label (ProgramTest state) =
                 { state
                     | snapshots =
                         state.snapshots
-                            ++ [ makeSnapshot label ready state.modelToString ]
+                            ++ [ makeSnapshot label Assertion ready state.modelToString ]
                 }
 
         _ ->
@@ -1402,8 +1435,8 @@ selectorLabel selectors =
 
 {-| Apply a message through update, record a snapshot, and re-render.
 -}
-applyMsgWithLabel : String -> msg -> ProgramTest model msg -> ProgramTest model msg
-applyMsgWithLabel label msg (ProgramTest state) =
+applyMsgWithLabel : String -> StepKind -> msg -> ProgramTest model msg -> ProgramTest model msg
+applyMsgWithLabel label kind msg (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -1432,12 +1465,12 @@ applyMsgWithLabel label msg (ProgramTest state) =
                             | phase = Ready newReady
                             , snapshots =
                                 state.snapshots
-                                    ++ [ makeSnapshot label newReady state.modelToString ]
+                                    ++ [ makeSnapshot label kind newReady state.modelToString ]
                         }
 
 
-makeSnapshot : String -> ReadyState model msg -> Maybe (model -> String) -> Snapshot
-makeSnapshot label ready modelToString =
+makeSnapshot : String -> StepKind -> ReadyState model msg -> Maybe (model -> String) -> Snapshot
+makeSnapshot label kind ready modelToString =
     let
         viewResult =
             ready.getView ready.model
@@ -1448,6 +1481,9 @@ makeSnapshot label ready modelToString =
     , rerender = \() -> mapViewToSnapshot (ready.getView ready.model)
     , hasPendingEffects = not (List.isEmpty ready.pendingEffects)
     , modelState = Maybe.map (\fn -> fn ready.model) modelToString
+    , stepKind = kind
+    , browserUrl = ready.getBrowserUrl |> Maybe.map (\getUrl -> getUrl ready.model)
+    , errorMessage = Nothing
     }
 
 

@@ -1,8 +1,8 @@
 module Test.PagesProgram.Viewer exposing (app, Flags, Model, Msg)
 
 {-| A browser-based visual test runner that lets you step through elm-pages
-test snapshots in your browser. Displays the rendered page view at each step,
-with a timeline of events and optional model inspector.
+test snapshots in your browser. Displays a Cypress-style command log sidebar
+alongside the rendered page view.
 
     module TestViewer exposing (main)
 
@@ -26,12 +26,16 @@ Open the compiled HTML in your browser, then use arrow keys to step through.
 -}
 
 import Browser
+import Browser.Dom
 import Browser.Events
+import Browser.Navigation as Nav
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
 import Json.Decode as Decode
-import Test.PagesProgram exposing (Snapshot)
+import Task
+import Test.PagesProgram exposing (Snapshot, StepKind(..))
+import Url exposing (Url)
 
 
 {-| Flags for the viewer app. Currently unused.
@@ -40,13 +44,22 @@ type alias Flags =
     ()
 
 
+type SidebarMode
+    = TestList
+    | CommandLog
+
+
 {-| The viewer's model.
 -}
 type alias Model =
     { tests : List NamedTest
     , currentTestIndex : Int
     , currentStepIndex : Int
+    , hoveredStepIndex : Maybe Int
     , showModel : Bool
+    , sidebarMode : SidebarMode
+    , navKey : Nav.Key
+    , basePath : String
     }
 
 
@@ -65,8 +78,13 @@ type Msg
     | NextTest
     | PrevTest
     | GoToTest Int
+    | HoverStep Int
+    | UnhoverStep
+    | ShowTestList
     | ToggleModel
     | KeyDown String
+    | UrlChanged Url
+    | LinkClicked Browser.UrlRequest
     | NoOp
 
 
@@ -81,24 +99,65 @@ their snapshots.
 -}
 app : List ( String, List Snapshot ) -> Program Flags Model Msg
 app tests =
-    Browser.document
+    let
+        namedTests =
+            tests
+                |> List.map
+                    (\( name, snapshots ) ->
+                        { name = name, snapshots = snapshots }
+                    )
+    in
+    Browser.application
         { init =
-            \_ ->
-                ( { tests =
-                        tests
-                            |> List.map
-                                (\( name, snapshots ) ->
-                                    { name = name, snapshots = snapshots }
+            \_ url key ->
+                let
+                    basePath =
+                        extractBasePath url
+
+                    testNameFromUrl =
+                        extractTestName basePath url
+
+                    ( initialTestIndex, initialMode ) =
+                        case testNameFromUrl of
+                            Just name ->
+                                case findTestIndex name namedTests of
+                                    Just idx ->
+                                        ( idx, CommandLog )
+
+                                    Nothing ->
+                                        ( 0
+                                        , if List.length namedTests > 1 then
+                                            TestList
+
+                                          else
+                                            CommandLog
+                                        )
+
+                            Nothing ->
+                                ( 0
+                                , if List.length namedTests > 1 then
+                                    TestList
+
+                                  else
+                                    CommandLog
                                 )
-                  , currentTestIndex = 0
+                in
+                ( { tests = namedTests
+                  , currentTestIndex = initialTestIndex
                   , currentStepIndex = 0
+                  , hoveredStepIndex = Nothing
                   , showModel = False
+                  , sidebarMode = initialMode
+                  , navKey = key
+                  , basePath = basePath
                   }
                 , Cmd.none
                 )
         , update = update
         , view = view
         , subscriptions = subscriptions
+        , onUrlRequest = LinkClicked
+        , onUrlChange = UrlChanged
         }
 
 
@@ -110,28 +169,134 @@ subscriptions _ =
         )
 
 
+scrollToStep : Int -> Cmd Msg
+scrollToStep index =
+    Browser.Dom.getElement ("step-" ++ String.fromInt index)
+        |> Task.andThen
+            (\stepEl ->
+                Browser.Dom.getElement "sidebar-steps"
+                    |> Task.andThen
+                        (\containerEl ->
+                            Browser.Dom.getViewportOf "sidebar-steps"
+                                |> Task.andThen
+                                    (\viewport ->
+                                        let
+                                            stepTop =
+                                                stepEl.element.y - containerEl.element.y + viewport.viewport.y
+
+                                            stepBottom =
+                                                stepTop + stepEl.element.height
+
+                                            viewTop =
+                                                viewport.viewport.y
+
+                                            viewBottom =
+                                                viewTop + viewport.viewport.height
+                                        in
+                                        if stepTop < viewTop then
+                                            Browser.Dom.setViewportOf "sidebar-steps" 0 (stepTop - 8)
+
+                                        else if stepBottom > viewBottom then
+                                            Browser.Dom.setViewportOf "sidebar-steps" 0 (stepBottom - viewport.viewport.height + 8)
+
+                                        else
+                                            Task.succeed ()
+                                    )
+                        )
+            )
+        |> Task.attempt (\_ -> NoOp)
+
+
+{-| Extract the base path (e.g., "/__test-viewer") from the initial URL.
+This is everything up to and including the viewer route prefix.
+-}
+extractBasePath : Url -> String
+extractBasePath url =
+    let
+        path =
+            url.path
+    in
+    if String.contains "/__test-viewer" path then
+        let
+            idx =
+                String.indexes "/__test-viewer" path
+                    |> List.head
+                    |> Maybe.withDefault 0
+        in
+        String.left (idx + String.length "/__test-viewer") path
+
+    else
+        path
+
+
+{-| Extract the test name from the URL path after the base path.
+e.g., "/__test-viewer/FrameworkTests.counterClicksTest" -> Just "FrameworkTests.counterClicksTest"
+-}
+extractTestName : String -> Url -> Maybe String
+extractTestName basePath url =
+    let
+        rest =
+            String.dropLeft (String.length basePath) url.path
+                |> String.dropLeft 1
+    in
+    if String.isEmpty rest then
+        Nothing
+
+    else
+        Just rest
+
+
+findTestIndex : String -> List NamedTest -> Maybe Int
+findTestIndex name tests =
+    tests
+        |> List.indexedMap Tuple.pair
+        |> List.filter (\( _, t ) -> t.name == name)
+        |> List.head
+        |> Maybe.map Tuple.first
+
+
+pushTestUrl : Model -> Maybe String -> Cmd Msg
+pushTestUrl model maybeName =
+    let
+        newPath =
+            case maybeName of
+                Just name ->
+                    model.basePath ++ "/" ++ name
+
+                Nothing ->
+                    model.basePath
+    in
+    Nav.pushUrl model.navKey newPath
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         NextStep ->
-            ( { model
-                | currentStepIndex =
+            let
+                newIndex =
                     min (currentSnapshotCount model - 1) (model.currentStepIndex + 1)
-              }
-            , Cmd.none
+            in
+            ( { model | currentStepIndex = newIndex }
+            , scrollToStep newIndex
             )
 
         PrevStep ->
-            ( { model | currentStepIndex = max 0 (model.currentStepIndex - 1) }
-            , Cmd.none
+            let
+                newIndex =
+                    max 0 (model.currentStepIndex - 1)
+            in
+            ( { model | currentStepIndex = newIndex }
+            , scrollToStep newIndex
             )
 
         GoToStep index ->
-            ( { model
-                | currentStepIndex =
+            let
+                newIndex =
                     clamp 0 (currentSnapshotCount model - 1) index
-              }
-            , Cmd.none
+            in
+            ( { model | currentStepIndex = newIndex }
+            , scrollToStep newIndex
             )
 
         NextTest ->
@@ -139,12 +304,19 @@ update msg model =
                 ( model, Cmd.none )
 
             else
-                ( { model
-                    | currentTestIndex =
+                let
+                    newIndex =
                         modBy (List.length model.tests) (model.currentTestIndex + 1)
+
+                    testName =
+                        model.tests |> List.drop newIndex |> List.head |> Maybe.map .name
+                in
+                ( { model
+                    | currentTestIndex = newIndex
                     , currentStepIndex = 0
+                    , hoveredStepIndex = Nothing
                   }
-                , Cmd.none
+                , Cmd.batch [ scrollToStep 0, pushTestUrl model testName ]
                 )
 
         PrevTest ->
@@ -152,20 +324,53 @@ update msg model =
                 ( model, Cmd.none )
 
             else
-                ( { model
-                    | currentTestIndex =
+                let
+                    newIndex =
                         modBy (List.length model.tests) (model.currentTestIndex - 1 + List.length model.tests)
+
+                    testName =
+                        model.tests |> List.drop newIndex |> List.head |> Maybe.map .name
+                in
+                ( { model
+                    | currentTestIndex = newIndex
                     , currentStepIndex = 0
+                    , hoveredStepIndex = Nothing
                   }
-                , Cmd.none
+                , Cmd.batch [ scrollToStep 0, pushTestUrl model testName ]
                 )
 
         GoToTest index ->
+            let
+                clampedIndex =
+                    clamp 0 (List.length model.tests - 1) index
+
+                testName =
+                    model.tests
+                        |> List.drop clampedIndex
+                        |> List.head
+                        |> Maybe.map .name
+            in
             ( { model
-                | currentTestIndex = clamp 0 (List.length model.tests - 1) index
+                | currentTestIndex = clampedIndex
                 , currentStepIndex = 0
+                , hoveredStepIndex = Nothing
+                , sidebarMode = CommandLog
               }
-            , Cmd.none
+            , Cmd.batch
+                [ scrollToStep 0
+                , pushTestUrl model testName
+                ]
+            )
+
+        HoverStep index ->
+            ( { model | hoveredStepIndex = Just index }, Cmd.none )
+
+        UnhoverStep ->
+            ( { model | hoveredStepIndex = Nothing }, Cmd.none )
+
+        ShowTestList ->
+            ( { model | sidebarMode = TestList, hoveredStepIndex = Nothing }
+            , pushTestUrl model Nothing
             )
 
         ToggleModel ->
@@ -180,10 +385,25 @@ update msg model =
                     update PrevStep model
 
                 "ArrowDown" ->
-                    update NextTest model
+                    if model.sidebarMode == TestList then
+                        update NextTest model
+
+                    else
+                        update NextStep model
 
                 "ArrowUp" ->
-                    update PrevTest model
+                    if model.sidebarMode == TestList then
+                        update PrevTest model
+
+                    else
+                        update PrevStep model
+
+                "Escape" ->
+                    if List.length model.tests > 1 then
+                        update ShowTestList model
+
+                    else
+                        ( model, Cmd.none )
 
                 "m" ->
                     update ToggleModel model
@@ -191,8 +411,53 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
+        UrlChanged url ->
+            let
+                testName =
+                    extractTestName model.basePath url
+            in
+            case testName of
+                Just name ->
+                    case findTestIndex name model.tests of
+                        Just idx ->
+                            ( { model
+                                | currentTestIndex = idx
+                                , currentStepIndex = 0
+                                , hoveredStepIndex = Nothing
+                                , sidebarMode = CommandLog
+                              }
+                            , scrollToStep 0
+                            )
+
+                        Nothing ->
+                            ( model, Cmd.none )
+
+                Nothing ->
+                    if List.length model.tests > 1 then
+                        ( { model
+                            | sidebarMode = TestList
+                            , hoveredStepIndex = Nothing
+                          }
+                        , Cmd.none
+                        )
+
+                    else
+                        ( model, Cmd.none )
+
+        LinkClicked urlRequest ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( model, Nav.pushUrl model.navKey (Url.toString url) )
+
+                Browser.External href ->
+                    ( model, Nav.load href )
+
         NoOp ->
             ( model, Cmd.none )
+
+
+
+-- HELPERS
 
 
 currentSnapshotCount : Model -> Int
@@ -204,17 +469,31 @@ currentSnapshotCount model =
         |> Maybe.withDefault 0
 
 
-currentSnapshot : Model -> Maybe Snapshot
-currentSnapshot model =
+displayedStepIndex : Model -> Int
+displayedStepIndex model =
+    model.hoveredStepIndex |> Maybe.withDefault model.currentStepIndex
+
+
+displayedSnapshot : Model -> Maybe Snapshot
+displayedSnapshot model =
     model.tests
         |> List.drop model.currentTestIndex
         |> List.head
         |> Maybe.andThen
             (\test ->
                 test.snapshots
-                    |> List.drop model.currentStepIndex
+                    |> List.drop (displayedStepIndex model)
                     |> List.head
             )
+
+
+currentSnapshots : Model -> List Snapshot
+currentSnapshots model =
+    model.tests
+        |> List.drop model.currentTestIndex
+        |> List.head
+        |> Maybe.map .snapshots
+        |> Maybe.withDefault []
 
 
 currentTestName : Model -> String
@@ -226,6 +505,54 @@ currentTestName model =
         |> Maybe.withDefault ""
 
 
+testHasError : NamedTest -> Bool
+testHasError test =
+    test.snapshots
+        |> List.any (\s -> s.stepKind == Error)
+
+
+stepKindColor : StepKind -> String
+stepKindColor kind =
+    case kind of
+        Start ->
+            "#8899aa"
+
+        Interaction ->
+            "#4cc9f0"
+
+        Assertion ->
+            "#7ee787"
+
+        EffectResolution ->
+            "#f0c040"
+
+        Error ->
+            "#e74c3c"
+
+
+stepKindIcon : StepKind -> String
+stepKindIcon kind =
+    case kind of
+        Start ->
+            ">"
+
+        Interaction ->
+            "~"
+
+        Assertion ->
+            "?"
+
+        EffectResolution ->
+            "*"
+
+        Error ->
+            "!"
+
+
+
+-- VIEW
+
+
 view : Model -> Browser.Document Msg
 view model =
     { title = "elm-pages Test Viewer"
@@ -233,21 +560,10 @@ view model =
         [ Html.node "style" [] [ Html.text css ]
         , Html.div [ Attr.class "viewer" ]
             [ viewHeader model
-            , case currentSnapshot model of
-                Just snapshot ->
-                    Html.div [ Attr.class "viewer-content" ]
-                        [ viewRenderedPage snapshot
-                        , viewTimeline model
-                        , if model.showModel then
-                            viewModelInspector snapshot
-
-                          else
-                            Html.text ""
-                        ]
-
-                Nothing ->
-                    Html.div [ Attr.class "viewer-empty" ]
-                        [ Html.text "No snapshots to display" ]
+            , Html.div [ Attr.class "viewer-body" ]
+                [ viewSidebar model
+                , viewMainPanel model
+                ]
             ]
         ]
     }
@@ -255,53 +571,53 @@ view model =
 
 viewHeader : Model -> Html Msg
 viewHeader model =
+    let
+        passCount =
+            model.tests |> List.filter (\t -> not (testHasError t)) |> List.length
+
+        failCount =
+            List.length model.tests - passCount
+    in
     Html.div [ Attr.class "viewer-header" ]
         [ Html.div [ Attr.class "header-left" ]
             [ Html.span [ Attr.class "header-logo" ] [ Html.text "elm-pages" ]
             , Html.span [ Attr.class "header-title" ] [ Html.text " Test Viewer" ]
             ]
         , Html.div [ Attr.class "header-center" ]
-            [ if List.length model.tests > 1 then
-                Html.div [ Attr.class "test-selector" ]
-                    (model.tests
-                        |> List.indexedMap
-                            (\i test ->
-                                Html.button
-                                    [ Attr.classList
-                                        [ ( "test-tab", True )
-                                        , ( "test-tab-active", i == model.currentTestIndex )
-                                        ]
-                                    , Html.Events.onClick (GoToTest i)
-                                    ]
-                                    [ Html.text test.name ]
-                            )
-                    )
+            [ case model.sidebarMode of
+                TestList ->
+                    Html.span [ Attr.class "header-summary" ]
+                        [ Html.span [ Attr.style "color" "#7ee787" ]
+                            [ Html.text (String.fromInt passCount ++ " passed") ]
+                        , if failCount > 0 then
+                            Html.span []
+                                [ Html.text "  "
+                                , Html.span [ Attr.style "color" "#e74c3c" ]
+                                    [ Html.text (String.fromInt failCount ++ " failed") ]
+                                ]
 
-              else
-                Html.span [ Attr.class "test-name" ]
-                    [ Html.text (currentTestName model) ]
+                          else
+                            Html.text ""
+                        ]
+
+                CommandLog ->
+                    Html.span [ Attr.class "test-name" ]
+                        [ Html.text (currentTestName model) ]
             ]
         , Html.div [ Attr.class "header-right" ]
-            [ Html.span [ Attr.class "step-counter" ]
-                [ Html.text
-                    ("Step "
-                        ++ String.fromInt (model.currentStepIndex + 1)
-                        ++ " / "
-                        ++ String.fromInt (currentSnapshotCount model)
-                    )
-                ]
-            , Html.button
-                [ Attr.class "nav-button"
-                , Html.Events.onClick PrevStep
-                , Attr.disabled (model.currentStepIndex <= 0)
-                ]
-                [ Html.text "<" ]
-            , Html.button
-                [ Attr.class "nav-button"
-                , Html.Events.onClick NextStep
-                , Attr.disabled (model.currentStepIndex >= currentSnapshotCount model - 1)
-                ]
-                [ Html.text ">" ]
+            [ case model.sidebarMode of
+                CommandLog ->
+                    Html.span [ Attr.class "step-counter" ]
+                        [ Html.text
+                            ("Step "
+                                ++ String.fromInt (model.currentStepIndex + 1)
+                                ++ " / "
+                                ++ String.fromInt (currentSnapshotCount model)
+                            )
+                        ]
+
+                TestList ->
+                    Html.text ""
             , Html.button
                 [ Attr.classList
                     [ ( "toggle-button", True )
@@ -314,49 +630,270 @@ viewHeader model =
         ]
 
 
-viewRenderedPage : Snapshot -> Html Msg
-viewRenderedPage snapshot =
-    Html.div [ Attr.class "rendered-page" ]
-        [ Html.div [ Attr.class "page-title-bar" ]
-            [ Html.text snapshot.title ]
-        , Html.div [ Attr.class "page-body" ]
-            (snapshot.body
-                |> List.map (Html.map (\_ -> NoOp))
+viewSidebar : Model -> Html Msg
+viewSidebar model =
+    case model.sidebarMode of
+        TestList ->
+            viewTestListSidebar model
+
+        CommandLog ->
+            viewCommandLogSidebar model
+
+
+viewTestListSidebar : Model -> Html Msg
+viewTestListSidebar model =
+    Html.div [ Attr.class "sidebar" ]
+        [ Html.div [ Attr.class "sidebar-header" ]
+            [ Html.span [ Attr.class "sidebar-title" ]
+                [ Html.text
+                    (String.fromInt (List.length model.tests) ++ " Tests")
+                ]
+            ]
+        , Html.div [ Attr.class "sidebar-steps", Attr.id "sidebar-steps" ]
+            (model.tests
+                |> List.indexedMap
+                    (\i test ->
+                        let
+                            hasError =
+                                testHasError test
+
+                            stepCount =
+                                List.length test.snapshots
+
+                            isSelected =
+                                i == model.currentTestIndex
+                        in
+                        Html.div
+                            [ Attr.classList
+                                [ ( "test-list-row", True )
+                                , ( "test-list-row-selected", isSelected )
+                                , ( "test-list-row-error", hasError )
+                                ]
+                            , Html.Events.onClick (GoToTest i)
+                            ]
+                            [ Html.span
+                                [ Attr.class "test-list-indicator"
+                                , Attr.style "color"
+                                    (if hasError then
+                                        "#e74c3c"
+
+                                     else
+                                        "#7ee787"
+                                    )
+                                ]
+                                [ Html.text
+                                    (if hasError then
+                                        "x"
+
+                                     else
+                                        "o"
+                                    )
+                                ]
+                            , Html.div [ Attr.class "test-list-info" ]
+                                [ Html.div [ Attr.class "test-list-name" ] [ Html.text test.name ]
+                                , Html.div [ Attr.class "test-list-meta" ]
+                                    [ Html.text (String.fromInt stepCount ++ " steps") ]
+                                ]
+                            ]
+                    )
             )
         ]
 
 
-viewTimeline : Model -> Html Msg
-viewTimeline model =
+viewCommandLogSidebar : Model -> Html Msg
+viewCommandLogSidebar model =
     let
         snapshots =
-            model.tests
-                |> List.drop model.currentTestIndex
+            currentSnapshots model
+
+        isHovering =
+            model.hoveredStepIndex /= Nothing
+
+        errorIndex =
+            snapshots
+                |> List.indexedMap Tuple.pair
+                |> List.filter (\( _, s ) -> s.stepKind == Error)
                 |> List.head
-                |> Maybe.map .snapshots
-                |> Maybe.withDefault []
+                |> Maybe.map Tuple.first
+
+        failureCauseIndex =
+            errorIndex |> Maybe.map (\ei -> ei - 1)
     in
-    Html.div [ Attr.class "timeline" ]
-        [ Html.div [ Attr.class "timeline-label" ] [ Html.text "Timeline" ]
-        , Html.div [ Attr.class "timeline-track" ]
+    Html.div [ Attr.class "sidebar" ]
+        [ Html.div [ Attr.class "sidebar-header" ]
+            (if List.length model.tests > 1 then
+                [ Html.button
+                    [ Attr.class "sidebar-back"
+                    , Html.Events.onClick ShowTestList
+                    ]
+                    [ Html.text "< All Tests" ]
+                , Html.span [ Attr.class "sidebar-title" ]
+                    [ Html.text (currentTestName model) ]
+                ]
+
+             else
+                [ Html.span [ Attr.class "sidebar-title" ] [ Html.text "Command Log" ]
+                ]
+            )
+        , Html.div [ Attr.class "sidebar-steps", Attr.id "sidebar-steps" ]
             (snapshots
                 |> List.indexedMap
                     (\i snapshot ->
-                        Html.div
-                            [ Attr.classList
-                                [ ( "timeline-step", True )
-                                , ( "timeline-step-active", i == model.currentStepIndex )
-                                , ( "timeline-step-past", i < model.currentStepIndex )
-                                , ( "timeline-step-error", snapshot.label == "ERROR" )
-                                , ( "timeline-step-pending", snapshot.hasPendingEffects )
-                                ]
-                            , Html.Events.onClick (GoToStep i)
-                            ]
-                            [ Html.div [ Attr.class "timeline-dot" ] []
-                            , Html.div [ Attr.class "timeline-step-label" ]
-                                [ Html.text snapshot.label ]
-                            ]
+                        viewStepRow i snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (failureCauseIndex == Just i)
                     )
+            )
+        ]
+
+
+viewStepRow : Int -> Snapshot -> Int -> Bool -> Bool -> Bool -> Html Msg
+viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause =
+    let
+        isActive =
+            index == currentIndex
+
+        isPast =
+            index < currentIndex
+
+        kindColor =
+            stepKindColor snapshot.stepKind
+    in
+    Html.div
+        [ Attr.classList
+            [ ( "step-row", True )
+            , ( "step-row-active", isActive && not isHovering )
+            , ( "step-row-hovered", isHovered )
+            , ( "step-row-past", isPast && not isActive )
+            , ( "step-row-error", snapshot.stepKind == Error )
+            , ( "step-row-failure-cause", isFailureCause )
+            ]
+        , Attr.id ("step-" ++ String.fromInt index)
+        , Html.Events.onClick (GoToStep index)
+        , Html.Events.onMouseEnter (HoverStep index)
+        , Html.Events.onMouseLeave UnhoverStep
+        ]
+        [ Html.span [ Attr.class "step-number" ]
+            [ Html.text (String.fromInt (index + 1)) ]
+        , Html.span
+            [ Attr.class "step-icon"
+            , Attr.style "color" kindColor
+            ]
+            [ Html.text (stepKindIcon snapshot.stepKind) ]
+        , Html.span [ Attr.class "step-label" ]
+            [ Html.text snapshot.label ]
+        , if snapshot.hasPendingEffects then
+            Html.span [ Attr.class "step-pending-badge" ] [ Html.text "pending" ]
+
+          else
+            Html.text ""
+        ]
+
+
+viewMainPanel : Model -> Html Msg
+viewMainPanel model =
+    let
+        previousSnapshot : Maybe Snapshot
+        previousSnapshot =
+            let
+                idx =
+                    displayedStepIndex model - 1
+            in
+            if idx >= 0 then
+                model.tests
+                    |> List.drop model.currentTestIndex
+                    |> List.head
+                    |> Maybe.andThen
+                        (\test ->
+                            test.snapshots
+                                |> List.drop idx
+                                |> List.head
+                        )
+
+            else
+                Nothing
+    in
+    Html.div [ Attr.class "main-panel" ]
+        [ case displayedSnapshot model of
+            Just snapshot ->
+                case snapshot.errorMessage of
+                    Just errorMsg ->
+                        Html.div [ Attr.class "main-panel-content" ]
+                            [ viewUrlBar
+                                (previousSnapshot
+                                    |> Maybe.withDefault snapshot
+                                )
+                            , viewErrorPanel errorMsg
+                            , case previousSnapshot of
+                                Just prev ->
+                                    viewRenderedPage prev
+
+                                Nothing ->
+                                    Html.text ""
+                            , if model.showModel then
+                                viewModelInspector
+                                    (previousSnapshot
+                                        |> Maybe.withDefault snapshot
+                                    )
+
+                              else
+                                Html.text ""
+                            ]
+
+                    Nothing ->
+                        Html.div [ Attr.class "main-panel-content" ]
+                            [ viewUrlBar snapshot
+                            , viewRenderedPage snapshot
+                            , if model.showModel then
+                                viewModelInspector snapshot
+
+                              else
+                                Html.text ""
+                            ]
+
+            Nothing ->
+                Html.div [ Attr.class "viewer-empty" ]
+                    [ Html.text "No snapshots to display" ]
+        ]
+
+
+viewErrorPanel : String -> Html Msg
+viewErrorPanel errorMsg =
+    Html.div [ Attr.class "error-panel" ]
+        [ Html.div [ Attr.class "error-panel-header" ]
+            [ Html.span [ Attr.class "error-panel-icon" ] [ Html.text "!" ]
+            , Html.text "Test Failed"
+            ]
+        , Html.pre [ Attr.class "error-panel-body" ]
+            [ Html.text errorMsg ]
+        ]
+
+
+viewUrlBar : Snapshot -> Html Msg
+viewUrlBar snapshot =
+    Html.div [ Attr.class "url-bar" ]
+        [ Html.span [ Attr.class "url-bar-icon" ] [ Html.text ">" ]
+        , Html.span [ Attr.class "url-bar-text" ]
+            [ Html.text
+                (snapshot.browserUrl
+                    |> Maybe.withDefault "(no URL tracking)"
+                )
+            ]
+        ]
+
+
+viewRenderedPage : Snapshot -> Html Msg
+viewRenderedPage snapshot =
+    Html.div [ Attr.class "rendered-page" ]
+        [ Html.div [ Attr.class "page-title-bar" ]
+            [ Html.span [ Attr.class "page-title-dots" ]
+                [ Html.span [ Attr.class "dot dot-red" ] []
+                , Html.span [ Attr.class "dot dot-yellow" ] []
+                , Html.span [ Attr.class "dot dot-green" ] []
+                ]
+            , Html.text snapshot.title
+            ]
+        , Html.div [ Attr.class "page-body" ]
+            (snapshot.body
+                |> List.map (Html.map (\_ -> NoOp))
             )
         ]
 
@@ -372,6 +909,10 @@ viewModelInspector snapshot =
                 )
             ]
         ]
+
+
+
+-- CSS
 
 
 css : String
@@ -392,6 +933,8 @@ body {
     flex-direction: column;
     height: 100vh;
 }
+
+/* === HEADER === */
 
 .viewer-header {
     display: flex;
@@ -424,32 +967,7 @@ body {
     flex: 1;
     display: flex;
     justify-content: center;
-}
-
-.test-selector {
-    display: flex;
-    gap: 4px;
-}
-
-.test-tab {
-    padding: 4px 12px;
-    border: 1px solid #0f3460;
-    background: transparent;
-    color: #8899aa;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-}
-
-.test-tab:hover {
-    background: #0f3460;
-    color: #e0e0e0;
-}
-
-.test-tab-active {
-    background: #0f3460;
-    color: #4cc9f0;
-    border-color: #4cc9f0;
+    overflow-x: auto;
 }
 
 .test-name {
@@ -468,29 +986,6 @@ body {
     color: #8899aa;
     font-size: 13px;
     font-variant-numeric: tabular-nums;
-}
-
-.nav-button {
-    width: 28px;
-    height: 28px;
-    border: 1px solid #0f3460;
-    background: transparent;
-    color: #4cc9f0;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.nav-button:hover:not(:disabled) {
-    background: #0f3460;
-}
-
-.nav-button:disabled {
-    opacity: 0.3;
-    cursor: default;
 }
 
 .toggle-button {
@@ -514,19 +1009,258 @@ body {
     border-color: #4cc9f0;
 }
 
-.viewer-content {
+/* === BODY (sidebar + main) === */
+
+.viewer-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+/* === SIDEBAR === */
+
+.sidebar {
+    width: 320px;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    background: #16213e;
+    border-right: 1px solid #0f3460;
+}
+
+.sidebar-header {
+    padding: 10px 12px 8px;
+    border-bottom: 1px solid #0f3460;
+}
+
+.sidebar-title {
+    font-size: 11px;
+    color: #556677;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.sidebar-steps {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.step-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: background 0.08s, border-color 0.08s;
+}
+
+.step-row:hover {
+    background: rgba(76, 201, 240, 0.06);
+}
+
+.step-row-active {
+    background: rgba(76, 201, 240, 0.1);
+    border-left-color: #4cc9f0;
+}
+
+.step-row-hovered {
+    background: rgba(76, 201, 240, 0.15);
+    border-left-color: rgba(76, 201, 240, 0.5);
+}
+
+.step-row-past {
+    opacity: 0.65;
+}
+
+.step-row-error {
+    background: rgba(231, 76, 60, 0.1);
+    border-left-color: #e74c3c;
+}
+
+.step-row-failure-cause {
+    border-left-color: #e74c3c;
+    background: rgba(231, 76, 60, 0.05);
+}
+
+.step-number {
+    font-size: 11px;
+    color: #556677;
+    min-width: 20px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.step-icon {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 12px;
+    font-weight: 700;
+    min-width: 14px;
+    text-align: center;
+}
+
+.step-label {
+    font-size: 12px;
+    color: #c0c8d0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.step-row-active .step-label {
+    color: #e0e8f0;
+    font-weight: 500;
+}
+
+.step-row-error .step-label {
+    color: #e74c3c;
+    font-weight: 600;
+}
+
+/* === TEST LIST === */
+
+.test-list-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: background 0.08s;
+}
+
+.test-list-row:hover {
+    background: rgba(76, 201, 240, 0.06);
+}
+
+.test-list-row-selected {
+    background: rgba(76, 201, 240, 0.1);
+    border-left-color: #4cc9f0;
+}
+
+.test-list-row-error {
+    border-left-color: #e74c3c;
+}
+
+.test-list-indicator {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 12px;
+    font-weight: 700;
+    min-width: 16px;
+    text-align: center;
+}
+
+.test-list-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.test-list-name {
+    font-size: 13px;
+    color: #c0c8d0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.test-list-row-selected .test-list-name {
+    color: #e0e8f0;
+    font-weight: 500;
+}
+
+.test-list-meta {
+    font-size: 11px;
+    color: #556677;
+    margin-top: 2px;
+}
+
+.sidebar-back {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 0;
+    border: none;
+    background: transparent;
+    color: #4cc9f0;
+    font-size: 12px;
+    cursor: pointer;
+    margin-bottom: 4px;
+}
+
+.sidebar-back:hover {
+    color: #7dd8f5;
+}
+
+.header-summary {
+    font-size: 13px;
+    color: #8899aa;
+}
+
+.step-pending-badge {
+    font-size: 9px;
+    color: #f0c040;
+    background: rgba(240, 192, 64, 0.15);
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* === MAIN PANEL === */
+
+.main-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #1a1a2e;
+}
+
+.main-panel-content {
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
+/* === URL BAR === */
+
+.url-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 12px 0;
+    padding: 6px 12px;
+    background: #0d1117;
+    border: 1px solid #0f3460;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.url-bar-icon {
+    color: #556677;
+    font-size: 12px;
+}
+
+.url-bar-text {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 12px;
+    color: #8899aa;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* === RENDERED PAGE === */
+
 .rendered-page {
     flex: 1;
     overflow: auto;
     background: #ffffff;
     color: #1a1a1a;
-    margin: 12px;
+    margin: 8px 12px;
     border-radius: 8px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
@@ -543,101 +1277,27 @@ body {
     gap: 8px;
 }
 
-.page-title-bar::before {
-    content: "";
-    display: inline-flex;
-    gap: 6px;
+.page-title-dots {
+    display: flex;
+    gap: 5px;
+    margin-right: 4px;
 }
+
+.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.dot-red { background: #ff5f57; }
+.dot-yellow { background: #ffbd2e; }
+.dot-green { background: #28c840; }
 
 .page-body {
     padding: 16px;
 }
 
-.timeline {
-    flex-shrink: 0;
-    padding: 8px 12px 12px;
-    background: #16213e;
-    border-top: 1px solid #0f3460;
-}
-
-.timeline-label {
-    font-size: 11px;
-    color: #556677;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
-    padding-left: 4px;
-}
-
-.timeline-track {
-    display: flex;
-    gap: 2px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-}
-
-.timeline-step {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    min-width: 48px;
-    transition: background 0.1s;
-}
-
-.timeline-step:hover {
-    background: rgba(76, 201, 240, 0.1);
-}
-
-.timeline-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #334455;
-    border: 2px solid #556677;
-    transition: all 0.15s;
-}
-
-.timeline-step-active .timeline-dot {
-    background: #4cc9f0;
-    border-color: #4cc9f0;
-    box-shadow: 0 0 6px rgba(76, 201, 240, 0.5);
-}
-
-.timeline-step-past .timeline-dot {
-    background: #2a6e4e;
-    border-color: #3a8e6e;
-}
-
-.timeline-step-error .timeline-dot {
-    background: #e74c3c;
-    border-color: #e74c3c;
-}
-
-.timeline-step-pending .timeline-dot {
-    border-style: dashed;
-}
-
-.timeline-step-label {
-    font-size: 10px;
-    color: #556677;
-    white-space: nowrap;
-    max-width: 80px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.timeline-step-active .timeline-step-label {
-    color: #4cc9f0;
-    font-weight: 600;
-}
-
-.timeline-step-past .timeline-step-label {
-    color: #3a8e6e;
-}
+/* === MODEL INSPECTOR === */
 
 .model-inspector {
     flex-shrink: 0;
@@ -645,6 +1305,8 @@ body {
     overflow: auto;
     background: #0d1117;
     border-top: 1px solid #0f3460;
+    margin: 0 12px 8px;
+    border-radius: 6px;
 }
 
 .inspector-header {
@@ -664,6 +1326,54 @@ body {
     word-break: break-all;
 }
 
+/* === ERROR PANEL === */
+
+.error-panel {
+    flex-shrink: 0;
+    margin: 8px 12px 0;
+    border: 1px solid #e74c3c;
+    border-radius: 8px;
+    background: #1c0d0d;
+    overflow: hidden;
+}
+
+.error-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(231, 76, 60, 0.15);
+    font-size: 13px;
+    font-weight: 600;
+    color: #e74c3c;
+}
+
+.error-panel-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #e74c3c;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.error-panel-body {
+    padding: 12px 14px;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 12px;
+    color: #e0a0a0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow: auto;
+}
+
+/* === EMPTY STATE === */
+
 .viewer-empty {
     flex: 1;
     display: flex;
@@ -673,13 +1383,47 @@ body {
     font-size: 16px;
 }
 
-/* Keyboard shortcut hint */
+/* === KEYBOARD HINT === */
+
 .viewer::after {
-    content: "← → step   ↑ ↓ test   m model";
+    content: "\\2190 \\2192  step   \\2191 \\2193  test   m  model   esc  back";
     position: fixed;
     bottom: 4px;
     right: 12px;
     font-size: 10px;
     color: #334455;
+    pointer-events: none;
+}
+
+/* === SCROLLBAR === */
+
+.sidebar-steps::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar-steps::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-steps::-webkit-scrollbar-thumb {
+    background: #334455;
+    border-radius: 3px;
+}
+
+.sidebar-steps::-webkit-scrollbar-thumb:hover {
+    background: #445566;
+}
+
+.rendered-page::-webkit-scrollbar {
+    width: 8px;
+}
+
+.rendered-page::-webkit-scrollbar-track {
+    background: #f0f0f0;
+}
+
+.rendered-page::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
 }
 """

@@ -298,21 +298,37 @@ export async function start(options) {
     }
   }
 
+  let testViewerDirty = true;
+  let testViewerCompileError = null;
+
   /**
    * Serve the visual test viewer at /__test-viewer.
-   * Compiles test-viewer.js on first request, then serves cached HTML.
+   * Only recompiles when source files have changed (testViewerDirty flag).
    * Live reloads via the same SSE /stream mechanism as the main app.
+   * Preserves viewer state (current test/step) across reloads via sessionStorage.
    */
   async function handleTestViewer(request, response) {
     try {
-      // Always recompile test viewer to pick up changes
-      await compileTestViewer();
+      if (testViewerDirty) {
+        testViewerCompileError = null;
+        try {
+          await compileTestViewer();
+        } catch (error) {
+          testViewerCompileError = String(error);
+        }
+        testViewerDirty = false;
+      }
 
-      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      response.end(testViewerHtml());
+      if (testViewerCompileError) {
+        response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        response.end(testViewerErrorHtml(testViewerCompileError));
+      } else {
+        response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        response.end(testViewerHtml());
+      }
     } catch (error) {
-      response.writeHead(500, { "Content-Type": "text/plain" });
-      response.end("Failed to compile test viewer:\n\n" + String(error));
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      response.end(testViewerErrorHtml(String(error)));
     }
   }
 
@@ -426,9 +442,13 @@ main =
           kleur.yellow("Test viewer compilation failed (non-fatal):")
         );
         console.error(kleur.dim(stderr.slice(0, 500)));
+        testViewerCompileError = stderr || "Compilation failed with no error output";
+      } else {
+        testViewerCompileError = null;
       }
     } catch (e) {
       console.error(kleur.yellow("Test viewer compilation error:"), e.message);
+      testViewerCompileError = e.message;
     }
   }
 
@@ -449,13 +469,118 @@ main =
     // Live reload via SSE (same mechanism as elm-pages dev)
     var eventSource = new EventSource("/stream");
     eventSource.onmessage = function() {
+      // Save viewer state before reload
+      try {
+        var model = document.querySelector('.viewer');
+        if (model) {
+          var stepCounter = document.querySelector('.step-counter');
+          var stepMatch = stepCounter && stepCounter.textContent.match(/Step (\\d+)/);
+          var testTabs = document.querySelectorAll('.test-tab-active, .test-list-row-selected');
+          sessionStorage.setItem('elm-pages-test-viewer', JSON.stringify({
+            timestamp: Date.now()
+          }));
+        }
+      } catch(e) {}
+
       // Reload test-viewer.js by replacing the script tag
-      var oldScript = document.querySelector('script[src="/test-viewer.js"]');
+      var oldScript = document.querySelector('script[src^="/test-viewer.js"]');
       var newScript = document.createElement("script");
       newScript.src = "/test-viewer.js?t=" + Date.now();
       newScript.onload = function() { location.reload(); };
-      oldScript.parentNode.replaceChild(newScript, oldScript);
+      if (oldScript && oldScript.parentNode) {
+        oldScript.parentNode.replaceChild(newScript, oldScript);
+      } else {
+        document.body.appendChild(newScript);
+      }
     };
+  </script>
+</body>
+</html>`;
+  }
+
+  function testViewerErrorHtml(errorMessage) {
+    var escaped = errorMessage
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>elm-pages Test Viewer - Error</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    .error-container {
+      max-width: 800px;
+      width: 100%;
+    }
+    .error-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .error-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #e74c3c;
+      color: #fff;
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .error-title {
+      color: #e74c3c;
+      font-size: 20px;
+      font-weight: 600;
+    }
+    .error-body {
+      background: #0d1117;
+      border: 1px solid #e74c3c;
+      border-radius: 8px;
+      padding: 20px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 13px;
+      color: #e0a0a0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 60vh;
+      overflow: auto;
+    }
+    .hint {
+      margin-top: 16px;
+      color: #556677;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="error-container">
+    <div class="error-header">
+      <div class="error-icon">!</div>
+      <div class="error-title">Test Viewer Compilation Failed</div>
+    </div>
+    <pre class="error-body">${escaped}</pre>
+    <p class="hint">Fix the error and save -- the page will reload automatically.</p>
+  </div>
+  <script>
+    var eventSource = new EventSource("/stream");
+    eventSource.onmessage = function() { location.reload(); };
   </script>
 </body>
 </html>`;
@@ -503,8 +628,8 @@ main =
         Promise.all([clientElmMakeProcess, pendingCliCompile])
           .then(() => {
             elmMakeRunning = false;
-            // Recompile test viewer in background (non-blocking)
-            compileTestViewer().catch(() => {});
+            // Mark test viewer for recompilation (will compile on next request)
+            testViewerDirty = true;
           })
           .catch(() => {
             elmMakeRunning = false;
