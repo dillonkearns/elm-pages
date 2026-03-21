@@ -54,7 +54,9 @@ import Form
 import Form.Handler
 import Form.Validation exposing (Validation)
 import Html
+import Html.Attributes
 import Html.Styled
+import Html.Styled.Attributes
 import Pages.ConcurrentSubmission
 import Pages.Internal.Msg
 import Pages.Navigation
@@ -170,6 +172,13 @@ renderHtml attrs options_ app form_ =
         concurrent : Bool
         concurrent =
             options_.extras |> Maybe.map .concurrent |> Maybe.withDefault False
+
+        allAttrs =
+            if concurrent then
+                Html.Attributes.attribute "data-fetcher" "" :: attrs
+
+            else
+                attrs
     in
     form_
         |> Form.renderHtml
@@ -241,7 +250,7 @@ renderHtml attrs options_ app form_ =
                     )
             , extras = Nothing
             }
-            attrs
+            allAttrs
 
 
 {-| A replacement for `Form.renderStyledHtml` from `dillonkearns/elm-form` that integrates with `elm-pages`. Use this to render your [`Form`](https://package.elm-lang.org/packages/dillonkearns/elm-form/latest/Form)
@@ -266,6 +275,14 @@ renderStyledHtml attrs options_ app form_ =
         concurrent : Bool
         concurrent =
             options_.extras |> Maybe.map .concurrent |> Maybe.withDefault False
+    in
+    let
+        allAttrs =
+            if concurrent then
+                Html.Styled.Attributes.attribute "data-fetcher" "" :: attrs
+
+            else
+                attrs
     in
     form_
         |> Form.renderStyledHtml
@@ -337,4 +354,4 @@ renderStyledHtml attrs options_ app form_ =
                     )
             , extras = Nothing
             }
-            attrs
+            allAttrs

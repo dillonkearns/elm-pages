@@ -69,6 +69,7 @@ import FatalError exposing (FatalError)
 import Form
 import Html exposing (Html)
 import Html.Attributes
+import Http
 import Internal.Request
 import Pages.Internal.FatalError
 import Json.Encode as Encode
@@ -152,7 +153,7 @@ type alias ReadyState model msg =
     , pendingEffects : List (BackendTask FatalError msg)
     , onNavigate : Maybe (String -> msg)
     , getBrowserUrl : Maybe (model -> String)
-    , onFormSubmit : Maybe ({ formId : String, fields : List ( String, String ) } -> msg)
+    , onFormSubmit : Maybe ({ formId : String, fields : List ( String, String ), useFetcher : Bool } -> msg)
     , getFormFields : Maybe (model -> List ( String, String ))
     }
 
@@ -326,10 +327,10 @@ startPlatform config initialPath testSetup =
                         Just (\m -> Url.toString m.platformModel.url)
                     , onFormSubmit =
                         Just
-                            (\{ formId, fields } ->
+                            (\{ formId, fields, useFetcher } ->
                                 Platform.UserMsg
                                     (Pages.Internal.Msg.Submit
-                                        { useFetcher = False
+                                        { useFetcher = useFetcher
                                         , action = ""
                                         , method = Form.Post
                                         , fields = fields
@@ -488,17 +489,14 @@ clickButton buttonText (ProgramTest state) =
                             applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") msg (ProgramTest state)
 
                         Err _ ->
-                            -- Button has no click handler. Try submitting the
-                            -- enclosing <form> via onFormSubmit handler, which
-                            -- constructs PagesMsg.Submit with current field values.
+                            -- Button has no click handler. This is an elm-pages
+                            -- form with a submit button. Use onFormSubmit to
+                            -- construct PagesMsg.Submit with current field values
+                            -- and the correct useFetcher flag (detected from
+                            -- data-fetcher attribute on the form element).
                             case ready.onFormSubmit of
                                 Just handler ->
                                     let
-                                        -- Extract form ID from the form element
-                                        -- Default to empty string if not found
-                                        formId =
-                                            ""
-
                                         currentFields =
                                             case ready.getFormFields of
                                                 Just getFields ->
@@ -506,10 +504,23 @@ clickButton buttonText (ProgramTest state) =
 
                                                 Nothing ->
                                                     []
+
+                                        -- Detect concurrent forms by data-fetcher attribute
+                                        isFetcher =
+                                            query
+                                                |> Query.has
+                                                    [ Selector.tag "form"
+                                                    , Selector.attribute (Html.Attributes.attribute "data-fetcher" "")
+                                                    , Selector.containing
+                                                        [ Selector.tag "button"
+                                                        , Selector.containing [ Selector.text buttonText ]
+                                                        ]
+                                                    ]
+                                                |> (\expectation -> getFailureMessage expectation == Nothing)
                                     in
                                     applyMsgWithLabel
                                         ("clickButton \"" ++ buttonText ++ "\"")
-                                        (handler { formId = formId, fields = currentFields })
+                                        (handler { formId = "", fields = currentFields, useFetcher = isFetcher })
                                         (ProgramTest state)
 
                                 Nothing ->
@@ -903,7 +914,7 @@ submitForm formInfo (ProgramTest state) =
                         Just handler ->
                             applyMsgWithLabel
                                 ("submitForm \"" ++ formInfo.formId ++ "\"")
-                                (handler formInfo)
+                                (handler { formId = formInfo.formId, fields = formInfo.fields, useFetcher = False })
                                 (ProgramTest state)
 
                         Nothing ->
@@ -1839,8 +1850,64 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                 else
                     ( wrappedModel, [] )
 
-            Platform.SubmitFetcher _ _ _ ->
-                ( wrappedModel, [] )
+            Platform.SubmitFetcher fetcherKey transitionId formData ->
+                let
+                    -- Step 1: Dispatch FetcherStarted
+                    ( modelAfterStarted, _ ) =
+                        Platform.update config
+                            (Platform.FetcherStarted fetcherKey transitionId formData (Time.millisToPosix 0))
+                            wrappedModel.platformModel
+
+                    -- Step 2: Resolve the action
+                    route =
+                        config.urlToRoute (makeTestUrl baseUrl (formData.action |> nonEmpty wrappedModel.platformModel.url.path))
+
+                    actionRequest =
+                        Internal.Request.Request
+                            { time = Time.millisToPosix 0
+                            , method = "POST"
+                            , body = Just (encodeFormFields formData.fields)
+                            , rawUrl = baseUrl ++ (formData.action |> nonEmpty wrappedModel.platformModel.url.path)
+                            , rawHeaders =
+                                Dict.singleton "content-type"
+                                    "application/x-www-form-urlencoded"
+                            , cookies = Dict.empty
+                            }
+
+                    ( vfsAfterAction, actionResult ) =
+                        BackendTaskTest.resolveWithVirtualFs
+                            wrappedModel.virtualFs
+                            (config.action actionRequest route)
+
+                    -- Step 3: Dispatch FetcherComplete
+                    fetcherResult =
+                        case actionResult of
+                            Ok (RenderPage _ actionData) ->
+                                Ok ( Nothing, Platform.ActionResponse (Just actionData) )
+
+                            Ok (ServerResponse serverResponse) ->
+                                case PageServerResponse.toRedirect serverResponse of
+                                    Just { location } ->
+                                        Ok ( Nothing, Platform.RedirectResponse location )
+
+                                    Nothing ->
+                                        Ok ( Nothing, Platform.ActionResponse Nothing )
+
+                            Ok (PageServerResponse.ErrorPage _ _) ->
+                                Ok ( Nothing, Platform.ActionResponse Nothing )
+
+                            Err _ ->
+                                Err Http.NetworkError
+
+                    ( modelAfterComplete, completeEffect ) =
+                        Platform.update config
+                            (Platform.FetcherComplete False fetcherKey transitionId fetcherResult)
+                            modelAfterStarted
+                in
+                processEffectsWrapped config baseUrl
+                    { platformModel = modelAfterComplete, virtualFs = vfsAfterAction }
+                    completeEffect
+                    (maxDepth - 1)
 
             Platform.Batch effects ->
                 List.foldl
@@ -1932,6 +1999,15 @@ extractPageData config result =
 
         _ ->
             Nothing
+
+
+nonEmpty : String -> String -> String
+nonEmpty default value =
+    if String.isEmpty value then
+        default
+
+    else
+        value
 
 
 fatalErrorToString : FatalError -> String

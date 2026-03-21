@@ -1,6 +1,7 @@
 module Pages.Internal.Platform exposing
     ( Flags, Model, Msg(..), Program, ProgramConfig, application, init, update
     , Effect(..), RequestInfo, view
+    , ActionDataOrRedirect(..)
     )
 
 {-| Exposed for internal use only (used in generated code).

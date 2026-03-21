@@ -74,6 +74,14 @@ suite =
                 TestApp.start "/error-handling" BackendTaskTest.init
                     |> PagesProgram.ensureViewHas [ text "Something's Not Right Here" ]
                     |> PagesProgram.done
+        , test "concurrent form submission with fetcher" <|
+            \() ->
+                TestApp.start "/quick-note" BackendTaskTest.init
+                    |> PagesProgram.ensureViewHas [ text "Quick Note" ]
+                    |> PagesProgram.fillIn "note-form" "note" "My test note"
+                    |> PagesProgram.clickButton "Save Note"
+                    |> PagesProgram.ensureViewHas [ text "Saved: My test note" ]
+                    |> PagesProgram.done
         , test "login form redirects to counter" <|
             \() ->
                 TestApp.start "/simple-login" BackendTaskTest.init

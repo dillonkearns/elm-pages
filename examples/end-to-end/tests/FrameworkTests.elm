@@ -5,6 +5,7 @@ module FrameworkTests exposing
     , feedbackFormTest
     , loginRedirectTest
     , errorPageTest
+    , concurrentSubmissionTest
     )
 
 {-| Framework-driven route tests using the real elm-pages Platform.
@@ -108,3 +109,16 @@ errorPageTest : TestApp.ProgramTest
 errorPageTest =
     TestApp.start "/error-handling" BackendTaskTest.init
         |> PagesProgram.ensureViewHas [ text "Something's Not Right Here" ]
+
+
+{-| Concurrent form submission with SubmitFetcher.
+The form uses withConcurrent, so submission status is tracked
+in concurrentSubmissions and the page doesn't block navigation.
+-}
+concurrentSubmissionTest : TestApp.ProgramTest
+concurrentSubmissionTest =
+    TestApp.start "/quick-note" BackendTaskTest.init
+        |> PagesProgram.ensureViewHas [ text "Quick Note" ]
+        |> PagesProgram.fillIn "note-form" "note" "My test note"
+        |> PagesProgram.clickButton "Save Note"
+        |> PagesProgram.ensureViewHas [ text "Saved: My test note" ]
