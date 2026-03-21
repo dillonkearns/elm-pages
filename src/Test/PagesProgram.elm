@@ -8,7 +8,7 @@ module Test.PagesProgram exposing
     , ensureViewHas, ensureViewHasNot, ensureView
     , simulateHttpGet, simulateHttpPost
     , done
-    , Snapshot, StepKind(..), toSnapshots, withModelToString
+    , Snapshot, StepKind(..), NetworkEntry, NetworkStatus(..), toSnapshots, withModelToString
     )
 
 {-| Test elm-pages programs with realistic simulation.
@@ -54,7 +54,7 @@ use [`start`](#start) with inline config.
 Snapshots record the rendered view at each step of the test pipeline. Use them
 with the visual test runner to step through your test in the browser.
 
-@docs Snapshot, StepKind, toSnapshots, withModelToString
+@docs Snapshot, StepKind, NetworkEntry, NetworkStatus, toSnapshots, withModelToString
 
 -}
 
@@ -101,6 +101,7 @@ type alias State model msg =
     , error : Maybe String
     , snapshots : List Snapshot
     , modelToString : Maybe (model -> String)
+    , networkLog : List NetworkEntry
     }
 
 
@@ -113,6 +114,23 @@ type StepKind
     | Assertion
     | EffectResolution
     | Error
+
+
+{-| An HTTP request entry in the network log.
+-}
+type alias NetworkEntry =
+    { method : String
+    , url : String
+    , status : NetworkStatus
+    , stepIndex : Int
+    }
+
+
+{-| Whether an HTTP request was stubbed (resolved via simulate*) or is pending.
+-}
+type NetworkStatus
+    = Stubbed
+    | Pending
 
 
 {-| A snapshot of the program state at a point in the test pipeline. Used by
@@ -136,6 +154,7 @@ type alias Snapshot =
     , browserUrl : Maybe String
     , errorMessage : Maybe String
     , pendingEffects : List String
+    , networkLog : List NetworkEntry
     }
 
 
@@ -231,6 +250,7 @@ start config =
                       , browserUrl = ready.getBrowserUrl |> Maybe.map (\getUrl -> getUrl ready.model)
                       , errorMessage = Nothing
                       , pendingEffects = describeEffects ready.pendingEffects
+                      , networkLog = []
                       }
                     ]
 
@@ -245,6 +265,7 @@ start config =
                       , browserUrl = Nothing
                       , errorMessage = Nothing
                       , pendingEffects = []
+                      , networkLog = []
                       }
                     ]
     in
@@ -253,6 +274,7 @@ start config =
         , error = Nothing
         , snapshots = initSnapshot
         , modelToString = Nothing
+        , networkLog = []
         }
 
 
@@ -299,6 +321,7 @@ startPlatform config initialPath testSetup =
                 , error = Just errMsg
                 , snapshots = []
                 , modelToString = Nothing
+                , networkLog = []
                 }
 
         Ok ( vfsAfterInit, pageDataBytes ) ->
@@ -394,6 +417,7 @@ startPlatform config initialPath testSetup =
                     , browserUrl = Just (Url.toString finalWrapped.platformModel.url)
                     , errorMessage = Nothing
                     , pendingEffects = []
+                    , networkLog = []
                     }
             in
             ProgramTest
@@ -401,6 +425,7 @@ startPlatform config initialPath testSetup =
                 , error = Nothing
                 , snapshots = [ initSnapshot ]
                 , modelToString = Nothing
+                , networkLog = []
                 }
 
 
@@ -1105,13 +1130,26 @@ resolveEffect simulate (ProgramTest state) =
 
                                         viewResult =
                                             newReady.getView newReady.model
+
+                                        -- Mark all pending entries as stubbed
+                                        updatedLog =
+                                            state.networkLog
+                                                |> List.map
+                                                    (\entry ->
+                                                        if entry.status == Pending then
+                                                            { entry | status = Stubbed, stepIndex = List.length state.snapshots }
+
+                                                        else
+                                                            entry
+                                                    )
                                     in
                                     ProgramTest
                                         { state
                                             | phase = Ready newReady
                                             , snapshots =
                                                 state.snapshots
-                                                    ++ [ makeSnapshot "resolveEffect" EffectResolution newReady state.modelToString ]
+                                                    ++ [ makeSnapshot "resolveEffect" EffectResolution newReady state.modelToString updatedLog ]
+                                            , networkLog = updatedLog
                                         }
 
                                 Err errMsg ->
@@ -1326,6 +1364,7 @@ toSnapshots (ProgramTest state) =
                      , browserUrl = Nothing
                      , errorMessage = Just errorMsg
                      , pendingEffects = []
+                     , networkLog = state.networkLog
                      }
                    ]
 
@@ -1386,24 +1425,40 @@ applySimulation sim (ProgramTest state) =
                                 newState =
                                     { state | phase = newPhase }
 
-                                simLabel =
+                                ( simLabel, simMethod, simUrl ) =
                                     case sim of
                                         SimHttpGet url _ ->
-                                            "simulateHttpGet " ++ url
+                                            ( "simulateHttpGet " ++ url, "GET", url )
 
                                         SimHttpPost url _ ->
-                                            "simulateHttpPost " ++ url
+                                            ( "simulateHttpPost " ++ url, "POST", url )
+
+                                stepIdx =
+                                    List.length state.snapshots
+
+                                networkEntry =
+                                    { method = simMethod
+                                    , url = simUrl
+                                    , status = Stubbed
+                                    , stepIndex = stepIdx
+                                    }
+
+                                updatedLog =
+                                    state.networkLog ++ [ networkEntry ]
 
                                 snapshot =
                                     case newPhase of
                                         Ready ready ->
-                                            [ makeSnapshot simLabel EffectResolution ready state.modelToString ]
+                                            [ makeSnapshot simLabel EffectResolution ready state.modelToString updatedLog ]
 
                                         Resolving _ ->
                                             []
                             in
                             ProgramTest
-                                { newState | snapshots = state.snapshots ++ snapshot }
+                                { newState
+                                    | snapshots = state.snapshots ++ snapshot
+                                    , networkLog = updatedLog
+                                }
 
                         AdvanceError errMsg ->
                             ProgramTest { state | error = Just errMsg }
@@ -1427,7 +1482,7 @@ recordAssertionSnapshot label (ProgramTest state) =
                 { state
                     | snapshots =
                         state.snapshots
-                            ++ [ makeSnapshot label Assertion ready state.modelToString ]
+                            ++ [ makeSnapshot label Assertion ready state.modelToString state.networkLog ]
                 }
 
         _ ->
@@ -1465,18 +1520,32 @@ applyMsgWithLabel label kind msg (ProgramTest state) =
                                 | model = newModel
                                 , pendingEffects = newEffects
                             }
+
+                        stepIdx =
+                            List.length state.snapshots
+
+                        newPendingEntries =
+                            describeEffects newEffects
+                                |> List.filterMap
+                                    (\desc ->
+                                        parseEffectToNetworkEntry stepIdx desc
+                                    )
+
+                        updatedLog =
+                            state.networkLog ++ newPendingEntries
                     in
                     ProgramTest
                         { state
                             | phase = Ready newReady
                             , snapshots =
                                 state.snapshots
-                                    ++ [ makeSnapshot label kind newReady state.modelToString ]
+                                    ++ [ makeSnapshot label kind newReady state.modelToString updatedLog ]
+                            , networkLog = updatedLog
                         }
 
 
-makeSnapshot : String -> StepKind -> ReadyState model msg -> Maybe (model -> String) -> Snapshot
-makeSnapshot label kind ready modelToString =
+makeSnapshot : String -> StepKind -> ReadyState model msg -> Maybe (model -> String) -> List NetworkEntry -> Snapshot
+makeSnapshot label kind ready modelToString currentNetworkLog =
     let
         viewResult =
             ready.getView ready.model
@@ -1491,6 +1560,7 @@ makeSnapshot label kind ready modelToString =
     , browserUrl = ready.getBrowserUrl |> Maybe.map (\getUrl -> getUrl ready.model)
     , errorMessage = Nothing
     , pendingEffects = describeEffects ready.pendingEffects
+    , networkLog = currentNetworkLog
     }
 
 
@@ -1523,6 +1593,27 @@ describeEffects effects =
 describeHttpRequest : StaticHttpRequest.Request -> String
 describeHttpRequest req =
     req.method ++ " " ++ req.url
+
+
+{-| Parse an effect description string into a NetworkEntry if it's an HTTP request.
+-}
+parseEffectToNetworkEntry : Int -> String -> Maybe NetworkEntry
+parseEffectToNetworkEntry stepIndex desc =
+    case String.split " " desc of
+        method :: rest ->
+            if List.member method [ "GET", "POST", "PUT", "DELETE", "PATCH" ] then
+                Just
+                    { method = method
+                    , url = String.join " " rest
+                    , status = Pending
+                    , stepIndex = stepIndex
+                    }
+
+            else
+                Nothing
+
+        _ ->
+            Nothing
 
 
 mapViewToSnapshot : { title : String, body : List (Html msg) } -> { title : String, body : List (Html Never) }

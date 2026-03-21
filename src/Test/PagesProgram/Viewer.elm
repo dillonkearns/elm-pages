@@ -34,7 +34,7 @@ import Html.Attributes as Attr
 import Html.Events
 import Json.Decode as Decode
 import Task
-import Test.PagesProgram exposing (Snapshot, StepKind(..))
+import Test.PagesProgram exposing (NetworkEntry, NetworkStatus(..), Snapshot, StepKind(..))
 import Url exposing (Url)
 
 
@@ -751,87 +751,6 @@ testHasError test =
         |> List.any (\s -> s.stepKind == Error)
 
 
-type alias NetworkEntry =
-    { method : String
-    , url : String
-    , status : NetworkStatus
-    , stepIndex : Int
-    }
-
-
-type NetworkStatus
-    = Stubbed
-    | Pending
-
-
-{-| Derive the network log from snapshots up to the given step.
-Scans labels for simulateHttp* to find resolved requests, and
-pendingEffects on the current step for pending ones.
--}
-buildNetworkLog : Int -> List Snapshot -> List NetworkEntry
-buildNetworkLog currentStep snapshots =
-    let
-        resolved =
-            snapshots
-                |> List.take (currentStep + 1)
-                |> List.indexedMap
-                    (\i snapshot ->
-                        parseHttpFromLabel i snapshot.label
-                    )
-                |> List.filterMap identity
-
-        pending =
-            snapshots
-                |> List.drop currentStep
-                |> List.head
-                |> Maybe.map .pendingEffects
-                |> Maybe.withDefault []
-                |> List.filterMap (parsePendingEffect currentStep)
-    in
-    resolved ++ pending
-
-
-parseHttpFromLabel : Int -> String -> Maybe NetworkEntry
-parseHttpFromLabel stepIndex label =
-    if String.startsWith "simulateHttpGet " label then
-        Just
-            { method = "GET"
-            , url = String.dropLeft (String.length "simulateHttpGet ") label
-            , status = Stubbed
-            , stepIndex = stepIndex
-            }
-
-    else if String.startsWith "simulateHttpPost " label then
-        Just
-            { method = "POST"
-            , url = String.dropLeft (String.length "simulateHttpPost ") label
-            , status = Stubbed
-            , stepIndex = stepIndex
-            }
-
-    else
-        Nothing
-
-
-parsePendingEffect : Int -> String -> Maybe NetworkEntry
-parsePendingEffect stepIndex desc =
-    case String.split " " desc of
-        method :: rest ->
-            if List.member method [ "GET", "POST", "PUT", "DELETE", "PATCH" ] then
-                Just
-                    { method = method
-                    , url = String.join " " rest
-                    , status = Pending
-                    , stepIndex = stepIndex
-                    }
-
-            else
-                Nothing
-
-        _ ->
-            Nothing
-
-
 stepKindColor : StepKind -> String
 stepKindColor kind =
     case kind of
@@ -884,6 +803,15 @@ view model =
             , Html.div [ Attr.class "viewer-body" ]
                 [ viewSidebar model
                 , viewMainPanel model
+                , if model.showNetwork then
+                    viewNetworkSidebar
+                        (displayedSnapshot model
+                            |> Maybe.map .networkLog
+                            |> Maybe.withDefault []
+                        )
+
+                  else
+                    Html.text ""
                 ]
             ]
         ]
@@ -1222,12 +1150,6 @@ viewMainPanel model =
 
                                 Nothing ->
                                     Html.text ""
-                            , if model.showNetwork then
-                                viewNetworkPanel
-                                    (buildNetworkLog (displayedStepIndex model) (currentSnapshots model))
-
-                              else
-                                Html.text ""
                             , if model.showEffects then
                                 viewEffectInspector
                                     (previousSnapshot
@@ -1250,12 +1172,6 @@ viewMainPanel model =
                         Html.div [ Attr.class "main-panel-content" ]
                             [ viewUrlBar snapshot
                             , viewRenderedPageWithWidth model.viewportWidth snapshot
-                            , if model.showNetwork then
-                                viewNetworkPanel
-                                    (buildNetworkLog (displayedStepIndex model) (currentSnapshots model))
-
-                              else
-                                Html.text ""
                             , if model.showEffects then
                                 viewEffectInspector snapshot
 
@@ -1409,11 +1325,11 @@ viewEffectInspector snapshot =
 
 
 
-viewNetworkPanel : List NetworkEntry -> Html Msg
-viewNetworkPanel entries =
-    Html.div [ Attr.class "network-panel" ]
-        [ Html.div [ Attr.class "network-header" ]
-            [ Html.span [ Attr.class "inspector-header" ]
+viewNetworkSidebar : List NetworkEntry -> Html Msg
+viewNetworkSidebar entries =
+    Html.div [ Attr.class "network-sidebar" ]
+        [ Html.div [ Attr.class "network-sidebar-header" ]
+            [ Html.span [ Attr.class "sidebar-title" ]
                 [ Html.text ("Network (" ++ String.fromInt (List.length entries) ++ ")") ]
             ]
         , if List.isEmpty entries then
@@ -1421,43 +1337,35 @@ viewNetworkPanel entries =
                 [ Html.text "No HTTP requests recorded." ]
 
           else
-            Html.div [ Attr.class "network-table" ]
-                [ Html.div [ Attr.class "network-table-header" ]
-                    [ Html.span [ Attr.class "net-col-status" ] [ Html.text "Status" ]
-                    , Html.span [ Attr.class "net-col-method" ] [ Html.text "Method" ]
-                    , Html.span [ Attr.class "net-col-url" ] [ Html.text "URL" ]
-                    , Html.span [ Attr.class "net-col-step" ] [ Html.text "Step" ]
-                    ]
-                , Html.div [ Attr.class "network-table-body" ]
-                    (entries
-                        |> List.map
-                            (\entry ->
-                                Html.div
-                                    [ Attr.classList
-                                        [ ( "network-row", True )
-                                        , ( "network-row-pending", entry.status == Pending )
-                                        ]
+            Html.div [ Attr.class "network-list" ]
+                (entries
+                    |> List.map
+                        (\entry ->
+                            Html.div
+                                [ Attr.classList
+                                    [ ( "network-row", True )
+                                    , ( "network-row-pending", entry.status == Pending )
                                     ]
-                                    [ Html.span [ Attr.class "net-col-status" ]
-                                        [ case entry.status of
-                                            Stubbed ->
-                                                Html.span [ Attr.class "net-badge net-badge-stubbed" ]
-                                                    [ Html.text "stubbed" ]
+                                ]
+                                [ Html.div [ Attr.class "network-row-top" ]
+                                    [ case entry.status of
+                                        Stubbed ->
+                                            Html.span [ Attr.class "net-badge net-badge-stubbed" ]
+                                                [ Html.text "stubbed" ]
 
-                                            Pending ->
-                                                Html.span [ Attr.class "net-badge net-badge-pending" ]
-                                                    [ Html.text "pending" ]
-                                        ]
-                                    , Html.span [ Attr.class "net-col-method" ]
+                                        Pending ->
+                                            Html.span [ Attr.class "net-badge net-badge-pending" ]
+                                                [ Html.text "pending" ]
+                                    , Html.span [ Attr.class "net-method" ]
                                         [ Html.text entry.method ]
-                                    , Html.span [ Attr.class "net-col-url", Attr.title entry.url ]
-                                        [ Html.text entry.url ]
-                                    , Html.span [ Attr.class "net-col-step" ]
-                                        [ Html.text (String.fromInt (entry.stepIndex + 1)) ]
+                                    , Html.span [ Attr.class "net-step" ]
+                                        [ Html.text ("step " ++ String.fromInt (entry.stepIndex + 1)) ]
                                     ]
-                            )
-                    )
-                ]
+                                , Html.div [ Attr.class "net-url", Attr.title entry.url ]
+                                    [ Html.text entry.url ]
+                                ]
+                        )
+                )
         ]
 
 
@@ -1911,54 +1819,38 @@ body {
     padding: 16px;
 }
 
-/* === NETWORK PANEL === */
+/* === NETWORK SIDEBAR === */
 
-.network-panel {
-    flex-shrink: 0;
-    max-height: 220px;
-    overflow: auto;
-    background: #0d1117;
-    border-top: 1px solid #0f3460;
-    margin: 0 12px;
-    border-radius: 6px 6px 0 0;
+.network-sidebar {
+    width: 300px;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    background: #16213e;
+    border-left: 1px solid #0f3460;
+    overflow: hidden;
 }
 
-.network-header {
-    position: sticky;
-    top: 0;
-    background: #0d1117;
-    z-index: 1;
+.network-sidebar-header {
+    padding: 10px 12px 8px;
+    border-bottom: 1px solid #0f3460;
 }
 
 .network-empty {
-    padding: 8px 12px 12px;
+    padding: 12px;
     color: #556677;
     font-size: 12px;
     font-style: italic;
 }
 
-.network-table {
-    font-family: "SF Mono", "Fira Code", monospace;
-    font-size: 12px;
-}
-
-.network-table-header {
-    display: flex;
-    padding: 4px 12px;
-    color: #556677;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid #1a2333;
-    position: sticky;
-    top: 28px;
-    background: #0d1117;
-    z-index: 1;
+.network-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
 }
 
 .network-row {
-    display: flex;
-    padding: 4px 12px;
+    padding: 6px 12px;
     border-bottom: 1px solid rgba(15, 52, 96, 0.3);
     transition: background 0.08s;
 }
@@ -1971,10 +1863,34 @@ body {
     opacity: 0.7;
 }
 
-.net-col-status { width: 70px; flex-shrink: 0; }
-.net-col-method { width: 50px; flex-shrink: 0; color: #4cc9f0; font-weight: 600; }
-.net-col-url { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c0c8d0; }
-.net-col-step { width: 40px; flex-shrink: 0; text-align: right; color: #556677; }
+.network-row-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.net-method {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 12px;
+    color: #4cc9f0;
+    font-weight: 600;
+}
+
+.net-url {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 11px;
+    color: #8899aa;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.net-step {
+    font-size: 10px;
+    color: #556677;
+    margin-left: auto;
+}
 
 .net-badge {
     font-size: 9px;
@@ -1983,6 +1899,7 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.3px;
     font-weight: 600;
+    flex-shrink: 0;
 }
 
 .net-badge-stubbed {
