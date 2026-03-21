@@ -47,9 +47,12 @@ function getElmModuleName(inputPath, { extraSourceDirs = [] } = {}) {
 
   if (!sourceDirectories) {
     throw new Error(
-      `The elm.json at ${elmJsonPath} does not have source-directories (is it a package elm.json?)`
+      `The elm.json at ${elmJsonPath} does not have source-directories (is it a package elm.json?).\n` +
+      `Run elm-pages test from a project with an application elm.json, e.g.:\n` +
+      `  cd examples/end-to-end && npx elm-pages test script/src/TuiTestStepper.elm`
     );
   }
+
 
   const allSourceDirs = [...sourceDirectories, ...extraSourceDirs];
   const matchingSourceDir = allSourceDirs
