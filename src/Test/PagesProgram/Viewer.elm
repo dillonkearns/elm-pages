@@ -63,6 +63,7 @@ type alias Model =
     , searchQuery : String
     , viewportWidth : Maybe Int
     , showEffects : Bool
+    , showNetwork : Bool
     }
 
 
@@ -89,6 +90,7 @@ type Msg
     | UpdateSearch String
     | SetViewport (Maybe Int)
     | ToggleEffects
+    | ToggleNetwork
     | UrlChanged Url
     | LinkClicked Browser.UrlRequest
     | NoOp
@@ -170,6 +172,7 @@ app tests =
                   , searchQuery = ""
                   , viewportWidth = Nothing
                   , showEffects = False
+                  , showNetwork = False
                   }
                 , Cmd.none
                 )
@@ -587,6 +590,9 @@ update msg model =
         ToggleEffects ->
             ( { model | showEffects = not model.showEffects }, Cmd.none )
 
+        ToggleNetwork ->
+            ( { model | showNetwork = not model.showNetwork }, Cmd.none )
+
         KeyDown key ->
             case key of
                 "ArrowRight" ->
@@ -621,6 +627,9 @@ update msg model =
 
                 "e" ->
                     update ToggleEffects model
+
+                "n" ->
+                    update ToggleNetwork model
 
                 _ ->
                     ( model, Cmd.none )
@@ -742,6 +751,87 @@ testHasError test =
         |> List.any (\s -> s.stepKind == Error)
 
 
+type alias NetworkEntry =
+    { method : String
+    , url : String
+    , status : NetworkStatus
+    , stepIndex : Int
+    }
+
+
+type NetworkStatus
+    = Stubbed
+    | Pending
+
+
+{-| Derive the network log from snapshots up to the given step.
+Scans labels for simulateHttp* to find resolved requests, and
+pendingEffects on the current step for pending ones.
+-}
+buildNetworkLog : Int -> List Snapshot -> List NetworkEntry
+buildNetworkLog currentStep snapshots =
+    let
+        resolved =
+            snapshots
+                |> List.take (currentStep + 1)
+                |> List.indexedMap
+                    (\i snapshot ->
+                        parseHttpFromLabel i snapshot.label
+                    )
+                |> List.filterMap identity
+
+        pending =
+            snapshots
+                |> List.drop currentStep
+                |> List.head
+                |> Maybe.map .pendingEffects
+                |> Maybe.withDefault []
+                |> List.filterMap (parsePendingEffect currentStep)
+    in
+    resolved ++ pending
+
+
+parseHttpFromLabel : Int -> String -> Maybe NetworkEntry
+parseHttpFromLabel stepIndex label =
+    if String.startsWith "simulateHttpGet " label then
+        Just
+            { method = "GET"
+            , url = String.dropLeft (String.length "simulateHttpGet ") label
+            , status = Stubbed
+            , stepIndex = stepIndex
+            }
+
+    else if String.startsWith "simulateHttpPost " label then
+        Just
+            { method = "POST"
+            , url = String.dropLeft (String.length "simulateHttpPost ") label
+            , status = Stubbed
+            , stepIndex = stepIndex
+            }
+
+    else
+        Nothing
+
+
+parsePendingEffect : Int -> String -> Maybe NetworkEntry
+parsePendingEffect stepIndex desc =
+    case String.split " " desc of
+        method :: rest ->
+            if List.member method [ "GET", "POST", "PUT", "DELETE", "PATCH" ] then
+                Just
+                    { method = method
+                    , url = String.join " " rest
+                    , status = Pending
+                    , stepIndex = stepIndex
+                    }
+
+            else
+                Nothing
+
+        _ ->
+            Nothing
+
+
 stepKindColor : StepKind -> String
 stepKindColor kind =
     case kind of
@@ -850,6 +940,14 @@ viewHeader model =
                 TestList ->
                     Html.text ""
             , viewViewportPicker model.viewportWidth
+            , Html.button
+                [ Attr.classList
+                    [ ( "toggle-button", True )
+                    , ( "toggle-active", model.showNetwork )
+                    ]
+                , Html.Events.onClick ToggleNetwork
+                ]
+                [ Html.text "Network" ]
             , Html.button
                 [ Attr.classList
                     [ ( "toggle-button", True )
@@ -1124,6 +1222,12 @@ viewMainPanel model =
 
                                 Nothing ->
                                     Html.text ""
+                            , if model.showNetwork then
+                                viewNetworkPanel
+                                    (buildNetworkLog (displayedStepIndex model) (currentSnapshots model))
+
+                              else
+                                Html.text ""
                             , if model.showEffects then
                                 viewEffectInspector
                                     (previousSnapshot
@@ -1146,6 +1250,12 @@ viewMainPanel model =
                         Html.div [ Attr.class "main-panel-content" ]
                             [ viewUrlBar snapshot
                             , viewRenderedPageWithWidth model.viewportWidth snapshot
+                            , if model.showNetwork then
+                                viewNetworkPanel
+                                    (buildNetworkLog (displayedStepIndex model) (currentSnapshots model))
+
+                              else
+                                Html.text ""
                             , if model.showEffects then
                                 viewEffectInspector snapshot
 
@@ -1295,6 +1405,59 @@ viewEffectInspector snapshot =
                                 ]
                         )
                 )
+        ]
+
+
+
+viewNetworkPanel : List NetworkEntry -> Html Msg
+viewNetworkPanel entries =
+    Html.div [ Attr.class "network-panel" ]
+        [ Html.div [ Attr.class "network-header" ]
+            [ Html.span [ Attr.class "inspector-header" ]
+                [ Html.text ("Network (" ++ String.fromInt (List.length entries) ++ ")") ]
+            ]
+        , if List.isEmpty entries then
+            Html.div [ Attr.class "network-empty" ]
+                [ Html.text "No HTTP requests recorded." ]
+
+          else
+            Html.div [ Attr.class "network-table" ]
+                [ Html.div [ Attr.class "network-table-header" ]
+                    [ Html.span [ Attr.class "net-col-status" ] [ Html.text "Status" ]
+                    , Html.span [ Attr.class "net-col-method" ] [ Html.text "Method" ]
+                    , Html.span [ Attr.class "net-col-url" ] [ Html.text "URL" ]
+                    , Html.span [ Attr.class "net-col-step" ] [ Html.text "Step" ]
+                    ]
+                , Html.div [ Attr.class "network-table-body" ]
+                    (entries
+                        |> List.map
+                            (\entry ->
+                                Html.div
+                                    [ Attr.classList
+                                        [ ( "network-row", True )
+                                        , ( "network-row-pending", entry.status == Pending )
+                                        ]
+                                    ]
+                                    [ Html.span [ Attr.class "net-col-status" ]
+                                        [ case entry.status of
+                                            Stubbed ->
+                                                Html.span [ Attr.class "net-badge net-badge-stubbed" ]
+                                                    [ Html.text "stubbed" ]
+
+                                            Pending ->
+                                                Html.span [ Attr.class "net-badge net-badge-pending" ]
+                                                    [ Html.text "pending" ]
+                                        ]
+                                    , Html.span [ Attr.class "net-col-method" ]
+                                        [ Html.text entry.method ]
+                                    , Html.span [ Attr.class "net-col-url", Attr.title entry.url ]
+                                        [ Html.text entry.url ]
+                                    , Html.span [ Attr.class "net-col-step" ]
+                                        [ Html.text (String.fromInt (entry.stepIndex + 1)) ]
+                                    ]
+                            )
+                    )
+                ]
         ]
 
 
@@ -1748,6 +1911,90 @@ body {
     padding: 16px;
 }
 
+/* === NETWORK PANEL === */
+
+.network-panel {
+    flex-shrink: 0;
+    max-height: 220px;
+    overflow: auto;
+    background: #0d1117;
+    border-top: 1px solid #0f3460;
+    margin: 0 12px;
+    border-radius: 6px 6px 0 0;
+}
+
+.network-header {
+    position: sticky;
+    top: 0;
+    background: #0d1117;
+    z-index: 1;
+}
+
+.network-empty {
+    padding: 8px 12px 12px;
+    color: #556677;
+    font-size: 12px;
+    font-style: italic;
+}
+
+.network-table {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 12px;
+}
+
+.network-table-header {
+    display: flex;
+    padding: 4px 12px;
+    color: #556677;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #1a2333;
+    position: sticky;
+    top: 28px;
+    background: #0d1117;
+    z-index: 1;
+}
+
+.network-row {
+    display: flex;
+    padding: 4px 12px;
+    border-bottom: 1px solid rgba(15, 52, 96, 0.3);
+    transition: background 0.08s;
+}
+
+.network-row:hover {
+    background: rgba(76, 201, 240, 0.05);
+}
+
+.network-row-pending {
+    opacity: 0.7;
+}
+
+.net-col-status { width: 70px; flex-shrink: 0; }
+.net-col-method { width: 50px; flex-shrink: 0; color: #4cc9f0; font-weight: 600; }
+.net-col-url { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c0c8d0; }
+.net-col-step { width: 40px; flex-shrink: 0; text-align: right; color: #556677; }
+
+.net-badge {
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+}
+
+.net-badge-stubbed {
+    background: rgba(42, 110, 78, 0.3);
+    color: #7ee787;
+}
+
+.net-badge-pending {
+    background: rgba(240, 192, 64, 0.15);
+    color: #f0c040;
+}
+
 /* === EFFECT INSPECTOR === */
 
 .effect-inspector {
@@ -1879,7 +2126,7 @@ body {
 /* === KEYBOARD HINT === */
 
 .viewer::after {
-    content: "\\2190 \\2192  step   \\2191 \\2193  test   m  model   e  effects   esc  back";
+    content: "\\2190 \\2192  step   \\2191 \\2193  test   n  network   e  effects   m  model   esc  back";
     position: fixed;
     bottom: 4px;
     right: 12px;
