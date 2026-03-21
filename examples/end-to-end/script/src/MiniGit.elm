@@ -410,12 +410,19 @@ updateMain msg model =
         Nothing ->
             case msg of
                 KeyPressed event ->
-                    case Keybinding.dispatch (activeBindings model) event of
-                        Just action ->
-                            handleAction action model
+                    -- Layout handles filter keys (/, typing, Enter, Escape) and
+                    -- number keys for pane focus. Check it first.
+                    case Layout.handleKeyEvent event (myLayout (Layout.contextOf model.layout) model) model.layout of
+                        ( newLayout, True ) ->
+                            ( { model | layout = newLayout }, Effect.none )
 
-                        Nothing ->
-                            ( model, Effect.none )
+                        ( _, False ) ->
+                            case Keybinding.dispatch (activeBindings model) event of
+                                Just action ->
+                                    handleAction action model
+
+                                Nothing ->
+                                    ( model, Effect.none )
 
                 Mouse mouseEvent ->
                     let
@@ -527,6 +534,9 @@ myPanes model =
                         ]
             }
             model.commits
+            |> Layout.withFilterable
+                (\commit -> commit.sha ++ " " ++ commit.message)
+                model.commits
         )
         |> Layout.withPrefix "[1]"
         |> Layout.withFooterScreen
@@ -662,10 +672,19 @@ view ctx model =
                 Nothing ->
                     bgRows
 
+        -- Show filter status in the bottom bar when filtering
+        rowsWithFilter =
+            case Layout.filterStatusBar "commits" model.layout of
+                Just filterBar ->
+                    List.take (List.length rows - 1) rows ++ [ filterBar ]
+
+                Nothing ->
+                    rows
+
         -- Overlay toast on the last row when active
         finalRows =
             if Toast.hasToasts model.toasts then
-                case List.reverse rows of
+                case List.reverse rowsWithFilter of
                     _ :: rest ->
                         List.reverse (Toast.view model.toasts :: rest)
 
@@ -673,7 +692,7 @@ view ctx model =
                         [ Toast.view model.toasts ]
 
             else
-                rows
+                rowsWithFilter
     in
     Tui.lines finalRows
 
