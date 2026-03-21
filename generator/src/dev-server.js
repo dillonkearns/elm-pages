@@ -28,6 +28,7 @@ import { merge_vite_configs } from "./vite-utils.js";
 import { templateHtml } from "./pre-render-html.js";
 import { resolveConfig } from "./config.js";
 import { extractAndReplaceFrozenViews, replaceFrozenViewPlaceholders } from "./extract-frozen-views.js";
+import { packageVersion } from "./compatibility-key.js";
 import { toExactBuffer } from "./binary-helpers.js";
 import * as globby from "globby";
 import { fileURLToPath } from "url";
@@ -291,6 +292,8 @@ export async function start(options) {
   function processRequest(request, response, next) {
     if (request.url && request.url.startsWith("/stream")) {
       handleStream(request, response);
+    } else if (request.url && request.url.startsWith("/__test-viewer-preview")) {
+      handleTestViewerPreview(request, response);
     } else if (request.url && request.url.startsWith("/__test-viewer")) {
       handleTestViewer(request, response);
     } else {
@@ -329,6 +332,32 @@ export async function start(options) {
     } catch (error) {
       response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       response.end(testViewerErrorHtml(String(error)));
+    }
+  }
+
+  async function handleTestViewerPreview(request, response) {
+    try {
+      const userHeadTags = config.headTagsTemplate({ cliVersion: packageVersion });
+      const previewHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${userHeadTags}
+</head>
+<body>
+  <div id="preview-root"></div>
+</body>
+</html>`;
+      const processedHtml = await vite.transformIndexHtml(
+        "/__test-viewer-preview",
+        previewHtml
+      );
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      response.end(processedHtml);
+    } catch (error) {
+      response.writeHead(500, { "Content-Type": "text/plain" });
+      response.end("Test viewer preview error: " + String(error));
     }
   }
 
@@ -493,6 +522,25 @@ main =
         document.body.appendChild(newScript);
       }
     };
+
+    // Sync Elm's hidden .page-body into the preview iframe via polling
+    var lastSynced = "";
+    setInterval(function() {
+      var pageBody = document.querySelector('.page-body');
+      var iframe = document.getElementById('preview-iframe');
+      if (!pageBody || !iframe) return;
+      try {
+        var target = iframe.contentDocument && iframe.contentDocument.getElementById('preview-root');
+        if (!target) return;
+        var html = pageBody.innerHTML;
+        if (html !== lastSynced) {
+          target.innerHTML = html;
+          lastSynced = html;
+        }
+      } catch(e) {
+        // contentDocument may not be accessible yet
+      }
+    }, 50);
   </script>
 </body>
 </html>`;

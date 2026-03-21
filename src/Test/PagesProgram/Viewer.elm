@@ -1286,16 +1286,6 @@ viewRenderedPageWithOptions viewportWidth maybePreviewMode snapshot =
             , ( "rendered-page-after", maybePreviewMode == Just After )
             ]
          ]
-            ++ (case viewportWidth of
-                    Just w ->
-                        [ Attr.style "max-width" (String.fromInt w ++ "px")
-                        , Attr.style "margin-left" "auto"
-                        , Attr.style "margin-right" "auto"
-                        ]
-
-                    Nothing ->
-                        []
-               )
         )
         [ Html.div [ Attr.class "page-title-bar" ]
             [ Html.span [ Attr.class "page-title-dots" ]
@@ -1318,6 +1308,22 @@ viewRenderedPageWithOptions viewportWidth maybePreviewMode snapshot =
             (snapshot.body
                 |> List.map (Html.map (\_ -> NoOp))
             )
+        , Html.node "iframe"
+            ([ Attr.id "preview-iframe"
+             , Attr.attribute "src" "/__test-viewer-preview"
+             ]
+                ++ (case viewportWidth of
+                        Just w ->
+                            [ Attr.style "width" (String.fromInt w ++ "px")
+                            , Attr.style "margin-left" "auto"
+                            , Attr.style "margin-right" "auto"
+                            ]
+
+                        Nothing ->
+                            []
+                   )
+            )
+            []
         ]
 
 
@@ -1857,7 +1863,9 @@ body {
 
 .rendered-page {
     flex: 1;
-    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     background: #ffffff;
     color: #1a1a1a;
     margin: 8px 12px;
@@ -1894,7 +1902,14 @@ body {
 .dot-green { background: #28c840; }
 
 .page-body {
-    padding: 16px;
+    display: none;
+}
+
+#preview-iframe {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: #ffffff;
 }
 
 .rendered-page-before {
