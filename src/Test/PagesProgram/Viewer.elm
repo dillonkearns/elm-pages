@@ -1160,7 +1160,7 @@ viewMainPanel model =
                                     viewRenderedPageWithWidth model.viewportWidth prev
 
                                 Nothing ->
-                                    Html.text ""
+                                    viewEmptyRenderedPage
                             , if model.showEffects then
                                 viewEffectInspector
                                     (previousSnapshot
@@ -1270,6 +1270,17 @@ viewUrlBar snapshot =
 viewRenderedPage : Snapshot -> Html Msg
 viewRenderedPage snapshot =
     viewRenderedPageWithOptions Nothing Nothing snapshot
+
+
+viewEmptyRenderedPage : Html Msg
+viewEmptyRenderedPage =
+    Html.div [ Attr.class "rendered-page" ]
+        [ Html.node "iframe"
+            [ Attr.id "preview-iframe"
+            , Attr.attribute "src" "/__test-viewer-preview"
+            ]
+            []
+        ]
 
 
 viewRenderedPageWithWidth : Maybe Int -> Snapshot -> Html Msg

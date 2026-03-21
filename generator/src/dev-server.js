@@ -526,13 +526,13 @@ main =
     // Sync Elm's hidden .page-body into the preview iframe via polling
     var lastSynced = "";
     setInterval(function() {
-      var pageBody = document.querySelector('.page-body');
       var iframe = document.getElementById('preview-iframe');
-      if (!pageBody || !iframe) return;
+      if (!iframe) return;
       try {
         var target = iframe.contentDocument && iframe.contentDocument.getElementById('preview-root');
         if (!target) return;
-        var html = pageBody.innerHTML;
+        var pageBody = document.querySelector('.page-body');
+        var html = pageBody ? pageBody.innerHTML : "";
         if (html !== lastSynced) {
           target.innerHTML = html;
           lastSynced = html;
