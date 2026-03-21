@@ -1,6 +1,6 @@
 module Tui.Layout exposing
     ( Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
-    , PaneContent, content, selectableList, withUnfocusedStyle, withFilterable
+    , PaneContent, content, selectableList, withUnfocusedStyle, withFilterable, withSearchable
     , Width, fill, fillPortion, fixed
     , State, init, withContext
     , navigateDown, navigateUp, pageDown, pageUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
@@ -14,6 +14,7 @@ module Tui.Layout exposing
     , toScreen, toRows
     , navigationHelpRows
     , isFilterActive, filterStatusBar, activeFilterStatusBar
+    , isSearchActive, searchStatusBar
     )
 
 {-| Split-pane layout with opaque state, selectable lists, and mouse dispatch.
@@ -45,7 +46,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
 
-@docs PaneContent, content, selectableList, withUnfocusedStyle, withFilterable
+@docs PaneContent, content, selectableList, withUnfocusedStyle, withFilterable, withSearchable
 
 @docs Width, fill, fillPortion, fixed
 
@@ -69,6 +70,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 @docs navigationHelpRows
 
 @docs isFilterActive, filterStatusBar, activeFilterStatusBar
+@docs isSearchActive, searchStatusBar
 
 -}
 
@@ -116,7 +118,7 @@ when `getContentLine` needs a specific visible item. This means a list of
 inspired by lazygit's `renderOnlyVisibleLines` and Ratatui's `ListState`).
 -}
 type PaneContent msg
-    = StaticContent (List Screen)
+    = StaticContent { lines : List Screen, searchable : Bool }
     | SelectableContent
         { itemCount : Int
         , renderItem : Int -> Screen -- renders default view for item at index
@@ -146,6 +148,7 @@ type State
         , activeTabMap : Dict String String
         , searching : Bool
         , filterStates : Dict String FilterState
+        , searchStates : Dict String SearchState
         }
 
 
@@ -158,6 +161,19 @@ type alias FilterState =
     { query : String
     , mode : FilterMode
     , filteredIndices : List Int
+    }
+
+
+type SearchMode
+    = SearchTyping
+    | SearchCommitted
+
+
+type alias SearchState =
+    { query : String
+    , mode : SearchMode
+    , matchPositions : List { line : Int, col : Int, len : Int }
+    , currentMatchIndex : Int
     }
 
 
@@ -239,7 +255,7 @@ paneGroup groupId config =
                 |> List.filter (\tab -> tab.id == config.activeTab)
                 |> List.head
                 |> Maybe.map .content
-                |> Maybe.withDefault (StaticContent [])
+                |> Maybe.withDefault (StaticContent { lines = [], searchable = False })
 
         -- Build styled title: active tab bold, inactive dim
         titleScreen : Screen
@@ -305,8 +321,8 @@ pane id config paneContent =
 {-| Static content — a list of screens, one per line. No selection behavior.
 -}
 content : List Screen -> PaneContent msg
-content =
-    StaticContent
+content lines =
+    StaticContent { lines = lines, searchable = False }
 
 
 {-| A selectable list. The framework tracks which item is selected and renders
@@ -394,6 +410,24 @@ withUnfocusedStyle renderUnfocused items paneContent =
             paneContent
 
 
+{-| Make static content searchable. When the pane is focused, pressing `/`
+opens a search prompt (lazygit-style). Results are highlighted with
+cyan (current match) and yellow (other matches).
+
+    Layout.content diffLines
+        |> Layout.withSearchable
+
+-}
+withSearchable : PaneContent msg -> PaneContent msg
+withSearchable paneContent =
+    case paneContent of
+        StaticContent rec ->
+            StaticContent { rec | searchable = True }
+
+        SelectableContent _ ->
+            paneContent
+
+
 {-| Make a selectable list filterable. When the pane is focused, pressing `/`
 opens a filter input (lazygit-style). Items are matched using smart-case
 substring matching.
@@ -477,6 +511,7 @@ init =
         , activeTabMap = Dict.empty
         , searching = False
         , filterStates = Dict.empty
+        , searchStates = Dict.empty
         }
 
 
@@ -1159,6 +1194,11 @@ handleKeyEvent event layout (State s) =
         activeFilterState =
             focusedStateKey
                 |> Maybe.andThen (\key -> Dict.get key s.filterStates)
+
+        activeSearchState : Maybe SearchState
+        activeSearchState =
+            focusedStateKey
+                |> Maybe.andThen (\key -> Dict.get key s.searchStates)
     in
     case activeFilterState of
         Just fs ->
@@ -1166,8 +1206,14 @@ handleKeyEvent event layout (State s) =
             handleFilterKeyEvent event layout fs (State s)
 
         Nothing ->
-            -- No filter active — check for `/` to start filter, or number keys
-            handleNormalKeyEvent event layout (State s)
+            case activeSearchState of
+                Just ss ->
+                    -- A search is active on the focused pane
+                    handleSearchKeyEvent event layout ss (State s)
+
+                Nothing ->
+                    -- No filter or search active — check for `/` to start filter/search, or number keys
+                    handleNormalKeyEvent event layout (State s)
 
 
 handleFilterKeyEvent : Tui.KeyEvent -> Layout msg -> FilterState -> State -> ( State, Bool )
@@ -1320,7 +1366,7 @@ handleNormalKeyEvent event layout (State s) =
     case event.key of
         Tui.Character c ->
             if c == '/' then
-                -- Check if the focused pane is filterable
+                -- Check if the focused pane is filterable or searchable
                 case s.focusedPaneId of
                     Just focusedId ->
                         if paneIsFilterable focusedId layout then
@@ -1342,6 +1388,27 @@ handleNormalKeyEvent event layout (State s) =
                                             , filteredIndices = List.range 0 (totalCount - 1)
                                             }
                                             s.filterStates
+                                    , searching = True
+                                }
+                            , True
+                            )
+
+                        else if paneIsSearchable focusedId layout then
+                            let
+                                stateKey : String
+                                stateKey =
+                                    resolveStateKey focusedId layout
+                            in
+                            ( State
+                                { s
+                                    | searchStates =
+                                        Dict.insert stateKey
+                                            { query = ""
+                                            , mode = SearchTyping
+                                            , matchPositions = []
+                                            , currentMatchIndex = 0
+                                            }
+                                            s.searchStates
                                     , searching = True
                                 }
                             , True
@@ -1515,7 +1582,7 @@ defaultPaneState =
 contentLineCount : PaneContent msg -> Int
 contentLineCount paneContent =
     case paneContent of
-        StaticContent lines ->
+        StaticContent { lines } ->
             List.length lines
 
         SelectableContent config ->
@@ -1642,18 +1709,38 @@ Checks all panes — use this instead of checking each pane individually.
 -}
 activeFilterStatusBar : State -> Maybe Screen
 activeFilterStatusBar (State s) =
-    s.filterStates
-        |> Dict.toList
-        |> List.filterMap
-            (\( _, fs ) ->
-                case fs.mode of
-                    FilterTyping ->
-                        Just (Tui.text ("Filter: " ++ fs.query))
+    let
+        filterResult : Maybe Screen
+        filterResult =
+            s.filterStates
+                |> Dict.toList
+                |> List.filterMap
+                    (\( _, fs ) ->
+                        case fs.mode of
+                            FilterTyping ->
+                                Just (Tui.text ("Filter: " ++ fs.query))
 
-                    FilterApplied ->
-                        Just (Tui.text ("Filter: matches for '" ++ fs.query ++ "' <esc>: Exit filter mode"))
-            )
-        |> List.head
+                            FilterApplied ->
+                                Just (Tui.text ("Filter: matches for '" ++ fs.query ++ "' <esc>: Exit filter mode"))
+                    )
+                |> List.head
+
+        searchResult : Maybe Screen
+        searchResult =
+            s.searchStates
+                |> Dict.toList
+                |> List.filterMap
+                    (\( _, ss ) ->
+                        Just (searchStatusBarFromState ss)
+                    )
+                |> List.head
+    in
+    case filterResult of
+        Just _ ->
+            filterResult
+
+        Nothing ->
+            searchResult
 
 
 {-| Check if a pane has filterable content.
@@ -1687,6 +1774,472 @@ getFilterTextForPane paneId layout =
                     StaticContent _ ->
                         Nothing
             )
+
+
+{-| Check if a pane has searchable content.
+-}
+paneIsSearchable : String -> Layout msg -> Bool
+paneIsSearchable paneId layout =
+    findPane paneId layout
+        |> Maybe.andThen
+            (\p ->
+                case p.paneContent of
+                    StaticContent { searchable } ->
+                        if searchable then
+                            Just True
+
+                        else
+                            Nothing
+
+                    SelectableContent _ ->
+                        Nothing
+            )
+        |> Maybe.withDefault False
+
+
+{-| Get the lines for a searchable pane, if it exists.
+-}
+getSearchLinesForPane : String -> Layout msg -> Maybe (List Screen)
+getSearchLinesForPane paneId layout =
+    findPane paneId layout
+        |> Maybe.andThen
+            (\p ->
+                case p.paneContent of
+                    StaticContent { lines, searchable } ->
+                        if searchable then
+                            Just lines
+
+                        else
+                            Nothing
+
+                    SelectableContent _ ->
+                        Nothing
+            )
+
+
+{-| Check if a search is currently active on a pane.
+-}
+isSearchActive : String -> State -> Bool
+isSearchActive paneId (State s) =
+    let
+        stateKey : String
+        stateKey =
+            Dict.get paneId s.activeTabMap
+                |> Maybe.withDefault paneId
+    in
+    Dict.member stateKey s.searchStates
+
+
+{-| Get the search status bar for a pane, if a search is active.
+
+Returns `Just` with the search prompt while typing,
+match count info after committing, or `Nothing` when not searching.
+
+-}
+searchStatusBar : String -> State -> Maybe Screen
+searchStatusBar paneId (State s) =
+    let
+        stateKey : String
+        stateKey =
+            Dict.get paneId s.activeTabMap
+                |> Maybe.withDefault paneId
+    in
+    Dict.get stateKey s.searchStates
+        |> Maybe.map searchStatusBarFromState
+
+
+searchStatusBarFromState : SearchState -> Screen
+searchStatusBarFromState ss =
+    case ss.mode of
+        SearchTyping ->
+            Tui.text ("Search: " ++ ss.query)
+
+        SearchCommitted ->
+            if List.isEmpty ss.matchPositions then
+                Tui.text ("Search: no matches for '" ++ ss.query ++ "' Esc: exit")
+
+            else
+                Tui.text
+                    ("Search: matches for '"
+                        ++ ss.query
+                        ++ "' ("
+                        ++ String.fromInt (ss.currentMatchIndex + 1)
+                        ++ " of "
+                        ++ String.fromInt (List.length ss.matchPositions)
+                        ++ ") n: next, N: prev, Esc: exit"
+                    )
+
+
+handleSearchKeyEvent : Tui.KeyEvent -> Layout msg -> SearchState -> State -> ( State, Bool )
+handleSearchKeyEvent event layout ss (State s) =
+    let
+        focusedId : String
+        focusedId =
+            s.focusedPaneId |> Maybe.withDefault ""
+
+        stateKey : String
+        stateKey =
+            resolveStateKey focusedId layout
+    in
+    case ss.mode of
+        SearchTyping ->
+            case event.key of
+                Tui.Character c ->
+                    let
+                        newQuery : String
+                        newQuery =
+                            ss.query ++ String.fromChar c
+                    in
+                    ( State
+                        { s
+                            | searchStates =
+                                Dict.insert stateKey
+                                    { ss | query = newQuery }
+                                    s.searchStates
+                        }
+                    , True
+                    )
+
+                Tui.Backspace ->
+                    let
+                        newQuery : String
+                        newQuery =
+                            String.dropRight 1 ss.query
+                    in
+                    ( State
+                        { s
+                            | searchStates =
+                                Dict.insert stateKey
+                                    { ss | query = newQuery }
+                                    s.searchStates
+                        }
+                    , True
+                    )
+
+                Tui.Enter ->
+                    if String.isEmpty ss.query then
+                        -- Empty query: cancel search
+                        ( State
+                            { s
+                                | searchStates = Dict.remove stateKey s.searchStates
+                                , searching = False
+                            }
+                        , True
+                        )
+
+                    else
+                        -- Compute matches and commit
+                        let
+                            positions : List { line : Int, col : Int, len : Int }
+                            positions =
+                                case getSearchLinesForPane focusedId layout of
+                                    Just lines ->
+                                        computeSearchPositions ss.query lines
+
+                                    Nothing ->
+                                        []
+
+                            visibleHeight : Int
+                            visibleHeight =
+                                s.context.height - 2
+
+                            currentPs : PaneState
+                            currentPs =
+                                Dict.get stateKey s.paneStates
+                                    |> Maybe.withDefault defaultPaneState
+
+                            newOffset : Int
+                            newOffset =
+                                case List.head positions of
+                                    Just firstMatch ->
+                                        max 0 (firstMatch.line - visibleHeight // 2)
+
+                                    Nothing ->
+                                        currentPs.scrollOffset
+                        in
+                        ( State
+                            { s
+                                | searchStates =
+                                    Dict.insert stateKey
+                                        { query = ss.query
+                                        , mode = SearchCommitted
+                                        , matchPositions = positions
+                                        , currentMatchIndex = 0
+                                        }
+                                        s.searchStates
+                                , searching = False
+                                , paneStates =
+                                    Dict.insert stateKey
+                                        { currentPs | scrollOffset = newOffset }
+                                        s.paneStates
+                            }
+                        , True
+                        )
+
+                Tui.Escape ->
+                    ( State
+                        { s
+                            | searchStates = Dict.remove stateKey s.searchStates
+                            , searching = False
+                        }
+                    , True
+                    )
+
+                _ ->
+                    ( State s, True )
+
+        SearchCommitted ->
+            case event.key of
+                Tui.Character c ->
+                    if c == 'n' then
+                        -- Next match
+                        let
+                            totalMatches : Int
+                            totalMatches =
+                                List.length ss.matchPositions
+
+                            newIndex : Int
+                            newIndex =
+                                if totalMatches > 0 then
+                                    modBy totalMatches (ss.currentMatchIndex + 1)
+
+                                else
+                                    0
+
+                            visibleHeight : Int
+                            visibleHeight =
+                                s.context.height - 2
+
+                            nextPs : PaneState
+                            nextPs =
+                                Dict.get stateKey s.paneStates
+                                    |> Maybe.withDefault defaultPaneState
+
+                            newOffset : Int
+                            newOffset =
+                                case List.drop newIndex ss.matchPositions |> List.head of
+                                    Just match ->
+                                        max 0 (match.line - visibleHeight // 2)
+
+                                    Nothing ->
+                                        nextPs.scrollOffset
+                        in
+                        ( State
+                            { s
+                                | searchStates =
+                                    Dict.insert stateKey
+                                        { ss | currentMatchIndex = newIndex }
+                                        s.searchStates
+                                , paneStates =
+                                    Dict.insert stateKey
+                                        { nextPs | scrollOffset = newOffset }
+                                        s.paneStates
+                            }
+                        , True
+                        )
+
+                    else if c == 'N' then
+                        -- Previous match
+                        let
+                            totalMatches : Int
+                            totalMatches =
+                                List.length ss.matchPositions
+
+                            newIndex : Int
+                            newIndex =
+                                if totalMatches > 0 then
+                                    modBy totalMatches (ss.currentMatchIndex - 1 + totalMatches)
+
+                                else
+                                    0
+
+                            visibleHeight : Int
+                            visibleHeight =
+                                s.context.height - 2
+
+                            prevPs : PaneState
+                            prevPs =
+                                Dict.get stateKey s.paneStates
+                                    |> Maybe.withDefault defaultPaneState
+
+                            newOffset : Int
+                            newOffset =
+                                case List.drop newIndex ss.matchPositions |> List.head of
+                                    Just match ->
+                                        max 0 (match.line - visibleHeight // 2)
+
+                                    Nothing ->
+                                        prevPs.scrollOffset
+                        in
+                        ( State
+                            { s
+                                | searchStates =
+                                    Dict.insert stateKey
+                                        { ss | currentMatchIndex = newIndex }
+                                        s.searchStates
+                                , paneStates =
+                                    Dict.insert stateKey
+                                        { prevPs | scrollOffset = newOffset }
+                                        s.paneStates
+                            }
+                        , True
+                        )
+
+                    else if c == '/' then
+                        -- Re-enter typing mode with current query
+                        ( State
+                            { s
+                                | searchStates =
+                                    Dict.insert stateKey
+                                        { ss | mode = SearchTyping }
+                                        s.searchStates
+                                , searching = True
+                            }
+                        , True
+                        )
+
+                    else
+                        -- Not consumed — let normal bindings work
+                        ( State s, False )
+
+                Tui.Escape ->
+                    -- Clear search
+                    ( State
+                        { s
+                            | searchStates = Dict.remove stateKey s.searchStates
+                            , searching = False
+                        }
+                    , True
+                    )
+
+                _ ->
+                    -- Not consumed
+                    ( State s, False )
+
+
+{-| Compute all match positions for a query in a list of lines.
+-}
+computeSearchPositions : String -> List Screen -> List { line : Int, col : Int, len : Int }
+computeSearchPositions query lines =
+    let
+        queryLen : Int
+        queryLen =
+            String.length query
+
+        caseSensitive : Bool
+        caseSensitive =
+            String.any Char.isUpper query
+
+        normalize : String -> String
+        normalize =
+            if caseSensitive then
+                identity
+
+            else
+                String.toLower
+
+        normalizedQuery : String
+        normalizedQuery =
+            normalize query
+    in
+    lines
+        |> List.indexedMap
+            (\lineIdx screen ->
+                let
+                    lineText : String
+                    lineText =
+                        normalize (Tui.toString screen)
+                in
+                findAllSubstring normalizedQuery queryLen lineText 0
+                    |> List.map (\col -> { line = lineIdx, col = col, len = queryLen })
+            )
+        |> List.concat
+
+
+{-| Find all occurrences of a substring in a string, returning start positions.
+-}
+findAllSubstring : String -> Int -> String -> Int -> List Int
+findAllSubstring needle needleLen haystack startFrom =
+    -- elm-review: known-unoptimized-recursion
+    if startFrom > String.length haystack - needleLen then
+        []
+
+    else if String.contains needle (String.dropLeft startFrom haystack |> String.left needleLen) then
+        startFrom :: findAllSubstring needle needleLen haystack (startFrom + 1)
+
+    else
+        findAllSubstring needle needleLen haystack (startFrom + 1)
+
+
+{-| Highlight search matches on a single line.
+-}
+highlightMatchesOnLine : Int -> SearchState -> Screen -> Screen
+highlightMatchesOnLine lineIdx ss lineScreen =
+    let
+        matchesOnLine : List { line : Int, col : Int, len : Int }
+        matchesOnLine =
+            ss.matchPositions
+                |> List.filter (\m -> m.line == lineIdx)
+
+        currentMatch : Maybe { line : Int, col : Int, len : Int }
+        currentMatch =
+            ss.matchPositions
+                |> List.drop ss.currentMatchIndex
+                |> List.head
+    in
+    if List.isEmpty matchesOnLine then
+        lineScreen
+
+    else
+        let
+            lineText : String
+            lineText =
+                Tui.toString lineScreen
+        in
+        buildHighlightedLine lineText matchesOnLine currentMatch 0
+
+
+{-| Build a highlighted line from text and match positions.
+-}
+buildHighlightedLine : String -> List { line : Int, col : Int, len : Int } -> Maybe { line : Int, col : Int, len : Int } -> Int -> Screen
+buildHighlightedLine text matches currentMatch pos =
+    case matches of
+        [] ->
+            -- Remaining text after last match
+            Tui.text (String.dropLeft pos text)
+
+        match :: rest ->
+            let
+                beforeMatch : String
+                beforeMatch =
+                    String.slice pos match.col text
+
+                matchText : String
+                matchText =
+                    String.slice match.col (match.col + match.len) text
+
+                isCurrent : Bool
+                isCurrent =
+                    case currentMatch of
+                        Just cm ->
+                            cm.line == match.line && cm.col == match.col
+
+                        Nothing ->
+                            False
+
+                highlightedMatch : Screen
+                highlightedMatch =
+                    if isCurrent then
+                        Tui.text matchText |> Tui.bg Ansi.Color.cyan
+
+                    else
+                        Tui.text matchText |> Tui.bg Ansi.Color.yellow
+            in
+            Tui.concat
+                [ Tui.text beforeMatch
+                , highlightedMatch
+                , buildHighlightedLine text rest currentMatch (match.col + match.len)
+                ]
 
 
 clampScroll : Int -> Int -> Int -> Int
@@ -1765,6 +2318,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
             , activeTabMap : Dict String String
             , searching : Bool
             , filterStates : Dict String FilterState
+            , searchStates : Dict String SearchState
             }
         sWithCtx =
             { s | context = ctx }
@@ -2008,7 +2562,7 @@ toRows (State s) layout =
 
 
 toRowsHorizontal :
-    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool, filterStates : Dict String FilterState }
+    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool, filterStates : Dict String FilterState, searchStates : Dict String SearchState }
     -> List (PaneConfig msg)
     -> List Screen
 toRowsHorizontal s panes =
@@ -2230,13 +2784,17 @@ toRowsHorizontal s panes =
                                     renderFilterState =
                                         Dict.get renderStateKey s.filterStates
 
+                                    renderSearchState : Maybe SearchState
+                                    renderSearchState =
+                                        Dict.get renderStateKey s.searchStates
+
                                     contentRow : Int
                                     contentRow =
                                         row - 1
 
                                     lineScreen : Screen
                                     lineScreen =
-                                        getContentLine isFocused paneConfig ps renderFilterState contentRow
+                                        getContentLine isFocused paneConfig ps renderFilterState renderSearchState contentRow
 
                                     lineText : String
                                     lineText =
@@ -2303,7 +2861,7 @@ toRowsHorizontal s panes =
 
 
 toRowsVertical :
-    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool, filterStates : Dict String FilterState }
+    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool, filterStates : Dict String FilterState, searchStates : Dict String SearchState }
     -> List (PaneConfig msg)
     -> List Screen
 toRowsVertical s panes =
@@ -2368,6 +2926,10 @@ toRowsVertical s panes =
                 vertFilterState : Maybe FilterState
                 vertFilterState =
                     Dict.get vertStateKey s.filterStates
+
+                vertSearchState : Maybe SearchState
+                vertSearchState =
+                    Dict.get vertStateKey s.searchStates
 
                 jumpLabel : String
                 jumpLabel =
@@ -2471,7 +3033,7 @@ toRowsVertical s panes =
                                 let
                                     lineScreen : Screen
                                     lineScreen =
-                                        getContentLine isFocused paneConfig ps vertFilterState contentRow
+                                        getContentLine isFocused paneConfig ps vertFilterState vertSearchState contentRow
 
                                     lineText : String
                                     lineText =
@@ -2531,19 +3093,34 @@ toRowsVertical s panes =
         |> List.concat
 
 
-getContentLine : Bool -> PaneConfig msg -> PaneState -> Maybe FilterState -> Int -> Screen
-getContentLine isFocused paneConfig ps maybeFilterState contentRow =
+getContentLine : Bool -> PaneConfig msg -> PaneState -> Maybe FilterState -> Maybe SearchState -> Int -> Screen
+getContentLine isFocused paneConfig ps maybeFilterState maybeSearchState contentRow =
     let
         scrolledRow : Int
         scrolledRow =
             contentRow + ps.scrollOffset
     in
     case paneConfig.paneContent of
-        StaticContent lines ->
-            lines
-                |> List.drop scrolledRow
-                |> List.head
-                |> Maybe.withDefault Tui.empty
+        StaticContent { lines } ->
+            let
+                baseLine : Screen
+                baseLine =
+                    lines
+                        |> List.drop scrolledRow
+                        |> List.head
+                        |> Maybe.withDefault Tui.empty
+            in
+            case maybeSearchState of
+                Just ss ->
+                    case ss.mode of
+                        SearchCommitted ->
+                            highlightMatchesOnLine scrolledRow ss baseLine
+
+                        SearchTyping ->
+                            baseLine
+
+                Nothing ->
+                    baseLine
 
         SelectableContent { renderItem, renderSelected, renderSelectedUnfocused } ->
             case maybeFilterState of
