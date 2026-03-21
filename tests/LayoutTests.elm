@@ -970,6 +970,129 @@ suite =
                         |> String.contains "3 of 300"
                         |> Expect.equal True
             ]
+        , describe "Panel jump labels (lazygit-style)"
+            [ test "panes show [1], [2], etc. in title" <|
+                \() ->
+                    Layout.horizontal
+                        [ Layout.pane "left"
+                            { title = "Files", width = Layout.fill }
+                            (Layout.content [ Tui.text "a" ])
+                        , Layout.pane "right"
+                            { title = "Diff", width = Layout.fill }
+                            (Layout.content [ Tui.text "b" ])
+                        ]
+                        |> renderAt { width = 40, height = 5 }
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "[1]" |> Expect.equal True
+                                    , \str -> str |> String.contains "[2]" |> Expect.equal True
+                                    , \str -> str |> String.contains "Files" |> Expect.equal True
+                                    , \str -> str |> String.contains "Diff" |> Expect.equal True
+                                    ]
+                                    s
+                           )
+            , test "number keys focus the corresponding pane" <|
+                \() ->
+                    let
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.content [ Tui.text "a" ])
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content [ Tui.text "b" ])
+                                ]
+
+                        state =
+                            Layout.init |> Layout.focusPane "left"
+
+                        -- Press '2' to focus the second pane
+                        ( newState, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Character '2', modifiers = [] }
+                                layout
+                                state
+                    in
+                    Layout.focusedPane newState |> Expect.equal (Just "right")
+            , test "pressing current pane number is a no-op" <|
+                \() ->
+                    let
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.content [ Tui.text "a" ])
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content [ Tui.text "b" ])
+                                ]
+
+                        state =
+                            Layout.init |> Layout.focusPane "left"
+
+                        -- Press '1' — already focused on pane 1
+                        ( newState, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Character '1', modifiers = [] }
+                                layout
+                                state
+                    in
+                    Layout.focusedPane newState |> Expect.equal (Just "left")
+            ]
+        , describe "Search border color"
+            [ test "search mode changes focused border to cyan" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.focusPane "left"
+                                |> Layout.setSearching True
+
+                        screen =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.content [ Tui.text "a" ])
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content [ Tui.text "b" ])
+                                ]
+                                |> Layout.toScreen (Layout.withContext { width = 40, height = 5 } state)
+
+                        encoded =
+                            Tui.encodeScreen screen |> Json.Encode.encode 0
+                    in
+                    -- Focused pane border should be cyan (not green) during search
+                    Expect.all
+                        [ \s -> s |> String.contains "cyan" |> Expect.equal True
+                        ]
+                        encoded
+            , test "search mode off uses normal green border" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.focusPane "left"
+
+                        screen =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.content [ Tui.text "a" ])
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content [ Tui.text "b" ])
+                                ]
+                                |> Layout.toScreen (Layout.withContext { width = 40, height = 5 } state)
+
+                        encoded =
+                            Tui.encodeScreen screen |> Json.Encode.encode 0
+                    in
+                    encoded
+                        |> String.contains "green"
+                        |> Expect.equal True
+            ]
         ]
 
 

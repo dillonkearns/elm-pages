@@ -6,6 +6,8 @@ module Tui.Layout exposing
     , navigateDown, navigateUp, pageDown, pageUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
     , switchTab, activeTab
     , focusPane, focusedPane
+    , setSearching
+    , handleKeyEvent
     , toggleMaximize, isMaximized
     , withPrefix, withFooter, withTitleScreen, withFooterScreen, withInlineFooter
     , handleMouse
@@ -53,6 +55,8 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 @docs switchTab, activeTab
 
 @docs focusPane, focusedPane
+@docs setSearching
+@docs handleKeyEvent
 @docs toggleMaximize, isMaximized
 
 @docs withPrefix, withFooter, withTitleScreen, withFooterScreen, withInlineFooter
@@ -134,6 +138,7 @@ type State
         , focusedPaneId : Maybe String
         , maximizedPaneId : Maybe String
         , activeTabMap : Dict String String
+        , searching : Bool
         }
 
 
@@ -399,6 +404,7 @@ init =
         , focusedPaneId = Nothing
         , maximizedPaneId = Nothing
         , activeTabMap = Dict.empty
+        , searching = False
         }
 
 
@@ -982,6 +988,77 @@ focusedPane (State s) =
     s.focusedPaneId
 
 
+{-| Set search mode. When `True`, the focused pane's border turns cyan
+(like lazygit's visual feedback during search/filter). Call with `False`
+to restore normal green border.
+
+    -- When opening search:
+    Layout.setSearching True model.layout
+
+    -- When closing search:
+    Layout.setSearching False model.layout
+
+-}
+setSearching : Bool -> State -> State
+setSearching isSearching (State s) =
+    State { s | searching = isSearching }
+
+
+{-| Handle a key event for built-in layout navigation. Routes number keys
+(`1`-`9`) to focus the corresponding pane — like lazygit's panel jump keys.
+
+Returns the updated state and `True` if the key was handled (so the caller
+can skip their own key handling for that event).
+
+    case Layout.handleKeyEvent event layout model.layout of
+        ( newLayout, True ) ->
+            ( { model | layout = newLayout }, Effect.none )
+
+        ( _, False ) ->
+            -- Key not handled by layout, process normally
+            handleAppKey event model
+
+-}
+handleKeyEvent : Tui.KeyEvent -> Layout msg -> State -> ( State, Bool )
+handleKeyEvent event layout (State s) =
+    case event.key of
+        Tui.Character c ->
+            let
+                panes : List (PaneConfig msg)
+                panes =
+                    case layout of
+                        Horizontal ps ->
+                            ps
+
+                        Vertical ps ->
+                            ps
+
+                paneIndex : Maybe Int
+                paneIndex =
+                    case Char.toCode c - Char.toCode '1' of
+                        idx ->
+                            if idx >= 0 && idx < List.length panes then
+                                Just idx
+
+                            else
+                                Nothing
+            in
+            case paneIndex of
+                Just idx ->
+                    case List.drop idx panes |> List.head of
+                        Just paneConfig ->
+                            ( State { s | focusedPaneId = Just paneConfig.id }, True )
+
+                        Nothing ->
+                            ( State s, False )
+
+                Nothing ->
+                    ( State s, False )
+
+        _ ->
+            ( State s, False )
+
+
 {-| Toggle a pane to full width (maximized), hiding siblings. Call again
 to restore the split layout. Inspired by lazygit's Enter/full-screen
 and tmux's Ctrl-z zoom.
@@ -1182,6 +1259,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
             , focusedPaneId : Maybe String
             , maximizedPaneId : Maybe String
             , activeTabMap : Dict String String
+            , searching : Bool
             }
         sWithCtx =
             { s | context = ctx }
@@ -1367,7 +1445,7 @@ toRows (State s) layout =
 
 
 toRowsHorizontal :
-    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState }
+    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool }
     -> List (PaneConfig msg)
     -> List Screen
 toRowsHorizontal s panes =
@@ -1432,7 +1510,10 @@ toRowsHorizontal s panes =
 
                                 borderStyle : Tui.Style
                                 borderStyle =
-                                    if isFocused then
+                                    if isFocused && s.searching then
+                                        { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
+
+                                    else if isFocused then
                                         { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
 
                                     else
@@ -1440,15 +1521,22 @@ toRowsHorizontal s panes =
                             in
                             if row == 0 then
                                 let
+                                    jumpLabel : String
+                                    jumpLabel =
+                                        "[" ++ String.fromInt (paneIdx + 1) ++ "]"
+
                                     titleText : String
                                     titleText =
-                                        (paneConfig.prefix |> Maybe.withDefault "") ++ paneConfig.title
+                                        jumpLabel ++ (paneConfig.prefix |> Maybe.withDefault "") ++ paneConfig.title
 
                                     titleContent : Screen
                                     titleContent =
                                         case paneConfig.titleScreen of
                                             Just screen ->
-                                                Tui.truncateWidth (innerW - 1) screen
+                                                Tui.concat
+                                                    [ Tui.styled borderStyle jumpLabel
+                                                    , Tui.truncateWidth (innerW - 1 - String.length jumpLabel) screen
+                                                    ]
 
                                             Nothing ->
                                                 Tui.styled borderStyle titleText
@@ -1457,7 +1545,7 @@ toRowsHorizontal s panes =
                                     titleWidth =
                                         case paneConfig.titleScreen of
                                             Just screen ->
-                                                String.length (Tui.toString (Tui.truncateWidth (innerW - 1) screen))
+                                                String.length jumpLabel + String.length (Tui.toString (Tui.truncateWidth (innerW - 1 - String.length jumpLabel) screen))
 
                                             Nothing ->
                                                 String.length titleText
@@ -1648,7 +1736,7 @@ toRowsHorizontal s panes =
 
 
 toRowsVertical :
-    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState }
+    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool }
     -> List (PaneConfig msg)
     -> List Screen
 toRowsVertical s panes =
@@ -1690,7 +1778,10 @@ toRowsVertical s panes =
 
                 borderStyle : Tui.Style
                 borderStyle =
-                    if isFocused then
+                    if isFocused && s.searching then
+                        { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
+
+                    else if isFocused then
                         { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
 
                     else
@@ -1707,15 +1798,22 @@ toRowsVertical s panes =
                     Dict.get vertStateKey s.paneStates
                         |> Maybe.withDefault defaultPaneState
 
+                jumpLabel : String
+                jumpLabel =
+                    "[" ++ String.fromInt (paneIdx + 1) ++ "]"
+
                 titleText : String
                 titleText =
-                    (paneConfig.prefix |> Maybe.withDefault "") ++ paneConfig.title
+                    jumpLabel ++ (paneConfig.prefix |> Maybe.withDefault "") ++ paneConfig.title
 
                 titleContent : Screen
                 titleContent =
                     case paneConfig.titleScreen of
                         Just screen ->
-                            Tui.truncateWidth innerW screen
+                            Tui.concat
+                                [ Tui.styled borderStyle jumpLabel
+                                , Tui.truncateWidth (innerW - String.length jumpLabel) screen
+                                ]
 
                         Nothing ->
                             Tui.styled borderStyle titleText

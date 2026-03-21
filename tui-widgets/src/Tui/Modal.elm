@@ -1,27 +1,52 @@
-module Tui.Modal exposing (overlay)
+module Tui.Modal exposing (overlay, defaultWidth)
 
 {-| Modal overlay for TUI layouts.
 
 Renders a centered bordered dialog on top of background rows,
 with the background visible on the left and right edges — like lazygit's
-popup system.
+popup system. Modal height is capped at 75% of terminal height.
 
     bgRows = Layout.toRows state layout
     Tui.Modal.overlay
         { title = "Commit"
         , body = [ Input.view { width = 40 } inputState ]
         , footer = "Enter: confirm"
-        , width = 50
+        , width = Modal.defaultWidth ctx.width
         }
         { width = ctx.width, height = ctx.height }
         bgRows
 
-@docs overlay
+@docs overlay, defaultWidth
 
 -}
 
 import Ansi.Color
 import Tui exposing (plain)
+
+
+{-| Calculate a good default modal width for the given terminal width.
+Uses lazygit's formula: `min(4 * terminalWidth / 7, 90)` with a floor
+of 80 characters (or `terminalWidth - 2` if the terminal is narrow).
+
+    Modal.defaultWidth 120  -- 68 (120 * 4/7 = 68)
+    Modal.defaultWidth 80   -- 80 (floor)
+    Modal.defaultWidth 40   -- 38 (narrow terminal)
+
+-}
+defaultWidth : Int -> Int
+defaultWidth termWidth =
+    let
+        calculated =
+            min (4 * termWidth // 7) 90
+
+        floored =
+            if calculated < 80 then
+                min (termWidth - 2) 80
+
+            else
+                calculated
+    in
+    max 10 floored
 
 
 {-| Overlay a centered modal dialog on top of background rows.
