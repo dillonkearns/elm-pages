@@ -6,6 +6,7 @@ module FrameworkTests exposing
     , loginRedirectTest
     , errorPageTest
     , concurrentSubmissionTest
+    , loginSessionTest
     )
 
 {-| Framework-driven route tests using the real elm-pages Platform.
@@ -122,3 +123,31 @@ concurrentSubmissionTest =
         |> PagesProgram.fillIn "note-form" "note" "My test note"
         |> PagesProgram.clickButton "Save Note"
         |> PagesProgram.ensureViewHas [ text "Saved: My test note" ]
+
+
+{-| Full login session flow with cookie jar:
+1. Start at /login -- no session yet, shows "You aren't logged in yet."
+2. Fill in username, submit form
+3. Action sets session cookie (encrypt simulation), redirects to /greet
+4. /greet reads session cookie (decrypt simulation), shows greeting
+5. Flash message appears ("Welcome <name>!")
+
+This exercises the full cookie jar: action response Set-Cookie headers
+are captured and included in subsequent data requests.
+-}
+loginSessionTest : TestApp.ProgramTest
+loginSessionTest =
+    TestApp.start "/login"
+        (BackendTaskTest.init
+            |> BackendTaskTest.withEnv "SESSION_SECRET" "test-secret"
+        )
+        |> PagesProgram.ensureViewHas [ text "You aren't logged in yet." ]
+        |> PagesProgram.fillIn "form" "name" "Alice"
+        |> PagesProgram.clickButton "Log in"
+        -- Action sets session cookie and redirects to /greet
+        |> PagesProgram.ensureBrowserUrl
+            (\url -> url |> Expect.equal "https://localhost:1234/greet")
+        -- Greet route reads session, shows greeting with username
+        |> PagesProgram.ensureViewHas [ text "Hello Alice!" ]
+        -- Flash message from login action
+        |> PagesProgram.ensureViewHas [ text "Welcome Alice!" ]

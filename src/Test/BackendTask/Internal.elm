@@ -1220,6 +1220,40 @@ autoResponseBody vfs req =
                 Nothing ->
                     Ok Encode.null
 
+        "elm-pages-internal://encrypt" ->
+            -- Simulate cookie signing with a simple marker prefix.
+            -- In production this uses real HMAC signing; in tests we
+            -- just prepend a marker so unsign can verify it.
+            case decodeJsonBody (Decode.field "values" Decode.value) req of
+                Just values ->
+                    Ok (Encode.string ("****SIGNED****" ++ Encode.encode 0 values))
+
+                Nothing ->
+                    Err "encrypt: missing 'values' field in request body"
+
+        "elm-pages-internal://decrypt" ->
+            -- Simulate cookie unsigning by checking for the marker prefix.
+            case decodeJsonBody (Decode.field "input" Decode.string) req of
+                Just input ->
+                    if String.startsWith "****SIGNED****" input then
+                        let
+                            jsonStr =
+                                String.dropLeft (String.length "****SIGNED****") input
+                        in
+                        case Decode.decodeString Decode.value jsonStr of
+                            Ok value ->
+                                Ok value
+
+                            Err _ ->
+                                Ok Encode.null
+
+                    else
+                        -- Not signed with our marker -- treat as invalid
+                        Ok Encode.null
+
+                Nothing ->
+                    Err "decrypt: missing 'input' field in request body"
+
         _ ->
             Err
                 ("Unsupported elm-pages-internal request: "
