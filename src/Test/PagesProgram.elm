@@ -8,6 +8,7 @@ module Test.PagesProgram exposing
     , simulateMsg
     , withSimulatedSubscriptions, simulateIncomingPort
     , ensureViewHas, ensureViewHasNot, ensureView
+    , expectViewHas, expectViewHasNot
     , simulateHttpGet, simulateHttpPost, simulateHttpError
     , selectOption
     , done
@@ -50,6 +51,8 @@ use [`start`](#start) with inline config.
 @docs withSimulatedSubscriptions, simulateIncomingPort
 
 @docs ensureViewHas, ensureViewHasNot, ensureView
+
+@docs expectViewHas, expectViewHasNot
 
 @docs simulateHttpGet, simulateHttpPost, simulateHttpError
 
@@ -1567,6 +1570,55 @@ ensureView assertion (ProgramTest state) =
                             ProgramTest state
                                 |> recordAssertionSnapshot "ensureView"
 
+
+
+{-| Like `ensureViewHas`, but returns an `Expectation` (terminal -- ends
+the pipeline). Use for final view assertions.
+
+    myTest
+        |> PagesProgram.expectViewHas [ Selector.text "Done!" ]
+
+-}
+expectViewHas : List Selector.Selector -> ProgramTest model msg -> Expectation
+expectViewHas selectors (ProgramTest state) =
+    case state.error of
+        Just errMsg ->
+            Expect.fail errMsg
+
+        Nothing ->
+            case getView state.phase of
+                Err viewError ->
+                    Expect.fail viewError
+
+                Ok viewHtml ->
+                    let
+                        query : Query.Single msg
+                        query =
+                            Query.fromHtml (Html.div [] viewHtml.body)
+                    in
+                    query |> Query.has selectors
+
+
+{-| Like `ensureViewHasNot`, but returns an `Expectation` (terminal).
+-}
+expectViewHasNot : List Selector.Selector -> ProgramTest model msg -> Expectation
+expectViewHasNot selectors (ProgramTest state) =
+    case state.error of
+        Just errMsg ->
+            Expect.fail errMsg
+
+        Nothing ->
+            case getView state.phase of
+                Err viewError ->
+                    Expect.fail viewError
+
+                Ok viewHtml ->
+                    let
+                        query : Query.Single msg
+                        query =
+                            Query.fromHtml (Html.div [] viewHtml.body)
+                    in
+                    query |> Query.hasNot selectors
 
 
 -- TERMINAL

@@ -733,6 +733,27 @@ all =
                         |> PagesProgram.done
                         |> expectFailContaining "selectOption"
             ]
+        , describe "expectViewHas (terminal assertion)"
+            [ test "passes when view has selector" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.expectViewHas [ Selector.text "Hello" ]
+            , test "fails when view does not have selector" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.expectViewHas [ Selector.text "Goodbye" ]
+                        |> expectFailContaining "Goodbye"
+            ]
         , describe "textarea support"
             [ test "fillIn works with textarea" <|
                 \() ->
@@ -804,6 +825,8 @@ type ListenerMsg
 
 type SelectMsg
     = SelectColor String
+
+
 
 
 {-| Assert that an Expectation is a failure containing the given substring.
