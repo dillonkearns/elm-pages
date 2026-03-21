@@ -368,7 +368,87 @@ all =
                         |> List.length
                         |> Expect.equal 2
             ]
+        , describe "disabled button detection"
+            [ test "clickButton fails on disabled button" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Form"
+                                , body =
+                                    [ Html.button
+                                        [ Attr.disabled True ]
+                                        [ Html.text "Submit" ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "Submit"
+                        |> PagesProgram.done
+                        |> expectFailContaining "disabled"
+            , test "clickButton succeeds on enabled button" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { clicked = False }, [] )
+                        , update =
+                            \_ model -> ( { model | clicked = True }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Form"
+                                , body =
+                                    [ Html.button
+                                        [ Attr.disabled False
+                                        , Html.Events.onClick ()
+                                        ]
+                                        [ Html.text "Submit" ]
+                                    , if model.clicked then
+                                        Html.text "Clicked!"
+                                      else
+                                        Html.text ""
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "Submit"
+                        |> PagesProgram.ensureViewHas [ Selector.text "Clicked!" ]
+                        |> PagesProgram.done
+            ]
+        , describe "textarea support"
+            [ test "fillIn works with textarea" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { content = "" }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    UpdateContent c ->
+                                        ( { model | content = c }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Editor"
+                                , body =
+                                    [ Html.textarea
+                                        [ Attr.id "editor"
+                                        , Attr.value model.content
+                                        , Html.Events.onInput UpdateContent
+                                        ]
+                                        []
+                                    , Html.text ("Content: " ++ model.content)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.fillIn "editor" "editor" "Hello textarea!"
+                        |> PagesProgram.ensureViewHas [ Selector.text "Content: Hello textarea!" ]
+                        |> PagesProgram.done
+            ]
         ]
+
+
+type ContentMsg
+    = UpdateContent String
 
 
 type CounterMsg

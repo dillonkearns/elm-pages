@@ -445,6 +445,30 @@ clickButton buttonText (ProgramTest state) =
                         query =
                             Query.fromHtml (Html.div [] viewHtml.body)
 
+                        -- Check for disabled button first (elm-program-test pattern)
+                        disabledButtonExists : Bool
+                        disabledButtonExists =
+                            query
+                                |> Query.has
+                                    [ Selector.tag "button"
+                                    , Selector.containing [ Selector.text buttonText ]
+                                    , Selector.disabled True
+                                    ]
+                                |> (\expectation -> getFailureMessage expectation == Nothing)
+                    in
+                    if disabledButtonExists then
+                        ProgramTest
+                            { state
+                                | error =
+                                    Just
+                                        ("clickButton \""
+                                            ++ buttonText
+                                            ++ "\" failed: the button is disabled."
+                                        )
+                            }
+
+                    else
+                    let
                         buttonQuery : Query.Single msg
                         buttonQuery =
                             query
@@ -586,19 +610,37 @@ fillIn fieldId fieldName value (ProgramTest state) =
                                         )
                                     |> Event.toResult
 
-                        -- Strategy 2: Input nested in <label> (implicit association)
+                        -- Strategy 2: Input or textarea nested in <label>
                         labelWrappedResult : Result String msg
                         labelWrappedResult =
-                            query
-                                |> Query.find
-                                    [ Selector.tag "label"
-                                    , Selector.containing [ Selector.text fieldName ]
-                                    ]
-                                |> Query.find [ Selector.tag "input" ]
-                                |> Event.simulate (Event.input value)
-                                |> Event.toResult
+                            let
+                                labelQuery =
+                                    query
+                                        |> Query.find
+                                            [ Selector.tag "label"
+                                            , Selector.containing [ Selector.text fieldName ]
+                                            ]
 
-                        -- Strategy 3: Input with id
+                                inputResult =
+                                    labelQuery
+                                        |> Query.find [ Selector.tag "input" ]
+                                        |> Event.simulate (Event.input value)
+                                        |> Event.toResult
+
+                                textareaResult =
+                                    labelQuery
+                                        |> Query.find [ Selector.tag "textarea" ]
+                                        |> Event.simulate (Event.input value)
+                                        |> Event.toResult
+                            in
+                            case inputResult of
+                                Ok _ ->
+                                    inputResult
+
+                                Err _ ->
+                                    textareaResult
+
+                        -- Strategy 3: Input or textarea with id
                         idResult : Result String msg
                         idResult =
                             if fieldId == "" then
