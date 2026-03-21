@@ -94,6 +94,7 @@ type alias PaneConfig msg =
     , footerScreen : Maybe Screen
     , inlineFooter : Maybe Screen
     , tabMapping : Maybe { activeTab : String, tabIds : List String }
+    , tabClickHandler : Maybe { onTabClick : String -> msg, tabLabels : List { id : String, label : String } }
     }
 
 
@@ -209,6 +210,7 @@ paneGroup :
         { tabs : List (TabConfig msg)
         , activeTab : String
         , width : Width
+        , onTabClick : Maybe (String -> msg)
         }
     -> Pane msg
 paneGroup groupId config =
@@ -247,6 +249,14 @@ paneGroup groupId config =
         , footerScreen = Nothing
         , inlineFooter = Nothing
         , tabMapping = Just { activeTab = config.activeTab, tabIds = List.map .id config.tabs }
+        , tabClickHandler =
+            config.onTabClick
+                |> Maybe.map
+                    (\handler ->
+                        { onTabClick = handler
+                        , tabLabels = List.map (\tab -> { id = tab.id, label = tab.label }) config.tabs
+                        }
+                    )
         }
 
 
@@ -270,6 +280,7 @@ pane id config paneContent =
         , footerScreen = Nothing
         , inlineFooter = Nothing
         , tabMapping = Nothing
+        , tabClickHandler = Nothing
         }
 
 
@@ -1369,42 +1380,71 @@ handleMouseInternal mouseEvent ctx panes (State s) =
 
         Tui.Click { row, col } ->
             case findPaneAt col panesWithBounds of
-                Just { config } ->
-                    case config.paneContent of
-                        SelectableContent { onSelect } ->
-                            let
-                                clickStateKey : String
-                                clickStateKey =
-                                    config.tabMapping
-                                        |> Maybe.map .activeTab
-                                        |> Maybe.withDefault config.id
+                Just { config, startCol } ->
+                    if row == 0 then
+                        -- Title bar click — check for tab click
+                        case config.tabClickHandler of
+                            Just { onTabClick, tabLabels } ->
+                                let
+                                    -- Column within the pane (after border + jump label)
+                                    -- Title starts after: border char + jump label "[N]"
+                                    jumpLabelLen : Int
+                                    jumpLabelLen =
+                                        3
 
-                                contentRow : Int
-                                contentRow =
-                                    row - 1
+                                    localCol : Int
+                                    localCol =
+                                        col - startCol - 1 - jumpLabelLen
+                                in
+                                case findTabAtCol localCol tabLabels of
+                                    Just tabId ->
+                                        ( State { sWithCtx | focusedPaneId = Just config.id }
+                                        , Just (onTabClick tabId)
+                                        )
 
-                                ps : PaneState
-                                ps =
-                                    Dict.get clickStateKey sWithCtx.paneStates
-                                        |> Maybe.withDefault defaultPaneState
+                                    Nothing ->
+                                        ( State { sWithCtx | focusedPaneId = Just config.id }, Nothing )
 
-                                clickedIndex : Int
-                                clickedIndex =
-                                    contentRow + ps.scrollOffset
-                            in
-                            ( State
-                                { sWithCtx
-                                    | paneStates =
-                                        Dict.insert clickStateKey
-                                            { ps | selectedIndex = clickedIndex }
-                                            sWithCtx.paneStates
-                                    , focusedPaneId = Just config.id
-                                }
-                            , Just (onSelect clickedIndex)
-                            )
+                            Nothing ->
+                                ( State { sWithCtx | focusedPaneId = Just config.id }, Nothing )
 
-                        StaticContent _ ->
-                            ( State { sWithCtx | focusedPaneId = Just config.id }, Nothing )
+                    else
+                        -- Content area click
+                        case config.paneContent of
+                            SelectableContent { onSelect } ->
+                                let
+                                    clickStateKey : String
+                                    clickStateKey =
+                                        config.tabMapping
+                                            |> Maybe.map .activeTab
+                                            |> Maybe.withDefault config.id
+
+                                    contentRow : Int
+                                    contentRow =
+                                        row - 1
+
+                                    ps : PaneState
+                                    ps =
+                                        Dict.get clickStateKey sWithCtx.paneStates
+                                            |> Maybe.withDefault defaultPaneState
+
+                                    clickedIndex : Int
+                                    clickedIndex =
+                                        contentRow + ps.scrollOffset
+                                in
+                                ( State
+                                    { sWithCtx
+                                        | paneStates =
+                                            Dict.insert clickStateKey
+                                                { ps | selectedIndex = clickedIndex }
+                                                sWithCtx.paneStates
+                                        , focusedPaneId = Just config.id
+                                    }
+                                , Just (onSelect clickedIndex)
+                                )
+
+                            StaticContent _ ->
+                                ( State { sWithCtx | focusedPaneId = Just config.id }, Nothing )
 
                 Nothing ->
                     ( State sWithCtx, Nothing )
@@ -1415,6 +1455,35 @@ findPaneAt col panesWithBounds =
     panesWithBounds
         |> List.filter (\{ startCol, endCol } -> col >= startCol && col < endCol)
         |> List.head
+
+
+{-| Find which tab label contains the given column offset within the title bar.
+Tab labels are separated by " - " (3 chars).
+-}
+findTabAtCol : Int -> List { id : String, label : String } -> Maybe String
+findTabAtCol col tabLabels =
+    findTabAtColHelp col 0 tabLabels
+
+
+findTabAtColHelp : Int -> Int -> List { id : String, label : String } -> Maybe String
+findTabAtColHelp col offset tabs =
+    -- elm-review: known-unoptimized-recursion
+    case tabs of
+        [] ->
+            Nothing
+
+        tab :: rest ->
+            let
+                tabEnd : Int
+                tabEnd =
+                    offset + String.length tab.label
+            in
+            if col >= offset && col < tabEnd then
+                Just tab.id
+
+            else
+                -- Skip past " - " separator (3 chars)
+                findTabAtColHelp col (tabEnd + 3) rest
 
 
 

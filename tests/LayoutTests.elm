@@ -856,6 +856,7 @@ suite =
                                 ]
                             , activeTab = "files"
                             , width = Layout.fill
+                            , onTabClick = Nothing
                             }
                         ]
                         |> renderAt { width = 30, height = 5 }
@@ -876,6 +877,7 @@ suite =
                                 ]
                             , activeTab = "worktrees"
                             , width = Layout.fill
+                            , onTabClick = Nothing
                             }
                         ]
                         |> renderAt { width = 40, height = 5 }
@@ -896,6 +898,7 @@ suite =
                                 ]
                             , activeTab = "files"
                             , width = Layout.fill
+                            , onTabClick = Nothing
                             }
                         ]
                         |> renderAt { width = 40, height = 5 }
@@ -931,6 +934,7 @@ suite =
                                         ]
                                     , activeTab = "files"
                                     , width = Layout.fill
+                                    , onTabClick = Nothing
                                     }
                                 ]
 
@@ -1039,6 +1043,97 @@ suite =
                                 state
                     in
                     Layout.focusedPane newState |> Expect.equal (Just "left")
+            ]
+        , describe "Tab click in title bar"
+            [ test "clicking a tab label fires onTabClick" <|
+                \() ->
+                    let
+                        layout =
+                            Layout.horizontal
+                                [ Layout.paneGroup "nav"
+                                    { tabs =
+                                        [ { id = "files", label = "Files", content = Layout.content [ Tui.text "f" ] }
+                                        , { id = "branches", label = "Branches", content = Layout.content [ Tui.text "b" ] }
+                                        ]
+                                    , activeTab = "files"
+                                    , width = Layout.fill
+                                    , onTabClick = Just identity
+                                    }
+                                ]
+
+                        state =
+                            Layout.init |> Layout.focusPane "nav"
+
+                        -- Click on row 0 (title bar), col where "Branches" starts
+                        -- Title: "[1]Files - Branches..."
+                        -- [1] = 3 chars, border = 1 char, "Files" = 5 chars, " - " = 3 chars
+                        -- So "Branches" starts at border(1) + jumpLabel(3) + "Files"(5) + " - "(3) = 12
+                        ( _, maybeMsg ) =
+                            Layout.handleMouse
+                                (Tui.Click { row = 0, col = 12, button = Tui.LeftButton })
+                                { width = 40, height = 8 }
+                                layout
+                                state
+                    in
+                    maybeMsg |> Expect.equal (Just "branches")
+            , test "clicking active tab also fires onTabClick" <|
+                \() ->
+                    let
+                        layout =
+                            Layout.horizontal
+                                [ Layout.paneGroup "nav"
+                                    { tabs =
+                                        [ { id = "files", label = "Files", content = Layout.content [ Tui.text "f" ] }
+                                        , { id = "branches", label = "Branches", content = Layout.content [ Tui.text "b" ] }
+                                        ]
+                                    , activeTab = "files"
+                                    , width = Layout.fill
+                                    , onTabClick = Just identity
+                                    }
+                                ]
+
+                        state =
+                            Layout.init |> Layout.focusPane "nav"
+
+                        -- Click on "Files" at col 5 (border + jump label + start of "Files")
+                        ( _, maybeMsg ) =
+                            Layout.handleMouse
+                                (Tui.Click { row = 0, col = 5, button = Tui.LeftButton })
+                                { width = 40, height = 8 }
+                                layout
+                                state
+                    in
+                    maybeMsg |> Expect.equal (Just "files")
+            , test "clicking title bar without onTabClick just focuses" <|
+                \() ->
+                    let
+                        layout =
+                            Layout.horizontal
+                                [ Layout.paneGroup "nav"
+                                    { tabs =
+                                        [ { id = "files", label = "Files", content = Layout.content [ Tui.text "f" ] }
+                                        ]
+                                    , activeTab = "files"
+                                    , width = Layout.fill
+                                    , onTabClick = Nothing
+                                    }
+                                ]
+
+                        state =
+                            Layout.init
+
+                        ( newState, maybeMsg ) =
+                            Layout.handleMouse
+                                (Tui.Click { row = 0, col = 5, button = Tui.LeftButton })
+                                { width = 40, height = 8 }
+                                layout
+                                state
+                    in
+                    Expect.all
+                        [ \_ -> maybeMsg |> Expect.equal Nothing
+                        , \_ -> Layout.focusedPane newState |> Expect.equal (Just "nav")
+                        ]
+                        ()
             ]
         , describe "Search border color"
             [ test "search mode changes focused border to cyan" <|
