@@ -95,4 +95,6 @@ loginRedirectTest =
         |> PagesProgram.clickButton "Log In"
         -- Action returned Route.redirectTo Route.Counter
         -- Framework follows the redirect automatically
+        |> PagesProgram.ensureBrowserUrl
+            (\url -> url |> Expect.equal "https://localhost:1234/counter")
         |> PagesProgram.ensureViewHas [ text "Count: 0" ]
