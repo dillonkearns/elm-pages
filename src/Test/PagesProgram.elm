@@ -6,6 +6,7 @@ module Test.PagesProgram exposing
     , submitForm
     , resolveEffect
     , simulateMsg
+    , withSimulatedSubscriptions, simulateIncomingPort
     , ensureViewHas, ensureViewHasNot, ensureView
     , simulateHttpGet, simulateHttpPost
     , done
@@ -45,6 +46,8 @@ use [`start`](#start) with inline config.
 
 @docs simulateMsg
 
+@docs withSimulatedSubscriptions, simulateIncomingPort
+
 @docs ensureViewHas, ensureViewHasNot, ensureView
 
 @docs simulateHttpGet, simulateHttpPost
@@ -75,6 +78,7 @@ import Html.Attributes
 import Http
 import Internal.Request
 import Pages.Internal.FatalError
+import Json.Decode
 import Json.Encode as Encode
 import PageServerResponse exposing (PageServerResponse(..))
 import Pages.Internal.Msg
@@ -82,6 +86,7 @@ import Pages.Internal.Platform as Platform
 import Pages.Internal.ResponseSketch as ResponseSketch
 import Pages.StaticHttp.Request as StaticHttpRequest
 import Test.BackendTask.Internal as BackendTaskTest
+import Test.PagesProgram.SimulatedSub as SimulatedSub exposing (SimulatedSub)
 import Test.Html.Event as Event
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
@@ -105,6 +110,7 @@ type alias State model msg =
     , snapshots : List Snapshot
     , modelToString : Maybe (model -> String)
     , networkLog : List NetworkEntry
+    , subscriptions : Maybe (model -> SimulatedSub msg)
     }
 
 
@@ -278,6 +284,7 @@ start config =
         , snapshots = initSnapshot
         , modelToString = Nothing
         , networkLog = []
+        , subscriptions = Nothing
         }
 
 
@@ -325,6 +332,7 @@ startPlatform config initialPath testSetup =
                 , snapshots = []
                 , modelToString = Nothing
                 , networkLog = []
+                , subscriptions = Nothing
                 }
 
         Ok ( vfsAfterInit, pageDataBytes ) ->
@@ -429,6 +437,7 @@ startPlatform config initialPath testSetup =
                 , snapshots = [ initSnapshot ]
                 , modelToString = Nothing
                 , networkLog = []
+                , subscriptions = Nothing
                 }
 
 
@@ -461,6 +470,148 @@ body.
 simulateHttpPost : String -> Encode.Value -> ProgramTest model msg -> ProgramTest model msg
 simulateHttpPost url jsonResponse =
     applySimulation (SimHttpPost url jsonResponse)
+
+
+{-| Register a simulated subscriptions function. The function is called with
+the current model each time `simulateIncomingPort` is used, so subscriptions
+can be model-dependent (e.g., only listen when connected).
+
+    import Test.PagesProgram.SimulatedSub as SimulatedSub
+
+    myTest
+        |> PagesProgram.withSimulatedSubscriptions
+            (\model ->
+                if model.isConnected then
+                    SimulatedSub.port_ "websocketData"
+                        (Decode.string |> Decode.map GotMessage)
+                else
+                    SimulatedSub.none
+            )
+
+-}
+withSimulatedSubscriptions : (model -> SimulatedSub msg) -> ProgramTest model msg -> ProgramTest model msg
+withSimulatedSubscriptions fn (ProgramTest state) =
+    ProgramTest { state | subscriptions = Just fn }
+
+
+{-| Simulate data arriving through an incoming port. The test framework
+evaluates the subscription function (registered via `withSimulatedSubscriptions`)
+with the current model, finds matching port subscriptions, decodes the value,
+and dispatches the resulting message through `update`.
+
+    |> PagesProgram.simulateIncomingPort "websocketData"
+        (Encode.string "hello from server")
+
+Fails if:
+
+  - `withSimulatedSubscriptions` was not called
+  - The program is not currently subscribed to the named port
+  - The value does not match the port's decoder
+
+-}
+simulateIncomingPort : String -> Encode.Value -> ProgramTest model msg -> ProgramTest model msg
+simulateIncomingPort portName value (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.subscriptions of
+                Nothing ->
+                    ProgramTest
+                        { state
+                            | error =
+                                Just
+                                    ("simulateIncomingPort \""
+                                        ++ portName
+                                        ++ "\": you must use PagesProgram.withSimulatedSubscriptions before using simulateIncomingPort"
+                                    )
+                        }
+
+                Just subsFn ->
+                    case state.phase of
+                        Resolving _ ->
+                            ProgramTest
+                                { state
+                                    | error =
+                                        Just
+                                            ("simulateIncomingPort \""
+                                                ++ portName
+                                                ++ "\": Cannot simulate port while BackendTask is resolving."
+                                            )
+                                }
+
+                        Ready ready ->
+                            let
+                                currentSubs =
+                                    subsFn ready.model
+
+                                matches =
+                                    findPortMatches portName value currentSubs
+                            in
+                            case matches of
+                                [] ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just
+                                                    ("simulateIncomingPort \""
+                                                        ++ portName
+                                                        ++ "\": the program is not currently subscribed to the port \""
+                                                        ++ portName
+                                                        ++ "\""
+                                                    )
+                                        }
+
+                                _ ->
+                                    List.foldl
+                                        (\result programTest ->
+                                            case result of
+                                                Ok msg ->
+                                                    applyMsgWithLabel
+                                                        ("simulateIncomingPort \"" ++ portName ++ "\"")
+                                                        Interaction
+                                                        msg
+                                                        programTest
+
+                                                Err decodeError ->
+                                                    case programTest of
+                                                        ProgramTest s ->
+                                                            ProgramTest
+                                                                { s
+                                                                    | error =
+                                                                        Just
+                                                                            ("simulateIncomingPort \""
+                                                                                ++ portName
+                                                                                ++ "\": the value does not match the port's decoder:\n\n"
+                                                                                ++ decodeError
+                                                                            )
+                                                                }
+                                        )
+                                        (ProgramTest state)
+                                        matches
+
+
+{-| Recursively search a SimulatedSub tree for PortSub entries matching
+the given port name. Returns a list of decode results.
+-}
+findPortMatches : String -> Encode.Value -> SimulatedSub msg -> List (Result String msg)
+findPortMatches portName value sub =
+    case sub of
+        SimulatedSub.NoneSub ->
+            []
+
+        SimulatedSub.BatchSub subs ->
+            List.concatMap (findPortMatches portName value) subs
+
+        SimulatedSub.PortSub name decoder ->
+            if name == portName then
+                [ Json.Decode.decodeValue decoder value
+                    |> Result.mapError Json.Decode.errorToString
+                ]
+
+            else
+                []
 
 
 {-| Dispatch a message directly, as if it came from a subscription.

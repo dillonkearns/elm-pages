@@ -13,6 +13,7 @@ import Test exposing (Test, describe, test)
 import Test.Html.Selector as Selector
 import Test.BackendTask as BackendTaskTest
 import Test.PagesProgram as PagesProgram
+import Test.PagesProgram.SimulatedSub as SimulatedSub
 import Test.Runner
 
 
@@ -538,92 +539,118 @@ all =
                         |> PagesProgram.done
                         |> expectFailContaining "Service unavailable"
             ]
-        , describe "simulateMsg for subscription-produced messages"
-            [ test "can dispatch a message that a subscription would produce" <|
+        , describe "simulateIncomingPort (elm-program-test style)"
+            [ test "can simulate an incoming port message" <|
                 \() ->
-                    -- Subscriptions produce messages. Rather than trying to
-                    -- simulate the subscription itself (Sub is opaque), we
-                    -- let users dispatch the message directly.
                     PagesProgram.start
                         { data = BackendTask.succeed ()
-                        , init = \() -> ( { ticks = 0 }, [] )
+                        , init = \() -> ( { messages = [] }, [] )
                         , update =
                             \msg model ->
                                 case msg of
-                                    TimerTick ->
-                                        ( { model | ticks = model.ticks + 1 }, [] )
+                                    GotWebSocket message ->
+                                        ( { model | messages = model.messages ++ [ message ] }, [] )
                         , view =
                             \_ model ->
-                                { title = "Timer"
+                                { title = "Chat"
                                 , body =
-                                    [ Html.text ("Ticks: " ++ String.fromInt model.ticks) ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ Selector.text "Ticks: 0" ]
-                        |> PagesProgram.simulateMsg TimerTick
-                        |> PagesProgram.ensureViewHas [ Selector.text "Ticks: 1" ]
-                        |> PagesProgram.simulateMsg TimerTick
-                        |> PagesProgram.simulateMsg TimerTick
-                        |> PagesProgram.ensureViewHas [ Selector.text "Ticks: 3" ]
-                        |> PagesProgram.done
-            , test "simulateMsg works with effects" <|
-                \() ->
-                    -- A subscription message can trigger effects too
-                    PagesProgram.start
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { data = Nothing }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    PortReceived ->
-                                        ( model
-                                        , [ BackendTask.Http.getJson
-                                                "https://api.example.com/refresh"
-                                                (Decode.field "value" Decode.string)
-                                                |> BackendTask.allowFatal
-                                                |> BackendTask.map GotPortData
-                                          ]
+                                    [ Html.text
+                                        (if List.isEmpty model.messages then
+                                            "No messages"
+
+                                         else
+                                            String.join ", " model.messages
                                         )
-
-                                    GotPortData value ->
-                                        ( { model | data = Just value }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Port"
-                                , body =
-                                    [ case model.data of
-                                        Just v ->
-                                            Html.text ("Data: " ++ v)
-
-                                        Nothing ->
-                                            Html.text "Waiting..."
                                     ]
                                 }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.text "Waiting..." ]
-                        |> PagesProgram.simulateMsg PortReceived
-                        |> PagesProgram.resolveEffect
-                            (BackendTaskTest.simulateHttpGet
-                                "https://api.example.com/refresh"
-                                (Encode.object [ ( "value", Encode.string "refreshed" ) ])
+                        |> PagesProgram.withSimulatedSubscriptions
+                            (\_ ->
+                                SimulatedSub.port_ "websocketReceived"
+                                    (Decode.string |> Decode.map GotWebSocket)
                             )
-                        |> PagesProgram.ensureViewHas [ Selector.text "Data: refreshed" ]
+                        |> PagesProgram.ensureViewHas [ Selector.text "No messages" ]
+                        |> PagesProgram.simulateIncomingPort "websocketReceived"
+                            (Encode.string "hello")
+                        |> PagesProgram.ensureViewHas [ Selector.text "hello" ]
+                        |> PagesProgram.simulateIncomingPort "websocketReceived"
+                            (Encode.string "world")
+                        |> PagesProgram.ensureViewHas [ Selector.text "hello, world" ]
                         |> PagesProgram.done
-            , test "simulateMsg fails when data is still resolving" <|
+            , test "simulateIncomingPort fails when not subscribed to port" <|
                 \() ->
                     PagesProgram.start
-                        { data =
-                            BackendTask.Http.getJson
-                                "https://api.example.com/init"
-                                Decode.string
-                                |> BackendTask.allowFatal
-                        , init = \_ -> ( {}, [] )
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
                         , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
                         }
-                        |> PagesProgram.simulateMsg ()
+                        |> PagesProgram.withSimulatedSubscriptions
+                            (\_ -> SimulatedSub.none)
+                        |> PagesProgram.simulateIncomingPort "somePort"
+                            (Encode.string "data")
                         |> PagesProgram.done
-                        |> expectFailContaining "resolving"
+                        |> expectFailContaining "not currently subscribed"
+            , test "simulateIncomingPort fails without withSimulatedSubscriptions" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.simulateIncomingPort "somePort"
+                            (Encode.string "data")
+                        |> PagesProgram.done
+                        |> expectFailContaining "withSimulatedSubscriptions"
+            , test "subscriptions are model-dependent" <|
+                \() ->
+                    -- The subscription function re-evaluates with the current
+                    -- model. When listening is False, port is not subscribed.
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { listening = False, lastMessage = Nothing }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    StartListening ->
+                                        ( { model | listening = True }, [] )
+
+                                    ReceivedData value ->
+                                        ( { model | lastMessage = Just value }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Listener"
+                                , body =
+                                    [ if model.listening then
+                                        Html.text "Listening"
+
+                                      else
+                                        Html.button [ Html.Events.onClick StartListening ]
+                                            [ Html.text "Start" ]
+                                    , case model.lastMessage of
+                                        Just msg ->
+                                            Html.text ("Got: " ++ msg)
+
+                                        Nothing ->
+                                            Html.text ""
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.withSimulatedSubscriptions
+                            (\model ->
+                                if model.listening then
+                                    SimulatedSub.port_ "dataPort"
+                                        (Decode.string |> Decode.map ReceivedData)
+
+                                else
+                                    SimulatedSub.none
+                            )
+                        -- Not listening yet, so port should not be subscribed
+                        |> PagesProgram.simulateIncomingPort "dataPort"
+                            (Encode.string "too early")
+                        |> PagesProgram.done
+                        |> expectFailContaining "not currently subscribed"
             ]
         , describe "textarea support"
             [ test "fillIn works with textarea" <|
@@ -685,13 +712,13 @@ type QueueMsg
     | GotResult String
 
 
-type TimerMsg
-    = TimerTick
+type WebSocketMsg
+    = GotWebSocket String
 
 
-type PortMsg
-    = PortReceived
-    | GotPortData String
+type ListenerMsg
+    = StartListening
+    | ReceivedData String
 
 
 {-| Assert that an Expectation is a failure containing the given substring.
