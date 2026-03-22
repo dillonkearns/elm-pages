@@ -613,6 +613,66 @@ suite =
                         ]
                         rendered
             ]
+        , describe "mouse clicks on filtered list"
+            [ test "clicking a filtered item fires onSelect with original index" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 30, height = 12 }
+                                |> Layout.focusPane "fruits"
+
+                        -- Filter to "berry" → blueberry(3), elderberry(6)
+                        s1 =
+                            startFilterWith "berry" state
+
+                        ( s2, _, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Enter, modifiers = [] }
+                                filterableList
+                                s1
+
+                        -- Click on row 2 (second filtered item = elderberry, original index 6)
+                        ( _, maybeMsg ) =
+                            Layout.handleMouse
+                                (Tui.Click { row = 2, col = 5, button = Tui.LeftButton })
+                                { width = 30, height = 12 }
+                                filterableList
+                                s2
+                    in
+                    -- Should fire with original index 6 (elderberry), not filtered index 1
+                    maybeMsg |> Expect.equal (Just 6)
+            ]
+        , describe "mouse scroll on filtered list"
+            [ test "scroll clamps to filtered list length" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 30, height = 12 }
+                                |> Layout.focusPane "fruits"
+
+                        -- Filter to "berry" → blueberry(3), elderberry(6) — only 2 items
+                        s1 =
+                            startFilterWith "berry" state
+
+                        ( s2, _, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Enter, modifiers = [] }
+                                filterableList
+                                s1
+
+                        -- Scroll down a lot — should clamp to filtered count (2), not full count (9)
+                        ( s3, _ ) =
+                            Layout.handleMouse
+                                (Tui.ScrollDown { row = 3, col = 5, amount = 5 })
+                                { width = 30, height = 12 }
+                                filterableList
+                                s2
+                    in
+                    -- Scroll position should be clamped (2 items fit in viewport, so no scroll needed)
+                    Layout.scrollPosition "fruits" s3 |> Expect.atMost 0
+            ]
         , describe "smart case matching"
             [ test "lowercase query is case-insensitive" <|
                 \() ->

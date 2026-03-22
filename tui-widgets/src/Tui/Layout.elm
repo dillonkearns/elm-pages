@@ -2464,9 +2464,23 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                         delta =
                             amount * 2
 
+                        -- Use filtered count when filter is active
+                        scrollFilterState : Maybe FilterState
+                        scrollFilterState =
+                            Dict.get mouseStateKey sWithCtx.filterStates
+
+                        effectiveCount : Int
+                        effectiveCount =
+                            case scrollFilterState of
+                                Just fs ->
+                                    List.length fs.filteredIndices
+
+                                Nothing ->
+                                    contentLineCount config.paneContent
+
                         newOffset : Int
                         newOffset =
-                            clampScroll (contentLineCount config.paneContent) (ctx.height - 2) (ps.scrollOffset + delta)
+                            clampScroll effectiveCount (ctx.height - 2) (ps.scrollOffset + delta)
                     in
                     -- Scroll does NOT change focus (lazygit behavior): hovering
                     -- over a pane and scrolling it should not steal focus from
@@ -2584,6 +2598,15 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                                     clickedIndex : Int
                                     clickedIndex =
                                         contentRow + ps.scrollOffset
+
+                                    -- Map through filtered indices to get original index
+                                    clickFilterState : Maybe FilterState
+                                    clickFilterState =
+                                        Dict.get clickStateKey sWithCtx.filterStates
+
+                                    originalIndex : Int
+                                    originalIndex =
+                                        mapFilteredIndex clickedIndex clickFilterState
                                 in
                                 ( State
                                     { sWithCtx
@@ -2593,7 +2616,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                                                 sWithCtx.paneStates
                                         , focusedPaneId = Just config.id
                                     }
-                                , Just (onSelect clickedIndex)
+                                , Just (onSelect originalIndex)
                                 )
 
                             StaticContent _ ->
