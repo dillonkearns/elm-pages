@@ -149,6 +149,17 @@ async function main() {
     });
 
   program
+    .command("test-run [elmModulePath]")
+    .description("run page tests headlessly via elm-test")
+    .allowUnknownOption()
+    .allowExcessArguments()
+    .helpOption(false)
+    .action(async (elmModulePath, options) => {
+      const { run } = await import("./commands/test-run.js");
+      await run(elmModulePath || "", options);
+    });
+
+  program
     .command("bundle-script <moduleName>")
     .description("bundle an elm-pages script")
     .option(
