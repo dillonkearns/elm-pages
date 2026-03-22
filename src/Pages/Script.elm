@@ -23,6 +23,20 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 ## TUI Scripts
 
+A TUI script is essentially a TEA (The Elm Architecture) app, but instead of
+rendering HTML, your `view` returns a [`Tui.Screen`](Tui#Screen) — styled
+terminal output with optimized cell-level diffing under the hood for smooth,
+snappy rendering.
+
+Two extra capabilities beyond a standard TEA app:
+
+  - **`data`** — resolve a [`BackendTask`](BackendTask) before `init` runs
+    (fetching git log, reading files, etc.), while the terminal is still in
+    normal mode.
+  - **[`Tui.Effect`](Tui-Effect)** — run a [`BackendTask`](BackendTask) from
+    `update` via [`Effect.perform`](Tui-Effect#perform). This bridges async
+    operations (shell commands, HTTP, file I/O) into the TUI update cycle.
+
 @docs tui, tuiWithCliOptions
 
 
@@ -357,14 +371,15 @@ withDatabasePath dbPath (Pages.Internal.Script.Script script) =
         }
 
 
-{-| Define a TUI (Terminal User Interface) script. The lifecycle mirrors a
-Route Module:
+{-| Define a TUI (Terminal User Interface) script. It's a standard TEA app
+(`init`/`update`/`view`/`subscriptions`) with two additions:
 
-  - `data` loads initial data before the TUI starts (normal terminal mode)
-  - `init` creates the initial model from loaded data
-  - `update` handles terminal events and BackendTask results
-  - `view` renders the model to the terminal
-  - `subscriptions` declares which terminal events to listen for
+  - **`data`** resolves a [`BackendTask`](BackendTask) before `init` — use it
+    to load files, run shell commands, or fetch data while the terminal is
+    still in normal mode.
+  - **`update`** returns a [`Tui.Effect`](Tui-Effect) instead of `Cmd` — use
+    [`Effect.perform`](Tui-Effect#perform) to run a `BackendTask` and feed the
+    result back as a message.
 
 Example:
 
