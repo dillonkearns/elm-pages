@@ -15,7 +15,8 @@
         "Tui.CommandPalette",
         "Tui.Search",
         "Tui.Confirm",
-        "Tui.OptionsBar"
+        "Tui.OptionsBar",
+        "Tui.Status"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
