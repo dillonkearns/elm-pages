@@ -2609,10 +2609,16 @@ platformUpdateClean config msg platformModel =
 
         cleanPath =
             String.replace "/./" "/"
+
+        cleanUrl u =
+            { u | path = cleanPath u.path }
     in
     ( { newModel
-        | url = { url | path = cleanPath url.path }
+        | url = cleanUrl url
         , currentPath = cleanPath newModel.currentPath
+        , pendingFrozenViewsUrl =
+            newModel.pendingFrozenViewsUrl
+                |> Maybe.map cleanUrl
       }
     , effect
     )
