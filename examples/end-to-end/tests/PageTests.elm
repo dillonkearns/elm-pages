@@ -387,7 +387,7 @@ searchFilterTest =
         |> PagesProgram.ensureViewHas [ Selector.text "7 results" ]
         |> PagesProgram.ensureViewHasNot [ Selector.text "Haskell" ]
         |> PagesProgram.fillIn "search" "search" "elm-"
-        |> PagesProgram.ensureViewHas [ Selector.text "5 results" ]
+        |> PagesProgram.ensureViewHas [ Selector.text "6 results" ]
         |> PagesProgram.fillIn "search" "search" "review"
         |> PagesProgram.ensureViewHas [ Selector.text "1 results" ]
         |> PagesProgram.ensureViewHas [ Selector.text "elm-review" ]
