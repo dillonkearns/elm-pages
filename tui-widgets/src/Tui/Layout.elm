@@ -1,6 +1,6 @@
 module Tui.Layout exposing
     ( Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
-    , PaneContent, content, selectableList, withUnfocusedStyle, withFilterable, withSearchable
+    , PaneContent, content, selectableList, withUnfocusedStyle, withFilterable, withSearchable, withTreeView
     , Width, fill, fillPortion, fixed
     , State, init, withContext
     , navigateDown, navigateUp, pageDown, pageUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
@@ -46,7 +46,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
 
-@docs PaneContent, content, selectableList, withUnfocusedStyle, withFilterable, withSearchable
+@docs PaneContent, content, selectableList, withUnfocusedStyle, withFilterable, withSearchable, withTreeView
 
 @docs Width, fill, fillPortion, fixed
 
@@ -78,6 +78,7 @@ import Ansi.Color
 import Array
 import Char
 import Dict exposing (Dict)
+import Set exposing (Set)
 import Tui exposing (MouseEvent, Screen, plain)
 import Tui.Keybinding
 
@@ -126,6 +127,7 @@ type PaneContent msg
         , renderSelectedUnfocused : Int -> Screen -- renders selected view when pane is unfocused
         , onSelect : Int -> msg
         , filterText : Maybe (Int -> String)
+        , treeConfig : Maybe { toPath : Int -> List String }
         }
 
 
@@ -149,7 +151,14 @@ type State
         , searching : Bool
         , filterStates : Dict String FilterState
         , searchStates : Dict String SearchState
+        , treeStates : Dict String TreeState
         }
+
+
+type alias TreeState =
+    { showTree : Bool
+    , collapsedPaths : Set String
+    }
 
 
 type FilterMode
@@ -368,6 +377,7 @@ selectableList config items =
         , renderSelectedUnfocused = renderSel
         , onSelect = config.onSelect
         , filterText = Nothing
+        , treeConfig = Nothing
         }
 
 
@@ -469,6 +479,55 @@ withFilterable toText items paneContent =
             paneContent
 
 
+{-| Enable lazygit-style tree view on a selectable list. Items are grouped
+by path segments and displayed as a collapsible directory tree.
+
+    Layout.selectableList
+        { onSelect = SelectFile
+        , selected = \f -> Tui.text ("▸ " ++ f)
+        , default = \f -> Tui.text ("  " ++ f)
+        }
+        files
+        |> Layout.withTreeView
+            { toPath = String.split "/" }
+
+The `toPath` function splits each item into path segments used for tree
+grouping. Single-child directory chains are compressed (e.g., `src/Api`
+becomes one node).
+
+Built-in keybindings when tree view is active:
+
+  - `` ` `` — toggle between tree and flat view
+  - `-` — collapse all directories
+  - `=` — expand all directories
+  - `Enter` — toggle collapse on a directory node
+
+-}
+withTreeView : { toPath : item -> List String } -> List item -> PaneContent msg -> PaneContent msg
+withTreeView config items paneContent =
+    case paneContent of
+        SelectableContent selConfig ->
+            let
+                itemArray : Array.Array item
+                itemArray =
+                    Array.fromList items
+            in
+            SelectableContent
+                { selConfig
+                    | treeConfig =
+                        Just
+                            { toPath =
+                                \i ->
+                                    Array.get i itemArray
+                                        |> Maybe.map config.toPath
+                                        |> Maybe.withDefault []
+                            }
+                }
+
+        StaticContent _ ->
+            paneContent
+
+
 
 -- WIDTH
 
@@ -512,6 +571,7 @@ init =
         , searching = False
         , filterStates = Dict.empty
         , searchStates = Dict.empty
+        , treeStates = Dict.empty
         }
 
 
@@ -564,14 +624,45 @@ navigateDown paneId layout (State s) =
         filterState =
             Dict.get stateKey s.filterStates
 
-        effectiveItemCount : Int
-        effectiveItemCount =
-            case filterState of
-                Just fs ->
-                    List.length fs.filteredIndices
+        maybeTreeConfig : Maybe { toPath : Int -> List String }
+        maybeTreeConfig =
+            getTreeConfigForPane paneId layout
+
+        treeState : Maybe TreeState
+        treeState =
+            case maybeTreeConfig of
+                Just _ ->
+                    Just (Dict.get stateKey s.treeStates |> Maybe.withDefault defaultTreeState)
 
                 Nothing ->
-                    getItemCountForPane paneId layout
+                    Nothing
+
+        treeRows : Maybe (List TreeRow)
+        treeRows =
+            case ( maybeTreeConfig, treeState ) of
+                ( Just tc, Just ts ) ->
+                    if ts.showTree then
+                        Just (buildTreeRows tc.toPath (countTreeItems tc.toPath 0) ts)
+
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
+
+        effectiveItemCount : Int
+        effectiveItemCount =
+            case treeRows of
+                Just rows ->
+                    List.length rows
+
+                Nothing ->
+                    case filterState of
+                        Just fs ->
+                            List.length fs.filteredIndices
+
+                        Nothing ->
+                            getItemCountForPane paneId layout
 
         visibleHeight : Int
         visibleHeight =
@@ -595,7 +686,30 @@ navigateDown paneId layout (State s) =
 
         originalIndex : Int
         originalIndex =
-            mapFilteredIndex newIndex filterState
+            case treeRows of
+                Just rows ->
+                    rows
+                        |> List.drop newIndex
+                        |> List.head
+                        |> Maybe.andThen .originalIndex
+                        |> Maybe.withDefault -1
+
+                Nothing ->
+                    mapFilteredIndex newIndex filterState
+
+        -- For tree view, don't fire onSelect for directory nodes
+        shouldFireOnSelect : Bool
+        shouldFireOnSelect =
+            case treeRows of
+                Just rows ->
+                    rows
+                        |> List.drop newIndex
+                        |> List.head
+                        |> Maybe.map (\row -> not row.isDirectory)
+                        |> Maybe.withDefault False
+
+                Nothing ->
+                    True
     in
     ( State
         { s
@@ -610,7 +724,7 @@ navigateDown paneId layout (State s) =
                 else
                     s.activeTabMap
         }
-    , if selectionChanged then
+    , if selectionChanged && shouldFireOnSelect && originalIndex >= 0 then
         getOnSelectForPane paneId layout
             |> Maybe.map (\onSelect -> onSelect originalIndex)
 
@@ -638,14 +752,45 @@ navigateUp paneId layout (State s) =
         filterState =
             Dict.get stateKey s.filterStates
 
-        effectiveItemCount : Int
-        effectiveItemCount =
-            case filterState of
-                Just fs ->
-                    List.length fs.filteredIndices
+        maybeTreeConfig : Maybe { toPath : Int -> List String }
+        maybeTreeConfig =
+            getTreeConfigForPane paneId layout
+
+        treeState : Maybe TreeState
+        treeState =
+            case maybeTreeConfig of
+                Just _ ->
+                    Just (Dict.get stateKey s.treeStates |> Maybe.withDefault defaultTreeState)
 
                 Nothing ->
-                    getItemCountForPane paneId layout
+                    Nothing
+
+        treeRows : Maybe (List TreeRow)
+        treeRows =
+            case ( maybeTreeConfig, treeState ) of
+                ( Just tc, Just ts ) ->
+                    if ts.showTree then
+                        Just (buildTreeRows tc.toPath (countTreeItems tc.toPath 0) ts)
+
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
+
+        effectiveItemCount : Int
+        effectiveItemCount =
+            case treeRows of
+                Just rows ->
+                    List.length rows
+
+                Nothing ->
+                    case filterState of
+                        Just fs ->
+                            List.length fs.filteredIndices
+
+                        Nothing ->
+                            getItemCountForPane paneId layout
 
         visibleHeight : Int
         visibleHeight =
@@ -669,7 +814,29 @@ navigateUp paneId layout (State s) =
 
         originalIndex : Int
         originalIndex =
-            mapFilteredIndex newIndex filterState
+            case treeRows of
+                Just rows ->
+                    rows
+                        |> List.drop newIndex
+                        |> List.head
+                        |> Maybe.andThen .originalIndex
+                        |> Maybe.withDefault -1
+
+                Nothing ->
+                    mapFilteredIndex newIndex filterState
+
+        shouldFireOnSelect : Bool
+        shouldFireOnSelect =
+            case treeRows of
+                Just rows ->
+                    rows
+                        |> List.drop newIndex
+                        |> List.head
+                        |> Maybe.map (\row -> not row.isDirectory)
+                        |> Maybe.withDefault False
+
+                Nothing ->
+                    True
     in
     ( State
         { s
@@ -684,7 +851,7 @@ navigateUp paneId layout (State s) =
                 else
                     s.activeTabMap
         }
-    , if selectionChanged then
+    , if selectionChanged && shouldFireOnSelect && originalIndex >= 0 then
         getOnSelectForPane paneId layout
             |> Maybe.map (\onSelect -> onSelect originalIndex)
 
@@ -1457,6 +1624,204 @@ handleFilterKeyEvent event layout fs (State s) =
 
 handleNormalKeyEvent : Tui.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
 handleNormalKeyEvent event layout (State s) =
+    let
+        -- Try tree key handling first
+        treeResult : Maybe ( State, Maybe msg, Bool )
+        treeResult =
+            case s.focusedPaneId of
+                Just focusedId ->
+                    case getTreeConfigForPane focusedId layout of
+                        Just tc ->
+                            let
+                                stateKey : String
+                                stateKey =
+                                    resolveStateKey focusedId layout
+
+                                ts : TreeState
+                                ts =
+                                    Dict.get stateKey s.treeStates
+                                        |> Maybe.withDefault defaultTreeState
+                            in
+                            handleTreeKeyEvent event tc stateKey ts (State s)
+
+                        Nothing ->
+                            Nothing
+
+                Nothing ->
+                    Nothing
+    in
+    case treeResult of
+        Just result ->
+            result
+
+        Nothing ->
+            handleNormalKeyEventFallback event layout (State s)
+
+
+handleTreeKeyEvent :
+    Tui.KeyEvent
+    -> { toPath : Int -> List String }
+    -> String
+    -> TreeState
+    -> State
+    -> Maybe ( State, Maybe msg, Bool )
+handleTreeKeyEvent event tc stateKey ts (State s) =
+    case event.key of
+        Tui.Character c ->
+            if c == '`' then
+                -- Toggle tree/flat view
+                Just
+                    ( State
+                        { s
+                            | treeStates =
+                                Dict.insert stateKey
+                                    { ts | showTree = not ts.showTree }
+                                    s.treeStates
+                            , paneStates =
+                                Dict.insert stateKey
+                                    defaultPaneState
+                                    s.paneStates
+                        }
+                    , Nothing
+                    , True
+                    )
+
+            else if c == '-' && ts.showTree then
+                -- Collapse all directories
+                let
+                    focusedId : String
+                    focusedId =
+                        s.focusedPaneId |> Maybe.withDefault ""
+
+                    itemCount_ : Int
+                    itemCount_ =
+                        case findPane focusedId (Horizontal []) of
+                            _ ->
+                                -- Need to get item count from tree config
+                                -- We can count items by trying indices until toPath returns []
+                                countTreeItems tc.toPath 0
+
+                    allDirPaths : Set String
+                    allDirPaths =
+                        collectAllDirPaths tc.toPath itemCount_
+                in
+                Just
+                    ( State
+                        { s
+                            | treeStates =
+                                Dict.insert stateKey
+                                    { ts | collapsedPaths = allDirPaths }
+                                    s.treeStates
+                            , paneStates =
+                                Dict.insert stateKey
+                                    defaultPaneState
+                                    s.paneStates
+                        }
+                    , Nothing
+                    , True
+                    )
+
+            else if c == '=' && ts.showTree then
+                -- Expand all directories
+                Just
+                    ( State
+                        { s
+                            | treeStates =
+                                Dict.insert stateKey
+                                    { ts | collapsedPaths = Set.empty }
+                                    s.treeStates
+                            , paneStates =
+                                Dict.insert stateKey
+                                    defaultPaneState
+                                    s.paneStates
+                        }
+                    , Nothing
+                    , True
+                    )
+
+            else
+                Nothing
+
+        Tui.Enter ->
+            if ts.showTree then
+                -- Check if current row is a directory
+                let
+                    ps : PaneState
+                    ps =
+                        Dict.get stateKey s.paneStates
+                            |> Maybe.withDefault defaultPaneState
+
+                    focusedId : String
+                    focusedId =
+                        s.focusedPaneId |> Maybe.withDefault ""
+
+                    itemCount_ : Int
+                    itemCount_ =
+                        countTreeItems tc.toPath 0
+
+                    treeRows : List TreeRow
+                    treeRows =
+                        buildTreeRows tc.toPath itemCount_ ts
+
+                    maybeRow : Maybe TreeRow
+                    maybeRow =
+                        treeRows |> List.drop ps.selectedIndex |> List.head
+                in
+                case maybeRow of
+                    Just treeRow ->
+                        if treeRow.isDirectory then
+                            -- Toggle collapse
+                            let
+                                newCollapsed : Set String
+                                newCollapsed =
+                                    if Set.member treeRow.path ts.collapsedPaths then
+                                        Set.remove treeRow.path ts.collapsedPaths
+
+                                    else
+                                        Set.insert treeRow.path ts.collapsedPaths
+                            in
+                            Just
+                                ( State
+                                    { s
+                                        | treeStates =
+                                            Dict.insert stateKey
+                                                { ts | collapsedPaths = newCollapsed }
+                                                s.treeStates
+                                    }
+                                , Nothing
+                                , True
+                                )
+
+                        else
+                            -- Leaf node: let the app handle it
+                            Nothing
+
+                    Nothing ->
+                        Nothing
+
+            else
+                Nothing
+
+        _ ->
+            Nothing
+
+
+{-| Count items by checking how many valid paths the toPath function returns.
+We use a simple approach: try indices starting from 0 until toPath returns [].
+-}
+countTreeItems : (Int -> List String) -> Int -> Int
+countTreeItems toPath idx =
+    -- elm-review: known-unoptimized-recursion
+    case toPath idx of
+        [] ->
+            idx
+
+        _ ->
+            countTreeItems toPath (idx + 1)
+
+
+handleNormalKeyEventFallback : Tui.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
+handleNormalKeyEventFallback event layout (State s) =
     case event.key of
         Tui.Character c ->
             if c == '/' then
@@ -2352,6 +2717,307 @@ clampScroll contentLen visibleHeight offset =
     clamp 0 (max 0 (contentLen - visibleHeight)) offset
 
 
+
+-- TREE VIEW
+
+
+type alias TreeRow =
+    { originalIndex : Maybe Int
+    , label : String
+    , depth : Int
+    , isDirectory : Bool
+    , isExpanded : Bool
+    , path : String
+    }
+
+
+{-| Internal tree node used during tree construction.
+-}
+type TreeNode
+    = DirNode String (List TreeNode)
+    | LeafNode String Int
+
+
+defaultTreeState : TreeState
+defaultTreeState =
+    { showTree = True, collapsedPaths = Set.empty }
+
+
+getTreeStateForPane : String -> State -> TreeState
+getTreeStateForPane paneId (State s) =
+    Dict.get paneId s.treeStates
+        |> Maybe.withDefault defaultTreeState
+
+
+getTreeConfigForPane : String -> Layout msg -> Maybe { toPath : Int -> List String }
+getTreeConfigForPane paneId layout =
+    findPane paneId layout
+        |> Maybe.andThen
+            (\p ->
+                case p.paneContent of
+                    SelectableContent { treeConfig } ->
+                        treeConfig
+
+                    StaticContent _ ->
+                        Nothing
+            )
+
+
+{-| Build visible tree rows from items and tree state.
+-}
+buildTreeRows : (Int -> List String) -> Int -> TreeState -> List TreeRow
+buildTreeRows toPath itemCount_ treeState =
+    let
+        -- Collect all items with their path segments
+        itemsWithPaths : List ( Int, List String )
+        itemsWithPaths =
+            List.range 0 (itemCount_ - 1)
+                |> List.map (\i -> ( i, toPath i ))
+
+        -- Build tree structure
+        tree : List TreeNode
+        tree =
+            buildTree itemsWithPaths
+
+        -- Compress single-child chains
+        compressed : List TreeNode
+        compressed =
+            List.map compressNode tree
+    in
+    -- Flatten respecting collapsed state
+    flattenTree compressed treeState 0 ""
+
+
+{-| Build a tree structure from items grouped by first path segment.
+-}
+buildTree : List ( Int, List String ) -> List TreeNode
+buildTree itemsWithPaths =
+    let
+        -- Group items by their first path segment
+        grouped : Dict String (List ( Int, List String ))
+        grouped =
+            List.foldl
+                (\( idx, segments ) acc ->
+                    case segments of
+                        [] ->
+                            acc
+
+                        [ single ] ->
+                            -- Leaf node: single segment left
+                            Dict.update single
+                                (\existing ->
+                                    case existing of
+                                        Nothing ->
+                                            Just [ ( idx, [ single ] ) ]
+
+                                        Just items ->
+                                            Just (items ++ [ ( idx, [ single ] ) ])
+                                )
+                                acc
+
+                        first :: rest ->
+                            Dict.update first
+                                (\existing ->
+                                    case existing of
+                                        Nothing ->
+                                            Just [ ( idx, rest ) ]
+
+                                        Just items ->
+                                            Just (items ++ [ ( idx, rest ) ])
+                                )
+                                acc
+                )
+                Dict.empty
+                itemsWithPaths
+
+        -- Order by first occurrence in original items
+        orderedKeys : List String
+        orderedKeys =
+            List.foldl
+                (\( _, segments ) acc ->
+                    case segments of
+                        [] ->
+                            acc
+
+                        first :: _ ->
+                            let
+                                key =
+                                    if List.length segments == 1 then
+                                        first
+
+                                    else
+                                        first
+                            in
+                            if List.member key acc then
+                                acc
+
+                            else
+                                acc ++ [ key ]
+                )
+                []
+                itemsWithPaths
+    in
+    orderedKeys
+        |> List.filterMap
+            (\key ->
+                Dict.get key grouped
+                    |> Maybe.map
+                        (\children ->
+                            let
+                                -- Separate leaf items (single-segment) from subtree items
+                                leaves : List ( Int, List String )
+                                leaves =
+                                    children |> List.filter (\( _, segs ) -> segs == [ key ])
+
+                                subtreeItems : List ( Int, List String )
+                                subtreeItems =
+                                    children |> List.filter (\( _, segs ) -> segs /= [ key ])
+                            in
+                            case ( leaves, subtreeItems ) of
+                                ( [ ( idx, _ ) ], [] ) ->
+                                    -- Single leaf, no subdirectories
+                                    LeafNode key idx
+
+                                ( [], _ ) ->
+                                    -- Directory with children
+                                    DirNode key (buildTree subtreeItems)
+
+                                ( _, [] ) ->
+                                    -- Multiple leaves with same name (shouldn't happen in practice)
+                                    -- Treat the first one as the leaf
+                                    case leaves of
+                                        ( idx, _ ) :: _ ->
+                                            LeafNode key idx
+
+                                        [] ->
+                                            DirNode key []
+
+                                _ ->
+                                    -- Mix of leaves and subdirectory items
+                                    DirNode key
+                                        (List.map (\( idx, _ ) -> LeafNode key idx) leaves
+                                            ++ buildTree subtreeItems
+                                        )
+                        )
+            )
+
+
+{-| Compress single-child directory chains into one node.
+e.g. src -> Api -> (children) becomes "src/Api" -> (children)
+-}
+compressNode : TreeNode -> TreeNode
+compressNode node =
+    case node of
+        LeafNode name idx ->
+            LeafNode name idx
+
+        DirNode name children ->
+            case children of
+                [ DirNode childName grandChildren ] ->
+                    -- Single directory child: compress
+                    compressNode (DirNode (name ++ "/" ++ childName) grandChildren)
+
+                _ ->
+                    DirNode name (List.map compressNode children)
+
+
+{-| Flatten tree nodes into visible rows respecting collapsed state.
+-}
+flattenTree : List TreeNode -> TreeState -> Int -> String -> List TreeRow
+flattenTree nodes treeState depth parentPath =
+    -- elm-review: known-unoptimized-recursion
+    List.concatMap
+        (\node ->
+            case node of
+                LeafNode name idx ->
+                    [ { originalIndex = Just idx
+                      , label = name
+                      , depth = depth
+                      , isDirectory = False
+                      , isExpanded = False
+                      , path = if parentPath == "" then name else parentPath ++ "/" ++ name
+                      }
+                    ]
+
+                DirNode name children ->
+                    let
+                        dirPath : String
+                        dirPath =
+                            if parentPath == "" then
+                                name
+
+                            else
+                                parentPath ++ "/" ++ name
+
+                        isCollapsed : Bool
+                        isCollapsed =
+                            Set.member dirPath treeState.collapsedPaths
+
+                        dirRow : TreeRow
+                        dirRow =
+                            { originalIndex = Nothing
+                            , label = name
+                            , depth = depth
+                            , isDirectory = True
+                            , isExpanded = not isCollapsed
+                            , path = dirPath
+                            }
+                    in
+                    if isCollapsed then
+                        [ dirRow ]
+
+                    else
+                        dirRow :: flattenTree children treeState (depth + 1) dirPath
+        )
+        nodes
+
+
+{-| Collect all directory paths in a tree (for collapse-all).
+-}
+collectAllDirPaths : (Int -> List String) -> Int -> Set String
+collectAllDirPaths toPath itemCount_ =
+    let
+        itemsWithPaths : List ( Int, List String )
+        itemsWithPaths =
+            List.range 0 (itemCount_ - 1)
+                |> List.map (\i -> ( i, toPath i ))
+
+        tree : List TreeNode
+        tree =
+            buildTree itemsWithPaths
+
+        compressed : List TreeNode
+        compressed =
+            List.map compressNode tree
+    in
+    collectDirPathsFromNodes compressed ""
+
+
+collectDirPathsFromNodes : List TreeNode -> String -> Set String
+collectDirPathsFromNodes nodes parentPath =
+    -- elm-review: known-unoptimized-recursion
+    List.foldl
+        (\node acc ->
+            case node of
+                LeafNode _ _ ->
+                    acc
+
+                DirNode name children ->
+                    let
+                        dirPath : String
+                        dirPath =
+                            if parentPath == "" then
+                                name
+
+                            else
+                                parentPath ++ "/" ++ name
+                    in
+                    Set.union (Set.insert dirPath acc) (collectDirPathsFromNodes children dirPath)
+        )
+        Set.empty
+        nodes
+
+
 scrollbarBorder : Tui.Style -> PaneContent msg -> PaneState -> Maybe FilterState -> Int -> Int -> Screen
 scrollbarBorder borderStyle paneContents ps maybeFs contentRow totalHeight =
     let
@@ -2424,6 +3090,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
             , searching : Bool
             , filterStates : Dict String FilterState
             , searchStates : Dict String SearchState
+            , treeStates : Dict String TreeState
             }
         sWithCtx =
             { s | context = ctx }
@@ -2690,7 +3357,7 @@ toRows (State s) layout =
 
 
 toRowsHorizontal :
-    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool, filterStates : Dict String FilterState, searchStates : Dict String SearchState }
+    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool, filterStates : Dict String FilterState, searchStates : Dict String SearchState, treeStates : Dict String TreeState }
     -> List (PaneConfig msg)
     -> List Screen
 toRowsHorizontal s panes =
@@ -2916,13 +3583,27 @@ toRowsHorizontal s panes =
                                     renderSearchState =
                                         Dict.get renderStateKey s.searchStates
 
+                                    renderTreeState : Maybe TreeState
+                                    renderTreeState =
+                                        case paneConfig.paneContent of
+                                            SelectableContent { treeConfig } ->
+                                                case treeConfig of
+                                                    Just _ ->
+                                                        Just (Dict.get renderStateKey s.treeStates |> Maybe.withDefault defaultTreeState)
+
+                                                    Nothing ->
+                                                        Nothing
+
+                                            StaticContent _ ->
+                                                Nothing
+
                                     contentRow : Int
                                     contentRow =
                                         row - 1
 
                                     lineScreen : Screen
                                     lineScreen =
-                                        getContentLine isFocused paneConfig ps renderFilterState renderSearchState contentRow
+                                        getContentLine isFocused paneConfig ps renderFilterState renderSearchState renderTreeState contentRow
 
                                     lineText : String
                                     lineText =
@@ -2989,7 +3670,7 @@ toRowsHorizontal s panes =
 
 
 toRowsVertical :
-    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool, filterStates : Dict String FilterState, searchStates : Dict String SearchState }
+    { a | context : { width : Int, height : Int }, focusedPaneId : Maybe String, maximizedPaneId : Maybe String, paneStates : Dict String PaneState, searching : Bool, filterStates : Dict String FilterState, searchStates : Dict String SearchState, treeStates : Dict String TreeState }
     -> List (PaneConfig msg)
     -> List Screen
 toRowsVertical s panes =
@@ -3153,6 +3834,20 @@ toRowsVertical s panes =
                     else
                         paneHeight - 1
 
+                vertTreeState : Maybe TreeState
+                vertTreeState =
+                    case paneConfig.paneContent of
+                        SelectableContent { treeConfig } ->
+                            case treeConfig of
+                                Just _ ->
+                                    Just (Dict.get vertStateKey s.treeStates |> Maybe.withDefault defaultTreeState)
+
+                                Nothing ->
+                                    Nothing
+
+                        StaticContent _ ->
+                            Nothing
+
                 contentRows : List Screen
                 contentRows =
                     List.range 0 (numContentRows - 1)
@@ -3161,7 +3856,7 @@ toRowsVertical s panes =
                                 let
                                     lineScreen : Screen
                                     lineScreen =
-                                        getContentLine isFocused paneConfig ps vertFilterState vertSearchState contentRow
+                                        getContentLine isFocused paneConfig ps vertFilterState vertSearchState vertTreeState contentRow
 
                                     lineText : String
                                     lineText =
@@ -3221,8 +3916,8 @@ toRowsVertical s panes =
         |> List.concat
 
 
-getContentLine : Bool -> PaneConfig msg -> PaneState -> Maybe FilterState -> Maybe SearchState -> Int -> Screen
-getContentLine isFocused paneConfig ps maybeFilterState maybeSearchState contentRow =
+getContentLine : Bool -> PaneConfig msg -> PaneState -> Maybe FilterState -> Maybe SearchState -> Maybe TreeState -> Int -> Screen
+getContentLine isFocused paneConfig ps maybeFilterState maybeSearchState maybeTreeState contentRow =
     let
         scrolledRow : Int
         scrolledRow =
@@ -3248,38 +3943,147 @@ getContentLine isFocused paneConfig ps maybeFilterState maybeSearchState content
                 Nothing ->
                     baseLine
 
-        SelectableContent { renderItem, renderSelected, renderSelectedUnfocused } ->
-            case maybeFilterState of
-                Just fs ->
-                    if scrolledRow >= List.length fs.filteredIndices then
-                        Tui.empty
+        SelectableContent selConfig ->
+            case ( selConfig.treeConfig, maybeTreeState ) of
+                ( Just tc, Just ts ) ->
+                    if ts.showTree then
+                        -- Tree mode: render tree rows
+                        let
+                            treeRows : List TreeRow
+                            treeRows =
+                                buildTreeRows tc.toPath selConfig.itemCount ts
+
+                            maybeRow : Maybe TreeRow
+                            maybeRow =
+                                treeRows |> List.drop scrolledRow |> List.head
+                        in
+                        case maybeRow of
+                            Nothing ->
+                                Tui.empty
+
+                            Just treeRow ->
+                                renderTreeRow isFocused selConfig treeRow scrolledRow ps.selectedIndex
 
                     else
-                        let
-                            originalIndex : Int
-                            originalIndex =
-                                mapFilteredIndex scrolledRow (Just fs)
-                        in
-                        if scrolledRow == ps.selectedIndex then
+                        -- Flat mode: fall through to normal rendering
+                        renderSelectableRow isFocused selConfig ps maybeFilterState scrolledRow
+
+                _ ->
+                    renderSelectableRow isFocused selConfig ps maybeFilterState scrolledRow
+
+
+renderTreeRow :
+    Bool
+    ->
+        { a
+            | renderItem : Int -> Screen
+            , renderSelected : Int -> Screen
+            , renderSelectedUnfocused : Int -> Screen
+        }
+    -> TreeRow
+    -> Int
+    -> Int
+    -> Screen
+renderTreeRow isFocused selConfig treeRow scrolledRow selIdx =
+    let
+        indent : String
+        indent =
+            String.repeat (treeRow.depth * 2) " "
+
+        isSelected : Bool
+        isSelected =
+            scrolledRow == selIdx
+    in
+    if treeRow.isDirectory then
+        let
+            icon : String
+            icon =
+                if treeRow.isExpanded then
+                    "▼ "
+
+                else
+                    "▸ "
+
+            dirLabel : Screen
+            dirLabel =
+                Tui.text (indent ++ icon ++ treeRow.label) |> Tui.bold
+        in
+        if isSelected then
+            dirLabel |> Tui.bg Ansi.Color.blue
+
+        else
+            dirLabel
+
+    else
+        case treeRow.originalIndex of
+            Just origIdx ->
+                let
+                    baseScreen : Screen
+                    baseScreen =
+                        if isSelected then
                             if isFocused then
-                                renderSelected originalIndex
+                                selConfig.renderSelected origIdx
 
                             else
-                                renderSelectedUnfocused originalIndex
+                                selConfig.renderSelectedUnfocused origIdx
 
                         else
-                            renderItem originalIndex
+                            selConfig.renderItem origIdx
+                in
+                if treeRow.depth > 0 then
+                    Tui.concat [ Tui.text indent, baseScreen ]
 
-                Nothing ->
-                    if scrolledRow == ps.selectedIndex then
-                        if isFocused then
-                            renderSelected scrolledRow
+                else
+                    baseScreen
 
-                        else
-                            renderSelectedUnfocused scrolledRow
+            Nothing ->
+                Tui.empty
+
+
+renderSelectableRow :
+    Bool
+    ->
+        { a
+            | renderItem : Int -> Screen
+            , renderSelected : Int -> Screen
+            , renderSelectedUnfocused : Int -> Screen
+        }
+    -> PaneState
+    -> Maybe FilterState
+    -> Int
+    -> Screen
+renderSelectableRow isFocused selConfig ps maybeFilterState scrolledRow =
+    case maybeFilterState of
+        Just fs ->
+            if scrolledRow >= List.length fs.filteredIndices then
+                Tui.empty
+
+            else
+                let
+                    originalIndex : Int
+                    originalIndex =
+                        mapFilteredIndex scrolledRow (Just fs)
+                in
+                if scrolledRow == ps.selectedIndex then
+                    if isFocused then
+                        selConfig.renderSelected originalIndex
 
                     else
-                        renderItem scrolledRow
+                        selConfig.renderSelectedUnfocused originalIndex
+
+                else
+                    selConfig.renderItem originalIndex
+
+        Nothing ->
+            if scrolledRow == ps.selectedIndex then
+                if isFocused then
+                    selConfig.renderSelected scrolledRow
+
+                else
+                    selConfig.renderSelectedUnfocused scrolledRow
+
+            else
+                selConfig.renderItem scrolledRow
 
 
 resolveWidths : Int -> List Width -> List Int
