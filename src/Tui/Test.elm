@@ -10,20 +10,12 @@ module Tui.Test exposing
     , Snapshot, toSnapshots, withModelToString
     )
 
-{-| Write tests for TUI scripts without a real terminal. Events are simulated,
-effects are resolved through `Test.BackendTask`, and screen output is
-asserted as plain text.
+{-| Test TUI scripts without a real terminal — simulate events, resolve
+effects, and assert on screen output. Uses a pipeline API inspired by
+[`elm-program-test`](https://package.elm-lang.org/packages/avh4/elm-program-test/latest/).
 
-Effects returned by `update` are tracked and can be resolved using
-[`resolveEffect`](#resolveEffect) with the full `Test.BackendTask` API,
-or directly with [`sendMsg`](#sendMsg).
-
-    import Expect
-    import Json.Encode as Encode
-    import Test exposing (test)
-    import Test.BackendTask as BackendTaskTest
-    import Tui
-    import Tui.Test as TuiTest
+Build a test by starting a TUI, simulating user actions, and asserting
+on the rendered screen:
 
     test "fetches stars on Enter" <|
         \() ->
@@ -46,7 +38,21 @@ or directly with [`sendMsg`](#sendMsg).
 
 @docs TuiTest
 
+
+## Starting a Test
+
+Pass the same config you'd give to [`Script.tui`](Pages-Script#tui), but with
+`data` already resolved (not a `BackendTask`). If your app uses
+[`Tui.Sub.onContext`](Tui-Sub#onContext), the initial context is fired
+automatically.
+
 @docs start, startWithContext
+
+
+## Simulating Events
+
+Simulate user interactions in the order they would happen. Each function
+threads the `TuiTest` through the app's `update` and captures the new screen.
 
 @docs pressKey, pressKeyWith, paste, resize
 
@@ -54,14 +60,42 @@ or directly with [`sendMsg`](#sendMsg).
 
 @docs sendMsg
 
+
+## Resolving Effects
+
+When your `update` returns a [`Tui.Effect`](Tui-Effect) that performs a
+[`BackendTask`](BackendTask) (via [`Effect.perform`](Tui-Effect#perform)),
+the test captures it as a pending effect. Use `resolveEffect` to simulate
+the `BackendTask` result:
+
+    |> TuiTest.resolveEffect
+        (BackendTaskTest.simulateCommand "git" "M src/Main.elm")
+
 @docs BackendTaskSimulator, resolveEffect
 
+
+## Screen Assertions
+
+Assert on the plain text content of the current screen. Failed assertions
+show the full screen output for easy debugging.
+
 @docs ensureView, ensureViewHas, ensureViewDoesNotHave
+
+
+## Final Assertions
+
+End every test with one of these to verify the app's final state. If
+pending effects remain unresolved, `expectRunning` and `expectExit`
+will fail — ensuring you don't accidentally ignore effects.
 
 @docs expectRunning, expectExit, expectExitWith
 
 
 ## Snapshots
+
+Record screen snapshots at each step for the interactive test stepper
+([`elm-pages test`](https://elm-pages.com)). Navigate snapshots with
+arrow keys to visually step through your test.
 
 @docs Snapshot, toSnapshots, withModelToString
 
