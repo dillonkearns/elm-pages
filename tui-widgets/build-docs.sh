@@ -27,6 +27,7 @@ elm make \
   src/Tui/Confirm.elm \
   src/Tui/OptionsBar.elm \
   src/Tui/Status.elm \
+  src/Tui/Menu.elm \
   --output=/dev/null
 
 # Restore package config
@@ -37,4 +38,5 @@ echo ""
 echo "Package elm.json is ready for publication."
 echo "Exposed modules: Tui.Layout, Tui.Modal, Tui.Keybinding, Tui.Spinner,"
 echo "  Tui.Toast, Tui.FuzzyMatch, Tui.Picker, Tui.CommandPalette,"
-echo "  Tui.Search, Tui.Confirm, Tui.OptionsBar, Tui.Status"
+echo "  Tui.Search, Tui.Confirm, Tui.OptionsBar, Tui.Status,"
+echo "  Tui.Menu"
