@@ -1012,7 +1012,7 @@ suite =
                             Layout.init |> Layout.focusPane "left"
 
                         -- Press '2' to focus the second pane
-                        ( newState, _ ) =
+                        ( newState, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '2', modifiers = [] }
                                 layout
@@ -1036,7 +1036,7 @@ suite =
                             Layout.init |> Layout.focusPane "left"
 
                         -- Press '1' — already focused on pane 1
-                        ( newState, _ ) =
+                        ( newState, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '1', modifiers = [] }
                                 layout

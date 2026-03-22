@@ -1163,22 +1163,28 @@ setSearching isSearching (State s) =
     State { s | searching = isSearching }
 
 
-{-| Handle a key event for built-in layout navigation. Routes number keys
-(`1`-`9`) to focus the corresponding pane — like lazygit's panel jump keys.
+{-| Handle a key event for built-in layout navigation. Routes number keys,
+filter (`/`), and search to the appropriate pane.
 
-Returns the updated state and `True` if the key was handled (so the caller
-can skip their own key handling for that event).
+Returns `( newState, maybeMsg, handled )`:
 
-    case Layout.handleKeyEvent event layout model.layout of
-        ( newLayout, True ) ->
-            ( { model | layout = newLayout }, Effect.none )
+  - `maybeMsg` is `Just msg` when the filter changes the selected item (fires `onSelect`)
+  - `handled` is `True` if the key was consumed by the layout
 
-        ( _, False ) ->
-            -- Key not handled by layout, process normally
-            handleAppKey event model
+```
+case Layout.handleKeyEvent event layout model.layout of
+    ( newLayout, Just msg, True ) ->
+        update msg { model | layout = newLayout }
+
+    ( newLayout, Nothing, True ) ->
+        ( { model | layout = newLayout }, Effect.none )
+
+    ( _, _, False ) ->
+        handleAppKey event model
+```
 
 -}
-handleKeyEvent : Tui.KeyEvent -> Layout msg -> State -> ( State, Bool )
+handleKeyEvent : Tui.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
 handleKeyEvent event layout (State s) =
     let
         focusedId : Maybe String
@@ -1241,6 +1247,7 @@ handleKeyEvent event layout (State s) =
                                 , searching = False
                                 , paneStates = restoredPaneStates
                             }
+                        , Nothing
                         , True
                         )
 
@@ -1248,7 +1255,7 @@ handleKeyEvent event layout (State s) =
                         handleNormalKeyEvent event layout (State s)
 
 
-handleFilterKeyEvent : Tui.KeyEvent -> Layout msg -> FilterState -> State -> ( State, Bool )
+handleFilterKeyEvent : Tui.KeyEvent -> Layout msg -> FilterState -> State -> ( State, Maybe msg, Bool )
 handleFilterKeyEvent event layout fs (State s) =
     let
         focusedId : String
@@ -1276,6 +1283,16 @@ handleFilterKeyEvent event layout fs (State s) =
 
                                 Nothing ->
                                     fs.filteredIndices
+
+                        selectMsg : Maybe msg
+                        selectMsg =
+                            case newIndices of
+                                firstOriginalIndex :: _ ->
+                                    getOnSelectForPane focusedId layout
+                                        |> Maybe.map (\onSelect -> onSelect firstOriginalIndex)
+
+                                [] ->
+                                    Nothing
                     in
                     ( State
                         { s
@@ -1291,6 +1308,7 @@ handleFilterKeyEvent event layout fs (State s) =
                                     { selectedIndex = 0, scrollOffset = 0 }
                                     s.paneStates
                         }
+                    , selectMsg
                     , True
                     )
 
@@ -1308,6 +1326,16 @@ handleFilterKeyEvent event layout fs (State s) =
 
                                 Nothing ->
                                     fs.filteredIndices
+
+                        selectMsg : Maybe msg
+                        selectMsg =
+                            case newIndices of
+                                firstOriginalIndex :: _ ->
+                                    getOnSelectForPane focusedId layout
+                                        |> Maybe.map (\onSelect -> onSelect firstOriginalIndex)
+
+                                [] ->
+                                    Nothing
                     in
                     ( State
                         { s
@@ -1323,6 +1351,7 @@ handleFilterKeyEvent event layout fs (State s) =
                                     { selectedIndex = 0, scrollOffset = 0 }
                                     s.paneStates
                         }
+                    , selectMsg
                     , True
                     )
 
@@ -1334,6 +1363,7 @@ handleFilterKeyEvent event layout fs (State s) =
                                 | filterStates = Dict.remove stateKey s.filterStates
                                 , searching = False
                             }
+                        , Nothing
                         , True
                         )
 
@@ -1347,6 +1377,7 @@ handleFilterKeyEvent event layout fs (State s) =
                                         s.filterStates
                                 , searching = False
                             }
+                        , Nothing
                         , True
                         )
 
@@ -1371,11 +1402,12 @@ handleFilterKeyEvent event layout fs (State s) =
                                     { ps | selectedIndex = originalIndex }
                                     s.paneStates
                         }
+                    , Nothing
                     , True
                     )
 
                 _ ->
-                    ( State s, True )
+                    ( State s, Nothing, True )
 
         FilterApplied ->
             case event.key of
@@ -1400,6 +1432,7 @@ handleFilterKeyEvent event layout fs (State s) =
                                     { ps | selectedIndex = originalIndex }
                                     s.paneStates
                         }
+                    , Nothing
                     , True
                     )
 
@@ -1413,15 +1446,16 @@ handleFilterKeyEvent event layout fs (State s) =
                                     s.filterStates
                             , searching = True
                         }
+                    , Nothing
                     , True
                     )
 
                 _ ->
                     -- Not consumed — let normal navigation work
-                    ( State s, False )
+                    ( State s, Nothing, False )
 
 
-handleNormalKeyEvent : Tui.KeyEvent -> Layout msg -> State -> ( State, Bool )
+handleNormalKeyEvent : Tui.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
 handleNormalKeyEvent event layout (State s) =
     case event.key of
         Tui.Character c ->
@@ -1450,6 +1484,7 @@ handleNormalKeyEvent event layout (State s) =
                                             s.filterStates
                                     , searching = True
                                 }
+                            , Nothing
                             , True
                             )
 
@@ -1471,14 +1506,15 @@ handleNormalKeyEvent event layout (State s) =
                                             s.searchStates
                                     , searching = True
                                 }
+                            , Nothing
                             , True
                             )
 
                         else
-                            ( State s, False )
+                            ( State s, Nothing, False )
 
                     Nothing ->
-                        ( State s, False )
+                        ( State s, Nothing, False )
 
             else
                 -- Number key pane focus
@@ -1506,16 +1542,16 @@ handleNormalKeyEvent event layout (State s) =
                     Just idx ->
                         case List.drop idx panes |> List.head of
                             Just paneConfig ->
-                                ( State { s | focusedPaneId = Just paneConfig.id }, True )
+                                ( State { s | focusedPaneId = Just paneConfig.id }, Nothing, True )
 
                             Nothing ->
-                                ( State s, False )
+                                ( State s, Nothing, False )
 
                     Nothing ->
-                        ( State s, False )
+                        ( State s, Nothing, False )
 
         _ ->
-            ( State s, False )
+            ( State s, Nothing, False )
 
 
 {-| Toggle a pane to full width (maximized), hiding siblings. Call again
@@ -1930,7 +1966,7 @@ searchStatusBarFromState ss =
                     )
 
 
-handleSearchKeyEvent : Tui.KeyEvent -> Layout msg -> SearchState -> State -> ( State, Bool )
+handleSearchKeyEvent : Tui.KeyEvent -> Layout msg -> SearchState -> State -> ( State, Maybe msg, Bool )
 handleSearchKeyEvent event layout ss (State s) =
     let
         focusedId : String
@@ -1957,6 +1993,7 @@ handleSearchKeyEvent event layout ss (State s) =
                                     { ss | query = newQuery }
                                     s.searchStates
                         }
+                    , Nothing
                     , True
                     )
 
@@ -1973,6 +2010,7 @@ handleSearchKeyEvent event layout ss (State s) =
                                     { ss | query = newQuery }
                                     s.searchStates
                         }
+                    , Nothing
                     , True
                     )
 
@@ -1984,6 +2022,7 @@ handleSearchKeyEvent event layout ss (State s) =
                                 | searchStates = Dict.remove stateKey s.searchStates
                                 , searching = False
                             }
+                        , Nothing
                         , True
                         )
 
@@ -2033,6 +2072,7 @@ handleSearchKeyEvent event layout ss (State s) =
                                         { currentPs | scrollOffset = newOffset }
                                         s.paneStates
                             }
+                        , Nothing
                         , True
                         )
 
@@ -2042,11 +2082,12 @@ handleSearchKeyEvent event layout ss (State s) =
                             | searchStates = Dict.remove stateKey s.searchStates
                             , searching = False
                         }
+                    , Nothing
                     , True
                     )
 
                 _ ->
-                    ( State s, True )
+                    ( State s, Nothing, True )
 
         SearchCommitted ->
             case event.key of
@@ -2095,6 +2136,7 @@ handleSearchKeyEvent event layout ss (State s) =
                                         { nextPs | scrollOffset = newOffset }
                                         s.paneStates
                             }
+                        , Nothing
                         , True
                         )
 
@@ -2142,6 +2184,7 @@ handleSearchKeyEvent event layout ss (State s) =
                                         { prevPs | scrollOffset = newOffset }
                                         s.paneStates
                             }
+                        , Nothing
                         , True
                         )
 
@@ -2155,12 +2198,13 @@ handleSearchKeyEvent event layout ss (State s) =
                                         s.searchStates
                                 , searching = True
                             }
+                        , Nothing
                         , True
                         )
 
                     else
                         -- Not consumed — let normal bindings work
-                        ( State s, False )
+                        ( State s, Nothing, False )
 
                 Tui.Escape ->
                     -- Clear search
@@ -2169,12 +2213,13 @@ handleSearchKeyEvent event layout ss (State s) =
                             | searchStates = Dict.remove stateKey s.searchStates
                             , searching = False
                         }
+                    , Nothing
                     , True
                     )
 
                 _ ->
                     -- Not consumed
-                    ( State s, False )
+                    ( State s, Nothing, False )
 
 
 {-| Compute all match positions for a query in a list of lines.

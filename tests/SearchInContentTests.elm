@@ -54,7 +54,7 @@ suite =
                         state =
                             initState |> Layout.focusPane "diff"
 
-                        ( newState, handled ) =
+                        ( newState, _, handled ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '/', modifiers = [] }
                                 searchableLayout
@@ -78,7 +78,7 @@ suite =
                         state =
                             initState |> Layout.focusPane "plain"
 
-                        ( _, handled ) =
+                        ( _, _, handled ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '/', modifiers = [] }
                                 nonSearchable
@@ -114,7 +114,7 @@ suite =
                         s1 =
                             startSearchWith "added" state
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Enter, modifiers = [] }
                                 searchableLayout
@@ -136,13 +136,13 @@ suite =
                         state =
                             initState |> Layout.focusPane "diff"
 
-                        ( s1, _ ) =
+                        ( s1, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '/', modifiers = [] }
                                 searchableLayout
                                 state
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Enter, modifiers = [] }
                                 searchableLayout
@@ -160,7 +160,7 @@ suite =
                         s =
                             commitSearch "added" state
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character 'n', modifiers = [] }
                                 searchableLayout
@@ -181,7 +181,7 @@ suite =
                             commitSearch "added" state
 
                         -- N from first match wraps to last
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character 'N', modifiers = [] }
                                 searchableLayout
@@ -219,7 +219,7 @@ suite =
                         s =
                             commitSearch "added" state
 
-                        ( _, handled ) =
+                        ( _, _, handled ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character 'n', modifiers = [] }
                                 searchableLayout
@@ -237,7 +237,7 @@ suite =
                         s =
                             startSearchWith "added" state
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Escape, modifiers = [] }
                                 searchableLayout
@@ -253,7 +253,7 @@ suite =
                         s =
                             commitSearch "added" state
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Escape, modifiers = [] }
                                 searchableLayout
@@ -326,7 +326,7 @@ initState =
 startSearchWith : String -> Layout.State -> Layout.State
 startSearchWith query state =
     let
-        ( s1, _ ) =
+        ( s1, _, _ ) =
             Layout.handleKeyEvent
                 { key = Tui.Character '/', modifiers = [] }
                 searchableLayout
@@ -335,14 +335,14 @@ startSearchWith query state =
     query
         |> String.toList
         |> List.foldl
-            (\c ( s, _ ) ->
+            (\c ( s, _, _ ) ->
                 Layout.handleKeyEvent
                     { key = Tui.Character c, modifiers = [] }
                     searchableLayout
                     s
             )
-            ( s1, False )
-        |> Tuple.first
+            ( s1, Nothing, False )
+        |> (\( s, _, _ ) -> s)
 
 
 commitSearch : String -> Layout.State -> Layout.State
@@ -351,7 +351,7 @@ commitSearch query state =
         s1 =
             startSearchWith query state
 
-        ( s2, _ ) =
+        ( s2, _, _ ) =
             Layout.handleKeyEvent
                 { key = Tui.Enter, modifiers = [] }
                 searchableLayout
@@ -369,6 +369,6 @@ pressN count state =
                     { key = Tui.Character 'n', modifiers = [] }
                     searchableLayout
                     s
-                    |> Tuple.first
+                    |> (\( st, _, _ ) -> st)
             )
             state

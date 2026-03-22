@@ -413,10 +413,13 @@ updateMain msg model =
                     -- Layout handles filter keys (/, typing, Enter, Escape) and
                     -- number keys for pane focus. Check it first.
                     case Layout.handleKeyEvent event (myLayout (Layout.contextOf model.layout) model) model.layout of
-                        ( newLayout, True ) ->
+                        ( newLayout, Just layoutMsg, _ ) ->
+                            update layoutMsg { model | layout = newLayout }
+
+                        ( newLayout, Nothing, True ) ->
                             ( { model | layout = newLayout }, Effect.none )
 
-                        ( _, False ) ->
+                        ( _, Nothing, False ) ->
                             case Keybinding.dispatch (activeBindings model) event of
                                 Just action ->
                                     handleAction action model

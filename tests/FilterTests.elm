@@ -39,7 +39,7 @@ suite =
                                 |> Layout.withContext { width = 30, height = 12 }
                                 |> Layout.focusPane "fruits"
 
-                        ( newState, handled ) =
+                        ( newState, _, handled ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '/', modifiers = [] }
                                 filterableList
@@ -71,7 +71,7 @@ suite =
                                 |> Layout.withContext { width = 30, height = 12 }
                                 |> Layout.focusPane "plain"
 
-                        ( _, handled ) =
+                        ( _, _, handled ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '/', modifiers = [] }
                                 nonFilterableLayout
@@ -89,7 +89,7 @@ suite =
                                 |> Layout.focusPane "fruits"
 
                         -- Start filter
-                        ( s1, _ ) =
+                        ( s1, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '/', modifiers = [] }
                                 filterableList
@@ -99,7 +99,7 @@ suite =
                             state
 
                         -- Type 'b' — should match "banana", "blueberry"
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character 'b', modifiers = [] }
                                 filterableList
@@ -136,13 +136,13 @@ suite =
                                     ( state, Nothing )
 
                         -- Start filter and type
-                        ( s1, _ ) =
+                        ( s1, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '/', modifiers = [] }
                                 filterableList
                                 navState
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character 'a', modifiers = [] }
                                 filterableList
@@ -160,26 +160,26 @@ suite =
                                 |> Layout.focusPane "fruits"
 
                         -- Start filter, type "berry"
-                        ( s1, _ ) =
+                        ( s1, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '/', modifiers = [] }
                                 filterableList
                                 state
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             "berry"
                                 |> String.toList
                                 |> List.foldl
-                                    (\c ( s, _ ) ->
+                                    (\c ( s, _, _ ) ->
                                         Layout.handleKeyEvent
                                             { key = Tui.Character c, modifiers = [] }
                                             filterableList
                                             s
                                     )
-                                    ( s1, False )
+                                    ( s1, Nothing, False )
 
                         -- Press Enter
-                        ( s3, _ ) =
+                        ( s3, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Enter, modifiers = [] }
                                 filterableList
@@ -209,13 +209,13 @@ suite =
                                 |> Layout.focusPane "fruits"
 
                         -- Start filter then immediately Enter (empty query)
-                        ( s1, _ ) =
+                        ( s1, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '/', modifiers = [] }
                                 filterableList
                                 state
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Enter, modifiers = [] }
                                 filterableList
@@ -233,20 +233,20 @@ suite =
                                 |> Layout.focusPane "fruits"
 
                         -- Start filter, type something
-                        ( s1, _ ) =
+                        ( s1, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '/', modifiers = [] }
                                 filterableList
                                 state
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character 'b', modifiers = [] }
                                 filterableList
                                 s1
 
                         -- Press Escape
-                        ( s3, _ ) =
+                        ( s3, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Escape, modifiers = [] }
                                 filterableList
@@ -274,25 +274,25 @@ suite =
                                 |> Layout.focusPane "fruits"
 
                         -- Start, type, Enter, then Escape
-                        ( s1, _ ) =
+                        ( s1, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '/', modifiers = [] }
                                 filterableList
                                 state
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character 'b', modifiers = [] }
                                 filterableList
                                 s1
 
-                        ( s3, _ ) =
+                        ( s3, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Enter, modifiers = [] }
                                 filterableList
                                 s2
 
-                        ( s4, _ ) =
+                        ( s4, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Escape, modifiers = [] }
                                 filterableList
@@ -330,7 +330,7 @@ suite =
                         s1 =
                             startFilterWithLayout "an" twoPanes state
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Enter, modifiers = [] }
                                 twoPanes
@@ -341,7 +341,7 @@ suite =
                             Layout.focusPane "right" s2
 
                         -- Escape should clear the filter on left pane, NOT fall through
-                        ( s4, handled ) =
+                        ( s4, _, handled ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Escape, modifiers = [] }
                                 twoPanes
@@ -353,6 +353,71 @@ suite =
                         ]
                         ()
             ]
+        , describe "filter fires onSelect when selection changes"
+            [ test "typing filter that narrows to one item fires onSelect with original index" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 30, height = 12 }
+                                |> Layout.focusPane "fruits"
+
+                        -- Start filter
+                        ( s1, _, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Character '/', modifiers = [] }
+                                filterableList
+                                state
+
+                        -- Type "fig" — should uniquely match "fig" (original index 7)
+                        -- Each keystroke resets selection to 0, and onSelect should fire
+                        -- with the original index of the first filtered item
+                        ( s2, msg1, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Character 'f', modifiers = [] }
+                                filterableList
+                                s1
+
+                        ( s3, msg2, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Character 'i', modifiers = [] }
+                                filterableList
+                                s2
+
+                        ( _, msg3, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Character 'g', modifiers = [] }
+                                filterableList
+                                s3
+                    in
+                    -- After typing "fig", only "fig" (index 7) matches
+                    -- The last keystroke should fire onSelect with original index 7
+                    msg3 |> Expect.equal (Just 7)
+            , test "each filter keystroke fires onSelect for new first item" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 30, height = 12 }
+                                |> Layout.focusPane "fruits"
+
+                        -- Start filter
+                        ( s1, _, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Character '/', modifiers = [] }
+                                filterableList
+                                state
+
+                        -- Type "b" — matches banana(2), blueberry(3)
+                        -- Selection resets to 0, first filtered item is banana (original index 2)
+                        ( _, msg, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Character 'b', modifiers = [] }
+                                filterableList
+                                s1
+                    in
+                    msg |> Expect.equal (Just 2)
+            ]
         , describe "onSelect fires with original index"
             [ test "clicking filtered item fires original index" <|
                 \() ->
@@ -363,19 +428,19 @@ suite =
                                 |> Layout.focusPane "fruits"
 
                         -- Start filter, type "b", Enter
-                        ( s1, _ ) =
+                        ( s1, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '/', modifiers = [] }
                                 filterableList
                                 state
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character 'b', modifiers = [] }
                                 filterableList
                                 s1
 
-                        ( s3, _ ) =
+                        ( s3, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Enter, modifiers = [] }
                                 filterableList
@@ -402,7 +467,7 @@ suite =
                             startFilterWith "berry" state
 
                         -- Enter to apply filter
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Enter, modifiers = [] }
                                 filterableList
@@ -413,7 +478,7 @@ suite =
                             Layout.navigateDown "fruits" filterableList s2
 
                         -- Escape clears filter
-                        ( s4, _ ) =
+                        ( s4, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Escape, modifiers = [] }
                                 filterableList
@@ -464,7 +529,7 @@ suite =
                             Layout.navigateDown "fruits" filterableList s2
 
                         -- Escape
-                        ( s4, _ ) =
+                        ( s4, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Escape, modifiers = [] }
                                 filterableList
@@ -511,23 +576,23 @@ suite =
                                 |> Layout.focusPane "items"
 
                         -- Start filter on items pane, type "ba"
-                        ( s1, _ ) =
+                        ( s1, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character '/', modifiers = [] }
                                 twoFilterablePanes
                                 state
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             "ba"
                                 |> String.toList
                                 |> List.foldl
-                                    (\c ( s, _ ) ->
+                                    (\c ( s, _, _ ) ->
                                         Layout.handleKeyEvent
                                             { key = Tui.Character c, modifiers = [] }
                                             twoFilterablePanes
                                             s
                                     )
-                                    ( s1, False )
+                                    ( s1, Nothing, False )
 
                         rendered =
                             twoFilterablePanes
@@ -594,7 +659,7 @@ suite =
                         s1 =
                             startFilterWith "ber" state
 
-                        ( s2, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Enter, modifiers = [] }
                                 filterableList
@@ -702,7 +767,7 @@ suite =
 startFilterWithLayout : String -> Layout.Layout Int -> Layout.State -> Layout.State
 startFilterWithLayout query layout state =
     let
-        ( s1, _ ) =
+        ( s1, _, _ ) =
             Layout.handleKeyEvent
                 { key = Tui.Character '/', modifiers = [] }
                 layout
@@ -711,14 +776,14 @@ startFilterWithLayout query layout state =
     query
         |> String.toList
         |> List.foldl
-            (\c ( s, _ ) ->
+            (\c ( s, _, _ ) ->
                 Layout.handleKeyEvent
                     { key = Tui.Character c, modifiers = [] }
                     layout
                     s
             )
-            ( s1, False )
-        |> Tuple.first
+            ( s1, Nothing, False )
+        |> (\( s, _, _ ) -> s)
 
 
 {-| Helper: start a filter and type the given string.
@@ -726,7 +791,7 @@ startFilterWithLayout query layout state =
 startFilterWith : String -> Layout.State -> Layout.State
 startFilterWith query state =
     let
-        ( s1, _ ) =
+        ( s1, _, _ ) =
             Layout.handleKeyEvent
                 { key = Tui.Character '/', modifiers = [] }
                 filterableList
@@ -735,11 +800,11 @@ startFilterWith query state =
     query
         |> String.toList
         |> List.foldl
-            (\c ( s, _ ) ->
+            (\c ( s, _, _ ) ->
                 Layout.handleKeyEvent
                     { key = Tui.Character c, modifiers = [] }
                     filterableList
                     s
             )
-            ( s1, False )
-        |> Tuple.first
+            ( s1, Nothing, False )
+        |> (\( s, _, _ ) -> s)

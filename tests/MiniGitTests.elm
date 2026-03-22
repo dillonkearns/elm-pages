@@ -700,10 +700,13 @@ miniGitUpdate msg model =
                     -- Layout handles filter keys (/, typing, Enter, Escape) and
                     -- number keys for pane focus. Check it first.
                     case Layout.handleKeyEvent event (miniGitLayout model) model.layout of
-                        ( newLayout, True ) ->
+                        ( newLayout, Just layoutMsg, _ ) ->
+                            miniGitUpdate layoutMsg { model | layout = newLayout }
+
+                        ( newLayout, Nothing, True ) ->
                             ( { model | layout = newLayout }, Effect.none )
 
-                        ( _, False ) ->
+                        ( _, Nothing, False ) ->
                             case Keybinding.dispatch (testActiveBindings model) event of
                                 Just action ->
                                     handleAction action model
