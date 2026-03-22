@@ -153,15 +153,16 @@ loginSessionTest =
         -- which, if session decryption fails, redirects back to /login.
         -- If we end up back at /login, verify the redirect at least happened.
         -- Action sets session cookie and redirects to /greet
-        -- Verify the redirect happened (URL contains greet or login)
         |> PagesProgram.ensureBrowserUrl
-            (\url ->
-                if String.contains "greet" url || String.contains "login" url then
-                    Expect.pass
-
-                else
-                    Expect.fail ("Expected greet or login URL, got: " ++ url)
-            )
+            (\url -> url |> Expect.equal "https://localhost:1234/greet")
+        -- TODO: Full session rendering assertion once Platform model
+        -- mismatch issue after cross-route redirect is resolved.
+        -- The session data resolves correctly (confirmed via debug):
+        -- DataGreet { username = "Alice", flashMessage = "Welcome Alice!" }
+        -- But Platform's FrozenViewsReady handler doesn't update the
+        -- route model correctly after a redirect chain.
+        -- |> PagesProgram.ensureViewHas [ text "Hello Alice!" ]
+        -- |> PagesProgram.ensureViewHas [ text "Welcome Alice!" ]
 
 
 {-| Test that the Greet route works with query param bypass (no session needed).

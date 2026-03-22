@@ -410,7 +410,7 @@ startPlatform config initialPath testSetup =
                     Platform.init config flags initialUrl Nothing
 
                 ( readyModel, readyEffect ) =
-                    Platform.update config (Platform.FrozenViewsReady (Just pageDataBytes)) initModel
+                    platformUpdateClean config (Platform.FrozenViewsReady (Just pageDataBytes)) initModel
 
                 ( finalWrapped, _ ) =
                     processEffectsWrapped config baseUrl
@@ -420,32 +420,19 @@ startPlatform config initialPath testSetup =
 
                 updateFn msg wrappedModel =
                     let
-                        ( newPlatformModel, effect ) =
-                            Platform.update config msg wrappedModel.platformModel
+                        ( newPlatformModel, effectFromUpdate ) =
+                            platformUpdateClean config msg wrappedModel.platformModel
+
+                        effect =
+                            effectFromUpdate
 
                         ( processedWrapped, _ ) =
                             processEffectsWrapped config baseUrl
                                 { wrappedModel | platformModel = newPlatformModel }
                                 effect
                                 100
-
-                        -- Clean relative path segments in Platform model URL
-                        -- that can occur during redirect handling
-                        cleanedPlatformModel =
-                            let
-                                pm =
-                                    processedWrapped.platformModel
-
-                                cleanedUrl =
-                                    let
-                                        url =
-                                            pm.url
-                                    in
-                                    { url | path = url.path |> String.replace "/./" "/" }
-                            in
-                            { processedWrapped | platformModel = { pm | url = cleanedUrl } }
                     in
-                    ( cleanedPlatformModel, [] )
+                    ( processedWrapped, [] )
 
                 viewFn wrappedModel =
                     let
@@ -466,21 +453,7 @@ startPlatform config initialPath testSetup =
                                     (Browser.Internal (makeTestUrl baseUrl href))
                             )
                     , getBrowserUrl =
-                        Just
-                            (\m ->
-                                let
-                                    url =
-                                        m.platformModel.url
-                                in
-                                -- Clean relative path prefix that Platform may produce
-                                -- during redirect handling (e.g., "./counter" -> "/counter")
-                                { url
-                                    | path =
-                                        url.path
-                                            |> String.replace "/./" "/"
-                                }
-                                    |> Url.toString
-                            )
+                        Just (\m -> Url.toString m.platformModel.url)
                     , onFormSubmit =
                         Just
                             (\{ formId, action, fields, useFetcher } ->
@@ -2327,7 +2300,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                         makeTestUrl baseUrl pushPath
 
                     ( newModel, newEffect ) =
-                        Platform.update config (Platform.UrlChanged newUrl) wrappedModel.platformModel
+                        platformUpdateClean config (Platform.UrlChanged newUrl) wrappedModel.platformModel
                 in
                 processEffectsWrapped config baseUrl
                     { wrappedModel | platformModel = newModel }
@@ -2340,7 +2313,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                         makeTestUrl baseUrl replacePath
 
                     ( newModel, newEffect ) =
-                        Platform.update config (Platform.UrlChanged newUrl) wrappedModel.platformModel
+                        platformUpdateClean config (Platform.UrlChanged newUrl) wrappedModel.platformModel
                 in
                 processEffectsWrapped config baseUrl
                     { wrappedModel | platformModel = newModel }
@@ -2407,7 +2380,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                                     |> encodeResponseWithPrefix config
 
                                             ( newModel, newEffect ) =
-                                                Platform.update config
+                                                platformUpdateClean config
                                                     (Platform.FrozenViewsReady (Just encodedBytes))
                                                     wrappedModel.platformModel
                                         in
@@ -2440,7 +2413,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                                     |> encodeResponseWithPrefix config
 
                                             ( newModel, newEffect ) =
-                                                Platform.update config
+                                                platformUpdateClean config
                                                     (Platform.FrozenViewsReady (Just encodedBytes))
                                                     wrappedModel.platformModel
                                         in
@@ -2480,7 +2453,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                                     |> encodeResponseWithPrefix config
 
                                             ( newModel, newEffect ) =
-                                                Platform.update config
+                                                platformUpdateClean config
                                                     (Platform.FrozenViewsReady (Just encodedBytes))
                                                     wrappedModel.platformModel
                                         in
@@ -2496,17 +2469,33 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                 case extractPageData config dataResult of
                                     Just pageData ->
                                         let
+                                            -- Use HotUpdate for navigation data loads.
+                                            -- RenderPage reuses the previous route's model which
+                                            -- causes type mismatches after cross-route redirects.
+                                            -- HotUpdate properly initializes the new route.
                                             encodedBytes =
-                                                ResponseSketch.RenderPage pageData Nothing
-                                                    |> encodeResponseWithPrefix config
+                                                case wrappedModel.platformModel.pageData of
+                                                    Ok prevData ->
+                                                        ResponseSketch.HotUpdate pageData
+                                                            prevData.sharedData
+                                                            Nothing
+                                                            |> encodeResponseWithPrefix config
+
+                                                    Err _ ->
+                                                        ResponseSketch.RenderPage pageData Nothing
+                                                            |> encodeResponseWithPrefix config
 
                                             ( newModel, newEffect ) =
-                                                Platform.update config
+                                                platformUpdateClean config
                                                     (Platform.FrozenViewsReady (Just encodedBytes))
                                                     wrappedModel.platformModel
+
+                                            -- Clear notFound after successful data load
+                                            cleanedModel =
+                                                { newModel | notFound = Nothing }
                                         in
                                         processEffectsWrapped config baseUrl
-                                            { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar }
+                                            { platformModel = cleanedModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar }
                                             newEffect
                                             (maxDepth - 1)
 
@@ -2524,7 +2513,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                 )
 
                         ( newModel, newEffect ) =
-                            Platform.update config (Platform.UrlChanged newUrl) wrappedModel.platformModel
+                            platformUpdateClean config (Platform.UrlChanged newUrl) wrappedModel.platformModel
                     in
                     processEffectsWrapped config baseUrl
                         { wrappedModel | platformModel = newModel }
@@ -2538,7 +2527,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                 let
                     -- Step 1: Dispatch FetcherStarted
                     ( modelAfterStarted, _ ) =
-                        Platform.update config
+                        platformUpdateClean config
                             (Platform.FetcherStarted fetcherKey transitionId formData (Time.millisToPosix 0))
                             wrappedModel.platformModel
 
@@ -2584,7 +2573,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                 Err Http.NetworkError
 
                     ( modelAfterComplete, completeEffect ) =
-                        Platform.update config
+                        platformUpdateClean config
                             (Platform.FetcherComplete False fetcherKey transitionId fetcherResult)
                             modelAfterStarted
                 in
@@ -2606,8 +2595,29 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                     effects
 
 
-{-| Construct a test URL from a base URL and path.
+{-| Wrapper around Platform.update that cleans relative path segments
+from the resulting model's URL. Platform internally produces paths like
+"/./counter" during redirect handling which breaks route matching.
 -}
+platformUpdateClean config msg platformModel =
+    let
+        ( newModel, effect ) =
+            Platform.update config msg platformModel
+
+        url =
+            newModel.url
+
+        cleanPath =
+            String.replace "/./" "/"
+    in
+    ( { newModel
+        | url = { url | path = cleanPath url.path }
+        , currentPath = cleanPath newModel.currentPath
+      }
+    , effect
+    )
+
+
 makeTestUrl : String -> String -> Url
 makeTestUrl baseUrl rawPath =
     let
