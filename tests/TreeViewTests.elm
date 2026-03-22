@@ -216,6 +216,66 @@ suite =
                     -- README.md is at original index 5 in the files list
                     maybeMsg |> Expect.equal (Just 5)
             ]
+        , describe "selectedItem"
+            [ test "selectedItem returns the actual item, not an index" <|
+                \() ->
+                    let
+                        state =
+                            initState
+
+                        -- Navigate down past the "src" directory to a leaf
+                        ( s1, _ ) =
+                            Layout.navigateDown "files" treeLayout state
+
+                        ( s2, _ ) =
+                            Layout.navigateDown "files" treeLayout s1
+
+                        item =
+                            Layout.selectedItem "files" files treeLayout s2
+                    in
+                    -- Should return the actual file string, not an index
+                    item |> Expect.notEqual Nothing
+            , test "selectedItem returns Nothing for directory nodes" <|
+                \() ->
+                    let
+                        state =
+                            initState
+
+                        -- First item in tree is the "src" directory
+                        item =
+                            Layout.selectedItem "files" files treeLayout state
+                    in
+                    -- Directory nodes aren't items — should return Nothing
+                    item |> Expect.equal Nothing
+            , test "selectedItem works with filtered tree" <|
+                \() ->
+                    let
+                        filterableTreeLayout =
+                            Layout.horizontal
+                                [ Layout.pane "files"
+                                    { title = "Files", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \f -> Tui.text ("▸ " ++ f)
+                                        , default = \f -> Tui.text ("  " ++ f)
+                                        }
+                                        files
+                                        |> Layout.withFilterable identity files
+                                        |> Layout.withTreeView
+                                            { toPath = String.split "/" }
+                                            files
+                                    )
+                                ]
+
+                        state =
+                            initState
+
+                        item =
+                            Layout.selectedItem "files" files filterableTreeLayout state
+                    in
+                    -- Should handle the combination of filter + tree
+                    item |> Expect.notEqual (Just "nonexistent")
+            ]
         , describe "path compression"
             [ test "single-child directories are compressed" <|
                 \() ->

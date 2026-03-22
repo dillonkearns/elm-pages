@@ -673,6 +673,50 @@ suite =
                     -- Scroll position should be clamped (2 items fit in viewport, so no scroll needed)
                     Layout.scrollPosition "fruits" s3 |> Expect.atMost 0
             ]
+        , describe "selectedItem with filter"
+            [ test "selectedItem returns the correct item when filtered" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 30, height = 12 }
+                                |> Layout.focusPane "fruits"
+
+                        -- Filter to "berry" → blueberry(3), elderberry(6)
+                        s1 =
+                            startFilterWith "berry" state
+
+                        ( s2, _, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Enter, modifiers = [] }
+                                filterableList
+                                s1
+
+                        -- Selection is at filtered index 0 = blueberry
+                        item =
+                            Layout.selectedItem "fruits" items filterableList s2
+                    in
+                    item |> Expect.equal (Just "blueberry")
+            , test "selectedItem without filter returns item at selected index" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 30, height = 12 }
+                                |> Layout.focusPane "fruits"
+
+                        -- Navigate to cherry (index 4)
+                        ( s, _ ) =
+                            List.range 1 4
+                                |> List.foldl
+                                    (\_ ( s2, _ ) -> Layout.navigateDown "fruits" filterableList s2)
+                                    ( state, Nothing )
+
+                        item =
+                            Layout.selectedItem "fruits" items filterableList s
+                    in
+                    item |> Expect.equal (Just "cherry")
+            ]
         , describe "smart case matching"
             [ test "lowercase query is case-insensitive" <|
                 \() ->

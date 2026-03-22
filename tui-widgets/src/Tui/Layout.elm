@@ -3,7 +3,7 @@ module Tui.Layout exposing
     , PaneContent, content, selectableList, withUnfocusedStyle, withFilterable, withSearchable, withTreeView
     , Width, fill, fillPortion, fixed
     , State, init, withContext
-    , navigateDown, navigateUp, pageDown, pageUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
+    , navigateDown, navigateUp, pageDown, pageUp, selectedIndex, selectedItem, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
     , switchTab, activeTab
     , focusPane, focusedPane
     , setSearching
@@ -52,7 +52,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs State, init, withContext
 
-@docs navigateDown, navigateUp, pageDown, pageUp, selectedIndex, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
+@docs navigateDown, navigateUp, pageDown, pageUp, selectedIndex, selectedItem, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
 
 @docs switchTab, activeTab
 
@@ -1103,6 +1103,81 @@ selectedIndex paneId (State s) =
     Dict.get stateKey s.paneStates
         |> Maybe.map .selectedIndex
         |> Maybe.withDefault 0
+
+
+{-| Get the currently selected item from a pane. Handles all index mapping
+automatically — filter, tree view, and scroll are all accounted for. Returns
+`Nothing` if the selection is on a directory node (in tree view) or if the
+index is out of bounds.
+
+    case Layout.selectedItem "files" model.files layout model.layout of
+        Just file -> showFileDetails file
+        Nothing -> showDirectoryInfo
+
+-}
+selectedItem : String -> List item -> Layout msg -> State -> Maybe item
+selectedItem paneId items layout (State s) =
+    let
+        stateKey : String
+        stateKey =
+            Dict.get paneId s.activeTabMap
+                |> Maybe.withDefault paneId
+
+        idx : Int
+        idx =
+            Dict.get stateKey s.paneStates
+                |> Maybe.map .selectedIndex
+                |> Maybe.withDefault 0
+
+        -- Map through filter if active
+        filterState : Maybe FilterState
+        filterState =
+            Dict.get stateKey s.filterStates
+
+        filteredIdx : Int
+        filteredIdx =
+            mapFilteredIndex idx filterState
+
+        -- Map through tree if active
+        treeConfig : Maybe { toPath : Int -> List String }
+        treeConfig =
+            getTreeConfigForPane paneId layout
+
+        treeState : TreeState
+        treeState =
+            getTreeStateForPane stateKey (State s)
+    in
+    case treeConfig of
+        Just tc ->
+            if treeState.showTree then
+                let
+                    totalCount : Int
+                    totalCount =
+                        List.length items
+
+                    rows : List TreeRow
+                    rows =
+                        buildTreeRows tc.toPath totalCount treeState
+                in
+                rows
+                    |> List.drop idx
+                    |> List.head
+                    |> Maybe.andThen
+                        (\row ->
+                            case row.originalIndex of
+                                Just origIdx ->
+                                    List.drop origIdx items |> List.head
+
+                                Nothing ->
+                                    -- Directory node
+                                    Nothing
+                        )
+
+            else
+                List.drop filteredIdx items |> List.head
+
+        Nothing ->
+            List.drop filteredIdx items |> List.head
 
 
 {-| Switch the active tab for a pane group. Updates the internal mapping
