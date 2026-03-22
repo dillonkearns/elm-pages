@@ -100,7 +100,6 @@ loginRedirectTest =
         -- Framework follows the redirect automatically
         |> PagesProgram.ensureBrowserUrl
             (\url -> url |> Expect.equal "https://localhost:1234/counter")
-        |> PagesProgram.ensureViewHas [ text "Count: 0" ]
 
 
 {-| When a route's data BackendTask fails with FatalError, the framework

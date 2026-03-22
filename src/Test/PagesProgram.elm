@@ -99,6 +99,7 @@ import Test.Html.Event as Event
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.Runner
+import Test.Runner.Failure
 import Time
 import Url exposing (Url)
 import UrlPath
@@ -449,7 +450,21 @@ startPlatform config initialPath testSetup =
                                     (Browser.Internal (makeTestUrl baseUrl href))
                             )
                     , getBrowserUrl =
-                        Just (\m -> Url.toString m.platformModel.url)
+                        Just
+                            (\m ->
+                                let
+                                    url =
+                                        m.platformModel.url
+                                in
+                                -- Clean relative path prefix that Platform may produce
+                                -- during redirect handling (e.g., "./counter" -> "/counter")
+                                { url
+                                    | path =
+                                        url.path
+                                            |> String.replace "/./" "/"
+                                }
+                                    |> Url.toString
+                            )
                     , onFormSubmit =
                         Just
                             (\{ formId, action, fields, useFetcher } ->
@@ -2151,7 +2166,22 @@ getFailureMessage : Expectation -> Maybe String
 getFailureMessage expectation =
     case Test.Runner.getFailureReason expectation of
         Just reason ->
-            Just reason.description
+            let
+                reasonDetail =
+                    case reason.reason of
+                        Test.Runner.Failure.Equality expected actual ->
+                            "\n\nExpected:\n    " ++ expected ++ "\n\nActual:\n    " ++ actual
+
+                        Test.Runner.Failure.Custom ->
+                            ""
+
+                        _ ->
+                            ""
+
+                base =
+                    reason.description ++ reasonDetail
+            in
+            Just base
 
         Nothing ->
             Nothing
@@ -2275,10 +2305,17 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
             Platform.BrowserLoadUrl _ ->
                 ( wrappedModel, [] )
 
-            Platform.BrowserPushUrl path ->
+            Platform.BrowserPushUrl pushPath ->
                 let
+                    cleanPath =
+                        if String.startsWith "./" pushPath then
+                            "/" ++ String.dropLeft 2 pushPath
+
+                        else
+                            pushPath
+
                     newUrl =
-                        makeTestUrl baseUrl path
+                        makeTestUrl baseUrl cleanPath
 
                     ( newModel, newEffect ) =
                         Platform.update config (Platform.UrlChanged newUrl) wrappedModel.platformModel
@@ -2288,10 +2325,17 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                     newEffect
                     (maxDepth - 1)
 
-            Platform.BrowserReplaceUrl path ->
+            Platform.BrowserReplaceUrl replacePath ->
                 let
+                    cleanReplacePath =
+                        if String.startsWith "./" replacePath then
+                            "/" ++ String.dropLeft 2 replacePath
+
+                        else
+                            replacePath
+
                     newUrl =
-                        makeTestUrl baseUrl path
+                        makeTestUrl baseUrl cleanReplacePath
 
                     ( newModel, newEffect ) =
                         Platform.update config (Platform.UrlChanged newUrl) wrappedModel.platformModel
@@ -2342,9 +2386,17 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                 case PageServerResponse.toRedirect serverResponse of
                                     Just { location } ->
                                         -- Redirect: encode as ResponseSketch.Redirect
+                                        -- Clean relative path prefix if present
                                         let
+                                            cleanLocation =
+                                                if String.startsWith "./" location then
+                                                    "/" ++ String.dropLeft 2 location
+
+                                                else
+                                                    location
+
                                             encodedBytes =
-                                                ResponseSketch.Redirect location
+                                                ResponseSketch.Redirect cleanLocation
                                                     |> encodeResponseWithPrefix config
 
                                             ( newModel, newEffect ) =
