@@ -16,31 +16,50 @@ module Tui exposing
 `Tui.Screen` is the primitive view type — styled text with vertical and horizontal
 composition. The framework handles rendering, diffing, and terminal management.
 
-Colors use [`Ansi.Color.Color`](https://package.elm-lang.org/packages/wolfadex/elm-ansi/latest/Ansi-Color)
-from the `wolfadex/elm-ansi` package:
-
     import Ansi.Color
     import Tui
 
-    Tui.styled { Tui.plain | fg = Just Ansi.Color.red, attributes = [ Tui.Bold ] } "error"
+    Tui.text "error"
+        |> Tui.fg Ansi.Color.red
+        |> Tui.bold
+
+
+## Building Screens
 
 @docs Screen, text, styled, lines, concat, spaced, empty, blank
 
+
+## Styling
+
+Pipeline-style builders that compose naturally:
+
+    Tui.text "warning" |> Tui.fg Ansi.Color.yellow |> Tui.bold
+
 @docs fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
 
-@docs Style, plain
+@docs Style, plain, Attribute
 
-@docs Attribute
+
+## Terminal Context
 
 @docs Context, ColorProfile
+
+
+## Events
 
 @docs KeyEvent, Key, Direction, Modifier
 
 @docs MouseEvent, MouseButton
 
-@docs truncateWidth, wrapWidth, toScreenLines, extractStyle
 
-@docs toString, toLines, lineCount
+## Text Manipulation
+
+@docs truncateWidth, wrapWidth
+
+
+## Querying
+
+@docs toString, toLines, toScreenLines, lineCount, extractStyle
 
 -}
 
@@ -155,20 +174,33 @@ spaced items =
         |> Internal.ScreenConcat
 
 
-{-| Empty screen — renders nothing.
+{-| Empty screen — renders nothing, takes up zero lines. Use this as
+a "null" value, for example with `Maybe.withDefault`:
+
+    case maybeError of
+        Just err -> Tui.text err |> Tui.fg Ansi.Color.red
+        Nothing -> Tui.empty
+
+Note: this is different from [`blank`](#blank) which renders one empty line.
+`empty` produces no output at all.
+
 -}
 empty : Screen
 empty =
     Internal.ScreenEmpty
 
 
-{-| A blank line — alias for `text ""`. Useful as a spacer in `lines`.
+{-| A blank line — renders one empty line. Useful as a vertical spacer
+in [`lines`](#lines):
 
     Tui.lines
         [ Tui.text "Title"
         , Tui.blank
         , Tui.text "Content"
         ]
+
+Note: this is different from [`empty`](#empty) which renders nothing.
+`blank` produces a visible gap (one empty row).
 
 -}
 blank : Screen
