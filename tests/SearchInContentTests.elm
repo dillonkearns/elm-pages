@@ -280,6 +280,45 @@ suite =
                     in
                     -- Current match should have cyan background
                     encoded |> String.contains "cyan" |> Expect.equal True
+            , test "search preserves existing line styling on non-matched parts" <|
+                \() ->
+                    let
+                        -- Use magenta (unique, not used by borders/highlights)
+                        styledLayout =
+                            Layout.horizontal
+                                [ Layout.pane "styled"
+                                    { title = "Diff", width = Layout.fill }
+                                    (Layout.content
+                                        [ Tui.text "+ added new function" |> Tui.fg Ansi.Color.magenta
+                                        , Tui.text "  unchanged line"
+                                        ]
+                                        |> Layout.withSearchable
+                                    )
+                                ]
+
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 60, height = 10 }
+                                |> Layout.focusPane "styled"
+
+                        -- Search for "new" — splits the magenta line:
+                        -- "+ added " (should stay magenta), "new" (cyan bg), " function" (should stay magenta)
+                        s =
+                            commitSearchWith "new" styledLayout state
+
+                        encoded =
+                            styledLayout
+                                |> Layout.toScreen s
+                                |> Tui.Internal.encodeScreen
+                                |> Json.Encode.encode 0
+                    in
+                    Expect.all
+                        [ -- Should have cyan for the match highlight
+                          \_ -> encoded |> String.contains "cyan" |> Expect.equal True
+                        , -- Non-matched parts should retain magenta foreground
+                          \_ -> encoded |> String.contains "magenta" |> Expect.equal True
+                        ]
+                        ()
             , test "other matches have yellow background" <|
                 \() ->
                     let
@@ -348,17 +387,38 @@ startSearchWith query state =
 
 commitSearch : String -> Layout.State -> Layout.State
 commitSearch query state =
-    let
-        s1 =
-            startSearchWith query state
+    commitSearchWith query searchableLayout state
 
-        ( s2, _, _ ) =
+
+commitSearchWith : String -> Layout.Layout Int -> Layout.State -> Layout.State
+commitSearchWith query layout state =
+    let
+        ( s1, _, _ ) =
+            Layout.handleKeyEvent
+                { key = Tui.Character '/', modifiers = [] }
+                layout
+                state
+
+        s2 =
+            query
+                |> String.toList
+                |> List.foldl
+                    (\c ( s, _, _ ) ->
+                        Layout.handleKeyEvent
+                            { key = Tui.Character c, modifiers = [] }
+                            layout
+                            s
+                    )
+                    ( s1, Nothing, False )
+                |> (\( s, _, _ ) -> s)
+
+        ( s3, _, _ ) =
             Layout.handleKeyEvent
                 { key = Tui.Enter, modifiers = [] }
-                searchableLayout
-                s1
+                layout
+                s2
     in
-    s2
+    s3
 
 
 pressN : Int -> Layout.State -> Layout.State

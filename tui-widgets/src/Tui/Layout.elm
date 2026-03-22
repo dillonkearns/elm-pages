@@ -79,8 +79,9 @@ import Array
 import Char
 import Dict exposing (Dict)
 import Set exposing (Set)
-import Tui exposing (MouseEvent, Screen, plain)
+import Tui exposing (Attribute(..), MouseEvent, Screen, plain)
 import Tui.Keybinding
+import Tui.Screen.Internal as ScreenInternal
 
 
 {-| A layout of panes.
@@ -2641,7 +2642,7 @@ findAllSubstring needle needleLen haystack startFrom =
         findAllSubstring needle needleLen haystack (startFrom + 1)
 
 
-{-| Highlight search matches on a single line.
+{-| Highlight search matches on a single line, preserving existing styles.
 -}
 highlightMatchesOnLine : Int -> SearchState -> Screen -> Screen
 highlightMatchesOnLine lineIdx ss lineScreen =
@@ -2662,31 +2663,39 @@ highlightMatchesOnLine lineIdx ss lineScreen =
 
     else
         let
-            lineText : String
-            lineText =
-                Tui.toString lineScreen
+            spans : List ScreenInternal.Span
+            spans =
+                case ScreenInternal.flattenToSpanLines styleToFlatStyle lineScreen of
+                    first :: _ ->
+                        first
+
+                    [] ->
+                        []
         in
-        buildHighlightedLine lineText matchesOnLine currentMatch 0
+        buildHighlightedLine spans matchesOnLine currentMatch 0
 
 
-{-| Build a highlighted line from text and match positions.
+{-| Build a highlighted line from styled spans and match positions,
+preserving existing styles on non-matched segments.
 -}
-buildHighlightedLine : String -> List { line : Int, col : Int, len : Int } -> Maybe { line : Int, col : Int, len : Int } -> Int -> Screen
-buildHighlightedLine text matches currentMatch pos =
+buildHighlightedLine : List ScreenInternal.Span -> List { line : Int, col : Int, len : Int } -> Maybe { line : Int, col : Int, len : Int } -> Int -> Screen
+buildHighlightedLine spans matches currentMatch col =
     case matches of
         [] ->
-            -- Remaining text after last match
-            Tui.text (String.dropLeft pos text)
+            -- Remaining spans after last match — keep original styles
+            spansToScreen spans
 
         match :: rest ->
             let
-                beforeMatch : String
-                beforeMatch =
-                    String.slice pos match.col text
+                beforeLen : Int
+                beforeLen =
+                    match.col - col
 
-                matchText : String
-                matchText =
-                    String.slice match.col (match.col + match.len) text
+                ( beforeSpans, afterBefore ) =
+                    splitSpansAt beforeLen spans
+
+                ( matchSpans, afterMatch ) =
+                    splitSpansAt match.len afterBefore
 
                 isCurrent : Bool
                 isCurrent =
@@ -2697,19 +2706,159 @@ buildHighlightedLine text matches currentMatch pos =
                         Nothing ->
                             False
 
-                highlightedMatch : Screen
-                highlightedMatch =
+                highlightBg : Ansi.Color.Color
+                highlightBg =
                     if isCurrent then
-                        Tui.text matchText |> Tui.bg Ansi.Color.cyan
+                        Ansi.Color.cyan
 
                     else
-                        Tui.text matchText |> Tui.bg Ansi.Color.yellow
+                        Ansi.Color.yellow
+
+                highlightedMatchScreen : Screen
+                highlightedMatchScreen =
+                    matchSpans
+                        |> List.map
+                            (\span ->
+                                let
+                                    oldStyle =
+                                        span.style
+                                in
+                                { span | style = { oldStyle | background = Just highlightBg } }
+                            )
+                        |> spansToScreen
             in
             Tui.concat
-                [ Tui.text beforeMatch
-                , highlightedMatch
-                , buildHighlightedLine text rest currentMatch (match.col + match.len)
+                [ spansToScreen beforeSpans
+                , highlightedMatchScreen
+                , buildHighlightedLine afterMatch rest currentMatch (match.col + match.len)
                 ]
+
+
+{-| Split a list of spans at a character position. Returns (before, after)
+where before contains exactly `n` characters worth of spans.
+-}
+splitSpansAt : Int -> List ScreenInternal.Span -> ( List ScreenInternal.Span, List ScreenInternal.Span )
+splitSpansAt n spans =
+    -- elm-review: known-unoptimized-recursion
+    if n <= 0 then
+        ( [], spans )
+
+    else
+        case spans of
+            [] ->
+                ( [], [] )
+
+            span :: rest ->
+                let
+                    spanLen : Int
+                    spanLen =
+                        String.length span.text
+                in
+                if spanLen <= n then
+                    let
+                        ( restBefore, after ) =
+                            splitSpansAt (n - spanLen) rest
+                    in
+                    ( span :: restBefore, after )
+
+                else
+                    -- Split this span in two
+                    ( [ { span | text = String.left n span.text } ]
+                    , { span | text = String.dropLeft n span.text } :: rest
+                    )
+
+
+{-| Convert FlatStyle spans back to a Screen.
+-}
+spansToScreen : List ScreenInternal.Span -> Screen
+spansToScreen spans =
+    ScreenInternal.spansToScreen flatStyleToStyle spans
+
+
+{-| Convert a Tui.Style to a FlatStyle for span flattening.
+-}
+styleToFlatStyle : Tui.Style -> ScreenInternal.FlatStyle
+styleToFlatStyle s =
+    let
+        base : ScreenInternal.FlatStyle
+        base =
+            { bold = False
+            , dim = False
+            , italic = False
+            , underline = False
+            , strikethrough = False
+            , inverse = False
+            , foreground = s.fg
+            , background = s.bg
+            , hyperlink = s.hyperlink
+            }
+    in
+    List.foldl
+        (\attr fs ->
+            case attr of
+                Bold ->
+                    { fs | bold = True }
+
+                Dim ->
+                    { fs | dim = True }
+
+                Italic ->
+                    { fs | italic = True }
+
+                Underline ->
+                    { fs | underline = True }
+
+                Strikethrough ->
+                    { fs | strikethrough = True }
+
+                Inverse ->
+                    { fs | inverse = True }
+        )
+        base
+        s.attributes
+
+
+{-| Convert a FlatStyle back to a Tui.Style.
+-}
+flatStyleToStyle : ScreenInternal.FlatStyle -> Tui.Style
+flatStyleToStyle fs =
+    { fg = fs.foreground
+    , bg = fs.background
+    , attributes =
+        List.filterMap identity
+            [ if fs.bold then
+                Just Bold
+
+              else
+                Nothing
+            , if fs.dim then
+                Just Dim
+
+              else
+                Nothing
+            , if fs.italic then
+                Just Italic
+
+              else
+                Nothing
+            , if fs.underline then
+                Just Underline
+
+              else
+                Nothing
+            , if fs.strikethrough then
+                Just Strikethrough
+
+              else
+                Nothing
+            , if fs.inverse then
+                Just Inverse
+
+              else
+                Nothing
+            ]
+    , hyperlink = fs.hyperlink
+    }
 
 
 clampScroll : Int -> Int -> Int -> Int
