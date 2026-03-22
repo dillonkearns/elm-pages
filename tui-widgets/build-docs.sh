@@ -28,6 +28,7 @@ elm make \
   src/Tui/OptionsBar.elm \
   src/Tui/Status.elm \
   src/Tui/Menu.elm \
+  src/Tui/Prompt.elm \
   --output=/dev/null
 
 # Restore package config
