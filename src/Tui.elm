@@ -9,7 +9,6 @@ module Tui exposing
     , truncateWidth, wrapWidth
     , toString, toLines, toScreenLines, lineCount
     , extractStyle
-    , Span, FlatStyle, flattenToSpanLines
     )
 
 {-| Core types for building terminal user interfaces.
@@ -43,34 +42,69 @@ from the `wolfadex/elm-ansi` package:
 
 @docs toString, toLines, lineCount
 
-
-## Internal
-
-Used by the framework runtime and test harness. You should not need these directly.
-
-@docs Span, FlatStyle, flattenToSpanLines
-
 -}
 
 import Ansi.Color
+import Tui.Screen.Internal as Internal
 
 
 {-| Opaque type representing terminal output. Built from primitives, rendered by
 the framework.
 -}
-type Screen
-    = ScreenText String
-    | ScreenStyled Style String
-    | ScreenLines (List Screen)
-    | ScreenConcat (List Screen)
-    | ScreenEmpty
+type alias Screen =
+    Internal.Screen Style
+
+
+{-| Terminal cell style — foreground color, background color, text
+attributes, and optional hyperlink. Matches the terminal cell model
+(one fg, one bg, set of decoration flags, optional OSC 8 link).
+
+    { fg = Just Ansi.Color.red
+    , bg = Nothing
+    , attributes = [ Tui.Bold, Tui.Underline ]
+    , hyperlink = Nothing
+    }
+
+-}
+type alias Style =
+    { fg : Maybe Ansi.Color.Color
+    , bg : Maybe Ansi.Color.Color
+    , attributes : List Attribute
+    , hyperlink : Maybe String
+    }
+
+
+{-| Default style — no colors, no decorations. Use record update to customize:
+
+    { Tui.plain | fg = Just Ansi.Color.cyan }
+    { Tui.plain | attributes = [ Tui.Bold ] }
+
+-}
+plain : Style
+plain =
+    { fg = Nothing
+    , bg = Nothing
+    , attributes = []
+    , hyperlink = Nothing
+    }
+
+
+{-| A text decoration attribute.
+-}
+type Attribute
+    = Bold
+    | Dim
+    | Italic
+    | Underline
+    | Strikethrough
+    | Inverse
 
 
 {-| Unstyled text.
 -}
 text : String -> Screen
 text =
-    ScreenText
+    Internal.ScreenText
 
 
 {-| Styled text. Takes a [`Style`](#Style) record specifying foreground color,
@@ -90,21 +124,21 @@ background color, and text attributes.
 -}
 styled : Style -> String -> Screen
 styled =
-    ScreenStyled
+    Internal.ScreenStyled
 
 
 {-| Stack screens vertically. Each item starts on a new line.
 -}
 lines : List Screen -> Screen
 lines =
-    ScreenLines
+    Internal.ScreenLines
 
 
 {-| Concatenate screens horizontally on the same line.
 -}
 concat : List Screen -> Screen
 concat =
-    ScreenConcat
+    Internal.ScreenConcat
 
 
 {-| Concatenate screens horizontally with a space between each element.
@@ -117,15 +151,15 @@ concat =
 spaced : List Screen -> Screen
 spaced items =
     items
-        |> List.intersperse (ScreenText " ")
-        |> ScreenConcat
+        |> List.intersperse (Internal.ScreenText " ")
+        |> Internal.ScreenConcat
 
 
 {-| Empty screen — renders nothing.
 -}
 empty : Screen
 empty =
-    ScreenEmpty
+    Internal.ScreenEmpty
 
 
 {-| A blank line — alias for `text ""`. Useful as a spacer in `lines`.
@@ -139,7 +173,7 @@ empty =
 -}
 blank : Screen
 blank =
-    ScreenText ""
+    Internal.ScreenText ""
 
 
 
@@ -154,7 +188,7 @@ blank =
 -}
 fg : Ansi.Color.Color -> Screen -> Screen
 fg color screen =
-    applyStyle (\s -> { s | fg = Just color }) screen
+    Internal.applyStyle plain (\s -> { s | fg = Just color }) screen
 
 
 {-| Set background color on a Screen.
@@ -164,7 +198,7 @@ fg color screen =
 -}
 bg : Ansi.Color.Color -> Screen -> Screen
 bg color screen =
-    applyStyle (\s -> { s | bg = Just color }) screen
+    Internal.applyStyle plain (\s -> { s | bg = Just color }) screen
 
 
 {-| Apply bold attribute.
@@ -227,99 +261,117 @@ is silently ignored and the text renders normally.
 -}
 link : { url : String } -> Screen -> Screen
 link { url } =
-    applyStyle (\s -> { s | hyperlink = Just url })
-
-
-{-| Apply a style transformation to a Screen. Recursively applies to all
-children in compound screens (Concat, Lines), so `Tui.fg` and `Tui.bold`
-work on any Screen — not just text.
-
-    -- All of these work:
-    Tui.text "hello" |> Tui.fg green                    -- single text
-    Tui.concat [ a, b ] |> Tui.bold                     -- applies to both a and b
-    Tui.spaced [ a, b ] |> Tui.bg blue                  -- applies to a, space, and b
-    Tui.lines [ row1, row2 ] |> Tui.dim                 -- applies to all rows
-
-Note: outer styles overwrite inner styles for the same attribute.
-`Tui.text "x" |> Tui.fg red |> Tui.fg green` results in green.
-
--}
-applyStyle : (Style -> Style) -> Screen -> Screen
-applyStyle transform screen =
-    -- elm-review: known-unoptimized-recursion
-    case screen of
-        ScreenText s ->
-            ScreenStyled (transform plain) s
-
-        ScreenStyled stl s ->
-            ScreenStyled (transform stl) s
-
-        ScreenConcat items ->
-            ScreenConcat (List.map (applyStyle transform) items)
-
-        ScreenLines items ->
-            ScreenLines (List.map (applyStyle transform) items)
-
-        ScreenEmpty ->
-            ScreenEmpty
+    Internal.applyStyle plain (\s -> { s | hyperlink = Just url })
 
 
 addAttr : Attribute -> Screen -> Screen
 addAttr attr =
-    applyStyle (\s -> { s | attributes = attr :: s.attributes })
+    Internal.applyStyle plain (\s -> { s | attributes = attr :: s.attributes })
 
 
 
--- STYLE RECORDS
+-- STYLE CONVERSION
 
 
-{-| Terminal cell style — foreground color, background color, text
-attributes, and optional hyperlink. Matches the terminal cell model
-(one fg, one bg, set of decoration flags, optional OSC 8 link).
+styleToFlatStyle : Style -> Internal.FlatStyle
+styleToFlatStyle s =
+    let
+        def : Internal.FlatStyle
+        def =
+            Internal.defaultFlatStyle
 
-    { fg = Just Ansi.Color.red
-    , bg = Nothing
-    , attributes = [ Tui.Bold, Tui.Underline ]
-    , hyperlink = Nothing
+        base : Internal.FlatStyle
+        base =
+            { def
+                | foreground = s.fg
+                , background = s.bg
+                , hyperlink = s.hyperlink
+            }
+    in
+    List.foldl applyAttr base s.attributes
+
+
+applyAttr : Attribute -> Internal.FlatStyle -> Internal.FlatStyle
+applyAttr attr flatStyle =
+    case attr of
+        Bold ->
+            { flatStyle | bold = True }
+
+        Dim ->
+            { flatStyle | dim = True }
+
+        Italic ->
+            { flatStyle | italic = True }
+
+        Underline ->
+            { flatStyle | underline = True }
+
+        Strikethrough ->
+            { flatStyle | strikethrough = True }
+
+        Inverse ->
+            { flatStyle | inverse = True }
+
+
+flatStyleToAttrs : Internal.FlatStyle -> List Attribute
+flatStyleToAttrs s =
+    List.filterMap identity
+        [ if s.bold then
+            Just Bold
+
+          else
+            Nothing
+        , if s.dim then
+            Just Dim
+
+          else
+            Nothing
+        , if s.italic then
+            Just Italic
+
+          else
+            Nothing
+        , if s.underline then
+            Just Underline
+
+          else
+            Nothing
+        , if s.strikethrough then
+            Just Strikethrough
+
+          else
+            Nothing
+        , if s.inverse then
+            Just Inverse
+
+          else
+            Nothing
+        ]
+
+
+flatStyleToStyle : Internal.FlatStyle -> Style
+flatStyleToStyle fs =
+    { fg = fs.foreground
+    , bg = fs.background
+    , attributes = flatStyleToAttrs fs
+    , hyperlink = fs.hyperlink
     }
 
--}
-type alias Style =
-    { fg : Maybe Ansi.Color.Color
-    , bg : Maybe Ansi.Color.Color
-    , attributes : List Attribute
-    , hyperlink : Maybe String
-    }
+
+flattenToSpanLines : Screen -> List (List Internal.Span)
+flattenToSpanLines =
+    Internal.flattenToSpanLines styleToFlatStyle
 
 
-{-| Default style — no colors, no decorations. Use record update to customize:
-
-    { Tui.plain | fg = Just Ansi.Color.cyan }
-    { Tui.plain | attributes = [ Tui.Bold ] }
-
--}
-plain : Style
-plain =
-    { fg = Nothing
-    , bg = Nothing
-    , attributes = []
-    , hyperlink = Nothing
-    }
+spanToScreen : Internal.Span -> Screen
+spanToScreen =
+    Internal.spanToScreen flatStyleToStyle
 
 
+spansToScreen : List Internal.Span -> Screen
+spansToScreen =
+    Internal.spansToScreen flatStyleToStyle
 
--- ATTRIBUTES
-
-
-{-| A text decoration attribute.
--}
-type Attribute
-    = Bold
-    | Dim
-    | Italic
-    | Underline
-    | Strikethrough
-    | Inverse
 
 
 -- CONTEXT
@@ -336,7 +388,7 @@ type alias Context =
 
 {-| Terminal color capability, detected at init from environment variables.
 Follows charmbracelet/colorprofile's detection precedence:
-`$NO_COLOR` → `$COLORTERM` → known terminals → `$TERM` suffix → default.
+`$NO_COLOR` -> `$COLORTERM` -> known terminals -> `$TERM` suffix -> default.
 
 The renderer automatically degrades colors based on the profile — the Elm app
 can always use the highest fidelity colors and they'll be converted. But this
@@ -457,11 +509,8 @@ toScreenLines screen =
         |> List.map
             (\spans ->
                 spans
-                    |> List.map
-                        (\span ->
-                            spanToScreen span
-                        )
-                    |> ScreenConcat
+                    |> List.map spanToScreen
+                    |> Internal.ScreenConcat
             )
 
 
@@ -474,30 +523,17 @@ making a selection highlight span the full pane width).
 
 -}
 extractStyle : Screen -> Style
-extractStyle screen =
-    case screen of
-        ScreenStyled stl _ ->
-            stl
-
-        ScreenConcat items ->
-            case items of
-                (ScreenStyled stl _) :: _ ->
-                    stl
-
-                _ ->
-                    plain
-
-        _ ->
-            plain
+extractStyle =
+    Internal.extractStyle plain
 
 
 {-| Truncate a Screen to a maximum width in columns, preserving styles.
-Adds "…" if truncated. Works on the first line only (for single-line content).
+Adds "\u{2026}" if truncated. Works on the first line only (for single-line content).
 -}
 truncateWidth : Int -> Screen -> Screen
 truncateWidth maxWidth screen =
     let
-        spans : List Span
+        spans : List Internal.Span
         spans =
             case flattenToSpanLines screen of
                 first :: _ ->
@@ -506,9 +542,9 @@ truncateWidth maxWidth screen =
                 [] ->
                     []
 
-        truncated : List Span
+        truncated : List Internal.Span
         truncated =
-            truncateSpans maxWidth spans
+            Internal.truncateSpans maxWidth spans
     in
     case truncated of
         [] ->
@@ -517,34 +553,7 @@ truncateWidth maxWidth screen =
         _ ->
             truncated
                 |> List.map spanToScreen
-                |> ScreenConcat
-
-
-truncateSpans : Int -> List Span -> List Span
-truncateSpans remaining spans =
-    -- elm-review: known-unoptimized-recursion
-    case spans of
-        [] ->
-            []
-
-        span :: rest ->
-            if remaining <= 0 then
-                []
-
-            else
-                let
-                    spanLen : Int
-                    spanLen =
-                        String.length span.text
-                in
-                if spanLen <= remaining then
-                    span :: truncateSpans (remaining - spanLen) rest
-
-                else if remaining <= 1 then
-                    [ { span | text = "…" } ]
-
-                else
-                    [ { span | text = String.left (remaining - 1) span.text ++ "…" } ]
+                |> Internal.ScreenConcat
 
 
 {-| Wrap a Screen to a maximum width, preserving styles across line breaks.
@@ -565,7 +574,7 @@ mid-word. Returns `[]` for empty screens.
 wrapWidth : Int -> Screen -> List Screen
 wrapWidth maxWidth screen =
     let
-        spans : List Span
+        spans : List Internal.Span
         spans =
             case flattenToSpanLines screen of
                 first :: _ ->
@@ -578,232 +587,8 @@ wrapWidth maxWidth screen =
         []
 
     else
-        wrapSpans maxWidth spans
+        Internal.wrapSpans maxWidth spans
             |> List.map spansToScreen
-
-
-spansToScreen : List Span -> Screen
-spansToScreen spans =
-    case spans of
-        [] ->
-            empty
-
-        _ ->
-            spans
-                |> List.map spanToScreen
-                |> ScreenConcat
-
-
-{-| Wrap a flat list of spans into lines, each fitting within maxWidth.
-Uses a greedy algorithm: walk character by character, tracking column
-and last space position. When adding a character would exceed maxWidth,
-break at the last space (or mid-word if no space found).
--}
-wrapSpans : Int -> List Span -> List (List Span)
-wrapSpans maxWidth spans =
-    let
-        chars : List { ch : Char, style : FlatStyle }
-        chars =
-            spans
-                |> List.concatMap
-                    (\span ->
-                        String.toList span.text
-                            |> List.map (\ch -> { ch = ch, style = span.style })
-                    )
-    in
-    wrapChars maxWidth chars
-
-
-{-| Greedy word-wrap on a flat character list.
--}
-wrapChars : Int -> List { ch : Char, style : FlatStyle } -> List (List Span)
-wrapChars maxWidth chars =
-    -- elm-review: known-unoptimized-recursion
-    if List.isEmpty chars then
-        []
-
-    else if List.length chars <= maxWidth then
-        -- Everything fits on one line
-        [ charsToSpans chars ]
-
-    else
-        let
-            -- Take up to maxWidth characters as the candidate line
-            lineChars : List { ch : Char, style : FlatStyle }
-            lineChars =
-                List.take maxWidth chars
-
-            -- Check if the character right after maxWidth is a space
-            -- (natural word boundary — no need to backtrack)
-            nextChar : Maybe Char
-            nextChar =
-                List.drop maxWidth chars |> List.head |> Maybe.map .ch
-
-            -- Check if the last char in lineChars is a space
-            lastCharIsSpace : Bool
-            lastCharIsSpace =
-                List.drop (maxWidth - 1) lineChars |> List.head |> Maybe.map .ch |> (==) (Just ' ')
-        in
-        if nextChar == Just ' ' || lastCharIsSpace then
-            -- Clean break at maxWidth boundary
-            let
-                trimmedLine : List { ch : Char, style : FlatStyle }
-                trimmedLine =
-                    trimTrailingSpaces lineChars
-
-                restChars : List { ch : Char, style : FlatStyle }
-                restChars =
-                    List.drop maxWidth chars |> dropWhile (\c -> c.ch == ' ')
-            in
-            charsToSpans trimmedLine :: wrapChars maxWidth restChars
-
-        else
-            -- Need to backtrack to last space within the window
-            let
-                lastSpaceIdx : Maybe Int
-                lastSpaceIdx =
-                    lineChars
-                        |> List.indexedMap Tuple.pair
-                        |> List.filterMap
-                            (\( i, c ) ->
-                                if c.ch == ' ' then
-                                    Just i
-
-                                else
-                                    Nothing
-                            )
-                        |> List.reverse
-                        |> List.head
-            in
-            case lastSpaceIdx of
-                Just spaceIdx ->
-                    let
-                        linePart : List { ch : Char, style : FlatStyle }
-                        linePart =
-                            List.take spaceIdx lineChars
-
-                        restPart : List { ch : Char, style : FlatStyle }
-                        restPart =
-                            List.drop (spaceIdx + 1) chars
-                    in
-                    charsToSpans linePart :: wrapChars maxWidth restPart
-
-                Nothing ->
-                    -- No space found — forced mid-word break at maxWidth
-                    charsToSpans lineChars
-                        :: wrapChars maxWidth (List.drop maxWidth chars)
-
-
-trimTrailingSpaces : List { ch : Char, style : FlatStyle } -> List { ch : Char, style : FlatStyle }
-trimTrailingSpaces chars =
-    List.reverse chars
-        |> dropWhile (\c -> c.ch == ' ')
-        |> List.reverse
-
-
-dropWhile : (a -> Bool) -> List a -> List a
-dropWhile pred list =
-    -- elm-review: known-unoptimized-recursion
-    case list of
-        [] ->
-            []
-
-        x :: xs ->
-            if pred x then
-                dropWhile pred xs
-
-            else
-                list
-
-
-takeWhile : (a -> Bool) -> List a -> List a
-takeWhile pred list =
-    -- elm-review: known-unoptimized-recursion
-    case list of
-        [] ->
-            []
-
-        x :: xs ->
-            if pred x then
-                x :: takeWhile pred xs
-
-            else
-                []
-
-
-{-| Convert a list of styled characters back into a list of spans,
-merging adjacent characters with the same style.
--}
-charsToSpans : List { ch : Char, style : FlatStyle } -> List Span
-charsToSpans chars =
-    -- elm-review: known-unoptimized-recursion
-    case chars of
-        [] ->
-            []
-
-        first :: rest ->
-            let
-                sameStyle : List { ch : Char, style : FlatStyle }
-                sameStyle =
-                    takeWhile (\c -> c.style == first.style) rest
-
-                spanText : String
-                spanText =
-                    String.fromList
-                        (first.ch :: List.map .ch sameStyle)
-
-                remaining : List { ch : Char, style : FlatStyle }
-                remaining =
-                    List.drop (List.length sameStyle) rest
-            in
-            { text = spanText, style = first.style } :: charsToSpans remaining
-
-
-spanToScreen : Span -> Screen
-spanToScreen span =
-    ScreenStyled
-        { fg = span.style.foreground
-        , bg = span.style.background
-        , attributes = flatStyleToAttrs span.style
-        , hyperlink = span.style.hyperlink
-        }
-        span.text
-
-
-flatStyleToAttrs : FlatStyle -> List Attribute
-flatStyleToAttrs s =
-    List.filterMap identity
-        [ if s.bold then
-            Just Bold
-
-          else
-            Nothing
-        , if s.dim then
-            Just Dim
-
-          else
-            Nothing
-        , if s.italic then
-            Just Italic
-
-          else
-            Nothing
-        , if s.underline then
-            Just Underline
-
-          else
-            Nothing
-        , if s.strikethrough then
-            Just Strikethrough
-
-          else
-            Nothing
-        , if s.inverse then
-            Just Inverse
-
-          else
-            Nothing
-        ]
 
 
 {-| Get the number of lines in a Screen. Useful for layout calculations.
@@ -819,137 +604,3 @@ toLines : Screen -> List String
 toLines screen =
     flattenToSpanLines screen
         |> List.map (\spans -> spans |> List.map .text |> String.concat)
-
-
-
--- INTERNAL: FLATTENING
-
-
-{-| **Internal.** A styled text span — text with a resolved flat style.
--}
-type alias Span =
-    { text : String
-    , style : FlatStyle
-    }
-
-
-{-| **Internal.** Resolved style with all attributes as booleans.
--}
-type alias FlatStyle =
-    { bold : Bool
-    , dim : Bool
-    , italic : Bool
-    , underline : Bool
-    , strikethrough : Bool
-    , inverse : Bool
-    , foreground : Maybe Ansi.Color.Color
-    , background : Maybe Ansi.Color.Color
-    , hyperlink : Maybe String
-    }
-
-
-defaultFlatStyle : FlatStyle
-defaultFlatStyle =
-    { bold = False
-    , dim = False
-    , italic = False
-    , underline = False
-    , strikethrough = False
-    , inverse = False
-    , foreground = Nothing
-    , background = Nothing
-    , hyperlink = Nothing
-    }
-
-
-styleToFlatStyle : Style -> FlatStyle
-styleToFlatStyle s =
-    let
-        base : FlatStyle
-        base =
-            { defaultFlatStyle
-                | foreground = s.fg
-                , background = s.bg
-                , hyperlink = s.hyperlink
-            }
-    in
-    List.foldl applyAttr base s.attributes
-
-
-applyAttr : Attribute -> FlatStyle -> FlatStyle
-applyAttr attr flatStyle =
-    case attr of
-        Bold ->
-            { flatStyle | bold = True }
-
-        Dim ->
-            { flatStyle | dim = True }
-
-        Italic ->
-            { flatStyle | italic = True }
-
-        Underline ->
-            { flatStyle | underline = True }
-
-        Strikethrough ->
-            { flatStyle | strikethrough = True }
-
-        Inverse ->
-            { flatStyle | inverse = True }
-
-
-{-| **Internal.** Flatten a Screen tree into a list of lines, where each line
-is a list of styled spans. Used by the rendering pipeline.
--}
-flattenToSpanLines : Screen -> List (List Span)
-flattenToSpanLines screen =
-    -- elm-review: known-unoptimized-recursion
-    case screen of
-        ScreenEmpty ->
-            []
-
-        ScreenText s ->
-            if String.isEmpty s then
-                [ [] ]
-
-            else
-                s
-                    |> String.split "\n"
-                    |> List.map (\line -> [ { text = line, style = defaultFlatStyle } ])
-
-        ScreenStyled stl s ->
-            if String.isEmpty s then
-                [ [] ]
-
-            else
-                let
-                    flatStyle : FlatStyle
-                    flatStyle =
-                        styleToFlatStyle stl
-                in
-                s
-                    |> String.split "\n"
-                    |> List.map (\line -> [ { text = line, style = flatStyle } ])
-
-        ScreenLines items ->
-            List.concatMap flattenToSpanLines items
-
-        ScreenConcat items ->
-            let
-                allFirstLineSpans : List Span
-                allFirstLineSpans =
-                    items
-                        |> List.concatMap
-                            (\item ->
-                                case flattenToSpanLines item of
-                                    [] ->
-                                        []
-
-                                    first :: _ ->
-                                        first
-                            )
-            in
-            [ allFirstLineSpans ]
-
-
-

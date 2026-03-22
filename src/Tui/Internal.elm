@@ -10,7 +10,8 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Ansi.Color
-import Tui exposing (ColorProfile(..), Context, Screen)
+import Tui exposing (Attribute(..), ColorProfile(..), Context, Screen)
+import Tui.Screen.Internal as ScreenInternal
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Sub as Sub exposing (Sub)
 
@@ -345,14 +346,54 @@ effectToList effect =
 
 encodeScreen : Screen -> Encode.Value
 encodeScreen screen =
-    Tui.flattenToSpanLines screen
+    ScreenInternal.flattenToSpanLines styleToFlatStyle screen
         |> Encode.list
             (\spanLine ->
                 Encode.list encodeSpan spanLine
             )
 
 
-encodeSpan : Tui.Span -> Encode.Value
+styleToFlatStyle : Tui.Style -> ScreenInternal.FlatStyle
+styleToFlatStyle s =
+    let
+        def : ScreenInternal.FlatStyle
+        def =
+            ScreenInternal.defaultFlatStyle
+
+        base : ScreenInternal.FlatStyle
+        base =
+            { def
+                | foreground = s.fg
+                , background = s.bg
+                , hyperlink = s.hyperlink
+            }
+    in
+    List.foldl applyAttr base s.attributes
+
+
+applyAttr : Attribute -> ScreenInternal.FlatStyle -> ScreenInternal.FlatStyle
+applyAttr attr flatStyle =
+    case attr of
+        Bold ->
+            { flatStyle | bold = True }
+
+        Dim ->
+            { flatStyle | dim = True }
+
+        Italic ->
+            { flatStyle | italic = True }
+
+        Underline ->
+            { flatStyle | underline = True }
+
+        Strikethrough ->
+            { flatStyle | strikethrough = True }
+
+        Inverse ->
+            { flatStyle | inverse = True }
+
+
+encodeSpan : ScreenInternal.Span -> Encode.Value
 encodeSpan span =
     Encode.object
         [ ( "text", Encode.string span.text )
@@ -360,7 +401,7 @@ encodeSpan span =
         ]
 
 
-encodeFlatStyle : Tui.FlatStyle -> Encode.Value
+encodeFlatStyle : ScreenInternal.FlatStyle -> Encode.Value
 encodeFlatStyle flatStyle =
     Encode.object
         (List.filterMap identity
