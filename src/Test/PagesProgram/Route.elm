@@ -69,20 +69,19 @@ fromStatefulRoute projectConfig route routeParams =
                 ( model, effect ) =
                     route.init projectConfig.defaultShared (toApp pageData)
             in
-            ( model, projectConfig.extractEffects effect )
+            -- Wrap the model with pageData so update can access it
+            ( ( pageData, model ), projectConfig.extractEffects effect )
     , update =
-        \msg model ->
+        \msg ( pageData, model ) ->
             let
-                -- The update function needs an App record, but pageData isn't
-                -- available here (it was consumed during init). Most route update
-                -- functions don't read app.data, so this is fine in practice.
-                -- The app record uses a crash placeholder for data.
                 ( newModel, effect, _ ) =
-                    route.update (toApp (crashPlaceholder ())) msg model projectConfig.defaultShared
+                    route.update (toApp pageData) msg model projectConfig.defaultShared
             in
-            ( newModel, projectConfig.extractEffects effect )
+            ( ( pageData, newModel ), projectConfig.extractEffects effect )
     , view =
-        \pageData model ->
+        \_ ( pageData, model ) ->
+            -- view receives the pageData from the wrapped model, not the
+            -- data argument (which is also pageData, just from a different path)
             projectConfig.viewToHtml
                 (route.view projectConfig.defaultShared model (toApp pageData))
     }
@@ -185,6 +184,3 @@ mapPagesMsg pagesMsg =
             Nothing
 
 
-crashPlaceholder : () -> a
-crashPlaceholder () =
-    crashPlaceholder ()
