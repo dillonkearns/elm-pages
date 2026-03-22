@@ -428,8 +428,24 @@ startPlatform config initialPath testSetup =
                                 { wrappedModel | platformModel = newPlatformModel }
                                 effect
                                 100
+
+                        -- Clean relative path segments in Platform model URL
+                        -- that can occur during redirect handling
+                        cleanedPlatformModel =
+                            let
+                                pm =
+                                    processedWrapped.platformModel
+
+                                cleanedUrl =
+                                    let
+                                        url =
+                                            pm.url
+                                    in
+                                    { url | path = url.path |> String.replace "/./" "/" }
+                            in
+                            { processedWrapped | platformModel = { pm | url = cleanedUrl } }
                     in
-                    ( processedWrapped, [] )
+                    ( cleanedPlatformModel, [] )
 
                 viewFn wrappedModel =
                     let
@@ -2307,15 +2323,8 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
 
             Platform.BrowserPushUrl pushPath ->
                 let
-                    cleanPath =
-                        if String.startsWith "./" pushPath then
-                            "/" ++ String.dropLeft 2 pushPath
-
-                        else
-                            pushPath
-
                     newUrl =
-                        makeTestUrl baseUrl cleanPath
+                        makeTestUrl baseUrl pushPath
 
                     ( newModel, newEffect ) =
                         Platform.update config (Platform.UrlChanged newUrl) wrappedModel.platformModel
@@ -2327,15 +2336,8 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
 
             Platform.BrowserReplaceUrl replacePath ->
                 let
-                    cleanReplacePath =
-                        if String.startsWith "./" replacePath then
-                            "/" ++ String.dropLeft 2 replacePath
-
-                        else
-                            replacePath
-
                     newUrl =
-                        makeTestUrl baseUrl cleanReplacePath
+                        makeTestUrl baseUrl replacePath
 
                     ( newModel, newEffect ) =
                         Platform.update config (Platform.UrlChanged newUrl) wrappedModel.platformModel
@@ -2347,8 +2349,13 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
 
             Platform.FetchFrozenViews { path, body } ->
                 let
+                    -- Clean relative path prefix that Platform may produce
+                    -- during redirect handling
+                    cleanPath =
+                        path |> String.replace "/./" "/"
+
                     fetchUrl =
-                        makeTestUrl baseUrl path
+                        makeTestUrl baseUrl cleanPath
 
                     route =
                         config.urlToRoute fetchUrl
@@ -2456,25 +2463,55 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                     wrappedModel.virtualFs
                                     (config.data (platformTestRequest wrappedModel.cookieJar) route)
                         in
-                        case extractPageData config dataResult of
-                            Just pageData ->
+                        case dataResult |> Result.toMaybe of
+                            Just (ServerResponse serverResponse) ->
+                                -- Data returned a redirect (e.g., session expired -> login)
                                 let
-                                    encodedBytes =
-                                        ResponseSketch.RenderPage pageData Nothing
-                                            |> encodeResponseWithPrefix config
-
-                                    ( newModel, newEffect ) =
-                                        Platform.update config
-                                            (Platform.FrozenViewsReady (Just encodedBytes))
-                                            wrappedModel.platformModel
+                                    updatedJar =
+                                        wrappedModel.cookieJar
+                                            |> CookieJar.applySetCookieHeaders
+                                                (extractSetCookieHeaders (ServerResponse serverResponse))
                                 in
-                                processEffectsWrapped config baseUrl
-                                    { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar }
-                                    newEffect
-                                    (maxDepth - 1)
+                                case PageServerResponse.toRedirect serverResponse of
+                                    Just { location } ->
+                                        let
+                                            encodedBytes =
+                                                ResponseSketch.Redirect location
+                                                    |> encodeResponseWithPrefix config
 
-                            Nothing ->
-                                ( { wrappedModel | virtualFs = vfsAfterData }, [] )
+                                            ( newModel, newEffect ) =
+                                                Platform.update config
+                                                    (Platform.FrozenViewsReady (Just encodedBytes))
+                                                    wrappedModel.platformModel
+                                        in
+                                        processEffectsWrapped config baseUrl
+                                            { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = updatedJar }
+                                            newEffect
+                                            (maxDepth - 1)
+
+                                    Nothing ->
+                                        ( { wrappedModel | virtualFs = vfsAfterData, cookieJar = updatedJar }, [] )
+
+                            _ ->
+                                case extractPageData config dataResult of
+                                    Just pageData ->
+                                        let
+                                            encodedBytes =
+                                                ResponseSketch.RenderPage pageData Nothing
+                                                    |> encodeResponseWithPrefix config
+
+                                            ( newModel, newEffect ) =
+                                                Platform.update config
+                                                    (Platform.FrozenViewsReady (Just encodedBytes))
+                                                    wrappedModel.platformModel
+                                        in
+                                        processEffectsWrapped config baseUrl
+                                            { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar }
+                                            newEffect
+                                            (maxDepth - 1)
+
+                                    Nothing ->
+                                        ( { wrappedModel | virtualFs = vfsAfterData }, [] )
 
             Platform.Submit formData ->
                 if formData.method == Form.Get then
@@ -2572,8 +2609,22 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
 {-| Construct a test URL from a base URL and path.
 -}
 makeTestUrl : String -> String -> Url
-makeTestUrl baseUrl path =
+makeTestUrl baseUrl rawPath =
     let
+        -- Clean relative path segments that Platform may produce
+        -- during redirect handling (e.g., "/./counter" -> "/counter",
+        -- "./counter" -> "/counter")
+        path =
+            rawPath
+                |> String.replace "/./" "/"
+                |> (\p ->
+                        if String.startsWith "./" p then
+                            "/" ++ String.dropLeft 2 p
+
+                        else
+                            p
+                   )
+
         fullUrl =
             if String.startsWith "http" path then
                 path
