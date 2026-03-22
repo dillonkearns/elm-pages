@@ -5,6 +5,7 @@ import Expect
 import Json.Encode
 import Test exposing (Test, describe, test)
 import Tui
+import Tui.Internal
 import Tui.Layout as Layout
 
 
@@ -274,7 +275,7 @@ suite =
                         encoded =
                             searchableLayout
                                 |> Layout.toScreen s
-                                |> Tui.encodeScreen
+                                |> Tui.Internal.encodeScreen
                                 |> Json.Encode.encode 0
                     in
                     -- Current match should have cyan background
@@ -291,7 +292,7 @@ suite =
                         encoded =
                             searchableLayout
                                 |> Layout.toScreen s
-                                |> Tui.encodeScreen
+                                |> Tui.Internal.encodeScreen
                                 |> Json.Encode.encode 0
                     in
                     encoded |> String.contains "yellow" |> Expect.equal True

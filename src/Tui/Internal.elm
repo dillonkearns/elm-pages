@@ -1,4 +1,4 @@
-module Tui.Internal exposing (run)
+module Tui.Internal exposing (encodeScreen, run)
 
 {-| Internal TUI loop implementation. Not exposed to users.
 -}
@@ -9,6 +9,7 @@ import BackendTask.Internal.Request
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Ansi.Color
 import Tui exposing (ColorProfile(..), Context, Screen)
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Sub as Sub exposing (Sub)
@@ -99,7 +100,7 @@ tuiRenderAndWait screen sub =
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    ([ ( "screen", Tui.encodeScreen screen )
+                    ([ ( "screen", encodeScreen screen )
                      , ( "interests", Sub.getInterests sub )
                      ]
                         ++ (case Sub.getTickInterval sub of
@@ -336,3 +337,127 @@ effectToList effect =
 
         _ ->
             [ effect ]
+
+
+
+-- ENCODING (for sending to JS runtime)
+
+
+encodeScreen : Screen -> Encode.Value
+encodeScreen screen =
+    Tui.flattenToSpanLines screen
+        |> Encode.list
+            (\spanLine ->
+                Encode.list encodeSpan spanLine
+            )
+
+
+encodeSpan : Tui.Span -> Encode.Value
+encodeSpan span =
+    Encode.object
+        [ ( "text", Encode.string span.text )
+        , ( "style", encodeFlatStyle span.style )
+        ]
+
+
+encodeFlatStyle : Tui.FlatStyle -> Encode.Value
+encodeFlatStyle flatStyle =
+    Encode.object
+        (List.filterMap identity
+            [ if flatStyle.bold then
+                Just ( "bold", Encode.bool True )
+
+              else
+                Nothing
+            , if flatStyle.dim then
+                Just ( "dim", Encode.bool True )
+
+              else
+                Nothing
+            , if flatStyle.italic then
+                Just ( "italic", Encode.bool True )
+
+              else
+                Nothing
+            , if flatStyle.underline then
+                Just ( "underline", Encode.bool True )
+
+              else
+                Nothing
+            , if flatStyle.strikethrough then
+                Just ( "strikethrough", Encode.bool True )
+
+              else
+                Nothing
+            , if flatStyle.inverse then
+                Just ( "inverse", Encode.bool True )
+
+              else
+                Nothing
+            , flatStyle.foreground |> Maybe.map (\c -> ( "foreground", encodeColor c ))
+            , flatStyle.background |> Maybe.map (\c -> ( "background", encodeColor c ))
+            , flatStyle.hyperlink |> Maybe.map (\url -> ( "hyperlink", Encode.string url ))
+            ]
+        )
+
+
+encodeColor : Ansi.Color.Color -> Encode.Value
+encodeColor ansiColor =
+    case ansiColor of
+        Ansi.Color.Black ->
+            Encode.string "black"
+
+        Ansi.Color.Red ->
+            Encode.string "red"
+
+        Ansi.Color.Green ->
+            Encode.string "green"
+
+        Ansi.Color.Yellow ->
+            Encode.string "yellow"
+
+        Ansi.Color.Blue ->
+            Encode.string "blue"
+
+        Ansi.Color.Magenta ->
+            Encode.string "magenta"
+
+        Ansi.Color.Cyan ->
+            Encode.string "cyan"
+
+        Ansi.Color.White ->
+            Encode.string "white"
+
+        Ansi.Color.BrightBlack ->
+            Encode.string "brightBlack"
+
+        Ansi.Color.BrightRed ->
+            Encode.string "brightRed"
+
+        Ansi.Color.BrightGreen ->
+            Encode.string "brightGreen"
+
+        Ansi.Color.BrightYellow ->
+            Encode.string "brightYellow"
+
+        Ansi.Color.BrightBlue ->
+            Encode.string "brightBlue"
+
+        Ansi.Color.BrightMagenta ->
+            Encode.string "brightMagenta"
+
+        Ansi.Color.BrightCyan ->
+            Encode.string "brightCyan"
+
+        Ansi.Color.BrightWhite ->
+            Encode.string "brightWhite"
+
+        Ansi.Color.Custom256 { color } ->
+            Encode.object [ ( "color256", Encode.int color ) ]
+
+        Ansi.Color.CustomTrueColor { red, green, blue } ->
+            Encode.object
+                [ ( "r", Encode.int red )
+                , ( "g", Encode.int green )
+                , ( "b", Encode.int blue )
+                ]

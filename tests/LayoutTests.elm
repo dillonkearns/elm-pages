@@ -5,6 +5,7 @@ import Expect
 import Json.Encode
 import Test exposing (Test, describe, test)
 import Tui exposing (plain)
+import Tui.Internal
 import Tui.Layout as Layout
 
 
@@ -81,7 +82,7 @@ suite =
                         -- We verify by encoding to JSON and checking for style data.
                         encoded : String
                         encoded =
-                            Tui.encodeScreen screen
+                            Tui.Internal.encodeScreen screen
                                 |> Json.Encode.encode 0
                     in
                     -- The encoded JSON should contain bold and foreground color
@@ -721,7 +722,7 @@ suite =
 
                         encoded : String
                         encoded =
-                            Tui.encodeScreen screen |> Json.Encode.encode 0
+                            Tui.Internal.encodeScreen screen |> Json.Encode.encode 0
                     in
                     -- Focused pane border should have green color
                     encoded
@@ -1156,7 +1157,7 @@ suite =
                                 |> Layout.toScreen (Layout.withContext { width = 40, height = 5 } state)
 
                         encoded =
-                            Tui.encodeScreen screen |> Json.Encode.encode 0
+                            Tui.Internal.encodeScreen screen |> Json.Encode.encode 0
                     in
                     -- Focused pane border should be cyan (not green) during search
                     Expect.all
@@ -1182,7 +1183,7 @@ suite =
                                 |> Layout.toScreen (Layout.withContext { width = 40, height = 5 } state)
 
                         encoded =
-                            Tui.encodeScreen screen |> Json.Encode.encode 0
+                            Tui.Internal.encodeScreen screen |> Json.Encode.encode 0
                     in
                     encoded
                         |> String.contains "green"

@@ -12,6 +12,7 @@ import Test.BackendTask as BackendTaskTest
 import Test.Runner
 import Tui exposing (plain)
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Internal
 import Tui.Sub
 import Tui.Test as TuiTest
 
@@ -68,21 +69,21 @@ suite =
             [ test "fg on text produces styled output" <|
                 \() ->
                     Tui.text "hello" |> Tui.fg Ansi.Color.red
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> String.contains "red"
                         |> Expect.equal True
             , test "bold on text produces bold output" <|
                 \() ->
                     Tui.text "hello" |> Tui.bold
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> String.contains "bold"
                         |> Expect.equal True
             , test "chaining fg + bold works" <|
                 \() ->
                     Tui.text "hello" |> Tui.fg Ansi.Color.green |> Tui.bold
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 Expect.all
@@ -95,7 +96,7 @@ suite =
                 \() ->
                     Tui.concat [ Tui.text "a", Tui.text "b" ]
                         |> Tui.fg Ansi.Color.red
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 -- Both spans should have red
@@ -109,7 +110,7 @@ suite =
                 \() ->
                     Tui.concat [ Tui.text "a", Tui.text "b" ]
                         |> Tui.bold
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 let
@@ -122,7 +123,7 @@ suite =
                 \() ->
                     Tui.lines [ Tui.text "row1", Tui.text "row2" ]
                         |> Tui.fg Ansi.Color.cyan
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 let
@@ -135,7 +136,7 @@ suite =
                 \() ->
                     Tui.spaced [ Tui.text "a", Tui.text "b" ]
                         |> Tui.bg Ansi.Color.blue
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 -- Should have blue on all 3 spans (a, space, b)
@@ -152,7 +153,7 @@ suite =
                         , Tui.text "also"
                         ]
                         |> Tui.fg Ansi.Color.green
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 Expect.all
@@ -178,7 +179,7 @@ suite =
                 \() ->
                     Tui.text "elm/core"
                         |> Tui.link { url = "https://package.elm-lang.org" }
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> String.contains "https://package.elm-lang.org"
                         |> Expect.equal True
@@ -188,7 +189,7 @@ suite =
                         |> Tui.fg Ansi.Color.blue
                         |> Tui.underline
                         |> Tui.link { url = "https://example.com" }
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 Expect.all
@@ -202,7 +203,7 @@ suite =
                 \() ->
                     Tui.concat [ Tui.text "hello ", Tui.text "world" ]
                         |> Tui.link { url = "https://example.com" }
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 let
@@ -222,7 +223,7 @@ suite =
                     Tui.text "long link text"
                         |> Tui.link { url = "https://example.com" }
                         |> Tui.truncateWidth 10
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> String.contains "https://example.com"
                         |> Expect.equal True
