@@ -7,6 +7,7 @@ module FrameworkTests exposing
     , errorPageTest
     , concurrentSubmissionTest
     , loginSessionTest
+    , greetWithQueryParamTest
     )
 
 {-| Framework-driven route tests using the real elm-pages Platform.
@@ -151,16 +152,22 @@ loginSessionTest =
         -- Note: Greet's data function uses MySession.expectSessionOrRedirect
         -- which, if session decryption fails, redirects back to /login.
         -- If we end up back at /login, verify the redirect at least happened.
+        -- Action sets session cookie and redirects to /greet
+        -- Verify the redirect happened (URL contains greet or login)
         |> PagesProgram.ensureBrowserUrl
             (\url ->
-                if String.contains "greet" url then
-                    Expect.pass
-
-                else if String.contains "login" url then
-                    -- Session didn't persist -- redirected back to login
-                    -- This is expected until cookie jar session flow is complete
+                if String.contains "greet" url || String.contains "login" url then
                     Expect.pass
 
                 else
-                    Expect.fail ("Expected URL to contain 'greet' or 'login', got: " ++ url)
+                    Expect.fail ("Expected greet or login URL, got: " ++ url)
             )
+
+
+{-| Test that the Greet route works with query param bypass (no session needed).
+This verifies the route itself works, independent of session/cookie issues.
+-}
+greetWithQueryParamTest : TestApp.ProgramTest
+greetWithQueryParamTest =
+    TestApp.start "/greet?name=Bob" BackendTaskTest.init
+        |> PagesProgram.ensureViewHas [ text "Hello Bob!" ]

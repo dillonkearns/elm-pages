@@ -2253,7 +2253,7 @@ resolveInitialData config initialUrl initialPath virtualFs =
                     let
                         ( vfs3, dataResult ) =
                             BackendTaskTest.resolveWithVirtualFs vfs2
-                                (config.data (platformTestRequest CookieJar.empty) initialRoute)
+                                (config.data (platformTestRequest (Url.toString initialUrl) CookieJar.empty) initialRoute)
                     in
                     let
                         pageData =
@@ -2430,7 +2430,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                     ( vfsAfterData, dataResult ) =
                                         BackendTaskTest.resolveWithVirtualFs
                                             vfsAfterAction
-                                            (config.data (platformTestRequest updatedJar) route)
+                                            (config.data (platformTestRequest (Url.toString fetchUrl) updatedJar) route)
                                 in
                                 case extractPageData config dataResult of
                                     Just pageData ->
@@ -2461,7 +2461,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                             ( vfsAfterData, dataResult ) =
                                 BackendTaskTest.resolveWithVirtualFs
                                     wrappedModel.virtualFs
-                                    (config.data (platformTestRequest wrappedModel.cookieJar) route)
+                                    (config.data (platformTestRequest (Url.toString fetchUrl) wrappedModel.cookieJar) route)
                         in
                         case dataResult |> Result.toMaybe of
                             Just (ServerResponse serverResponse) ->
@@ -2668,13 +2668,13 @@ extractSetCookieHeaders response =
             []
 
 
-platformTestRequest : CookieJar -> Internal.Request.Request
-platformTestRequest cookieJar =
+platformTestRequest : String -> CookieJar -> Internal.Request.Request
+platformTestRequest url cookieJar =
     Internal.Request.Request
         { time = Time.millisToPosix 0
         , method = "GET"
         , body = Nothing
-        , rawUrl = "http://localhost:1234/"
+        , rawUrl = url
         , rawHeaders = Dict.empty
         , cookies = CookieJar.toDict cookieJar
         }
