@@ -860,13 +860,17 @@ clickButton buttonText (ProgramTest state) =
 
                     else
                     let
+                        -- Use findAll + first instead of find to handle
+                        -- multiple buttons with the same text (e.g., "Delete"
+                        -- buttons in a list). Takes the first match.
                         buttonQuery : Query.Single msg
                         buttonQuery =
                             query
-                                |> Query.find
+                                |> Query.findAll
                                     [ Selector.tag "button"
                                     , Selector.containing [ Selector.text buttonText ]
                                     ]
+                                |> Query.first
 
                         eventResult : Result String msg
                         eventResult =
