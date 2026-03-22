@@ -43,6 +43,11 @@ from the `wolfadex/elm-ansi` package:
 
 @docs toString, toLines, lineCount
 
+
+## Internal
+
+Used by the framework runtime. You should not need this directly.
+
 @docs encodeScreen
 
 -}
@@ -948,8 +953,8 @@ flattenToSpanLines screen =
 -- ENCODING (for sending to JS runtime)
 
 
-{-| Encode a Screen as JSON for the JS rendering pipeline. Each line becomes
-a JSON array of styled spans. Useful in tests to inspect styling details.
+{-| **Internal.** Encode a Screen as JSON for the JS rendering pipeline.
+You should not need this directly — it is used by the framework runtime.
 -}
 encodeScreen : Screen -> Encode.Value
 encodeScreen screen =
