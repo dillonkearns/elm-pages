@@ -1212,8 +1212,40 @@ handleKeyEvent event layout (State s) =
                     handleSearchKeyEvent event layout ss (State s)
 
                 Nothing ->
-                    -- No filter or search active — check for `/` to start filter/search, or number keys
-                    handleNormalKeyEvent event layout (State s)
+                    -- No filter or search active on the focused pane.
+                    -- But if Escape is pressed and ANY pane has an active filter/search,
+                    -- clear it (handles the case where user switched panes after filtering).
+                    if event.key == Tui.Escape && (not (Dict.isEmpty s.filterStates) || not (Dict.isEmpty s.searchStates)) then
+                        -- Map selections back to original indices for any active filters
+                        let
+                            restoredPaneStates : Dict String PaneState
+                            restoredPaneStates =
+                                Dict.foldl
+                                    (\key fs pStates ->
+                                        case Dict.get key pStates of
+                                            Just ps ->
+                                                Dict.insert key
+                                                    { ps | selectedIndex = mapFilteredIndex ps.selectedIndex (Just fs) }
+                                                    pStates
+
+                                            Nothing ->
+                                                pStates
+                                    )
+                                    s.paneStates
+                                    s.filterStates
+                        in
+                        ( State
+                            { s
+                                | filterStates = Dict.empty
+                                , searchStates = Dict.empty
+                                , searching = False
+                                , paneStates = restoredPaneStates
+                            }
+                        , True
+                        )
+
+                    else
+                        handleNormalKeyEvent event layout (State s)
 
 
 handleFilterKeyEvent : Tui.KeyEvent -> Layout msg -> FilterState -> State -> ( State, Bool )

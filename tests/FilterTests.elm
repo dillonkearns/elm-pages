@@ -300,6 +300,59 @@ suite =
                     in
                     Layout.isFilterActive "fruits" s4 |> Expect.equal False
             ]
+        , describe "Escape clears filter even after switching panes"
+            [ test "Escape clears filter on original pane after switching away" <|
+                \() ->
+                    let
+                        twoPanes =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("▸ " ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        [ "apple", "banana", "cherry" ]
+                                        |> Layout.withFilterable identity [ "apple", "banana", "cherry" ]
+                                    )
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content [ Tui.text "details" ])
+                                ]
+
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 50, height = 10 }
+                                |> Layout.focusPane "left"
+
+                        -- Filter on left pane, apply with Enter
+                        s1 =
+                            startFilterWithLayout "an" twoPanes state
+
+                        ( s2, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Enter, modifiers = [] }
+                                twoPanes
+                                s1
+
+                        -- Switch focus to right pane
+                        s3 =
+                            Layout.focusPane "right" s2
+
+                        -- Escape should clear the filter on left pane, NOT fall through
+                        ( s4, handled ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Escape, modifiers = [] }
+                                twoPanes
+                                s3
+                    in
+                    Expect.all
+                        [ \_ -> handled |> Expect.equal True
+                        , \_ -> Layout.isFilterActive "left" s4 |> Expect.equal False
+                        ]
+                        ()
+            ]
         , describe "onSelect fires with original index"
             [ test "clicking filtered item fires original index" <|
                 \() ->
@@ -423,6 +476,77 @@ suite =
                           \_ -> Layout.selectedIndex "fruits" s4 |> Expect.equal 2
                         ]
                         ()
+            ]
+        , describe "multi-pane filter isolation"
+            [ test "filter only affects the focused pane, not others" <|
+                \() ->
+                    let
+                        twoFilterablePanes =
+                            Layout.horizontal
+                                [ Layout.pane "modules"
+                                    { title = "Modules", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("▸ " ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        [ "Api", "Core", "Utils", "Main" ]
+                                        |> Layout.withFilterable identity [ "Api", "Core", "Utils", "Main" ]
+                                    )
+                                , Layout.pane "items"
+                                    { title = "Items", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("▸ " ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        [ "foo", "bar", "baz", "qux" ]
+                                        |> Layout.withFilterable identity [ "foo", "bar", "baz", "qux" ]
+                                    )
+                                ]
+
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 50, height = 10 }
+                                |> Layout.focusPane "items"
+
+                        -- Start filter on items pane, type "ba"
+                        ( s1, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Character '/', modifiers = [] }
+                                twoFilterablePanes
+                                state
+
+                        ( s2, _ ) =
+                            "ba"
+                                |> String.toList
+                                |> List.foldl
+                                    (\c ( s, _ ) ->
+                                        Layout.handleKeyEvent
+                                            { key = Tui.Character c, modifiers = [] }
+                                            twoFilterablePanes
+                                            s
+                                    )
+                                    ( s1, False )
+
+                        rendered =
+                            twoFilterablePanes
+                                |> Layout.toScreen s2
+                                |> Tui.toString
+                    in
+                    Expect.all
+                        [ -- Items pane should be filtered: "bar" and "baz" visible, "foo" and "qux" hidden
+                          \r -> r |> String.contains "bar" |> Expect.equal True
+                        , \r -> r |> String.contains "baz" |> Expect.equal True
+                        , \r -> r |> String.contains "foo" |> Expect.equal False
+                        , \r -> r |> String.contains "qux" |> Expect.equal False
+                        , -- Modules pane should NOT be filtered: all items visible
+                          \r -> r |> String.contains "Api" |> Expect.equal True
+                        , \r -> r |> String.contains "Core" |> Expect.equal True
+                        , \r -> r |> String.contains "Utils" |> Expect.equal True
+                        , \r -> r |> String.contains "Main" |> Expect.equal True
+                        ]
+                        rendered
             ]
         , describe "smart case matching"
             [ test "lowercase query is case-insensitive" <|
@@ -571,6 +695,30 @@ suite =
                     rendered |> String.contains "apple" |> Expect.equal False
             ]
         ]
+
+
+{-| Helper: start a filter and type the given string (custom layout).
+-}
+startFilterWithLayout : String -> Layout.Layout Int -> Layout.State -> Layout.State
+startFilterWithLayout query layout state =
+    let
+        ( s1, _ ) =
+            Layout.handleKeyEvent
+                { key = Tui.Character '/', modifiers = [] }
+                layout
+                state
+    in
+    query
+        |> String.toList
+        |> List.foldl
+            (\c ( s, _ ) ->
+                Layout.handleKeyEvent
+                    { key = Tui.Character c, modifiers = [] }
+                    layout
+                    s
+            )
+            ( s1, False )
+        |> Tuple.first
 
 
 {-| Helper: start a filter and type the given string.
