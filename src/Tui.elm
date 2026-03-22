@@ -11,29 +11,41 @@ module Tui exposing
     , extractStyle
     )
 
-{-| Core types for building terminal user interfaces.
+{-| Build terminal user interfaces with styled text, keyboard/mouse events,
+and composable screens.
 
-`Tui.Screen` is the primitive view type — styled text with vertical and horizontal
-composition. The framework handles rendering, diffing, and terminal management.
+Use [`Pages.Script.tui`](Pages-Script#tui) to wire up a TUI as an elm-pages
+script with `init`, `update`, `view`, and `subscriptions`. This module provides
+the types you'll use in `view` (returning a `Screen`) and `subscriptions`
+(receiving `KeyEvent`, `MouseEvent`).
 
-    import Ansi.Color
-    import Tui
+A minimal TUI view:
 
-    Tui.text "error"
-        |> Tui.fg Ansi.Color.red
-        |> Tui.bold
+    view : Tui.Context -> Model -> Tui.Screen
+    view ctx model =
+        Tui.lines
+            [ Tui.text "Hello, TUI!" |> Tui.bold
+            , Tui.blank
+            , Tui.text ("Count: " ++ String.fromInt model.count)
+                |> Tui.fg Ansi.Color.cyan
+            ]
 
 
 ## Building Screens
+
+Screens compose vertically with [`lines`](#lines) and horizontally with
+[`concat`](#concat). For split-pane layouts, see
+[`Tui.Layout`](Tui-Layout) in the `tui-widgets` package.
 
 @docs Screen, text, styled, lines, concat, spaced, empty, blank
 
 
 ## Styling
 
-Pipeline-style builders that compose naturally:
+Pipeline-style builders that compose on any `Screen` — text, concat, lines:
 
     Tui.text "warning" |> Tui.fg Ansi.Color.yellow |> Tui.bold
+    Tui.concat [ a, b ] |> Tui.dim  -- dims both a and b
 
 @docs fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
 
@@ -42,10 +54,23 @@ Pipeline-style builders that compose naturally:
 
 ## Terminal Context
 
+Passed to your `view` function. Use `colorProfile` to adapt themes for
+different terminal capabilities.
+
 @docs Context, ColorProfile
 
 
 ## Events
+
+Subscribe to events via [`Tui.Sub`](Tui-Sub). Your `subscriptions` function
+declares which events to listen for, and they arrive as these types in your
+`update`:
+
+    subscriptions model =
+        Tui.Sub.batch
+            [ Tui.Sub.onKeyPress KeyPressed
+            , Tui.Sub.onMouse MouseEvent
+            ]
 
 @docs KeyEvent, Key, Direction, Modifier
 
