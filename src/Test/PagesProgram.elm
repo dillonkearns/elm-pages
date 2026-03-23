@@ -597,12 +597,9 @@ selectOption fieldId label optionValue optionText (ProgramTest state) =
 
                 Ready ready ->
                     let
-                        viewHtml =
-                            ready.getView ready.model
-
                         query : Query.Single msg
                         query =
-                            Query.fromHtml (Html.div [] viewHtml.body)
+                            renderScopedView ready
 
                         selectQuery : Query.Single msg
                         selectQuery =
@@ -971,12 +968,9 @@ fillIn fieldId fieldName value (ProgramTest state) =
 
                 Ready ready ->
                     let
-                        viewHtml =
-                            ready.getView ready.model
-
                         query : Query.Single msg
                         query =
-                            Query.fromHtml (Html.div [] viewHtml.body)
+                            renderScopedView ready
 
                         stepLabel =
                             "fillIn \"" ++ fieldName ++ "\""
@@ -1129,12 +1123,9 @@ clickLink linkText href (ProgramTest state) =
 
                 Ready ready ->
                     let
-                        viewHtml =
-                            ready.getView ready.model
-
                         query : Query.Single msg
                         query =
-                            Query.fromHtml (Html.div [] viewHtml.body)
+                            renderScopedView ready
 
                         -- Verify link exists in the view
                         linkExists : Expectation
@@ -1370,12 +1361,9 @@ check fieldId isChecked (ProgramTest state) =
 
                 Ready ready ->
                     let
-                        viewHtml =
-                            ready.getView ready.model
-
                         query : Query.Single msg
                         query =
-                            Query.fromHtml (Html.div [] viewHtml.body)
+                            renderScopedView ready
 
                         inputQuery : Query.Single msg
                         inputQuery =
@@ -1537,19 +1525,23 @@ ensureViewHas selectors (ProgramTest state) =
             ProgramTest state
 
         Nothing ->
-            case getView state.phase of
-                Err viewError ->
-                    ProgramTest { state | error = Just viewError }
+            case state.phase of
+                Resolving (Resolver r) ->
+                    ProgramTest
+                        { state
+                            | error =
+                                Just
+                                    ("ensureViewHas: Cannot check view while BackendTask data is still resolving. "
+                                        ++ "Provide simulated responses first.\n\n"
+                                        ++ r.pendingDescription
+                                    )
+                        }
 
-                Ok viewHtml ->
+                Ready ready ->
                     let
-                        query : Query.Single msg
-                        query =
-                            Query.fromHtml (Html.div [] viewHtml.body)
-
                         result : Expectation
                         result =
-                            query |> Query.has selectors
+                            renderScopedView ready |> Query.has selectors
                     in
                     case getFailureMessage result of
                         Just failMsg ->
@@ -1577,19 +1569,15 @@ ensureViewHasNot selectors (ProgramTest state) =
             ProgramTest state
 
         Nothing ->
-            case getView state.phase of
-                Err viewError ->
-                    ProgramTest { state | error = Just viewError }
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest { state | error = Just "ensureViewHasNot: Cannot check view while data is resolving." }
 
-                Ok viewHtml ->
+                Ready ready ->
                     let
-                        query : Query.Single msg
-                        query =
-                            Query.fromHtml (Html.div [] viewHtml.body)
-
                         result : Expectation
                         result =
-                            query |> Query.hasNot selectors
+                            renderScopedView ready |> Query.hasNot selectors
                     in
                     case getFailureMessage result of
                         Just failMsg ->
@@ -1625,19 +1613,15 @@ ensureView assertion (ProgramTest state) =
             ProgramTest state
 
         Nothing ->
-            case getView state.phase of
-                Err viewError ->
-                    ProgramTest { state | error = Just viewError }
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest { state | error = Just "ensureView: Cannot check view while data is resolving." }
 
-                Ok viewHtml ->
+                Ready ready ->
                     let
-                        query : Query.Single msg
-                        query =
-                            Query.fromHtml (Html.div [] viewHtml.body)
-
                         result : Expectation
                         result =
-                            assertion query
+                            assertion (renderScopedView ready)
                     in
                     case getFailureMessage result of
                         Just failMsg ->
@@ -1670,17 +1654,12 @@ expectViewHas selectors (ProgramTest state) =
             Expect.fail errMsg
 
         Nothing ->
-            case getView state.phase of
-                Err viewError ->
-                    Expect.fail viewError
+            case state.phase of
+                Resolving _ ->
+                    Expect.fail "expectViewHas: Cannot check view while data is resolving."
 
-                Ok viewHtml ->
-                    let
-                        query : Query.Single msg
-                        query =
-                            Query.fromHtml (Html.div [] viewHtml.body)
-                    in
-                    query |> Query.has selectors
+                Ready ready ->
+                    renderScopedView ready |> Query.has selectors
 
 
 {-| Like `ensureViewHasNot`, but returns an `Expectation` (terminal).
@@ -1692,17 +1671,12 @@ expectViewHasNot selectors (ProgramTest state) =
             Expect.fail errMsg
 
         Nothing ->
-            case getView state.phase of
-                Err viewError ->
-                    Expect.fail viewError
+            case state.phase of
+                Resolving _ ->
+                    Expect.fail "expectViewHasNot: Cannot check view while data is resolving."
 
-                Ok viewHtml ->
-                    let
-                        query : Query.Single msg
-                        query =
-                            Query.fromHtml (Html.div [] viewHtml.body)
-                    in
-                    query |> Query.hasNot selectors
+                Ready ready ->
+                    renderScopedView ready |> Query.hasNot selectors
 
 
 {-| Scope interactions and assertions to a specific part of the DOM.
