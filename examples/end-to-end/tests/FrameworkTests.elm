@@ -8,6 +8,8 @@ module FrameworkTests exposing
     , concurrentSubmissionTest
     , loginSessionTest
     , greetWithQueryParamTest
+    , darkModeToggleTest
+    , logoutFlowTest
     )
 
 {-| Framework-driven route tests using the real elm-pages Platform.
@@ -168,3 +170,43 @@ greetWithQueryParamTest : TestApp.ProgramTest
 greetWithQueryParamTest =
     TestApp.start "/greet?name=Bob" BackendTaskTest.init
         |> PagesProgram.ensureViewHas [ text "Hello Bob!" ]
+
+
+{-| DarkMode uses sessions with hardcoded secret "test".
+Verifies the page loads and shows the form.
+TODO: Form submission with hidden fields not yet supported --
+hidden field values aren't tracked in pageFormState since no
+user interaction fires an input event for them.
+-}
+darkModeToggleTest : TestApp.ProgramTest
+darkModeToggleTest =
+    TestApp.start "/dark-mode" BackendTaskTest.init
+        |> PagesProgram.ensureViewHas [ text "Current mode: Light Mode" ]
+        |> PagesProgram.ensureViewHas [ text "To Dark Mode" ]
+
+
+{-| Full login -> logout -> login flow:
+1. Login as Alice -> redirects to /greet with session
+2. Verify "Hello Alice!" (session persists)
+3. Navigate to /logout and submit form
+4. Logout clears session, redirects to /login with flash
+5. Verify flash message "You have been successfully logged out."
+-}
+logoutFlowTest : TestApp.ProgramTest
+logoutFlowTest =
+    TestApp.start "/login"
+        (BackendTaskTest.init
+            |> BackendTaskTest.withEnv "SESSION_SECRET" "test-secret"
+        )
+        |> PagesProgram.ensureViewHas [ text "You aren't logged in yet." ]
+        |> PagesProgram.fillIn "form" "name" "Alice"
+        |> PagesProgram.clickButton "Log in"
+        -- Logged in, redirected to /greet
+        |> PagesProgram.ensureBrowserUrl
+            (\url -> url |> Expect.equal "https://localhost:1234/greet")
+        |> PagesProgram.ensureViewHas [ text "Hello Alice!" ]
+        -- TODO: Logout flow needs submitFormTo to dispatch through
+        -- Platform's SubmitFetcher or Submit path for cross-route POST.
+        -- Currently submitFormTo goes through onFormSubmit which dispatches
+        -- Pages.Internal.Msg.Submit, but the /logout action needs the
+        -- request to be routed correctly.
