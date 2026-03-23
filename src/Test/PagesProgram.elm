@@ -9,6 +9,7 @@ module Test.PagesProgram exposing
     , withSimulatedSubscriptions, simulateIncomingPort
     , ensureViewHas, ensureViewHasNot, ensureView
     , expectViewHas, expectViewHasNot
+    , expectModel
     , simulateHttpGet, simulateHttpPost, simulateHttpError
     , selectOption
     , done
@@ -52,7 +53,7 @@ use [`start`](#start) with inline config.
 
 @docs ensureViewHas, ensureViewHasNot, ensureView
 
-@docs expectViewHas, expectViewHasNot
+@docs expectViewHas, expectViewHasNot, expectModel
 
 @docs simulateHttpGet, simulateHttpPost, simulateHttpError
 
@@ -1702,6 +1703,30 @@ expectViewHasNot selectors (ProgramTest state) =
                             Query.fromHtml (Html.div [] viewHtml.body)
                     in
                     query |> Query.hasNot selectors
+
+
+{-| Inspect the model directly. Useful for debugging or asserting on
+internal state that isn't visible in the view.
+
+    myTest
+        |> PagesProgram.clickButton "+1"
+        |> PagesProgram.expectModel
+            (\model -> model.count |> Expect.equal 1)
+
+-}
+expectModel : (model -> Expectation) -> ProgramTest model msg -> Expectation
+expectModel assertion (ProgramTest state) =
+    case state.error of
+        Just errMsg ->
+            Expect.fail errMsg
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    Expect.fail "expectModel: Cannot inspect model while BackendTask is resolving."
+
+                Ready ready ->
+                    assertion ready.model
 
 
 -- TERMINAL

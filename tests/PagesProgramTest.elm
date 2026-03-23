@@ -1014,6 +1014,61 @@ all =
                         |> PagesProgram.done
                         |> expectFailContaining "api.example.com"
             ]
+        , describe "expectModel"
+            [ test "can inspect the model directly" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { count = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Increment ->
+                                        ( { model | count = model.count + 1 }, [] )
+
+                                    Decrement ->
+                                        ( { model | count = model.count - 1 }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Counter"
+                                , body =
+                                    [ Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
+                                    , Html.text (String.fromInt model.count)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "+1"
+                        |> PagesProgram.clickButton "+1"
+                        |> PagesProgram.clickButton "+1"
+                        |> PagesProgram.expectModel
+                            (\model -> model.count |> Expect.equal 3)
+            , test "expectModel fails with useful message" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { count = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Increment ->
+                                        ( { model | count = model.count + 1 }, [] )
+
+                                    Decrement ->
+                                        ( model, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Counter"
+                                , body =
+                                    [ Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
+                                    , Html.text (String.fromInt model.count)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "+1"
+                        |> PagesProgram.expectModel
+                            (\model -> model.count |> Expect.equal 99)
+                        |> expectFailContaining "Expect.equal"
+            ]
         , describe "textarea support"
             [ test "fillIn works with textarea" <|
                 \() ->
