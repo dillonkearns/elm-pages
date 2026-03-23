@@ -47,6 +47,12 @@
         "Pages.Internal.Router",
         "Pages.Internal.RoutePattern",
         "Pages.Internal.NotFoundReason",
+        "Tui",
+        "Tui.Effect",
+        "Tui.Input",
+        "Tui.Sub",
+        "Tui.Test",
+        "Tui.Test.Stepper",
         "Test.BackendTask",
         "Test.BackendTask.Time"
     ],

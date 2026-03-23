@@ -127,6 +127,17 @@ async function main() {
     });
 
   program
+    .command("test <elmModulePath>")
+    .description("step through a TUI test interactively")
+    .allowUnknownOption()
+    .allowExcessArguments()
+    .helpOption(false)
+    .action(async (elmModulePath, options, options2) => {
+      const { run } = await import("./commands/test.js");
+      await run(elmModulePath, options, options2);
+    });
+
+  program
     .command("bundle-script <moduleName>")
     .description("bundle an elm-pages script")
     .option(

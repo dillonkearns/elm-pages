@@ -1,6 +1,7 @@
 module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions, withSchema, metadata, withDatabasePath
+    , tui, tuiWithCliOptions
     , writeFile, removeFile, copyFile, move
     , makeDirectory, removeDirectory, makeTempDirectory
     , command, exec
@@ -18,6 +19,25 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 ## Defining Scripts
 
 @docs withCliOptions, withoutCliOptions, withSchema, metadata, withDatabasePath
+
+
+## TUI Scripts
+
+A TUI script is essentially a TEA (The Elm Architecture) app, but instead of
+rendering HTML, your `view` returns a [`Tui.Screen`](Tui#Screen) — styled
+terminal output with optimized cell-level diffing under the hood for smooth,
+snappy rendering.
+
+Two extra capabilities beyond a standard TEA app:
+
+  - **`data`** — resolve a [`BackendTask`](BackendTask) before `init` runs
+    (fetching git log, reading files, etc.), while the terminal is still in
+    normal mode.
+  - **[`Tui.Effect`](Tui-Effect)** — run a [`BackendTask`](BackendTask) from
+    `update` via [`Effect.perform`](Tui-Effect#perform). This bridges async
+    operations (shell commands, HTTP, file I/O) into the TUI update cycle.
+
+@docs tui, tuiWithCliOptions
 
 
 ## File System Utilities
@@ -55,6 +75,10 @@ import Json.Encode as Encode
 import Pages.Internal.Script
 import TsJson.Encode
 import TsJson.Type
+import Tui
+import Tui.Effect
+import Tui.Internal
+import Tui.Sub
 
 
 {-| The type for your `run` function that can be executed by `elm-pages run`.
@@ -345,6 +369,135 @@ withDatabasePath dbPath (Pages.Internal.Script.Script script) =
                         )
         , metadata = script.metadata
         }
+
+
+{-| Define a TUI (Terminal User Interface) script. It's a standard TEA app
+(`init`/`update`/`view`/`subscriptions`) with two additions:
+
+  - **`data`** resolves a [`BackendTask`](BackendTask) before `init` — use it
+    to load files, run shell commands, or fetch data while the terminal is
+    still in normal mode.
+  - **`update`** returns a [`Tui.Effect`](Tui-Effect) instead of `Cmd` — use
+    [`Effect.perform`](Tui-Effect#perform) to run a `BackendTask` and feed the
+    result back as a message.
+
+Example:
+
+    module Counter exposing (run)
+
+    import Pages.Script as Script exposing (Script)
+    import Tui
+    import Tui.Effect as Effect
+    import Tui.Sub as Sub
+
+    run : Script
+    run =
+        Script.tui
+            { data = BackendTask.succeed ()
+            , init = \() -> ( { count = 0 }, Effect.none )
+            , update = update
+            , view = view
+            , subscriptions = \_ -> Sub.onKeyPress KeyPressed
+            }
+
+-}
+tui :
+    { data : BackendTask FatalError data
+    , init : data -> ( model, Tui.Effect.Effect msg )
+    , update : msg -> model -> ( model, Tui.Effect.Effect msg )
+    , view : Tui.Context -> model -> Tui.Screen
+    , subscriptions : model -> Tui.Sub.Sub msg
+    }
+    -> Script
+tui config =
+    withoutCliOptions
+        (config.data
+            |> BackendTask.quiet
+            |> BackendTask.andThen
+                (\loadedData ->
+                    Tui.Internal.run
+                        { init = config.init
+                        , update = config.update
+                        , view = config.view
+                        , subscriptions = config.subscriptions
+                        }
+                        loadedData
+                )
+        )
+
+
+{-| Like [`tui`](#tui), but with CLI option parsing.
+
+    module FileBrowser exposing (run)
+
+    import Cli.Option as Option
+    import Cli.OptionsParser as OptionsParser
+    import Cli.Program as Program
+    import Pages.Script as Script exposing (Script)
+    import Tui
+
+    run : Script
+    run =
+        Script.tuiWithCliOptions
+            (Program.config
+                |> Program.add
+                    (OptionsParser.build identity
+                        |> OptionsParser.with
+                            (Option.optionalKeywordArg "dir"
+                                |> Option.withDefault "."
+                            )
+                    )
+            )
+            (\dir ->
+                { data = loadFiles dir
+                , init = init
+                , update = update
+                , view = view
+                , subscriptions = subscriptions
+                }
+            )
+
+-}
+tuiWithCliOptions :
+    Program.Config cliOptions
+    ->
+        (cliOptions
+         ->
+            { data : BackendTask FatalError data
+            , init : data -> ( model, Tui.Effect.Effect msg )
+            , update : msg -> model -> ( model, Tui.Effect.Effect msg )
+            , view : Tui.Context -> model -> Tui.Screen
+            , subscriptions : model -> Tui.Sub.Sub msg
+            }
+        )
+    -> Script
+tuiWithCliOptions cliConfig toTuiConfig =
+    withCliOptions cliConfig
+        (\cliOptions ->
+            tuiFromConfig (toTuiConfig cliOptions)
+        )
+
+
+tuiFromConfig :
+    { data : BackendTask FatalError data
+    , init : data -> ( model, Tui.Effect.Effect msg )
+    , update : msg -> model -> ( model, Tui.Effect.Effect msg )
+    , view : Tui.Context -> model -> Tui.Screen
+    , subscriptions : model -> Tui.Sub.Sub msg
+    }
+    -> BackendTask FatalError ()
+tuiFromConfig config =
+    config.data
+        |> BackendTask.andThen
+            (\loadedData ->
+                Tui.Internal.run
+                    { init = config.init
+                    , update = config.update
+                    , view = config.view
+                    , subscriptions = config.subscriptions
+                    }
+                    loadedData
+            )
 
 
 setDatabasePath : String -> BackendTask FatalError ()

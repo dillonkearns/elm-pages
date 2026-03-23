@@ -49,6 +49,17 @@ function rewriteElmJsonHelp(elmJson, options) {
   addDirectDependency(elmJson, "elm/bytes", "1.0.8");
   // 3. add our own secret My.elm module 😈
   elmJson["source-directories"].push(".elm-pages");
+
+  // 4. add extra source directories (e.g., tests/ for elm-pages test)
+  if (options && options.extraSourceDirs) {
+    for (const dir of options.extraSourceDirs) {
+      const prefixed = pathPrefix + dir;
+      if (!elmJson["source-directories"].includes(prefixed)) {
+        elmJson["source-directories"].push(prefixed);
+      }
+    }
+  }
+
   return elmJson;
 }
 

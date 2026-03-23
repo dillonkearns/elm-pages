@@ -151,6 +151,60 @@ port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe
 }
 
 /**
+ * Generate a ScriptMain.elm that runs the test stepper on a module's
+ * `stepper` export.
+ * @param {string} moduleName
+ */
+/**
+ * @param {string} moduleName
+ * @param {string[]} tuiTestValues - names of exposed TuiTest values
+ */
+export function testStepperWrapperFile(moduleName, tuiTestValues) {
+  const snapshotEntries = tuiTestValues
+    .map(
+      (name) =>
+        `            ( "${name}", Tui.Test.toSnapshots ${moduleName}.${name} )`
+    )
+    .join("\n            , ");
+
+  return `port module ScriptMain exposing (main)
+
+import Bytes exposing (Bytes)
+import Json.Decode
+import Json.Encode
+import Pages.Internal.Platform.GeneratorApplication
+import Tui.Test
+import Tui.Test.Stepper
+import ${moduleName}
+
+
+main : Pages.Internal.Platform.GeneratorApplication.Program
+main =
+    Pages.Internal.Platform.GeneratorApplication.app
+        { data =
+            Tui.Test.Stepper.runNamed
+                [ ${snapshotEntries}
+                ]
+        , scriptModuleName = "${moduleName}.Stepper"
+        , toJsPort = toJsPort
+        , fromJsPort = fromJsPort identity
+        , gotBatchSub = gotBatchSub identity
+        , sendPageData = \\_ -> Cmd.none
+        }
+
+
+port toJsPort : { json : Json.Encode.Value, bytes : List { key : String, data : Bytes } } -> Cmd msg
+
+
+port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
+
+
+port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe Bytes } -> msg) -> Sub msg
+`;
+}
+
+
+/**
  * @param {string} moduleName
  */
 export function generatorWrapperFile(moduleName) {
@@ -715,7 +769,7 @@ export async function compileElmForScript(
   await rewriteElmJson(
     `${projectDirectory}/elm.json`,
     `${projectDirectory}/elm-stuff/elm-pages/elm.json`,
-    {}
+    { extraSourceDirs: options.extraSourceDirs }
   );
 
   // Generate Pages.Db module if this script uses the database.
@@ -863,4 +917,54 @@ function moduleDefinesValue(content, valueName) {
   const annotationPattern = new RegExp(`^${valueName}\\s*:`, "m");
   const definitionPattern = new RegExp(`^${valueName}(?:\\s|=)`, "m");
   return annotationPattern.test(content) || definitionPattern.test(content);
+}
+
+/**
+ * Find all exposed values whose type annotation mentions TuiTest.
+ * Returns an array of value names.
+ * @param {string} filePath
+ * @returns {string[]}
+ */
+export function findTuiTestValues(filePath) {
+  try {
+    const content = fs.readFileSync(filePath, "utf8");
+
+    // Get exposed value names
+    const moduleMatch = content.match(
+      /^module\s+\S+\s+exposing\s*\(([\s\S]*?)\)/m
+    );
+    if (!moduleMatch) return [];
+    const exposingBlock = moduleMatch[1].trim();
+
+    let exposedNames;
+    if (exposingBlock === "..") {
+      // exposing (..) — find all top-level definitions
+      const defRegex = /^([a-z][a-zA-Z0-9_]*)\s*[=:]/gm;
+      exposedNames = [];
+      let m;
+      while ((m = defRegex.exec(content)) !== null) {
+        if (!exposedNames.includes(m[1])) {
+          exposedNames.push(m[1]);
+        }
+      }
+    } else {
+      // Parse explicit exposing list
+      exposedNames = exposingBlock
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => /^[a-z]/.test(s)) // only value names, not types
+        .map((s) => s.replace(/\(.*\)/, "").trim()); // strip (..) from type exports
+    }
+
+    // Filter to values whose type annotation mentions TuiTest
+    return exposedNames.filter((name) => {
+      const annotationRegex = new RegExp(
+        `^${name}\\s*:.*(?:TuiTest|Tui\\.Test\\.TuiTest)`,
+        "m"
+      );
+      return annotationRegex.test(content);
+    });
+  } catch (_) {
+    return [];
+  }
 }
