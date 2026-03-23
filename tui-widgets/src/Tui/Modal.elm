@@ -32,6 +32,11 @@ of 80 characters (or `terminalWidth - 2` if the terminal is narrow).
     Modal.defaultWidth 80   -- 80 (floor)
     Modal.defaultWidth 40   -- 38 (narrow terminal)
 
+This is a convenience — you can always pass a custom `width` directly
+if the default is too wide or too narrow for your content:
+
+    Modal.overlay { ..., width = min 50 (ctx.width - 4) } ...
+
 -}
 defaultWidth : Int -> Int
 defaultWidth termWidth =

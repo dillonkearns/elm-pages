@@ -117,17 +117,18 @@ tick (State items) =
         |> State
 
 
-{-| Render the current status. Pass the waiting message (if any) and the
-current tick for spinner animation.
+{-| Render the current status. Always returns a `Tui.Screen` — renders
+`Tui.empty` when nothing is active (no need to wrap in `Maybe`).
 
   - **Waiting** takes priority: shows the message with an animated spinner
   - **Toast** shows the most recent toast (cyan for normal, red for error)
-  - **Nothing active**: returns `Tui.empty`
+  - **Nothing active**: returns `Tui.empty` (renders nothing)
 
 The waiting message comes from YOUR model — Status doesn't track it.
 This keeps the "am I doing something?" state explicit in your model,
 where it belongs.
 
+    -- Just place it in your view — no case/Maybe needed:
     Status.view { waiting = model.activeOperation, tick = model.spinnerTick } model.status
 
 -}
