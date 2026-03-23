@@ -96,7 +96,7 @@ applyOneSetCookie header jar =
                                 |> String.trim
                                 |> (\v -> Url.percentDecode v |> Maybe.withDefault v)
                     in
-                    if String.isEmpty cookieName then
+                    if String.isEmpty cookieName || isCookieAttribute cookieName then
                         jar
 
                     else
@@ -104,3 +104,11 @@ applyOneSetCookie header jar =
 
                 _ ->
                     jar
+
+
+{-| Check if a name is a known Set-Cookie attribute rather than a cookie name.
+-}
+isCookieAttribute : String -> Bool
+isCookieAttribute name =
+    List.member (String.toLower name)
+        [ "path", "domain", "expires", "max-age", "secure", "httponly", "samesite" ]

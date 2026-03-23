@@ -2312,20 +2312,6 @@ resolveDataPhase bt initFn viewFn updateFn =
                 )
 
 
-getView : Phase model msg -> Result String { title : String, body : List (Html msg) }
-getView phase =
-    case phase of
-        Resolving (Resolver r) ->
-            Err
-                ("Cannot check view while BackendTask data is still resolving. "
-                    ++ "Provide simulated responses first.\n\n"
-                    ++ r.pendingDescription
-                )
-
-        Ready ready ->
-            Ok (ready.getView ready.model)
-
-
 getFailureMessage : Expectation -> Maybe String
 getFailureMessage expectation =
     case Test.Runner.getFailureReason expectation of

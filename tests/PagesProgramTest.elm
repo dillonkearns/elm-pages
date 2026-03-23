@@ -1242,6 +1242,31 @@ all =
                         |> PagesProgram.ensureViewHas [ Selector.text "Focused!" ]
                         |> PagesProgram.done
             ]
+        , describe "CookieJar edge cases"
+            [ test "malformed Set-Cookie without name=value is ignored" <|
+                \() ->
+                    -- "Path=/; HttpOnly" is not a valid cookie, just attributes
+                    CookieJar.empty
+                        |> CookieJar.applySetCookieHeaders
+                            [ "Path=/; HttpOnly" ]
+                        |> CookieJar.get "Path"
+                        |> Expect.equal Nothing
+            ]
+        , describe "within error handling"
+            [ test "within gives clear error when scope element doesn't exist" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.within
+                            (Query.find [ Selector.id "nonexistent" ])
+                            (PagesProgram.ensureViewHas [ Selector.text "anything" ])
+                        |> PagesProgram.done
+                        |> expectFailContaining "nonexistent"
+            ]
         , describe "textarea support (legacy)"
             [ test "fillIn works with textarea" <|
                 \() ->
