@@ -1,16 +1,17 @@
 module Test.PagesProgram exposing
     ( ProgramTest
     , start, startWithEffects, startPlatform
-    , clickButton, clickLink, fillIn, check
+    , clickButton, clickLink, fillIn, fillInTextarea, check
     , navigateTo, ensureBrowserUrl
     , submitForm, submitFormTo
     , resolveEffect
     , simulateMsg
     , withSimulatedSubscriptions, simulateIncomingPort
     , ensureViewHas, ensureViewHasNot, ensureView
-    , expectViewHas, expectViewHasNot
+    , expectViewHas, expectViewHasNot, expectView
     , expectModel
     , within
+    , simulateDomEvent
     , simulateHttpGet, simulateHttpPost, simulateHttpError
     , selectOption
     , done
@@ -44,7 +45,7 @@ use [`start`](#start) with inline config.
 
 @docs start, startWithEffects, startPlatform
 
-@docs clickButton, clickLink, fillIn, check
+@docs clickButton, clickLink, fillIn, fillInTextarea, check
 
 @docs resolveEffect
 
@@ -54,7 +55,9 @@ use [`start`](#start) with inline config.
 
 @docs ensureViewHas, ensureViewHasNot, ensureView
 
-@docs expectViewHas, expectViewHasNot, expectModel
+@docs expectViewHas, expectViewHasNot, expectView, expectModel
+
+@docs simulateDomEvent
 
 @docs simulateHttpGet, simulateHttpPost, simulateHttpError
 
@@ -633,6 +636,55 @@ selectOption fieldId label optionValue optionText (ProgramTest state) =
                                 }
 
 
+{-| Simulate a DOM event on a targeted element. This is the escape hatch
+for events not covered by `clickButton`, `fillIn`, etc.
+
+The first argument narrows the query to find the target element.
+The second argument is the event to simulate (from `Test.Html.Event`).
+
+    import Test.Html.Event as Event
+
+    myTest
+        |> PagesProgram.simulateDomEvent
+            (Query.find [ Selector.id "my-input" ])
+            Event.focus
+
+-}
+simulateDomEvent : (Query.Single msg -> Query.Single msg) -> ( String, Encode.Value ) -> ProgramTest model msg -> ProgramTest model msg
+simulateDomEvent findTarget event (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest
+                        { state | error = Just "simulateDomEvent: Cannot interact while BackendTask data is still resolving." }
+
+                Ready ready ->
+                    let
+                        targetQuery =
+                            renderScopedView ready
+                                |> findTarget
+
+                        eventResult =
+                            targetQuery
+                                |> Event.simulate event
+                                |> Event.toResult
+                    in
+                    case eventResult of
+                        Ok msg ->
+                            applyMsgWithLabel "simulateDomEvent" Interaction msg (ProgramTest state)
+
+                        Err errMsg ->
+                            ProgramTest
+                                { state
+                                    | error =
+                                        Just ("simulateDomEvent failed:\n\n" ++ errMsg)
+                                }
+
+
 {-| Register a simulated subscriptions function. The function is called with
 the current model each time `simulateIncomingPort` is used, so subscriptions
 can be model-dependent (e.g., only listen when connected).
@@ -1090,17 +1142,49 @@ fillIn fieldId fieldName value (ProgramTest state) =
 
 
 
-{-| Simulate clicking a link with the given text and href. Verifies that a
-matching `<a>` element exists in the view, then triggers navigation.
+{-| Fill in a textarea with the given content. Finds the first `<textarea>`
+element in the view (or within the current `within` scope) and simulates
+an input event.
 
-In framework-driven tests (`startPlatform`), this dispatches `LinkClicked`
-through the real Platform, which handles URL changes, data loading, and
-re-rendering just like production.
+    |> PagesProgram.fillInTextarea "Hello, world!"
 
-    TestApp.start "/links" mockData
-        |> PagesProgram.clickLink "Counter page" "/counter"
-        |> PagesProgram.ensureViewHas [ Selector.text "Count: 0" ]
+-}
+fillInTextarea : String -> ProgramTest model msg -> ProgramTest model msg
+fillInTextarea newContent (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
 
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest
+                        { state | error = Just "fillInTextarea: Cannot interact while BackendTask data is still resolving." }
+
+                Ready ready ->
+                    let
+                        textareaQuery =
+                            renderScopedView ready
+                                |> Query.find [ Selector.tag "textarea" ]
+
+                        eventResult =
+                            textareaQuery
+                                |> Event.simulate (Event.input newContent)
+                                |> Event.toResult
+                    in
+                    case eventResult of
+                        Ok msg ->
+                            applyMsgWithLabel ("fillInTextarea") Interaction msg (ProgramTest state)
+
+                        Err errMsg ->
+                            ProgramTest
+                                { state
+                                    | error =
+                                        Just ("fillInTextarea failed:\n\n" ++ errMsg)
+                                }
+
+
+{-| Simulate clicking a link with the given text and href.
 -}
 clickLink : String -> String -> ProgramTest model msg -> ProgramTest model msg
 clickLink linkText href (ProgramTest state) =
@@ -1677,6 +1761,31 @@ expectViewHasNot selectors (ProgramTest state) =
 
                 Ready ready ->
                     renderScopedView ready |> Query.hasNot selectors
+
+
+{-| Like `ensureView`, but returns an `Expectation` (terminal).
+Gives full access to the `Query.Single` for custom assertions.
+
+    myTest
+        |> PagesProgram.expectView
+            (Query.find [ Selector.id "main" ]
+                >> Query.has [ Selector.tag "h1" ]
+            )
+
+-}
+expectView : (Query.Single msg -> Expectation) -> ProgramTest model msg -> Expectation
+expectView assertion (ProgramTest state) =
+    case state.error of
+        Just errMsg ->
+            Expect.fail errMsg
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    Expect.fail "expectView: Cannot check view while data is resolving."
+
+                Ready ready ->
+                    assertion (renderScopedView ready)
 
 
 {-| Scope interactions and assertions to a specific part of the DOM.

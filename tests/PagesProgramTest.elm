@@ -12,6 +12,8 @@ import Html.Events
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
+import Json.Encode as Encode
+import Test.Html.Event as Event
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.BackendTask as BackendTaskTest
@@ -1145,7 +1147,102 @@ all =
                                 Expect.equal { a = 1, b = 1 } { a = model.a, b = model.b }
                             )
             ]
-        , describe "textarea support"
+        , describe "fillInTextarea"
+            [ test "fills in a textarea by finding the first one" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { content = "" }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    UpdateContent c ->
+                                        ( { model | content = c }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Editor"
+                                , body =
+                                    [ Html.textarea
+                                        [ Attr.value model.content
+                                        , Html.Events.onInput UpdateContent
+                                        ]
+                                        []
+                                    , Html.text ("Content: " ++ model.content)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.fillInTextarea "Hello from textarea!"
+                        |> PagesProgram.ensureViewHas [ Selector.text "Content: Hello from textarea!" ]
+                        |> PagesProgram.done
+            ]
+        , describe "expectView (terminal)"
+            [ test "passes with custom query assertion" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Home"
+                                , body =
+                                    [ Html.div [ Attr.id "main" ]
+                                        [ Html.h1 [] [ Html.text "Welcome" ] ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.expectView
+                            (Query.find [ Selector.id "main" ]
+                                >> Query.has [ Selector.tag "h1" ]
+                            )
+            , test "fails with useful message" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.expectView
+                            (Query.has [ Selector.id "nonexistent" ])
+                        |> expectFailContaining "id"
+            ]
+        , describe "simulateDomEvent"
+            [ test "simulates a custom event on a targeted element" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { focused = False }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    GotFocus ->
+                                        ( { model | focused = True }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Focus"
+                                , body =
+                                    [ Html.input
+                                        [ Attr.id "my-input"
+                                        , Html.Events.onFocus GotFocus
+                                        ]
+                                        []
+                                    , if model.focused then
+                                        Html.text "Focused!"
+
+                                      else
+                                        Html.text "Not focused"
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHas [ Selector.text "Not focused" ]
+                        |> PagesProgram.simulateDomEvent
+                            (Query.find [ Selector.id "my-input" ])
+                            Event.focus
+                        |> PagesProgram.ensureViewHas [ Selector.text "Focused!" ]
+                        |> PagesProgram.done
+            ]
+        , describe "textarea support (legacy)"
             [ test "fillIn works with textarea" <|
                 \() ->
                     PagesProgram.start
@@ -1221,6 +1318,10 @@ type SelectMsg
 type ScopedMsg
     = IncrA
     | IncrB
+
+
+type FocusMsg
+    = GotFocus
 
 
 type EffectTrackMsg
