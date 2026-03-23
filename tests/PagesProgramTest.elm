@@ -12,6 +12,7 @@ import Html.Events
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
+import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.BackendTask as BackendTaskTest
 import Test.BackendTask exposing (HttpError(..))
@@ -1069,6 +1070,81 @@ all =
                             (\model -> model.count |> Expect.equal 99)
                         |> expectFailContaining "Expect.equal"
             ]
+        , describe "within (DOM scoping)"
+            [ test "scopes clickButton to a specific element" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { a = 0, b = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    IncrA ->
+                                        ( { model | a = model.a + 1 }, [] )
+
+                                    IncrB ->
+                                        ( { model | b = model.b + 1 }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Scoped"
+                                , body =
+                                    [ Html.div [ Attr.id "section-a" ]
+                                        [ Html.text ("A: " ++ String.fromInt model.a)
+                                        , Html.button [ Html.Events.onClick IncrA ] [ Html.text "+1" ]
+                                        ]
+                                    , Html.div [ Attr.id "section-b" ]
+                                        [ Html.text ("B: " ++ String.fromInt model.b)
+                                        , Html.button [ Html.Events.onClick IncrB ] [ Html.text "+1" ]
+                                        ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.within
+                            (Query.find [ Selector.id "section-b" ])
+                            (PagesProgram.clickButton "+1")
+                        |> PagesProgram.expectModel
+                            (\model ->
+                                Expect.equal { a = 0, b = 1 } { a = model.a, b = model.b }
+                            )
+            , test "within resets scope after block" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { a = 0, b = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    IncrA ->
+                                        ( { model | a = model.a + 1 }, [] )
+
+                                    IncrB ->
+                                        ( { model | b = model.b + 1 }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Scoped"
+                                , body =
+                                    [ Html.div [ Attr.id "section-a" ]
+                                        [ Html.text ("A: " ++ String.fromInt model.a)
+                                        , Html.button [ Html.Events.onClick IncrA ] [ Html.text "+1" ]
+                                        ]
+                                    , Html.div [ Attr.id "section-b" ]
+                                        [ Html.text ("B: " ++ String.fromInt model.b)
+                                        , Html.button [ Html.Events.onClick IncrB ] [ Html.text "+1" ]
+                                        ]
+                                    ]
+                                }
+                        }
+                        -- Click in section-b
+                        |> PagesProgram.within
+                            (Query.find [ Selector.id "section-b" ])
+                            (PagesProgram.clickButton "+1")
+                        -- After within, clickButton finds the first +1 (section-a)
+                        |> PagesProgram.clickButton "+1"
+                        |> PagesProgram.expectModel
+                            (\model ->
+                                Expect.equal { a = 1, b = 1 } { a = model.a, b = model.b }
+                            )
+            ]
         , describe "textarea support"
             [ test "fillIn works with textarea" <|
                 \() ->
@@ -1140,6 +1216,11 @@ type ListenerMsg
 
 type SelectMsg
     = SelectColor String
+
+
+type ScopedMsg
+    = IncrA
+    | IncrB
 
 
 type EffectTrackMsg

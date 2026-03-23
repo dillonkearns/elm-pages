@@ -10,6 +10,7 @@ module Test.PagesProgram exposing
     , ensureViewHas, ensureViewHasNot, ensureView
     , expectViewHas, expectViewHasNot
     , expectModel
+    , within
     , simulateHttpGet, simulateHttpPost, simulateHttpError
     , selectOption
     , done
@@ -212,6 +213,7 @@ type alias ReadyState model msg =
     , getBrowserUrl : Maybe (model -> String)
     , onFormSubmit : Maybe ({ formId : String, action : String, fields : List ( String, String ), useFetcher : Bool } -> msg)
     , getFormFields : Maybe (model -> List ( String, String ))
+    , viewScope : Query.Single msg -> Query.Single msg
     }
 
 
@@ -482,6 +484,7 @@ startPlatform config initialPath testSetup =
                                                 |> List.map (\( k, v ) -> ( k, v.value ))
                                         )
                             )
+                    , viewScope = identity
                     }
 
                 viewResult =
@@ -830,12 +833,9 @@ clickButton buttonText (ProgramTest state) =
 
                 Ready ready ->
                     let
-                        viewHtml =
-                            ready.getView ready.model
-
                         query : Query.Single msg
                         query =
-                            Query.fromHtml (Html.div [] viewHtml.body)
+                            renderScopedView ready
 
                         -- Check for disabled button first (elm-program-test pattern)
                         disabledButtonExists : Bool
@@ -1705,6 +1705,68 @@ expectViewHasNot selectors (ProgramTest state) =
                     query |> Query.hasNot selectors
 
 
+{-| Scope interactions and assertions to a specific part of the DOM.
+Like elm-program-test's `within`, the first argument narrows the query
+and the second is the interaction to perform within that scope.
+
+    myTest
+        |> PagesProgram.within
+            (Query.find [ Selector.id "sidebar" ])
+            (PagesProgram.clickButton "Submit")
+        |> PagesProgram.done
+
+The scope is reset after the function returns.
+
+-}
+within : (Query.Single msg -> Query.Single msg) -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
+within scopeFn action (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest state
+
+                Ready ready ->
+                    let
+                        -- Apply the new scope on top of any existing scope
+                        scopedReady =
+                            { ready | viewScope = ready.viewScope >> scopeFn }
+
+                        scopedState =
+                            { state | phase = Ready scopedReady }
+
+                        -- Run the action with the scoped view
+                        (ProgramTest resultState) =
+                            action (ProgramTest scopedState)
+                    in
+                    -- Restore the original viewScope but keep everything else
+                    ProgramTest
+                        { resultState
+                            | phase =
+                                case resultState.phase of
+                                    Ready resultReady ->
+                                        Ready { resultReady | viewScope = ready.viewScope }
+
+                                    other ->
+                                        other
+                        }
+
+
+{-| Render the view and apply the current viewScope for querying.
+-}
+renderScopedView : ReadyState model msg -> Query.Single msg
+renderScopedView ready =
+    let
+        viewHtml =
+            ready.getView ready.model
+    in
+    Query.fromHtml (Html.div [] viewHtml.body)
+        |> ready.viewScope
+
+
 {-| Inspect the model directly. Useful for debugging or asserting on
 internal state that isn't visible in the view.
 
@@ -2114,6 +2176,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                         , getBrowserUrl = Nothing
                         , onFormSubmit = Nothing
                         , getFormFields = Nothing
+                        , viewScope = identity
                         }
 
                 Err err ->
