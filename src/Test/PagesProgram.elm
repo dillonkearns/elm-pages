@@ -934,50 +934,8 @@ clickButton buttonText (ProgramTest state) =
 
                         Err _ ->
                             -- Button has no click handler. This is an elm-pages
-                            -- form with a submit button. Use onFormSubmit to
-                            -- construct PagesMsg.Submit with current field values
-                            -- and the correct useFetcher flag (detected from
-                            -- data-fetcher attribute on the form element).
-                            case ready.onFormSubmit of
-                                Just handler ->
-                                    let
-                                        currentFields =
-                                            case ready.getFormFields of
-                                                Just getFields ->
-                                                    getFields ready.model
-
-                                                Nothing ->
-                                                    []
-
-                                        -- Detect concurrent forms by data-fetcher attribute
-                                        isFetcher =
-                                            query
-                                                |> Query.has
-                                                    [ Selector.tag "form"
-                                                    , Selector.attribute (Html.Attributes.attribute "data-fetcher" "")
-                                                    , Selector.containing
-                                                        [ Selector.tag "button"
-                                                        , Selector.containing [ Selector.text buttonText ]
-                                                        ]
-                                                    ]
-                                                |> (\expectation -> getFailureMessage expectation == Nothing)
-                                    in
-                                    applyMsgWithLabel
-                                        ("clickButton \"" ++ buttonText ++ "\"")
-                                        Interaction
-                                        (handler { formId = "", action = "", fields = currentFields, useFetcher = isFetcher })
-                                        (ProgramTest state)
-
-                                Nothing ->
-                                    ProgramTest
-                                        { state
-                                            | error =
-                                                Just
-                                                    ("clickButton \""
-                                                        ++ buttonText
-                                                        ++ "\" failed: button has no click handler and no form submit handler is available."
-                                                    )
-                                        }
+                            -- form with a submit button.
+                            formSubmitFallback ready query buttonText (ProgramTest state)
 
 
 {-| Simulate typing text into an input field.
@@ -1140,6 +1098,52 @@ fillIn fieldId fieldName value (ProgramTest state) =
                                                             )
                                                 }
 
+
+
+{-| Fallback form submission for buttons with no click handler when
+the form submit event simulation also fails.
+-}
+formSubmitFallback : ReadyState model msg -> Query.Single msg -> String -> ProgramTest model msg -> ProgramTest model msg
+formSubmitFallback ready query buttonText (ProgramTest state) =
+    case ready.onFormSubmit of
+        Just handler ->
+            let
+                currentFields =
+                    case ready.getFormFields of
+                        Just getFields ->
+                            getFields ready.model
+
+                        Nothing ->
+                            []
+
+                isFetcher =
+                    query
+                        |> Query.has
+                            [ Selector.tag "form"
+                            , Selector.attribute (Html.Attributes.attribute "data-fetcher" "")
+                            , Selector.containing
+                                [ Selector.tag "button"
+                                , Selector.containing [ Selector.text buttonText ]
+                                ]
+                            ]
+                        |> (\expectation -> getFailureMessage expectation == Nothing)
+            in
+            applyMsgWithLabel
+                ("clickButton \"" ++ buttonText ++ "\"")
+                Interaction
+                (handler { formId = "", action = "", fields = currentFields, useFetcher = isFetcher })
+                (ProgramTest state)
+
+        Nothing ->
+            ProgramTest
+                { state
+                    | error =
+                        Just
+                            ("clickButton \""
+                                ++ buttonText
+                                ++ "\" failed: button has no click handler and no form submit handler is available."
+                            )
+                }
 
 
 {-| Fill in a textarea with the given content. Finds the first `<textarea>`
