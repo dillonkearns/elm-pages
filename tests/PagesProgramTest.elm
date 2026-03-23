@@ -1242,6 +1242,132 @@ all =
                         |> PagesProgram.ensureViewHas [ Selector.text "Focused!" ]
                         |> PagesProgram.done
             ]
+        , describe "clickLink"
+            [ test "clickLink fails when link text not found" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Page"
+                                , body = [ Html.text "No links here" ]
+                                }
+                        }
+                        |> PagesProgram.clickLink "Go somewhere" "/somewhere"
+                        |> PagesProgram.done
+                        |> expectFailContaining "clickLink"
+            , test "clickLink finds link by text and simulates click" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { page = "home" }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Navigate url ->
+                                        ( { model | page = url }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Nav"
+                                , body =
+                                    [ Html.a
+                                        [ Attr.href "/about"
+                                        , Html.Events.onClick (Navigate "/about")
+                                        ]
+                                        [ Html.text "About" ]
+                                    , Html.text ("Page: " ++ model.page)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickLink "About" "/about"
+                        |> PagesProgram.ensureViewHas [ Selector.text "Page: /about" ]
+                        |> PagesProgram.done
+            ]
+        , describe "navigateTo"
+            [ test "navigateTo fails without startPlatform" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.navigateTo "/about"
+                        |> PagesProgram.done
+                        |> expectFailContaining "Navigation is only supported"
+            , test "navigateTo fails while data is resolving" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.Http.getJson
+                                "https://api.example.com/data"
+                                Decode.string
+                                |> BackendTask.allowFatal
+                        , init = \_ -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.navigateTo "/about"
+                        |> PagesProgram.done
+                        |> expectFailContaining "resolving"
+            ]
+        , describe "ensureBrowserUrl"
+            [ test "ensureBrowserUrl fails without startPlatform" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.ensureBrowserUrl
+                            (\url -> url |> Expect.equal "anything")
+                        |> PagesProgram.done
+                        |> expectFailContaining "URL tracking is only supported"
+            ]
+        , describe "fillInTextarea errors"
+            [ test "fillInTextarea fails when no textarea found" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "No textarea" ] }
+                        }
+                        |> PagesProgram.fillInTextarea "some text"
+                        |> PagesProgram.done
+                        |> expectFailContaining "fillInTextarea"
+            ]
+        , describe "simulateDomEvent errors"
+            [ test "simulateDomEvent fails when element not found" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.simulateDomEvent
+                            (Query.find [ Selector.id "missing" ])
+                            Event.focus
+                        |> PagesProgram.done
+                        |> expectFailContaining "simulateDomEvent"
+            ]
+        , describe "selectOption errors"
+            [ test "selectOption fails when select not found" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "No select" ] }
+                        }
+                        |> PagesProgram.selectOption "missing" "Label" "val" "text"
+                        |> PagesProgram.done
+                        |> expectFailContaining "selectOption"
+            ]
         , describe "CookieJar edge cases"
             [ test "malformed Set-Cookie without name=value is ignored" <|
                 \() ->
@@ -1347,6 +1473,10 @@ type ScopedMsg
 
 type FocusMsg
     = GotFocus
+
+
+type NavMsg
+    = Navigate String
 
 
 type EffectTrackMsg
