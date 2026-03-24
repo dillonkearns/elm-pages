@@ -27,6 +27,16 @@ import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 import mergeStreams from "@sindresorhus/merge-streams";
 import { parseDbBinHeader, buildDbBin } from "./db-bin-format.js";
 
+/** @type {Set<import('node:child_process').ChildProcess>} */
+const activeChildProcesses = new Set();
+
+function killActiveChildren() {
+  for (const child of activeChildProcesses) {
+    try { child.kill("SIGTERM"); } catch (e) {}
+  }
+  activeChildProcesses.clear();
+}
+
 function detectColorSupport() {
   const env = process.env;
   if ("FORCE_COLOR" in env) {
@@ -211,7 +221,13 @@ function runGeneratorAppHelp(
       if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
-        // Finished successfully
+        // Finished successfully — kill child processes before exiting
+        tuiCleanup();
+        killActiveChildren();
+        if (killApp) {
+          killApp();
+          killApp = null;
+        }
         process.exit(0);
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
@@ -1714,6 +1730,8 @@ async function pipePartToStream(
       cwd: cwd,
       env: env,
     });
+    activeChildProcesses.add(newProcess);
+    newProcess.once("exit", () => activeChildProcesses.delete(newProcess));
 
     pipeIfPossible(lastStream, newProcess.stdin);
     if (!lastStream) {
@@ -1919,6 +1937,7 @@ export async function readKey() {
 
       // Handle Ctrl+C to exit gracefully
       if (key === "\u0003") {
+        killActiveChildren();
         process.exit();
       }
 
@@ -2799,6 +2818,10 @@ function tuiCleanup() {
   tuiLastScreenData = null;
   tuiCellWidth = 0;
   tuiCellHeight = 0;
+  if (tuiPendingRender) {
+    clearTimeout(tuiPendingRender);
+    tuiPendingRender = null;
+  }
   if (tuiTickTimer) {
     clearInterval(tuiTickTimer);
     tuiTickTimer = null;
@@ -2822,14 +2845,19 @@ function tuiCleanup() {
   );
 }
 
-// Ensure terminal is restored on unexpected exit
-process.on("exit", tuiCleanup);
+// Ensure terminal is restored and children are cleaned up on unexpected exit
+process.on("exit", () => {
+  tuiCleanup();
+  killActiveChildren();
+});
 process.on("SIGINT", () => {
   tuiCleanup();
+  killActiveChildren();
   process.exit(130);
 });
 process.on("SIGTERM", () => {
   tuiCleanup();
+  killActiveChildren();
   process.exit(143);
 });
 
@@ -2902,6 +2930,7 @@ async function runTuiInit(req) {
 
     if (event._exit) {
       tuiCleanup();
+      killActiveChildren();
       process.exit(130);
       return;
     }
