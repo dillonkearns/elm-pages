@@ -44,8 +44,9 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
                     { onSelect = \c -> SelectCommit c
                     , view = \{ selection } c ->
                         case selection of
-                            Layout.Selected -> Tui.text ("▸ " ++ c.sha) |> Tui.bold
-                            Layout.SelectedDim -> Tui.text ("▸ " ++ c.sha)
+                            Layout.Selected { focused } ->
+                                Tui.text ("▸ " ++ c.sha)
+                                    |> (if focused then Tui.bold else identity)
                             Layout.NotSelected -> Tui.text ("  " ++ c.sha)
                     }
                     model.commits
@@ -53,37 +54,95 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
             ]
             |> Layout.toScreen (Layout.withContext ctx model.layout)
 
+For a batteries-included setup that wires key routing, focus management,
+modals, and status together automatically, see [`compileApp`](#compileApp).
+
+
+## Building Layouts
+
 @docs Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
+
+
+## Pane Content
 
 @docs PaneContent, content, selectableList, SelectionState, indexSelectableList, withUnfocusedStyle, withFilterable, withSearchable, withTreeView
 
+
+## Modals
+
+Declarative modals powered by [`Tui.Modal`](Tui-Modal), [`Tui.Picker`](Tui-Picker),
+[`Tui.Menu`](Tui-Menu), [`Tui.Confirm`](Tui-Confirm), and [`Tui.Prompt`](Tui-Prompt).
+These are convenience wrappers for use with [`compileApp`](#compileApp) — the framework
+handles opening, closing, and key routing automatically.
+
 @docs Modal, promptModal, confirmModal, pickerModal, menuModal, helpModal
+
+
+## Keybindings
+
+Declare keybinding groups for dispatch and auto-generated help.
+See [`Tui.Keybinding`](Tui-Keybinding) for the standalone keybinding system.
 
 @docs Group, Binding, group, binding, charBinding
 
+
+## Pane Width
+
 @docs Width, fill, fillPortion, fixed
+
+
+## State
 
 @docs State, init, withContext
 
+
+## Selection & Scrolling
+
 @docs navigateDown, navigateUp, pageDown, pageUp, selectedIndex, selectedItem, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
 
+
+## Tabs
+
 @docs switchTab, activeTab
+
+
+## Focus & Interaction
 
 @docs focusPane, focusedPane
 @docs setSearching
 @docs handleKeyEvent
 @docs toggleMaximize, isMaximized
 
+
+## Pane Decoration
+
 @docs withPrefix, withFooter, withTitleScreen, withFooterScreen, withInlineFooter, withOnScroll, withOnLinkClick
+
+
+## Mouse
 
 @docs handleMouse
 
+
+## Rendering
+
 @docs toScreen, toRows
+
+
+## Help & Status Bars
 
 @docs navigationHelpRows
 
 @docs isFilterActive, filterStatusBar, activeFilterStatusBar
 @docs isSearchActive, searchStatusBar
+
+
+## compileApp — Batteries-Included Framework
+
+[`compileApp`](#compileApp) wires together key routing, focus management (Tab/Shift-Tab),
+j/k/arrow navigation, scroll, mouse dispatch, modals, status toasts, and the
+options bar — so your app only needs `init`, `update`, `view`, `bindings`,
+`status`, and `modal`.
 
 @docs compileApp, FrameworkModel, FrameworkMsg
 
@@ -457,21 +516,19 @@ withUnfocusedStyle renderUnfocused items paneContent =
 
 {-| The selection state of an item in a selectable list.
 
-  - `Selected` — this item is selected AND the pane is focused
-  - `SelectedDim` — this item is selected but the pane is unfocused
+  - `Selected { focused = True }` — this item is selected AND the pane is focused
+  - `Selected { focused = False }` — this item is selected but the pane is unfocused
   - `NotSelected` — this item is not selected
 
-One `view` function replaces `selected` + `default` + `withUnfocusedStyle`:
+Use `Selected _` to match any selected item regardless of focus.
 
     Layout.selectableList
         { onSelect = \commit -> SelectCommit commit
         , view = \{ selection } commit ->
             case selection of
-                Layout.Selected ->
-                    Tui.text commit.sha |> Tui.bg Ansi.Color.blue
-
-                Layout.SelectedDim ->
-                    Tui.text commit.sha |> Tui.bold
+                Layout.Selected { focused } ->
+                    Tui.text commit.sha
+                        |> (if focused then Tui.bg Ansi.Color.blue else Tui.bold)
 
                 Layout.NotSelected ->
                     Tui.text commit.sha
@@ -480,8 +537,7 @@ One `view` function replaces `selected` + `default` + `withUnfocusedStyle`:
 
 -}
 type SelectionState
-    = Selected
-    | SelectedDim
+    = Selected { focused : Bool }
     | NotSelected
 
 
@@ -492,8 +548,9 @@ that receives `SelectionState`.
         { onSelect = \item -> SelectItem item
         , view = \{ selection } item ->
             case selection of
-                Layout.Selected -> Tui.text item |> Tui.bg Ansi.Color.blue
-                Layout.SelectedDim -> Tui.text item |> Tui.bold
+                Layout.Selected { focused } ->
+                    Tui.text item
+                        |> (if focused then Tui.bg Ansi.Color.blue else Tui.bold)
                 Layout.NotSelected -> Tui.text item
         }
         items
@@ -528,8 +585,8 @@ selectableList config items =
             SelectableContent
                 { itemCount = Array.length itemArray
                 , renderItem = renderWith NotSelected
-                , renderSelected = renderWith Selected
-                , renderSelectedUnfocused = renderWith SelectedDim
+                , renderSelected = renderWith (Selected { focused = True })
+                , renderSelectedUnfocused = renderWith (Selected { focused = False })
                 , onSelect =
                     \i ->
                         Array.get i itemArray
@@ -1557,6 +1614,47 @@ setSelectedIndex paneId index (State s) =
             | paneStates =
                 Dict.insert stateKey
                     { ps | selectedIndex = max 0 index }
+                    s.paneStates
+        }
+
+
+{-| Internal: set selected index and auto-scroll to keep it visible.
+Uses the context stored in State (set via withContext / GotContext).
+The layout state's context already has the bottom-bar-adjusted height,
+so we only subtract 2 for pane borders.
+-}
+setSelectedIndexAndScroll : String -> Int -> Int -> State -> State
+setSelectedIndexAndScroll paneId index totalItems (State s) =
+    let
+        stateKey : String
+        stateKey =
+            Dict.get paneId s.activeTabMap
+                |> Maybe.withDefault paneId
+
+        ps : PaneState
+        ps =
+            Dict.get stateKey s.paneStates
+                |> Maybe.withDefault defaultPaneState
+
+        clampedIndex : Int
+        clampedIndex =
+            max 0 index
+
+        -- State context already has layout height (terminal - 1 for bottom bar)
+        -- Subtract 2 for pane top + bottom borders
+        visibleHeight : Int
+        visibleHeight =
+            s.context.height - 2
+
+        newOffset : Int
+        newOffset =
+            ensureVisible clampedIndex ps.scrollOffset visibleHeight totalItems 2
+    in
+    State
+        { s
+            | paneStates =
+                Dict.insert stateKey
+                    { ps | selectedIndex = clampedIndex, scrollOffset = newOffset }
                     s.paneStates
         }
 
@@ -4944,7 +5042,7 @@ compileInit config loadedData =
         layoutState : State
         layoutState =
             init
-                |> withContext defaultContext
+                |> withContext { width = defaultContext.width, height = max 1 (defaultContext.height - 1) }
                 |> autoFocusFirstPane layout
 
         itemCounts : Dict String Int
@@ -4986,9 +5084,9 @@ compileInit config loadedData =
                 Nothing ->
                     ( userModel, [] )
 
-        initFw : { layoutState : State, statusState : Tui.Status.State }
+        initFw : { layoutState : State, statusState : Tui.Status.State, previousItemCounts : Dict String Int }
         initFw =
-            { layoutState = layoutState, statusState = Tui.Status.init }
+            { layoutState = layoutState, statusState = Tui.Status.init, previousItemCounts = itemCounts }
 
         ( finalFwState, mappedSelectEffects ) =
             List.foldl
@@ -5111,11 +5209,20 @@ compileUpdate config fwMsg (FrameworkModel fw) =
                     , height = dims.height
                     , colorProfile = fw.context.colorProfile
                     }
+
+                -- Layout state gets height - 1 because compileApp reserves
+                -- 1 row for the bottom bar. This ensures navigateDown/Up
+                -- compute the correct visible height for auto-scroll.
+                layoutContext : { width : Int, height : Int }
+                layoutContext =
+                    { width = dims.width
+                    , height = max 1 (dims.height - 1)
+                    }
             in
             ( FrameworkModel
                 { fw
                     | context = newContext
-                    , layoutState = withContext newContext fw.layoutState
+                    , layoutState = withContext layoutContext fw.layoutState
                 }
             , Effect.none
             )
@@ -5863,11 +5970,13 @@ extractLayoutEffects :
         { a
             | layoutState : State
             , statusState : Tui.Status.State
+            , previousItemCounts : Dict String Int
         }
     ->
         ( { a
             | layoutState : State
             , statusState : Tui.Status.State
+            , previousItemCounts : Dict String Int
           }
         , Effect (FrameworkMsg msg)
         )
@@ -5904,10 +6013,18 @@ extractLayoutEffects effect fw =
             ( { fw | layoutState = scrollUp paneId amount fw.layoutState }, Effect.none )
 
         Effect.SetSelectedIndex paneId index ->
-            ( { fw | layoutState = setSelectedIndex paneId index fw.layoutState }, Effect.none )
+            let
+                totalItems =
+                    Dict.get paneId fw.previousItemCounts |> Maybe.withDefault (index + 1)
+            in
+            ( { fw | layoutState = setSelectedIndexAndScroll paneId index totalItems fw.layoutState }, Effect.none )
 
         Effect.SelectFirst paneId ->
-            ( { fw | layoutState = setSelectedIndex paneId 0 fw.layoutState }, Effect.none )
+            let
+                totalItems =
+                    Dict.get paneId fw.previousItemCounts |> Maybe.withDefault 1
+            in
+            ( { fw | layoutState = setSelectedIndexAndScroll paneId 0 totalItems fw.layoutState }, Effect.none )
 
         Effect.FocusPane paneId ->
             ( { fw | layoutState = focusPane paneId fw.layoutState }, Effect.none )

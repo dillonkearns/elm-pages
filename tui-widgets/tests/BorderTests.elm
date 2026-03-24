@@ -51,10 +51,10 @@ suite =
                             , view =
                                 \{ selection } item ->
                                     case selection of
-                                        Layout.Selected ->
+                                        Layout.Selected _ ->
                                             Tui.text ("▸ " ++ item)
 
-                                        _ ->
+                                        Layout.NotSelected ->
                                             Tui.text ("  " ++ item)
                             }
                             (List.range 1 50 |> List.map (\i -> "Item " ++ String.fromInt i))
@@ -83,10 +83,10 @@ suite =
                             , view =
                                 \{ selection } item ->
                                     case selection of
-                                        Layout.Selected ->
+                                        Layout.Selected _ ->
                                             Tui.text ("▸ " ++ item)
 
-                                        _ ->
+                                        Layout.NotSelected ->
                                             Tui.text ("  " ++ item)
                             }
                             (List.range 1 50 |> List.map (\i -> "Item " ++ String.fromInt i))

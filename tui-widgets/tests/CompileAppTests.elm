@@ -91,6 +91,49 @@ suite =
                         |> TuiTest.ensureViewHas "scroll: 0"
                         |> TuiTest.expectRunning
             ]
+        , describe "Effect.setSelectedIndex auto-scrolls"
+            [ test "setSelectedIndex scrolls pane to keep selection visible" <|
+                \() ->
+                    -- Use a short terminal so only ~5 items are visible (height 8 = 1 top + 5 content + 1 bottom + 1 bar)
+                    setSelAppTest
+                        |> TuiTest.ensureViewHas "item-A"
+                        -- item-H should be off-screen initially
+                        |> TuiTest.ensureViewDoesNotHave "item-H"
+                        -- Press 'd' which triggers Effect.setSelectedIndex "items" 7 (item-H)
+                        |> TuiTest.pressKey 'd'
+                        -- After setSelectedIndex, the pane should have scrolled to show item-H
+                        |> TuiTest.ensureViewHas "item-H"
+                        |> TuiTest.expectRunning
+            , test "setSelectedIndex to middle item scrolls correctly with many items below" <|
+                \() ->
+                    -- 'e' triggers Effect.setSelectedIndex "items" 5 (item-F, index 5)
+                    -- With 5 visible rows (height 8), items A-E are visible (indices 0-4)
+                    -- Index 5 is below fold, pane should scroll to show it
+                    setSelAppTest
+                        |> TuiTest.ensureViewHas "item-A"
+                        |> TuiTest.ensureViewDoesNotHave "item-F"
+                        |> TuiTest.pressKey 'e'
+                        |> TuiTest.ensureViewHas "item-F"
+                        |> TuiTest.expectRunning
+            ]
+        , describe "j/k keeps selection visible at bottom of long list"
+            [ test "navigating to last item with j keeps it visible" <|
+                \() ->
+                    -- setSelAppTest has 8 items, height 8 = 5 visible content rows
+                    -- Press j 7 times to reach the last item (item-H, index 7)
+                    setSelAppTest
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        -- After 7 j presses, selection is at index 7 (item-H)
+                        -- The pane must have scrolled so item-H is visible
+                        |> TuiTest.ensureViewHas "item-H"
+                        |> TuiTest.expectRunning
+            ]
         , describe "withOnScroll"
             [ test "scroll callback fires when mouse wheel scrolls a pane" <|
                 \() ->
@@ -250,11 +293,9 @@ helpView _ model =
                 , view =
                     \{ selection } item ->
                         case selection of
-                            Layout.Selected ->
-                                Tui.text ("▸ " ++ item) |> Tui.bg Ansi.Color.blue
-
-                            Layout.SelectedDim ->
-                                Tui.text ("▸ " ++ item) |> Tui.bold
+                            Layout.Selected { focused } ->
+                                Tui.text ("▸ " ++ item)
+                                    |> (if focused then Tui.bg Ansi.Color.blue else Tui.bold)
 
                             Layout.NotSelected ->
                                 Tui.text ("  " ++ item)
@@ -443,10 +484,7 @@ linkSelView _ model =
                         let
                             prefix =
                                 case selection of
-                                    Layout.Selected ->
-                                        "▸ "
-
-                                    Layout.SelectedDim ->
+                                    Layout.Selected _ ->
                                         "▸ "
 
                                     Layout.NotSelected ->
@@ -581,3 +619,100 @@ scrollAppConfig =
 scrollAppTest : TuiTest.TuiTest (Layout.FrameworkModel ScrollModel ScrollMsg) (Layout.FrameworkMsg ScrollMsg)
 scrollAppTest =
     TuiTest.startApp () scrollAppConfig
+
+
+
+-- SetSelectedIndex auto-scroll test app
+
+
+type alias SetSelModel =
+    { selected : String
+    }
+
+
+type SetSelMsg
+    = SetSelSelect String
+    | JumpToLast
+    | JumpToMiddle
+
+
+setSelItems : List String
+setSelItems =
+    [ "item-A", "item-B", "item-C", "item-D", "item-E", "item-F", "item-G", "item-H" ]
+
+
+setSelInit : () -> ( SetSelModel, Effect SetSelMsg )
+setSelInit () =
+    ( { selected = "" }, Effect.none )
+
+
+setSelUpdate : Layout.UpdateContext -> SetSelMsg -> SetSelModel -> ( SetSelModel, Effect SetSelMsg )
+setSelUpdate _ msg model =
+    case msg of
+        SetSelSelect item ->
+            ( { model | selected = item }, Effect.none )
+
+        JumpToLast ->
+            -- Jump to last item (index 7 = "item-H")
+            ( model, Effect.setSelectedIndex "items" 7 )
+
+        JumpToMiddle ->
+            -- Jump to index 5 = "item-F"
+            ( model, Effect.setSelectedIndex "items" 5 )
+
+
+setSelView : Tui.Context -> SetSelModel -> Layout.Layout SetSelMsg
+setSelView _ model =
+    Layout.horizontal
+        [ Layout.pane "items"
+            { title = "Items", width = Layout.fill }
+            (Layout.selectableList
+                { onSelect = SetSelSelect
+                , view =
+                    \{ selection } item ->
+                        case selection of
+                            Layout.Selected _ ->
+                                Tui.text ("▸ " ++ item)
+
+                            Layout.NotSelected ->
+                                Tui.text ("  " ++ item)
+                }
+                setSelItems
+            )
+        ]
+
+
+setSelBindings : { focusedPane : Maybe String } -> SetSelModel -> List (Layout.Group SetSelMsg)
+setSelBindings _ _ =
+    [ Layout.group ""
+        [ Layout.charBinding 'd' "Jump to last" JumpToLast
+        , Layout.charBinding 'e' "Jump to middle" JumpToMiddle
+        ]
+    ]
+
+
+setSelStatus : SetSelModel -> { waiting : Maybe String }
+setSelStatus _ =
+    { waiting = Nothing }
+
+
+setSelModal : SetSelModel -> Maybe (Layout.Modal SetSelMsg)
+setSelModal _ =
+    Nothing
+
+
+setSelAppConfig =
+    Layout.compileApp
+        { init = setSelInit
+        , update = setSelUpdate
+        , view = setSelView
+        , bindings = setSelBindings
+        , status = setSelStatus
+        , modal = setSelModal
+        , onRawEvent = Nothing
+        }
+
+
+setSelAppTest : TuiTest.TuiTest (Layout.FrameworkModel SetSelModel SetSelMsg) (Layout.FrameworkMsg SetSelMsg)
+setSelAppTest =
+    TuiTest.startAppWithContext { width = 40, height = 8, colorProfile = Tui.TrueColor } () setSelAppConfig
