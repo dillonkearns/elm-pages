@@ -173,10 +173,10 @@ greetWithQueryParamTest =
 
 
 {-| DarkMode uses sessions with hardcoded secret "test".
-Verifies the page loads and shows the form.
-TODO: Form submission with hidden fields not yet supported --
-hidden field values aren't tracked in pageFormState since no
-user interaction fires an input event for them.
+Verifies the page loads and renders correctly.
+TODO: Full toggle test requires Form.extractSubmitMsg helper in
+elm-form package to handle hidden field submission without going
+through the Cmd deferral in Form.update.
 -}
 darkModeToggleTest : TestApp.ProgramTest
 darkModeToggleTest =

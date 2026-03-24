@@ -429,13 +429,10 @@ startPlatform config initialPath testSetup =
                         ( newPlatformModel, effectFromUpdate ) =
                             platformUpdateClean config msg wrappedModel.platformModel
 
-                        effect =
-                            effectFromUpdate
-
                         ( processedWrapped, _ ) =
                             processEffectsWrapped config baseUrl
                                 { wrappedModel | platformModel = newPlatformModel }
-                                effect
+                                effectFromUpdate
                                 100
                     in
                     ( processedWrapped, [] )
