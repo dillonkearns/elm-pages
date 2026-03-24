@@ -100,6 +100,15 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function waitForProcessDeath(pid, timeoutMs) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (!isProcessAlive(pid)) return true;
+    await delay(50);
+  }
+  return !isProcessAlive(pid);
+}
+
 describe("Child process cleanup on exit", () => {
   const pidsToCleanup = [];
 
@@ -123,11 +132,9 @@ describe("Child process cleanup on exit", () => {
     const { childPid, exitCode } = await runFixture("--mode=exitcode-cleanup");
     pidsToCleanup.push(childPid);
 
-    // Give the child a moment to receive SIGTERM and die
-    await delay(100);
-
     expect(exitCode).toBe(0);
-    expect(isProcessAlive(childPid)).toBe(false);
+    const died = await waitForProcessDeath(childPid, 5000);
+    expect(died).toBe(true);
   });
 
   it("SIGTERM handler kills children before exiting", async () => {
@@ -139,10 +146,8 @@ describe("Child process cleanup on exit", () => {
     proc.kill("SIGTERM");
     await waitForExit(proc);
 
-    // Give the child a moment to receive SIGTERM and die
-    await delay(500);
-
-    expect(isProcessAlive(childPid)).toBe(false);
+    const died = await waitForProcessDeath(childPid, 5000);
+    expect(died).toBe(true);
   });
 
   it("already-exited children don't cause errors during cleanup", async () => {
