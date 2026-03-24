@@ -1,6 +1,6 @@
 module Tui.Test exposing
     ( TuiTest
-    , start, startWithContext
+    , start, startWithContext, startApp, startAppWithContext
     , pressKey, pressKeyWith, paste, resize
     , click, clickText, scrollDown, scrollUp
     , sendMsg
@@ -46,7 +46,7 @@ Pass the same config you'd give to [`Script.tui`](Pages-Script#tui), but with
 [`Tui.Sub.onContext`](Tui-Sub#onContext), the initial context is fired
 automatically.
 
-@docs start, startWithContext
+@docs start, startWithContext, startApp, startAppWithContext
 
 
 ## Simulating Events
@@ -246,6 +246,70 @@ startWithContext context config =
 
 
 
+{-| Start a test from a compiled `Layout.compileApp` output. Eliminates the
+boilerplate of extracting `init`/`update`/`view`/`subscriptions` fields.
+
+    TuiTest.startApp ()
+        (Layout.compileApp
+            { init = init
+            , update = update
+            , view = view
+            , bindings = bindings
+            , status = status
+            , modal = modal
+            , onRawEvent = Nothing
+            }
+        )
+
+-}
+startApp :
+    data
+    ->
+        { init : data -> ( model, Effect msg )
+        , update : msg -> model -> ( model, Effect msg )
+        , view : Context -> model -> Screen
+        , subscriptions : model -> Sub msg
+        }
+    -> TuiTest model msg
+startApp data compiled =
+    start
+        { data = data
+        , init = compiled.init
+        , update = compiled.update
+        , view = compiled.view
+        , subscriptions = compiled.subscriptions
+        }
+
+
+{-| Like [`startApp`](#startApp) but with a custom terminal context.
+
+    TuiTest.startAppWithContext
+        { width = 120, height = 40, colorProfile = Tui.TrueColor }
+        ()
+        compiledApp
+
+-}
+startAppWithContext :
+    Context
+    -> data
+    ->
+        { init : data -> ( model, Effect msg )
+        , update : msg -> model -> ( model, Effect msg )
+        , view : Context -> model -> Screen
+        , subscriptions : model -> Sub msg
+        }
+    -> TuiTest model msg
+startAppWithContext context data compiled =
+    startWithContext context
+        { data = data
+        , init = compiled.init
+        , update = compiled.update
+        , view = compiled.view
+        , subscriptions = compiled.subscriptions
+        }
+
+
+
 -- SIMULATING EVENTS
 
 
@@ -421,19 +485,26 @@ clickText needle (TuiTest state) =
                 screenLines =
                     Tui.toLines (state.view state.context state.model)
 
-                maybeRow : Maybe Int
-                maybeRow =
+                maybeMatch : Maybe { row : Int, col : Int }
+                maybeMatch =
                     screenLines
                         |> List.indexedMap Tuple.pair
-                        |> List.filter (\( _, line ) -> String.contains needle line)
+                        |> List.filterMap
+                            (\( idx, line ) ->
+                                case String.indexes needle line of
+                                    first :: _ ->
+                                        Just { row = idx, col = first }
+
+                                    [] ->
+                                        Nothing
+                            )
                         |> List.head
-                        |> Maybe.map Tuple.first
             in
-            case maybeRow of
-                Just row ->
+            case maybeMatch of
+                Just match ->
                     simulateMouseEvent
                         ("clickText \"" ++ needle ++ "\"")
-                        (Tui.Click { row = row, col = 1, button = Tui.LeftButton })
+                        (Tui.Click { row = match.row, col = match.col, button = Tui.LeftButton })
                         (TuiTest state)
 
                 Nothing ->
@@ -889,6 +960,33 @@ extractBackendTasks effect =
             []
 
         Effect.ExitWithCode _ ->
+            []
+
+        Effect.Toast _ ->
+            []
+
+        Effect.ErrorToast _ ->
+            []
+
+        Effect.ResetScroll _ ->
+            []
+
+        Effect.ScrollTo _ _ ->
+            []
+
+        Effect.ScrollDown _ _ ->
+            []
+
+        Effect.ScrollUp _ _ ->
+            []
+
+        Effect.SetSelectedIndex _ _ ->
+            []
+
+        Effect.SelectFirst _ ->
+            []
+
+        Effect.FocusPane _ ->
             []
 
 
