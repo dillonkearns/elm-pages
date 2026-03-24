@@ -1,6 +1,9 @@
 module Tui.Layout exposing
     ( Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
-    , PaneContent, content, selectableList, withUnfocusedStyle, withFilterable, withSearchable, withTreeView
+    , PaneContent, content, selectableList, indexSelectableList, withUnfocusedStyle, withFilterable, withSearchable, withTreeView
+    , SelectionState(..)
+    , Modal, promptModal, confirmModal, pickerModal, menuModal, helpModal
+    , Group, Binding, group, binding, charBinding
     , Width, fill, fillPortion, fixed
     , State, init, withContext
     , navigateDown, navigateUp, pageDown, pageUp, selectedIndex, selectedItem, setSelectedIndex, itemCount, scrollPosition, scrollInfo, resetScroll, scrollDown, scrollUp, contextOf
@@ -9,12 +12,15 @@ module Tui.Layout exposing
     , setSearching
     , handleKeyEvent
     , toggleMaximize, isMaximized
-    , withPrefix, withFooter, withTitleScreen, withFooterScreen, withInlineFooter
+    , withPrefix, withFooter, withTitleScreen, withFooterScreen, withInlineFooter, withOnScroll, withOnLinkClick
     , handleMouse
     , toScreen, toRows
     , navigationHelpRows
     , isFilterActive, filterStatusBar, activeFilterStatusBar
     , isSearchActive, searchStatusBar
+    , compileApp, FrameworkModel, FrameworkMsg
+    , RawEvent(..), ScrollDirection(..)
+    , UpdateContext
     )
 
 {-| Split-pane layout with opaque state, selectable lists, and mouse dispatch.
@@ -35,9 +41,12 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
             [ Layout.pane "commits"
                 { title = "Commits", width = Layout.fill }
                 (Layout.selectableList
-                    { onSelect = SelectCommit
-                    , selected = \c -> Tui.text ("▸ " ++ c.sha)
-                    , default = \c -> Tui.text ("  " ++ c.sha)
+                    { onSelect = \c -> SelectCommit c
+                    , view = \{ selection } c ->
+                        case selection of
+                            Layout.Selected -> Tui.text ("▸ " ++ c.sha) |> Tui.bold
+                            Layout.SelectedDim -> Tui.text ("▸ " ++ c.sha)
+                            Layout.NotSelected -> Tui.text ("  " ++ c.sha)
                     }
                     model.commits
                 )
@@ -46,7 +55,11 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 
 @docs Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
 
-@docs PaneContent, content, selectableList, withUnfocusedStyle, withFilterable, withSearchable, withTreeView
+@docs PaneContent, content, selectableList, SelectionState, indexSelectableList, withUnfocusedStyle, withFilterable, withSearchable, withTreeView
+
+@docs Modal, promptModal, confirmModal, pickerModal, menuModal, helpModal
+
+@docs Group, Binding, group, binding, charBinding
 
 @docs Width, fill, fillPortion, fixed
 
@@ -61,7 +74,7 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 @docs handleKeyEvent
 @docs toggleMaximize, isMaximized
 
-@docs withPrefix, withFooter, withTitleScreen, withFooterScreen, withInlineFooter
+@docs withPrefix, withFooter, withTitleScreen, withFooterScreen, withInlineFooter, withOnScroll, withOnLinkClick
 
 @docs handleMouse
 
@@ -72,16 +85,31 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
 @docs isFilterActive, filterStatusBar, activeFilterStatusBar
 @docs isSearchActive, searchStatusBar
 
+@docs compileApp, FrameworkModel, FrameworkMsg
+
+@docs RawEvent, ScrollDirection
+
+@docs UpdateContext
+
 -}
 
 import Ansi.Color
 import Array
+import BackendTask
 import Char
 import Dict exposing (Dict)
+import FatalError
 import Set exposing (Set)
 import Tui exposing (Attribute(..), MouseEvent, Screen, plain)
+import Tui.Effect as Effect exposing (Effect)
 import Tui.Keybinding
+import Tui.Menu
+import Tui.Modal
+import Tui.OptionsBar
+import Tui.Prompt
 import Tui.Screen.Internal as ScreenInternal
+import Tui.Status
+import Tui.Sub
 
 
 {-| A layout of panes.
@@ -103,6 +131,8 @@ type alias PaneConfig msg =
     , inlineFooter : Maybe Screen
     , tabMapping : Maybe { activeTab : String, tabIds : List String }
     , tabClickHandler : Maybe { onTabClick : String -> msg, tabLabels : List { id : String, label : String } }
+    , onScroll : Maybe (Int -> msg)
+    , onLinkClick : Maybe (String -> msg)
     }
 
 
@@ -301,6 +331,8 @@ paneGroup groupId config =
                         , tabLabels = List.map (\tab -> { id = tab.id, label = tab.label }) config.tabs
                         }
                     )
+        , onScroll = Nothing
+        , onLinkClick = Nothing
         }
 
 
@@ -325,6 +357,8 @@ pane id config paneContent =
         , inlineFooter = Nothing
         , tabMapping = Nothing
         , tabClickHandler = Nothing
+        , onScroll = Nothing
+        , onLinkClick = Nothing
         }
 
 
@@ -335,25 +369,25 @@ content lines =
     StaticContent { lines = Array.fromList lines, lineCount = List.length lines, searchable = False }
 
 
-{-| A selectable list. The framework tracks which item is selected and renders
-the appropriate variant. Handles click-to-select and keyboard navigation.
+{-| Index-based selectable list. Prefer [`selectableList`](#selectableList) for
+new code — the item-based `onSelect` eliminates index-mapping bugs.
 
-    Layout.selectableList
-        { onSelect = SelectCommit
+    Layout.indexSelectableList
+        { onSelect = SelectCommitIndex
         , selected = \commit -> Tui.styled selectedStyle commit.sha
         , default = \commit -> Tui.text commit.sha
         }
         model.commits
 
 -}
-selectableList :
+indexSelectableList :
     { onSelect : Int -> msg
     , selected : item -> Screen
     , default : item -> Screen
     }
     -> List item
     -> PaneContent msg
-selectableList config items =
+indexSelectableList config items =
     let
         itemArray : Array.Array item
         itemArray =
@@ -419,6 +453,286 @@ withUnfocusedStyle renderUnfocused items paneContent =
 
         StaticContent _ ->
             paneContent
+
+
+{-| The selection state of an item in a selectable list.
+
+  - `Selected` — this item is selected AND the pane is focused
+  - `SelectedDim` — this item is selected but the pane is unfocused
+  - `NotSelected` — this item is not selected
+
+One `view` function replaces `selected` + `default` + `withUnfocusedStyle`:
+
+    Layout.selectableList
+        { onSelect = \commit -> SelectCommit commit
+        , view = \{ selection } commit ->
+            case selection of
+                Layout.Selected ->
+                    Tui.text commit.sha |> Tui.bg Ansi.Color.blue
+
+                Layout.SelectedDim ->
+                    Tui.text commit.sha |> Tui.bold
+
+                Layout.NotSelected ->
+                    Tui.text commit.sha
+        }
+        model.commits
+
+-}
+type SelectionState
+    = Selected
+    | SelectedDim
+    | NotSelected
+
+
+{-| A selectable list with item-based `onSelect` and a unified view function
+that receives `SelectionState`.
+
+    Layout.selectableList
+        { onSelect = \item -> SelectItem item
+        , view = \{ selection } item ->
+            case selection of
+                Layout.Selected -> Tui.text item |> Tui.bg Ansi.Color.blue
+                Layout.SelectedDim -> Tui.text item |> Tui.bold
+                Layout.NotSelected -> Tui.text item
+        }
+        items
+
+For an index-based variant, see [`indexSelectableList`](#indexSelectableList).
+
+-}
+selectableList :
+    { onSelect : item -> msg
+    , view : { selection : SelectionState } -> item -> Screen
+    }
+    -> List item
+    -> PaneContent msg
+selectableList config items =
+    case items of
+        [] ->
+            -- Empty list: no selection behavior, no onSelect to fire
+            StaticContent { lines = Array.empty, lineCount = 0, searchable = False }
+
+        first :: _ ->
+            let
+                itemArray : Array.Array item
+                itemArray =
+                    Array.fromList items
+
+                renderWith : SelectionState -> Int -> Screen
+                renderWith selState i =
+                    Array.get i itemArray
+                        |> Maybe.map (config.view { selection = selState })
+                        |> Maybe.withDefault Tui.empty
+            in
+            SelectableContent
+                { itemCount = Array.length itemArray
+                , renderItem = renderWith NotSelected
+                , renderSelected = renderWith Selected
+                , renderSelectedUnfocused = renderWith SelectedDim
+                , onSelect =
+                    \i ->
+                        Array.get i itemArray
+                            |> Maybe.withDefault first
+                            |> config.onSelect
+                , filterText = Nothing
+                , treeConfig = Nothing
+                }
+
+
+
+-- MODAL
+
+
+{-| A modal dialog configuration. The framework manages the internal interaction
+state (input text, cursor, picker filter, menu highlight). You just describe
+the modal and receive semantic messages.
+
+    modal : Model -> Maybe (Layout.Modal Msg)
+    modal model =
+        case model.modal of
+            Just CommitDialog ->
+                Just
+                    (Layout.promptModal
+                        { title = "Commit Message"
+                        , initialValue = ""
+                        , onSubmit = SubmitCommit
+                        , onCancel = CloseModal
+                        }
+                    )
+
+            Nothing ->
+                Nothing
+
+-}
+type Modal msg
+    = PromptModal
+        { title : String
+        , initialValue : String
+        , onSubmit : String -> msg
+        , onCancel : msg
+        }
+    | ConfirmModal
+        { title : String
+        , message : String
+        , onConfirm : msg
+        , onCancel : msg
+        }
+    | PickerModal
+        { labels : List String
+        , title : String
+        , onSelectIndex : Int -> msg
+        , onCancel : msg
+        }
+    | MenuModal (List (Tui.Menu.Section msg))
+    | HelpModal msg
+
+
+{-| A text input modal. The framework manages the input state (cursor,
+typing). You receive the final value on submit.
+
+    Layout.promptModal
+        { title = "Commit Message"
+        , initialValue = ""
+        , onSubmit = SubmitCommit
+        , onCancel = CloseModal
+        }
+
+-}
+promptModal : { title : String, initialValue : String, onSubmit : String -> msg, onCancel : msg } -> Modal msg
+promptModal =
+    PromptModal
+
+
+{-| A yes/no confirmation dialog. The framework handles Enter/Escape routing.
+
+    Layout.confirmModal
+        { title = "Reset changes?"
+        , message = "This will discard all uncommitted changes."
+        , onConfirm = ResetChanges
+        , onCancel = CloseModal
+        }
+
+-}
+confirmModal : { title : String, message : String, onConfirm : msg, onCancel : msg } -> Modal msg
+confirmModal =
+    ConfirmModal
+
+
+{-| A picker modal with filter/fuzzy match. The framework manages filter
+state, selection, and scrolling. Items can be any type.
+
+    Layout.pickerModal
+        { items = allPackageNames
+        , toString = identity
+        , title = "Browse Package"
+        , onSelect = \pkg -> BrowsePackage pkg
+        , onCancel = CloseModal
+        }
+
+-}
+pickerModal : { items : List item, toString : item -> String, title : String, onSelect : item -> msg, onCancel : msg } -> Modal msg
+pickerModal config =
+    let
+        itemArray : Array.Array item
+        itemArray =
+            Array.fromList config.items
+    in
+    PickerModal
+        { labels = List.map config.toString config.items
+        , title = config.title
+        , onSelectIndex =
+            \i ->
+                Array.get i itemArray
+                    |> Maybe.map config.onSelect
+                    |> Maybe.withDefault config.onCancel
+        , onCancel = config.onCancel
+        }
+
+
+{-| A menu modal with sections and direct key dispatch (like lazygit's
+context menu). The framework manages j/k highlight and Enter confirm.
+
+    Layout.menuModal
+        [ Menu.section "Files"
+            [ Menu.item { key = Tui.Character 's', label = "Stage", action = StageFile }
+            ]
+        ]
+
+-}
+menuModal : List (Tui.Menu.Section msg) -> Modal msg
+menuModal =
+    MenuModal
+
+
+{-| A help modal auto-generated from the app's bindings. Shows all keybindings
+with searchable filtering.
+
+    Layout.helpModal CloseModal
+
+The `onClose` message fires when the user presses Escape.
+
+-}
+helpModal : msg -> Modal msg
+helpModal onClose =
+    HelpModal onClose
+
+
+
+-- BINDING HELPERS
+
+
+{-| A group of keybindings with a section name. Re-exported from
+[`Tui.Keybinding.Group`](Tui-Keybinding#Group) for convenience.
+-}
+type alias Group msg =
+    Tui.Keybinding.Group msg
+
+
+{-| A single keybinding. Re-exported from
+[`Tui.Keybinding.Binding`](Tui-Keybinding#Binding) for convenience.
+-}
+type alias Binding msg =
+    Tui.Keybinding.Binding msg
+
+
+{-| Create a named group of bindings.
+
+    Layout.group "Actions"
+        [ Layout.charBinding 'c' "Commit" OpenCommitDialog
+        , Layout.binding Tui.Enter "Confirm" Confirm
+        ]
+
+-}
+group : String -> List (Binding msg) -> Group msg
+group =
+    Tui.Keybinding.group
+
+
+{-| Create a binding with any [`Tui.Key`](Tui#Key).
+
+    Layout.binding (Tui.Character 'c') "Commit" OpenCommitDialog
+    Layout.binding Tui.Enter "Confirm" Confirm
+    Layout.binding (Tui.FunctionKey 5) "Refresh" Refresh
+
+For a shorthand that takes a `Char`, see [`charBinding`](#charBinding).
+
+-}
+binding : Tui.Key -> String -> msg -> Binding msg
+binding =
+    Tui.Keybinding.binding
+
+
+{-| Create a binding with a single character key (no modifiers).
+Shorthand for `binding (Tui.Character c) desc action`.
+
+    Layout.charBinding 'c' "Commit" OpenCommitDialog
+    Layout.charBinding 'q' "Quit" Quit
+
+-}
+charBinding : Char -> String -> msg -> Binding msg
+charBinding char desc action =
+    Tui.Keybinding.binding (Tui.Character char) desc action
 
 
 {-| Make static content searchable. When the pane is focused, pressing `/`
@@ -1047,6 +1361,21 @@ getOnSelectForPane paneId layout =
                     StaticContent _ ->
                         Nothing
             )
+
+
+isContentPaneId : String -> Layout msg -> Bool
+isContentPaneId paneId layout =
+    findPane paneId layout
+        |> Maybe.map
+            (\p ->
+                case p.paneContent of
+                    StaticContent _ ->
+                        True
+
+                    SelectableContent _ ->
+                        False
+            )
+        |> Maybe.withDefault False
 
 
 {-| Get item count for a specific pane from a Layout.
@@ -2103,6 +2432,41 @@ withInlineFooter screen (PaneConstructor config) =
     PaneConstructor { config | inlineFooter = Just screen }
 
 
+{-| Set a scroll callback for a pane. The framework fires this message
+with the new scroll position whenever the pane's scroll offset changes
+(via keyboard navigation, mouse scroll, or effects).
+
+Use this for scroll-spy: sync another pane's selection to the visible
+heading based on scroll position.
+
+    Layout.pane "docs"
+        { title = "Documentation", width = Layout.fill }
+        (Layout.content cachedLines |> Layout.withSearchable)
+        |> Layout.withOnScroll DocsPaneScrolled
+
+-}
+withOnScroll : (Int -> msg) -> Pane msg -> Pane msg
+withOnScroll callback (PaneConstructor config) =
+    PaneConstructor { config | onScroll = Just callback }
+
+
+{-| Receive a message when the user clicks on a hyperlink within this pane.
+The callback receives the URL string from the `Tui.link { url }` that wraps the
+clicked text. When a pane has both `withOnLinkClick` and `selectableList`,
+link clicks take priority — clicking a hyperlink fires `onLinkClick`, clicking
+non-link text fires `onSelect`.
+
+    Layout.pane "docs"
+        { title = "Documentation", width = Layout.fill }
+        (Layout.content cachedLines |> Layout.withSearchable)
+        |> Layout.withOnLinkClick (\url -> NavigateToLink url)
+
+-}
+withOnLinkClick : (String -> msg) -> Pane msg -> Pane msg
+withOnLinkClick callback (PaneConstructor config) =
+    PaneConstructor { config | onLinkClick = Just callback }
+
+
 {-| Get the context stored in the state. Useful for passing to `handleMouse`
 when `update` doesn't receive `Context` directly.
 -}
@@ -2843,6 +3207,28 @@ splitSpansAt n spans =
                     )
 
 
+{-| Resolve the hyperlink URL at a given column within a single-line Screen.
+Returns `Just url` if the character at `targetCol` has a hyperlink, `Nothing` otherwise.
+-}
+resolveHyperlinkAt : Int -> Screen -> Maybe String
+resolveHyperlinkAt targetCol screen =
+    case ScreenInternal.flattenToSpanLines styleToFlatStyle screen of
+        [ spans ] ->
+            let
+                ( _, right ) =
+                    splitSpansAt targetCol spans
+            in
+            case right of
+                span :: _ ->
+                    span.style.hyperlink
+
+                [] ->
+                    Nothing
+
+        _ ->
+            Nothing
+
+
 {-| Convert FlatStyle spans back to a Screen.
 -}
 spansToScreen : List ScreenInternal.Span -> Screen
@@ -3468,50 +3854,75 @@ handleMouseInternal mouseEvent ctx panes (State s) =
 
                     else
                         -- Content area click
-                        case config.paneContent of
-                            SelectableContent { onSelect } ->
-                                let
-                                    clickStateKey : String
-                                    clickStateKey =
-                                        config.tabMapping
-                                            |> Maybe.map .activeTab
-                                            |> Maybe.withDefault config.id
+                        let
+                            clickStateKey : String
+                            clickStateKey =
+                                config.tabMapping
+                                    |> Maybe.map .activeTab
+                                    |> Maybe.withDefault config.id
 
-                                    contentRow : Int
-                                    contentRow =
-                                        row - 1
+                            contentRow : Int
+                            contentRow =
+                                row - 1
 
-                                    ps : PaneState
-                                    ps =
-                                        Dict.get clickStateKey sWithCtx.paneStates
-                                            |> Maybe.withDefault defaultPaneState
+                            ps : PaneState
+                            ps =
+                                Dict.get clickStateKey sWithCtx.paneStates
+                                    |> Maybe.withDefault defaultPaneState
 
-                                    clickedIndex : Int
-                                    clickedIndex =
-                                        contentRow + ps.scrollOffset
+                            scrolledRow : Int
+                            scrolledRow =
+                                contentRow + ps.scrollOffset
 
-                                    -- Map through filtered indices to get original index
-                                    clickFilterState : Maybe FilterState
-                                    clickFilterState =
-                                        Dict.get clickStateKey sWithCtx.filterStates
+                            localCol : Int
+                            localCol =
+                                col - startCol - 1
 
-                                    originalIndex : Int
-                                    originalIndex =
-                                        mapFilteredIndex clickedIndex clickFilterState
-                                in
-                                ( State
-                                    { sWithCtx
-                                        | paneStates =
-                                            Dict.insert clickStateKey
-                                                { ps | selectedIndex = clickedIndex }
-                                                sWithCtx.paneStates
-                                        , focusedPaneId = Just config.id
-                                    }
-                                , Just (onSelect originalIndex)
+                            -- Try to resolve a hyperlink at the click position
+                            maybeLinkUrl : Maybe String
+                            maybeLinkUrl =
+                                case config.onLinkClick of
+                                    Just _ ->
+                                        getContentLine True config ps Nothing Nothing Nothing contentRow
+                                            |> resolveHyperlinkAt localCol
+
+                                    Nothing ->
+                                        Nothing
+                        in
+                        case ( maybeLinkUrl, config.onLinkClick ) of
+                            ( Just url, Just linkCallback ) ->
+                                -- Link click takes priority
+                                ( State { sWithCtx | focusedPaneId = Just config.id }
+                                , Just (linkCallback url)
                                 )
 
-                            StaticContent _ ->
-                                ( State { sWithCtx | focusedPaneId = Just config.id }, Nothing )
+                            _ ->
+                                -- Fall through to normal click behavior
+                                case config.paneContent of
+                                    SelectableContent { onSelect } ->
+                                        let
+                                            -- Map through filtered indices to get original index
+                                            clickFilterState : Maybe FilterState
+                                            clickFilterState =
+                                                Dict.get clickStateKey sWithCtx.filterStates
+
+                                            originalIndex : Int
+                                            originalIndex =
+                                                mapFilteredIndex scrolledRow clickFilterState
+                                        in
+                                        ( State
+                                            { sWithCtx
+                                                | paneStates =
+                                                    Dict.insert clickStateKey
+                                                        { ps | selectedIndex = scrolledRow }
+                                                        sWithCtx.paneStates
+                                                , focusedPaneId = Just config.id
+                                            }
+                                        , Just (onSelect originalIndex)
+                                        )
+
+                                    StaticContent _ ->
+                                        ( State { sWithCtx | focusedPaneId = Just config.id }, Nothing )
 
                 Nothing ->
                     ( State sWithCtx, Nothing )
@@ -3778,9 +4189,18 @@ toRowsHorizontal s panes =
                                     padding : Int
                                     padding =
                                         max 0 (innerW - footerWidth)
+
+                                    gap : Screen
+                                    gap =
+                                        if isFirstPane then
+                                            Tui.empty
+
+                                        else
+                                            Tui.text " "
                                 in
                                 Tui.concat
-                                    [ Tui.styled borderStyle "│"
+                                    [ gap
+                                    , Tui.styled borderStyle "│"
                                     , Tui.truncateWidth innerW footerScreen
                                     , Tui.text (String.repeat padding " ")
                                     , Tui.styled borderStyle "│"
@@ -4359,6 +4779,1585 @@ resolveWidths totalWidth widthSpecs =
                         else
                             0
             )
+
+
+-- RAW EVENT
+
+
+{-| A raw terminal event that wasn't consumed by the framework's built-in
+handling. Use `onRawEvent` in `compileApp` to receive these.
+
+  - `UnhandledKey` — a key press that didn't match any built-in nav key,
+    Layout filter/search key, or user binding.
+  - `Click` — a mouse click that wasn't consumed by pane selection or tab
+    clicks. Useful for clickable content (hyperlinks, buttons).
+  - `Scroll` — a mouse scroll event. The framework handles scroll for pane
+    content, but passes through any scroll that wasn't consumed.
+
+-}
+type RawEvent
+    = UnhandledKey Tui.KeyEvent
+    | Click { row : Int, col : Int, button : Tui.MouseButton }
+    | Scroll { row : Int, col : Int, direction : ScrollDirection }
+
+
+{-| Scroll direction for raw scroll events.
+-}
+type ScrollDirection
+    = ScrollingUp
+    | ScrollingDown
+
+
+
+{-| Context passed to the `update` function in `compileApp`. Provides
+read-only access to framework-managed layout state.
+
+  - `context` — terminal width, height, and color profile
+  - `focusedPane` — the ID of the currently focused pane, if any
+  - `scrollPosition` — get the scroll offset of a pane by ID
+  - `selectedIndex` — get the selected index of a pane by ID
+
+-}
+type alias UpdateContext =
+    { context : Tui.Context
+    , focusedPane : Maybe String
+    , scrollPosition : String -> Int
+    , selectedIndex : String -> Int
+    }
+
+
+
+-- COMPILE APP
+
+
+{-| Opaque wrapper around the user's model. Holds all framework-managed state
+(Layout.State, toast queue, spinner tick, modal interaction state, etc.).
+-}
+type FrameworkModel model msg
+    = FrameworkModel
+        { userModel : model
+        , layoutState : State
+        , statusState : Tui.Status.State
+        , spinnerTick : Int
+        , context : Tui.Context
+        , modalState : ModalInteractionState msg
+        , previousItemCounts : Dict String Int
+        }
+
+
+{-| Opaque message type wrapping user messages and framework-internal events.
+-}
+type FrameworkMsg msg
+    = UserMsg msg
+    | KeyPressed Tui.KeyEvent
+    | Mouse Tui.MouseEvent
+    | GotPaste String
+    | GotContext { width : Int, height : Int }
+    | StatusTick
+
+
+{-| Internal state for modal interaction (typing, cursor, picker filter, etc.).
+-}
+type ModalInteractionState msg
+    = NoModal
+    | PromptInteraction Tui.Prompt.State
+    | PickerInteraction
+        { filterText : String
+        , selectedIndex : Int
+        , labels : List String
+        , filteredIndices : List Int
+        }
+    | MenuInteraction (Tui.Menu.State msg)
+    | HelpInteraction
+        { filterText : String
+        , scrollOffset : Int
+        }
+    | ConfirmInteraction
+
+
+{-| Transform a declarative TUI app configuration into a standard TEA
+`{ init, update, view, subscriptions }` that the TUI runtime can execute.
+
+The user describes WHAT (panes, actions, status, modals) and `compileApp`
+handles HOW (rendering, key routing, subscriptions, state management).
+
+    compiled =
+        Layout.compileApp
+            { init = init
+            , update = update
+            , view = view
+            , bindings = bindings
+            , status = status
+            , modal = modal
+            , onRawEvent = Nothing
+            }
+
+-}
+compileApp :
+    { init : data -> ( model, Effect msg )
+    , update : UpdateContext -> msg -> model -> ( model, Effect msg )
+    , view : Tui.Context -> model -> Layout msg
+    , bindings : { focusedPane : Maybe String } -> model -> List (Group msg)
+    , status : model -> { waiting : Maybe String }
+    , modal : model -> Maybe (Modal msg)
+    , onRawEvent : Maybe (RawEvent -> msg)
+    }
+    ->
+        { init : data -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
+        , update : FrameworkMsg msg -> FrameworkModel model msg -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
+        , view : Tui.Context -> FrameworkModel model msg -> Screen
+        , subscriptions : FrameworkModel model msg -> Tui.Sub.Sub (FrameworkMsg msg)
+        }
+compileApp config =
+    { init = compileInit config
+    , update = compileUpdate config
+    , view = compileView config
+    , subscriptions = compileSubscriptions config
+    }
+
+
+
+-- COMPILED INIT
+
+
+compileInit :
+    { a
+        | init : data -> ( model, Effect msg )
+        , update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        , view : Tui.Context -> model -> Layout msg
+    }
+    -> data
+    -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
+compileInit config loadedData =
+    let
+        ( userModel, userEffect ) =
+            config.init loadedData
+
+        defaultContext : Tui.Context
+        defaultContext =
+            { width = 80, height = 24, colorProfile = Tui.TrueColor }
+
+        layout : Layout msg
+        layout =
+            config.view defaultContext userModel
+
+        layoutState : State
+        layoutState =
+            init
+                |> withContext defaultContext
+                |> autoFocusFirstPane layout
+
+        itemCounts : Dict String Int
+        itemCounts =
+            extractItemCounts layout
+
+        -- Fire onSelect for the initially selected item synchronously
+        initialSelectMsg : Maybe msg
+        initialSelectMsg =
+            case focusedPane layoutState of
+                Just paneId ->
+                    case getOnSelectForPane paneId layout of
+                        Just onSelect ->
+                            Just (onSelect (selectedIndex paneId layoutState))
+
+                        Nothing ->
+                            Nothing
+
+                Nothing ->
+                    Nothing
+
+        initUpdateCtx : UpdateContext
+        initUpdateCtx =
+            { context = defaultContext
+            , focusedPane = focusedPane layoutState
+            , scrollPosition = \pId -> scrollPosition pId layoutState
+            , selectedIndex = \pId -> selectedIndex pId layoutState
+            }
+
+        ( finalUserModel, initialSelectEffects ) =
+            case initialSelectMsg of
+                Just selectMsg ->
+                    let
+                        ( updatedModel, selectEffect ) =
+                            config.update initUpdateCtx selectMsg userModel
+                    in
+                    ( updatedModel, [ selectEffect ] )
+
+                Nothing ->
+                    ( userModel, [] )
+
+        initFw : { layoutState : State, statusState : Tui.Status.State }
+        initFw =
+            { layoutState = layoutState, statusState = Tui.Status.init }
+
+        ( finalFwState, mappedSelectEffects ) =
+            List.foldl
+                (\eff ( accFw, accMapped ) ->
+                    let
+                        ( newFw, mapped ) =
+                            extractLayoutEffects eff accFw
+                    in
+                    ( newFw, mapped :: accMapped )
+                )
+                ( initFw, [] )
+                initialSelectEffects
+    in
+    ( FrameworkModel
+        { userModel = finalUserModel
+        , layoutState = finalFwState.layoutState
+        , statusState = finalFwState.statusState
+        , spinnerTick = 0
+        , context = defaultContext
+        , modalState = NoModal
+        , previousItemCounts = itemCounts
+        }
+    , Effect.batch
+        (Effect.map UserMsg userEffect :: List.reverse mappedSelectEffects)
+    )
+
+
+runAsEffect : FrameworkMsg msg -> Effect (FrameworkMsg msg)
+runAsEffect msg =
+    Effect.perform identity (succeedTask msg)
+
+
+succeedTask : a -> BackendTask.BackendTask FatalError.FatalError a
+succeedTask a =
+    BackendTask.succeed a
+
+
+autoFocusFirstPane : Layout msg -> State -> State
+autoFocusFirstPane layout state =
+    case focusedPane state of
+        Just _ ->
+            state
+
+        Nothing ->
+            case extractPaneIds layout of
+                firstId :: _ ->
+                    focusPane firstId state
+
+                [] ->
+                    state
+
+
+extractPaneIds : Layout msg -> List String
+extractPaneIds layout =
+    case layout of
+        Horizontal panes ->
+            List.map .id panes
+
+        Vertical panes ->
+            List.map .id panes
+
+
+extractItemCounts : Layout msg -> Dict String Int
+extractItemCounts layout =
+    let
+        panes : List (PaneConfig msg)
+        panes =
+            case layout of
+                Horizontal ps ->
+                    ps
+
+                Vertical ps ->
+                    ps
+    in
+    panes
+        |> List.filterMap
+            (\p ->
+                case p.paneContent of
+                    SelectableContent selectable ->
+                        Just ( p.id, selectable.itemCount )
+
+                    StaticContent static ->
+                        Just ( p.id, static.lineCount )
+            )
+        |> Dict.fromList
+
+
+
+-- COMPILED UPDATE
+
+
+compileUpdate :
+    { a
+        | update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        , view : Tui.Context -> model -> Layout msg
+        , bindings : { focusedPane : Maybe String } -> model -> List (Group msg)
+        , status : model -> { waiting : Maybe String }
+        , modal : model -> Maybe (Modal msg)
+        , onRawEvent : Maybe (RawEvent -> msg)
+    }
+    -> FrameworkMsg msg
+    -> FrameworkModel model msg
+    -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
+compileUpdate config fwMsg (FrameworkModel fw) =
+    case fwMsg of
+        StatusTick ->
+            ( FrameworkModel
+                { fw
+                    | spinnerTick = fw.spinnerTick + 1
+                    , statusState = Tui.Status.tick fw.statusState
+                }
+            , Effect.none
+            )
+
+        GotContext dims ->
+            let
+                newContext : Tui.Context
+                newContext =
+                    { width = dims.width
+                    , height = dims.height
+                    , colorProfile = fw.context.colorProfile
+                    }
+            in
+            ( FrameworkModel
+                { fw
+                    | context = newContext
+                    , layoutState = withContext newContext fw.layoutState
+                }
+            , Effect.none
+            )
+
+        GotPaste pastedText ->
+            case fw.modalState of
+                PromptInteraction promptState ->
+                    -- Feed each character through Prompt.handleKeyEvent
+                    let
+                        newPromptState : Tui.Prompt.State
+                        newPromptState =
+                            String.foldl
+                                (\c state ->
+                                    let
+                                        ( updatedState, _ ) =
+                                            Tui.Prompt.handleKeyEvent
+                                                { key = Tui.Character c, modifiers = [] }
+                                                state
+                                    in
+                                    updatedState
+                                )
+                                promptState
+                                pastedText
+                    in
+                    ( FrameworkModel
+                        { fw | modalState = PromptInteraction newPromptState }
+                    , Effect.none
+                    )
+
+                _ ->
+                    ( FrameworkModel fw, Effect.none )
+
+        Mouse mouseEvent ->
+            let
+                layout : Layout msg
+                layout =
+                    config.view fw.context fw.userModel
+
+                ( newLayoutState, maybeMsg ) =
+                    handleMouse mouseEvent { width = fw.context.width, height = fw.context.height } layout fw.layoutState
+
+                scrollMsgs : List msg
+                scrollMsgs =
+                    scrollCallbackMsgs fw.layoutState newLayoutState layout
+
+                ( afterClickModel, afterClickEffect ) =
+                    case maybeMsg of
+                        Just msg ->
+                            applyUserMsg config msg (FrameworkModel { fw | layoutState = newLayoutState })
+
+                        Nothing ->
+                            -- Pass unhandled mouse events to onRawEvent
+                            case config.onRawEvent of
+                                Just toMsg ->
+                                    let
+                                        rawEvent : Maybe RawEvent
+                                        rawEvent =
+                                            case mouseEvent of
+                                                Tui.Click { row, col, button } ->
+                                                    Just (Click { row = row, col = col, button = button })
+
+                                                Tui.ScrollUp pos ->
+                                                    Just (Scroll { row = pos.row, col = pos.col, direction = ScrollingUp })
+
+                                                Tui.ScrollDown pos ->
+                                                    Just (Scroll { row = pos.row, col = pos.col, direction = ScrollingDown })
+                                    in
+                                    case rawEvent of
+                                        Just event ->
+                                            applyUserMsg config (toMsg event) (FrameworkModel { fw | layoutState = newLayoutState })
+
+                                        Nothing ->
+                                            ( FrameworkModel { fw | layoutState = newLayoutState }, Effect.none )
+
+                                Nothing ->
+                                    ( FrameworkModel { fw | layoutState = newLayoutState }, Effect.none )
+
+                -- Apply scroll callback messages synchronously
+                ( finalModel, scrollEffects ) =
+                    applyScrollMsgs config scrollMsgs afterClickModel
+            in
+            ( finalModel, Effect.batch (afterClickEffect :: scrollEffects) )
+
+        KeyPressed keyEvent ->
+            handleKeyPressed config keyEvent (FrameworkModel fw)
+
+        UserMsg msg ->
+            applyUserMsg config msg (FrameworkModel fw)
+
+
+
+handleKeyPressed :
+    { a
+        | update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        , view : Tui.Context -> model -> Layout msg
+        , bindings : { focusedPane : Maybe String } -> model -> List (Group msg)
+        , modal : model -> Maybe (Modal msg)
+        , onRawEvent : Maybe (RawEvent -> msg)
+    }
+    -> Tui.KeyEvent
+    -> FrameworkModel model msg
+    -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
+handleKeyPressed config keyEvent (FrameworkModel fw) =
+    -- If modal is active, route to modal handler first
+    case fw.modalState of
+        NoModal ->
+            handleKeyPressedNoModal config keyEvent (FrameworkModel fw)
+
+        PromptInteraction promptState ->
+            let
+                ( newPromptState, result ) =
+                    Tui.Prompt.handleKeyEvent keyEvent promptState
+            in
+            case result of
+                Tui.Prompt.Submitted value ->
+                    case config.modal fw.userModel of
+                        Just (PromptModal modalConfig) ->
+                            applyUserMsg config (modalConfig.onSubmit value) (FrameworkModel { fw | modalState = NoModal })
+
+                        _ ->
+                            ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
+
+                Tui.Prompt.Cancelled ->
+                    case config.modal fw.userModel of
+                        Just (PromptModal modalConfig) ->
+                            applyUserMsg config modalConfig.onCancel (FrameworkModel { fw | modalState = NoModal })
+
+                        _ ->
+                            ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
+
+                Tui.Prompt.Continue ->
+                    ( FrameworkModel { fw | modalState = PromptInteraction newPromptState }, Effect.none )
+
+        ConfirmInteraction ->
+            case config.modal fw.userModel of
+                Just (ConfirmModal modalConfig) ->
+                    case keyEvent.key of
+                        Tui.Enter ->
+                            applyUserMsg config modalConfig.onConfirm (FrameworkModel { fw | modalState = NoModal })
+
+                        Tui.Escape ->
+                            applyUserMsg config modalConfig.onCancel (FrameworkModel { fw | modalState = NoModal })
+
+                        Tui.Character 'y' ->
+                            applyUserMsg config modalConfig.onConfirm (FrameworkModel { fw | modalState = NoModal })
+
+                        Tui.Character 'n' ->
+                            applyUserMsg config modalConfig.onCancel (FrameworkModel { fw | modalState = NoModal })
+
+                        _ ->
+                            ( FrameworkModel fw, Effect.none )
+
+                _ ->
+                    ( FrameworkModel fw, Effect.none )
+
+        PickerInteraction picker ->
+            handlePickerKey config keyEvent picker (FrameworkModel fw)
+
+        MenuInteraction menuState ->
+            let
+                ( newMenuState, maybeAction ) =
+                    Tui.Menu.handleKeyEvent keyEvent menuState
+            in
+            case maybeAction of
+                Just action ->
+                    applyUserMsg config action (FrameworkModel { fw | modalState = NoModal })
+
+                Nothing ->
+                    case keyEvent.key of
+                        Tui.Escape ->
+                            -- Find the cancel message from the modal config
+                            ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
+
+                        _ ->
+                            ( FrameworkModel { fw | modalState = MenuInteraction newMenuState }, Effect.none )
+
+        HelpInteraction helpState ->
+            case keyEvent.key of
+                Tui.Escape ->
+                    -- Fire the user's onClose message to keep their model in sync
+                    case config.modal fw.userModel of
+                        Just (HelpModal onClose) ->
+                            applyUserMsg config onClose (FrameworkModel { fw | modalState = NoModal })
+
+                        _ ->
+                            ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
+
+                Tui.Character 'j' ->
+                    let
+                        totalRows =
+                            helpBodyRowCount helpState.filterText (config.bindings { focusedPane = focusedPane fw.layoutState } fw.userModel)
+                    in
+                    ( FrameworkModel
+                        { fw
+                            | modalState =
+                                HelpInteraction
+                                    { helpState | scrollOffset = min (helpState.scrollOffset + 1) (max 0 (totalRows - 1)) }
+                        }
+                    , Effect.none
+                    )
+
+                Tui.Arrow Tui.Down ->
+                    let
+                        totalRows =
+                            helpBodyRowCount helpState.filterText (config.bindings { focusedPane = focusedPane fw.layoutState } fw.userModel)
+                    in
+                    ( FrameworkModel
+                        { fw
+                            | modalState =
+                                HelpInteraction
+                                    { helpState | scrollOffset = min (helpState.scrollOffset + 1) (max 0 (totalRows - 1)) }
+                        }
+                    , Effect.none
+                    )
+
+                Tui.Character 'k' ->
+                    ( FrameworkModel
+                        { fw
+                            | modalState =
+                                HelpInteraction
+                                    { helpState | scrollOffset = max 0 (helpState.scrollOffset - 1) }
+                        }
+                    , Effect.none
+                    )
+
+                Tui.Arrow Tui.Up ->
+                    ( FrameworkModel
+                        { fw
+                            | modalState =
+                                HelpInteraction
+                                    { helpState | scrollOffset = max 0 (helpState.scrollOffset - 1) }
+                        }
+                    , Effect.none
+                    )
+
+                _ ->
+                    ( FrameworkModel fw, Effect.none )
+
+
+handlePickerKey :
+    { a
+        | update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        , view : Tui.Context -> model -> Layout msg
+        , modal : model -> Maybe (Modal msg)
+    }
+    -> Tui.KeyEvent
+    -> { filterText : String, selectedIndex : Int, labels : List String, filteredIndices : List Int }
+    -> FrameworkModel model msg
+    -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
+handlePickerKey config keyEvent picker (FrameworkModel fw) =
+    case keyEvent.key of
+        Tui.Escape ->
+            case config.modal fw.userModel of
+                Just (PickerModal modalConfig) ->
+                    applyUserMsg config modalConfig.onCancel (FrameworkModel { fw | modalState = NoModal })
+
+                _ ->
+                    ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
+
+        Tui.Enter ->
+            case config.modal fw.userModel of
+                Just (PickerModal modalConfig) ->
+                    let
+                        actualIndex : Int
+                        actualIndex =
+                            picker.filteredIndices
+                                |> List.drop picker.selectedIndex
+                                |> List.head
+                                |> Maybe.withDefault picker.selectedIndex
+                    in
+                    applyUserMsg config (modalConfig.onSelectIndex actualIndex) (FrameworkModel { fw | modalState = NoModal })
+
+                _ ->
+                    ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
+
+        Tui.Character 'j' ->
+            ( FrameworkModel
+                { fw
+                    | modalState =
+                        PickerInteraction
+                            { picker
+                                | selectedIndex = min (picker.selectedIndex + 1) (List.length picker.filteredIndices - 1)
+                            }
+                }
+            , Effect.none
+            )
+
+        Tui.Arrow Tui.Down ->
+            ( FrameworkModel
+                { fw
+                    | modalState =
+                        PickerInteraction
+                            { picker
+                                | selectedIndex = min (picker.selectedIndex + 1) (List.length picker.filteredIndices - 1)
+                            }
+                }
+            , Effect.none
+            )
+
+        Tui.Character 'k' ->
+            ( FrameworkModel
+                { fw
+                    | modalState =
+                        PickerInteraction
+                            { picker | selectedIndex = max 0 (picker.selectedIndex - 1) }
+                }
+            , Effect.none
+            )
+
+        Tui.Arrow Tui.Up ->
+            ( FrameworkModel
+                { fw
+                    | modalState =
+                        PickerInteraction
+                            { picker | selectedIndex = max 0 (picker.selectedIndex - 1) }
+                }
+            , Effect.none
+            )
+
+        Tui.Backspace ->
+            let
+                newFilter : String
+                newFilter =
+                    String.dropRight 1 picker.filterText
+
+                newFiltered : List Int
+                newFiltered =
+                    filterPickerItems newFilter picker.labels
+            in
+            ( FrameworkModel
+                { fw
+                    | modalState =
+                        PickerInteraction
+                            { picker
+                                | filterText = newFilter
+                                , filteredIndices = newFiltered
+                                , selectedIndex = 0
+                            }
+                }
+            , Effect.none
+            )
+
+        Tui.Character c ->
+            let
+                newFilter : String
+                newFilter =
+                    picker.filterText ++ String.fromChar c
+
+                newFiltered : List Int
+                newFiltered =
+                    filterPickerItems newFilter picker.labels
+            in
+            ( FrameworkModel
+                { fw
+                    | modalState =
+                        PickerInteraction
+                            { picker
+                                | filterText = newFilter
+                                , filteredIndices = newFiltered
+                                , selectedIndex = 0
+                            }
+                }
+            , Effect.none
+            )
+
+        _ ->
+            ( FrameworkModel fw, Effect.none )
+
+
+filterPickerItems : String -> List String -> List Int
+filterPickerItems filter labels =
+    if String.isEmpty filter then
+        List.indexedMap (\i _ -> i) labels
+
+    else
+        let
+            lowerFilter : String
+            lowerFilter =
+                String.toLower filter
+        in
+        labels
+            |> List.indexedMap Tuple.pair
+            |> List.filterMap
+                (\( i, label ) ->
+                    if String.contains lowerFilter (String.toLower label) then
+                        Just i
+
+                    else
+                        Nothing
+                )
+
+
+handleKeyPressedNoModal :
+    { a
+        | update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        , view : Tui.Context -> model -> Layout msg
+        , bindings : { focusedPane : Maybe String } -> model -> List (Group msg)
+        , modal : model -> Maybe (Modal msg)
+        , onRawEvent : Maybe (RawEvent -> msg)
+    }
+    -> Tui.KeyEvent
+    -> FrameworkModel model msg
+    -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
+handleKeyPressedNoModal config keyEvent (FrameworkModel fw) =
+    let
+        layout : Layout msg
+        layout =
+            config.view fw.context fw.userModel
+    in
+    -- 1. Try built-in nav keys
+    case tryBuiltInNav keyEvent layout fw of
+        Just ( newFw, maybeMsg ) ->
+            let
+                scrollMsgs : List msg
+                scrollMsgs =
+                    scrollCallbackMsgs fw.layoutState newFw.layoutState layout
+
+                ( afterNavModel, afterNavEffect ) =
+                    case maybeMsg of
+                        Just msg ->
+                            applyUserMsg config msg (FrameworkModel newFw)
+
+                        Nothing ->
+                            ( FrameworkModel newFw, Effect.none )
+
+                ( finalModel, scrollEffects ) =
+                    applyScrollMsgs config scrollMsgs afterNavModel
+            in
+            ( finalModel, Effect.batch (afterNavEffect :: scrollEffects) )
+
+        Nothing ->
+            -- 2. Try Layout.handleKeyEvent (filter/search/tree/numbers)
+            let
+                ( newLayoutState, maybeLayoutMsg, consumed ) =
+                    handleKeyEvent keyEvent layout fw.layoutState
+
+                scrollMsgs2 : List msg
+                scrollMsgs2 =
+                    scrollCallbackMsgs fw.layoutState newLayoutState layout
+            in
+            if consumed then
+                let
+                    ( afterKeyModel, afterKeyEffect ) =
+                        case maybeLayoutMsg of
+                            Just msg ->
+                                applyUserMsg config msg (FrameworkModel { fw | layoutState = newLayoutState })
+
+                            Nothing ->
+                                ( FrameworkModel { fw | layoutState = newLayoutState }, Effect.none )
+
+                    ( finalModel2, scrollEffects2 ) =
+                        applyScrollMsgs config scrollMsgs2 afterKeyModel
+                in
+                ( finalModel2, Effect.batch (afterKeyEffect :: scrollEffects2) )
+
+            else
+                -- 3. Try user bindings via Keybinding.dispatch
+                case Tui.Keybinding.dispatch (config.bindings { focusedPane = focusedPane fw.layoutState } fw.userModel) keyEvent of
+                    Just action ->
+                        applyUserMsg config action (FrameworkModel { fw | layoutState = newLayoutState })
+
+                    Nothing ->
+                        -- 4. Try onRawEvent escape hatch
+                        case config.onRawEvent of
+                            Just toMsg ->
+                                applyUserMsg config (toMsg (UnhandledKey keyEvent)) (FrameworkModel { fw | layoutState = newLayoutState })
+
+                            Nothing ->
+                                ( FrameworkModel { fw | layoutState = newLayoutState }, Effect.none )
+
+
+{-| Try navigate (for selectable panes) or fall back to scroll (for content panes).
+-}
+navigateOrScroll :
+    (String -> Layout msg -> State -> ( State, Maybe msg ))
+    -> (String -> Int -> State -> State)
+    -> Int
+    -> Layout msg
+    -> { a | layoutState : State, context : Tui.Context }
+    -> Maybe ( { a | layoutState : State, context : Tui.Context }, Maybe msg )
+navigateOrScroll navigate scroll delta layout fw =
+    case focusedPane fw.layoutState of
+        Just paneId ->
+            let
+                ( newState, maybeMsg ) =
+                    navigate paneId layout fw.layoutState
+            in
+            case maybeMsg of
+                Just _ ->
+                    Just ( { fw | layoutState = newState }, maybeMsg )
+
+                Nothing ->
+                    -- Content pane: fall back to scrolling
+                    if isContentPaneId paneId layout then
+                        Just ( { fw | layoutState = scroll paneId delta fw.layoutState }, Nothing )
+
+                    else
+                        Just ( { fw | layoutState = newState }, Nothing )
+
+        Nothing ->
+            Nothing
+
+
+tryBuiltInNav :
+    Tui.KeyEvent
+    -> Layout msg
+    ->
+        { a
+            | layoutState : State
+            , context : Tui.Context
+        }
+    -> Maybe ( { a | layoutState : State, context : Tui.Context }, Maybe msg )
+tryBuiltInNav keyEvent layout fw =
+    case keyEvent.key of
+        Tui.Character 'j' ->
+            navigateOrScroll navigateDown scrollDown 1 layout fw
+
+        Tui.Arrow Tui.Down ->
+            navigateOrScroll navigateDown scrollDown 1 layout fw
+
+        Tui.Character 'k' ->
+            navigateOrScroll navigateUp scrollUp 1 layout fw
+
+        Tui.Arrow Tui.Up ->
+            navigateOrScroll navigateUp scrollUp 1 layout fw
+
+        Tui.Tab ->
+            let
+                paneIds : List String
+                paneIds =
+                    extractPaneIds layout
+
+                currentFocused : Maybe String
+                currentFocused =
+                    focusedPane fw.layoutState
+
+                nextPaneId : Maybe String
+                nextPaneId =
+                    case currentFocused of
+                        Nothing ->
+                            List.head paneIds
+
+                        Just current ->
+                            paneIds
+                                |> List.indexedMap Tuple.pair
+                                |> List.filter (\( _, id ) -> id == current)
+                                |> List.head
+                                |> Maybe.map Tuple.first
+                                |> Maybe.map (\i -> modBy (List.length paneIds) (i + 1))
+                                |> Maybe.andThen (\i -> paneIds |> List.drop i |> List.head)
+            in
+            case nextPaneId of
+                Just newPaneId ->
+                    Just ( { fw | layoutState = focusPane newPaneId fw.layoutState }, Nothing )
+
+                Nothing ->
+                    Nothing
+
+        Tui.PageDown ->
+            navigateOrScroll pageDown scrollDown (fw.context.height - 2) layout fw
+
+        Tui.PageUp ->
+            navigateOrScroll pageUp scrollUp (fw.context.height - 2) layout fw
+
+        Tui.Character '>' ->
+            navigateOrScroll pageDown scrollDown (fw.context.height - 2) layout fw
+
+        Tui.Character '<' ->
+            navigateOrScroll pageUp scrollUp (fw.context.height - 2) layout fw
+
+        _ ->
+            -- Check for number keys 1-9 (jump to pane)
+            case keyEvent.key of
+                Tui.Character c ->
+                    let
+                        digit : Maybe Int
+                        digit =
+                            String.fromChar c
+                                |> String.toInt
+                    in
+                    case digit of
+                        Just n ->
+                            if n >= 1 && n <= 9 then
+                                let
+                                    paneIds : List String
+                                    paneIds =
+                                        extractPaneIds layout
+                                in
+                                paneIds
+                                    |> List.drop (n - 1)
+                                    |> List.head
+                                    |> Maybe.map
+                                        (\targetPaneId ->
+                                            ( { fw | layoutState = focusPane targetPaneId fw.layoutState }, Nothing )
+                                        )
+
+                            else
+                                Nothing
+
+                        Nothing ->
+                            Nothing
+
+                _ ->
+                    Nothing
+
+
+{-| Built-in help section for display only (never dispatched against).
+Uses `List Screen` directly instead of `Group msg` to avoid needing a `msg`.
+-}
+helpBodyRowCount : String -> List (Group msg) -> Int
+helpBodyRowCount filterText userBindings =
+    List.length builtInHelpRows
+        + 1
+        + List.length (Tui.Keybinding.helpRows filterText userBindings)
+        + 1
+        + List.length navigationHelpRows
+
+
+builtInHelpRows : List Screen
+builtInHelpRows =
+    [ Tui.Keybinding.sectionHeader "Navigation"
+    , Tui.Keybinding.infoRow "j/↓" "Navigate down"
+    , Tui.Keybinding.infoRow "k/↑" "Navigate up"
+    , Tui.Keybinding.infoRow "tab" "Switch pane"
+    , Tui.Keybinding.infoRow "/" "Filter/Search"
+    , Tui.Keybinding.infoRow "n/N" "Next/prev match"
+    , Tui.Keybinding.infoRow "esc" "Exit mode"
+    , Tui.Keybinding.infoRow ">/pgdn" "Page down"
+    , Tui.Keybinding.infoRow "</pgup" "Page up"
+    ]
+
+
+applyScrollMsgs :
+    { a
+        | update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        , view : Tui.Context -> model -> Layout msg
+        , modal : model -> Maybe (Modal msg)
+    }
+    -> List msg
+    -> FrameworkModel model msg
+    -> ( FrameworkModel model msg, List (Effect (FrameworkMsg msg)) )
+applyScrollMsgs config msgs model =
+    List.foldl
+        (\msg ( accModel, accEffects ) ->
+            let
+                ( newModel, eff ) =
+                    applyUserMsg config msg accModel
+            in
+            ( newModel, eff :: accEffects )
+        )
+        ( model, [] )
+        msgs
+
+
+applyUserMsg :
+    { a
+        | update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        , view : Tui.Context -> model -> Layout msg
+        , modal : model -> Maybe (Modal msg)
+    }
+    -> msg
+    -> FrameworkModel model msg
+    -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
+applyUserMsg config msg (FrameworkModel fw) =
+    let
+        updateCtx : UpdateContext
+        updateCtx =
+            { context = fw.context
+            , focusedPane = focusedPane fw.layoutState
+            , scrollPosition = \paneId -> scrollPosition paneId fw.layoutState
+            , selectedIndex = \paneId -> selectedIndex paneId fw.layoutState
+            }
+
+        ( newUserModel, userEffect ) =
+            config.update updateCtx msg fw.userModel
+
+        -- Process layout effects from the user's effect
+        ( frameworkState, remainingEffect ) =
+            extractLayoutEffects userEffect fw
+
+        -- Check if modal kind changed
+        newModalState : ModalInteractionState msg
+        newModalState =
+            syncModalState config fw.modalState fw.userModel newUserModel
+
+        -- Check for auto-reset: if item counts changed, reset selection
+        newLayout : Layout msg
+        newLayout =
+            config.view fw.context newUserModel
+
+        newItemCounts : Dict String Int
+        newItemCounts =
+            extractItemCounts newLayout
+
+        ( stateAfterReset, autoSelectMsgs ) =
+            handleAutoReset fw.previousItemCounts newItemCounts newLayout frameworkState.layoutState
+
+        -- Apply auto-select messages synchronously (no effect round-trip)
+        autoResetCtx : UpdateContext
+        autoResetCtx =
+            { context = fw.context
+            , focusedPane = focusedPane stateAfterReset
+            , scrollPosition = \pId -> scrollPosition pId stateAfterReset
+            , selectedIndex = \pId -> selectedIndex pId stateAfterReset
+            }
+
+        ( finalUserModel, autoSelectEffects ) =
+            List.foldl
+                (\selectMsg ( accModel, accEffects ) ->
+                    let
+                        ( updatedModel, eff ) =
+                            config.update autoResetCtx selectMsg accModel
+                    in
+                    ( updatedModel, eff :: accEffects )
+                )
+                ( newUserModel, [] )
+                autoSelectMsgs
+
+        ( autoFwState, mappedAutoEffects ) =
+            List.foldl
+                (\eff ( accFw, accMapped ) ->
+                    let
+                        ( newFw, mapped ) =
+                            extractLayoutEffects eff accFw
+                    in
+                    ( newFw, mapped :: accMapped )
+                )
+                ( { frameworkState | layoutState = stateAfterReset }, [] )
+                (List.reverse autoSelectEffects)
+    in
+    ( FrameworkModel
+        { autoFwState
+            | userModel = finalUserModel
+            , modalState = newModalState
+            , previousItemCounts = newItemCounts
+        }
+    , Effect.batch
+        (remainingEffect :: List.reverse mappedAutoEffects)
+    )
+
+
+extractLayoutEffects :
+    Effect msg
+    ->
+        { a
+            | layoutState : State
+            , statusState : Tui.Status.State
+        }
+    ->
+        ( { a
+            | layoutState : State
+            , statusState : Tui.Status.State
+          }
+        , Effect (FrameworkMsg msg)
+        )
+extractLayoutEffects effect fw =
+    -- Walk the effect tree, extract layout effects, pass through the rest
+    case effect of
+        Effect.None ->
+            ( fw, Effect.none )
+
+        Effect.Toast message ->
+            ( { fw | statusState = Tui.Status.toast message fw.statusState }, Effect.none )
+
+        Effect.ErrorToast message ->
+            ( { fw | statusState = Tui.Status.errorToast message fw.statusState }, Effect.none )
+
+        Effect.ResetScroll paneId ->
+            ( { fw | layoutState = resetScroll paneId fw.layoutState }, Effect.none )
+
+        Effect.ScrollTo paneId offset ->
+            -- ScrollTo: reset then scroll down to the target offset
+            ( { fw
+                | layoutState =
+                    fw.layoutState
+                        |> resetScroll paneId
+                        |> scrollDown paneId offset
+              }
+            , Effect.none
+            )
+
+        Effect.ScrollDown paneId amount ->
+            ( { fw | layoutState = scrollDown paneId amount fw.layoutState }, Effect.none )
+
+        Effect.ScrollUp paneId amount ->
+            ( { fw | layoutState = scrollUp paneId amount fw.layoutState }, Effect.none )
+
+        Effect.SetSelectedIndex paneId index ->
+            ( { fw | layoutState = setSelectedIndex paneId index fw.layoutState }, Effect.none )
+
+        Effect.SelectFirst paneId ->
+            ( { fw | layoutState = setSelectedIndex paneId 0 fw.layoutState }, Effect.none )
+
+        Effect.FocusPane paneId ->
+            ( { fw | layoutState = focusPane paneId fw.layoutState }, Effect.none )
+
+        Effect.Exit ->
+            ( fw, Effect.exit )
+
+        Effect.ExitWithCode code ->
+            ( fw, Effect.exitWithCode code )
+
+        Effect.RunBackendTask bt ->
+            ( fw, Effect.RunBackendTask (BackendTask.map UserMsg bt) )
+
+        Effect.SuspendBackendTask bt ->
+            ( fw, Effect.SuspendBackendTask (BackendTask.map UserMsg bt) )
+
+        Effect.Batch effects ->
+            let
+                ( finalFw, collectedEffects ) =
+                    List.foldl
+                        (\eff ( accFw, accEffects ) ->
+                            let
+                                ( newFw, mappedEffect ) =
+                                    extractLayoutEffects eff accFw
+                            in
+                            ( newFw, mappedEffect :: accEffects )
+                        )
+                        ( fw, [] )
+                        effects
+            in
+            ( finalFw, Effect.batch (List.reverse collectedEffects) )
+
+
+syncModalState :
+    { a | modal : model -> Maybe (Modal msg) }
+    -> ModalInteractionState msg
+    -> model
+    -> model
+    -> ModalInteractionState msg
+syncModalState config previousModalState _ newModel =
+    case config.modal newModel of
+        Nothing ->
+            NoModal
+
+        Just (PromptModal modalConfig) ->
+            case previousModalState of
+                PromptInteraction _ ->
+                    -- Same kind: preserve interaction state
+                    previousModalState
+
+                _ ->
+                    -- New modal: initialize
+                    PromptInteraction
+                        (Tui.Prompt.open
+                            { title = modalConfig.title
+                            , placeholder = ""
+                            }
+                        )
+
+        Just (ConfirmModal _) ->
+            case previousModalState of
+                ConfirmInteraction ->
+                    previousModalState
+
+                _ ->
+                    ConfirmInteraction
+
+        Just (PickerModal modalConfig) ->
+            case previousModalState of
+                PickerInteraction _ ->
+                    previousModalState
+
+                _ ->
+                    let
+                        allIndices : List Int
+                        allIndices =
+                            List.indexedMap (\i _ -> i) modalConfig.labels
+                    in
+                    PickerInteraction
+                        { filterText = ""
+                        , selectedIndex = 0
+                        , labels = modalConfig.labels
+                        , filteredIndices = allIndices
+                        }
+
+        Just (MenuModal sections) ->
+            case previousModalState of
+                MenuInteraction _ ->
+                    previousModalState
+
+                _ ->
+                    MenuInteraction (Tui.Menu.open sections)
+
+        Just (HelpModal _) ->
+            case previousModalState of
+                HelpInteraction _ ->
+                    previousModalState
+
+                _ ->
+                    HelpInteraction { filterText = "", scrollOffset = 0 }
+
+
+handleAutoReset : Dict String Int -> Dict String Int -> Layout msg -> State -> ( State, List msg )
+handleAutoReset previousCounts newCounts layout layoutState =
+    let
+        changedPanes : List String
+        changedPanes =
+            Dict.toList newCounts
+                |> List.filterMap
+                    (\( paneId, newCount ) ->
+                        case Dict.get paneId previousCounts of
+                            Just oldCount ->
+                                if oldCount /= newCount then
+                                    Just paneId
+
+                                else
+                                    Nothing
+
+                            Nothing ->
+                                -- New pane
+                                Just paneId
+                    )
+    in
+    List.foldl
+        (\paneId ( accState, accMsgs ) ->
+            let
+                stateWithReset : State
+                stateWithReset =
+                    setSelectedIndex paneId 0 accState
+            in
+            case getOnSelectForPane paneId layout of
+                Just onSelect ->
+                    ( stateWithReset, accMsgs ++ [ onSelect 0 ] )
+
+                Nothing ->
+                    ( stateWithReset, accMsgs )
+        )
+        ( layoutState, [] )
+        changedPanes
+
+
+scrollCallbackMsgs : State -> State -> Layout msg -> List msg
+scrollCallbackMsgs oldState newState layout =
+    let
+        paneConfigs : List (PaneConfig msg)
+        paneConfigs =
+            case layout of
+                Horizontal ps ->
+                    ps
+
+                Vertical ps ->
+                    ps
+    in
+    paneConfigs
+        |> List.filterMap
+            (\p ->
+                case p.onScroll of
+                    Just callback ->
+                        let
+                            oldPos : Int
+                            oldPos =
+                                scrollPosition p.id oldState
+
+                            newPos : Int
+                            newPos =
+                                scrollPosition p.id newState
+                        in
+                        if oldPos /= newPos then
+                            Just (callback newPos)
+
+                        else
+                            Nothing
+
+                    Nothing ->
+                        Nothing
+            )
+
+
+
+-- COMPILED VIEW
+
+
+compileView :
+    { a
+        | view : Tui.Context -> model -> Layout msg
+        , bindings : { focusedPane : Maybe String } -> model -> List (Group msg)
+        , status : model -> { waiting : Maybe String }
+        , modal : model -> Maybe (Modal msg)
+    }
+    -> Tui.Context
+    -> FrameworkModel model msg
+    -> Screen
+compileView config ctx (FrameworkModel fw) =
+    let
+        -- Reserve 1 row for the bottom bar (status/filter/options).
+        -- Pass the reduced height to the user's view so panes know their
+        -- actual available space and footers don't get clipped.
+        layoutHeight : Int
+        layoutHeight =
+            max 1 (ctx.height - 1)
+
+        layoutContext : Tui.Context
+        layoutContext =
+            { width = ctx.width
+            , height = layoutHeight
+            , colorProfile = ctx.colorProfile
+            }
+
+        -- Full context for modal overlays and bottom bar positioning
+        context : Tui.Context
+        context =
+            ctx
+
+        layout : Layout msg
+        layout =
+            config.view layoutContext fw.userModel
+
+        layoutState : State
+        layoutState =
+            withContext layoutContext fw.layoutState
+
+        -- Render panes
+        layoutRows : List Screen
+        layoutRows =
+            toRows layoutState layout
+
+        -- Compose bottom bar
+        filterBar : Maybe Screen
+        filterBar =
+            activeFilterStatusBar layoutState
+
+        statusView : Screen
+        statusView =
+            Tui.Status.view
+                { waiting = (config.status fw.userModel).waiting
+                , tick = fw.spinnerTick
+                }
+                fw.statusState
+
+        optionsBar : Screen
+        optionsBar =
+            Tui.OptionsBar.view context.width (config.bindings { focusedPane = focusedPane fw.layoutState } fw.userModel)
+
+        -- Priority: filter prompt > waiting spinner > toast > options bar
+        bottomBar : Screen
+        bottomBar =
+            case filterBar of
+                Just fb ->
+                    fb
+
+                Nothing ->
+                    if statusView /= Tui.empty then
+                        statusView
+
+                    else
+                        optionsBar
+
+        -- Combine layout rows with bottom bar
+        allRows : List Screen
+        allRows =
+            if context.height <= 1 then
+                [ bottomBar ]
+
+            else
+                let
+                    availableForLayout : Int
+                    availableForLayout =
+                        context.height - 1
+
+                    trimmedRows : List Screen
+                    trimmedRows =
+                        List.take availableForLayout layoutRows
+
+                    paddedRows : List Screen
+                    paddedRows =
+                        if List.length trimmedRows < availableForLayout then
+                            trimmedRows ++ List.repeat (availableForLayout - List.length trimmedRows) Tui.empty
+
+                        else
+                            trimmedRows
+                in
+                paddedRows ++ [ bottomBar ]
+
+        -- Modal overlay (if any)
+        finalRows : List Screen
+        finalRows =
+            case fw.modalState of
+                NoModal ->
+                    allRows
+
+                PromptInteraction promptState ->
+                    Tui.Modal.overlay
+                        { title = Tui.Prompt.title promptState
+                        , body = Tui.Prompt.viewBody { width = Tui.Modal.defaultWidth context.width - 2 } promptState
+                        , footer = "Enter: confirm │ Esc: cancel"
+                        , width = Tui.Modal.defaultWidth context.width
+                        }
+                        { width = context.width, height = context.height }
+                        allRows
+
+                ConfirmInteraction ->
+                    case config.modal fw.userModel of
+                        Just (ConfirmModal modalConfig) ->
+                            Tui.Modal.overlay
+                                { title = modalConfig.title
+                                , body = [ Tui.text modalConfig.message ]
+                                , footer = "y/Enter: confirm │ n/Esc: cancel"
+                                , width = Tui.Modal.defaultWidth context.width
+                                }
+                                { width = context.width, height = context.height }
+                                allRows
+
+                        _ ->
+                            allRows
+
+                PickerInteraction picker ->
+                    case config.modal fw.userModel of
+                        Just (PickerModal modalConfig) ->
+                            let
+                                visibleLabels : List Screen
+                                visibleLabels =
+                                    picker.filteredIndices
+                                        |> List.indexedMap
+                                            (\displayIdx originalIdx ->
+                                                let
+                                                    label : String
+                                                    label =
+                                                        picker.labels
+                                                            |> List.drop originalIdx
+                                                            |> List.head
+                                                            |> Maybe.withDefault ""
+                                                in
+                                                if displayIdx == picker.selectedIndex then
+                                                    Tui.text ("▸ " ++ label) |> Tui.bg Ansi.Color.blue
+
+                                                else
+                                                    Tui.text ("  " ++ label)
+                                            )
+
+                                filterLine : Screen
+                                filterLine =
+                                    if String.isEmpty picker.filterText then
+                                        Tui.text "Type to filter..." |> Tui.dim
+
+                                    else
+                                        Tui.concat
+                                            [ Tui.text "/ " |> Tui.fg Ansi.Color.cyan
+                                            , Tui.text picker.filterText
+                                            ]
+                            in
+                            Tui.Modal.overlay
+                                { title = modalConfig.title
+                                , body = filterLine :: visibleLabels
+                                , footer = "Enter: select │ Esc: cancel"
+                                , width = Tui.Modal.defaultWidth context.width
+                                }
+                                { width = context.width, height = context.height }
+                                allRows
+
+                        _ ->
+                            allRows
+
+                MenuInteraction menuState ->
+                    Tui.Modal.overlay
+                        { title = Tui.Menu.title
+                        , body = Tui.Menu.viewBody menuState
+                        , footer = "Enter: select │ Esc: cancel"
+                        , width = Tui.Modal.defaultWidth context.width
+                        }
+                        { width = context.width, height = context.height }
+                        allRows
+
+                HelpInteraction helpState ->
+                    let
+                        allHelpRows : List Screen
+                        allHelpRows =
+                            builtInHelpRows
+                                ++ [ Tui.text "" ]
+                                ++ Tui.Keybinding.helpRows
+                                    helpState.filterText
+                                    (config.bindings { focusedPane = focusedPane fw.layoutState } fw.userModel)
+                                ++ [ Tui.text "" ]
+                                ++ navigationHelpRows
+
+                        totalRows : Int
+                        totalRows =
+                            List.length allHelpRows
+
+                        -- The modal body should maintain a fixed size equal to the
+                        -- full content height (clamped by Modal.overlay to 75%).
+                        -- Drop rows for scrolling, then pad back to maintain height.
+                        droppedBody : List Screen
+                        droppedBody =
+                            List.drop helpState.scrollOffset allHelpRows
+
+                        paddedBody : List Screen
+                        paddedBody =
+                            let
+                                dropped =
+                                    totalRows - List.length droppedBody
+                            in
+                            if dropped > 0 then
+                                droppedBody ++ List.repeat dropped Tui.empty
+
+                            else
+                                droppedBody
+                    in
+                    Tui.Modal.overlay
+                        { title = "Keybindings"
+                        , body = paddedBody
+                        , footer = "j/k: scroll │ Esc: close"
+                        , width = Tui.Modal.defaultWidth context.width
+                        }
+                        { width = context.width, height = context.height }
+                        allRows
+    in
+    Tui.lines finalRows
+
+
+
+-- COMPILED SUBSCRIPTIONS
+
+
+compileSubscriptions :
+    { a | status : model -> { waiting : Maybe String } }
+    -> FrameworkModel model msg
+    -> Tui.Sub.Sub (FrameworkMsg msg)
+compileSubscriptions config (FrameworkModel fw) =
+    let
+        hasStatusActivity : Bool
+        hasStatusActivity =
+            Tui.Status.hasActivity
+                { waiting = (config.status fw.userModel).waiting }
+                fw.statusState
+
+        tickSub : Tui.Sub.Sub (FrameworkMsg msg)
+        tickSub =
+            if hasStatusActivity then
+                Tui.Sub.every 100 StatusTick
+
+            else
+                Tui.Sub.none
+    in
+    Tui.Sub.batch
+        [ Tui.Sub.onKeyPress KeyPressed
+        , Tui.Sub.onMouse Mouse
+        , Tui.Sub.onPaste GotPaste
+        , Tui.Sub.onContext GotContext
+        , tickSub
+        ]
 
 
 {-| Auto-generated help rows for Layout's built-in mouse interactions.
