@@ -1,7 +1,7 @@
 module Tui.OptionsBar exposing (view)
 
-{-| Context-sensitive options bar — shows keybinding hints at the bottom
-of the screen. Inspired by lazygit's bottom bar:
+{-| Context-sensitive options bar — shows [`Tui.Keybinding`](Tui-Keybinding)
+hints at the bottom of the screen. Like lazygit's bottom bar:
 
     Stage: <space> | Commit: c | Push: P | Keybindings: ?
 

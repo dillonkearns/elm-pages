@@ -5,7 +5,7 @@ module Tui.CommandPalette exposing
     )
 
 {-| Command palette — browse and execute keybinding actions in one step.
-Built on `Tui.Picker` and `Tui.Keybinding`.
+Built on [`Tui.Picker`](Tui-Picker) and [`Tui.Keybinding`](Tui-Keybinding).
 
     -- Open with current keybinding groups:
     CommandPalette.open (activeBindings model)

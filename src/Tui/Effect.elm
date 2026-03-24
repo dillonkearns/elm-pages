@@ -1,6 +1,8 @@
 module Tui.Effect exposing
     ( Effect(..)
     , none, batch, perform, attempt, exit, exitWithCode
+    , toast, errorToast
+    , resetScroll, scrollTo, scrollDown, scrollUp, setSelectedIndex, selectFirst, focusPane
     , map
     , EffectResult(..), toBackendTask
     )
@@ -25,6 +27,10 @@ update cycle.
 @docs Effect
 
 @docs none, batch, perform, attempt, exit, exitWithCode
+
+@docs toast, errorToast
+
+@docs resetScroll, scrollTo, scrollDown, scrollUp, setSelectedIndex, selectFirst, focusPane
 
 @docs map
 
@@ -51,6 +57,15 @@ type Effect msg
     | SuspendBackendTask (BackendTask FatalError msg)
     | Exit
     | ExitWithCode Int
+    | Toast String
+    | ErrorToast String
+    | ResetScroll String
+    | ScrollTo String Int
+    | ScrollDown String Int
+    | ScrollUp String Int
+    | SetSelectedIndex String Int
+    | SelectFirst String
+    | FocusPane String
 
 
 {-| No effect.
@@ -120,6 +135,96 @@ exitWithCode =
     ExitWithCode
 
 
+{-| Show a normal toast (auto-dismisses after ~2 seconds). Fire and forget.
+
+    Effect.toast "Saved!"
+
+-}
+toast : String -> Effect msg
+toast =
+    Toast
+
+
+{-| Show an error toast (auto-dismisses after ~4 seconds). Fire and forget.
+
+    Effect.errorToast "Failed to save"
+
+-}
+errorToast : String -> Effect msg
+errorToast =
+    ErrorToast
+
+
+{-| Reset the scroll position of a pane to the top.
+
+    Effect.resetScroll "diff"
+
+-}
+resetScroll : String -> Effect msg
+resetScroll =
+    ResetScroll
+
+
+{-| Scroll a pane to a specific line offset.
+
+    Effect.scrollTo "diff" 100
+
+-}
+scrollTo : String -> Int -> Effect msg
+scrollTo =
+    ScrollTo
+
+
+{-| Scroll a pane down by N lines (relative).
+
+    Effect.scrollDown "diff" 10
+
+-}
+scrollDown : String -> Int -> Effect msg
+scrollDown =
+    ScrollDown
+
+
+{-| Scroll a pane up by N lines (relative).
+
+    Effect.scrollUp "diff" 10
+
+-}
+scrollUp : String -> Int -> Effect msg
+scrollUp =
+    ScrollUp
+
+
+{-| Set the selected index of a selectable pane.
+
+    Effect.setSelectedIndex "commits" 5
+
+-}
+setSelectedIndex : String -> Int -> Effect msg
+setSelectedIndex =
+    SetSelectedIndex
+
+
+{-| Reset selection to the first item in a pane.
+
+    Effect.selectFirst "items"
+
+-}
+selectFirst : String -> Effect msg
+selectFirst =
+    SelectFirst
+
+
+{-| Move keyboard focus to a specific pane.
+
+    Effect.focusPane "commits"
+
+-}
+focusPane : String -> Effect msg
+focusPane =
+    FocusPane
+
+
 {- INTERNAL: suspend is not yet implemented — the SuspendBackendTask
    constructor exists for future use but currently behaves identically
    to RunBackendTask. Not exposed in the public API.
@@ -149,6 +254,33 @@ map f effect =
 
         ExitWithCode code ->
             ExitWithCode code
+
+        Toast message ->
+            Toast message
+
+        ErrorToast message ->
+            ErrorToast message
+
+        ResetScroll paneId ->
+            ResetScroll paneId
+
+        ScrollTo paneId offset ->
+            ScrollTo paneId offset
+
+        ScrollDown paneId amount ->
+            ScrollDown paneId amount
+
+        ScrollUp paneId amount ->
+            ScrollUp paneId amount
+
+        SetSelectedIndex paneId index ->
+            SetSelectedIndex paneId index
+
+        SelectFirst paneId ->
+            SelectFirst paneId
+
+        FocusPane paneId ->
+            FocusPane paneId
 
 
 
@@ -189,6 +321,33 @@ toBackendTask effect =
 
         Batch effects ->
             processBatch effects
+
+        Toast _ ->
+            BackendTask.succeed EffectDone
+
+        ErrorToast _ ->
+            BackendTask.succeed EffectDone
+
+        ResetScroll _ ->
+            BackendTask.succeed EffectDone
+
+        ScrollTo _ _ ->
+            BackendTask.succeed EffectDone
+
+        ScrollDown _ _ ->
+            BackendTask.succeed EffectDone
+
+        ScrollUp _ _ ->
+            BackendTask.succeed EffectDone
+
+        SetSelectedIndex _ _ ->
+            BackendTask.succeed EffectDone
+
+        SelectFirst _ ->
+            BackendTask.succeed EffectDone
+
+        FocusPane _ ->
+            BackendTask.succeed EffectDone
 
 
 processBatch : List (Effect msg) -> BackendTask FatalError (EffectResult msg)

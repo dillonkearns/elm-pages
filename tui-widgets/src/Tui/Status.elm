@@ -8,6 +8,11 @@ module Tui.Status exposing
 {-| Unified status system for TUI applications — toasts, waiting indicators,
 and spinners in one module.
 
+This is the recommended way to show ephemeral feedback. It combines
+[`Tui.Toast`](Tui-Toast) auto-dismiss behavior with [`Tui.Spinner`](Tui-Spinner)
+animations for in-flight operations. When using [`Layout.compileApp`](Tui-Layout#compileApp),
+status is managed automatically via the `status` callback.
+
 Toasts are ephemeral messages that auto-dismiss. Waiting status shows a
 spinner for in-flight operations. The waiting message is passed declaratively
 to `view` — your model tracks whether an operation is in flight, and Status

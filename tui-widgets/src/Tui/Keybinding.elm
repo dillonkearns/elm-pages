@@ -9,9 +9,14 @@ module Tui.Keybinding exposing
 
 {-| Declarative keybinding system with scoped dispatch and auto-generated help.
 
-Inspired by lazygit's keybinding architecture: bindings are data (not just
-pattern matches), grouped into named scopes, dispatched in priority order,
-and rendered as a searchable help screen.
+Bindings are data (not just pattern matches), grouped into named scopes,
+dispatched in priority order, and rendered as a searchable help screen.
+The same binding declarations drive [`Tui.OptionsBar`](Tui-OptionsBar) hints,
+[`Tui.CommandPalette`](Tui-CommandPalette) search, and help screen generation.
+
+When using [`Layout.compileApp`](Tui-Layout#compileApp), use the simpler
+[`Layout.group`](Tui-Layout#group) / [`Layout.binding`](Tui-Layout#binding) wrappers
+instead of importing this module directly.
 
     -- Declare bindings
     globalBindings =

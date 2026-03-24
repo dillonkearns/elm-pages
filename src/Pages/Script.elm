@@ -1,7 +1,7 @@
 module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions, withSchema, metadata, withDatabasePath
-    , tui, tuiWithCliOptions
+    , tui, tuiWithCliOptions, tuiApp, tuiAppWithCliOptions
     , writeFile, removeFile, copyFile, move
     , makeDirectory, removeDirectory, makeTempDirectory
     , command, exec
@@ -37,7 +37,7 @@ Two extra capabilities beyond a standard TEA app:
     `update` via [`Effect.perform`](Tui-Effect#perform). This bridges async
     operations (shell commands, HTTP, file I/O) into the TUI update cycle.
 
-@docs tui, tuiWithCliOptions
+@docs tui, tuiWithCliOptions, tuiApp, tuiAppWithCliOptions
 
 
 ## File System Utilities
@@ -498,6 +498,124 @@ tuiFromConfig config =
                     }
                     loadedData
             )
+
+
+{-| Define a declarative TUI script using `Layout.compileApp`. This is the
+recommended approach for building TUI apps — you describe panes, actions,
+status, and modals; the framework handles rendering, key routing,
+subscriptions, and state management.
+
+    module MiniGit exposing (run)
+
+    import Pages.Script as Script exposing (Script)
+    import Tui.Layout as Layout
+
+    run : Script
+    run =
+        Script.tuiApp
+            { data = loadGitLog
+            , app =
+                Layout.compileApp
+                    { init = init
+                    , update = update
+                    , view = view
+                    , bindings = bindings
+                    , status = status
+                    , modal = modal
+                    , onRawEvent = Nothing
+                    }
+            }
+
+The `data` BackendTask runs before `init` while the terminal is still in normal
+mode. The `app` field takes the compiled output from `Layout.compileApp`.
+
+-}
+tuiApp :
+    { data : BackendTask FatalError data
+    , app :
+        { init : data -> ( model, Tui.Effect.Effect msg )
+        , update : msg -> model -> ( model, Tui.Effect.Effect msg )
+        , view : Tui.Context -> model -> Tui.Screen
+        , subscriptions : model -> Tui.Sub.Sub msg
+        }
+    }
+    -> Script
+tuiApp config =
+    withoutCliOptions
+        (config.data
+            |> BackendTask.quiet
+            |> BackendTask.andThen
+                (\loadedData ->
+                    Tui.Internal.run config.app loadedData
+                )
+        )
+
+
+{-| Like [`tuiApp`](#tuiApp), but with CLI option parsing.
+
+    module ElmDocs exposing (run)
+
+    import Cli.Option as Option
+    import Cli.OptionsParser as OptionsParser
+    import Cli.Program as Program
+    import Pages.Script as Script exposing (Script)
+    import Tui.Layout as Layout
+
+    run : Script
+    run =
+        Script.tuiAppWithCliOptions
+            (Program.config
+                |> Program.add
+                    (OptionsParser.build identity
+                        |> OptionsParser.with
+                            (Option.optionalKeywordArg "diff")
+                    )
+            )
+            (\diffArg ->
+                { data = loadPackages diffArg
+                , app =
+                    Layout.compileApp
+                        { init = init
+                        , update = update
+                        , view = view
+                        , bindings = bindings
+                        , status = status
+                        , modal = modal
+                        , onRawEvent = Just RawEvent
+                        }
+                }
+            )
+
+-}
+tuiAppWithCliOptions :
+    Program.Config cliOptions
+    ->
+        (cliOptions
+         ->
+            { data : BackendTask FatalError data
+            , app :
+                { init : data -> ( model, Tui.Effect.Effect msg )
+                , update : msg -> model -> ( model, Tui.Effect.Effect msg )
+                , view : Tui.Context -> model -> Tui.Screen
+                , subscriptions : model -> Tui.Sub.Sub msg
+                }
+            }
+        )
+    -> Script
+tuiAppWithCliOptions cliConfig toTuiConfig =
+    withCliOptions cliConfig
+        (\cliOptions ->
+            let
+                config =
+                    toTuiConfig cliOptions
+            in
+            config.data
+                |> BackendTask.quiet
+                |> BackendTask.andThen
+                    (\loadedData ->
+                        Tui.Internal.run config.app loadedData
+                    )
+        )
 
 
 setDatabasePath : String -> BackendTask FatalError ()

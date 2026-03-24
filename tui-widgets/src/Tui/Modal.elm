@@ -2,6 +2,10 @@ module Tui.Modal exposing (overlay, defaultWidth)
 
 {-| Modal overlay for TUI layouts.
 
+This is the rendering primitive used by [`Tui.Picker`](Tui-Picker),
+[`Tui.Menu`](Tui-Menu), [`Tui.Confirm`](Tui-Confirm), and [`Tui.Prompt`](Tui-Prompt).
+You can also use it directly for custom modal content.
+
 Renders a centered bordered dialog on top of background rows,
 with the background visible on the left and right edges — like lazygit's
 popup system. Modal height is capped at 75% of terminal height.

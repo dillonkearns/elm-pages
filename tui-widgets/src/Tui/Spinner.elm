@@ -1,8 +1,13 @@
 module Tui.Spinner exposing (view, subscriptions)
 
-{-| Stateless loading spinner animation. Not a full widget model — just a
-rendering helper that cycles through `|`, `/`, `-`, `\` based on a tick
-counter you manage in your model (like lazygit's spinner).
+{-| Stateless loading spinner animation.
+
+For most apps, prefer [`Tui.Status`](Tui-Status) which combines spinners with
+toast notifications. Use this module directly when you need a standalone
+spinner outside the status bar.
+
+Cycles through `|`, `/`, `-`, `\` based on a tick counter you manage
+in your model.
 
     -- In your model:
     type alias Model =

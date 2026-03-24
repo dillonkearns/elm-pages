@@ -13,6 +13,9 @@ a Menu dispatches actions directly by key press — pressing `c` immediately
 fires the item bound to `c`. Supports sections with headers, disabled items
 with explanatory reasons, and j/k navigation with Enter to confirm.
 
+When using [`Layout.compileApp`](Tui-Layout#compileApp), prefer
+[`Layout.menuModal`](Tui-Layout#menuModal) which handles key routing for you.
+
 Render with [`Tui.Modal.overlay`](Tui-Modal#overlay):
 
     case model.menu of
