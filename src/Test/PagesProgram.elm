@@ -2754,6 +2754,17 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                             wrappedModel.virtualFs
                             (config.action actionRequest route)
 
+                    -- Capture Set-Cookie headers from the action response
+                    updatedJar =
+                        case actionResult of
+                            Ok response ->
+                                wrappedModel.cookieJar
+                                    |> CookieJar.applySetCookieHeaders
+                                        (extractSetCookieHeaders response)
+
+                            Err _ ->
+                                wrappedModel.cookieJar
+
                     -- Step 3: Dispatch FetcherComplete
                     fetcherResult =
                         case actionResult of
@@ -2780,7 +2791,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                             modelAfterStarted
                 in
                 processEffectsWrapped config baseUrl
-                    { platformModel = modelAfterComplete, virtualFs = vfsAfterAction, cookieJar = wrappedModel.cookieJar }
+                    { platformModel = modelAfterComplete, virtualFs = vfsAfterAction, cookieJar = updatedJar }
                     completeEffect
                     (maxDepth - 1)
 

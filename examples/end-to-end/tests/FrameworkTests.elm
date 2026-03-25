@@ -184,11 +184,7 @@ darkModeToggleTest =
     TestApp.start "/dark-mode" BackendTaskTest.init
         |> PagesProgram.ensureViewHas [ text "Current mode: Light Mode" ]
         |> PagesProgram.clickButton "To Dark Mode"
-        -- TODO: concurrent form (withConcurrent / SubmitFetcher) action
-        -- resolution needs investigation. The form submit event simulation
-        -- works (hidden fields included), but the SubmitFetcher effect
-        -- doesn't refresh the data. Regular Submit forms all work correctly.
-        -- |> PagesProgram.ensureViewHas [ text "Current mode: Dark Mode" ]
+        |> PagesProgram.ensureViewHas [ text "Current mode: Dark Mode" ]
 
 
 {-| Full login -> logout -> login flow:
