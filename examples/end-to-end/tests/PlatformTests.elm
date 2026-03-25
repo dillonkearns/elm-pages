@@ -1,10 +1,11 @@
 module PlatformTests exposing (suite)
 
-import Expect
+import Expect exposing (Expectation)
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
 import Test.Html.Selector exposing (text)
 import Test.PagesProgram as PagesProgram
+import Test.Runner
 import TestApp
 
 
@@ -92,4 +93,47 @@ suite =
                         (\url -> url |> Expect.equal "https://localhost:1234/counter")
                     |> PagesProgram.ensureViewHas [ text "Count: 0" ]
                     |> PagesProgram.done
+        , test "navigating to route with unsimulated HTTP in data surfaces pending request error" <|
+            \() ->
+                TestApp.start "/counter" BackendTaskTest.init
+                    |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    |> PagesProgram.navigateTo "/http-data"
+                    -- /http-data's data function does GET https://api.example.com/posts
+                    -- which has not been simulated. ensureViewHas should report the
+                    -- pending HTTP request, not a misleading "not found" view error.
+                    |> PagesProgram.ensureViewHas [ text "Post:" ]
+                    |> PagesProgram.done
+                    |> expectFailContaining
+                        "Route data has a pending BackendTask that needs a simulated response"
+        , test "pending HTTP error message includes the request URL" <|
+            \() ->
+                TestApp.start "/counter" BackendTaskTest.init
+                    |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    |> PagesProgram.navigateTo "/http-data"
+                    |> PagesProgram.ensureViewHas [ text "Post:" ]
+                    |> PagesProgram.done
+                    |> expectFailContaining "https://api.example.com/posts"
         ]
+
+
+expectFailContaining : String -> Expectation -> Expectation
+expectFailContaining substring expectation =
+    case Test.Runner.getFailureReason expectation of
+        Nothing ->
+            Expect.fail
+                ("Expected test to fail with message containing \""
+                    ++ substring
+                    ++ "\", but it passed."
+                )
+
+        Just { description } ->
+            if String.contains substring description then
+                Expect.pass
+
+            else
+                Expect.fail
+                    ("Expected failure message to contain \""
+                        ++ substring
+                        ++ "\", but the actual message was:\n\n"
+                        ++ description
+                    )
