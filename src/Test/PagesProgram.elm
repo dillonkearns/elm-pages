@@ -217,6 +217,7 @@ type alias ReadyState model msg =
     , onFormSubmit : Maybe ({ formId : String, action : String, fields : List ( String, String ), useFetcher : Bool } -> msg)
     , getFormFields : Maybe (model -> List ( String, String ))
     , viewScope : Query.Single msg -> Query.Single msg
+    , getModelError : model -> Maybe String
     }
 
 
@@ -420,7 +421,7 @@ startPlatform config initialPath testSetup =
 
                 ( finalWrapped, _ ) =
                     processEffectsWrapped config baseUrl
-                        { platformModel = readyModel, virtualFs = vfsAfterInit, cookieJar = CookieJar.empty }
+                        { platformModel = readyModel, virtualFs = vfsAfterInit, cookieJar = CookieJar.empty, pendingDataError = Nothing }
                         readyEffect
                         100
 
@@ -485,6 +486,7 @@ startPlatform config initialPath testSetup =
                                         )
                             )
                     , viewScope = identity
+                    , getModelError = \m -> m.pendingDataError
                     }
 
                 viewResult =
@@ -907,17 +909,35 @@ clickButton buttonText (ProgramTest state) =
 
                     else
                     let
-                        -- Use findAll + first instead of find to handle
-                        -- multiple buttons with the same text (e.g., "Delete"
-                        -- buttons in a list). Takes the first match.
-                        buttonQuery : Query.Single msg
-                        buttonQuery =
+                        allButtons =
                             query
                                 |> Query.findAll
                                     [ Selector.tag "button"
                                     , Selector.containing [ Selector.text buttonText ]
                                     ]
-                                |> Query.first
+
+                        hasMultiple : Bool
+                        hasMultiple =
+                            allButtons
+                                |> Query.count (Expect.atMost 1)
+                                |> (\expectation -> getFailureMessage expectation /= Nothing)
+                    in
+                    if hasMultiple then
+                        ProgramTest
+                            { state
+                                | error =
+                                    Just
+                                        ("clickButton \""
+                                            ++ buttonText
+                                            ++ "\" found multiple buttons with that text. Use `within` to scope to a specific element, or use unique button text."
+                                        )
+                            }
+
+                    else
+                    let
+                        buttonQuery : Query.Single msg
+                        buttonQuery =
+                            allButtons |> Query.first
 
                         eventResult : Result String msg
                         eventResult =
@@ -1663,25 +1683,35 @@ ensureViewHas selectors (ProgramTest state) =
                         }
 
                 Ready ready ->
-                    let
-                        result : Expectation
-                        result =
-                            renderScopedView ready |> Query.has selectors
-                    in
-                    case getFailureMessage result of
-                        Just failMsg ->
+                    case ready.getModelError ready.model of
+                        Just pendingError ->
                             ProgramTest
                                 { state
                                     | error =
                                         Just
-                                            ("ensureViewHas failed:\n\n"
-                                                ++ failMsg
-                                            )
+                                            ("ensureViewHas: " ++ pendingError)
                                 }
 
                         Nothing ->
-                            ProgramTest state
-                                |> recordAssertionSnapshot ("ensureViewHas " ++ selectorLabel selectors)
+                            let
+                                result : Expectation
+                                result =
+                                    renderScopedView ready |> Query.has selectors
+                            in
+                            case getFailureMessage result of
+                                Just failMsg ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just
+                                                    ("ensureViewHas failed:\n\n"
+                                                        ++ failMsg
+                                                    )
+                                        }
+
+                                Nothing ->
+                                    ProgramTest state
+                                        |> recordAssertionSnapshot ("ensureViewHas " ++ selectorLabel selectors)
 
 
 {-| Assert that the rendered view does NOT contain elements matching the given
@@ -1699,25 +1729,30 @@ ensureViewHasNot selectors (ProgramTest state) =
                     ProgramTest { state | error = Just "ensureViewHasNot: Cannot check view while data is resolving." }
 
                 Ready ready ->
-                    let
-                        result : Expectation
-                        result =
-                            renderScopedView ready |> Query.hasNot selectors
-                    in
-                    case getFailureMessage result of
-                        Just failMsg ->
-                            ProgramTest
-                                { state
-                                    | error =
-                                        Just
-                                            ("ensureViewHasNot failed:\n\n"
-                                                ++ failMsg
-                                            )
-                                }
+                    case ready.getModelError ready.model of
+                        Just pendingError ->
+                            ProgramTest { state | error = Just ("ensureViewHasNot: " ++ pendingError) }
 
                         Nothing ->
-                            ProgramTest state
-                                |> recordAssertionSnapshot ("ensureViewHasNot " ++ selectorLabel selectors)
+                            let
+                                result : Expectation
+                                result =
+                                    renderScopedView ready |> Query.hasNot selectors
+                            in
+                            case getFailureMessage result of
+                                Just failMsg ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just
+                                                    ("ensureViewHasNot failed:\n\n"
+                                                        ++ failMsg
+                                                    )
+                                        }
+
+                                Nothing ->
+                                    ProgramTest state
+                                        |> recordAssertionSnapshot ("ensureViewHasNot " ++ selectorLabel selectors)
 
 
 {-| Assert on the rendered view using a custom assertion function.
@@ -1743,25 +1778,30 @@ ensureView assertion (ProgramTest state) =
                     ProgramTest { state | error = Just "ensureView: Cannot check view while data is resolving." }
 
                 Ready ready ->
-                    let
-                        result : Expectation
-                        result =
-                            assertion (renderScopedView ready)
-                    in
-                    case getFailureMessage result of
-                        Just failMsg ->
-                            ProgramTest
-                                { state
-                                    | error =
-                                        Just
-                                            ("ensureView failed:\n\n"
-                                                ++ failMsg
-                                            )
-                                }
+                    case ready.getModelError ready.model of
+                        Just pendingError ->
+                            ProgramTest { state | error = Just ("ensureView: " ++ pendingError) }
 
                         Nothing ->
-                            ProgramTest state
-                                |> recordAssertionSnapshot "ensureView"
+                            let
+                                result : Expectation
+                                result =
+                                    assertion (renderScopedView ready)
+                            in
+                            case getFailureMessage result of
+                                Just failMsg ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just
+                                                    ("ensureView failed:\n\n"
+                                                        ++ failMsg
+                                                    )
+                                        }
+
+                                Nothing ->
+                                    ProgramTest state
+                                        |> recordAssertionSnapshot "ensureView"
 
 
 
@@ -2301,6 +2341,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                         , onFormSubmit = Nothing
                         , getFormFields = Nothing
                         , viewScope = identity
+                        , getModelError = \_ -> Nothing
                         }
 
                 Err err ->
@@ -2556,8 +2597,8 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                     wrappedModel.virtualFs
                                     (config.action actionRequest route)
                         in
-                        case actionResult |> Result.toMaybe of
-                            Just (ServerResponse serverResponse) ->
+                        case actionResult of
+                            Ok (ServerResponse serverResponse) ->
                                 let
                                     updatedJar =
                                         wrappedModel.cookieJar
@@ -2587,14 +2628,14 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                                     wrappedModel.platformModel
                                         in
                                         processEffectsWrapped config baseUrl
-                                            { platformModel = newModel, virtualFs = vfsAfterAction, cookieJar = updatedJar }
+                                            { platformModel = newModel, virtualFs = vfsAfterAction, cookieJar = updatedJar, pendingDataError = Nothing }
                                             newEffect
                                             (maxDepth - 1)
 
                                     Nothing ->
                                         ( { wrappedModel | virtualFs = vfsAfterAction, cookieJar = updatedJar }, [] )
 
-                            Just ((RenderPage renderMeta actionData) as renderResponse) ->
+                            Ok ((RenderPage renderMeta actionData) as renderResponse) ->
                                 -- Action rendered: capture cookies, re-resolve data with updated virtual FS
                                 let
                                     updatedJar =
@@ -2620,12 +2661,30 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                                     wrappedModel.platformModel
                                         in
                                         processEffectsWrapped config baseUrl
-                                            { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = updatedJar }
+                                            { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = updatedJar, pendingDataError = Nothing }
                                             newEffect
                                             (maxDepth - 1)
 
                                     Nothing ->
-                                        ( { wrappedModel | virtualFs = vfsAfterData, cookieJar = updatedJar }, [] )
+                                        ( { wrappedModel
+                                            | virtualFs = vfsAfterData
+                                            , cookieJar = updatedJar
+                                            , pendingDataError =
+                                                Just
+                                                    ("Route data has a pending BackendTask that needs a simulated response after action completed:\n\n"
+                                                        ++ (dataResult |> resultErrorToString)
+                                                    )
+                                          }
+                                        , []
+                                        )
+
+                            Err pendingError ->
+                                ( { wrappedModel
+                                    | virtualFs = vfsAfterAction
+                                    , pendingDataError = Just ("Route action has a pending BackendTask that needs a simulated response:\n\n" ++ pendingError)
+                                  }
+                                , []
+                                )
 
                             _ ->
                                 ( { wrappedModel | virtualFs = vfsAfterAction }, [] )
@@ -2638,8 +2697,8 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                     wrappedModel.virtualFs
                                     (config.data (platformTestRequest (Url.toString fetchUrl) wrappedModel.cookieJar) route)
                         in
-                        case dataResult |> Result.toMaybe of
-                            Just (ServerResponse serverResponse) ->
+                        case dataResult of
+                            Ok (ServerResponse serverResponse) ->
                                 -- Data returned a redirect (e.g., session expired -> login)
                                 let
                                     updatedJar =
@@ -2660,12 +2719,20 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                                     wrappedModel.platformModel
                                         in
                                         processEffectsWrapped config baseUrl
-                                            { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = updatedJar }
+                                            { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = updatedJar, pendingDataError = Nothing }
                                             newEffect
                                             (maxDepth - 1)
 
                                     Nothing ->
                                         ( { wrappedModel | virtualFs = vfsAfterData, cookieJar = updatedJar }, [] )
+
+                            Err pendingError ->
+                                ( { wrappedModel
+                                    | virtualFs = vfsAfterData
+                                    , pendingDataError = Just ("Route data has a pending BackendTask that needs a simulated response:\n\n" ++ pendingError)
+                                  }
+                                , []
+                                )
 
                             _ ->
                                 case extractPageData config dataResult of
@@ -2697,7 +2764,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                                                 { newModel | notFound = Nothing }
                                         in
                                         processEffectsWrapped config baseUrl
-                                            { platformModel = cleanedModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar }
+                                            { platformModel = cleanedModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar, pendingDataError = Nothing }
                                             newEffect
                                             (maxDepth - 1)
 
@@ -2791,7 +2858,7 @@ processEffectsWrapped config baseUrl wrappedModel effect maxDepth =
                             modelAfterStarted
                 in
                 processEffectsWrapped config baseUrl
-                    { platformModel = modelAfterComplete, virtualFs = vfsAfterAction, cookieJar = updatedJar }
+                    { platformModel = modelAfterComplete, virtualFs = vfsAfterAction, cookieJar = updatedJar, pendingDataError = Nothing }
                     completeEffect
                     (maxDepth - 1)
 
@@ -2920,6 +2987,16 @@ encodeResponseWithPrefix config sketch =
             , config.encodeResponse sketch
             ]
         )
+
+
+resultErrorToString : Result String a -> String
+resultErrorToString result =
+    case result of
+        Err msg ->
+            msg
+
+        Ok _ ->
+            ""
 
 
 encodeFormFields : List ( String, String ) -> String
