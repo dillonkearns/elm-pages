@@ -265,15 +265,18 @@ update config appMsg model =
     case appMsg of
         FormMsg formMsg ->
             let
-                -- TODO trigger formCmd
-                ( newModel, formCmd ) =
-                    Form.update formMsg model.pageFormState
+                ( newFormModel, maybeMsg ) =
+                    Form.updateWithMsg formMsg model.pageFormState
+
+                updatedModel =
+                    { model | pageFormState = newFormModel }
             in
-            ( { model
-                | pageFormState = newModel
-              }
-            , RunCmd formCmd
-            )
+            case maybeMsg of
+                Just msg ->
+                    update config msg updatedModel
+
+                Nothing ->
+                    ( updatedModel, NoEffect )
 
         LinkClicked urlRequest ->
             case urlRequest of
@@ -480,12 +483,18 @@ update config appMsg model =
                 Pages.Internal.Msg.FormMsg formMsg ->
                     -- TODO when init is called for a new page, also need to clear out client-side `pageFormState`
                     let
-                        ( formModel, formCmd ) =
-                            Form.update formMsg model.pageFormState
+                        ( newFormModel, maybeMsg ) =
+                            Form.updateWithMsg formMsg model.pageFormState
+
+                        updatedModel =
+                            { model | pageFormState = newFormModel }
                     in
-                    ( { model | pageFormState = formModel }
-                    , RunCmd (Cmd.map UserMsg formCmd)
-                    )
+                    case maybeMsg of
+                        Just innerMsg ->
+                            update config (UserMsg innerMsg) updatedModel
+
+                        Nothing ->
+                            ( updatedModel, NoEffect )
 
                 Pages.Internal.Msg.NoOp ->
                     ( model, NoEffect )

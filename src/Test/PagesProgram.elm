@@ -931,8 +931,48 @@ clickButton buttonText (ProgramTest state) =
 
                         Err _ ->
                             -- Button has no click handler. This is an elm-pages
-                            -- form with a submit button.
-                            formSubmitFallback ready query buttonText (ProgramTest state)
+                            -- form with a submit button. Simulate the form's
+                            -- submit event, which triggers the form library's
+                            -- onSubmit handler with ALL fields (including hidden).
+                            -- The form library falls back to its computed rawFields
+                            -- when event.fields is null.
+                            let
+                                formSubmitResult =
+                                    query
+                                        |> Query.find
+                                            [ Selector.tag "form"
+                                            , Selector.containing
+                                                [ Selector.tag "button"
+                                                , Selector.containing [ Selector.text buttonText ]
+                                                ]
+                                            ]
+                                        |> Event.simulate
+                                            ( "submit"
+                                            , Encode.object
+                                                [ ( "currentTarget"
+                                                  , Encode.object
+                                                        [ ( "method", Encode.string "POST" )
+                                                        , ( "action", Encode.string "" )
+                                                        , ( "id", Encode.null )
+                                                        ]
+                                                  )
+                                                ]
+                                            )
+                                        |> Event.toResult
+                            in
+                            case formSubmitResult of
+                                Ok msg ->
+                                    applyMsgWithLabel
+                                        ("clickButton \"" ++ buttonText ++ "\"")
+                                        Interaction
+                                        msg
+                                        (ProgramTest state)
+
+                                Err _ ->
+                                    -- Form submit event didn't work (e.g., raw HTML
+                                    -- form without Pages.Form). Fall back to
+                                    -- onFormSubmit handler.
+                                    formSubmitFallback ready query buttonText (ProgramTest state)
 
 
 {-| Simulate typing text into an input field.
