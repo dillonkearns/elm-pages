@@ -7,7 +7,6 @@ import * as kleur from "kleur/colors";
 import { inject } from "elm-hot";
 import { fileURLToPath } from "url";
 import { rewriteElmJson } from "./rewrite-elm-json-help.js";
-import { ensureDirSync } from "./file-helpers.js";
 import { patchFrozenViews } from "./frozen-view-codemod.js";
 import { requireLamdera } from "./commands/shared.js";
 // Lazy-loaded to suppress TypeScript deprecation warnings during import
