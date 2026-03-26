@@ -417,6 +417,9 @@ type alias ProgramTest =
         { platformModel : Pages.Internal.Platform.Model Main.Model Main.PageData Main.ActionData Shared.Data
         , virtualFs : Test.BackendTask.Internal.VirtualFS
         , cookieJar : CookieJar.CookieJar
+        , pendingDataError : Maybe String
+        , pendingDataPath : Maybe String
+        , pendingActionBody : Maybe { body : String, path : String }
         }
         (Pages.Internal.Platform.Msg Main.Msg Main.PageData Main.ActionData Shared.Data ErrorPage.ErrorPage)
 

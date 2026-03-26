@@ -1,17 +1,12 @@
-module Data.Cart exposing (Cart, CartEntry, addItemToCart, selection)
+module Data.Cart exposing (Cart, CartEntry, addItemToCart, get)
 
-import Api.InputObject
-import Api.Mutation
-import Api.Object.Order
-import Api.Object.Order_item
-import Api.Object.Products
-import Api.Object.Users
-import Api.Query
-import Api.Scalar exposing (Uuid(..))
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
 import Dict exposing (Dict)
-import Graphql.Operation exposing (RootQuery)
-import Graphql.OptionalArgument exposing (OptionalArgument(..))
-import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
+import FatalError exposing (FatalError)
+import Json.Decode as Decode
+import Json.Encode as Encode
+import Request.Hasura
 
 
 type alias Cart =
@@ -24,71 +19,73 @@ type alias CartEntry =
     }
 
 
-selection : String -> SelectionSet (Maybe (Dict String CartEntry)) RootQuery
-selection userId =
-    Api.Query.users_by_pk { id = Uuid userId }
-        (Api.Object.Users.orders
-            (\optionals ->
-                { optionals
-                    | where_ =
-                        Api.InputObject.buildOrder_bool_exp
-                            (\orderOptionals ->
-                                { orderOptionals
-                                    | ordered =
-                                        Api.InputObject.buildBoolean_comparison_exp
-                                            (\compareOptionals ->
-                                                { compareOptionals
-                                                    | eq_ = Present False
-                                                }
-                                            )
-                                            |> Present
-                                }
-                            )
-                            |> Present
+{-| Fetch the cart for a user from Hasura.
+Uses a raw GraphQL query since the order/order\_item types
+aren't in the current generated schema.
+-}
+get : String -> BackendTask FatalError (Maybe Cart)
+get userId =
+    Request.Hasura.graphqlRequest
+        { query = """
+            query GetCart($userId: uuid!) {
+                users_by_pk(id: $userId) {
+                    orders(where: {ordered: {_eq: false}}) {
+                        order_items {
+                            product_id
+                            quantity
+                            product { price }
+                        }
+                    }
                 }
-            )
-            (Api.Object.Order.order_items identity
-                (SelectionSet.map2 Tuple.pair
-                    (Api.Object.Order_item.product_id |> SelectionSet.map uuidToString)
-                    (SelectionSet.map2 CartEntry
-                        Api.Object.Order_item.quantity
-                        (Api.Object.Order_item.product Api.Object.Products.price)
+            }
+        """
+        , variables =
+            [ ( "userId", Encode.string userId ) ]
+        , decoder =
+            Decode.field "data"
+                (Decode.field "users_by_pk"
+                    (Decode.nullable
+                        (Decode.field "orders"
+                            (Decode.list
+                                (Decode.field "order_items"
+                                    (Decode.list orderItemDecoder)
+                                )
+                            )
+                            |> Decode.map (List.concat >> Dict.fromList)
+                        )
                     )
                 )
-            )
-        )
-        |> SelectionSet.map (Maybe.map (List.concat >> Dict.fromList))
-
-
-addItemToCart : Int -> Uuid -> Uuid -> SelectionSet (Maybe ()) Graphql.Operation.RootMutation
-addItemToCart quantity userId itemId =
-    Api.Mutation.insert_order_one identity
-        { object =
-            Api.InputObject.buildOrder_insert_input
-                (\opt ->
-                    { opt
-                        | user_id = Present userId
-                        , total = Present 0
-                        , order_items =
-                            Api.InputObject.buildOrder_item_arr_rel_insert_input
-                                { data =
-                                    [ Api.InputObject.buildOrder_item_insert_input
-                                        (\itemOpts ->
-                                            { itemOpts
-                                                | product_id = Present itemId
-                                                , quantity = Present quantity
-                                            }
-                                        )
-                                    ]
-                                }
-                                identity
-                                |> Present
-                    }
-                )
         }
-        SelectionSet.empty
 
 
-uuidToString : Uuid -> String
-uuidToString (Uuid id) =
-    id
+orderItemDecoder : Decode.Decoder ( String, CartEntry )
+orderItemDecoder =
+    Decode.map3 (\productId quantity price -> ( productId, CartEntry quantity price ))
+        (Decode.field "product_id" Decode.string)
+        (Decode.field "quantity" Decode.int)
+        (Decode.at [ "product", "price" ] Decode.int)
+
+
+{-| Add an item to the cart via Hasura mutation.
+-}
+addItemToCart : Int -> String -> String -> BackendTask FatalError ()
+addItemToCart quantity userId itemId =
+    Request.Hasura.graphqlRequest
+        { query = """
+            mutation AddToCart($userId: uuid!, $itemId: uuid!, $quantity: Int!) {
+                insert_order_one(object: {
+                    user_id: $userId,
+                    total: 0,
+                    order_items: {
+                        data: [{ product_id: $itemId, quantity: $quantity }]
+                    }
+                }) { id }
+            }
+        """
+        , variables =
+            [ ( "userId", Encode.string userId )
+            , ( "itemId", Encode.string itemId )
+            , ( "quantity", Encode.int quantity )
+            ]
+        , decoder = Decode.field "data" (Decode.succeed ())
+        }

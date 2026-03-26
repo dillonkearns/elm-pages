@@ -4,21 +4,23 @@ import BackendTask exposing (BackendTask)
 import Description exposing (Description)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation exposing (Combined, Field)
+import Form.Handler
+import Form.Validation as Validation exposing (Validation)
 import GroupName exposing (GroupName)
 import Head
-import Html exposing (Html)
-import Html.Attributes as Attr
+import Html.Styled as Html exposing (Html)
+import Html.Styled.Attributes as Attr
+import Pages.Form
 import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
-import Path exposing (Path)
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
-import Server.Request as Request
+import RouteBuilder exposing (App, StatefulRoute)
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -50,29 +52,27 @@ route =
 
 
 init :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init app sharedModel =
     ( {}, Effect.none )
 
 
 update :
-    PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update app sharedModel msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
 
 
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
+subscriptions routeParams path sharedModel model =
     Sub.none
 
 
@@ -84,53 +84,40 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
-data routeParams =
-    Request.succeed (BackendTask.succeed (Response.render Data))
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    BackendTask.succeed (Response.render Data)
 
 
-action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
-action routeParams =
-    Request.formData (postForm |> Form.initCombined identity)
-        |> Request.map
-            (\parsedForm ->
-                let
-                    _ =
-                        Debug.log "parsedForm"
-                            (case parsedForm of
-                                Ok group ->
-                                    "Got valid group: " ++ Debug.toString group
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action routeParams request =
+    case request |> Request.formData (postForm |> Form.Handler.init identity) of
+        Just ( _, parsedForm ) ->
+            BackendTask.succeed (Response.render ActionData)
 
-                                Err formErrors ->
-                                    "Got from errors: " ++ Debug.toString formErrors
-                            )
-                in
-                BackendTask.succeed (Response.render ActionData)
-            )
+        Nothing ->
+            BackendTask.succeed (Response.render ActionData)
 
 
 head :
     App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     []
 
 
 view :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model app =
+view app sharedModel model =
     { title = "Create Group"
     , body =
         [ postForm
-            |> Form.renderHtml "create-group" []
-                -- TODO pass in form response from ActionData
-                Nothing
+            |> Pages.Form.renderStyledHtml []
+                (Form.options "create-group")
                 app
-                ()
         ]
     }
 
@@ -147,9 +134,9 @@ type GroupVisibility
     | PublicGroup
 
 
-postForm : Form.HtmlForm String GroupFormValidated data Msg
+postForm : Form.StyledHtmlForm String GroupFormValidated data msg
 postForm =
-    Form.init
+    Form.form
         (\name description visibility ->
             { combine =
                 Validation.succeed GroupFormValidated
@@ -162,7 +149,7 @@ postForm =
                     , fieldView formState "What's the name of your group?" name
                     , fieldView formState "Describe what your group is about (you can fill out this later)" description
                     , Html.div []
-                        [ Form.FieldView.radio []
+                        [ Form.FieldView.radioStyled []
                             (\enum toRadio ->
                                 Html.div []
                                     [ Html.label []
@@ -182,10 +169,10 @@ postForm =
                         , errorsForField formState visibility
                         ]
                     , Html.button
-                        [ Attr.disabled formState.isTransitioning
+                        [ Attr.disabled formState.submitting
                         ]
                         [ Html.text
-                            (if formState.isTransitioning then
+                            (if formState.submitting then
                                 "Submitting..."
 
                              else
@@ -198,7 +185,7 @@ postForm =
         |> Form.field "name"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withClientValidation
+                |> Field.validateMap
                     (\value ->
                         value
                             |> GroupName.fromString
@@ -215,19 +202,17 @@ postForm =
                                                 ++ String.fromInt (GroupName.maxLength + 1)
                                                 ++ " characters."
                                 )
-                            |> fromResult
                     )
             )
         |> Form.field "description"
             (Field.text
-                |> Field.textarea
-                |> Field.withClientValidation
+                |> Field.textarea { rows = Nothing, cols = Nothing }
+                |> Field.validateMap
                     (\value ->
                         value
                             |> Maybe.withDefault ""
                             |> Description.fromString
                             |> Result.mapError Description.errorToString
-                            |> fromResult
                     )
             )
         |> Form.field "visibility"
@@ -243,19 +228,19 @@ postForm =
 fieldView :
     Form.Context String data
     -> String
-    -> Field String parsed Form.FieldView.Input
+    -> Validation.Field String parsed Form.FieldView.Input
     -> Html msg
 fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Form.FieldView.input []
+            , field |> Form.FieldView.inputStyled []
             ]
         , errorsForField formState field
         ]
 
 
-errorsForField : Form.Context String data -> Field String parsed kind -> Html msg
+errorsForField : Form.Context String data -> Validation.Field String parsed kind -> Html msg
 errorsForField formState field =
     (if formState.submitAttempted then
         formState.errors
@@ -268,11 +253,3 @@ errorsForField formState field =
         |> Html.ul [ Attr.style "color" "red" ]
 
 
-fromResult : Result error value -> ( Maybe value, List error )
-fromResult result =
-    case result of
-        Ok value ->
-            ( Just value, [] )
-
-        Err error ->
-            ( Nothing, [ error ] )

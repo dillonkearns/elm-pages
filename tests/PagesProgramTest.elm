@@ -104,6 +104,45 @@ all =
                             (Encode.object [ ( "name", Encode.string "Alice" ) ])
                         |> PagesProgram.ensureViewHas [ Selector.text "Alice" ]
                         |> PagesProgram.done
+            , test "resolves multiple sequential HTTP POST requests with different bodies to the same URL" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.map2 (\a b -> a ++ " & " ++ b)
+                                (BackendTask.Http.request
+                                    { url = "https://api.example.com/graphql"
+                                    , method = "POST"
+                                    , headers = []
+                                    , body = BackendTask.Http.jsonBody (Encode.object [ ( "query", Encode.string "{ users { name } }" ) ])
+                                    , retries = Nothing
+                                    , timeoutInMs = Nothing
+                                    }
+                                    (BackendTask.Http.expectJson (Decode.at [ "data", "users" ] (Decode.index 0 (Decode.field "name" Decode.string))))
+                                    |> BackendTask.allowFatal
+                                )
+                                (BackendTask.Http.request
+                                    { url = "https://api.example.com/graphql"
+                                    , method = "POST"
+                                    , headers = []
+                                    , body = BackendTask.Http.jsonBody (Encode.object [ ( "query", Encode.string "{ items { title } }" ) ])
+                                    , retries = Nothing
+                                    , timeoutInMs = Nothing
+                                    }
+                                    (BackendTask.Http.expectJson (Decode.at [ "data", "items" ] (Decode.index 0 (Decode.field "title" Decode.string))))
+                                    |> BackendTask.allowFatal
+                                )
+                        , init = \combined -> ( { text = combined }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "Test", body = [ Html.text model.text ] }
+                        }
+                        |> PagesProgram.simulateHttpPost
+                            "https://api.example.com/graphql"
+                            (Encode.object [ ( "data", Encode.object [ ( "users", Encode.list identity [ Encode.object [ ( "name", Encode.string "Alice" ) ] ] ) ] ) ])
+                        |> PagesProgram.simulateHttpPost
+                            "https://api.example.com/graphql"
+                            (Encode.object [ ( "data", Encode.object [ ( "items", Encode.list identity [ Encode.object [ ( "title", Encode.string "Widget" ) ] ] ) ] ) ])
+                        |> PagesProgram.ensureViewHas [ Selector.text "Alice & Widget" ]
+                        |> PagesProgram.done
             , test "done fails when data BackendTask is unresolved" <|
                 \() ->
                     PagesProgram.start
@@ -421,6 +460,29 @@ all =
                         |> PagesProgram.clickButton "Submit"
                         |> PagesProgram.ensureViewHas [ Selector.text "Clicked!" ]
                         |> PagesProgram.done
+            ]
+        , describe "ambiguous button detection"
+            [ test "clickButton fails when multiple buttons match" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "List"
+                                , body =
+                                    [ Html.div []
+                                        [ Html.button [ Html.Events.onClick () ] [ Html.text "Delete" ]
+                                        , Html.button [ Html.Events.onClick () ] [ Html.text "Delete" ]
+                                        , Html.button [ Html.Events.onClick () ] [ Html.text "Delete" ]
+                                        ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "Delete"
+                        |> PagesProgram.done
+                        |> expectFailContaining "Delete"
             ]
         , describe "Bug fix: pending effects must not be overwritten"
             [ test "done fails when effects are pending after another interaction" <|
@@ -1140,8 +1202,11 @@ all =
                         |> PagesProgram.within
                             (Query.find [ Selector.id "section-b" ])
                             (PagesProgram.clickButton "+1")
-                        -- After within, clickButton finds the first +1 (section-a)
-                        |> PagesProgram.clickButton "+1"
+                        -- After within, scope resets to full view.
+                        -- Use within again to target section-a specifically.
+                        |> PagesProgram.within
+                            (Query.find [ Selector.id "section-a" ])
+                            (PagesProgram.clickButton "+1")
                         |> PagesProgram.expectModel
                             (\model ->
                                 Expect.equal { a = 1, b = 1 } { a = model.a, b = model.b }

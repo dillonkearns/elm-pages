@@ -1,6 +1,5 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
-import Api.Scalar exposing (Uuid(..))
 import Data.Cart as Cart exposing (Cart)
 import Data.Smoothies as Smoothie exposing (Smoothie)
 import Data.User as User exposing (User)
@@ -8,27 +7,27 @@ import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
+import Form.Handler
 import Form.Validation as Validation
-import Form.Value
-import Graphql.SelectionSet as SelectionSet
 import Head
-import Html exposing (Html)
-import Html.Attributes as Attr
+import Html.Styled as Html exposing (Html)
+import Html.Styled.Attributes as Attr
 import Icon
 import MySession
+import Pages.ConcurrentSubmission
+import Pages.Form
 import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
-import Path exposing (Path)
-import Request.Hasura
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
+import RouteBuilder exposing (App, StatefulRoute)
 import Seo.Common
-import Server.Request as Request
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -71,62 +70,59 @@ route =
 
 
 init :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init app sharedModel =
     ( {}, Effect.none )
 
 
 update :
-    PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update app sharedModel msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
 
 
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
+subscriptions routeParams path sharedModel model =
     Sub.none
 
 
 head :
     App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.Common.tags
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
-data routeParams =
-    Request.succeed ()
-        |> MySession.expectSessionDataOrRedirect (Session.get "userId")
-            (\userId () session ->
-                SelectionSet.map3 Data
-                    Smoothie.selection
-                    (User.selection userId)
-                    (Cart.selection userId)
-                    |> Request.Hasura.backendTask
-                    |> BackendTask.map Response.render
-                    |> BackendTask.map (Tuple.pair session)
-            )
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    MySession.expectSessionDataOrRedirect (Session.get "userId")
+        (\userId session ->
+            BackendTask.map3 Data
+                Smoothie.all
+                (User.find userId)
+                (Cart.get userId)
+                |> BackendTask.map Response.render
+                |> BackendTask.map (Tuple.pair session)
+        )
+        request
 
 
 type Action
     = Signout
-    | SetQuantity Uuid Int
+    | SetQuantity String Int
 
 
-signoutForm : Form.HtmlForm String () input Msg
+signoutForm : Form.StyledHtmlForm String () input msg
 signoutForm =
-    Form.init
+    Form.form
         { combine = Validation.succeed ()
         , view =
             \formState ->
@@ -136,19 +132,19 @@ signoutForm =
         |> Form.hiddenKind ( "kind", "signout" ) "Expected signout"
 
 
-setQuantityForm : Form.HtmlForm String ( Uuid, Int ) ( Int, QuantityChange, Smoothie ) Msg
+setQuantityForm : Form.StyledHtmlForm String ( String, Int ) ( Int, QuantityChange, Smoothie ) msg
 setQuantityForm =
-    Form.init
+    Form.form
         (\uuid quantity ->
             { combine =
                 Validation.succeed Tuple.pair
-                    |> Validation.andMap (uuid |> Validation.map Uuid)
+                    |> Validation.andMap uuid
                     |> Validation.andMap quantity
             , view =
                 \formState ->
                     [ Html.button []
                         [ Html.text <|
-                            case formState.data of
+                            case formState.input of
                                 ( _, Decrement, _ ) ->
                                     "-"
 
@@ -162,17 +158,16 @@ setQuantityForm =
         |> Form.hiddenField "itemId"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withInitialValue (\( _, _, item ) -> Form.Value.string (uuidToString item.id))
+                |> Field.withInitialValue (\( _, _, item ) -> item.id)
             )
         |> Form.hiddenField "quantity"
             (Field.int { invalid = \_ -> "Expected int" }
                 |> Field.required "Required"
                 |> Field.withInitialValue
                     (\( quantityInCart, quantityChange, _ ) ->
-                        (quantityInCart + toQuantity quantityChange)
-                            |> Form.Value.int
+                        quantityInCart + toQuantity quantityChange
                     )
-                |> Field.withMin (Form.Value.int 0) "Must be 0 or more"
+                |> Field.withMin 0 "Must be 0 or more"
             )
 
 
@@ -186,46 +181,41 @@ toQuantity quantityChange =
             -1
 
 
-oneOfParsers : Form.ServerForms String Action
-oneOfParsers =
-    signoutForm
-        |> Form.initCombined (\() -> Signout)
-        |> Form.combine (\( uuid, int ) -> SetQuantity uuid int) setQuantityForm
+formHandlers : Form.Handler.Handler String Action
+formHandlers =
+    Form.Handler.init (\() -> Signout) signoutForm
+        |> Form.Handler.with (\( id, qty ) -> SetQuantity id qty) setQuantityForm
 
 
-action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
-action routeParams =
-    Request.formData oneOfParsers
-        |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
-            (\userId parsedAction session ->
-                case parsedAction of
-                    Ok Signout ->
-                        BackendTask.succeed (Route.redirectTo Route.Login)
-                            |> BackendTask.map (Tuple.pair Session.empty)
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action routeParams request =
+    MySession.expectSessionDataOrRedirect (Session.get "userId")
+        (\userId session ->
+            case request |> Request.formData formHandlers of
+                Just ( _, Form.Valid Signout ) ->
+                    BackendTask.succeed (Route.redirectTo Route.Login)
+                        |> BackendTask.map (Tuple.pair Session.empty)
 
-                    Ok (SetQuantity itemId quantity) ->
-                        (Cart.addItemToCart quantity userId itemId
-                            |> Request.Hasura.mutationBackendTask
-                            |> BackendTask.map
-                                (\_ -> Response.render {})
+                Just ( _, Form.Valid (SetQuantity itemId quantity) ) ->
+                    Cart.addItemToCart quantity userId itemId
+                        |> BackendTask.map (\_ -> Response.render {})
+                        |> BackendTask.map (Tuple.pair session)
+
+                _ ->
+                    BackendTask.succeed
+                        ( session
+                        , Response.errorPage (ErrorPage.internalError "Unexpected form data format.")
                         )
-                            |> BackendTask.map (Tuple.pair session)
-
-                    Err error ->
-                        BackendTask.succeed
-                            ( session
-                            , Response.errorPage (ErrorPage.internalError "Unexpected form data format.")
-                            )
-            )
+        )
+        request
 
 
 view :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model app =
+view app sharedModel model =
     { title = "Ctrl-R Smoothies"
     , body =
         let
@@ -235,9 +225,9 @@ view maybeUrl sharedModel model app =
                     |> Dict.values
                     |> List.filterMap
                         (\pending ->
-                            case Form.runOneOfServerSide pending.payload.fields oneOfParsers of
-                                ( Just (SetQuantity itemId addAmount), _ ) ->
-                                    Just ( uuidToString itemId, addAmount )
+                            case Form.Handler.run pending.payload.fields formHandlers of
+                                Form.Valid (SetQuantity itemId addAmount) ->
+                                    Just ( itemId, addAmount )
 
                                 _ ->
                                     Nothing
@@ -267,16 +257,14 @@ view maybeUrl sharedModel model app =
                         )
                         { totalItems = 0, totalPrice = 0 }
         in
-        [ Html.pre []
-            [ app.concurrentSubmissions
-                |> Debug.toString
-                |> Html.text
-            ]
-        , Html.p []
+        [ Html.p []
             [ Html.text <| "Welcome " ++ app.data.user.name ++ "!"
             , signoutForm
-                |> Form.toDynamicFetcher "signout"
-                |> Form.renderHtml [] Nothing app ()
+                |> Pages.Form.renderStyledHtml []
+                    (Form.options "signout"
+                        |> Pages.Form.withConcurrent
+                    )
+                    app
             ]
         , cartView totals
         , app.data.smoothies
@@ -292,14 +280,9 @@ view maybeUrl sharedModel model app =
 cartView : { totalItems : Int, totalPrice : Int } -> Html msg
 cartView totals =
     Html.button [ Attr.class "checkout" ]
-        [ Html.span [ Attr.class "icon" ] [ Icon.cart ]
+        [ Html.span [ Attr.class "icon" ] [ Icon.cart |> Html.fromUnstyled ]
         , Html.text <| " Checkout (" ++ String.fromInt totals.totalItems ++ ") $" ++ String.fromInt totals.totalPrice
         ]
-
-
-uuidToString : Uuid -> String
-uuidToString (Uuid id) =
-    id
 
 
 type QuantityChange
@@ -313,27 +296,34 @@ productView app cart item =
         quantityInCart : Int
         quantityInCart =
             cart
-                |> Dict.get (uuidToString item.id)
+                |> Dict.get item.id
                 |> Maybe.map .quantity
                 |> Maybe.withDefault 0
     in
     Html.li [ Attr.class "item" ]
         [ Html.div []
             [ Html.h3 [] [ Html.text item.name ]
-            , Route.SmoothieId___Edit { smoothieId = uuidToString item.id } |> Route.link [] [ Html.text "Edit" ]
+            , Route.SmoothieId___Edit { smoothieId = item.id } |> Route.link [] [ Html.text "Edit" |> Html.toUnstyled ] |> Html.fromUnstyled
             , Html.p [] [ Html.text item.description ]
             , Html.p [] [ "$" ++ String.fromInt item.price |> Html.text ]
             ]
         , Html.div
             []
             [ setQuantityForm
-                -- TODO should this be toStaticFetcher (don't need the formId here because there is no client-side state, only hidden form fields
-                |> Form.toDynamicFetcher "increment-quantity"
-                |> Form.renderHtml [] Nothing app ( quantityInCart, Decrement, item )
+                |> Pages.Form.renderStyledHtml []
+                    (Form.options "decrement-quantity"
+                        |> Pages.Form.withConcurrent
+                        |> Form.withInput ( quantityInCart, Decrement, item )
+                    )
+                    app
             , Html.p [] [ quantityInCart |> String.fromInt |> Html.text ]
             , setQuantityForm
-                |> Form.toDynamicFetcher "decrement-quantity"
-                |> Form.renderHtml [] Nothing app ( quantityInCart, Increment, item )
+                |> Pages.Form.renderStyledHtml []
+                    (Form.options "increment-quantity"
+                        |> Pages.Form.withConcurrent
+                        |> Form.withInput ( quantityInCart, Increment, item )
+                    )
+                    app
             ]
         , Html.div []
             [ Html.img

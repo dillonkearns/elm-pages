@@ -2,8 +2,8 @@ module ErrorPage exposing (ErrorPage(..), Model, Msg, head, init, internalError,
 
 import Effect exposing (Effect)
 import Head
-import Html exposing (Html)
-import Html.Events exposing (onClick)
+import Html.Styled as Html exposing (Html)
+import Html.Styled.Events exposing (onClick)
 import Route
 import View exposing (View)
 
@@ -59,7 +59,7 @@ view error model =
                 [ Html.div []
                     [ Html.p []
                         [ Html.text "Let's find you a nice refreshing smoothie. Check out "
-                        , Route.Index |> Route.link [] [ Html.text "our menu" ]
+                        , Route.Index |> Route.link [] [ Html.text "our menu" |> Html.toUnstyled ] |> Html.fromUnstyled
                         ]
                     , Html.div [] []
                     ]

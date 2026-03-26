@@ -1,25 +1,21 @@
 module Route.Signup exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
-import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
 import Head
-import Head.Seo as Seo
-import Html exposing (Html)
-import Html.Attributes as Attr
-import Http
+import Html.Styled as Html exposing (Html)
+import Html.Styled.Attributes as Attr
 import MySession
 import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
-import Pages.Url
-import Path exposing (Path)
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
-import Server.Request as Request
+import RouteBuilder exposing (App, StatefulRoute)
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Server.Session as Session exposing (Session)
 import Shared
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -29,7 +25,6 @@ type alias Model =
 
 type Msg
     = NoOp
-    | GotResponse (Result Http.Error ActionData)
 
 
 type alias RouteParams =
@@ -51,29 +46,10 @@ route =
             }
 
 
-action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
-action _ =
-    MySession.withSession
-        (Request.skip "TODO")
-        --(Request.expectFormPost
-        --    (\{ field } ->
-        --        Request.map2 Tuple.pair
-        --            (field "first")
-        --            (field "email")
-        --    )
-        --)
-        (\( first, email ) maybeSession ->
-            let
-                session : Session
-                session =
-                    maybeSession |> Result.toMaybe |> Maybe.andThen identity |> Maybe.withDefault Session.empty
-            in
-            validate session
-                { email = email
-                , first = first
-                }
-                |> BackendTask.succeed
-        )
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action _ request =
+    -- TODO: re-implement signup action with file-based data
+    BackendTask.succeed (Response.render (ValidationErrors { errors = [ "Not implemented" ], fields = [] }))
 
 
 validate : Session -> { first : String, email : String } -> ( Session, Response ActionData ErrorPage )
@@ -98,38 +74,29 @@ validate session { first, email } =
 
 
 init :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init app sharedModel =
     ( {}
     , Effect.none
     )
 
 
 update :
-    PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update app sharedModel msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
 
-        GotResponse result ->
-            let
-                _ =
-                    Debug.log "GotResponse" result
-            in
-            ( model, Effect.none )
 
-
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
+subscriptions routeParams path sharedModel model =
     Sub.none
 
 
@@ -146,46 +113,45 @@ type ActionData
         }
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
-data routeParams =
-    MySession.withSession
-        (Request.succeed ())
-        (\() sessionResult ->
-            let
-                session : Session
-                session =
-                    sessionResult |> Result.toMaybe |> Maybe.andThen identity |> Maybe.withDefault Session.empty
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    request
+        |> MySession.withSession
+            (\sessionResult ->
+                let
+                    session : Session
+                    session =
+                        sessionResult |> Result.withDefault Session.empty
 
-                flashMessage : Maybe String
-                flashMessage =
-                    session |> Session.get "message"
-            in
-            ( Session.empty
-            , Response.render
-                { flashMessage = flashMessage |> Maybe.map Ok }
+                    flashMessage : Maybe String
+                    flashMessage =
+                        session |> Session.get "message"
+                in
+                ( Session.empty
+                , Response.render
+                    { flashMessage = flashMessage |> Maybe.map Ok }
+                )
+                    |> BackendTask.succeed
             )
-                |> BackendTask.succeed
-        )
 
 
 head :
     App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     []
 
 
 view :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model static =
+view app sharedModel model =
     { title = "Signup"
     , body =
         [ Html.p []
-            [ case static.action of
+            [ case app.action of
                 Just (Success { email, first }) ->
                     Html.text <| "Hello " ++ first ++ "!"
 
@@ -197,7 +163,7 @@ view maybeUrl sharedModel model static =
                 _ ->
                     Html.text ""
             ]
-        , flashView static.data.flashMessage
+        , flashView app.data.flashMessage
         , Html.form
             [ Attr.method "POST"
             ]

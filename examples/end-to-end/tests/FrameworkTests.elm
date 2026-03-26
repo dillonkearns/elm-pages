@@ -10,6 +10,9 @@ module FrameworkTests exposing
     , greetWithQueryParamTest
     , darkModeToggleTest
     , logoutFlowTest
+    , httpDataNavigationTest
+    , httpDataDoubleNavigationTest
+    , httpDataAfterLoginTest
     )
 
 {-| Framework-driven route tests using the real elm-pages Platform.
@@ -21,6 +24,7 @@ View in browser: elm-pages test-view tests/FrameworkTests.elm
 -}
 
 import Expect
+import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
 import Test.Html.Selector exposing (text)
 import Test.PagesProgram as PagesProgram
@@ -212,3 +216,63 @@ logoutFlowTest =
         -- Currently submitFormTo goes through onFormSubmit which dispatches
         -- Pages.Internal.Msg.Submit, but the /logout action needs the
         -- request to be routed correctly.
+
+
+{-| Test navigating to a route whose data BackendTask does an HTTP request.
+The test navigates to /http-data and provides the HTTP response via
+simulateHttpGet. This exercises the pause-and-resume architecture.
+-}
+httpDataNavigationTest : TestApp.ProgramTest
+httpDataNavigationTest =
+    TestApp.start "/links" BackendTaskTest.init
+        |> PagesProgram.ensureViewHas [ text "Links Page" ]
+        |> PagesProgram.navigateTo "/http-data"
+        -- Navigation triggers data resolution which hits HTTP GET to api.example.com.
+        -- The framework pauses. Provide the simulated response:
+        |> PagesProgram.simulateHttpGet "https://api.example.com/posts"
+            (Encode.object [ ( "title", Encode.string "Hello from API" ) ])
+        -- Data resolved, page renders
+        |> PagesProgram.ensureViewHas [ text "Post: Hello from API" ]
+
+
+{-| Navigate to HTTP-data route twice: tests that after the first data resume
+completes, the second navigation also correctly pauses and resumes.
+-}
+httpDataDoubleNavigationTest : TestApp.ProgramTest
+httpDataDoubleNavigationTest =
+    TestApp.start "/links" BackendTaskTest.init
+        |> PagesProgram.navigateTo "/http-data"
+        |> PagesProgram.simulateHttpGet "https://api.example.com/posts"
+            (Encode.object [ ( "title", Encode.string "First Load" ) ])
+        |> PagesProgram.ensureViewHas [ text "Post: First Load" ]
+        -- Navigate back, then to http-data again
+        |> PagesProgram.navigateTo "/links"
+        |> PagesProgram.ensureViewHas [ text "Links Page" ]
+        |> PagesProgram.navigateTo "/http-data"
+        |> PagesProgram.simulateHttpGet "https://api.example.com/posts"
+            (Encode.object [ ( "title", Encode.string "Second Load" ) ])
+        |> PagesProgram.ensureViewHas [ text "Post: Second Load" ]
+
+
+{-| Login via session action (no HTTP), redirect to /greet, then navigate
+to /http-data which requires HTTP for data. This mirrors the smoothie pattern
+where login redirects to an index page that needs HTTP data.
+-}
+httpDataAfterLoginTest : TestApp.ProgramTest
+httpDataAfterLoginTest =
+    TestApp.start "/login"
+        (BackendTaskTest.init
+            |> BackendTaskTest.withEnv "SESSION_SECRET" "test-secret"
+        )
+        |> PagesProgram.ensureViewHas [ text "You aren't logged in yet." ]
+        |> PagesProgram.fillIn "form" "name" "Alice"
+        |> PagesProgram.clickButton "Log in"
+        -- Redirect to /greet after login
+        |> PagesProgram.ensureBrowserUrl
+            (\url -> url |> Expect.equal "https://localhost:1234/greet")
+        |> PagesProgram.ensureViewHas [ text "Hello Alice!" ]
+        -- Now navigate to /http-data which needs HTTP
+        |> PagesProgram.navigateTo "/http-data"
+        |> PagesProgram.simulateHttpGet "https://api.example.com/posts"
+            (Encode.object [ ( "title", Encode.string "After Login" ) ])
+        |> PagesProgram.ensureViewHas [ text "Post: After Login" ]

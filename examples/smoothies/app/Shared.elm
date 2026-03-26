@@ -1,15 +1,16 @@
 module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
-import BackendTask
+import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
+import FatalError exposing (FatalError)
 import Html exposing (Html)
-import Html.Attributes as Attr
-import Icon
+import Html.Styled
+import Html.Styled.Attributes as Attr
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
-import Path exposing (Path)
 import Route exposing (Route)
 import SharedTemplate exposing (SharedTemplate)
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -26,7 +27,7 @@ template =
 
 type Msg
     = OnPageChange
-        { path : Path
+        { path : UrlPath
         , query : Maybe String
         , fragment : Maybe String
         }
@@ -51,7 +52,7 @@ init :
     ->
         Maybe
             { path :
-                { path : Path
+                { path : UrlPath
                 , query : Maybe String
                 , fragment : Maybe String
                 }
@@ -75,12 +76,12 @@ update msg model =
             ( model, Effect.none )
 
 
-subscriptions : Path -> Model -> Sub Msg
+subscriptions : UrlPath -> Model -> Sub Msg
 subscriptions _ _ =
     Sub.none
 
 
-data : BackendTask.BackendTask Data
+data : BackendTask FatalError Data
 data =
     BackendTask.succeed ()
 
@@ -88,33 +89,35 @@ data =
 view :
     Data
     ->
-        { path : Path
+        { path : UrlPath
         , route : Maybe Route
         }
     -> Model
     -> (Msg -> msg)
     -> View msg
-    -> { body : Html msg, title : String }
+    -> { body : List (Html msg), title : String }
 view sharedData page model toMsg pageView =
     { body =
-        Html.div
+        [ Html.Styled.div
             []
-            [ Html.nav
+            [ Html.Styled.nav
                 [ Attr.style "display" "flex"
                 , Attr.style "justify-content" "space-evenly"
                 ]
-                [ Html.span [ Attr.class "icon" ]
-                    [ Html.text " "
-                    , Html.kbd [] [ Html.text "Ctrl" ]
-                    , Html.text "+"
-                    , Html.kbd [] [ Html.text "R" ]
-                    , Html.text " Smoothies"
+                [ Html.Styled.span [ Attr.class "icon" ]
+                    [ Html.Styled.text " "
+                    , Html.Styled.kbd [] [ Html.Styled.text "Ctrl" ]
+                    , Html.Styled.text "+"
+                    , Html.Styled.kbd [] [ Html.Styled.text "R" ]
+                    , Html.Styled.text " Smoothies"
                     ]
                 ]
-            , Html.div
+            , Html.Styled.div
                 [ Attr.style "padding" "40px"
                 ]
                 pageView.body
             ]
+            |> Html.Styled.toUnstyled
+        ]
     , title = pageView.title
     }

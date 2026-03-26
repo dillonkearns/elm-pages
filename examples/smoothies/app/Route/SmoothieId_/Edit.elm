@@ -1,31 +1,29 @@
 module Route.SmoothieId_.Edit exposing (ActionData, Data, Model, Msg, route)
 
-import Api.Scalar exposing (Uuid(..))
 import Data.Smoothies as Smoothies exposing (Smoothie)
 import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
+import Form.Handler
 import Form.Validation as Validation
-import Form.Value
 import Head
-import Html exposing (Html)
-import Html.Attributes as Attr
+import Html.Styled as Html exposing (Html)
+import Html.Styled.Attributes as Attr
 import MySession
+import Pages.Form
 import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
-import Pages.Transition exposing (Transition(..))
-import Path exposing (Path)
-import Request.Hasura
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
-import Server.Request as Request
+import RouteBuilder exposing (App, StatefulRoute)
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -65,35 +63,28 @@ route =
 
 
 init :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init app sharedModel =
     ( {}, Effect.none )
 
 
 update :
-    PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update app sharedModel msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
 
 
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
+subscriptions routeParams path sharedModel model =
     Sub.none
-
-
-pages : BackendTask (List RouteParams)
-pages =
-    BackendTask.succeed []
 
 
 type alias Data =
@@ -105,72 +96,20 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
-data routeParams =
-    Request.succeed ()
-        |> MySession.expectSessionDataOrRedirect (Session.get "userId")
-            (\userId () session ->
-                ((Smoothies.find (Uuid routeParams.smoothieId)
-                    |> Request.Hasura.backendTask
-                 )
-                    |> BackendTask.map
-                        (\maybeSmoothie ->
-                            maybeSmoothie
-                                |> Maybe.map (Data >> Response.render)
-                                |> Maybe.withDefault (Response.errorPage ErrorPage.NotFound)
-                        )
-                )
-                    |> BackendTask.map (Tuple.pair session)
-            )
-
-
-formParsers : Form.ServerForms String Action
-formParsers =
-    deleteForm
-        |> Form.initCombined (\() -> Delete)
-        |> Form.combine Edit form
-
-
-action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
-action routeParams =
-    Request.formData formParsers
-        |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
-            (\userId parsed session ->
-                case parsed of
-                    Ok (Edit okParsed) ->
-                        Smoothies.update (Uuid routeParams.smoothieId) okParsed
-                            |> Request.Hasura.mutationBackendTask
-                            |> BackendTask.map
-                                (\_ ->
-                                    ( session
-                                    , Route.redirectTo Route.Index
-                                    )
-                                )
-
-                    Ok Delete ->
-                        Smoothies.delete (Uuid routeParams.smoothieId)
-                            |> Request.Hasura.mutationBackendTask
-                            |> BackendTask.map
-                                (\_ ->
-                                    ( session
-                                    , Route.redirectTo Route.Index
-                                    )
-                                )
-
-                    Err errors ->
-                        let
-                            _ =
-                                Debug.log "@@@ERRORS" errors
-                        in
-                        BackendTask.succeed
-                            -- TODO need to render errors here
-                            ( session, Response.render {} )
-            )
-
-
-head : App Data ActionData RouteParams -> List Head.Tag
-head static =
-    []
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    MySession.expectSessionDataOrRedirect (Session.get "userId")
+        (\userId session ->
+            Smoothies.find routeParams.smoothieId
+                |> BackendTask.map
+                    (\maybeSmoothie ->
+                        maybeSmoothie
+                            |> Maybe.map (Data >> Response.render)
+                            |> Maybe.withDefault (Response.errorPage ErrorPage.NotFound)
+                    )
+                |> BackendTask.map (Tuple.pair session)
+        )
+        request
 
 
 type Action
@@ -182,16 +121,16 @@ type alias EditInfo =
     { name : String, description : String, price : Int, imageUrl : String }
 
 
-deleteForm : Form.HtmlForm String () data Msg
+deleteForm : Form.StyledHtmlForm String () data msg
 deleteForm =
-    Form.init
+    Form.form
         { combine = Validation.succeed ()
         , view =
             \formState ->
                 [ Html.button
                     [ Attr.style "color" "red"
                     ]
-                    [ (if formState.isTransitioning then
+                    [ (if formState.submitting then
                         "Deleting..."
 
                        else
@@ -204,9 +143,9 @@ deleteForm =
         |> Form.hiddenKind ( "kind", "delete" ) "Required"
 
 
-form : Form.HtmlForm String EditInfo Data Msg
+form : Form.StyledHtmlForm String EditInfo Data msg
 form =
-    Form.init
+    Form.form
         (\name description price imageUrl ->
             { combine =
                 Validation.succeed EditInfo
@@ -232,7 +171,7 @@ form =
                             Html.div []
                                 [ Html.label []
                                     [ Html.text (label ++ " ")
-                                    , field |> Form.FieldView.input []
+                                    , field |> Form.FieldView.inputStyled []
                                     ]
                                 , errorsView field
                                 ]
@@ -243,7 +182,7 @@ form =
                     , fieldView "Image" imageUrl
                     , Html.button []
                         [ Html.text
-                            (if formState.isTransitioning then
+                            (if formState.submitting then
                                 "Updating..."
 
                              else
@@ -256,124 +195,90 @@ form =
         |> Form.field "name"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withInitialValue (\{ smoothie } -> Form.Value.string smoothie.name)
+                |> Field.withInitialValue (\{ smoothie } -> smoothie.name)
             )
         |> Form.field "description"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withInitialValue (\{ smoothie } -> Form.Value.string smoothie.description)
+                |> Field.withInitialValue (\{ smoothie } -> smoothie.description)
             )
         |> Form.field "price"
             (Field.int { invalid = \_ -> "Invalid int" }
                 |> Field.required "Required"
-                |> Field.withMin (Form.Value.int 1) "Price must be at least $1"
-                |> Field.withInitialValue (\{ smoothie } -> Form.Value.int smoothie.price)
+                |> Field.withMin 1 "Price must be at least $1"
+                |> Field.withInitialValue (\{ smoothie } -> smoothie.price)
             )
         |> Form.field "imageUrl"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withInitialValue (\{ smoothie } -> Form.Value.string smoothie.unsplashImage)
+                |> Field.withInitialValue (\{ smoothie } -> smoothie.unsplashImage)
             )
         |> Form.hiddenKind ( "kind", "edit" ) "Required"
 
 
-type Media
-    = Article
-    | Book
-    | Video
+formHandlers : Form.Handler.Handler String Action
+formHandlers =
+    Form.Handler.init (\() -> Delete) deleteForm
+        |> Form.Handler.with Edit form
 
 
-parseIgnoreErrors : ( Maybe parsed, Dict String (List error) ) -> Result (Dict String (List error)) parsed
-parseIgnoreErrors ( maybeParsed, fieldErrors ) =
-    case maybeParsed of
-        Just parsed ->
-            Ok parsed
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action routeParams request =
+    MySession.expectSessionDataOrRedirect (Session.get "userId")
+        (\userId session ->
+            case request |> Request.formData formHandlers of
+                Just ( _, Form.Valid (Edit okParsed) ) ->
+                    Smoothies.update routeParams.smoothieId okParsed
+                        |> BackendTask.map
+                            (\_ ->
+                                ( session
+                                , Route.redirectTo Route.Index
+                                )
+                            )
 
-        _ ->
-            Err fieldErrors
+                Just ( _, Form.Valid Delete ) ->
+                    Smoothies.delete routeParams.smoothieId
+                        |> BackendTask.map
+                            (\_ ->
+                                ( session
+                                , Route.redirectTo Route.Index
+                                )
+                            )
+
+                _ ->
+                    BackendTask.succeed
+                        ( session, Response.render {} )
+        )
+        request
 
 
-getTransitionFields : Transition -> Maybe (List ( String, String ))
-getTransitionFields transition =
-    -- TODO should this be in the standard library?
-    case transition of
-        Submitting formData ->
-            Just formData.fields
-
-        LoadAfterSubmit formData path loadingState ->
-            Just formData.fields
-
-        Loading path loadingState ->
-            Nothing
+head : App Data ActionData RouteParams -> List Head.Tag
+head app =
+    []
 
 
 view :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model app =
-    let
-        pendingCreation : Maybe NewItem
-        pendingCreation =
-            app.navigation
-                |> Maybe.andThen getTransitionFields
-                |> Maybe.andThen
-                    (\transitionFields ->
-                        Form.runOneOfServerSide transitionFields
-                            formParsers
-                            |> parseIgnoreErrors
-                            |> Result.toMaybe
-                            |> Maybe.andThen
-                                (\actionItem ->
-                                    case actionItem of
-                                        Edit newItem ->
-                                            Just newItem
-
-                                        _ ->
-                                            Nothing
-                                )
-                    )
-    in
+view app sharedModel model =
     { title = "Update Item"
     , body =
         [ Html.h2 [] [ Html.text "Update item" ]
         , form
-            |> Form.renderHtml "form"
+            |> Pages.Form.renderStyledHtml
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
-                -- TODO
-                Nothing
+                (Form.options "form"
+                    |> Form.withInput app.data
+                )
                 app
-                app.data
-        , pendingCreation
-            |> Maybe.map pendingView
-            |> Maybe.withDefault (Html.div [] [])
         , deleteForm
-            |> Form.toDynamicTransition
-            |> Form.renderHtml "delete-form" []
-                -- TODO
-                Nothing
+            |> Pages.Form.renderStyledHtml []
+                (Form.options "delete-form")
                 app
-                app.data
         ]
     }
-
-
-pendingView : NewItem -> Html (PagesMsg Msg)
-pendingView item =
-    Html.div [ Attr.class "item" ]
-        [ Html.div []
-            [ Html.h3 [] [ Html.text item.name ]
-            , Html.p [] [ Html.text item.description ]
-            , Html.p [] [ "$" ++ String.fromInt item.price |> Html.text ]
-            ]
-        , Html.div []
-            [ Html.img
-                [ Attr.src (item.imageUrl ++ "?ixlib=rb-1.2.1&raw_url=true&q=80&fm=jpg&crop=entropy&cs=tinysrgb&auto=format&fit=crop&w=600&h=903") ]
-                []
-            ]
-        ]

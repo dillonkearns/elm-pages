@@ -2569,6 +2569,64 @@ but the pending requests are:
                             }
                         |> BackendTaskTest.ensureStdout [ "server error: 500" ]
                         |> BackendTaskTest.expectSuccess
+            , test "map3 with andThen-based requests to same URL, different bodies" <|
+                \() ->
+                    let
+                        makeRequest body decoder =
+                            BackendTask.Env.expect "SECRET"
+                                |> BackendTask.allowFatal
+                                |> BackendTask.andThen
+                                    (\secret ->
+                                        BackendTask.Http.request
+                                            { url = "https://api.example.com/graphql"
+                                            , method = "POST"
+                                            , headers = [ ( "x-secret", secret ) ]
+                                            , body = BackendTask.Http.jsonBody (Encode.object [ ( "query", Encode.string body ) ])
+                                            , retries = Nothing
+                                            , timeoutInMs = Nothing
+                                            }
+                                            (BackendTask.Http.expectJson decoder)
+                                            |> BackendTask.allowFatal
+                                    )
+
+                        smoothiesReq =
+                            makeRequest "{ products }" (Decode.field "data" (Decode.field "products" (Decode.index 0 (Decode.field "name" Decode.string))))
+
+                        userReq =
+                            makeRequest "{ users_by_pk }" (Decode.field "data" (Decode.field "users_by_pk" (Decode.field "name" Decode.string)))
+
+                        cartReq =
+                            makeRequest "{ cart }" (Decode.field "data" (Decode.field "users_by_pk" (Decode.field "orders" (Decode.list (Decode.field "qty" Decode.int) |> Decode.map List.sum |> Decode.map String.fromInt))))
+
+                        combinedResponse =
+                            Encode.object
+                                [ ( "data"
+                                  , Encode.object
+                                        [ ( "products", Encode.list identity [ Encode.object [ ( "name", Encode.string "Smoothie" ) ] ] )
+                                        , ( "users_by_pk"
+                                          , Encode.object
+                                                [ ( "name", Encode.string "Alice" )
+                                                , ( "orders", Encode.list identity [ Encode.object [ ( "qty", Encode.int 2 ) ] ] )
+                                                ]
+                                          )
+                                        ]
+                                  )
+                                ]
+                    in
+                    BackendTask.map3 (\a b c -> a ++ " " ++ b ++ " cart:" ++ c)
+                        smoothiesReq
+                        userReq
+                        cartReq
+                        |> BackendTask.andThen (\combined -> Script.log combined)
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withEnv "SECRET" "test-secret"
+                            )
+                        |> BackendTaskTest.simulateHttpPost "https://api.example.com/graphql" combinedResponse
+                        |> BackendTaskTest.simulateHttpPost "https://api.example.com/graphql" combinedResponse
+                        |> BackendTaskTest.simulateHttpPost "https://api.example.com/graphql" combinedResponse
+                        |> BackendTaskTest.ensureStdout [ "Smoothie Alice cart:2" ]
+                        |> BackendTaskTest.expectSuccess
             ]
         , describe "glob sorting"
             [ test "glob results are sorted without explicit List.sort" <|

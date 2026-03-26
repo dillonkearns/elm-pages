@@ -1,29 +1,24 @@
 module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
-import Api.Scalar exposing (Uuid(..))
 import Data.User
 import BackendTask exposing (BackendTask)
-import BackendTask.Custom
 import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation exposing (Combined, Field)
+import Form.Handler
+import Form.Validation as Validation exposing (Validation)
 import Head
-import Head.Seo as Seo
-import Html exposing (Html)
-import Html.Attributes as Attr
-import Json.Decode
-import Json.Encode
+import Html.Styled as Html exposing (Html)
+import Html.Styled.Attributes as Attr
 import MySession
+import Pages.Form
 import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
-import Pages.Url
-import Request.Hasura
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
-import Server.Request as Request
+import RouteBuilder exposing (App, StatelessRoute)
+import Server.Request as Request exposing (Request)
 import Server.Response exposing (Response)
 import Server.Session as Session
 import Shared
@@ -58,18 +53,18 @@ type alias Login =
     }
 
 
-form : Form.DoneForm String (BackendTask (Combined String String)) data (List (Html (PagesMsg Msg)))
+form : Pages.Form.FormWithServerValidations String String input (List (Html (PagesMsg Msg)))
 form =
-    Form.init
+    Form.form
         (\username password ->
             { combine =
                 Validation.succeed
                     (\u p ->
-                        attemptLogIn u p
+                        Data.User.login { username = u, expectedPasswordHash = p }
                             |> BackendTask.map
                                 (\maybeUserId ->
                                     case maybeUserId of
-                                        Just (Uuid userId) ->
+                                        Just userId ->
                                             Validation.succeed userId
 
                                         Nothing ->
@@ -84,7 +79,7 @@ form =
                     , password |> fieldView info "Password"
                     , globalErrors info
                     , Html.button []
-                        [ if info.isTransitioning then
+                        [ if info.submitting then
                             Html.text "Logging in..."
 
                           else
@@ -97,37 +92,22 @@ form =
         |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
 
 
-attemptLogIn : String -> String -> BackendTask (Maybe Uuid)
-attemptLogIn username password =
-    BackendTask.Custom.run "hashPassword"
-        (Json.Encode.string password)
-        Json.Decode.string
-        |> BackendTask.andThen
-            (\hashed ->
-                { username = username
-                , expectedPasswordHash = hashed
-                }
-                    |> Data.User.login
-                    |> Request.Hasura.backendTask
-            )
-
-
 fieldView :
     Form.Context String data
     -> String
-    -> Field String parsed Form.FieldView.Input
+    -> Validation.Field String parsed Form.FieldView.Input
     -> Html msg
 fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Form.FieldView.input []
+            , field |> Form.FieldView.inputStyled []
             ]
         , errorsForField formState field
         ]
 
 
-errorsForField : Form.Context String data -> Field String parsed kind -> Html msg
+errorsForField : Form.Context String data -> Validation.Field String parsed kind -> Html msg
 errorsForField formState field =
     (if True || formState.submitAttempted then
         formState.errors
@@ -148,90 +128,67 @@ globalErrors formState =
         |> Html.ul [ Attr.style "color" "red" ]
 
 
-type alias Request =
-    { cookies : Dict String String
-    , maybeFormData : Maybe (Dict String ( String, List String ))
-    }
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    request
+        |> MySession.withSession
+            (\session ->
+                case session of
+                    Ok okSession ->
+                        ( okSession
+                        , okSession
+                            |> Session.get "userId"
+                            |> Data
+                            |> Server.Response.render
+                        )
+                            |> BackendTask.succeed
+
+                    _ ->
+                        ( Session.empty
+                        , { username = Nothing }
+                            |> Server.Response.render
+                        )
+                            |> BackendTask.succeed
+            )
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
-data routeParams =
-    MySession.withSession
-        (Request.succeed ())
-        (\() session ->
-            case session of
-                Ok (Just okSession) ->
-                    ( okSession
-                    , okSession
-                        |> Session.get "userId"
-                        |> Data
-                        |> Server.Response.render
-                    )
-                        |> BackendTask.succeed
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action routeParams request =
+    request
+        |> MySession.withSession
+            (\session ->
+                case request |> Request.formDataWithServerValidation (form |> Form.Handler.init identity) of
+                    Nothing ->
+                        BackendTask.fail (FatalError.fromString "Invalid form response")
 
-                _ ->
-                    ( Session.empty
-                    , { username = Nothing }
-                        |> Server.Response.render
-                    )
-                        |> BackendTask.succeed
-        )
+                    Just nameResultData ->
+                        nameResultData
+                            |> BackendTask.map
+                                (\nameResult ->
+                                    case nameResult of
+                                        Err errors ->
+                                            ( session
+                                                |> Result.withDefault Session.empty
+                                            , Server.Response.render
+                                                { errors = errors
+                                                }
+                                            )
 
-
-action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
-action routeParams =
-    MySession.withSession
-        (Request.formDataWithServerValidation (form |> Form.initCombined identity))
-        (\usernameDs session ->
-            usernameDs
-                |> BackendTask.andThen
-                    (\usernameResult ->
-                        case usernameResult of
-                            Err error ->
-                                ( session
-                                    |> Result.withDefault Nothing
-                                    |> Maybe.withDefault Session.empty
-                                , error |> render
+                                        Ok ( _, userId ) ->
+                                            ( session
+                                                |> Result.withDefault Session.empty
+                                                |> Session.insert "userId" userId
+                                            , Route.redirectTo Route.Index
+                                            )
                                 )
-                                    |> BackendTask.succeed
-
-                            Ok ( _, userId ) ->
-                                ( session
-                                    |> Result.withDefault Nothing
-                                    |> Maybe.withDefault Session.empty
-                                    |> Session.insert "userId" userId
-                                , Route.redirectTo Route.Index
-                                )
-                                    |> BackendTask.succeed
-                    )
-        )
-
-
-render :
-    Form.Response error
-    -> Response { fields : List ( String, String ), errors : Dict String (List error) } a
-render (Form.Response response) =
-    Server.Response.render response
+            )
 
 
 head :
     App Data ActionData RouteParams
     -> List Head.Tag
-head static =
-    Seo.summary
-        { canonicalUrlOverride = Nothing
-        , siteName = "elm-pages"
-        , image =
-            { url = Pages.Url.external "TODO"
-            , alt = "elm-pages logo"
-            , dimensions = Nothing
-            , mimeType = Nothing
-            }
-        , description = "TODO"
-        , locale = Nothing
-        , title = "TODO title" -- metadata.title -- TODO
-        }
-        |> Seo.website
+head app =
+    []
 
 
 type alias Data =
@@ -240,17 +197,15 @@ type alias Data =
 
 
 type alias ActionData =
-    { fields : List ( String, String )
-    , errors : Dict String (List String)
+    { errors : Form.ServerResponse String
     }
 
 
 view :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel app =
+view app sharedModel =
     { title = "Login"
     , body =
         [ Html.p []
@@ -264,6 +219,11 @@ view maybeUrl sharedModel app =
                 )
             ]
         , form
-            |> Form.renderHtml "login" [] app.action app ()
+            |> Pages.Form.renderStyledHtml
+                []
+                (Form.options "login"
+                    |> Form.withServerResponse (app.action |> Maybe.map .errors)
+                )
+                app
         ]
     }

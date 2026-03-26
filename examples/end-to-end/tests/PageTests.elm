@@ -17,6 +17,7 @@ import Html.Events
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
+import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.PagesProgram as PagesProgram exposing (ProgramTest)
 
@@ -308,7 +309,9 @@ todoAppTest =
         |> PagesProgram.ensureViewHas [ Selector.text "2 of 4 completed" ]
         |> PagesProgram.check "todo-3" True
         |> PagesProgram.ensureViewHas [ Selector.text "3 of 4 completed" ]
-        |> PagesProgram.clickButton "Delete"
+        |> PagesProgram.within
+            (Query.find [ Selector.tag "li", Selector.containing [ Selector.text "Learn Elm" ] ])
+            (PagesProgram.clickButton "Delete")
         |> PagesProgram.ensureViewHas [ Selector.text "2 of 3 completed" ]
 
 

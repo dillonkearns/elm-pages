@@ -10,7 +10,7 @@ module Test.BackendTask.Internal exposing
     , withVirtualEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
     , toResult
-    , resolveWithVirtualFs, VirtualFS, emptyVirtualFS
+    , resolveWithVirtualFs, resolveWithVirtualFsPartial, extractVirtualFs, VirtualFS, emptyVirtualFS
     )
 
 {-| Internal implementation for [`Test.BackendTask`](Test-BackendTask) and its sub-modules.
@@ -3714,6 +3714,54 @@ resolveWithVirtualFs vfs task =
 
         TestError msg ->
             ( vfs, Err msg )
+
+
+{-| Like resolveWithVirtualFs, but returns the BackendTaskTest directly instead
+of flattening to Result. This preserves the Running state when the BackendTask
+has pending HTTP requests, allowing the caller to construct a Resolver for
+pause-and-resume testing.
+-}
+resolveWithVirtualFsPartial : VirtualFS -> BackendTask FatalError a -> ( VirtualFS, BackendTaskTest a )
+resolveWithVirtualFsPartial vfs task =
+    let
+        bt =
+            advanceWithAutoResolve
+                { continuation = task
+                , responseEntries = []
+                , responseBytesEntries = Dict.empty
+                , pendingRequests = []
+                , trackedEffects = []
+                , drainedOutputCount = 0
+                , virtualFS = vfs
+                , virtualDB = emptyVirtualDB
+                , simulatedEffects = Nothing
+                }
+    in
+    case bt of
+        Done doneState ->
+            ( doneState.virtualFS, bt )
+
+        Running state ->
+            ( state.virtualFS, bt )
+
+        TestError _ ->
+            ( vfs, bt )
+
+
+{-| Extract the current virtual filesystem state from a BackendTaskTest.
+Used by the platform test framework to thread VFS state through pause-and-resume.
+-}
+extractVirtualFs : BackendTaskTest a -> VirtualFS
+extractVirtualFs bt =
+    case bt of
+        Done doneState ->
+            doneState.virtualFS
+
+        Running state ->
+            state.virtualFS
+
+        TestError _ ->
+            emptyVirtualFS
 
 
 {-| Assert on the virtual DB state. This is a terminal assertion that also checks
