@@ -1,9 +1,10 @@
 module PlatformTests exposing (suite)
 
 import Expect exposing (Expectation)
+import Html.Attributes as Attr
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
-import Test.Html.Selector exposing (text)
+import Test.Html.Selector as Selector exposing (text)
 import Test.PagesProgram as PagesProgram
 import Test.Runner
 import TestApp
@@ -92,6 +93,20 @@ suite =
                     |> PagesProgram.ensureBrowserUrl
                         (\url -> url |> Expect.equal "https://localhost:1234/counter")
                     |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    |> PagesProgram.done
+        , test "fillIn value is reflected in the rendered view" <|
+            \() ->
+                TestApp.start "/feedback"
+                    (BackendTaskTest.init
+                        |> BackendTaskTest.withFile "feedback.txt" "No messages yet"
+                    )
+                    |> PagesProgram.ensureViewHas [ text "Current file: No messages yet" ]
+                    |> PagesProgram.fillIn "feedback-form" "message" "Hello from test!"
+                    |> PagesProgram.ensureViewHas
+                        [ Selector.tag "input"
+                        , Selector.attribute (Attr.name "message")
+                        , Selector.attribute (Attr.value "Hello from test!")
+                        ]
                     |> PagesProgram.done
         , test "navigating to route with unsimulated HTTP in data surfaces pending request error" <|
             \() ->

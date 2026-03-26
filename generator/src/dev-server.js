@@ -523,8 +523,22 @@ main =
       }
     };
 
-    // Sync Elm's hidden .page-body into the preview iframe via polling
+    // Sync Elm's hidden .page-body into the preview iframe via polling.
+    // innerHTML doesn't capture DOM properties (like input.value, checkbox.checked),
+    // so we copy those separately after syncing HTML.
     var lastSynced = "";
+    function syncProperties(source, target) {
+      var sourceInputs = source.querySelectorAll('input, textarea, select');
+      var targetInputs = target.querySelectorAll('input, textarea, select');
+      for (var i = 0; i < sourceInputs.length && i < targetInputs.length; i++) {
+        if (sourceInputs[i].value !== targetInputs[i].value) {
+          targetInputs[i].value = sourceInputs[i].value;
+        }
+        if (sourceInputs[i].checked !== targetInputs[i].checked) {
+          targetInputs[i].checked = sourceInputs[i].checked;
+        }
+      }
+    }
     setInterval(function() {
       var iframe = document.getElementById('preview-iframe');
       if (!iframe) return;
@@ -537,6 +551,8 @@ main =
           target.innerHTML = html;
           lastSynced = html;
         }
+        // Always sync properties (value can change without innerHTML changing)
+        if (pageBody) syncProperties(pageBody, target);
       } catch(e) {
         // contentDocument may not be accessible yet
       }
