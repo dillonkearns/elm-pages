@@ -21,7 +21,6 @@ View in browser: elm-pages test-view tests/SmoothieTests.elm
 
 -}
 
-import Dict
 import Expect
 import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
@@ -377,36 +376,17 @@ concurrentFetchersTest =
         |> PagesProgram.within
             (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
             (PagesProgram.clickButton "+")
-        -- Debug: inspect fetcher state after two clicks
-        |> PagesProgram.withModelToString
-            (\m ->
-                let
-                    fetchers =
-                        m.platformModel.inFlightFetchers
-                            |> Dict.toList
-                            |> List.map
-                                (\( key, ( _, fetcher ) ) ->
-                                    "fetcher["
-                                        ++ key
-                                        ++ "]: fields="
-                                        ++ (fetcher.payload.fields
-                                                |> List.map (\( k, v ) -> k ++ "=" ++ v)
-                                                |> String.join ","
-                                           )
-                                )
-                            |> String.join "; "
-                in
-                "fetcherCount="
-                    ++ String.fromInt (Dict.size m.platformModel.inFlightFetchers)
-                    ++ " | "
-                    ++ fetchers
-            )
-        -- Both fetchers pending (Submitting). Optimistic UI reflects both!
+        -- Both fetchers pending. Optimistic UI shows Checkout (2) immediately!
+        -- (Second click sees optimistic qty=1, computes 1+1=2)
         |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
-        -- Resolve the fetcher mutation + data reload.
+        -- Resolve first fetcher's mutation + data reload.
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
-        |> simulateIndexDataWithCart oneItemOrders
-        |> PagesProgram.ensureViewHas [ text "Checkout (1)" ]
+        |> simulateIndexDataWithCart twoItemOrders
+        -- Resolve second fetcher's mutation + data reload.
+        |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
+        |> simulateIndexDataWithCart twoItemOrders
+        -- Server confirms 2 items, no more pending fetchers.
+        |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
 
 
 {-| 6. Sign out clears session and redirects to login.
