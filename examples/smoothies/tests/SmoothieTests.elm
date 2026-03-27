@@ -386,7 +386,7 @@ concurrentFetchersTest =
         -- Resolve second fetcher's mutation + data reload.
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
         |> simulateIndexDataWithCart twoItemOrders
-        -- Server confirms 2 items, no more pending fetchers.
+        -- Server confirms 2 items.
         |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
 
 
