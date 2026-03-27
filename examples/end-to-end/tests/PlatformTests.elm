@@ -2,6 +2,7 @@ module PlatformTests exposing (suite)
 
 import Expect exposing (Expectation)
 import Html.Attributes as Attr
+import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
 import Test.Html.Selector as Selector exposing (text)
@@ -128,6 +129,39 @@ suite =
                     |> PagesProgram.ensureViewHas [ text "Post:" ]
                     |> PagesProgram.done
                     |> expectFailContaining "https://api.example.com/posts"
+        , test "stale data reload is cancelled when a new fetcher completes" <|
+            \() ->
+                -- Start on a route with HTTP data + HTTP fetcher action
+                TestApp.start "/fetcher-http"
+                    BackendTaskTest.init
+                    -- Data load: provide count=0
+                    |> PagesProgram.simulateHttpGet
+                        "https://api.example.com/count"
+                        (Encode.object [ ( "count", Encode.int 0 ) ])
+                    |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    -- Click "+" twice (concurrent fetchers, both need HTTP)
+                    |> PagesProgram.clickButton "+"
+                    |> PagesProgram.clickButton "+"
+                    -- Resolve first fetcher's action HTTP → triggers data reload
+                    |> PagesProgram.simulateHttpGet
+                        "https://api.example.com/increment"
+                        (Encode.object [])
+                    -- Resolve first data reload with STALE data (count=1).
+                    -- This reload will be cancelled/superseded later.
+                    |> PagesProgram.simulateHttpGet
+                        "https://api.example.com/count"
+                        (Encode.object [ ( "count", Encode.int 1 ) ])
+                    -- Back to Ready. Resolve second fetcher's action HTTP.
+                    |> PagesProgram.simulateHttpGet
+                        "https://api.example.com/increment"
+                        (Encode.object [])
+                    -- Second data reload with CORRECT data (count=2).
+                    |> PagesProgram.simulateHttpGet
+                        "https://api.example.com/count"
+                        (Encode.object [ ( "count", Encode.int 2 ) ])
+                    -- Final state should reflect the LATEST reload, not the stale one.
+                    |> PagesProgram.ensureViewHas [ text "Count: 2" ]
+                    |> PagesProgram.done
         ]
 
 
