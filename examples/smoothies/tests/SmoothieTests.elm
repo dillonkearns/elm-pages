@@ -5,6 +5,7 @@ module SmoothieTests exposing
     , addToCartTest
     , optimisticCartTest
     , concurrentFetchersTest
+    , staleFetcherDataReloadTest
     , signoutTest
     )
 
@@ -387,6 +388,41 @@ concurrentFetchersTest =
         |> simulateIndexDataWithCart twoItemOrders
         -- Server confirms 2 items, no more pending fetchers.
         |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
+
+
+{-| Stale data reload cancellation: when two fetchers complete in sequence,
+the first data reload is stale and should be cancelled. Only the second
+data reload should be needed.
+
+Currently this test requires TWO data reload rounds (one per fetcher).
+Once CancelRequest handling is implemented in the test framework, it
+should only need ONE data reload round (the second, which supersedes the first).
+-}
+staleFetcherDataReloadTest : TestApp.ProgramTest
+staleFetcherDataReloadTest =
+    TestApp.start "/login" baseSetup
+        |> PagesProgram.fillIn "login" "username" "alice@example.com"
+        |> PagesProgram.fillIn "login" "password" "password123"
+        |> PagesProgram.clickButton "Login"
+        |> simulateLogin
+        |> simulateIndexData
+        -- Click "+" twice
+        |> PagesProgram.within
+            (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
+            (PagesProgram.clickButton "+")
+        |> PagesProgram.within
+            (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
+            (PagesProgram.clickButton "+")
+        -- First simulateHttpPost: the stale data reload (dr1) can't use the
+        -- mutation response (wrong format), so it falls back to fetcher 2.
+        -- Fetcher 2 resolves, triggering a fresh data reload (dr2).
+        -- Net effect: one call resolves both the stale dr1 AND fetcher 2.
+        |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
+        -- Now only dr2 (fresh data reload) needs resolution.
+        |> simulateIndexDataWithCart oneItemOrders
+        -- Stale cancellation works: only 1 mutation sim + 1 data reload round needed
+        -- (instead of 2 mutation sims + 2 data reload rounds without cancellation).
+        |> PagesProgram.ensureViewHas [ text "Checkout (1)" ]
 
 
 {-| 6. Sign out clears session and redirects to login.

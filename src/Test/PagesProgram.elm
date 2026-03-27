@@ -2456,6 +2456,70 @@ withModelToString fn (ProgramTest state) =
 -- INTERNAL HELPERS
 
 
+{-| Try advancing a resolver with a simulation. Returns Ok ProgramTest
+on success, Err on AdvanceError.
+-}
+advanceResolver : Simulation -> State model msg -> Resolver model msg -> Result String (ProgramTest model msg)
+advanceResolver sim state (Resolver resolver) =
+    let
+        ( simLabel, simMethod, simUrl ) =
+            case sim of
+                SimHttpGet url _ ->
+                    ( "simulateHttpGet " ++ url, "GET", url )
+
+                SimHttpPost url _ ->
+                    ( "simulateHttpPost " ++ url, "POST", url )
+
+                SimHttpError method url errorString ->
+                    ( "simulateHttpError " ++ method ++ " " ++ url ++ " " ++ errorString, method, url )
+
+        stepIdx =
+            List.length state.snapshots
+
+        networkEntry =
+            { method = simMethod
+            , url = simUrl
+            , status = Stubbed
+            , stepIndex = stepIdx
+            }
+
+        updatedLog =
+            state.networkLog ++ [ networkEntry ]
+    in
+    case resolver.advance sim of
+        Advanced newPhase ->
+            let
+                snapshot =
+                    case newPhase of
+                        Ready ready ->
+                            [ makeSnapshot simLabel EffectResolution Nothing ready state.modelToString state.fetcherExtractor updatedLog ]
+
+                        Resolving _ ->
+                            []
+            in
+            Ok
+                (ProgramTest
+                    { state
+                        | phase = newPhase
+                        , snapshots = state.snapshots ++ snapshot
+                        , networkLog = updatedLog
+                    }
+                )
+
+        AdvanceError errMsg ->
+            Err errMsg
+
+
+advanceResolverOrError : Simulation -> State model msg -> Resolver model msg -> ProgramTest model msg
+advanceResolverOrError sim state resolver =
+    case advanceResolver sim state resolver of
+        Ok programTest ->
+            programTest
+
+        Err errMsg ->
+            ProgramTest { state | error = Just errMsg }
+
+
 applySimulation : Simulation -> ProgramTest model msg -> ProgramTest model msg
 applySimulation sim (ProgramTest state) =
     case state.error of
@@ -2464,53 +2528,29 @@ applySimulation sim (ProgramTest state) =
 
         Nothing ->
             case state.phase of
-                Resolving (Resolver resolver) ->
-                    case resolver.advance sim of
-                        Advanced newPhase ->
-                            let
-                                newState =
-                                    { state | phase = newPhase }
+                Resolving ((Resolver _) as resolver) ->
+                    case advanceResolver sim state resolver of
+                        Ok programTest ->
+                            programTest
 
-                                ( simLabel, simMethod, simUrl ) =
-                                    case sim of
-                                        SimHttpGet url _ ->
-                                            ( "simulateHttpGet " ++ url, "GET", url )
+                        Err errMsg ->
+                            -- The current resolver (data reload) failed. If there are
+                            -- pending fetcher effects, the data reload may be stale
+                            -- (the Platform emitted CancelRequest for it). Try the
+                            -- fetcher effects instead.
+                            case state.pendingFetcherEffects of
+                                ((Resolver _) as fetcherResolver) :: restFetchers ->
+                                    case advanceResolver sim state fetcherResolver of
+                                        Ok (ProgramTest newState) ->
+                                            -- Fetcher advanced. Drop the stale data reload.
+                                            ProgramTest { newState | pendingFetcherEffects = restFetchers }
 
-                                        SimHttpPost url _ ->
-                                            ( "simulateHttpPost " ++ url, "POST", url )
+                                        Err fetcherErr ->
+                                            -- Both failed. Report the original error.
+                                            ProgramTest { state | error = Just errMsg }
 
-                                        SimHttpError method url errorString ->
-                                            ( "simulateHttpError " ++ method ++ " " ++ url ++ " " ++ errorString, method, url )
-
-                                stepIdx =
-                                    List.length state.snapshots
-
-                                networkEntry =
-                                    { method = simMethod
-                                    , url = simUrl
-                                    , status = Stubbed
-                                    , stepIndex = stepIdx
-                                    }
-
-                                updatedLog =
-                                    state.networkLog ++ [ networkEntry ]
-
-                                snapshot =
-                                    case newPhase of
-                                        Ready ready ->
-                                            [ makeSnapshot simLabel EffectResolution Nothing ready state.modelToString state.fetcherExtractor updatedLog ]
-
-                                        Resolving _ ->
-                                            []
-                            in
-                            ProgramTest
-                                { newState
-                                    | snapshots = state.snapshots ++ snapshot
-                                    , networkLog = updatedLog
-                                }
-
-                        AdvanceError errMsg ->
-                            ProgramTest { state | error = Just errMsg }
+                                [] ->
+                                    ProgramTest { state | error = Just errMsg }
 
                 Ready ready ->
                     -- No navigation/action HTTP pending. Check for pending fetcher effects.
