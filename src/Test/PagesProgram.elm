@@ -1539,10 +1539,6 @@ formSubmitFallback ready query buttonText (ProgramTest state) =
                             ]
                         |> (\expectation -> getFailureMessage expectation == Nothing)
 
-                -- Extract action from the form's action attribute
-                formAction =
-                    extractAttributeValue "action" (query |> Query.has [ Selector.text "___extract_action___" ] |> (\_ -> ""))
-                        |> Maybe.withDefault ""
             in
             applyMsgWithLabel
                 ("clickButton \"" ++ buttonText ++ "\"")
