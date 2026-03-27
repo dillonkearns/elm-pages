@@ -25,6 +25,9 @@ all =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -50,6 +53,9 @@ view app =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -84,6 +90,9 @@ extractTitle data =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Ephemeral =
     { title : String
@@ -128,6 +137,9 @@ extractTitle data =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -154,6 +166,9 @@ someHelper items = ""
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -180,6 +195,9 @@ someHelper pair = ""
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -208,6 +226,9 @@ transform d = d
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -242,6 +263,9 @@ extractTitle data =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Ephemeral =
     { title : String
@@ -285,6 +309,9 @@ extractTitle data =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Ephemeral =
     { title : String
@@ -317,6 +344,9 @@ view app =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -349,6 +379,9 @@ view static =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Ephemeral =
     { title : String
@@ -391,6 +424,9 @@ view static =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -415,6 +451,9 @@ view app =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -435,6 +474,9 @@ view app =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -456,6 +498,9 @@ view app =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -483,6 +528,9 @@ view app =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -508,6 +556,9 @@ view app =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -529,6 +580,9 @@ view app =
 import Html as H
 import Html.Attributes as Attr
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -553,6 +607,9 @@ view app =
 import Html as H
 import Html.Attributes as Attr
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -570,6 +627,9 @@ view app =
 
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -595,7 +655,10 @@ content = Html.Attributes.attribute "foo" "bar"
 
 import Html.Attributes
 import View
+import RouteBuilder
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -615,6 +678,9 @@ content = Html.Attributes.attribute "foo" "bar"
 
 import Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -638,7 +704,10 @@ view app =
 
 import Html
 import View
+import RouteBuilder
 import Html.Attributes
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -655,6 +724,9 @@ view app =
                     """module Route.Test exposing (Data, route)
 
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -679,8 +751,11 @@ content = someHelper "test"
                                 |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
 
 import View
+import RouteBuilder
 import Html as ElmPages__Html
 import Html.Attributes
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -702,6 +777,9 @@ content = someHelper "test"
 import Html.Styled
 import Html.Styled.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -726,8 +804,11 @@ view app =
 import Html.Styled
 import Html.Styled.Attributes
 import View
+import RouteBuilder
 import Html as ElmPages__Html
 import Html.Attributes
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -752,6 +833,9 @@ view app =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -786,6 +870,9 @@ renderContent data =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Ephemeral =
     { title : String
@@ -832,6 +919,9 @@ renderContent data =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { body : String
@@ -865,6 +955,9 @@ view app =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Ephemeral =
     { body : String
@@ -908,6 +1001,9 @@ view app =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { body : String
@@ -944,6 +1040,9 @@ view app =
 import Html
 import Html.Attributes
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Ephemeral =
     { body : String
@@ -1175,6 +1274,9 @@ view app =
 
 import Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { title = "title"
@@ -1194,7 +1296,10 @@ view app =
 
 import Html
 import View
+import RouteBuilder
 import Html.Attributes
+
+route = RouteBuilder.single {}
 
 view app =
     { title = "title"
@@ -1208,6 +1313,9 @@ view app =
 
 import Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { title = "title"
@@ -1227,7 +1335,10 @@ view app =
 
 import Html
 import View
+import RouteBuilder
 import Html.Attributes
+
+route = RouteBuilder.single {}
 
 view app =
     { title = "title"
@@ -1241,6 +1352,9 @@ view app =
 
 import Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { title = "title"
@@ -1260,7 +1374,10 @@ view app =
 
 import Html
 import View
+import RouteBuilder
 import Html.Attributes
+
+route = RouteBuilder.single {}
 
 view app =
     { title = "title"
@@ -1274,6 +1391,9 @@ view app =
 
 import Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { title = "title"
@@ -1293,7 +1413,10 @@ view app =
 
 import Html
 import View
+import RouteBuilder
 import Html.Attributes
+
+route = RouteBuilder.single {}
 
 view app =
     { title = "title"
@@ -1307,6 +1430,9 @@ view app =
 
 import Html
 import View exposing (freeze)
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { title = "title"
@@ -1326,7 +1452,10 @@ view app =
 
 import Html
 import View exposing (freeze)
+import RouteBuilder
 import Html.Attributes
+
+route = RouteBuilder.single {}
 
 view app =
     { title = "title"
@@ -1340,6 +1469,9 @@ view app =
 
 import Html
 import View exposing (freeze)
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { title = "title"
@@ -1359,7 +1491,10 @@ view app =
 
 import Html
 import View exposing (freeze)
+import RouteBuilder
 import Html.Attributes
+
+route = RouteBuilder.single {}
 
 view app =
     { title = "title"
@@ -1520,6 +1655,9 @@ view user =
 
 import Html
 import UserCard
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -1564,6 +1702,9 @@ view elmPagesFid_usercard_view user =
 
 import Html
 import UserCard
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -1584,6 +1725,9 @@ view app =
 
 import Html
 import UserCard
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -1601,6 +1745,9 @@ view app =
 
 import Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -1628,7 +1775,10 @@ card user =
 
 import Html
 import View
+import RouteBuilder
 import Html.Attributes
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -1652,6 +1802,9 @@ card elmPagesFid_route_index_card user =
 
 import Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -1675,6 +1828,9 @@ card user =
 
 import Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -1695,6 +1851,9 @@ card user =
 
 import Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -1722,7 +1881,10 @@ card =
 
 import Html
 import View
+import RouteBuilder
 import Html.Attributes
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -1757,6 +1919,9 @@ view user =
                     , """module Route.Index exposing (view)
 
 import CardWrapper
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body = [ CardWrapper.view app.data.user ] }
@@ -1814,6 +1979,9 @@ view elmPagesFid_cardwrapper_view user =
                                         """module Route.Index exposing (view)
 
 import CardWrapper
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body = [ CardWrapper.view "0" app.data.user ] }
@@ -1841,6 +2009,9 @@ view user =
                     , """module Route.Index exposing (view)
 
 import CardWrapper
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -1922,6 +2093,9 @@ view user =
                     , """module Route.Index exposing (view)
 
 import CardWrapper
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -1995,6 +2169,9 @@ view user =
                     , """module Route.Index exposing (view)
 
 import Card
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     let
@@ -2041,6 +2218,9 @@ view elmPagesFid_card_view user =
                                         """module Route.Index exposing (view)
 
 import Card
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     let
@@ -2060,7 +2240,7 @@ view app =
                                         ]
                                     , under = "renderUser"
                                     }
-                                    |> Review.Test.atExactly { start = { row = 12, column = 25 }, end = { row = 12, column = 35 } }
+                                    |> Review.Test.atExactly { start = { row = 15, column = 25 }, end = { row = 15, column = 35 } }
                                 ]
                               )
                             ]
@@ -2084,6 +2264,9 @@ view prefix user =
                     , """module Route.Index exposing (view)
 
 import CardWrapper
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -2214,6 +2397,9 @@ view elmPagesFid_card_view user =
                     , """module Route.Index exposing (view)
 
 import Card
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body = [ Card.view "0" app.data.user ] }
@@ -2227,6 +2413,9 @@ view app =
 
 import Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -2252,7 +2441,10 @@ localHelper title desc =
 
 import Html
 import View
+import RouteBuilder
 import Html.Attributes
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -2274,6 +2466,9 @@ localHelper elmPagesFid_route_index_localhelper title desc =
 
 import Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -2295,6 +2490,9 @@ localHelper title desc =
 
 import Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -2315,7 +2513,10 @@ localHelper title desc =
 
 import Html
 import View
+import RouteBuilder
 import Html.Attributes
+
+route = RouteBuilder.single {}
 
 view app =
     { body =

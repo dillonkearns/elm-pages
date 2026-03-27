@@ -139,6 +139,11 @@ type alias Context =
     -- Track last import row for inserting new imports
     , lastImportRow : Int
 
+    -- Did we find a RouteBuilder.single/preRender/serverRender call?
+    -- Used instead of isRouteModule to avoid false positives for helper modules
+    -- in the Route.* namespace (e.g. src/Route/Helpers.elm).
+    , routeBuilderFound : Bool
+
     -- Lambda depth: when > 0 we are inside a repeated-execution context where
     -- helper ID seeding is not guaranteed to be unique per invocation.
     , lambdaDepth : Int
@@ -262,6 +267,7 @@ fromProjectToModule =
             , htmlAlias = Nothing
             , htmlAttributesAlias = Nothing
             , lastImportRow = 0
+            , routeBuilderFound = False
             , lambdaDepth = 0
             , localLetFunctionsNeedingSeed = []
             , deferredHelperCalls = []
@@ -964,7 +970,7 @@ recordDeferredLocalHelperCall node functionNode args context =
 shouldSeedHelperCallIds : Context -> Bool
 shouldSeedHelperCallIds context =
     FreezeHelperPlanning.shouldSeedHelperCallIds
-        { isRouteModule = PersistentFieldTracking.isRouteModule
+        { isRouteModule = \_ -> context.routeBuilderFound
         , isSharedModule = PersistentFieldTracking.isSharedModule
         , moduleName = context.moduleName
         , currentFunctionName = currentFunctionName context
@@ -1613,7 +1619,7 @@ usesHelperFrozenIdsForFunction context functionName =
                 |> Maybe.withDefault True
     in
     hasExistingArguments
-        && (if PersistentFieldTracking.isRouteModule context.moduleName || PersistentFieldTracking.isSharedModule context.moduleName then
+        && (if context.routeBuilderFound || PersistentFieldTracking.isSharedModule context.moduleName then
                 functionName /= "view"
 
             else
@@ -1633,7 +1639,7 @@ usesHelperFrozenIds context =
 
 currentFunctionHasZeroArguments : Context -> Bool
 currentFunctionHasZeroArguments context =
-    if PersistentFieldTracking.isRouteModule context.moduleName || PersistentFieldTracking.isSharedModule context.moduleName then
+    if context.routeBuilderFound || PersistentFieldTracking.isSharedModule context.moduleName then
         False
 
     else
@@ -2014,11 +2020,11 @@ extractRouteBuilderHeadFn context args =
                         updatedSharedState =
                             PersistentFieldTracking.setRouteBuilderHeadFn extracted.headFn context.sharedState
                     in
-                    { context | sharedState = updatedSharedState }
+                    { context | sharedState = updatedSharedState, routeBuilderFound = True }
 
                 _ ->
                     -- Not a record literal - can't extract function names
-                    context
+                    { context | routeBuilderFound = True }
 
         _ ->
             context
