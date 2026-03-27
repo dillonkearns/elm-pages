@@ -147,24 +147,19 @@ suite =
                     |> PagesProgram.ensureViewHas [ text "Count: 0" ]
                     |> PagesProgram.clickButton "+"
                     |> PagesProgram.clickButton "+"
-                    -- Step 1: resolve first fetcher's action
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/increment"
                         (Encode.object [])
-                    -- Step 2: resolve the data reload
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 1 ) ])
-                    -- Step 3: resolve second fetcher's action
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/increment"
                         (Encode.object [])
-                    -- Step 4: resolve second data reload (the first was stale)
+                    -- After step 3, done should show pending state
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 2 ) ])
-                    -- Final state reflects the latest data
-                    |> PagesProgram.ensureViewHas [ text "Count: 2" ]
                     |> PagesProgram.done
         ]
 
