@@ -633,24 +633,99 @@ update msg model =
         KeyDown key ->
             case key of
                 "ArrowRight" ->
-                    update NextStep model
+                    if model.sidebarMode == CommandLog then
+                        let
+                            snapshots =
+                                currentSnapshots model
+
+                            numChildren =
+                                childCount model.currentStepIndex snapshots
+
+                            isGroupParent =
+                                not (isChildStep model.currentStepIndex snapshots) && numChildren > 0
+                        in
+                        if isGroupParent && not (Set.member model.currentStepIndex model.expandedGroups) then
+                            update (ToggleGroup model.currentStepIndex) model
+
+                        else
+                            ( model, Cmd.none )
+
+                    else
+                        ( model, Cmd.none )
 
                 "ArrowLeft" ->
-                    update PrevStep model
+                    if model.sidebarMode == CommandLog then
+                        let
+                            snapshots =
+                                currentSnapshots model
+
+                            numChildren =
+                                childCount model.currentStepIndex snapshots
+
+                            isGroupParent =
+                                not (isChildStep model.currentStepIndex snapshots) && numChildren > 0
+
+                            isChild =
+                                isChildStep model.currentStepIndex snapshots
+                        in
+                        if isGroupParent && Set.member model.currentStepIndex model.expandedGroups then
+                            update (ToggleGroup model.currentStepIndex) model
+
+                        else if isChild then
+                            let
+                                parentIdx =
+                                    parentOfChild model.currentStepIndex snapshots
+                            in
+                            ( { model
+                                | currentStepIndex = parentIdx
+                                , expandedGroups = Set.remove parentIdx model.expandedGroups
+                              }
+                            , scrollToStep parentIdx
+                            )
+
+                        else
+                            ( model, Cmd.none )
+
+                    else
+                        ( model, Cmd.none )
 
                 "ArrowDown" ->
                     if model.sidebarMode == TestList then
                         update NextTest model
 
                     else
-                        update NextStep model
+                        let
+                            snapshots =
+                                currentSnapshots model
+
+                            newIndex =
+                                nextVisibleStep model.currentStepIndex (List.length snapshots - 1) snapshots model.expandedGroups
+
+                            newModel =
+                                { model | currentStepIndex = newIndex, previewMode = After }
+                        in
+                        ( newModel
+                        , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex ]
+                        )
 
                 "ArrowUp" ->
                     if model.sidebarMode == TestList then
                         update PrevTest model
 
                     else
-                        update PrevStep model
+                        let
+                            snapshots =
+                                currentSnapshots model
+
+                            newIndex =
+                                prevVisibleStep model.currentStepIndex snapshots model.expandedGroups
+
+                            newModel =
+                                { model | currentStepIndex = newIndex, previewMode = After }
+                        in
+                        ( newModel
+                        , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex ]
+                        )
 
                 "Escape" ->
                     if List.length model.tests > 1 then
@@ -702,7 +777,12 @@ update msg model =
                                 , currentStepIndex = stepIndex
                                 , hoveredStepIndex = Nothing
                                 , sidebarMode = CommandLog
-                                , expandedGroups = Set.empty
+                                , expandedGroups =
+                                    if idx == model.currentTestIndex then
+                                        model.expandedGroups
+
+                                    else
+                                        Set.empty
                               }
                             , scrollToStep stepIndex
                             )
@@ -768,15 +848,6 @@ displayedSnapshot model =
                     |> List.drop (displayedStepIndex model)
                     |> List.head
             )
-
-
-currentSnapshots : Model -> List Snapshot
-currentSnapshots model =
-    model.tests
-        |> List.drop model.currentTestIndex
-        |> List.head
-        |> Maybe.map .snapshots
-        |> Maybe.withDefault []
 
 
 currentTestName : Model -> String
@@ -1644,6 +1715,55 @@ prevParentStep current snapshots =
 
     else if isChildStep prev snapshots then
         prevParentStep prev snapshots
+
+    else
+        prev
+
+
+{-| Find the next visible step, respecting expanded groups.
+Expanded children are navigable; collapsed children are skipped.
+-}
+nextVisibleStep : Int -> Int -> List Snapshot -> Set Int -> Int
+nextVisibleStep current maxIndex snapshots expanded =
+    nextVisibleStepHelp current current maxIndex snapshots expanded
+
+
+nextVisibleStepHelp : Int -> Int -> Int -> List Snapshot -> Set Int -> Int
+nextVisibleStepHelp original current maxIndex snapshots expanded =
+    let
+        next =
+            current + 1
+    in
+    if next > maxIndex then
+        original
+
+    else if isChildStep next snapshots && not (Set.member (parentOfChild next snapshots) expanded) then
+        nextVisibleStepHelp original next maxIndex snapshots expanded
+
+    else
+        next
+
+
+{-| Find the previous visible step, respecting expanded groups.
+Expanded children are navigable; collapsed children are skipped.
+-}
+prevVisibleStep : Int -> List Snapshot -> Set Int -> Int
+prevVisibleStep current snapshots expanded =
+    prevVisibleStepHelp current current snapshots expanded
+
+
+prevVisibleStepHelp : Int -> Int -> List Snapshot -> Set Int -> Int
+prevVisibleStepHelp original current snapshots expanded =
+    let
+        prev =
+            current - 1
+    in
+    if prev < 0 then
+        original
+
+    else if isChildStep prev snapshots && not (Set.member (parentOfChild prev snapshots) expanded) then
+        -- Child of a collapsed group: skip past it
+        prevVisibleStepHelp original prev snapshots expanded
 
     else
         prev
