@@ -561,12 +561,17 @@ declarationEnterVisitor node context =
                             |> Maybe.withDefault Set.empty
 
                     -- Extract shared model parameter name (second parameter: view app shared ...)
-                    -- Only for Route modules — helper modules (e.g. ContentPage) may have
-                    -- a function named "view" whose parameters are NOT Shared.Model/Model.
+                    -- Only for modules that actually use RouteBuilder — helper modules
+                    -- (e.g. src/ContentPage.elm, or even src/Route/Helpers.elm) may have a
+                    -- function named "view" whose parameters are NOT Shared.Model/Model.
                     -- Treating them as taint sources would incorrectly de-optimize their
                     -- View.freeze calls while the call site still gets a frozen ID injected.
+                    --
+                    -- We check routeBuilderFound rather than isRouteModule because a module
+                    -- in the Route.* namespace doesn't necessarily use RouteBuilder (e.g.
+                    -- a helper module at src/Route/Helpers.elm).
                     maybeSharedModelParam =
-                        if functionName == "view" && PersistentFieldTracking.isRouteModule context.moduleName then
+                        if functionName == "view" && context.routeBuilderFound then
                             arguments
                                 |> List.drop 1
                                 |> List.head
@@ -578,7 +583,7 @@ declarationEnterVisitor node context =
                     -- Extract model parameter name only for view function in Route modules
                     -- Model is the third parameter: view app shared model = ...
                     maybeModelParam =
-                        if functionName == "view" && PersistentFieldTracking.isRouteModule context.moduleName then
+                        if functionName == "view" && context.routeBuilderFound then
                             arguments
                                 |> List.drop 2
                                 |> List.head

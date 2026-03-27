@@ -5254,7 +5254,10 @@ view app =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
+
+route = RouteBuilder.single {}
 
 view app shared model =
     { body = [ View.freeze (Html.text model.name) ] }
@@ -5272,7 +5275,10 @@ view app shared model =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
+
+route = RouteBuilder.single {}
 
 view app shared model =
     { body = [ View.freeze (renderName model) ] }
@@ -5293,7 +5299,10 @@ renderName m =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
+
+route = RouteBuilder.single {}
 
 view app shared model =
     let
@@ -5314,7 +5323,10 @@ view app shared model =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
+
+route = RouteBuilder.single {}
 
 view app shared model =
     { body = [ View.freeze (case model.status of
@@ -5336,9 +5348,12 @@ view app shared model =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
 import Html.Lazy
 import Html
+
+route = RouteBuilder.single {}
 
 view app shared model =
     { body = [ View.freeze (Html.text app.data.title) ] }
@@ -5354,9 +5369,12 @@ view app shared model =
                                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
 import Html.Lazy
 import Html
+
+route = RouteBuilder.single {}
 
 view app shared model =
     { body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -5367,9 +5385,12 @@ view app shared model =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
 import Html.Lazy
 import Html
+
+route = RouteBuilder.single {}
 
 view app shared model =
     { title = model.name
@@ -5387,9 +5408,12 @@ view app shared model =
                                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
 import Html.Lazy
 import Html
+
+route = RouteBuilder.single {}
 
 view app shared model =
     { title = model.name
@@ -5402,7 +5426,10 @@ view app shared model =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
+
+route = RouteBuilder.single {}
 
 view app shared model =
     let
@@ -5424,7 +5451,10 @@ view app shared model =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
+
+route = RouteBuilder.single {}
 
 view app shared model =
     case model.maybeUser of
@@ -5449,7 +5479,10 @@ view app shared model =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
+
+route = RouteBuilder.single {}
 
 view app shared model =
     { body =
@@ -5473,7 +5506,10 @@ view app shared model =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
+
+route = RouteBuilder.single {}
 
 view app shared model =
     { body =
@@ -5496,7 +5532,10 @@ view app shared model =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
+
+route = RouteBuilder.single {}
 
 view app shared model =
     { body =
@@ -5523,9 +5562,12 @@ view app shared model =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
 import Html.Lazy
 import Html
+
+route = RouteBuilder.single {}
 
 view app shared model =
     { body =
@@ -5547,9 +5589,12 @@ view app shared model =
                                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
 import Html.Lazy
 import Html
+
+route = RouteBuilder.single {}
 
 view app shared model =
     { body =
@@ -5566,7 +5611,10 @@ view app shared model =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
+
+route = RouteBuilder.single {}
 
 view app shared model =
     let
@@ -5593,7 +5641,10 @@ view app shared model =
                     """module Route.Index exposing (Data, route)
 
 import Html.Styled as Html
+import RouteBuilder
 import View
+
+route = RouteBuilder.single {}
 
 view app shared model =
     { body =
