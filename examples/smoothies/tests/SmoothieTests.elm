@@ -4,6 +4,7 @@ module SmoothieTests exposing
     , smoothieListTest
     , addToCartTest
     , optimisticCartTest
+    , concurrentFetchersTest
     , signoutTest
     )
 
@@ -353,6 +354,35 @@ optimisticCartTest =
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
         |> simulateIndexDataWithCart twoItemOrders
         |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
+
+
+{-| Concurrent fetchers: Click "+" twice before resolving either.
+Verify the optimistic UI reflects both pending submissions.
+-}
+concurrentFetchersTest : TestApp.ProgramTest
+concurrentFetchersTest =
+    TestApp.start "/login" baseSetup
+        |> PagesProgram.fillIn "login" "username" "alice@example.com"
+        |> PagesProgram.fillIn "login" "password" "password123"
+        |> PagesProgram.clickButton "Login"
+        |> simulateLogin
+        |> simulateIndexData
+        |> PagesProgram.ensureViewHas [ text "Checkout (0)" ]
+        -- Click "+" on Pink Berry (triggers fetcher HTTP, but don't resolve)
+        |> PagesProgram.within
+            (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
+            (PagesProgram.clickButton "+")
+        -- Click "+" again immediately, before resolving the first.
+        |> PagesProgram.within
+            (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
+            (PagesProgram.clickButton "+")
+        -- Both fetchers pending (Submitting). The view still renders (not blocked!).
+        |> PagesProgram.ensureViewHas [ text "Pink Berry" ]
+        -- Resolve both fetchers' mutations + data reloads.
+        -- (Same Hasura URL, so all HTTP resolves in one batch.)
+        |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
+        |> simulateIndexDataWithCart oneItemOrders
+        |> PagesProgram.ensureViewHas [ text "Checkout (1)" ]
 
 
 {-| 6. Sign out clears session and redirects to login.
