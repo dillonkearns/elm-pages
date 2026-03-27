@@ -15,7 +15,10 @@ all =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ View.freeze (Html.text "hello") ] }
@@ -32,8 +35,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -45,8 +51,11 @@ view =
 
 import Html.Styled
 import View
+import RouteBuilder
 import Html.Lazy
 import Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ View.freeze content ] }
@@ -63,8 +72,11 @@ view =
 
 import Html.Styled
 import View
+import RouteBuilder
 import Html.Lazy
 import Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -78,7 +90,10 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 view app =
     { body = [ View.freeze (renderFn app.data.content) ] }
@@ -95,8 +110,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view app =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -110,8 +128,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy as Lazy
 import Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ View.freeze content ] }
@@ -128,8 +149,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy as Lazy
 import Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Lazy.lazy (\\_ -> Html.text \"\") \"__ELM_PAGES_STATIC__0\" |> View.htmlToFreezable |> View.freeze) ] }
@@ -143,7 +167,10 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 view =
     { body =
@@ -164,8 +191,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body =
@@ -184,8 +214,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body =
@@ -203,6 +236,9 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ View.freeze content ] }
@@ -219,8 +255,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -235,7 +274,10 @@ view =
 import Html.Styled as Styled
 import Html as H
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ View.freeze content ] }
@@ -253,7 +295,10 @@ view =
 import Html.Styled as Styled
 import Html as H
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> H.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -266,7 +311,10 @@ view =
 import Html.Styled as Html
 import Html as ElmPages__Html
 import View
+import RouteBuilder
 import Html.Lazy as Lazy
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ View.freeze content ] }
@@ -284,7 +332,10 @@ view =
 import Html.Styled as Html
 import Html as ElmPages__Html
 import View
+import RouteBuilder
 import Html.Lazy as Lazy
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -296,7 +347,10 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ View.freeze content ] }
@@ -313,8 +367,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -326,7 +383,10 @@ view =
 
 import Html.Styled
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ View.freeze content ] }
@@ -343,8 +403,11 @@ view =
 
 import Html.Styled
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -355,6 +418,9 @@ view =
                     """module Route.Index exposing (Data, route)
 
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ View.freeze content ] }
@@ -370,8 +436,11 @@ view =
                                     """module Route.Index exposing (Data, route)
 
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -385,7 +454,10 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -409,8 +481,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -437,7 +512,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -448,7 +526,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -460,7 +538,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -483,8 +564,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -502,7 +586,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -532,7 +619,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -562,7 +652,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -576,7 +669,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -588,7 +681,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { titles : { title : String }
@@ -618,7 +714,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { titles : { title : String }
@@ -648,7 +747,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { titles : { title : String } }
@@ -662,7 +764,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"metadata\"],\"newDataType\":\"{ titles : { title : String } }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"metadata\"],\"newDataType\":\"{ titles : { title : String } }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -674,7 +776,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1136,7 +1241,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1166,7 +1274,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -1177,7 +1288,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -1191,7 +1302,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1216,8 +1330,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1244,7 +1361,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -1255,7 +1375,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -1269,7 +1389,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1301,7 +1424,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -1314,7 +1440,7 @@ view app =
             }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -1327,7 +1453,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1362,8 +1491,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1392,7 +1524,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -1409,7 +1544,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -1423,7 +1558,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1450,8 +1588,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1480,7 +1621,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -1493,7 +1637,7 @@ view app =
             }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -1507,7 +1651,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1536,8 +1683,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1568,7 +1718,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -1581,7 +1734,7 @@ view app =
             }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"subtitle\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"subtitle\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":14,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -1594,7 +1747,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1622,8 +1778,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1652,7 +1811,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     {}
@@ -1665,7 +1827,7 @@ view app =
             }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"title\"],\"newDataType\":\"{}\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"title\"],\"newDataType\":\"{}\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -1681,7 +1843,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1710,8 +1875,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1741,7 +1909,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -1755,7 +1926,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -1769,7 +1940,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1797,8 +1971,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1828,7 +2005,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -1842,7 +2022,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -1856,7 +2036,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1885,8 +2068,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1916,7 +2102,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -1930,7 +2119,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -1947,7 +2136,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -1978,8 +2170,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2011,7 +2206,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2040,8 +2238,11 @@ someHelper items = ""
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2071,7 +2272,10 @@ someHelper items = ""
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2100,8 +2304,11 @@ someHelper pair = ""
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2129,7 +2336,10 @@ someHelper pair = ""
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2168,8 +2378,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2198,7 +2411,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -2217,7 +2433,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -2234,7 +2450,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2262,8 +2481,11 @@ renderContent data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2293,7 +2515,10 @@ renderContent data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -2307,7 +2532,7 @@ renderContent data =
     Html.text data.body
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -2321,7 +2546,10 @@ renderContent data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2350,8 +2578,11 @@ renderContent pageData =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2383,7 +2614,10 @@ renderContent pageData =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -2402,7 +2636,7 @@ renderContent pageData =
     Html.text pageData.body
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -2418,7 +2652,10 @@ renderContent pageData =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2447,8 +2684,11 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2478,7 +2718,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -2492,7 +2735,7 @@ extractTitle data =
     data.title
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -2507,7 +2750,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2537,8 +2783,11 @@ renderBody body meta =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2570,7 +2819,10 @@ renderBody body meta =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -2584,7 +2836,7 @@ renderBody body meta =
     Html.text (body ++ meta)
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"metadata\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"metadata\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":14,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -2600,7 +2852,10 @@ renderBody body meta =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2632,8 +2887,11 @@ extractTitle { title } =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2666,7 +2924,10 @@ extractTitle { title } =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -2681,7 +2942,7 @@ extractTitle { title } =
     title
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"unused\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"unused\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":14,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -2694,7 +2955,10 @@ extractTitle { title } =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2725,8 +2989,11 @@ renderHeader { title, author } =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2759,7 +3026,10 @@ renderHeader { title, author } =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String, author : String }
@@ -2774,7 +3044,7 @@ renderHeader { title, author } =
     title ++ " by " ++ author
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String, author : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String, author : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":14,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -2790,7 +3060,10 @@ renderHeader { title, author } =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2819,7 +3092,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -2830,7 +3106,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -2843,7 +3119,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2867,8 +3146,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2895,7 +3177,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -2906,7 +3191,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -2922,7 +3207,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2952,8 +3240,11 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -2983,7 +3274,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -2997,7 +3291,7 @@ extractTitle data =
     data.title
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -3015,7 +3309,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3050,7 +3347,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -3065,7 +3365,7 @@ extractTitle data =
     data |> .title
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -3078,7 +3378,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3111,7 +3414,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -3126,7 +3432,7 @@ extractTitle data =
     .title <| data
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -3139,7 +3445,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3172,7 +3481,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -3187,7 +3499,7 @@ extractTitle data =
     .title data
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -3204,7 +3516,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3243,7 +3558,10 @@ myExtract =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -3262,7 +3580,7 @@ myExtract =
     extractTitle
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -3276,7 +3594,10 @@ myExtract =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3317,7 +3638,10 @@ aliasC =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -3339,7 +3663,7 @@ aliasC =
     aliasB
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -3355,7 +3679,10 @@ import Html.Styled as Html
 import View
 import Html.Lazy
 import SomeModule
+import RouteBuilder
 import Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3387,7 +3714,10 @@ import Html.Styled as Html
 import View
 import Html.Lazy
 import SomeModule
+import RouteBuilder
 import Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3421,7 +3751,10 @@ myHelper =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3457,7 +3790,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -3473,7 +3809,7 @@ extractTitle data =
         { title } -> title
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -3486,7 +3822,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3523,7 +3862,10 @@ extractHeading data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String, subtitle : String }
@@ -3539,7 +3881,7 @@ extractHeading data =
         { title, subtitle } -> title ++ subtitle
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String, subtitle : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String, subtitle : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":14,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -3552,7 +3894,10 @@ extractHeading data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3583,8 +3928,11 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3615,7 +3963,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -3631,7 +3982,7 @@ extractTitle data =
         d -> d.title
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -3648,7 +3999,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3674,8 +4028,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3702,7 +4059,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -3713,7 +4073,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -3726,7 +4086,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3750,8 +4113,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3778,7 +4144,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -3789,7 +4158,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -3805,7 +4174,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3839,7 +4211,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -3854,7 +4229,7 @@ extractTitle data =
     data.title
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -3870,7 +4245,10 @@ extractTitle data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3904,7 +4282,10 @@ formatHelper prefix data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -3919,7 +4300,7 @@ formatHelper prefix data =
     prefix ++ data.title
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -3936,7 +4317,10 @@ formatHelper prefix data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -3975,7 +4359,10 @@ innerHelper data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -3994,7 +4381,7 @@ innerHelper data =
     data.title
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -4010,7 +4397,10 @@ import Html.Styled as Html
 import View
 import Html.Lazy
 import SomeModule
+import RouteBuilder
 import Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4041,7 +4431,10 @@ import Html.Styled as Html
 import View
 import Html.Lazy
 import SomeModule
+import RouteBuilder
 import Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4074,7 +4467,10 @@ wrapperHelper data =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4104,8 +4500,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4136,7 +4535,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -4151,7 +4553,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -4165,7 +4567,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4195,8 +4600,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4227,7 +4635,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -4242,7 +4653,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -4255,7 +4666,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4285,8 +4699,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4317,7 +4734,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -4332,7 +4752,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -4346,7 +4766,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4376,8 +4799,11 @@ view appArg =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4408,7 +4834,10 @@ view appArg =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -4423,7 +4852,7 @@ view appArg =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -4436,7 +4865,10 @@ view appArg =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4465,8 +4897,11 @@ view viewApp =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4490,7 +4925,10 @@ view viewApp =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4523,8 +4961,11 @@ view viewApp =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4558,7 +4999,10 @@ view viewApp =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -4576,7 +5020,7 @@ view viewApp =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -4590,7 +5034,10 @@ view viewApp =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4617,8 +5064,11 @@ view maybeUrl sharedModel model static =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4646,7 +5096,10 @@ view maybeUrl sharedModel model static =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -4658,7 +5111,7 @@ view maybeUrl sharedModel model static =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -4674,7 +5127,10 @@ view maybeUrl sharedModel model static =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4708,7 +5164,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -4723,7 +5182,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -4737,7 +5196,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -4771,7 +5233,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -4786,7 +5251,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -4803,8 +5268,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html
+
+route = RouteBuilder.single {}
 
 type Status = Published | Draft
 
@@ -4839,8 +5307,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html
+
+route = RouteBuilder.single {}
 
 type Status = Published | Draft
 
@@ -4878,8 +5349,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html
+
+route = RouteBuilder.single {}
 
 type Status = Published | Draft
 
@@ -4897,7 +5371,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ status : Status, title : String, draftTitle : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":15,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ status : Status, title : String, draftTitle : String }\",\"range\":{\"start\":{\"row\":14,\"column\":5},\"end\":{\"row\":18,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -4913,7 +5387,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { isPublished : Bool
@@ -4945,8 +5422,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { isPublished : Bool
@@ -4981,7 +5461,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { isPublished : Bool, title : String, draftTitle : String }
@@ -4996,7 +5479,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ isPublished : Bool, title : String, draftTitle : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":12,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ isPublished : Bool, title : String, draftTitle : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":15,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -5012,7 +5495,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -5038,8 +5524,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -5066,7 +5555,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -5077,7 +5569,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -5091,7 +5583,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -5117,8 +5612,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -5145,7 +5643,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String }
@@ -5156,7 +5657,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":13,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -5173,7 +5674,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -5200,8 +5704,11 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String
@@ -5230,7 +5737,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { title : String, subtitle : String }
@@ -5241,7 +5751,7 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String, subtitle : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String, subtitle : String }\",\"range\":{\"start\":{\"row\":11,\"column\":5},\"end\":{\"row\":14,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
                                 }
@@ -5673,6 +6183,9 @@ view app shared model =
 
 import Html.Styled exposing (div, text)
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { greeting : String
@@ -5700,8 +6213,11 @@ view app =
 
 import Html.Styled exposing (div, text)
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 type alias Data =
     { greeting : String
@@ -5727,7 +6243,10 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ View.freeze (View.freeze (Html.text "nested")) ] }
@@ -5744,8 +6263,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -5757,7 +6279,10 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ View.freeze (View.freeze (View.freeze (Html.text "deep"))) ] }
@@ -5774,8 +6299,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -5787,7 +6315,10 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
+
+route = RouteBuilder.single {}
 
 view =
     { body =
@@ -5808,8 +6339,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body =
@@ -5828,8 +6362,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body =
@@ -5847,8 +6384,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -5861,8 +6401,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ View.freeze (View.htmlToFreezable (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0")) ] }
@@ -5877,6 +6420,9 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ Html.text "hello" |> View.freeze ] }
@@ -5893,8 +6439,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -5906,6 +6455,9 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ View.freeze <| Html.text "hello" ] }
@@ -5922,8 +6474,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -5935,6 +6490,9 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ Html.text "hello" |> (View.freeze) ] }
@@ -5951,8 +6509,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -5964,6 +6525,9 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (View.freeze) <| Html.text "hello" ] }
@@ -5980,8 +6544,11 @@ view =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -5993,6 +6560,9 @@ view =
 
 import Html.Styled as Html
 import View exposing (freeze)
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ Html.text "hello" |> freeze ] }
@@ -6009,8 +6579,11 @@ view =
 
 import Html.Styled as Html
 import View exposing (freeze)
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -6022,6 +6595,9 @@ view =
 
 import Html.Styled as Html
 import View exposing (freeze)
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ freeze <| Html.text "hello" ] }
@@ -6038,8 +6614,11 @@ view =
 
 import Html.Styled as Html
 import View exposing (freeze)
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view =
     { body = [ (Html.Lazy.lazy (\\_ -> ElmPages__Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable |> View.freeze) ] }
@@ -6094,6 +6673,9 @@ view user =
 
 import Html.Styled as Html
 import UserCard
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6135,6 +6717,9 @@ view elmPagesFid_usercard_view user =
 
 import Html.Styled as Html
 import UserCard
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6153,6 +6738,9 @@ view app =
 
 import Html.Styled as Html
 import UserCard
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6234,6 +6822,9 @@ view pageView =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6259,8 +6850,11 @@ card user =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6282,6 +6876,9 @@ card elmPagesFid_route_index_card user =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6303,6 +6900,9 @@ card user =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6323,6 +6923,9 @@ card user =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6348,8 +6951,11 @@ card =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6384,6 +6990,9 @@ view user =
                     , """module Route.Index exposing (view)
 
 import CardWrapper
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body = [ CardWrapper.view app.data.user ] }
@@ -6436,6 +7045,9 @@ view elmPagesFid_cardwrapper_view user =
                                         """module Route.Index exposing (view)
 
 import CardWrapper
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body = [ CardWrapper.view "0" app.data.user ] }
@@ -6463,6 +7075,9 @@ view user =
                     , """module Route.Index exposing (view)
 
 import CardWrapper
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6541,6 +7156,9 @@ view user =
                     , """module Route.Index exposing (view)
 
 import CardWrapper
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6611,6 +7229,9 @@ view user =
                     , """module Route.Index exposing (view)
 
 import Card
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     let
@@ -6654,6 +7275,9 @@ view elmPagesFid_card_view user =
                                         """module Route.Index exposing (view)
 
 import Card
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     let
@@ -6673,7 +7297,7 @@ view app =
                                         ]
                                     , under = "renderUser"
                                     }
-                                    |> Review.Test.atExactly { start = { row = 12, column = 25 }, end = { row = 12, column = 35 } }
+                                    |> Review.Test.atExactly { start = { row = 15, column = 25 }, end = { row = 15, column = 35 } }
                                 ]
                               )
                             ]
@@ -6697,6 +7321,9 @@ view prefix user =
                     , """module Route.Index exposing (view)
 
 import CardWrapper
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6824,6 +7451,9 @@ view elmPagesFid_card_view user =
                     , """module Route.Index exposing (view)
 
 import Card
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body = [ Card.view "0" app.data.user ] }
@@ -6837,6 +7467,9 @@ view app =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6862,8 +7495,11 @@ localHelper title desc =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6885,6 +7521,9 @@ localHelper elmPagesFid_route_index_localhelper title desc =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6906,6 +7545,9 @@ localHelper title desc =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
+
+route = RouteBuilder.single {}
 
 view app =
     { body =
@@ -6926,8 +7568,11 @@ localHelper title desc =
 
 import Html.Styled as Html
 import View
+import RouteBuilder
 import Html.Lazy
 import Html as ElmPages__Html
+
+route = RouteBuilder.single {}
 
 view app =
     { body =

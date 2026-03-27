@@ -1996,7 +1996,7 @@ recordDeferredLocalHelperCall node functionNode args context =
 shouldSeedHelperCallIds : Context -> Bool
 shouldSeedHelperCallIds context =
     FreezeHelperPlanning.shouldSeedHelperCallIds
-        { isRouteModule = PersistentFieldTracking.isRouteModule
+        { isRouteModule = \_ -> context.routeBuilderFound
         , isSharedModule = PersistentFieldTracking.isSharedModule
         , moduleName = context.moduleName
         , currentFunctionName = currentFunctionName context
@@ -2483,7 +2483,7 @@ usesHelperFrozenIdsForFunction context functionName =
                 |> Maybe.withDefault True
     in
     hasExistingArguments
-        && (if PersistentFieldTracking.isRouteModule context.moduleName || PersistentFieldTracking.isSharedModule context.moduleName then
+        && (if context.routeBuilderFound || PersistentFieldTracking.isSharedModule context.moduleName then
                 functionName /= "view"
 
             else
@@ -2503,7 +2503,7 @@ usesHelperFrozenIds context =
 
 currentFunctionHasZeroArguments : Context -> Bool
 currentFunctionHasZeroArguments context =
-    if PersistentFieldTracking.isRouteModule context.moduleName || PersistentFieldTracking.isSharedModule context.moduleName then
+    if context.routeBuilderFound || PersistentFieldTracking.isSharedModule context.moduleName then
         False
 
     else
