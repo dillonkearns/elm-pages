@@ -15,7 +15,7 @@ module Test.PagesProgram exposing
     , simulateHttpGet, simulateHttpPost, simulateHttpError
     , selectOption
     , done
-    , Snapshot, StepKind(..), NetworkEntry, NetworkStatus(..), toSnapshots, withModelToString
+    , Snapshot, StepKind(..), NetworkEntry, NetworkStatus(..), TargetSelector(..), toSnapshots, withModelToString
     )
 
 {-| Test elm-pages programs with realistic simulation.
@@ -71,7 +71,7 @@ use [`start`](#start) with inline config.
 Snapshots record the rendered view at each step of the test pipeline. Use them
 with the visual test runner to step through your test in the browser.
 
-@docs Snapshot, StepKind, NetworkEntry, NetworkStatus, toSnapshots, withModelToString
+@docs Snapshot, StepKind, TargetSelector, NetworkEntry, NetworkStatus, toSnapshots, withModelToString
 
 -}
 
@@ -156,6 +156,17 @@ type NetworkStatus
     | Pending
 
 
+{-| Describes which DOM element a test interaction targeted, so the visual
+test runner can highlight it in the preview.
+-}
+type TargetSelector
+    = ByTagAndText String String
+    | ByFormField String String
+    | ByLabelText String
+    | ById String
+    | ByTag String
+
+
 {-| A snapshot of the program state at a point in the test pipeline. Used by
 the visual test runner to step through test execution in the browser.
 
@@ -164,6 +175,7 @@ the visual test runner to step through test execution in the browser.
 `modelState` contains the model as a string if `withModelToString` was used.
 `stepKind` categorizes the step for color-coding in the viewer.
 `browserUrl` is the URL at the time of the snapshot (if URL tracking is enabled).
+`targetElement` identifies the element this step interacted with (for highlighting).
 
 -}
 type alias Snapshot =
@@ -178,6 +190,7 @@ type alias Snapshot =
     , errorMessage : Maybe String
     , pendingEffects : List String
     , networkLog : List NetworkEntry
+    , targetElement : Maybe TargetSelector
     }
 
 
@@ -277,6 +290,7 @@ start config =
                       , errorMessage = Nothing
                       , pendingEffects = describeEffects ready.pendingEffects
                       , networkLog = []
+                      , targetElement = Nothing
                       }
                     ]
 
@@ -292,6 +306,7 @@ start config =
                       , errorMessage = Nothing
                       , pendingEffects = []
                       , networkLog = []
+                      , targetElement = Nothing
                       }
                     ]
     in
@@ -731,6 +746,7 @@ startPlatform config initialPath testSetup =
                     , errorMessage = Nothing
                     , pendingEffects = []
                     , networkLog = []
+                    , targetElement = Nothing
                     }
             in
             ProgramTest
@@ -846,6 +862,7 @@ selectOption fieldId label optionValue optionText (ProgramTest state) =
                             applyMsgWithLabel
                                 ("selectOption \"" ++ fieldId ++ "\" \"" ++ optionText ++ "\"")
                                 Interaction
+                                (Just (ById fieldId))
                                 msg
                                 (ProgramTest state)
 
@@ -901,7 +918,7 @@ simulateDomEvent findTarget event (ProgramTest state) =
                     in
                     case eventResult of
                         Ok msg ->
-                            applyMsgWithLabel "simulateDomEvent" Interaction msg (ProgramTest state)
+                            applyMsgWithLabel "simulateDomEvent" Interaction Nothing msg (ProgramTest state)
 
                         Err errMsg ->
                             ProgramTest
@@ -1010,6 +1027,7 @@ simulateIncomingPort portName value (ProgramTest state) =
                                                     applyMsgWithLabel
                                                         ("simulateIncomingPort \"" ++ portName ++ "\"")
                                                         Interaction
+                                                        Nothing
                                                         msg
                                                         programTest
 
@@ -1071,7 +1089,7 @@ subscription would produce. This works for any subscription type:
 -}
 simulateMsg : msg -> ProgramTest model msg -> ProgramTest model msg
 simulateMsg msg programTest =
-    applyMsgWithLabel "simulateMsg" Interaction msg programTest
+    applyMsgWithLabel "simulateMsg" Interaction Nothing msg programTest
 
 
 
@@ -1174,7 +1192,7 @@ clickButton buttonText (ProgramTest state) =
                     in
                     case eventResult of
                         Ok msg ->
-                            applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") Interaction msg (ProgramTest state)
+                            applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") Interaction (Just (ByTagAndText "button" buttonText)) msg (ProgramTest state)
 
                         Err _ ->
                             -- Button has no click handler. This is an elm-pages
@@ -1212,6 +1230,7 @@ clickButton buttonText (ProgramTest state) =
                                     applyMsgWithLabel
                                         ("clickButton \"" ++ buttonText ++ "\"")
                                         Interaction
+                                        (Just (ByTagAndText "button" buttonText))
                                         msg
                                         (ProgramTest state)
 
@@ -1350,17 +1369,17 @@ fillIn fieldId fieldName value (ProgramTest state) =
                     in
                     case formDelegationResult of
                         Ok msg ->
-                            applyMsgWithLabel stepLabel Interaction msg (ProgramTest state)
+                            applyMsgWithLabel stepLabel Interaction (Just (ByFormField fieldId fieldName)) msg (ProgramTest state)
 
                         Err _ ->
                             case labelWrappedResult of
                                 Ok msg ->
-                                    applyMsgWithLabel stepLabel Interaction msg (ProgramTest state)
+                                    applyMsgWithLabel stepLabel Interaction (Just (ByLabelText fieldName)) msg (ProgramTest state)
 
                                 Err _ ->
                                     case idResult of
                                         Ok msg ->
-                                            applyMsgWithLabel stepLabel Interaction msg (ProgramTest state)
+                                            applyMsgWithLabel stepLabel Interaction (Just (ById fieldId)) msg (ProgramTest state)
 
                                         Err errMsg ->
                                             ProgramTest
@@ -1415,6 +1434,7 @@ formSubmitFallback ready query buttonText (ProgramTest state) =
             applyMsgWithLabel
                 ("clickButton \"" ++ buttonText ++ "\"")
                 Interaction
+                (Just (ByTagAndText "button" buttonText))
                 (handler { formId = "", action = "", fields = currentFields, useFetcher = isFetcher })
                 (ProgramTest state)
 
@@ -1462,7 +1482,7 @@ fillInTextarea newContent (ProgramTest state) =
                     in
                     case eventResult of
                         Ok msg ->
-                            applyMsgWithLabel ("fillInTextarea") Interaction msg (ProgramTest state)
+                            applyMsgWithLabel "fillInTextarea" Interaction (Just (ByTag "textarea")) msg (ProgramTest state)
 
                         Err errMsg ->
                             ProgramTest
@@ -1529,6 +1549,7 @@ clickLink linkText href (ProgramTest state) =
                                     applyMsgWithLabel
                                         ("clickLink \"" ++ linkText ++ "\"")
                                         Interaction
+                                        (Just (ByTagAndText "a" linkText))
                                         (navigate href)
                                         (ProgramTest state)
 
@@ -1549,7 +1570,7 @@ clickLink linkText href (ProgramTest state) =
                                     in
                                     case eventResult of
                                         Ok msg ->
-                                            applyMsgWithLabel ("clickLink \"" ++ linkText ++ "\"") Interaction msg (ProgramTest state)
+                                            applyMsgWithLabel ("clickLink \"" ++ linkText ++ "\"") Interaction (Just (ByTagAndText "a" linkText)) msg (ProgramTest state)
 
                                         Err _ ->
                                             ProgramTest state
@@ -1584,6 +1605,7 @@ navigateTo path (ProgramTest state) =
                             applyMsgWithLabel
                                 ("navigateTo \"" ++ path ++ "\"")
                                 Interaction
+                                Nothing
                                 (navigate path)
                                 (ProgramTest state)
 
@@ -1694,6 +1716,11 @@ submitFormTo action formInfo (ProgramTest state) =
                             applyMsgWithLabel
                                 ("submitForm \"" ++ formInfo.formId ++ "\"")
                                 Interaction
+                                (if formInfo.formId /= "" then
+                                    Just (ById formInfo.formId)
+                                 else
+                                    Nothing
+                                )
                                 (handler { formId = formInfo.formId, action = action, fields = formInfo.fields, useFetcher = False })
                                 (ProgramTest state)
 
@@ -1762,6 +1789,7 @@ check fieldId isChecked (ProgramTest state) =
                                        )
                                 )
                                 Interaction
+                                (Just (ById fieldId))
                                 msg
                                 (ProgramTest state)
 
@@ -1847,7 +1875,7 @@ resolveEffect simulate (ProgramTest state) =
                                                     | phase = pendingPhase
                                                     , snapshots =
                                                         state.snapshots
-                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution { ready | model = newModel } state.modelToString state.networkLog ]
+                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution Nothing { ready | model = newModel } state.modelToString state.networkLog ]
                                                 }
 
                                         Nothing ->
@@ -1875,7 +1903,7 @@ resolveEffect simulate (ProgramTest state) =
                                                     | phase = Ready newReady
                                                     , snapshots =
                                                         state.snapshots
-                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution newReady state.modelToString updatedLog ]
+                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution Nothing newReady state.modelToString updatedLog ]
                                                     , networkLog = updatedLog
                                                 }
 
@@ -2275,6 +2303,7 @@ toSnapshots (ProgramTest state) =
                      , errorMessage = Just errorMsg
                      , pendingEffects = []
                      , networkLog = state.networkLog
+                     , targetElement = Nothing
                      }
                    ]
 
@@ -2362,7 +2391,7 @@ applySimulation sim (ProgramTest state) =
                                 snapshot =
                                     case newPhase of
                                         Ready ready ->
-                                            [ makeSnapshot simLabel EffectResolution ready state.modelToString updatedLog ]
+                                            [ makeSnapshot simLabel EffectResolution Nothing ready state.modelToString updatedLog ]
 
                                         Resolving _ ->
                                             []
@@ -2395,7 +2424,7 @@ recordAssertionSnapshot label (ProgramTest state) =
                 { state
                     | snapshots =
                         state.snapshots
-                            ++ [ makeSnapshot label Assertion ready state.modelToString state.networkLog ]
+                            ++ [ makeSnapshot label Assertion Nothing ready state.modelToString state.networkLog ]
                 }
 
         _ ->
@@ -2409,8 +2438,8 @@ selectorLabel selectors =
 
 {-| Apply a message through update, record a snapshot, and re-render.
 -}
-applyMsgWithLabel : String -> StepKind -> msg -> ProgramTest model msg -> ProgramTest model msg
-applyMsgWithLabel label kind msg (ProgramTest state) =
+applyMsgWithLabel : String -> StepKind -> Maybe TargetSelector -> msg -> ProgramTest model msg -> ProgramTest model msg
+applyMsgWithLabel label kind target msg (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -2442,7 +2471,7 @@ applyMsgWithLabel label kind msg (ProgramTest state) =
                                     | phase = pendingPhase
                                     , snapshots =
                                         state.snapshots
-                                            ++ [ makeSnapshot label kind newReady state.modelToString state.networkLog ]
+                                            ++ [ makeSnapshot label kind target newReady state.modelToString state.networkLog ]
                                 }
 
                         Nothing ->
@@ -2471,13 +2500,13 @@ applyMsgWithLabel label kind msg (ProgramTest state) =
                                     | phase = Ready newReady
                                     , snapshots =
                                         state.snapshots
-                                            ++ [ makeSnapshot label kind newReady state.modelToString updatedLog ]
+                                            ++ [ makeSnapshot label kind target newReady state.modelToString updatedLog ]
                                     , networkLog = updatedLog
                                 }
 
 
-makeSnapshot : String -> StepKind -> ReadyState model msg -> Maybe (model -> String) -> List NetworkEntry -> Snapshot
-makeSnapshot label kind ready modelToString currentNetworkLog =
+makeSnapshot : String -> StepKind -> Maybe TargetSelector -> ReadyState model msg -> Maybe (model -> String) -> List NetworkEntry -> Snapshot
+makeSnapshot label kind target ready modelToString currentNetworkLog =
     let
         viewResult =
             ready.getView ready.model
@@ -2493,6 +2522,7 @@ makeSnapshot label kind ready modelToString currentNetworkLog =
     , errorMessage = Nothing
     , pendingEffects = describeEffects ready.pendingEffects
     , networkLog = currentNetworkLog
+    , targetElement = target
     }
 
 

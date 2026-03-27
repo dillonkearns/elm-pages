@@ -539,6 +539,86 @@ main =
         }
       }
     }
+    var lastHighlightJson = "";
+
+    function findHighlightTarget(doc, selector) {
+      if (!selector) return null;
+      switch (selector.type) {
+        case "id":
+          return doc.getElementById(selector.id);
+        case "tag":
+          return doc.querySelector(selector.tag);
+        case "tag-text": {
+          var els = doc.querySelectorAll(selector.tag);
+          for (var i = 0; i < els.length; i++) {
+            if (els[i].textContent.trim().indexOf(selector.text) !== -1) return els[i];
+          }
+          return null;
+        }
+        case "form-field": {
+          var form = doc.getElementById(selector.formId);
+          if (form) {
+            var input = form.querySelector('[name="' + selector.fieldName + '"]');
+            if (input) return input;
+          }
+          return null;
+        }
+        case "label-text": {
+          var labels = doc.querySelectorAll("label");
+          for (var j = 0; j < labels.length; j++) {
+            if (labels[j].textContent.indexOf(selector.text) !== -1) {
+              var inp = labels[j].querySelector("input, textarea, select");
+              if (inp) return inp;
+            }
+          }
+          return null;
+        }
+        default:
+          return null;
+      }
+    }
+
+    function updateHighlight(iframeDoc, pageBody) {
+      var highlightJson = pageBody ? pageBody.getAttribute("data-highlight") : null;
+
+      // Remove old highlight if selector changed
+      if (highlightJson !== lastHighlightJson) {
+        var old = iframeDoc.querySelectorAll(".__elm-pages-highlight");
+        for (var i = 0; i < old.length; i++) old[i].remove();
+        lastHighlightJson = highlightJson;
+      }
+
+      if (!highlightJson) return;
+
+      var selector;
+      try { selector = JSON.parse(highlightJson); } catch(e) { return; }
+
+      var el = findHighlightTarget(iframeDoc, selector);
+      if (!el) {
+        // Target not found, clean up any stale overlay
+        var stale = iframeDoc.querySelectorAll(".__elm-pages-highlight");
+        for (var s = 0; s < stale.length; s++) stale[s].remove();
+        return;
+      }
+
+      var rect = el.getBoundingClientRect();
+      var scrollX = iframeDoc.defaultView.scrollX || 0;
+      var scrollY = iframeDoc.defaultView.scrollY || 0;
+
+      var overlay = iframeDoc.querySelector(".__elm-pages-highlight");
+      if (!overlay) {
+        overlay = iframeDoc.createElement("div");
+        overlay.className = "__elm-pages-highlight";
+        overlay.style.cssText = "position:absolute;pointer-events:none;z-index:2147483647;border:2px solid #a855f7;background:rgba(168,85,247,0.1);border-radius:3px;transition:all 0.15s ease;box-sizing:border-box;";
+        iframeDoc.body.appendChild(overlay);
+      }
+
+      overlay.style.top = (rect.top + scrollY) + "px";
+      overlay.style.left = (rect.left + scrollX) + "px";
+      overlay.style.width = rect.width + "px";
+      overlay.style.height = rect.height + "px";
+    }
+
     setInterval(function() {
       var iframe = document.getElementById('preview-iframe');
       if (!iframe) return;
@@ -553,6 +633,8 @@ main =
         }
         // Always sync properties (value can change without innerHTML changing)
         if (pageBody) syncProperties(pageBody, target);
+        // Update element highlight overlay
+        updateHighlight(iframe.contentDocument, pageBody);
       } catch(e) {
         // contentDocument may not be accessible yet
       }

@@ -33,8 +33,9 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
 import Json.Decode as Decode
+import Json.Encode as Encode
 import Task
-import Test.PagesProgram exposing (NetworkEntry, NetworkStatus(..), Snapshot, StepKind(..))
+import Test.PagesProgram exposing (NetworkEntry, NetworkStatus(..), Snapshot, StepKind(..), TargetSelector(..))
 import Url exposing (Url)
 
 
@@ -1184,7 +1185,12 @@ viewMainPanel model =
                             previewSnapshot =
                                 case model.previewMode of
                                     Before ->
-                                        previousSnapshot |> Maybe.withDefault snapshot
+                                        case previousSnapshot of
+                                            Just prev ->
+                                                { prev | targetElement = snapshot.targetElement }
+
+                                            Nothing ->
+                                                snapshot
 
                                     After ->
                                         snapshot
@@ -1315,7 +1321,16 @@ viewRenderedPageWithOptions viewportWidth maybePreviewMode snapshot =
                 Nothing ->
                     Html.text ""
             ]
-        , Html.div [ Attr.class "page-body" ]
+        , Html.div
+            (Attr.class "page-body"
+                :: (case snapshot.targetElement of
+                        Just target ->
+                            [ Attr.attribute "data-highlight" (Encode.encode 0 (encodeTargetSelector target)) ]
+
+                        Nothing ->
+                            []
+                   )
+            )
             (snapshot.body
                 |> List.map (Html.map (\_ -> NoOp))
             )
@@ -1462,6 +1477,44 @@ viewNetworkSidebar entries =
                         )
                 )
         ]
+
+
+
+
+encodeTargetSelector : TargetSelector -> Encode.Value
+encodeTargetSelector target =
+    case target of
+        ByTagAndText tag text ->
+            Encode.object
+                [ ( "type", Encode.string "tag-text" )
+                , ( "tag", Encode.string tag )
+                , ( "text", Encode.string text )
+                ]
+
+        ByFormField formId fieldName ->
+            Encode.object
+                [ ( "type", Encode.string "form-field" )
+                , ( "formId", Encode.string formId )
+                , ( "fieldName", Encode.string fieldName )
+                ]
+
+        ByLabelText labelText ->
+            Encode.object
+                [ ( "type", Encode.string "label-text" )
+                , ( "text", Encode.string labelText )
+                ]
+
+        ById id ->
+            Encode.object
+                [ ( "type", Encode.string "id" )
+                , ( "id", Encode.string id )
+                ]
+
+        ByTag tag ->
+            Encode.object
+                [ ( "type", Encode.string "tag" )
+                , ( "tag", Encode.string tag )
+                ]
 
 
 
