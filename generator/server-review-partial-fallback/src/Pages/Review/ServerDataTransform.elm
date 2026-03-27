@@ -121,6 +121,10 @@ type alias Context =
     -- Track last import row for inserting new imports
     , lastImportRow : Int
 
+    -- RouteBuilder convention verification
+    -- Did we find a RouteBuilder call?
+    , routeBuilderFound : Bool
+
     -- Lambda depth: when > 0 we are inside a repeated-execution context where
     -- helper ID seeding is not guaranteed to be unique per invocation.
     , lambdaDepth : Int
@@ -242,6 +246,7 @@ fromProjectToModule =
             , htmlAlias = Nothing
             , htmlAttributesAlias = Nothing
             , lastImportRow = 0
+            , routeBuilderFound = False
             , lambdaDepth = 0
             , localLetFunctionsNeedingSeed = []
             }
@@ -809,11 +814,11 @@ rewriteHelperCallWithFrozenId node context =
 shouldSeedHelperCallIds : Context -> Bool
 shouldSeedHelperCallIds context =
     FreezeHelperPlanning.shouldSeedHelperCallIds
-        { isRouteModule = PersistentFieldTracking.isRouteModule
+        { isRouteModule = \_ -> context.routeBuilderFound
         , isSharedModule = PersistentFieldTracking.isSharedModule
         , moduleName = context.moduleName
         , currentFunctionName = currentFunctionName context
-        
+
         }
 
 
@@ -1354,7 +1359,7 @@ currentFunctionFidParamName context =
 
 usesHelperFrozenIds : Context -> Bool
 usesHelperFrozenIds context =
-    (not (PersistentFieldTracking.isRouteModule context.moduleName))
+    (not context.routeBuilderFound)
         && (not (PersistentFieldTracking.isSharedModule context.moduleName))
         && Maybe.withDefault False (Maybe.map (\_ -> True) (currentFunctionName context))
 
@@ -1721,11 +1726,11 @@ extractRouteBuilderHeadFn context args =
                         updatedSharedState =
                             PersistentFieldTracking.setRouteBuilderHeadFn extracted.headFn context.sharedState
                     in
-                    { context | sharedState = updatedSharedState }
+                    { context | sharedState = updatedSharedState, routeBuilderFound = True }
 
                 _ ->
                     -- Not a record literal - can't extract function names
-                    context
+                    { context | routeBuilderFound = True }
 
         _ ->
             context
@@ -1879,7 +1884,7 @@ finalEvaluation context =
         -- Only apply transformations to Route modules (Route.Index, Route.Blog.Slug_, etc.)
         -- Uses shared function to ensure agreement with StaticViewTransform
         isRouteModule =
-            PersistentFieldTracking.isRouteModule context.moduleName
+            context.routeBuilderFound
     in
     -- Skip non-Route modules (Site.elm, Shared.elm, etc.) to avoid disagreement with client transform
     if not isRouteModule then

@@ -51,7 +51,6 @@ module Pages.Review.PersistentFieldTracking exposing
     , isExitingFreezeCall
     , isRecordAccessFunction
     , isRouteBuilderCall
-    , isRouteModule
     , isSharedModule
     , isViewFreezeCall
     , markAllFieldsAsPersistent
@@ -1879,34 +1878,6 @@ computeEphemeralFieldsWithCorrection config =
     , hasUnresolvedCalls = unresolvedHelperCalls
     , skipReason = skipReason
     }
-
-
-{-| Check if a module is a Route module (e.g., Route.Index, Route.Blog.Slug\_).
-
-Both StaticViewTransform and ServerDataTransform must agree on this check to
-ensure server/client agreement. Only Route modules get their Data types transformed.
-
-This returns True for modules like:
-
-  - Route.Index
-  - Route.Blog
-  - Route.Blog.Slug\_
-
-This returns False for:
-
-  - Site
-  - Shared
-  - Route (the Route module itself, not a route)
-
--}
-isRouteModule : ModuleName -> Bool
-isRouteModule moduleName =
-    case moduleName of
-        "Route" :: _ :: _ ->
-            True
-
-        _ ->
-            False
 
 
 {-| Check if the module is Shared.elm.

@@ -540,7 +540,7 @@ declarationEnterVisitor node context =
 
                     -- Extract shared model parameter name (second parameter: view app shared ...)
                     maybeSharedModelParam =
-                        if functionName == "view" then
+                        if functionName == "view" && context.routeBuilderFound then
                             arguments
                                 |> List.drop 1
                                 |> List.head
@@ -549,10 +549,10 @@ declarationEnterVisitor node context =
                         else
                             Nothing
 
-                    -- Extract model parameter name only for view function
+                    -- Extract model parameter name only for view function in Route modules
                     -- Model is the third parameter: view app shared model = ...
                     maybeModelParam =
-                        if functionName == "view" then
+                        if functionName == "view" && context.routeBuilderFound then
                             arguments
                                 |> List.drop 2
                                 |> List.head
@@ -1832,11 +1832,11 @@ rewriteHelperCallWithFrozenId node context =
 shouldSeedHelperCallIds : Context -> Bool
 shouldSeedHelperCallIds context =
     FreezeHelperPlanning.shouldSeedHelperCallIds
-        { isRouteModule = PersistentFieldTracking.isRouteModule
+        { isRouteModule = \_ -> context.routeBuilderFound
         , isSharedModule = PersistentFieldTracking.isSharedModule
         , moduleName = context.moduleName
         , currentFunctionName = currentFunctionName context
-        
+
         }
 
 
@@ -2176,7 +2176,7 @@ currentFunctionFidParamName context =
 
 usesHelperFrozenIds : Context -> Bool
 usesHelperFrozenIds context =
-    (not (PersistentFieldTracking.isRouteModule context.moduleName))
+    (not context.routeBuilderFound)
         && (not (PersistentFieldTracking.isSharedModule context.moduleName))
         && Maybe.withDefault False (Maybe.map (\_ -> True) (currentFunctionName context))
 
@@ -2522,7 +2522,7 @@ finalEvaluation context =
         -- Only apply transformations to Route modules (Route.Index, Route.Blog.Slug_, etc.)
         -- Uses shared function to ensure agreement with ServerDataTransform
         isRouteModule =
-            PersistentFieldTracking.isRouteModule context.moduleName
+            context.routeBuilderFound
 
         -- Fields to subtract from clientUsedFields because they were accessed in the head function
         -- This handles the case where the head function is defined BEFORE RouteBuilder is seen,
