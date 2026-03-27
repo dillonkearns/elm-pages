@@ -36,7 +36,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Set exposing (Set)
 import Task
-import Test.PagesProgram exposing (NetworkEntry, NetworkStatus(..), Snapshot, StepKind(..), TargetSelector(..))
+import Test.PagesProgram exposing (FetcherEntry, FetcherStatus(..), NetworkEntry, NetworkStatus(..), Snapshot, StepKind(..), TargetSelector(..))
 import Url exposing (Url)
 
 
@@ -66,6 +66,7 @@ type alias Model =
     , viewportWidth : Maybe Int
     , showEffects : Bool
     , showNetwork : Bool
+    , showFetchers : Bool
     , previewMode : PreviewMode
     , expandedGroups : Set Int
     }
@@ -100,6 +101,7 @@ type Msg
     | SetViewport (Maybe Int)
     | ToggleEffects
     | ToggleNetwork
+    | ToggleFetchers
     | SetPreviewMode PreviewMode
     | ToggleGroup Int
     | UrlChanged Url
@@ -184,6 +186,7 @@ app tests =
                   , viewportWidth = Nothing
                   , showEffects = False
                   , showNetwork = False
+                  , showFetchers = False
                   , previewMode = After
                   , expandedGroups = Set.empty
                   }
@@ -627,6 +630,9 @@ update msg model =
         ToggleNetwork ->
             ( { model | showNetwork = not model.showNetwork }, Cmd.none )
 
+        ToggleFetchers ->
+            ( { model | showFetchers = not model.showFetchers }, Cmd.none )
+
         SetPreviewMode mode ->
             ( { model | previewMode = mode }, Cmd.none )
 
@@ -742,6 +748,9 @@ update msg model =
 
                 "n" ->
                     update ToggleNetwork model
+
+                "f" ->
+                    update ToggleFetchers model
 
                 _ ->
                     ( model, Cmd.none )
@@ -990,6 +999,14 @@ viewHeader model =
                 , Html.Events.onClick ToggleNetwork
                 ]
                 [ Html.text "Network" ]
+            , Html.button
+                [ Attr.classList
+                    [ ( "toggle-button", True )
+                    , ( "toggle-active", model.showFetchers )
+                    ]
+                , Html.Events.onClick ToggleFetchers
+                ]
+                [ Html.text "Fetchers" ]
             , Html.button
                 [ Attr.classList
                     [ ( "toggle-button", True )
@@ -1295,6 +1312,11 @@ viewMainPanel model =
 
                                 Nothing ->
                                     viewEmptyRenderedPage
+                            , if model.showFetchers then
+                                viewFetcherInspector (displayedStepIndex model) (currentSnapshots model)
+
+                              else
+                                Html.text ""
                             , if model.showEffects then
                                 viewEffectInspector
                                     (previousSnapshot
@@ -1346,6 +1368,11 @@ viewMainPanel model =
                                 previewSnapshot
                             , if not isStartStep && hasPrevious then
                                 viewBeforeAfterToggle model.previewMode
+
+                              else
+                                Html.text ""
+                            , if model.showFetchers then
+                                viewFetcherInspector (displayedStepIndex model) (currentSnapshots model)
 
                               else
                                 Html.text ""
@@ -1518,6 +1545,146 @@ viewModelInspector snapshot =
                     |> Maybe.withDefault "(use withModelToString to enable)"
                 )
             ]
+        ]
+
+
+viewFetcherInspector : Int -> List Snapshot -> Html Msg
+viewFetcherInspector currentStep allSnapshots =
+    let
+        -- Collect all unique fetcher IDs across all snapshots
+        allFetcherIds =
+            allSnapshots
+                |> List.concatMap (.fetcherLog >> List.map .id)
+                |> List.foldl
+                    (\id acc ->
+                        if List.member id acc then
+                            acc
+
+                        else
+                            acc ++ [ id ]
+                    )
+                    []
+
+        -- For each fetcher, build its timeline: list of (stepIndex, FetcherEntry)
+        fetcherTimeline : String -> List ( Int, FetcherEntry )
+        fetcherTimeline fetcherId =
+            allSnapshots
+                |> List.indexedMap
+                    (\i snap ->
+                        snap.fetcherLog
+                            |> List.filter (\f -> f.id == fetcherId)
+                            |> List.head
+                            |> Maybe.map (\entry -> ( i, entry ))
+                    )
+                |> List.filterMap identity
+
+        -- Deduplicate consecutive entries with the same status
+        dedupeTimeline : List ( Int, FetcherEntry ) -> List ( Int, FetcherEntry )
+        dedupeTimeline entries =
+            entries
+                |> List.foldl
+                    (\( i, entry ) acc ->
+                        case acc of
+                            ( _, prev ) :: _ ->
+                                if prev.status == entry.status then
+                                    acc
+
+                                else
+                                    ( i, entry ) :: acc
+
+                            [] ->
+                                [ ( i, entry ) ]
+                    )
+                    []
+                |> List.reverse
+
+        statusIcon status =
+            case status of
+                FetcherSubmitting ->
+                    Html.span [ Attr.class "fetcher-status-icon fetcher-submitting" ] [ Html.text "▶" ]
+
+                FetcherReloading ->
+                    Html.span [ Attr.class "fetcher-status-icon fetcher-reloading" ] [ Html.text "↻" ]
+
+                FetcherComplete ->
+                    Html.span [ Attr.class "fetcher-status-icon fetcher-complete" ] [ Html.text "✓" ]
+
+        statusLabel status =
+            case status of
+                FetcherSubmitting ->
+                    "Submitting"
+
+                FetcherReloading ->
+                    "Reloading"
+
+                FetcherComplete ->
+                    "Complete"
+
+        viewFetcherCard fetcherId =
+            let
+                timeline =
+                    dedupeTimeline (fetcherTimeline fetcherId)
+
+                firstEntry =
+                    timeline |> List.head |> Maybe.map Tuple.second
+            in
+            Html.div [ Attr.class "fetcher-card" ]
+                [ Html.div [ Attr.class "fetcher-card-header" ]
+                    [ Html.span [ Attr.class "fetcher-id" ] [ Html.text ("\"" ++ fetcherId ++ "\"") ]
+                    , case firstEntry of
+                        Just entry ->
+                            Html.span [ Attr.class "fetcher-action" ]
+                                [ Html.text (entry.method ++ " " ++ entry.action) ]
+
+                        Nothing ->
+                            Html.text ""
+                    ]
+                , Html.div [ Attr.class "fetcher-timeline" ]
+                    (timeline
+                        |> List.map
+                            (\( stepIdx, entry ) ->
+                                Html.div
+                                    [ Attr.classList
+                                        [ ( "fetcher-timeline-entry", True )
+                                        , ( "fetcher-timeline-current", stepIdx == currentStep )
+                                        ]
+                                    ]
+                                    [ Html.span [ Attr.class "fetcher-step" ]
+                                        [ Html.text ("Step " ++ String.fromInt (stepIdx + 1)) ]
+                                    , statusIcon entry.status
+                                    , Html.span [ Attr.class "fetcher-status-label" ]
+                                        [ Html.text (statusLabel entry.status) ]
+                                    , if entry.status == FetcherSubmitting && not (List.isEmpty entry.fields) then
+                                        Html.span [ Attr.class "fetcher-fields" ]
+                                            [ Html.text
+                                                (entry.fields
+                                                    |> List.map (\( k, v ) -> k ++ "=" ++ v)
+                                                    |> String.join ", "
+                                                )
+                                            ]
+
+                                      else
+                                        Html.text ""
+                                    ]
+                            )
+                    )
+                ]
+    in
+    Html.div [ Attr.class "fetcher-inspector" ]
+        [ Html.div [ Attr.class "inspector-header" ]
+            [ Html.text
+                ("Fetchers ("
+                    ++ String.fromInt (List.length allFetcherIds)
+                    ++ ")"
+                )
+            ]
+        , if List.isEmpty allFetcherIds then
+            Html.div [ Attr.class "fetcher-empty" ]
+                [ Html.text "No fetcher submissions in this test." ]
+
+          else
+            Html.div [ Attr.class "fetcher-list" ]
+                (allFetcherIds |> List.map viewFetcherCard)
         ]
 
 
@@ -2435,6 +2602,115 @@ body {
 
 /* === EFFECT INSPECTOR === */
 
+/* === FETCHER INSPECTOR === */
+
+.fetcher-inspector {
+    flex-shrink: 0;
+    max-height: 240px;
+    overflow: auto;
+    background: #0d1117;
+    border-top: 1px solid #0f3460;
+    margin: 0 12px;
+    border-radius: 6px 6px 0 0;
+}
+
+.fetcher-empty {
+    padding: 8px 12px 12px;
+    color: #556677;
+    font-size: 12px;
+    font-style: italic;
+}
+
+.fetcher-list {
+    padding: 4px 0 8px;
+}
+
+.fetcher-card {
+    padding: 4px 12px 8px;
+}
+
+.fetcher-card + .fetcher-card {
+    border-top: 1px solid rgba(255,255,255,0.05);
+    margin-top: 4px;
+    padding-top: 8px;
+}
+
+.fetcher-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.fetcher-id {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 12px;
+    color: #a855f7;
+    font-weight: 600;
+}
+
+.fetcher-action {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 11px;
+    color: #556677;
+}
+
+.fetcher-timeline {
+    padding-left: 8px;
+    border-left: 2px solid rgba(255,255,255,0.06);
+}
+
+.fetcher-timeline-entry {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0 2px 8px;
+    font-size: 12px;
+    opacity: 0.6;
+}
+
+.fetcher-timeline-entry.fetcher-timeline-current {
+    opacity: 1;
+    background: rgba(168, 85, 247, 0.08);
+    border-radius: 3px;
+    margin-left: -2px;
+    padding-left: 10px;
+}
+
+.fetcher-step {
+    color: #556677;
+    font-size: 11px;
+    min-width: 48px;
+}
+
+.fetcher-status-icon {
+    font-size: 11px;
+}
+
+.fetcher-submitting {
+    color: #f0c040;
+}
+
+.fetcher-reloading {
+    color: #4cc9f0;
+}
+
+.fetcher-complete {
+    color: #7ee787;
+}
+
+.fetcher-status-label {
+    color: #8899aa;
+    font-size: 12px;
+}
+
+.fetcher-fields {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 11px;
+    color: #556677;
+    margin-left: 4px;
+}
+
 .effect-inspector {
     flex-shrink: 0;
     max-height: 180px;
@@ -2564,7 +2840,7 @@ body {
 /* === KEYBOARD HINT === */
 
 .viewer::after {
-    content: "\\2190 \\2192  step   \\2191 \\2193  test   n  network   e  effects   m  model   esc  back";
+    content: "\\2190 \\2192  step   \\2191 \\2193  test   n  network   f  fetchers   e  effects   m  model   esc  back";
     position: fixed;
     bottom: 4px;
     right: 12px;

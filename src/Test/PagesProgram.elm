@@ -15,7 +15,7 @@ module Test.PagesProgram exposing
     , simulateHttpGet, simulateHttpPost, simulateHttpError
     , selectOption
     , done
-    , Snapshot, StepKind(..), NetworkEntry, NetworkStatus(..), TargetSelector(..), toSnapshots, withModelToString
+    , Snapshot, StepKind(..), NetworkEntry, NetworkStatus(..), TargetSelector(..), FetcherEntry, FetcherStatus(..), toSnapshots, withModelToString
     )
 
 {-| Test elm-pages programs with realistic simulation.
@@ -71,7 +71,7 @@ use [`start`](#start) with inline config.
 Snapshots record the rendered view at each step of the test pipeline. Use them
 with the visual test runner to step through your test in the browser.
 
-@docs Snapshot, StepKind, TargetSelector, NetworkEntry, NetworkStatus, toSnapshots, withModelToString
+@docs Snapshot, StepKind, TargetSelector, NetworkEntry, NetworkStatus, FetcherEntry, FetcherStatus, toSnapshots, withModelToString
 
 -}
 
@@ -93,6 +93,7 @@ import Pages.Internal.FatalError
 import Json.Decode
 import Json.Encode as Encode
 import PageServerResponse exposing (PageServerResponse(..))
+import Pages.ConcurrentSubmission
 import Pages.Internal.Msg
 import Pages.Internal.Platform as Platform
 import Pages.Internal.ResponseSketch as ResponseSketch
@@ -123,6 +124,7 @@ type alias State model msg =
     , error : Maybe String
     , snapshots : List Snapshot
     , modelToString : Maybe (model -> String)
+    , fetcherExtractor : Maybe (model -> List FetcherEntry)
     , networkLog : List NetworkEntry
     , subscriptions : Maybe (model -> SimulatedSub msg)
     }
@@ -167,6 +169,26 @@ type TargetSelector
     | ByTag String
 
 
+{-| A snapshot of an in-flight fetcher's state at a point in the test pipeline.
+Used by the visual test runner to display fetcher lifecycle timelines.
+-}
+type alias FetcherEntry =
+    { id : String
+    , status : FetcherStatus
+    , fields : List ( String, String )
+    , action : String
+    , method : String
+    }
+
+
+{-| The status of a fetcher submission.
+-}
+type FetcherStatus
+    = FetcherSubmitting
+    | FetcherReloading
+    | FetcherComplete
+
+
 {-| A snapshot of the program state at a point in the test pipeline. Used by
 the visual test runner to step through test execution in the browser.
 
@@ -191,6 +213,7 @@ type alias Snapshot =
     , pendingEffects : List String
     , networkLog : List NetworkEntry
     , targetElement : Maybe TargetSelector
+    , fetcherLog : List FetcherEntry
     }
 
 
@@ -291,6 +314,7 @@ start config =
                       , pendingEffects = describeEffects ready.pendingEffects
                       , networkLog = []
                       , targetElement = Nothing
+                      , fetcherLog = []
                       }
                     ]
 
@@ -307,6 +331,7 @@ start config =
                       , pendingEffects = []
                       , networkLog = []
                       , targetElement = Nothing
+                      , fetcherLog = []
                       }
                     ]
     in
@@ -315,6 +340,7 @@ start config =
         , error = Nothing
         , snapshots = initSnapshot
         , modelToString = Nothing
+        , fetcherExtractor = Nothing
         , networkLog = []
         , subscriptions = Nothing
         }
@@ -419,6 +445,7 @@ startPlatform config initialPath testSetup =
                 , error = Just errMsg
                 , snapshots = []
                 , modelToString = Nothing
+                , fetcherExtractor = Nothing
                 , networkLog = []
                 , subscriptions = Nothing
                 }
@@ -747,13 +774,44 @@ startPlatform config initialPath testSetup =
                     , pendingEffects = []
                     , networkLog = []
                     , targetElement = Nothing
+                    , fetcherLog = []
                     }
+            in
+            let
+                extractFetchers wrappedModel =
+                    wrappedModel.platformModel.inFlightFetchers
+                        |> Dict.toList
+                        |> List.map
+                            (\( fetcherId, ( _, fetcher ) ) ->
+                                { id = fetcherId
+                                , status =
+                                    case fetcher.status of
+                                        Pages.ConcurrentSubmission.Submitting ->
+                                            FetcherSubmitting
+
+                                        Pages.ConcurrentSubmission.Reloading _ ->
+                                            FetcherReloading
+
+                                        Pages.ConcurrentSubmission.Complete _ ->
+                                            FetcherComplete
+                                , fields = fetcher.payload.fields
+                                , action = fetcher.payload.action
+                                , method =
+                                    case fetcher.payload.method of
+                                        Form.Get ->
+                                            "GET"
+
+                                        Form.Post ->
+                                            "POST"
+                                }
+                            )
             in
             ProgramTest
                 { phase = Ready (makeReady finalWrapped)
                 , error = Nothing
                 , snapshots = [ initSnapshot ]
                 , modelToString = Nothing
+                , fetcherExtractor = Just extractFetchers
                 , networkLog = []
                 , subscriptions = Nothing
                 }
@@ -1875,7 +1933,7 @@ resolveEffect simulate (ProgramTest state) =
                                                     | phase = pendingPhase
                                                     , snapshots =
                                                         state.snapshots
-                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution Nothing { ready | model = newModel } state.modelToString state.networkLog ]
+                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution Nothing { ready | model = newModel } state.modelToString state.fetcherExtractor state.networkLog ]
                                                 }
 
                                         Nothing ->
@@ -1903,7 +1961,7 @@ resolveEffect simulate (ProgramTest state) =
                                                     | phase = Ready newReady
                                                     , snapshots =
                                                         state.snapshots
-                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution Nothing newReady state.modelToString updatedLog ]
+                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution Nothing newReady state.modelToString state.fetcherExtractor updatedLog ]
                                                     , networkLog = updatedLog
                                                 }
 
@@ -2304,6 +2362,7 @@ toSnapshots (ProgramTest state) =
                      , pendingEffects = []
                      , networkLog = state.networkLog
                      , targetElement = Nothing
+                     , fetcherLog = []
                      }
                    ]
 
@@ -2391,7 +2450,7 @@ applySimulation sim (ProgramTest state) =
                                 snapshot =
                                     case newPhase of
                                         Ready ready ->
-                                            [ makeSnapshot simLabel EffectResolution Nothing ready state.modelToString updatedLog ]
+                                            [ makeSnapshot simLabel EffectResolution Nothing ready state.modelToString state.fetcherExtractor updatedLog ]
 
                                         Resolving _ ->
                                             []
@@ -2424,7 +2483,7 @@ recordAssertionSnapshot label (ProgramTest state) =
                 { state
                     | snapshots =
                         state.snapshots
-                            ++ [ makeSnapshot label Assertion Nothing ready state.modelToString state.networkLog ]
+                            ++ [ makeSnapshot label Assertion Nothing ready state.modelToString state.fetcherExtractor state.networkLog ]
                 }
 
         _ ->
@@ -2471,7 +2530,7 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                                     | phase = pendingPhase
                                     , snapshots =
                                         state.snapshots
-                                            ++ [ makeSnapshot label kind target newReady state.modelToString state.networkLog ]
+                                            ++ [ makeSnapshot label kind target newReady state.modelToString state.fetcherExtractor state.networkLog ]
                                 }
 
                         Nothing ->
@@ -2500,13 +2559,13 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                                     | phase = Ready newReady
                                     , snapshots =
                                         state.snapshots
-                                            ++ [ makeSnapshot label kind target newReady state.modelToString updatedLog ]
+                                            ++ [ makeSnapshot label kind target newReady state.modelToString state.fetcherExtractor updatedLog ]
                                     , networkLog = updatedLog
                                 }
 
 
-makeSnapshot : String -> StepKind -> Maybe TargetSelector -> ReadyState model msg -> Maybe (model -> String) -> List NetworkEntry -> Snapshot
-makeSnapshot label kind target ready modelToString currentNetworkLog =
+makeSnapshot : String -> StepKind -> Maybe TargetSelector -> ReadyState model msg -> Maybe (model -> String) -> Maybe (model -> List FetcherEntry) -> List NetworkEntry -> Snapshot
+makeSnapshot label kind target ready modelToString fetcherExtractor currentNetworkLog =
     let
         viewResult =
             ready.getView ready.model
@@ -2523,6 +2582,7 @@ makeSnapshot label kind target ready modelToString currentNetworkLog =
     , pendingEffects = describeEffects ready.pendingEffects
     , networkLog = currentNetworkLog
     , targetElement = target
+    , fetcherLog = fetcherExtractor |> Maybe.map (\fn -> fn ready.model) |> Maybe.withDefault []
     }
 
 
