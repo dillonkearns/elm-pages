@@ -223,6 +223,15 @@ view app sharedModel model =
             pendingItems =
                 app.concurrentSubmissions
                     |> Dict.values
+                    |> List.filter
+                        (\pending ->
+                            case pending.status of
+                                Pages.ConcurrentSubmission.Complete _ ->
+                                    False
+
+                                _ ->
+                                    True
+                        )
                     |> List.filterMap
                         (\pending ->
                             case Form.Handler.run pending.payload.fields formHandlers of
@@ -236,14 +245,37 @@ view app sharedModel model =
 
             cartWithPending : Dict String Cart.CartEntry
             cartWithPending =
-                app.data.cart
-                    |> Maybe.withDefault Dict.empty
-                    |> Dict.map
-                        (\itemId entry ->
-                            { entry
-                                | quantity = Dict.get itemId pendingItems |> Maybe.withDefault entry.quantity
-                            }
-                        )
+                let
+                    serverCart =
+                        app.data.cart |> Maybe.withDefault Dict.empty
+
+                    -- Override existing cart entries with pending quantities
+                    updatedCart =
+                        serverCart
+                            |> Dict.map
+                                (\itemId entry ->
+                                    { entry
+                                        | quantity = Dict.get itemId pendingItems |> Maybe.withDefault entry.quantity
+                                    }
+                                )
+
+                    -- Add pending items not yet in the server cart
+                    newPendingEntries =
+                        pendingItems
+                            |> Dict.filter (\itemId _ -> not (Dict.member itemId serverCart))
+                            |> Dict.map
+                                (\itemId qty ->
+                                    { quantity = qty
+                                    , pricePerItem =
+                                        app.data.smoothies
+                                            |> List.filter (\s -> s.id == itemId)
+                                            |> List.head
+                                            |> Maybe.map .price
+                                            |> Maybe.withDefault 0
+                                    }
+                                )
+                in
+                Dict.union updatedCart newPendingEntries
 
             totals : { totalItems : Int, totalPrice : Int }
             totals =
@@ -311,7 +343,7 @@ productView app cart item =
             []
             [ setQuantityForm
                 |> Pages.Form.renderStyledHtml []
-                    (Form.options "decrement-quantity"
+                    (Form.options ("decrement-quantity-" ++ item.id)
                         |> Pages.Form.withConcurrent
                         |> Form.withInput ( quantityInCart, Decrement, item )
                     )
@@ -319,7 +351,7 @@ productView app cart item =
             , Html.p [] [ quantityInCart |> String.fromInt |> Html.text ]
             , setQuantityForm
                 |> Pages.Form.renderStyledHtml []
-                    (Form.options "increment-quantity"
+                    (Form.options ("increment-quantity-" ++ item.id)
                         |> Pages.Form.withConcurrent
                         |> Form.withInput ( quantityInCart, Increment, item )
                     )

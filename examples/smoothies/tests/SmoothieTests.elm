@@ -401,13 +401,12 @@ concurrentFetchersTest =
                     ++ " | "
                     ++ fetchers
             )
-        -- Both fetchers pending (Submitting). View still renders (not blocked!).
-        -- TODO: Optimistic UI should show Checkout (1) here, but the generated
-        -- Main.elm's view function passes Dict.empty for concurrentSubmissions
-        -- in the init case. The view path DOES pass real data (confirmed via
-        -- Debug.log in Platform.view), but the codegen needs investigation
-        -- to determine why it's not reaching the route view.
-        |> PagesProgram.ensureViewHas [ text "Checkout (0)" ]
+        -- Both fetchers pending (Submitting). Optimistic UI reflects both!
+        |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
+        -- Resolve the fetcher mutation + data reload.
+        |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
+        |> simulateIndexDataWithCart oneItemOrders
+        |> PagesProgram.ensureViewHas [ text "Checkout (1)" ]
 
 
 {-| 6. Sign out clears session and redirects to login.
