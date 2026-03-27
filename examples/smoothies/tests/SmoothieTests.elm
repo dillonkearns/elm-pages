@@ -378,10 +378,11 @@ concurrentFetchersTest =
             (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
             (PagesProgram.clickButton "+")
         -- Both fetchers pending (Submitting). View still renders (not blocked!).
-        -- Note: optimistic cart count doesn't reflect pending fetchers yet because
-        -- formSubmitFallback doesn't capture hidden form fields (product-id, quantity).
-        -- This is a pre-existing issue with form field extraction, not the non-blocking
-        -- fetcher architecture.
+        -- TODO: Optimistic UI should show Checkout (2) here, but the form
+        -- library's submit handler doesn't include hidden field values in
+        -- submission.fields (they're not in pageFormState). This requires
+        -- a change in the elm-form library or how elm-pages initializes
+        -- form state for hidden fields.
         |> PagesProgram.ensureViewHas [ text "Checkout (0)" ]
         -- Resolve both fetchers' mutations + data reloads.
         -- (Same Hasura URL, so all HTTP resolves in one batch.)
