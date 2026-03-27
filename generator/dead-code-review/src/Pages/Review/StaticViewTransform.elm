@@ -561,8 +561,12 @@ declarationEnterVisitor node context =
                             |> Maybe.withDefault Set.empty
 
                     -- Extract shared model parameter name (second parameter: view app shared ...)
+                    -- Only for Route modules — helper modules (e.g. ContentPage) may have
+                    -- a function named "view" whose parameters are NOT Shared.Model/Model.
+                    -- Treating them as taint sources would incorrectly de-optimize their
+                    -- View.freeze calls while the call site still gets a frozen ID injected.
                     maybeSharedModelParam =
-                        if functionName == "view" then
+                        if functionName == "view" && PersistentFieldTracking.isRouteModule context.moduleName then
                             arguments
                                 |> List.drop 1
                                 |> List.head
@@ -571,10 +575,10 @@ declarationEnterVisitor node context =
                         else
                             Nothing
 
-                    -- Extract model parameter name only for view function
+                    -- Extract model parameter name only for view function in Route modules
                     -- Model is the third parameter: view app shared model = ...
                     maybeModelParam =
-                        if functionName == "view" then
+                        if functionName == "view" && PersistentFieldTracking.isRouteModule context.moduleName then
                             arguments
                                 |> List.drop 2
                                 |> List.head
