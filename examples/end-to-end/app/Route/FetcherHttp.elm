@@ -84,7 +84,7 @@ incrementForm : Form.StyledHtmlForm String () () (PagesMsg Msg)
 incrementForm =
     Form.form
         { combine = Validation.succeed ()
-        , view = \_ -> [ Html.button [] [ Html.text "+" ] ]
+        , view = \_ -> [ Html.button [] [ Html.text "Increment" ] ]
         }
         |> Form.hiddenKind ( "kind", "increment" ) "Expected increment"
 

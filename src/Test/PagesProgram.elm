@@ -1254,16 +1254,11 @@ clickButton buttonText (ProgramTest state) =
                             buttonQuery
                                 |> Event.simulate Event.click
                                 |> Event.toResult
-                    in
-                    case eventResult of
-                        Ok msg ->
-                            applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") Interaction (Just (ByTagAndText "button" buttonText)) msg (ProgramTest state)
 
-                        Err _ ->
-                            -- Button has no click handler. This is an elm-pages
-                            -- form with a submit button. Simulate the form's
-                            -- submit event with the correct form ID extracted
-                            -- from the rendered HTML.
+                        -- Try form submit first (goes through form library's
+                        -- onSubmit pipeline, correctly setting useFetcher).
+                        formSubmitResult : Result String msg
+                        formSubmitResult =
                             let
                                 formQuery =
                                     query
@@ -1277,42 +1272,42 @@ clickButton buttonText (ProgramTest state) =
 
                                 formInfo =
                                     extractFormInfo formQuery
+                            in
+                            formQuery
+                                |> Event.simulate
+                                    ( "submit"
+                                    , Encode.object
+                                        [ ( "currentTarget"
+                                          , Encode.object
+                                                [ ( "method", Encode.string "POST" )
+                                                , ( "action", Encode.string "" )
+                                                , ( "id"
+                                                  , if formInfo.formId == "" then
+                                                        Encode.null
 
-                                formSubmitResult =
-                                    formQuery
-                                        |> Event.simulate
-                                            ( "submit"
-                                            , Encode.object
-                                                [ ( "currentTarget"
-                                                  , Encode.object
-                                                        [ ( "method", Encode.string "POST" )
-                                                        , ( "action", Encode.string "" )
-                                                        , ( "id"
-                                                          , if formInfo.formId == "" then
-                                                                Encode.null
-
-                                                            else
-                                                                Encode.string formInfo.formId
-                                                          )
-                                                        ]
+                                                    else
+                                                        Encode.string formInfo.formId
                                                   )
                                                 ]
-                                            )
-                                        |> Event.toResult
-                            in
-                            case formSubmitResult of
+                                          )
+                                        ]
+                                    )
+                                |> Event.toResult
+                    in
+                    case formSubmitResult of
+                        Ok msg ->
+                            -- Form submit succeeded. This goes through the form
+                            -- library's onSubmit which correctly sets useFetcher.
+                            applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") Interaction (Just (ByTagAndText "button" buttonText)) msg (ProgramTest state)
+
+                        Err _ ->
+                            case eventResult of
                                 Ok msg ->
-                                    applyMsgWithLabel
-                                        ("clickButton \"" ++ buttonText ++ "\"")
-                                        Interaction
-                                        (Just (ByTagAndText "button" buttonText))
-                                        msg
-                                        (ProgramTest state)
+                                    -- Click handler worked (button not in a form).
+                                    applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") Interaction (Just (ByTagAndText "button" buttonText)) msg (ProgramTest state)
 
                                 Err _ ->
-                                    -- Form submit event didn't work (e.g., raw HTML
-                                    -- form without Pages.Form). Fall back to
-                                    -- onFormSubmit handler.
+                                    -- Neither worked. Fall back to onFormSubmit handler.
                                     formSubmitFallback ready query buttonText (ProgramTest state)
 
 
@@ -2464,7 +2459,7 @@ withModelToString fn (ProgramTest state) =
 applySimulation : Simulation -> ProgramTest model msg -> ProgramTest model msg
 applySimulation sim (ProgramTest state) =
     case state.error of
-        Just _ ->
+        Just err ->
             ProgramTest state
 
         Nothing ->

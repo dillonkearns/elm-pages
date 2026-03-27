@@ -145,8 +145,8 @@ suite =
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 0 ) ])
                     |> PagesProgram.ensureViewHas [ text "Count: 0" ]
-                    |> PagesProgram.clickButton "+"
-                    |> PagesProgram.clickButton "+"
+                    |> PagesProgram.clickButton "Increment"
+                    |> PagesProgram.clickButton "Increment"
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/increment"
                         (Encode.object [])
