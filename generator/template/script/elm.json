@@ -21,7 +21,7 @@
             "danyx23/elm-mimetype": "4.0.1",
             "dillonkearns/elm-bcp47-language-tag": "2.0.0",
             "dillonkearns/elm-date-or-date-time": "2.0.0",
-            "dillonkearns/elm-form": "3.0.1",
+            "dillonkearns/elm-form": "3.1.0",
             "elm-community/basics-extra": "4.1.0",
             "elm-community/list-extra": "8.7.0",
             "elm-community/maybe-extra": "5.3.0",
