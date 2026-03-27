@@ -188,11 +188,23 @@ export async function start(options) {
     }
   }
 
+  const app = connect();
+  let httpServer;
+  if (useHttps) {
+    const ssl = await devcert.certificateFor("localhost");
+    httpServer = https.createServer(ssl, app);
+  } else {
+    httpServer = http.createServer(app);
+  }
+
   const vite = await createViteServer(
     merge_vite_configs(
       {
         server: {
           middlewareMode: true,
+          hmr: {
+            server: httpServer,
+          },
           base: options.base,
           port: options.port,
         },
@@ -269,7 +281,7 @@ export async function start(options) {
   });
   await ctx.watch();
 
-  const app = connect()
+  app
     .use(timeMiddleware())
     .use(serveStaticCode)
     .use(awaitElmMiddleware)
@@ -278,12 +290,7 @@ export async function start(options) {
     .use(vite.middlewares)
     .use(processRequest);
 
-  if (useHttps) {
-    const ssl = await devcert.certificateFor("localhost");
-    https.createServer(ssl, app).listen(port);
-  } else {
-    http.createServer(app).listen(port);
-  }
+  httpServer.listen(port);
   /**
    * @param {http.IncomingMessage} request
    * @param {http.ServerResponse} response
