@@ -34,6 +34,7 @@ import Html.Attributes as Attr
 import Html.Events
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Set exposing (Set)
 import Task
 import Test.PagesProgram exposing (NetworkEntry, NetworkStatus(..), Snapshot, StepKind(..), TargetSelector(..))
 import Url exposing (Url)
@@ -66,6 +67,7 @@ type alias Model =
     , showEffects : Bool
     , showNetwork : Bool
     , previewMode : PreviewMode
+    , expandedGroups : Set Int
     }
 
 
@@ -99,6 +101,7 @@ type Msg
     | ToggleEffects
     | ToggleNetwork
     | SetPreviewMode PreviewMode
+    | ToggleGroup Int
     | UrlChanged Url
     | LinkClicked Browser.UrlRequest
     | NoOp
@@ -182,6 +185,7 @@ app tests =
                   , showEffects = False
                   , showNetwork = False
                   , previewMode = After
+                  , expandedGroups = Set.empty
                   }
                 , Cmd.none
                 )
@@ -477,8 +481,11 @@ update msg model =
     case msg of
         NextStep ->
             let
+                snapshots =
+                    currentSnapshots model
+
                 newIndex =
-                    min (currentSnapshotCount model - 1) (model.currentStepIndex + 1)
+                    nextParentStep model.currentStepIndex (List.length snapshots - 1) snapshots
 
                 newModel =
                     { model | currentStepIndex = newIndex, previewMode = After }
@@ -489,8 +496,11 @@ update msg model =
 
         PrevStep ->
             let
+                snapshots =
+                    currentSnapshots model
+
                 newIndex =
-                    max 0 (model.currentStepIndex - 1)
+                    prevParentStep model.currentStepIndex snapshots
 
                 newModel =
                     { model | currentStepIndex = newIndex, previewMode = After }
@@ -527,6 +537,7 @@ update msg model =
                     | currentTestIndex = newIndex
                     , currentStepIndex = 0
                     , hoveredStepIndex = Nothing
+                    , expandedGroups = Set.empty
                   }
                 , Cmd.batch [ scrollToStep 0, pushTestUrl model testName ]
                 )
@@ -547,6 +558,7 @@ update msg model =
                     | currentTestIndex = newIndex
                     , currentStepIndex = 0
                     , hoveredStepIndex = Nothing
+                    , expandedGroups = Set.empty
                   }
                 , Cmd.batch [ scrollToStep 0, pushTestUrl model testName ]
                 )
@@ -575,6 +587,7 @@ update msg model =
                 , currentStepIndex = stepIndex
                 , hoveredStepIndex = Nothing
                 , sidebarMode = CommandLog
+                , expandedGroups = Set.empty
               }
             , Cmd.batch
                 [ scrollToStep stepIndex
@@ -595,6 +608,18 @@ update msg model =
 
         ToggleModel ->
             ( { model | showModel = not model.showModel }, Cmd.none )
+
+        ToggleGroup parentIndex ->
+            ( { model
+                | expandedGroups =
+                    if Set.member parentIndex model.expandedGroups then
+                        Set.remove parentIndex model.expandedGroups
+
+                    else
+                        Set.insert parentIndex model.expandedGroups
+              }
+            , Cmd.none
+            )
 
         ToggleEffects ->
             ( { model | showEffects = not model.showEffects }, Cmd.none )
@@ -677,6 +702,7 @@ update msg model =
                                 , currentStepIndex = stepIndex
                                 , hoveredStepIndex = Nothing
                                 , sidebarMode = CommandLog
+                                , expandedGroups = Set.empty
                               }
                             , scrollToStep stepIndex
                             )
@@ -712,13 +738,18 @@ update msg model =
 -- HELPERS
 
 
-currentSnapshotCount : Model -> Int
-currentSnapshotCount model =
+currentSnapshots : Model -> List Snapshot
+currentSnapshots model =
     model.tests
         |> List.drop model.currentTestIndex
         |> List.head
-        |> Maybe.map (.snapshots >> List.length)
-        |> Maybe.withDefault 0
+        |> Maybe.map .snapshots
+        |> Maybe.withDefault []
+
+
+currentSnapshotCount : Model -> Int
+currentSnapshotCount model =
+    List.length (currentSnapshots model)
 
 
 displayedStepIndex : Model -> Int
@@ -1070,16 +1101,32 @@ viewCommandLogSidebar model =
                     (\i snapshot ->
                         let
                             isChild =
-                                snapshot.stepKind == Assertion && i > 0
+                                isChildStep i snapshots
+
+                            numChildren =
+                                childCount i snapshots
+
+                            isGroupParent =
+                                not isChild && numChildren > 0
+
+                            isExpanded =
+                                Set.member i model.expandedGroups
+
+                            isHiddenChild =
+                                isChild && not (Set.member (parentOfChild i snapshots) model.expandedGroups)
                         in
-                        viewStepRow i snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (failureCauseIndex == Just i) isChild
+                        if isHiddenChild then
+                            Html.text ""
+
+                        else
+                            viewStepRow i snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (failureCauseIndex == Just i) isChild isGroupParent isExpanded numChildren
                     )
             )
         ]
 
 
-viewStepRow : Int -> Snapshot -> Int -> Bool -> Bool -> Bool -> Bool -> Html Msg
-viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isChild =
+viewStepRow : Int -> Snapshot -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Int -> Html Msg
+viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isChild isGroupParent isExpanded numChildren =
     let
         isActive =
             index == currentIndex
@@ -1114,7 +1161,22 @@ viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isCh
             [ Html.text (stepKindIcon snapshot.stepKind) ]
         , Html.span [ Attr.class "step-label", Attr.title snapshot.label ]
             [ Html.text snapshot.label ]
-        , if snapshot.hasPendingEffects then
+        , if isGroupParent then
+            Html.span
+                [ Attr.class "step-group-toggle"
+                , Html.Events.stopPropagationOn "click"
+                    (Decode.succeed ( ToggleGroup index, True ))
+                ]
+                [ Html.text
+                    (if isExpanded then
+                        String.fromInt numChildren ++ " ▾"
+
+                     else
+                        String.fromInt numChildren ++ " ▸"
+                    )
+                ]
+
+          else if snapshot.hasPendingEffects then
             Html.span [ Attr.class "step-pending-badge" ] [ Html.text "pending" ]
 
           else
@@ -1518,6 +1580,95 @@ encodeTargetSelector target =
 
 
 
+
+{-| Whether a step at the given index is a "child" (an assertion that follows
+a non-assertion step).
+-}
+isChildStep : Int -> List Snapshot -> Bool
+isChildStep i snapshots =
+    if i <= 0 then
+        False
+
+    else
+        case List.drop i snapshots |> List.head of
+            Just s ->
+                s.stepKind == Assertion
+
+            Nothing ->
+                False
+
+
+{-| Find the parent step index for a child step (the nearest preceding
+non-child step).
+-}
+parentOfChild : Int -> List Snapshot -> Int
+parentOfChild i snapshots =
+    if i <= 0 then
+        0
+
+    else if not (isChildStep i snapshots) then
+        i
+
+    else
+        parentOfChild (i - 1) snapshots
+
+
+{-| Find the next non-child step index at or after the given index.
+-}
+nextParentStep : Int -> Int -> List Snapshot -> Int
+nextParentStep current maxIndex snapshots =
+    let
+        next =
+            current + 1
+    in
+    if next > maxIndex then
+        current
+
+    else if isChildStep next snapshots then
+        nextParentStep next maxIndex snapshots
+
+    else
+        next
+
+
+{-| Find the previous non-child step index at or before the given index.
+-}
+prevParentStep : Int -> List Snapshot -> Int
+prevParentStep current snapshots =
+    let
+        prev =
+            current - 1
+    in
+    if prev < 0 then
+        0
+
+    else if isChildStep prev snapshots then
+        prevParentStep prev snapshots
+
+    else
+        prev
+
+
+{-| Count the number of consecutive child (assertion) steps following a
+given parent index.
+-}
+childCount : Int -> List Snapshot -> Int
+childCount parentIndex snapshots =
+    snapshots
+        |> List.drop (parentIndex + 1)
+        |> List.foldl
+            (\s ( count, continue ) ->
+                if continue && s.stepKind == Assertion then
+                    ( count + 1, True )
+
+                else
+                    ( count, False )
+            )
+            ( 0, True )
+        |> Tuple.first
+
+
+
 -- CSS
 
 
@@ -1876,6 +2027,22 @@ body {
     border-radius: 3px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
+}
+
+.step-group-toggle {
+    font-size: 10px;
+    color: #556677;
+    background: rgba(126, 231, 135, 0.1);
+    padding: 1px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.step-group-toggle:hover {
+    background: rgba(126, 231, 135, 0.2);
+    color: #7ee787;
 }
 
 /* === MAIN PANEL === */
