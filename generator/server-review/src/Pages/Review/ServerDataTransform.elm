@@ -2313,10 +2313,9 @@ finalEvaluation context =
     deferredHelperCallSeedingErrors context
         ++
             (let
-                -- Only apply transformations to Route modules (Route.Index, Route.Blog.Slug_, etc.)
-                -- Uses shared function to ensure agreement with StaticViewTransform
+                -- Only apply transformations to modules that actually use RouteBuilder.
                 isRouteModule =
-                    PersistentFieldTracking.isRouteModule context.moduleName
+                    context.routeBuilderFound
              in
              -- Skip non-Route modules (Site.elm, Shared.elm, etc.) to avoid disagreement with client transform
              if not isRouteModule then

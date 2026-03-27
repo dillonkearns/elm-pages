@@ -3001,10 +3001,9 @@ finalEvaluation context =
     deferredHelperCallSeedingErrors context
         ++
             (let
-                -- Only apply transformations to Route modules (Route.Index, Route.Blog.Slug_, etc.)
-                -- Uses shared function to ensure agreement with ServerDataTransform
+                -- Only apply transformations to modules that actually use RouteBuilder.
                 isRouteModule =
-                    PersistentFieldTracking.isRouteModule context.moduleName
+                    context.routeBuilderFound
 
                 -- Fields to subtract from clientUsedFields because they were accessed in the head function
                 -- This handles the case where the head function is defined BEFORE RouteBuilder is seen,
