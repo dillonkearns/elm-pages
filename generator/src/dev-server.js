@@ -540,6 +540,7 @@ main =
       }
     }
     var lastHighlightJson = "";
+    var lastScrolledHighlight = "";
 
     function findHighlightTarget(doc, selector) {
       if (!selector) return null;
@@ -599,6 +600,12 @@ main =
         var stale = iframeDoc.querySelectorAll(".__elm-pages-highlight");
         for (var s = 0; s < stale.length; s++) stale[s].remove();
         return;
+      }
+
+      // Scroll element into view when highlight target changes
+      if (highlightJson !== lastScrolledHighlight) {
+        el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        lastScrolledHighlight = highlightJson;
       }
 
       var rect = el.getBoundingClientRect();
