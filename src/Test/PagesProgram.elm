@@ -126,6 +126,7 @@ type alias State model msg =
     , modelToString : Maybe (model -> String)
     , fetcherExtractor : Maybe (model -> List FetcherEntry)
     , pendingFetcherEffects : List (Resolver model msg)
+    , lastReadyModel : Maybe model
     , networkLog : List NetworkEntry
     , subscriptions : Maybe (model -> SimulatedSub msg)
     }
@@ -228,7 +229,7 @@ needs `model` and `msg` type parameters.
 -}
 type Resolver model msg
     = Resolver
-        { advance : Simulation -> AdvanceResult model msg
+        { advance : model -> Simulation -> AdvanceResult model msg
         , pendingDescription : String
         }
 
@@ -343,6 +344,7 @@ start config =
         , modelToString = Nothing
         , fetcherExtractor = Nothing
         , pendingFetcherEffects = []
+        , lastReadyModel = Nothing
         , networkLog = []
         , subscriptions = Nothing
         }
@@ -440,7 +442,7 @@ startPlatform config initialPath testSetup =
                 { phase =
                     Resolving
                         (Resolver
-                            { advance = \_ -> AdvanceError errMsg
+                            { advance = \_ _ -> AdvanceError errMsg
                             , pendingDescription = errMsg
                             }
                         )
@@ -449,6 +451,7 @@ startPlatform config initialPath testSetup =
                 , modelToString = Nothing
                 , fetcherExtractor = Nothing
                 , pendingFetcherEffects = []
+                , lastReadyModel = Nothing
                 , networkLog = []
                 , subscriptions = Nothing
                 }
@@ -586,7 +589,7 @@ startPlatform config initialPath testSetup =
                             Resolving
                                 (Resolver
                                     { advance =
-                                        \sim ->
+                                        \_ sim ->
                                             continueActionWithBt config_ baseUrl_ makeReady_ makePlatformResolver continueDataWithBt wrappedModel fetchUrl makePhase (applySimToBt sim bt)
                                     , pendingDescription =
                                         wrappedModel.pendingDataError |> Maybe.withDefault "Pending action HTTP"
@@ -612,7 +615,7 @@ startPlatform config initialPath testSetup =
                                     Resolving
                                         (Resolver
                                             { advance =
-                                                \sim ->
+                                                \_ sim ->
                                                     continueDataWithBt wrappedModel makePhase (applySimToBt sim bt)
                                             , pendingDescription =
                                                 wrappedModel.pendingDataError |> Maybe.withDefault "Pending data HTTP"
@@ -709,7 +712,7 @@ startPlatform config initialPath testSetup =
                                 (Resolving
                                     (Resolver
                                         { advance =
-                                            \sim ->
+                                            \_ sim ->
                                                 continueDataWithBt wrappedModel makePhase (applySimToBt sim bt)
                                         , pendingDescription =
                                             stillRunningDescription runningState.pendingRequests
@@ -819,6 +822,7 @@ startPlatform config initialPath testSetup =
                 , modelToString = Nothing
                 , fetcherExtractor = Just extractFetchers
                 , pendingFetcherEffects = []
+                , lastReadyModel = Nothing
                 , networkLog = []
                 , subscriptions = Nothing
                 }
@@ -1978,6 +1982,7 @@ resolveEffect simulate (ProgramTest state) =
                                                 { state
                                                     | phase = pendingPhase
                                                     , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
+                                                    , lastReadyModel = Just updateResult.model
                                                     , snapshots =
                                                         state.snapshots
                                                             ++ [ makeSnapshot "resolveEffect" EffectResolution Nothing { ready | model = updateResult.model } state.modelToString state.fetcherExtractor state.networkLog ]
@@ -2459,8 +2464,8 @@ withModelToString fn (ProgramTest state) =
 {-| Try advancing a resolver with a simulation. Returns Ok ProgramTest
 on success, Err on AdvanceError.
 -}
-advanceResolver : Simulation -> State model msg -> Resolver model msg -> Result String (ProgramTest model msg)
-advanceResolver sim state (Resolver resolver) =
+advanceResolver : model -> Simulation -> State model msg -> Resolver model msg -> Result String (ProgramTest model msg)
+advanceResolver currentModel sim state (Resolver resolver) =
     let
         ( simLabel, simMethod, simUrl ) =
             case sim of
@@ -2486,7 +2491,7 @@ advanceResolver sim state (Resolver resolver) =
         updatedLog =
             state.networkLog ++ [ networkEntry ]
     in
-    case resolver.advance sim of
+    case resolver.advance currentModel sim of
         Advanced newPhase ->
             let
                 snapshot =
@@ -2510,9 +2515,9 @@ advanceResolver sim state (Resolver resolver) =
             Err errMsg
 
 
-advanceResolverOrError : Simulation -> State model msg -> Resolver model msg -> ProgramTest model msg
-advanceResolverOrError sim state resolver =
-    case advanceResolver sim state resolver of
+advanceResolverOrError : model -> Simulation -> State model msg -> Resolver model msg -> ProgramTest model msg
+advanceResolverOrError currentModel sim state resolver =
+    case advanceResolver currentModel sim state resolver of
         Ok programTest ->
             programTest
 
@@ -2528,8 +2533,15 @@ applySimulation sim (ProgramTest state) =
 
         Nothing ->
             case state.phase of
-                Resolving ((Resolver _) as resolver) ->
-                    case advanceResolver sim state resolver of
+                Resolving ((Resolver resolverRecord) as resolver) ->
+                    let
+                        -- Data reload resolvers ignore the model parameter (\_ sim ->)
+                        -- so we can pass a dummy value via Maybe.withDefault.
+                        -- For fetcher resolvers in the fallback, we use lastReadyModel.
+                        modelForResolver =
+                            state.lastReadyModel
+                    in
+                    case advanceResolver (Maybe.withDefault (crashNever ()) modelForResolver) sim state resolver of
                         Ok programTest ->
                             programTest
 
@@ -2538,9 +2550,9 @@ applySimulation sim (ProgramTest state) =
                             -- pending fetcher effects, the data reload may be stale
                             -- (the Platform emitted CancelRequest for it). Try the
                             -- fetcher effects instead.
-                            case state.pendingFetcherEffects of
-                                ((Resolver _) as fetcherResolver) :: restFetchers ->
-                                    case advanceResolver sim state fetcherResolver of
+                            case ( state.pendingFetcherEffects, modelForResolver ) of
+                                ( ((Resolver _) as fetcherResolver) :: restFetchers, Just currentModel ) ->
+                                    case advanceResolver currentModel sim state fetcherResolver of
                                         Ok (ProgramTest newState) ->
                                             -- Fetcher advanced. Drop the stale data reload.
                                             ProgramTest { newState | pendingFetcherEffects = restFetchers }
@@ -2549,7 +2561,7 @@ applySimulation sim (ProgramTest state) =
                                             -- Both failed. Report the original error.
                                             ProgramTest { state | error = Just errMsg }
 
-                                [] ->
+                                _ ->
                                     ProgramTest { state | error = Just errMsg }
 
                 Ready ready ->
@@ -2581,7 +2593,7 @@ applySimulation sim (ProgramTest state) =
                                 updatedLog =
                                     state.networkLog ++ [ networkEntry ]
                             in
-                            case resolver.advance sim of
+                            case resolver.advance ready.model sim of
                                 Advanced newPhase ->
                                     let
                                         snapshot =
@@ -2596,6 +2608,13 @@ applySimulation sim (ProgramTest state) =
                                         { state
                                             | phase = newPhase
                                             , pendingFetcherEffects = restFetchers
+                                            , lastReadyModel =
+                                                case newPhase of
+                                                    Resolving _ ->
+                                                        Just ready.model
+
+                                                    Ready _ ->
+                                                        state.lastReadyModel
                                             , snapshots = state.snapshots ++ snapshot
                                             , networkLog = updatedLog
                                         }
@@ -2669,6 +2688,7 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                                 { state
                                     | phase = pendingPhase
                                     , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
+                                    , lastReadyModel = Just updateResult.model
                                     , snapshots =
                                         state.snapshots
                                             ++ [ makeSnapshot label kind target newReady state.modelToString state.fetcherExtractor state.networkLog ]
@@ -2932,7 +2952,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                     in
                     Resolving
                         (Resolver
-                            { advance = \_ -> AdvanceError (errInfo.title ++ ": " ++ errInfo.body)
+                            { advance = \_ _ -> AdvanceError (errInfo.title ++ ": " ++ errInfo.body)
                             , pendingDescription =
                                 "Data BackendTask failed with FatalError:\n\n"
                                     ++ errInfo.title
@@ -2945,7 +2965,7 @@ resolveDataPhase bt initFn viewFn updateFn =
             Resolving
                 (Resolver
                     { advance =
-                        \sim ->
+                        \_ sim ->
                             let
                                 newBt : BackendTaskTest.BackendTaskTest data
                                 newBt =
@@ -2968,7 +2988,7 @@ resolveDataPhase bt initFn viewFn updateFn =
         BackendTaskTest.TestError msg ->
             Resolving
                 (Resolver
-                    { advance = \_ -> AdvanceError msg
+                    { advance = \_ _ -> AdvanceError msg
                     , pendingDescription = msg
                     }
                 )
@@ -3591,7 +3611,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                             fetcherResolver =
                                 Resolver
                                     { advance =
-                                        \sim ->
+                                        \currentModel sim ->
                                             let
                                                 advancedBt =
                                                     applySimToBt sim pausedBt
@@ -3620,25 +3640,25 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
 
                                                         updatedJar =
                                                             case actionResult of
-                                                                RenderPage _ _ ->
-                                                                    wrappedModel.cookieJar
-
                                                                 ServerResponse serverResponse ->
-                                                                    wrappedModel.cookieJar
+                                                                    currentModel.cookieJar
                                                                         |> CookieJar.applySetCookieHeaders
                                                                             (extractSetCookieHeaders (ServerResponse serverResponse))
 
                                                                 _ ->
-                                                                    wrappedModel.cookieJar
+                                                                    currentModel.cookieJar
 
+                                                        -- Dispatch FetcherComplete to the CURRENT model
+                                                        -- (not the stale click-time model) so the data
+                                                        -- reload uses fresh Platform state.
                                                         ( modelAfterComplete, completeEffect ) =
                                                             platformUpdateClean config
                                                                 (Platform.FetcherComplete False fetcherKey transitionId fetcherResult)
-                                                                modelAfterStarted
+                                                                currentModel.platformModel
 
                                                         ( processedWrapped2, _, _ ) =
                                                             processEffectsWrapped config baseUrl makeReady makePlatformResolver
-                                                                { platformModel = modelAfterComplete, virtualFs = vfsAfterAction, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
+                                                                { platformModel = modelAfterComplete, virtualFs = currentModel.virtualFs, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                                                 completeEffect
                                                                 100
                                                     in
@@ -4009,7 +4029,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                                         (Resolving
                                             (Resolver
                                                 { advance =
-                                                    \sim ->
+                                                    \_ sim ->
                                                         continueDataWithBt processedWrapped dataMakePhase (applySimToBt sim dataBt)
                                                 , pendingDescription =
                                                     processedWrapped.pendingDataError |> Maybe.withDefault "Pending data HTTP after action redirect"
@@ -4090,7 +4110,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                                 (Resolving
                                     (Resolver
                                         { advance =
-                                            \sim2 ->
+                                            \_ sim2 ->
                                                 continueDataWithBt updatedModel makePhase (applySimToBt sim2 dataBt)
                                         , pendingDescription =
                                             "Pending data HTTP after action"
@@ -4113,7 +4133,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                 (Resolving
                     (Resolver
                         { advance =
-                            \sim ->
+                            \_ sim ->
                                 continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataWithBt wrappedModel fetchUrl makePhase (applySimToBt sim bt)
                         , pendingDescription =
                             stillRunningDescription runningState.pendingRequests
