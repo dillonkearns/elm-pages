@@ -131,13 +131,15 @@ suite =
                     |> expectFailContaining "https://api.example.com/posts"
         , test "fetcher-http route: initial data load needs HTTP" <|
             \() ->
-                -- Verify the initial data load requires HTTP simulation
+                -- Initial data needs HTTP GET simulation before page renders
                 TestApp.start "/fetcher-http"
                     BackendTaskTest.init
+                    |> PagesProgram.simulateHttpGet
+                        "https://api.example.com/count"
+                        (Encode.object [ ( "count", Encode.int 0 ) ])
                     |> PagesProgram.ensureViewHas [ text "Count: 0" ]
                     |> PagesProgram.done
-                    |> expectFailContaining "https://api.example.com/count"
-        , test "stale data reload is cancelled when a new fetcher completes" <|
+        , test "fetcher-http: single increment with optimistic UI" <|
             \() ->
                 TestApp.start "/fetcher-http"
                     BackendTaskTest.init
@@ -145,21 +147,18 @@ suite =
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 0 ) ])
                     |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    -- Click shows optimistic +1 (fetcher pending)
                     |> PagesProgram.clickButton "Increment"
-                    |> PagesProgram.clickButton "Increment"
+                    |> PagesProgram.ensureViewHas [ text "Count: 1" ]
+                    -- Resolve fetcher mutation
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/increment"
                         (Encode.object [])
+                    -- Data reload: server count=1, fetcher still "Reloading" (+1)
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 1 ) ])
-                    |> PagesProgram.simulateHttpGet
-                        "https://api.example.com/increment"
-                        (Encode.object [])
-                    -- After step 3, done should show pending state
-                    |> PagesProgram.simulateHttpGet
-                        "https://api.example.com/count"
-                        (Encode.object [ ( "count", Encode.int 2 ) ])
+                    |> PagesProgram.ensureViewHas [ text "Count: 2" ]
                     |> PagesProgram.done
         ]
 

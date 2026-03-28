@@ -437,7 +437,7 @@ startPlatform config initialPath testSetup =
                     setup.virtualFS
     in
     case resolveInitialData config initialUrl initialPath initialVirtualFs of
-        Err errMsg ->
+        InitialDataError errMsg ->
             ProgramTest
                 { phase =
                     Resolving
@@ -456,22 +456,94 @@ startPlatform config initialPath testSetup =
                 , subscriptions = Nothing
                 }
 
-        Ok ( vfsAfterInit, pageDataBytes ) ->
+        resolvedOrPending ->
             let
+                ( vfsAfterInit, initialPhase ) =
+                    case resolvedOrPending of
+                        InitialDataResolved vfs pageDataBytes ->
+                            let
+                                ( readyModel, readyEffect ) =
+                                    platformUpdateClean config (Platform.FrozenViewsReady (Just pageDataBytes)) initModel
+
+                                ( wrapped, _, _ ) =
+                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                        { platformModel = readyModel, virtualFs = vfs, cookieJar = CookieJar.empty, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
+                                        readyEffect
+                                        100
+                            in
+                            ( vfs, Ready (makeReady wrapped) )
+
+                        InitialDataPending vfs sharedData dataBt ->
+                            -- Initial data has pending HTTP. Create a custom resolver
+                            -- that encodes with HotUpdate (including shared data) when done,
+                            -- since the Platform's initial FrozenViewsReady handler requires
+                            -- HotUpdate format (RenderPage is rejected for initial loads).
+                            let
+                                continueInitialData bt =
+                                    case bt of
+                                        BackendTaskTest.Done doneState ->
+                                            case extractPageData config doneState.result of
+                                                Just pageData ->
+                                                    let
+                                                        encodedBytes =
+                                                            ResponseSketch.HotUpdate pageData
+                                                                sharedData
+                                                                Nothing
+                                                                |> encodeResponseWithPrefix config
+
+                                                        ( readyModel, readyEffect ) =
+                                                            platformUpdateClean config
+                                                                (Platform.FrozenViewsReady (Just encodedBytes))
+                                                                initModel
+
+                                                        ( processedWrapped, _, _ ) =
+                                                            processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                                                { platformModel = readyModel, virtualFs = doneState.virtualFS, cookieJar = CookieJar.empty, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
+                                                                readyEffect
+                                                                100
+                                                    in
+                                                    Advanced (Ready (makeReady processedWrapped))
+
+                                                Nothing ->
+                                                    AdvanceError "Failed to extract page data after initial HTTP simulation"
+
+                                        BackendTaskTest.Running runningState ->
+                                            Advanced
+                                                (Resolving
+                                                    (Resolver
+                                                        { advance =
+                                                            \_ sim ->
+                                                                continueInitialData (applySimToBt sim bt)
+                                                        , pendingDescription =
+                                                            stillRunningDescription runningState.pendingRequests
+                                                        }
+                                                    )
+                                                )
+
+                                        BackendTaskTest.TestError errMsg ->
+                                            AdvanceError errMsg
+                            in
+                            ( vfs
+                            , Resolving
+                                (Resolver
+                                    { advance =
+                                        \_ sim ->
+                                            continueInitialData (applySimToBt sim dataBt)
+                                    , pendingDescription =
+                                        "Initial data pending HTTP"
+                                    }
+                                )
+                            )
+
+                        -- Can't happen (InitialDataError handled above)
+                        InitialDataError _ ->
+                            ( initialVirtualFs, Ready (makeReady { platformModel = initModel, virtualFs = initialVirtualFs, cookieJar = CookieJar.empty, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }) )
+
                 flags =
                     Encode.object []
 
                 ( initModel, _ ) =
                     Platform.init config flags initialUrl Nothing
-
-                ( readyModel, readyEffect ) =
-                    platformUpdateClean config (Platform.FrozenViewsReady (Just pageDataBytes)) initModel
-
-                ( finalWrapped, _, _ ) =
-                    processEffectsWrapped config baseUrl makeReady makePlatformResolver
-                        { platformModel = readyModel, virtualFs = vfsAfterInit, cookieJar = CookieJar.empty, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
-                        readyEffect
-                        100
 
                 updateFn msg wrappedModel =
                     let
@@ -723,70 +795,32 @@ startPlatform config initialPath testSetup =
                         BackendTaskTest.TestError errMsg ->
                             AdvanceError errMsg
 
-                ready =
-                    { model = finalWrapped
-                    , getView = viewFn
-                    , update = updateFn
-                    , pendingEffects = []
-                    , onNavigate =
-                        Just
-                            (\href ->
-                                Platform.LinkClicked
-                                    (Browser.Internal (makeTestUrl baseUrl href))
-                            )
-                    , getBrowserUrl =
-                        Just (\m -> Url.toString m.platformModel.url)
-                    , onFormSubmit =
-                        Just
-                            (\{ formId, action, fields, useFetcher } ->
-                                Platform.UserMsg
-                                    (Pages.Internal.Msg.Submit
-                                        { useFetcher = useFetcher
-                                        , action = action
-                                        , method = Form.Post
-                                        , fields = fields
-                                        , msg = Nothing
-                                        , id = formId
-                                        , valid = True
-                                        }
-                                    )
-                            )
-                    , getFormFields =
-                        Just
-                            (\m ->
-                                m.platformModel.pageFormState
-                                    |> Dict.values
-                                    |> List.concatMap
-                                        (\formState ->
-                                            formState.fields
-                                                |> Dict.toList
-                                                |> List.map (\( k, v ) -> ( k, v.value ))
-                                        )
-                            )
-                    , viewScope = identity
-                    , getModelError = \m -> m.pendingDataError
-                    }
+                initSnapshots =
+                    case initialPhase of
+                        Ready readyState ->
+                            let
+                                viewResult =
+                                    readyState.getView readyState.model
+                            in
+                            [ { label = "start"
+                              , title = viewResult.title
+                              , body = (mapViewToSnapshot viewResult).body
+                              , rerender = \() -> mapViewToSnapshot (readyState.getView readyState.model)
+                              , hasPendingEffects = False
+                              , modelState = Nothing
+                              , stepKind = Start
+                              , browserUrl = Just (Url.toString readyState.model.platformModel.url)
+                              , errorMessage = Nothing
+                              , pendingEffects = []
+                              , networkLog = []
+                              , targetElement = Nothing
+                              , fetcherLog = []
+                              }
+                            ]
 
-                viewResult =
-                    viewFn finalWrapped
+                        Resolving _ ->
+                            []
 
-                initSnapshot =
-                    { label = "start"
-                    , title = viewResult.title
-                    , body = (mapViewToSnapshot viewResult).body
-                    , rerender = \() -> mapViewToSnapshot (viewFn finalWrapped)
-                    , hasPendingEffects = False
-                    , modelState = Nothing
-                    , stepKind = Start
-                    , browserUrl = Just (Url.toString finalWrapped.platformModel.url)
-                    , errorMessage = Nothing
-                    , pendingEffects = []
-                    , networkLog = []
-                    , targetElement = Nothing
-                    , fetcherLog = []
-                    }
-            in
-            let
                 extractFetchers wrappedModel =
                     wrappedModel.platformModel.inFlightFetchers
                         |> Dict.toList
@@ -816,9 +850,9 @@ startPlatform config initialPath testSetup =
                             )
             in
             ProgramTest
-                { phase = Ready (makeReady finalWrapped)
+                { phase = initialPhase
                 , error = Nothing
-                , snapshots = [ initSnapshot ]
+                , snapshots = initSnapshots
                 , modelToString = Nothing
                 , fetcherExtractor = Just extractFetchers
                 , pendingFetcherEffects = []
@@ -2985,8 +3019,19 @@ stillRunningDescription pendingRequests =
 -- PLATFORM HELPERS
 
 
+{-| Result of resolving initial data. Either fully resolved (with encoded bytes
+for FrozenViewsReady), pending HTTP (data BackendTask needs simulation), or
+a fatal error.
+-}
+type InitialDataResult sharedData dataResponse
+    = InitialDataResolved BackendTaskTest.VirtualFS Bytes.Bytes
+    | InitialDataPending BackendTaskTest.VirtualFS sharedData (BackendTaskTest.BackendTaskTest dataResponse)
+    | InitialDataError String
+
+
 {-| Resolve shared data, route data, and encode as ResponseSketch bytes for
-Platform.FrozenViewsReady. Returns Err with a message if resolution fails.
+Platform.FrozenViewsReady. Returns InitialDataPending when route data has
+pending HTTP that needs simulation.
 -}
 resolveInitialData config initialUrl initialPath virtualFs =
     let
@@ -2995,7 +3040,7 @@ resolveInitialData config initialUrl initialPath virtualFs =
     in
     case sharedResult of
         Err sharedErr ->
-            Err ("Failed to resolve Shared.template.data: " ++ sharedErr)
+            InitialDataError ("Failed to resolve Shared.template.data: " ++ sharedErr)
 
         Ok resolvedSharedData ->
             let
@@ -3007,7 +3052,7 @@ resolveInitialData config initialUrl initialPath virtualFs =
             in
             case handleResult of
                 Err handleErr ->
-                    Err ("Failed to resolve handleRoute: " ++ handleErr)
+                    InitialDataError ("Failed to resolve handleRoute: " ++ handleErr)
 
                 Ok (Just notFoundReason) ->
                     { reason = notFoundReason
@@ -3015,48 +3060,64 @@ resolveInitialData config initialUrl initialPath virtualFs =
                     }
                         |> ResponseSketch.NotFound
                         |> encodeResponseWithPrefix config
-                        |> (\bytes -> Ok ( vfs2, bytes ))
+                        |> (\bytes -> InitialDataResolved vfs2 bytes)
 
                 Ok Nothing ->
                     let
-                        ( vfs3, dataResult ) =
-                            BackendTaskTest.resolveWithVirtualFs vfs2
+                        ( vfs3, dataBt ) =
+                            BackendTaskTest.resolveWithVirtualFsPartial vfs2
                                 (config.data (platformTestRequest (Url.toString initialUrl) CookieJar.empty) initialRoute)
                     in
-                    let
-                        pageData =
-                            case dataResult of
-                                Ok response ->
-                                    extractPageData config (Ok response)
+                    case dataBt of
+                        BackendTaskTest.Done doneState ->
+                            let
+                                pageData =
+                                    extractPageData config doneState.result
+                            in
+                            case pageData of
+                                Just pd ->
+                                    ResponseSketch.HotUpdate
+                                        pd
+                                        resolvedSharedData
+                                        Nothing
+                                        |> encodeResponseWithPrefix config
+                                        |> (\bytes -> InitialDataResolved vfs3 bytes)
 
-                                Err errMsg ->
-                                    -- BackendTask failed: show error page
-                                    Just (config.errorPageToData (config.internalError errMsg))
-                    in
-                    case pageData of
-                        Just pd ->
-                            ResponseSketch.HotUpdate
-                                pd
-                                resolvedSharedData
-                                Nothing
-                                |> encodeResponseWithPrefix config
-                                |> (\bytes -> Ok ( vfs3, bytes ))
+                                Nothing ->
+                                    case doneState.result of
+                                        Ok (ServerResponse serverResponse) ->
+                                            case PageServerResponse.toRedirect serverResponse of
+                                                Just { location } ->
+                                                    ResponseSketch.Redirect location
+                                                        |> encodeResponseWithPrefix config
+                                                        |> (\bytes -> InitialDataResolved vfs3 bytes)
 
-                        Nothing ->
-                            -- ServerResponse (redirect) from data -- unusual but handle it
-                            case dataResult of
-                                Ok (ServerResponse serverResponse) ->
-                                    case PageServerResponse.toRedirect serverResponse of
-                                        Just { location } ->
-                                            ResponseSketch.Redirect location
+                                                Nothing ->
+                                                    InitialDataError ("Unexpected server response with status " ++ String.fromInt serverResponse.statusCode)
+
+                                        Err fatalErr ->
+                                            -- Data BackendTask failed: show error page
+                                            let
+                                                errorPageData =
+                                                    config.errorPageToData (config.internalError (fatalErrorToString fatalErr))
+                                            in
+                                            ResponseSketch.HotUpdate
+                                                errorPageData
+                                                resolvedSharedData
+                                                Nothing
                                                 |> encodeResponseWithPrefix config
-                                                |> (\bytes -> Ok ( vfs3, bytes ))
+                                                |> (\bytes -> InitialDataResolved vfs3 bytes)
 
-                                        Nothing ->
-                                            Err ("Unexpected server response with status " ++ String.fromInt serverResponse.statusCode)
+                                        _ ->
+                                            InitialDataError "Failed to resolve route data"
 
-                                _ ->
-                                    Err "Failed to resolve route data"
+                        BackendTaskTest.Running runningState ->
+                            InitialDataPending vfs3
+                                resolvedSharedData
+                                dataBt
+
+                        BackendTaskTest.TestError errMsg ->
+                            InitialDataError errMsg
 
 
 {-| Recursively process Platform effects using the Test.BackendTask virtual FS.
