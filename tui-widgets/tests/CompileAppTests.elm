@@ -215,6 +215,23 @@ suite =
                     else
                         Expect.pass
             ]
+        , describe "Picker modal"
+            [ test "j keeps the selected item visible in long picker lists" <|
+                \() ->
+                    pickerAppTest
+                        |> TuiTest.pressKey 'p'
+                        |> TuiTest.ensureViewHas "Pick item"
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.ensureViewHas "▸ Item 09"
+                        |> TuiTest.expectRunning
+            ]
         ]
 
 
@@ -349,6 +366,106 @@ helpAppTestWithContext ctx =
 helpAppTest : TuiTest.TuiTest (Layout.FrameworkModel HelpModel HelpMsg) (Layout.FrameworkMsg HelpMsg)
 helpAppTest =
     TuiTest.startApp () helpAppConfig
+
+
+
+-- Picker modal test app
+
+
+type alias PickerModel =
+    { modalOpen : Bool
+    , selected : Maybe String
+    }
+
+
+type PickerMsg
+    = OpenPicker
+    | CancelPicker
+    | PickItem String
+
+
+pickerItems : List String
+pickerItems =
+    List.range 1 12
+        |> List.map (\i -> "Item " ++ String.padLeft 2 '0' (String.fromInt i))
+
+
+pickerInit : () -> ( PickerModel, Effect PickerMsg )
+pickerInit () =
+    ( { modalOpen = False, selected = Nothing }, Effect.none )
+
+
+pickerUpdate : Layout.UpdateContext -> PickerMsg -> PickerModel -> ( PickerModel, Effect PickerMsg )
+pickerUpdate _ msg model =
+    case msg of
+        OpenPicker ->
+            ( { model | modalOpen = True }, Effect.none )
+
+        CancelPicker ->
+            ( { model | modalOpen = False }, Effect.none )
+
+        PickItem item ->
+            ( { model | modalOpen = False, selected = Just item }, Effect.none )
+
+
+pickerView : Tui.Context -> PickerModel -> Layout.Layout PickerMsg
+pickerView _ model =
+    Layout.horizontal
+        [ Layout.pane "status"
+            { title = "Status", width = Layout.fill }
+            (Layout.content
+                [ Tui.text ("selected: " ++ Maybe.withDefault "none" model.selected)
+                , Tui.text "press p to open picker"
+                ]
+            )
+        ]
+
+
+pickerBindings : { focusedPane : Maybe String } -> PickerModel -> List (Layout.Group PickerMsg)
+pickerBindings _ _ =
+    [ Layout.group "Actions"
+        [ Layout.charBinding 'p' "Open picker" OpenPicker
+        ]
+    ]
+
+
+pickerStatus : PickerModel -> { waiting : Maybe String }
+pickerStatus _ =
+    { waiting = Nothing }
+
+
+pickerModal : PickerModel -> Maybe (Layout.Modal PickerMsg)
+pickerModal model =
+    if model.modalOpen then
+        Just
+            (Layout.pickerModal
+                { items = pickerItems
+                , toString = identity
+                , title = "Pick item"
+                , onSelect = PickItem
+                , onCancel = CancelPicker
+                }
+            )
+
+    else
+        Nothing
+
+
+pickerAppConfig =
+    Layout.compileApp
+        { init = pickerInit
+        , update = pickerUpdate
+        , view = pickerView
+        , bindings = pickerBindings
+        , status = pickerStatus
+        , modal = pickerModal
+        , onRawEvent = Nothing
+        }
+
+
+pickerAppTest : TuiTest.TuiTest (Layout.FrameworkModel PickerModel PickerMsg) (Layout.FrameworkMsg PickerMsg)
+pickerAppTest =
+    TuiTest.startAppWithContext { width = 40, height = 12, colorProfile = Tui.TrueColor } () pickerAppConfig
 
 
 

@@ -19,6 +19,7 @@ module Tui.Layout exposing
     , isFilterActive, filterStatusBar, activeFilterStatusBar
     , isSearchActive, searchStatusBar
     , compileApp, FrameworkModel, FrameworkMsg
+    , frameworkFocusedPane, frameworkSelectedIndex, frameworkScrollPosition, frameworkUserModel
     , RawEvent(..), ScrollDirection(..)
     , UpdateContext
     )
@@ -145,6 +146,8 @@ options bar — so your app only needs `init`, `update`, `view`, `bindings`,
 `status`, and `modal`.
 
 @docs compileApp, FrameworkModel, FrameworkMsg
+
+@docs frameworkFocusedPane, frameworkSelectedIndex, frameworkScrollPosition, frameworkUserModel
 
 @docs RawEvent, ScrollDirection
 
@@ -4943,6 +4946,36 @@ type FrameworkModel model msg
         }
 
 
+{-| Get the currently focused pane ID from a `FrameworkModel`. Useful in tests
+with [`TuiTest.ensureModel`](Tui-Test#ensureModel) — see [`Tui.Layout.Test`](Tui-Layout-Test)
+for convenient wrappers.
+-}
+frameworkFocusedPane : FrameworkModel model msg -> Maybe String
+frameworkFocusedPane (FrameworkModel fw) =
+    focusedPane fw.layoutState
+
+
+{-| Get the selected index for a pane from a `FrameworkModel`.
+-}
+frameworkSelectedIndex : String -> FrameworkModel model msg -> Int
+frameworkSelectedIndex paneId (FrameworkModel fw) =
+    selectedIndex paneId fw.layoutState
+
+
+{-| Get the scroll position for a pane from a `FrameworkModel`.
+-}
+frameworkScrollPosition : String -> FrameworkModel model msg -> Int
+frameworkScrollPosition paneId (FrameworkModel fw) =
+    scrollPosition paneId fw.layoutState
+
+
+{-| Get the user model from a `FrameworkModel`.
+-}
+frameworkUserModel : FrameworkModel model msg -> model
+frameworkUserModel (FrameworkModel fw) =
+    fw.userModel
+
+
 {-| Opaque message type wrapping user messages and framework-internal events.
 -}
 type FrameworkMsg msg
@@ -4959,18 +4992,22 @@ type FrameworkMsg msg
 type ModalInteractionState msg
     = NoModal
     | PromptInteraction Tui.Prompt.State
-    | PickerInteraction
-        { filterText : String
-        , selectedIndex : Int
-        , labels : List String
-        , filteredIndices : List Int
-        }
+    | PickerInteraction PickerInteractionState
     | MenuInteraction (Tui.Menu.State msg)
     | HelpInteraction
         { filterText : String
         , scrollOffset : Int
         }
     | ConfirmInteraction
+
+
+type alias PickerInteractionState =
+    { filterText : String
+    , selectedIndex : Int
+    , scrollOffset : Int
+    , labels : List String
+    , filteredIndices : List Int
+    }
 
 
 {-| Transform a declarative TUI app configuration into a standard TEA
@@ -5469,10 +5506,15 @@ handlePickerKey :
         , modal : model -> Maybe (Modal msg)
     }
     -> Tui.KeyEvent
-    -> { filterText : String, selectedIndex : Int, labels : List String, filteredIndices : List Int }
+    -> PickerInteractionState
     -> FrameworkModel model msg
     -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
 handlePickerKey config keyEvent picker (FrameworkModel fw) =
+    let
+        moveSelection : Int -> PickerInteractionState
+        moveSelection delta =
+            updatePickerSelection fw.context.height (picker.selectedIndex + delta) picker
+    in
     case keyEvent.key of
         Tui.Escape ->
             case config.modal fw.userModel of
@@ -5501,11 +5543,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
         Tui.Character 'j' ->
             ( FrameworkModel
                 { fw
-                    | modalState =
-                        PickerInteraction
-                            { picker
-                                | selectedIndex = min (picker.selectedIndex + 1) (List.length picker.filteredIndices - 1)
-                            }
+                    | modalState = PickerInteraction (moveSelection 1)
                 }
             , Effect.none
             )
@@ -5513,11 +5551,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
         Tui.Arrow Tui.Down ->
             ( FrameworkModel
                 { fw
-                    | modalState =
-                        PickerInteraction
-                            { picker
-                                | selectedIndex = min (picker.selectedIndex + 1) (List.length picker.filteredIndices - 1)
-                            }
+                    | modalState = PickerInteraction (moveSelection 1)
                 }
             , Effect.none
             )
@@ -5525,9 +5559,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
         Tui.Character 'k' ->
             ( FrameworkModel
                 { fw
-                    | modalState =
-                        PickerInteraction
-                            { picker | selectedIndex = max 0 (picker.selectedIndex - 1) }
+                    | modalState = PickerInteraction (moveSelection -1)
                 }
             , Effect.none
             )
@@ -5535,9 +5567,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
         Tui.Arrow Tui.Up ->
             ( FrameworkModel
                 { fw
-                    | modalState =
-                        PickerInteraction
-                            { picker | selectedIndex = max 0 (picker.selectedIndex - 1) }
+                    | modalState = PickerInteraction (moveSelection -1)
                 }
             , Effect.none
             )
@@ -5560,6 +5590,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
                                 | filterText = newFilter
                                 , filteredIndices = newFiltered
                                 , selectedIndex = 0
+                                , scrollOffset = 0
                             }
                 }
             , Effect.none
@@ -5583,6 +5614,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
                                 | filterText = newFilter
                                 , filteredIndices = newFiltered
                                 , selectedIndex = 0
+                                , scrollOffset = 0
                             }
                 }
             , Effect.none
@@ -5613,6 +5645,57 @@ filterPickerItems filter labels =
                     else
                         Nothing
                 )
+
+
+updatePickerSelection : Int -> Int -> PickerInteractionState -> PickerInteractionState
+updatePickerSelection terminalHeight newIndex picker =
+    let
+        filteredCount : Int
+        filteredCount =
+            List.length picker.filteredIndices
+
+        clampedIndex : Int
+        clampedIndex =
+            if filteredCount <= 0 then
+                0
+
+            else
+                clamp 0 (filteredCount - 1) newIndex
+
+        visibleLabelRows : Int
+        visibleLabelRows =
+            pickerVisibleLabelRows terminalHeight
+
+        scrollPadding : Int
+        scrollPadding =
+            if visibleLabelRows > 2 then
+                1
+
+            else
+                0
+
+        newScrollOffset : Int
+        newScrollOffset =
+            if visibleLabelRows <= 0 then
+                0
+
+            else
+                ensureVisible clampedIndex picker.scrollOffset visibleLabelRows filteredCount scrollPadding
+    in
+    { picker
+        | selectedIndex = clampedIndex
+        , scrollOffset = newScrollOffset
+    }
+
+
+pickerVisibleLabelRows : Int -> Int
+pickerVisibleLabelRows terminalHeight =
+    max 0 (modalMaxBodyRows terminalHeight - 1)
+
+
+modalMaxBodyRows : Int -> Int
+modalMaxBodyRows terminalHeight =
+    max 0 ((terminalHeight * 3 // 4) - 2)
 
 
 handleKeyPressedNoModal :
@@ -6106,6 +6189,7 @@ syncModalState config previousModalState _ newModel =
                     PickerInteraction
                         { filterText = ""
                         , selectedIndex = 0
+                        , scrollOffset = 0
                         , labels = modalConfig.labels
                         , filteredIndices = allIndices
                         }
@@ -6344,8 +6428,8 @@ compileView config ctx (FrameworkModel fw) =
                     case config.modal fw.userModel of
                         Just (PickerModal modalConfig) ->
                             let
-                                visibleLabels : List Screen
-                                visibleLabels =
+                                allLabelRows : List Screen
+                                allLabelRows =
                                     picker.filteredIndices
                                         |> List.indexedMap
                                             (\displayIdx originalIdx ->
@@ -6364,6 +6448,33 @@ compileView config ctx (FrameworkModel fw) =
                                                     Tui.text ("  " ++ label)
                                             )
 
+                                visibleLabelRows : Int
+                                visibleLabelRows =
+                                    pickerVisibleLabelRows context.height
+
+                                hasOverflow : Bool
+                                hasOverflow =
+                                    List.length allLabelRows > visibleLabelRows
+
+                                windowedLabelRows : List Screen
+                                windowedLabelRows =
+                                    if visibleLabelRows <= 0 then
+                                        []
+
+                                    else
+                                        allLabelRows
+                                            |> List.drop picker.scrollOffset
+                                            |> List.take visibleLabelRows
+
+                                paddedLabelRows : List Screen
+                                paddedLabelRows =
+                                    if hasOverflow && List.length windowedLabelRows < visibleLabelRows then
+                                        windowedLabelRows
+                                            ++ List.repeat (visibleLabelRows - List.length windowedLabelRows) Tui.empty
+
+                                    else
+                                        windowedLabelRows
+
                                 filterLine : Screen
                                 filterLine =
                                     if String.isEmpty picker.filterText then
@@ -6377,7 +6488,7 @@ compileView config ctx (FrameworkModel fw) =
                             in
                             Tui.Modal.overlay
                                 { title = modalConfig.title
-                                , body = filterLine :: visibleLabels
+                                , body = filterLine :: paddedLabelRows
                                 , footer = "Enter: select │ Esc: cancel"
                                 , width = Tui.Modal.defaultWidth context.width
                                 }
