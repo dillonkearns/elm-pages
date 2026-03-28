@@ -26,6 +26,28 @@ suite =
                         |> renderBodyJson
                         |> expectContains "\"inverse\":true"
             ]
+        , describe "suggestion navigation"
+            [ test "ArrowDown then Tab accepts the second suggestion" <|
+                \() ->
+                    let
+                        state =
+                            Prompt.open { title = "Fruit", placeholder = "" }
+                                |> Prompt.withSuggestions fruitSuggestions
+                                |> typeString "ap"
+
+                        ( afterDown, _ ) =
+                            Prompt.handleKeyEvent
+                                { key = Tui.Arrow Tui.Down, modifiers = [] }
+                                state
+
+                        ( afterTab, _ ) =
+                            Prompt.handleKeyEvent
+                                { key = Tui.Tab, modifiers = [] }
+                                afterDown
+                    in
+                    Prompt.text afterTab
+                        |> Expect.equal "apricot"
+            ]
         ]
 
 
@@ -62,3 +84,9 @@ expectContains needle haystack =
                 ++ " in:\n\n"
                 ++ haystack
             )
+
+
+fruitSuggestions : String -> List String
+fruitSuggestions query =
+    [ "apple", "apricot", "banana" ]
+        |> List.filter (String.contains query)

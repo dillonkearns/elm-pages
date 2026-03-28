@@ -80,6 +80,7 @@ type State
         , placeholder : String
         , masked : Bool
         , suggest : Maybe (String -> List String)
+        , selectedSuggestion : Int
         }
 
 
@@ -96,6 +97,7 @@ open config =
         , placeholder = config.placeholder
         , masked = False
         , suggest = Nothing
+        , selectedSuggestion = 0
         }
 
 
@@ -171,32 +173,76 @@ handleKeyEvent event (State s) =
             ( State s, Cancelled )
 
         Tui.Tab ->
-            -- Accept first suggestion
-            case s.suggest of
-                Just suggestFn ->
-                    let
-                        query =
-                            Input.text s.input
-
-                        suggestions =
-                            if String.isEmpty query then
-                                []
-
-                            else
-                                suggestFn query
-                    in
-                    case suggestions of
-                        first :: _ ->
-                            ( State { s | input = Input.init first }, Continue )
-
-                        [] ->
-                            ( State s, Continue )
-
-                Nothing ->
+            case suggestionsFor s of
+                [] ->
                     ( State s, Continue )
 
+                suggestions ->
+                    let
+                        selectedSuggestion =
+                            suggestions
+                                |> List.drop s.selectedSuggestion
+                                |> List.head
+                                |> Maybe.withDefault
+                                    (suggestions
+                                        |> List.head
+                                        |> Maybe.withDefault (Input.text s.input)
+                                    )
+                    in
+                    ( State
+                        { s
+                            | input = Input.init selectedSuggestion
+                            , selectedSuggestion = 0
+                        }
+                    , Continue
+                    )
+
+        Tui.Arrow Tui.Down ->
+            case suggestionsFor s of
+                [] ->
+                    ( State s, Continue )
+
+                suggestions ->
+                    ( State
+                        { s
+                            | selectedSuggestion =
+                                min (List.length suggestions - 1) (s.selectedSuggestion + 1)
+                        }
+                    , Continue
+                    )
+
+        Tui.Arrow Tui.Up ->
+            case suggestionsFor s of
+                [] ->
+                    ( State s, Continue )
+
+                _ ->
+                    ( State { s | selectedSuggestion = max 0 (s.selectedSuggestion - 1) }, Continue )
+
         _ ->
-            ( State { s | input = Input.update event s.input }, Continue )
+            let
+                resetSelectedSuggestion : Int
+                resetSelectedSuggestion =
+                    case event.key of
+                        Tui.Character _ ->
+                            0
+
+                        Tui.Backspace ->
+                            0
+
+                        Tui.Delete ->
+                            0
+
+                        _ ->
+                            s.selectedSuggestion
+            in
+            ( State
+                { s
+                    | input = Input.update event s.input
+                    , selectedSuggestion = resetSelectedSuggestion
+                }
+            , Continue
+            )
 
 
 {-| Render the prompt body. Shows the input field (or masked version),
@@ -223,31 +269,28 @@ viewBody config (State s) =
 
         suggestionRows =
             case s.suggest of
-                Just suggestFn ->
-                    if String.isEmpty currentText then
+                Just _ ->
+                    if List.isEmpty (suggestionsFor s) then
                         []
 
                     else
                         let
                             suggestions =
-                                suggestFn currentText
+                                suggestionsFor s
                         in
-                        if List.isEmpty suggestions then
-                            []
+                        [ Tui.blank ]
+                            ++ List.indexedMap
+                                (\i suggestion ->
+                                    if i == s.selectedSuggestion then
+                                        Tui.text ("  " ++ suggestion)
+                                            |> Tui.fg Ansi.Color.cyan
+                                            |> Tui.bold
 
-                        else
-                            [ Tui.blank ]
-                                ++ List.indexedMap
-                                    (\i suggestion ->
-                                        if i == 0 then
-                                            Tui.text ("  " ++ suggestion)
-                                                |> Tui.fg Ansi.Color.cyan
-
-                                        else
-                                            Tui.text ("  " ++ suggestion)
-                                                |> Tui.dim
-                                    )
-                                    (List.take 5 suggestions)
+                                    else
+                                        Tui.text ("  " ++ suggestion)
+                                            |> Tui.dim
+                                )
+                                (List.take 5 suggestions)
 
                 Nothing ->
                     []
@@ -257,3 +300,26 @@ viewBody config (State s) =
     , Tui.blank
     ]
         ++ suggestionRows
+
+
+suggestionsFor :
+    { a
+        | input : Input.State
+        , suggest : Maybe (String -> List String)
+    }
+    -> List String
+suggestionsFor s =
+    case s.suggest of
+        Just suggestFn ->
+            let
+                query =
+                    Input.text s.input
+            in
+            if String.isEmpty query then
+                []
+
+            else
+                suggestFn query
+
+        Nothing ->
+            []
