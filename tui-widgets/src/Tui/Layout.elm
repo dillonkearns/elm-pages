@@ -5690,12 +5690,7 @@ updatePickerSelection terminalHeight newIndex picker =
 
 pickerVisibleLabelRows : Int -> Int
 pickerVisibleLabelRows terminalHeight =
-    max 0 (modalMaxBodyRows terminalHeight - 1)
-
-
-modalMaxBodyRows : Int -> Int
-modalMaxBodyRows terminalHeight =
-    max 0 ((terminalHeight * 3 // 4) - 2)
+    max 0 (Tui.Modal.maxBodyRows terminalHeight - 1)
 
 
 handleKeyPressedNoModal :
@@ -6501,7 +6496,7 @@ compileView config ctx (FrameworkModel fw) =
                 MenuInteraction menuState ->
                     Tui.Modal.overlay
                         { title = Tui.Menu.title
-                        , body = Tui.Menu.viewBody menuState
+                        , body = Tui.Menu.viewBodyWithMaxRows (Tui.Modal.maxBodyRows context.height) menuState
                         , footer = "Enter: select │ Esc: cancel"
                         , width = Tui.Modal.defaultWidth context.width
                         }

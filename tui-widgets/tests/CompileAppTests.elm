@@ -6,6 +6,7 @@ import Test exposing (Test, describe, test)
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Layout as Layout
+import Tui.Menu as Menu
 import Tui.Test as TuiTest
 
 
@@ -230,6 +231,23 @@ suite =
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.ensureViewHas "▸ Item 09"
+                        |> TuiTest.expectRunning
+            ]
+        , describe "Menu modal"
+            [ test "j keeps the highlighted action visible in long menus" <|
+                \() ->
+                    menuAppTest
+                        |> TuiTest.pressKey 'm'
+                        |> TuiTest.ensureViewHas "Menu"
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.ensureViewHas "Item 09"
                         |> TuiTest.expectRunning
             ]
         ]
@@ -466,6 +484,110 @@ pickerAppConfig =
 pickerAppTest : TuiTest.TuiTest (Layout.FrameworkModel PickerModel PickerMsg) (Layout.FrameworkMsg PickerMsg)
 pickerAppTest =
     TuiTest.startAppWithContext { width = 40, height = 12, colorProfile = Tui.TrueColor } () pickerAppConfig
+
+
+
+-- Menu modal test app
+
+
+type alias MenuModel =
+    { modalOpen : Bool
+    }
+
+
+type MenuMsg
+    = OpenMenu
+    | ChooseMenuItem String
+
+
+menuItems : List (Menu.Item MenuMsg)
+menuItems =
+    List.range 1 12
+        |> List.map
+            (\i ->
+                let
+                    label =
+                        "Item " ++ String.padLeft 2 '0' (String.fromInt i)
+
+                    keyChar =
+                        Char.fromCode (Char.toCode 'a' + i - 1)
+                in
+                Menu.item
+                    { key = Tui.Character keyChar
+                    , label = label
+                    , action = ChooseMenuItem label
+                    }
+            )
+
+
+menuInit : () -> ( MenuModel, Effect MenuMsg )
+menuInit () =
+    ( { modalOpen = False }, Effect.none )
+
+
+menuUpdate : Layout.UpdateContext -> MenuMsg -> MenuModel -> ( MenuModel, Effect MenuMsg )
+menuUpdate _ msg model =
+    case msg of
+        OpenMenu ->
+            ( { model | modalOpen = True }, Effect.none )
+
+        ChooseMenuItem _ ->
+            ( { model | modalOpen = False }, Effect.none )
+
+
+menuView : Tui.Context -> MenuModel -> Layout.Layout MenuMsg
+menuView _ _ =
+    Layout.horizontal
+        [ Layout.pane "status"
+            { title = "Status", width = Layout.fill }
+            (Layout.content
+                [ Tui.text "press m to open menu"
+                ]
+            )
+        ]
+
+
+menuBindings : { focusedPane : Maybe String } -> MenuModel -> List (Layout.Group MenuMsg)
+menuBindings _ _ =
+    [ Layout.group "Actions"
+        [ Layout.charBinding 'm' "Open menu" OpenMenu
+        ]
+    ]
+
+
+menuStatus : MenuModel -> { waiting : Maybe String }
+menuStatus _ =
+    { waiting = Nothing }
+
+
+menuModal : MenuModel -> Maybe (Layout.Modal MenuMsg)
+menuModal model =
+    if model.modalOpen then
+        Just
+            (Layout.menuModal
+                [ Menu.section "Actions" menuItems
+                ]
+            )
+
+    else
+        Nothing
+
+
+menuAppConfig =
+    Layout.compileApp
+        { init = menuInit
+        , update = menuUpdate
+        , view = menuView
+        , bindings = menuBindings
+        , status = menuStatus
+        , modal = menuModal
+        , onRawEvent = Nothing
+        }
+
+
+menuAppTest : TuiTest.TuiTest (Layout.FrameworkModel MenuModel MenuMsg) (Layout.FrameworkMsg MenuMsg)
+menuAppTest =
+    TuiTest.startAppWithContext { width = 40, height = 12, colorProfile = Tui.TrueColor } () menuAppConfig
 
 
 

@@ -1,4 +1,4 @@
-module Tui.Modal exposing (overlay, defaultWidth)
+module Tui.Modal exposing (overlay, defaultWidth, maxBodyRows)
 
 {-| Modal overlay for TUI layouts.
 
@@ -20,7 +20,7 @@ popup system. Modal height is capped at 75% of terminal height.
         { width = ctx.width, height = ctx.height }
         bgRows
 
-@docs overlay, defaultWidth
+@docs overlay, defaultWidth, maxBodyRows
 
 -}
 
@@ -58,6 +58,27 @@ defaultWidth termWidth =
     max 10 floored
 
 
+{-| Calculate the maximum number of body rows that [`overlay`](#overlay)
+will display for a terminal of the given height.
+
+Useful when you want to pre-window modal content before passing it to
+[`overlay`](#overlay):
+
+    Modal.overlay
+        { title = Menu.title
+        , body = Menu.viewBodyWithMaxRows (Modal.maxBodyRows ctx.height) menuState
+        , footer = "Esc: close"
+        , width = Modal.defaultWidth ctx.width
+        }
+        { width = ctx.width, height = ctx.height }
+        bgRows
+
+-}
+maxBodyRows : Int -> Int
+maxBodyRows terminalHeight =
+    max 0 ((terminalHeight * 3 // 4) - 2)
+
+
 {-| Overlay a centered modal dialog on top of background rows.
 
 Returns a `List Screen` (one per terminal row) suitable for `Tui.lines`.
@@ -83,17 +104,13 @@ overlay config term bgRows =
         -- Clamp modal to 75% of terminal height (lazygit uses height * 3/4).
         -- Then subtract 2 for top/bottom borders to get max body rows.
         -- The remaining 25% ensures the background is visible around the modal.
-        maxModalHeight : Int
-        maxModalHeight =
-            term.height * 3 // 4
-
-        maxBodyRows : Int
-        maxBodyRows =
-            max 0 (maxModalHeight - 2)
+        maxBodyRows_ : Int
+        maxBodyRows_ =
+            maxBodyRows term.height
 
         clampedBody : List Tui.Screen
         clampedBody =
-            List.take maxBodyRows config.body
+            List.take maxBodyRows_ config.body
 
         modalHeight : Int
         modalHeight =

@@ -3,7 +3,7 @@ module Tui.Menu exposing
     , Section, section
     , Item, item, disabledItem
     , handleKeyEvent
-    , viewBody, title
+    , viewBody, viewBodyWithMaxRows, title
     )
 
 {-| Menu with sections, direct key dispatch, and disabled items.
@@ -22,7 +22,7 @@ Render with [`Tui.Modal.overlay`](Tui-Modal#overlay):
         Just menuState ->
             Modal.overlay
                 { title = Menu.title
-                , body = Menu.viewBody menuState
+                , body = Menu.viewBodyWithMaxRows (Modal.maxBodyRows ctx.height) menuState
                 , footer = "Esc: close"
                 , width = Modal.defaultWidth ctx.width
                 }
@@ -69,12 +69,12 @@ Handle keys while the menu is open:
 
 ## Rendering
 
-@docs viewBody, title
+@docs viewBody, viewBodyWithMaxRows, title
 
 -}
 
 import Ansi.Color
-import Tui exposing (plain)
+import Tui
 
 
 {-| Opaque menu state. Tracks the items and the current highlight position.
@@ -279,7 +279,109 @@ Disabled items are dimmed with the reason shown.
 
 -}
 viewBody : State msg -> List Tui.Screen
-viewBody (State s) =
+viewBody state =
+    renderBodyRows state
+        |> List.map .screen
+
+
+{-| Render the menu body clamped to a maximum number of rows, keeping the
+highlighted action visible.
+
+This is the preferred rendering helper for long menus in modals:
+
+    Modal.overlay
+        { title = Menu.title
+        , body = Menu.viewBodyWithMaxRows (Modal.maxBodyRows ctx.height) menuState
+        , footer = "Esc: close"
+        , width = Modal.defaultWidth ctx.width
+        }
+        { width = ctx.width, height = ctx.height }
+        bgRows
+
+If the menu is shorter than `maxRows`, all rows are returned unchanged. If it
+overflows, the returned list is padded so the modal height stays stable near the
+end of the list.
+
+-}
+viewBodyWithMaxRows : Int -> State msg -> List Tui.Screen
+viewBodyWithMaxRows maxRows state =
+    let
+        renderedRows : List RenderedRow
+        renderedRows =
+            renderBodyRows state
+
+        allRows : List Tui.Screen
+        allRows =
+            renderedRows
+                |> List.map .screen
+
+        visibleRows : Int
+        visibleRows =
+            max 0 maxRows
+
+        highlightedRowIndex : Maybe Int
+        highlightedRowIndex =
+            renderedRows
+                |> List.indexedMap Tuple.pair
+                |> List.filterMap
+                    (\( index, row ) ->
+                        if row.isHighlighted then
+                            Just index
+
+                        else
+                            Nothing
+                    )
+                |> List.head
+
+        scrollPadding : Int
+        scrollPadding =
+            if visibleRows > 2 then
+                1
+
+            else
+                0
+
+        scrollOffset : Int
+        scrollOffset =
+            case highlightedRowIndex of
+                Just rowIndex ->
+                    scrollOffsetForRow rowIndex visibleRows (List.length allRows) scrollPadding
+
+                Nothing ->
+                    0
+
+        windowedRows : List Tui.Screen
+        windowedRows =
+            if visibleRows <= 0 then
+                []
+
+            else
+                allRows
+                    |> List.drop scrollOffset
+                    |> List.take visibleRows
+    in
+    if visibleRows <= 0 then
+        []
+
+    else if List.length allRows <= visibleRows then
+        allRows
+
+    else if List.length windowedRows < visibleRows then
+        windowedRows
+            ++ List.repeat (visibleRows - List.length windowedRows) Tui.empty
+
+    else
+        windowedRows
+
+
+type alias RenderedRow =
+    { screen : Tui.Screen
+    , isHighlighted : Bool
+    }
+
+
+renderBodyRows : State msg -> List RenderedRow
+renderBodyRows (State s) =
     let
         allItems : List (ItemData msg)
         allItems =
@@ -311,8 +413,9 @@ viewBody (State s) =
             (\sectionData ->
                 let
                     header =
-                        Tui.text ("--- " ++ sectionData.name ++ " ---")
-                            |> Tui.bold
+                        { screen = Tui.text ("--- " ++ sectionData.name ++ " ---") |> Tui.bold
+                        , isHighlighted = False
+                        }
 
                     rows =
                         sectionData.items
@@ -331,37 +434,60 @@ viewBody (State s) =
 
                                         keyLabel =
                                             keyToString i.key
-                                    in
-                                    case i.result of
-                                        Enabled _ ->
-                                            let
-                                                row =
+
+                                        screen =
+                                            case i.result of
+                                                Enabled _ ->
+                                                    let
+                                                        row =
+                                                            Tui.concat
+                                                                [ Tui.text ("  " ++ keyLabel)
+                                                                    |> Tui.fg Ansi.Color.cyan
+                                                                    |> Tui.bold
+                                                                , Tui.text (" " ++ i.label)
+                                                                ]
+                                                    in
+                                                    if isHighlighted then
+                                                        row |> Tui.bg Ansi.Color.blue
+
+                                                    else
+                                                        row
+
+                                                Disabled reason ->
                                                     Tui.concat
                                                         [ Tui.text ("  " ++ keyLabel)
-                                                            |> Tui.fg Ansi.Color.cyan
-                                                            |> Tui.bold
+                                                            |> Tui.dim
                                                         , Tui.text (" " ++ i.label)
+                                                            |> Tui.dim
+                                                        , Tui.text (" (" ++ reason ++ ")")
+                                                            |> Tui.dim
                                                         ]
-                                            in
-                                            if isHighlighted then
-                                                row |> Tui.bg Ansi.Color.blue
-
-                                            else
-                                                row
-
-                                        Disabled reason ->
-                                            Tui.concat
-                                                [ Tui.text ("  " ++ keyLabel)
-                                                    |> Tui.dim
-                                                , Tui.text (" " ++ i.label)
-                                                    |> Tui.dim
-                                                , Tui.text (" (" ++ reason ++ ")")
-                                                    |> Tui.dim
-                                                ]
+                                    in
+                                    { screen = screen, isHighlighted = isHighlighted }
                                 )
                 in
                 header :: rows
             )
+
+
+scrollOffsetForRow : Int -> Int -> Int -> Int -> Int
+scrollOffsetForRow highlightedRow visibleRows totalRows padding =
+    let
+        maxOffset : Int
+        maxOffset =
+            max 0 (totalRows - visibleRows)
+    in
+    if visibleRows <= 0 then
+        0
+
+    else if highlightedRow < padding then
+        0
+
+    else if highlightedRow > visibleRows - 1 - padding then
+        clamp 0 maxOffset (highlightedRow - visibleRows + 1 + padding)
+
+    else
+        0
 
 
 {-| The menu title. Use with [`Tui.Modal.overlay`](Tui-Modal#overlay).
