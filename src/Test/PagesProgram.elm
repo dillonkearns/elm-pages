@@ -1341,9 +1341,6 @@ clickButton buttonText (ProgramTest state) =
                                                 , Selector.containing [ Selector.text buttonText ]
                                                 ]
                                             ]
-
-                                formInfo =
-                                    extractFormInfo formQuery
                             in
                             formQuery
                                 |> Event.simulate
@@ -1353,13 +1350,7 @@ clickButton buttonText (ProgramTest state) =
                                           , Encode.object
                                                 [ ( "method", Encode.string "POST" )
                                                 , ( "action", Encode.string "" )
-                                                , ( "id"
-                                                  , if formInfo.formId == "" then
-                                                        Encode.null
-
-                                                    else
-                                                        Encode.string formInfo.formId
-                                                  )
+                                                , ( "id", Encode.null )
                                                 ]
                                           )
                                         ]
@@ -1368,19 +1359,24 @@ clickButton buttonText (ProgramTest state) =
                     in
                     case formSubmitResult of
                         Ok msg ->
-                            -- Form submit succeeded. This goes through the form
-                            -- library's onSubmit which correctly sets useFetcher.
                             applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") Interaction (Just (ByTagAndText "button" buttonText)) msg (ProgramTest state)
 
                         Err _ ->
                             case eventResult of
                                 Ok msg ->
-                                    -- Click handler worked (button not in a form).
                                     applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") Interaction (Just (ByTagAndText "button" buttonText)) msg (ProgramTest state)
 
-                                Err _ ->
-                                    -- Neither worked. Fall back to onFormSubmit handler.
-                                    formSubmitFallback ready query buttonText (ProgramTest state)
+                                Err clickErr ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just
+                                                    ("clickButton \""
+                                                        ++ buttonText
+                                                        ++ "\" failed: no form submit handler or click handler found.\n"
+                                                        ++ clickErr
+                                                    )
+                                        }
 
 
 {-| Simulate typing text into an input field.
@@ -1543,87 +1539,6 @@ fillIn fieldId fieldName value (ProgramTest state) =
                                                             )
                                                 }
 
-
-
-{-| Fallback form submission for buttons with no click handler when
-the form submit event simulation also fails.
--}
-formSubmitFallback : ReadyState model msg -> Query.Single msg -> String -> ProgramTest model msg -> ProgramTest model msg
-formSubmitFallback ready query buttonText (ProgramTest state) =
-    case ready.onFormSubmit of
-        Just handler ->
-            let
-                -- Find the form containing this button in the rendered view
-                formQuery =
-                    query
-                        |> Query.find
-                            [ Selector.tag "form"
-                            , Selector.containing
-                                [ Selector.tag "button"
-                                , Selector.containing [ Selector.text buttonText ]
-                                ]
-                            ]
-
-                -- Extract form ID and all input fields (including hidden) from the HTML
-                formInfo =
-                    extractFormInfo formQuery
-
-                -- Merge extracted fields with form state fields (for filled-in values)
-                formStateFields =
-                    case ready.getFormFields of
-                        Just getFields ->
-                            getFields ready.model
-
-                        Nothing ->
-                            []
-
-                -- Form state fields override extracted fields (they have current values)
-                mergedFields =
-                    let
-                        formStateDict =
-                            Dict.fromList formStateFields
-                    in
-                    formInfo.fields
-                        |> List.map
-                            (\( name, value ) ->
-                                case Dict.get name formStateDict of
-                                    Just stateValue ->
-                                        ( name, stateValue )
-
-                                    Nothing ->
-                                        ( name, value )
-                            )
-
-                isFetcher =
-                    query
-                        |> Query.has
-                            [ Selector.tag "form"
-                            , Selector.attribute (Html.Attributes.attribute "data-fetcher" "")
-                            , Selector.containing
-                                [ Selector.tag "button"
-                                , Selector.containing [ Selector.text buttonText ]
-                                ]
-                            ]
-                        |> (\expectation -> getFailureMessage expectation == Nothing)
-
-            in
-            applyMsgWithLabel
-                ("clickButton \"" ++ buttonText ++ "\"")
-                Interaction
-                (Just (ByTagAndText "button" buttonText))
-                (handler { formId = formInfo.formId, action = "", fields = mergedFields, useFetcher = isFetcher })
-                (ProgramTest state)
-
-        Nothing ->
-            ProgramTest
-                { state
-                    | error =
-                        Just
-                            ("clickButton \""
-                                ++ buttonText
-                                ++ "\" failed: button has no click handler and no form submit handler is available."
-                            )
-                }
 
 
 {-| Fill in a textarea with the given content. Finds the first `<textarea>`
@@ -2938,98 +2853,6 @@ unsafeCoerceHtmlList =
 crashNever : () -> a
 crashNever () =
     crashNever ()
-
-
-{-| Extract the form ID and all input field name/value pairs from a form
-element in the rendered view. Uses the Test.Runner failure report trick:
-force a query to fail, parse the error message to extract the HTML string,
-then parse the HTML string for input elements.
--}
-extractFormInfo : Query.Single msg -> { formId : String, fields : List ( String, String ) }
-extractFormInfo formQuery =
-    let
-        -- Force a failure by asserting the form contains impossible text.
-        -- The failure message includes the full HTML of the form.
-        uniqueText =
-            "___elm_pages_extract_form_fields___"
-
-        failureHtml =
-            formQuery
-                |> Query.has [ Selector.text uniqueText ]
-                |> Test.Runner.getFailureReason
-                |> Maybe.map .description
-                |> Maybe.withDefault ""
-
-        -- Extract form id from: id="some-id"
-        formId =
-            extractAttributeValue "id" failureHtml
-                |> Maybe.withDefault ""
-
-        -- Extract all input name/value pairs from the HTML string.
-        -- Matches patterns like: name="fieldName" ... value="fieldValue"
-        -- or value="fieldValue" ... name="fieldName" within input elements.
-        fields =
-            extractInputFields failureHtml
-    in
-    { formId = formId, fields = fields }
-
-
-{-| Extract a single attribute value from an HTML element string.
-Looks for the pattern: attributeName="value"
--}
-extractAttributeValue : String -> String -> Maybe String
-extractAttributeValue attrName html =
-    let
-        prefix =
-            attrName ++ "=\""
-    in
-    case String.split prefix html of
-        _ :: afterPrefix :: _ ->
-            case String.split "\"" afterPrefix of
-                value :: _ ->
-                    Just value
-
-                _ ->
-                    Nothing
-
-        _ ->
-            Nothing
-
-
-{-| Extract name/value pairs from all <input> elements in an HTML string.
-Handles both `name="x" value="y"` and `value="y" name="x"` orderings.
-Also handles inputs where value comes before name or vice versa.
--}
-extractInputFields : String -> List ( String, String )
-extractInputFields html =
-    -- Split on "<input" to find each input element
-    case String.split "<input" html of
-        _ :: inputs ->
-            inputs
-                |> List.filterMap
-                    (\inputHtml ->
-                        -- Get just the tag content (up to > or />)
-                        let
-                            tagContent =
-                                inputHtml
-                                    |> String.split ">"
-                                    |> List.head
-                                    |> Maybe.withDefault inputHtml
-                        in
-                        case ( extractAttributeValue "name" tagContent, extractAttributeValue "value" tagContent ) of
-                            ( Just name, Just value ) ->
-                                Just ( name, value )
-
-                            ( Just name, Nothing ) ->
-                                -- Input with name but no explicit value attribute
-                                Just ( name, "" )
-
-                            _ ->
-                                Nothing
-                    )
-
-        _ ->
-            []
 
 
 {-| Build a data-phase resolver that hides the `data` type parameter.
