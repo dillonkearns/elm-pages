@@ -14,7 +14,7 @@ trap cleanup EXIT
 
 cd "$repo_root"
 
-temp_dir="$(mktemp -d .tmp-tui-widgets-tests.XXXXXX)"
+temp_dir="$repo_root/$(mktemp -d .tmp-tui-widgets-tests.XXXXXX)"
 
 cp tui-widgets/elm-application.json "$temp_dir/elm.json"
 ln -s "$repo_root/tui-widgets/src" "$temp_dir/src"
