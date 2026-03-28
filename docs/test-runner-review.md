@@ -2,6 +2,12 @@
 
 Date: 2026-03-19
 
+> Historical note:
+> This review describes an earlier prototype of the page-test runner.
+> Since then, the generated `TestApp` path has moved to `Test.PagesProgram.startPlatform`,
+> `elm-pages test-view` now emits a standalone preview shell, and ProgramTest discovery
+> has been expanded. Keep that in mind when reading the findings below.
+
 ## Executive Summary
 
 The current test-runner work has a strong core idea and a promising low-level API, but it is not yet safe to present as "real elm-pages behavior except for stubbed external I/O."
