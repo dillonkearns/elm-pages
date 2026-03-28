@@ -2464,8 +2464,8 @@ withModelToString fn (ProgramTest state) =
 {-| Try advancing a resolver with a simulation. Returns Ok ProgramTest
 on success, Err on AdvanceError.
 -}
-advanceResolver : model -> Simulation -> State model msg -> Resolver model msg -> Result String (ProgramTest model msg)
-advanceResolver currentModel sim state (Resolver resolver) =
+advanceResolver : Maybe model -> Simulation -> State model msg -> Resolver model msg -> Result String (ProgramTest model msg)
+advanceResolver maybeModel sim state (Resolver resolver) =
     let
         ( simLabel, simMethod, simUrl ) =
             case sim of
@@ -2491,7 +2491,7 @@ advanceResolver currentModel sim state (Resolver resolver) =
         updatedLog =
             state.networkLog ++ [ networkEntry ]
     in
-    case resolver.advance (Just currentModel) sim of
+    case resolver.advance maybeModel sim of
         Advanced newPhase ->
             let
                 snapshot =
@@ -2515,9 +2515,9 @@ advanceResolver currentModel sim state (Resolver resolver) =
             Err errMsg
 
 
-advanceResolverOrError : model -> Simulation -> State model msg -> Resolver model msg -> ProgramTest model msg
-advanceResolverOrError currentModel sim state resolver =
-    case advanceResolver currentModel sim state resolver of
+advanceResolverOrError : Maybe model -> Simulation -> State model msg -> Resolver model msg -> ProgramTest model msg
+advanceResolverOrError maybeModel sim state resolver =
+    case advanceResolver maybeModel sim state resolver of
         Ok programTest ->
             programTest
 
@@ -2534,109 +2534,44 @@ applySimulation sim (ProgramTest state) =
         Nothing ->
             case state.phase of
                 Resolving ((Resolver resolverRecord) as resolver) ->
-                    case resolverRecord.advance Nothing sim of
-                        Advanced newPhase ->
-                            let
-                                ( simLabel, simMethod, simUrl ) =
-                                    case sim of
-                                        SimHttpGet url _ ->
-                                            ( "simulateHttpGet " ++ url, "GET", url )
+                    -- When pending fetcher effects exist, try them first. Fetchers
+                    -- represent user interactions that should resolve before background
+                    -- data reloads. This prevents a stale data reload resolver from
+                    -- consuming a response meant for a fetcher mutation (which would
+                    -- happen when mutation and data responses share the same JSON shape).
+                    case ( state.pendingFetcherEffects, state.lastReadyModel ) of
+                        ( ((Resolver _) as fetcherResolver) :: restFetchers, Just currentModel ) ->
+                            case advanceResolver (Just currentModel) sim state fetcherResolver of
+                                Ok (ProgramTest newState) ->
+                                    -- Fetcher advanced. The stale data reload is superseded.
+                                    ProgramTest { newState | pendingFetcherEffects = restFetchers }
 
-                                        SimHttpPost url _ ->
-                                            ( "simulateHttpPost " ++ url, "POST", url )
+                                Err _ ->
+                                    -- Fetcher didn't accept this sim. Try the main resolver.
+                                    advanceResolverOrError Nothing sim state resolver
 
-                                        SimHttpError method url errorString ->
-                                            ( "simulateHttpError " ++ method ++ " " ++ url ++ " " ++ errorString, method, url )
-
-                                updatedLog =
-                                    state.networkLog ++ [ { method = simMethod, url = simUrl, status = Stubbed, stepIndex = List.length state.snapshots } ]
-
-                                snapshot =
-                                    case newPhase of
-                                        Ready newReady ->
-                                            [ makeSnapshot simLabel EffectResolution Nothing newReady state.modelToString state.fetcherExtractor updatedLog ]
-
-                                        Resolving _ ->
-                                            []
-                            in
-                            ProgramTest
-                                { state
-                                    | phase = newPhase
-                                    , snapshots = state.snapshots ++ snapshot
-                                    , networkLog = updatedLog
-                                }
-
-                        AdvanceError errMsg ->
-                            case ( state.pendingFetcherEffects, state.lastReadyModel ) of
-                                ( ((Resolver _) as fetcherResolver) :: restFetchers, Just currentModel ) ->
-                                    case advanceResolver currentModel sim state fetcherResolver of
-                                        Ok (ProgramTest newState) ->
-                                            -- Fetcher advanced. Drop the stale data reload.
-                                            ProgramTest { newState | pendingFetcherEffects = restFetchers }
-
-                                        Err _ ->
-                                            -- Both failed. Report the original error.
-                                            ProgramTest { state | error = Just errMsg }
-
-                                _ ->
-                                    ProgramTest { state | error = Just errMsg }
+                        _ ->
+                            advanceResolverOrError Nothing sim state resolver
 
                 Ready ready ->
                     -- No navigation/action HTTP pending. Check for pending fetcher effects.
                     case state.pendingFetcherEffects of
-                        (Resolver resolver) :: restFetchers ->
-                            let
-                                ( simLabel, simMethod, simUrl ) =
-                                    case sim of
-                                        SimHttpGet url _ ->
-                                            ( "simulateHttpGet " ++ url, "GET", url )
-
-                                        SimHttpPost url _ ->
-                                            ( "simulateHttpPost " ++ url, "POST", url )
-
-                                        SimHttpError method url errorString ->
-                                            ( "simulateHttpError " ++ method ++ " " ++ url ++ " " ++ errorString, method, url )
-
-                                stepIdx =
-                                    List.length state.snapshots
-
-                                networkEntry =
-                                    { method = simMethod
-                                    , url = simUrl
-                                    , status = Stubbed
-                                    , stepIndex = stepIdx
-                                    }
-
-                                updatedLog =
-                                    state.networkLog ++ [ networkEntry ]
-                            in
-                            case resolver.advance (Just ready.model) sim of
-                                Advanced newPhase ->
-                                    let
-                                        snapshot =
-                                            case newPhase of
-                                                Ready newReady ->
-                                                    [ makeSnapshot simLabel EffectResolution Nothing newReady state.modelToString state.fetcherExtractor updatedLog ]
-
-                                                Resolving _ ->
-                                                    []
-                                    in
+                        ((Resolver _) as fetcherResolver) :: restFetchers ->
+                            case advanceResolver (Just ready.model) sim state fetcherResolver of
+                                Ok (ProgramTest newState) ->
                                     ProgramTest
-                                        { state
-                                            | phase = newPhase
-                                            , pendingFetcherEffects = restFetchers
+                                        { newState
+                                            | pendingFetcherEffects = restFetchers
                                             , lastReadyModel =
-                                                case newPhase of
+                                                case newState.phase of
                                                     Resolving _ ->
                                                         Just ready.model
 
                                                     Ready _ ->
                                                         state.lastReadyModel
-                                            , snapshots = state.snapshots ++ snapshot
-                                            , networkLog = updatedLog
                                         }
 
-                                AdvanceError errMsg ->
+                                Err errMsg ->
                                     ProgramTest { state | error = Just ("Fetcher effect resolution failed:\n\n" ++ errMsg) }
 
                         [] ->
@@ -3143,6 +3078,9 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                 ( wrappedModel, [], [] )
 
             Platform.CancelRequest _ ->
+                -- No-op: in the real Platform, this calls Http.cancel to abort
+                -- in-flight data reloads. In tests, stale data reloads are handled
+                -- by applySimulation's fetcher-first priority in the Resolving branch.
                 ( wrappedModel, [], [] )
 
             Platform.RunCmd _ ->

@@ -380,17 +380,12 @@ concurrentFetchersTest =
         -- Both fetchers pending. Optimistic UI shows Checkout (2) immediately!
         -- (Second click sees optimistic qty=1, computes 1+1=2)
         |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
-        -- Resolve both fetcher mutations. The first triggers a stale data
-        -- reload; the second's mutation response causes the stale resolver to
-        -- fail (wrong format) and falls back to fetcher 2, which triggers a
-        -- fresh data reload. Only ONE data reload round needed.
+        -- Resolve both fetcher mutations. Fetcher effects are tried first
+        -- (before the stale data reload), so each sim goes to the right resolver.
+        -- Only ONE data reload round needed (from the last fetcher's completion).
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
-        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
-        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
-        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
-        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
-        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
+        |> simulateIndexDataWithCart twoItemOrders
         -- Server confirms 2 items. No intermediate "Checkout (1)" step!
         |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
 
@@ -399,9 +394,10 @@ concurrentFetchersTest =
 the first data reload is stale and should be cancelled. Only the second
 data reload should be needed.
 
-Currently this test requires TWO data reload rounds (one per fetcher).
-Once CancelRequest handling is implemented in the test framework, it
-should only need ONE data reload round (the second, which supersedes the first).
+Fetcher effects are prioritized over data reloads, so each mutation
+sim goes to the correct fetcher. The stale data reload from fetcher 1
+is superseded by fetcher 2's fresh data reload. Only ONE data reload
+round is needed: 2 mutations + 3 data queries = 5 sims total.
 -}
 staleFetcherDataReloadTest : TestApp.ProgramTest
 staleFetcherDataReloadTest =
@@ -418,20 +414,12 @@ staleFetcherDataReloadTest =
         |> PagesProgram.within
             (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
             (PagesProgram.clickButton "+")
-        -- First simulateHttpPost: the stale data reload (dr1) can't use the
-        -- mutation response (wrong format), so it falls back to fetcher 2.
-        -- Fetcher 2 resolves, triggering a fresh data reload (dr2).
-        -- Net effect: one call resolves both the stale dr1 AND fetcher 2.
-        -- Both mutations resolved in 2 sims (second via stale fallback).
+        -- Resolve both mutations. Fetcher effects tried first, so sims
+        -- go to fetcher resolvers, not the stale data reload.
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
-        -- One data reload round.
-        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
-        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
-        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
-        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
-        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
-        -- Stale cancellation: 2 mutations + 5 data = 7 sims (vs 2+6=8 without).
+        -- One data reload round (3 sequential Hasura queries).
+        |> simulateIndexDataWithCart twoItemOrders
         |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
 
 
