@@ -229,7 +229,7 @@ needs `model` and `msg` type parameters.
 -}
 type Resolver model msg
     = Resolver
-        { advance : model -> Simulation -> AdvanceResult model msg
+        { advance : Maybe model -> Simulation -> AdvanceResult model msg
         , pendingDescription : String
         }
 
@@ -2491,7 +2491,7 @@ advanceResolver currentModel sim state (Resolver resolver) =
         updatedLog =
             state.networkLog ++ [ networkEntry ]
     in
-    case resolver.advance currentModel sim of
+    case resolver.advance (Just currentModel) sim of
         Advanced newPhase ->
             let
                 snapshot =
@@ -2534,30 +2534,54 @@ applySimulation sim (ProgramTest state) =
         Nothing ->
             case state.phase of
                 Resolving ((Resolver resolverRecord) as resolver) ->
-                    let
-                        -- Data reload resolvers ignore the model parameter (\_ sim ->)
-                        -- so we can pass a dummy value via Maybe.withDefault.
-                        -- For fetcher resolvers in the fallback, we use lastReadyModel.
-                        modelForResolver =
-                            state.lastReadyModel
-                    in
-                    case advanceResolver (Maybe.withDefault (crashNever ()) modelForResolver) sim state resolver of
-                        Ok programTest ->
-                            programTest
+                    -- Advance the data reload resolver. Data reload resolvers
+                    -- ignore the model parameter (\_ sim ->), so we call the
+                    -- advance function directly with a lambda that discards it.
+                    case resolverRecord.advance Nothing sim of
+                        Advanced newPhase ->
+                            let
+                                ( simLabel, simMethod, simUrl ) =
+                                    case sim of
+                                        SimHttpGet url _ ->
+                                            ( "simulateHttpGet " ++ url, "GET", url )
 
-                        Err errMsg ->
+                                        SimHttpPost url _ ->
+                                            ( "simulateHttpPost " ++ url, "POST", url )
+
+                                        SimHttpError method url errorString ->
+                                            ( "simulateHttpError " ++ method ++ " " ++ url ++ " " ++ errorString, method, url )
+
+                                updatedLog =
+                                    state.networkLog ++ [ { method = simMethod, url = simUrl, status = Stubbed, stepIndex = List.length state.snapshots } ]
+
+                                snapshot =
+                                    case newPhase of
+                                        Ready newReady ->
+                                            [ makeSnapshot simLabel EffectResolution Nothing newReady state.modelToString state.fetcherExtractor updatedLog ]
+
+                                        Resolving _ ->
+                                            []
+                            in
+                            ProgramTest
+                                { state
+                                    | phase = newPhase
+                                    , snapshots = state.snapshots ++ snapshot
+                                    , networkLog = updatedLog
+                                }
+
+                        AdvanceError errMsg ->
                             -- The current resolver (data reload) failed. If there are
                             -- pending fetcher effects, the data reload may be stale
                             -- (the Platform emitted CancelRequest for it). Try the
                             -- fetcher effects instead.
-                            case ( state.pendingFetcherEffects, modelForResolver ) of
+                            case ( state.pendingFetcherEffects, state.lastReadyModel ) of
                                 ( ((Resolver _) as fetcherResolver) :: restFetchers, Just currentModel ) ->
                                     case advanceResolver currentModel sim state fetcherResolver of
                                         Ok (ProgramTest newState) ->
                                             -- Fetcher advanced. Drop the stale data reload.
                                             ProgramTest { newState | pendingFetcherEffects = restFetchers }
 
-                                        Err fetcherErr ->
+                                        Err _ ->
                                             -- Both failed. Report the original error.
                                             ProgramTest { state | error = Just errMsg }
 
@@ -2593,7 +2617,7 @@ applySimulation sim (ProgramTest state) =
                                 updatedLog =
                                     state.networkLog ++ [ networkEntry ]
                             in
-                            case resolver.advance ready.model sim of
+                            case resolver.advance (Just ready.model) sim of
                                 Advanced newPhase ->
                                     let
                                         snapshot =
@@ -3611,7 +3635,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                             fetcherResolver =
                                 Resolver
                                     { advance =
-                                        \currentModel sim ->
+                                        \maybeCurrentModel sim ->
                                             let
                                                 advancedBt =
                                                     applySimToBt sim pausedBt
@@ -3622,6 +3646,12 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                                             case fetcherCompleteResult of
                                                 Ok actionResult ->
                                                     let
+                                                        -- Use the current model if available, otherwise
+                                                        -- fall back to the click-time model.
+                                                        effectiveModel =
+                                                            maybeCurrentModel
+                                                                |> Maybe.withDefault wrappedModel
+
                                                         fetcherResult =
                                                             case actionResult of
                                                                 RenderPage _ actionData ->
@@ -3641,24 +3671,23 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                                                         updatedJar =
                                                             case actionResult of
                                                                 ServerResponse serverResponse ->
-                                                                    currentModel.cookieJar
+                                                                    effectiveModel.cookieJar
                                                                         |> CookieJar.applySetCookieHeaders
                                                                             (extractSetCookieHeaders (ServerResponse serverResponse))
 
                                                                 _ ->
-                                                                    currentModel.cookieJar
+                                                                    effectiveModel.cookieJar
 
-                                                        -- Dispatch FetcherComplete to the CURRENT model
-                                                        -- (not the stale click-time model) so the data
-                                                        -- reload uses fresh Platform state.
+                                                        -- Dispatch FetcherComplete to the effective model
+                                                        -- (current when available, stale as fallback).
                                                         ( modelAfterComplete, completeEffect ) =
                                                             platformUpdateClean config
                                                                 (Platform.FetcherComplete False fetcherKey transitionId fetcherResult)
-                                                                currentModel.platformModel
+                                                                effectiveModel.platformModel
 
                                                         ( processedWrapped2, _, _ ) =
                                                             processEffectsWrapped config baseUrl makeReady makePlatformResolver
-                                                                { platformModel = modelAfterComplete, virtualFs = currentModel.virtualFs, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
+                                                                { platformModel = modelAfterComplete, virtualFs = effectiveModel.virtualFs, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                                                 completeEffect
                                                                 100
                                                     in

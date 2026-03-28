@@ -380,13 +380,17 @@ concurrentFetchersTest =
         -- Both fetchers pending. Optimistic UI shows Checkout (2) immediately!
         -- (Second click sees optimistic qty=1, computes 1+1=2)
         |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
-        -- Resolve first fetcher's mutation + data reload.
+        -- Resolve both fetcher mutations. The first triggers a stale data
+        -- reload; the second's mutation response causes the stale resolver to
+        -- fail (wrong format) and falls back to fetcher 2, which triggers a
+        -- fresh data reload. Only ONE data reload round needed.
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
-        |> simulateIndexDataWithCart twoItemOrders
-        -- Resolve second fetcher's mutation + data reload.
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
-        |> simulateIndexDataWithCart twoItemOrders
-        -- Server confirms 2 items.
+        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
+        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
+        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
+        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
+        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
         |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
 
 
@@ -417,12 +421,17 @@ staleFetcherDataReloadTest =
         -- mutation response (wrong format), so it falls back to fetcher 2.
         -- Fetcher 2 resolves, triggering a fresh data reload (dr2).
         -- Net effect: one call resolves both the stale dr1 AND fetcher 2.
+        -- Both mutations resolved in 2 sims (second via stale fallback).
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
-        -- Now only dr2 (fresh data reload) needs resolution.
-        |> simulateIndexDataWithCart oneItemOrders
-        -- Stale cancellation works: only 1 mutation sim + 1 data reload round needed
-        -- (instead of 2 mutation sims + 2 data reload rounds without cancellation).
-        |> PagesProgram.ensureViewHas [ text "Checkout (1)" ]
+        |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
+        -- One data reload round.
+        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
+        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
+        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
+        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
+        |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
+        -- Stale cancellation: 2 mutations + 5 data = 7 sims (vs 2+6=8 without).
+        |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
 
 
 {-| 6. Sign out clears session and redirects to login.
