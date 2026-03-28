@@ -1,4 +1,4 @@
-module Tui.Input exposing (State, init, update, insertText, view, text)
+module Tui.Input exposing (State, init, update, insertText, view, viewMasked, text)
 
 {-| Text input primitive for TUI applications.
 
@@ -19,7 +19,7 @@ with an inverse-video cursor indicator (the standard TUI convention).
     -- In view:
     Input.view { width = 40 } model.input
 
-@docs State, init, update, insertText, view, text
+@docs State, init, update, insertText, view, viewMasked, text
 
 -}
 
@@ -195,11 +195,56 @@ view { width } (State s) =
         afterCursor =
             String.dropLeft (s.cursorPos + 1) s.content
     in
+    renderWithCursor { width = width }
+        { beforeCursor = beforeCursor
+        , cursorChar = cursorChar
+        , afterCursor = afterCursor
+        }
+
+
+{-| Render the input as a Screen with masked characters and an inverse-video
+cursor.
+
+Useful for password-style prompts where you still want users to see the cursor
+position while hiding the actual text.
+
+-}
+viewMasked : { width : Int } -> State -> Tui.Screen
+viewMasked { width } (State s) =
+    let
+        beforeCursor : String
+        beforeCursor =
+            String.repeat s.cursorPos "*"
+
+        cursorChar : String
+        cursorChar =
+            if s.cursorPos < String.length s.content then
+                "*"
+
+            else
+                " "
+
+        afterCursor : String
+        afterCursor =
+            String.repeat (max 0 (String.length s.content - s.cursorPos - 1)) "*"
+    in
+    renderWithCursor { width = width }
+        { beforeCursor = beforeCursor
+        , cursorChar = cursorChar
+        , afterCursor = afterCursor
+        }
+
+
+renderWithCursor :
+    { width : Int }
+    -> { beforeCursor : String, cursorChar : String, afterCursor : String }
+    -> Tui.Screen
+renderWithCursor { width } parts =
     Tui.concat
-        [ Tui.text beforeCursor
+        [ Tui.text parts.beforeCursor
         , Tui.styled
             { fg = Nothing, bg = Nothing, attributes = [ Tui.Inverse ], hyperlink = Nothing }
-            cursorChar
-        , Tui.text afterCursor
+            parts.cursorChar
+        , Tui.text parts.afterCursor
         ]
         |> Tui.truncateWidth width

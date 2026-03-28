@@ -12,6 +12,7 @@ import Test.BackendTask as BackendTaskTest
 import Test.Runner
 import Tui exposing (plain)
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Input as Input
 import Tui.Internal
 import Tui.Sub
 import Tui.Test as TuiTest
@@ -234,6 +235,23 @@ suite =
                         |> Tui.wrapWidth 6
                         |> List.map (\s -> Tui.extractStyle s |> .hyperlink)
                         |> Expect.equal [ Just "https://example.com", Just "https://example.com" ]
+            ]
+        , describe "Input"
+            [ test "viewMasked preserves the inverse cursor while hiding the real text" <|
+                \() ->
+                    let
+                        encoded =
+                            Input.init "secret"
+                                |> Input.viewMasked { width = 40 }
+                                |> Tui.Internal.encodeScreen
+                                |> Encode.encode 0
+                    in
+                    Expect.all
+                        [ \json -> json |> String.contains "secret" |> Expect.equal False
+                        , \json -> json |> String.contains "******" |> Expect.equal True
+                        , \json -> json |> String.contains "\"inverse\":true" |> Expect.equal True
+                        ]
+                        encoded
             ]
         , describe "wrapWidth"
             [ test "short text returns single line unchanged" <|

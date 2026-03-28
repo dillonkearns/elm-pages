@@ -213,7 +213,7 @@ viewBody config (State s) =
 
         inputView =
             if s.masked then
-                Tui.text (String.repeat (String.length currentText) "*")
+                Input.viewMasked config s.input
 
             else if String.isEmpty currentText && not (String.isEmpty s.placeholder) then
                 Tui.text s.placeholder |> Tui.dim
