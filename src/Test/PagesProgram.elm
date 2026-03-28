@@ -2534,9 +2534,6 @@ applySimulation sim (ProgramTest state) =
         Nothing ->
             case state.phase of
                 Resolving ((Resolver resolverRecord) as resolver) ->
-                    -- Advance the data reload resolver. Data reload resolvers
-                    -- ignore the model parameter (\_ sim ->), so we call the
-                    -- advance function directly with a lambda that discards it.
                     case resolverRecord.advance Nothing sim of
                         Advanced newPhase ->
                             let
@@ -2570,10 +2567,6 @@ applySimulation sim (ProgramTest state) =
                                 }
 
                         AdvanceError errMsg ->
-                            -- The current resolver (data reload) failed. If there are
-                            -- pending fetcher effects, the data reload may be stale
-                            -- (the Platform emitted CancelRequest for it). Try the
-                            -- fetcher effects instead.
                             case ( state.pendingFetcherEffects, state.lastReadyModel ) of
                                 ( ((Resolver _) as fetcherResolver) :: restFetchers, Just currentModel ) ->
                                     case advanceResolver currentModel sim state fetcherResolver of

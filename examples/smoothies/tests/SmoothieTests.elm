@@ -391,6 +391,7 @@ concurrentFetchersTest =
         |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
         |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
         |> PagesProgram.simulateHttpPost hasuraUrl (combinedDataResponse twoItemOrders)
+        -- Server confirms 2 items. No intermediate "Checkout (1)" step!
         |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
 
 
