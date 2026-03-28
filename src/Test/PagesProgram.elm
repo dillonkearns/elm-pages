@@ -13,6 +13,7 @@ module Test.PagesProgram exposing
     , within
     , simulateDomEvent
     , simulateHttpGet, simulateHttpPost, simulateHttpError
+    , simulateHttpGetTo, simulateHttpPostTo
     , selectOption
     , done
     , Snapshot, StepKind(..), NetworkEntry, NetworkStatus(..), TargetSelector(..), FetcherEntry, FetcherStatus(..), toSnapshots, withModelToString
@@ -231,6 +232,7 @@ type Resolver model msg
     = Resolver
         { advance : Maybe model -> Simulation -> AdvanceResult model msg
         , pendingDescription : String
+        , pendingUrls : List String
         }
 
 
@@ -444,6 +446,7 @@ startPlatform config initialPath testSetup =
                         (Resolver
                             { advance = \_ _ -> AdvanceError errMsg
                             , pendingDescription = errMsg
+                            , pendingUrls = []
                             }
                         )
                 , error = Just errMsg
@@ -516,6 +519,8 @@ startPlatform config initialPath testSetup =
                                                                 continueInitialData (applySimToBt sim bt)
                                                         , pendingDescription =
                                                             stillRunningDescription runningState.pendingRequests
+                                                        , pendingUrls =
+                                                            List.map .url runningState.pendingRequests
                                                         }
                                                     )
                                                 )
@@ -531,6 +536,8 @@ startPlatform config initialPath testSetup =
                                             continueInitialData (applySimToBt sim dataBt)
                                     , pendingDescription =
                                         "Initial data pending HTTP"
+                                    , pendingUrls =
+                                        btPendingUrls dataBt
                                     }
                                 )
                             )
@@ -665,6 +672,7 @@ startPlatform config initialPath testSetup =
                                             continueActionWithBt config_ baseUrl_ makeReady_ makePlatformResolver continueDataWithBt wrappedModel fetchUrl makePhase (applySimToBt sim bt)
                                     , pendingDescription =
                                         wrappedModel.pendingDataError |> Maybe.withDefault "Pending action HTTP"
+                                    , pendingUrls = btPendingUrls bt
                                     }
                                 )
 
@@ -691,6 +699,7 @@ startPlatform config initialPath testSetup =
                                                     continueDataWithBt wrappedModel makePhase (applySimToBt sim bt)
                                             , pendingDescription =
                                                 wrappedModel.pendingDataError |> Maybe.withDefault "Pending data HTTP"
+                                            , pendingUrls = btPendingUrls bt
                                             }
                                         )
 
@@ -788,6 +797,8 @@ startPlatform config initialPath testSetup =
                                                 continueDataWithBt wrappedModel makePhase (applySimToBt sim bt)
                                         , pendingDescription =
                                             stillRunningDescription runningState.pendingRequests
+                                        , pendingUrls =
+                                            List.map .url runningState.pendingRequests
                                         }
                                     )
                                 )
@@ -914,6 +925,29 @@ simulateHttpError method url error =
                     "Timeout"
     in
     applySimulation (SimHttpError method url errorString)
+
+
+{-| Like [`simulateHttpGet`](#simulateHttpGet), but targets the resolver whose
+pending URL matches. Use when multiple resolvers are pending for different URLs
+and you want to resolve a specific one regardless of queue order.
+
+    test
+        |> PagesProgram.simulateHttpGetTo
+            "https://api.example.com/count"
+            (Encode.object [ ( "count", Encode.int 5 ) ])
+
+-}
+simulateHttpGetTo : String -> Encode.Value -> ProgramTest model msg -> ProgramTest model msg
+simulateHttpGetTo targetUrl jsonResponse =
+    applySimulationToUrl targetUrl (SimHttpGet targetUrl jsonResponse)
+
+
+{-| Like [`simulateHttpPost`](#simulateHttpPost), but targets the resolver whose
+pending URL matches.
+-}
+simulateHttpPostTo : String -> Encode.Value -> ProgramTest model msg -> ProgramTest model msg
+simulateHttpPostTo targetUrl jsonResponse =
+    applySimulationToUrl targetUrl (SimHttpPost targetUrl jsonResponse)
 
 
 {-| Select an option from a dropdown `<select>` element. Follows elm-program-test's
@@ -2616,6 +2650,107 @@ applySimulation sim (ProgramTest state) =
                                 }
 
 
+{-| Like applySimulation, but targets a resolver whose pendingUrls contains
+the given URL. Searches the phase resolver and pendingFetcherEffects.
+-}
+applySimulationToUrl : String -> Simulation -> ProgramTest model msg -> ProgramTest model msg
+applySimulationToUrl targetUrl sim (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving ((Resolver resolverRecord) as resolver) ->
+                    if List.member targetUrl resolverRecord.pendingUrls then
+                        -- Phase resolver matches the URL
+                        advanceResolverOrError Nothing sim state resolver
+
+                    else
+                        -- Phase resolver doesn't match. Search pendingFetcherEffects.
+                        case findResolverByUrl targetUrl state.pendingFetcherEffects of
+                            Just ( matchedResolver, restFetchers ) ->
+                                case state.lastReadyModel of
+                                    Just currentModel ->
+                                        case advanceResolver (Just currentModel) sim state matchedResolver of
+                                            Ok (ProgramTest newState) ->
+                                                ProgramTest { newState | pendingFetcherEffects = restFetchers }
+
+                                            Err errMsg ->
+                                                ProgramTest { state | error = Just errMsg }
+
+                                    Nothing ->
+                                        ProgramTest { state | error = Just ("simulateHttpTo: No current model available for fetcher resolver matching " ++ targetUrl) }
+
+                            Nothing ->
+                                ProgramTest
+                                    { state
+                                        | error =
+                                            Just
+                                                ("No pending resolver found for URL: "
+                                                    ++ targetUrl
+                                                    ++ "\n\nPhase resolver pending: "
+                                                    ++ resolverRecord.pendingDescription
+                                                    ++ "\n\nPending fetcher effects: "
+                                                    ++ String.fromInt (List.length state.pendingFetcherEffects)
+                                                )
+                                    }
+
+                Ready ready ->
+                    case findResolverByUrl targetUrl state.pendingFetcherEffects of
+                        Just ( matchedResolver, restFetchers ) ->
+                            case advanceResolver (Just ready.model) sim state matchedResolver of
+                                Ok (ProgramTest newState) ->
+                                    ProgramTest
+                                        { newState
+                                            | pendingFetcherEffects = restFetchers
+                                            , lastReadyModel =
+                                                case newState.phase of
+                                                    Resolving _ ->
+                                                        Just ready.model
+
+                                                    Ready _ ->
+                                                        state.lastReadyModel
+                                        }
+
+                                Err errMsg ->
+                                    ProgramTest { state | error = Just ("Fetcher effect resolution failed:\n\n" ++ errMsg) }
+
+                        Nothing ->
+                            ProgramTest
+                                { state
+                                    | error =
+                                        Just
+                                            ("No pending resolver found for URL: "
+                                                ++ targetUrl
+                                                ++ "\n\nPending fetcher effects: "
+                                                ++ String.fromInt (List.length state.pendingFetcherEffects)
+                                            )
+                                }
+
+
+{-| Find the first resolver in the list whose pendingUrls contains the target URL.
+Returns the matching resolver and the remaining list (with the match removed).
+-}
+findResolverByUrl : String -> List (Resolver model msg) -> Maybe ( Resolver model msg, List (Resolver model msg) )
+findResolverByUrl targetUrl resolvers =
+    findResolverByUrlHelp targetUrl [] resolvers
+
+
+findResolverByUrlHelp : String -> List (Resolver model msg) -> List (Resolver model msg) -> Maybe ( Resolver model msg, List (Resolver model msg) )
+findResolverByUrlHelp targetUrl before remaining =
+    case remaining of
+        [] ->
+            Nothing
+
+        ((Resolver r) as resolver) :: rest ->
+            if List.member targetUrl r.pendingUrls then
+                Just ( resolver, List.reverse before ++ rest )
+
+            else
+                findResolverByUrlHelp targetUrl (resolver :: before) rest
+
+
 {-| Record a snapshot for an assertion step (like Cypress's command log).
 Assertions show up in the timeline so you can see what was checked.
 -}
@@ -2944,6 +3079,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                                     ++ errInfo.title
                                     ++ "\n"
                                     ++ errInfo.body
+                            , pendingUrls = []
                             }
                         )
 
@@ -2968,6 +3104,8 @@ resolveDataPhase bt initFn viewFn updateFn =
                             Advanced (resolveDataPhase newBt initFn viewFn updateFn)
                     , pendingDescription =
                         stillRunningDescription runningState.pendingRequests
+                    , pendingUrls =
+                        List.map .url runningState.pendingRequests
                     }
                 )
 
@@ -2976,6 +3114,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                 (Resolver
                     { advance = \_ _ -> AdvanceError msg
                     , pendingDescription = msg
+                    , pendingUrls = []
                     }
                 )
 
@@ -3695,6 +3834,8 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                                                     AdvanceError ("Fetcher action resolution failed:\n\n" ++ errMsg)
                                     , pendingDescription =
                                         stillRunningDescription runningState.pendingRequests
+                                    , pendingUrls =
+                                        List.map .url runningState.pendingRequests
                                     }
                         in
                         ( { wrappedModel
@@ -3984,6 +4125,19 @@ applySimToBt sim bt =
             BackendTaskTest.simulateHttpError method url errorString bt
 
 
+{-| Extract pending HTTP URLs from a BackendTaskTest. Used to populate
+the Resolver's pendingUrls field for URL-targeted simulation.
+-}
+btPendingUrls : BackendTaskTest.BackendTaskTest a -> List String
+btPendingUrls bt =
+    case bt of
+        BackendTaskTest.Running runningState ->
+            List.map .url runningState.pendingRequests
+
+        _ ->
+            []
+
+
 {-| Handle the result of advancing an action BackendTaskTest after simulation.
 When Done, processes the action result (redirect, render, etc).
 When Running, creates a Resolver capturing the BackendTaskTest for subsequent sims.
@@ -4054,6 +4208,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                                                         continueDataWithBt processedWrapped dataMakePhase (applySimToBt sim dataBt)
                                                 , pendingDescription =
                                                     processedWrapped.pendingDataError |> Maybe.withDefault "Pending data HTTP after action redirect"
+                                                , pendingUrls = btPendingUrls dataBt
                                                 }
                                             )
                                         )
@@ -4135,6 +4290,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                                                 continueDataWithBt updatedModel makePhase (applySimToBt sim2 dataBt)
                                         , pendingDescription =
                                             "Pending data HTTP after action"
+                                        , pendingUrls = btPendingUrls dataBt
                                         }
                                     )
                                 )
@@ -4158,6 +4314,8 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                                 continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataWithBt wrappedModel fetchUrl makePhase (applySimToBt sim bt)
                         , pendingDescription =
                             stillRunningDescription runningState.pendingRequests
+                        , pendingUrls =
+                            List.map .url runningState.pendingRequests
                         }
                     )
                 )

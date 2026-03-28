@@ -139,6 +139,27 @@ suite =
                         (Encode.object [ ( "count", Encode.int 0 ) ])
                     |> PagesProgram.ensureViewHas [ text "Count: 0" ]
                     |> PagesProgram.done
+        , test "fetcher-http: URL-targeted simulation" <|
+            \() ->
+                -- Use simulateHttpGetTo to target specific URLs regardless of order
+                TestApp.start "/fetcher-http"
+                    BackendTaskTest.init
+                    |> PagesProgram.simulateHttpGetTo
+                        "https://api.example.com/count"
+                        (Encode.object [ ( "count", Encode.int 0 ) ])
+                    |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    |> PagesProgram.clickButton "Increment"
+                    |> PagesProgram.ensureViewHas [ text "Count: 1" ]
+                    -- Resolve by URL (not order): target mutation directly
+                    |> PagesProgram.simulateHttpGetTo
+                        "https://api.example.com/increment"
+                        (Encode.object [])
+                    -- Data reload
+                    |> PagesProgram.simulateHttpGetTo
+                        "https://api.example.com/count"
+                        (Encode.object [ ( "count", Encode.int 1 ) ])
+                    |> PagesProgram.ensureViewHas [ text "Count: 2" ]
+                    |> PagesProgram.done
         , test "fetcher-http: single increment with optimistic UI" <|
             \() ->
                 TestApp.start "/fetcher-http"
