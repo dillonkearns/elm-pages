@@ -1,7 +1,7 @@
 module Tui.CommandPalette exposing
     ( State, open
     , typeChar, backspace, navigateDown, navigateUp
-    , selected, viewBody, viewFooter, title
+    , selected, viewBody, viewBodyWithMaxRows, viewFooter, title
     )
 
 {-| Command palette — browse and execute keybinding actions in one step.
@@ -25,7 +25,7 @@ Built on [`Tui.Picker`](Tui-Picker) and [`Tui.Keybinding`](Tui-Keybinding).
     -- Render with Modal.overlay:
     Modal.overlay
         { title = CommandPalette.title
-        , body = CommandPalette.viewBody model.palette
+        , body = CommandPalette.viewBodyWithMaxRows (Modal.maxBodyRows ctx.height) model.palette
         , footer = CommandPalette.viewFooter model.palette
         , width = 50
         }
@@ -33,7 +33,7 @@ Built on [`Tui.Picker`](Tui-Picker) and [`Tui.Keybinding`](Tui-Keybinding).
 
 @docs State, open
 @docs typeChar, backspace, navigateDown, navigateUp
-@docs selected, viewBody, viewFooter, title
+@docs selected, viewBody, viewBodyWithMaxRows, viewFooter, title
 
 -}
 
@@ -137,6 +137,131 @@ title =
 viewBody : State action -> List Tui.Screen
 viewBody (State s) =
     let
+        ( headerRows, entryRows ) =
+            paletteBodyRows s
+    in
+    headerRows ++ entryRows
+
+
+{-| Render the palette body clamped to a maximum number of rows, keeping the
+selected action visible.
+
+This is the preferred rendering helper for long command palettes in modals:
+
+    Modal.overlay
+        { title = CommandPalette.title
+        , body = CommandPalette.viewBodyWithMaxRows (Modal.maxBodyRows ctx.height) paletteState
+        , footer = CommandPalette.viewFooter paletteState
+        , width = Modal.defaultWidth ctx.width
+        }
+        dims
+        bgRows
+
+If the palette is shorter than `maxRows`, all rows are returned unchanged. If it
+overflows, the returned list is padded so the modal height stays stable near the
+end of the list.
+
+-}
+viewBodyWithMaxRows : Int -> State action -> List Tui.Screen
+viewBodyWithMaxRows maxRows (State s) =
+    let
+        ( headerRows, entryRows ) =
+            paletteBodyRows s
+
+        visibleEntryRows : Int
+        visibleEntryRows =
+            max 0 (maxRows - List.length headerRows)
+
+        scrollPadding : Int
+        scrollPadding =
+            if visibleEntryRows > 2 then
+                1
+
+            else
+                0
+
+        scrollOffset : Int
+        scrollOffset =
+            scrollOffsetForSelectedRow s.selectedIndex visibleEntryRows (List.length entryRows) scrollPadding
+
+        windowedEntryRows : List Tui.Screen
+        windowedEntryRows =
+            if visibleEntryRows <= 0 then
+                []
+
+            else
+                entryRows
+                    |> List.drop scrollOffset
+                    |> List.take visibleEntryRows
+
+        paddedEntryRows : List Tui.Screen
+        paddedEntryRows =
+            if List.length entryRows > visibleEntryRows && List.length windowedEntryRows < visibleEntryRows then
+                windowedEntryRows
+                    ++ List.repeat (visibleEntryRows - List.length windowedEntryRows) Tui.empty
+
+            else
+                windowedEntryRows
+    in
+    if maxRows <= 0 then
+        []
+
+    else if maxRows == 1 then
+        List.take 1 headerRows
+
+    else if List.length headerRows + List.length entryRows <= maxRows then
+        headerRows ++ entryRows
+
+    else
+        headerRows ++ paddedEntryRows
+
+
+{-| Render a footer string.
+-}
+viewFooter : State action -> String
+viewFooter (State s) =
+    let
+        count =
+            List.length (getVisible s)
+    in
+    String.fromInt count ++ " actions │ Enter: execute │ Esc: cancel"
+
+
+
+-- INTERNAL
+
+
+getVisible : { a | entries : List (Entry action), filterText : String } -> List (Entry action)
+getVisible s =
+    if String.isEmpty s.filterText then
+        s.entries
+
+    else
+        s.entries
+            |> List.filterMap
+                (\entry ->
+                    if FuzzyMatch.match s.filterText entry.description then
+                        Just ( FuzzyMatch.score s.filterText entry.description, entry )
+
+                    else if FuzzyMatch.match s.filterText entry.keyLabel then
+                        Just ( FuzzyMatch.score s.filterText entry.keyLabel, entry )
+
+                    else
+                        Nothing
+                )
+            |> List.sortBy (\( sc, _ ) -> negate sc)
+            |> List.map Tuple.second
+
+
+paletteBodyRows :
+    { a
+        | entries : List (Entry action)
+        , filterText : String
+        , selectedIndex : Int
+    }
+    -> ( List Tui.Screen, List Tui.Screen )
+paletteBodyRows s =
+    let
         entries =
             getVisible s
 
@@ -175,41 +300,24 @@ viewBody (State s) =
                                 ]
                     )
     in
-    filterRow :: Tui.blank :: entryRows
+    ( [ filterRow, Tui.blank ], entryRows )
 
 
-{-| Render a footer string.
--}
-viewFooter : State action -> String
-viewFooter (State s) =
+scrollOffsetForSelectedRow : Int -> Int -> Int -> Int -> Int
+scrollOffsetForSelectedRow selectedRow visibleRows totalRows padding =
     let
-        count =
-            List.length (getVisible s)
+        maxOffset : Int
+        maxOffset =
+            max 0 (totalRows - visibleRows)
     in
-    String.fromInt count ++ " actions │ Enter: execute │ Esc: cancel"
+    if visibleRows <= 0 then
+        0
 
+    else if selectedRow < padding then
+        0
 
-
--- INTERNAL
-
-
-getVisible : { a | entries : List (Entry action), filterText : String } -> List (Entry action)
-getVisible s =
-    if String.isEmpty s.filterText then
-        s.entries
+    else if selectedRow > visibleRows - 1 - padding then
+        clamp 0 maxOffset (selectedRow - visibleRows + 1 + padding)
 
     else
-        s.entries
-            |> List.filterMap
-                (\entry ->
-                    if FuzzyMatch.match s.filterText entry.description then
-                        Just ( FuzzyMatch.score s.filterText entry.description, entry )
-
-                    else if FuzzyMatch.match s.filterText entry.keyLabel then
-                        Just ( FuzzyMatch.score s.filterText entry.keyLabel, entry )
-
-                    else
-                        Nothing
-                )
-            |> List.sortBy (\( sc, _ ) -> negate sc)
-            |> List.map Tuple.second
+        0
