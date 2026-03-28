@@ -9,7 +9,16 @@ module Tui.Screen.Internal exposing
     , extractStyle
     )
 
-{-| Internal module for Screen types and flattening. NOT exposed to users.
+{-| Internal module for Screen types and flattening.
+
+@docs Screen, Span, FlatStyle
+@docs flattenToSpanLines, defaultFlatStyle
+@docs applyStyle
+@docs spanToScreen, spansToScreen
+@docs truncateSpans
+@docs wrapSpans
+@docs extractStyle
+
 -}
 
 import Ansi.Color
@@ -48,6 +57,8 @@ type alias FlatStyle =
     }
 
 
+{-| Default style with no attributes set.
+-}
 defaultFlatStyle : FlatStyle
 defaultFlatStyle =
     { bold = False
@@ -139,11 +150,15 @@ flattenToSpanLines toFlatStyle screen =
             [ allFirstLineSpans ]
 
 
+{-| Convert a Span to a Screen.
+-}
 spanToScreen : (FlatStyle -> style) -> Span -> Screen style
 spanToScreen fromFlatStyle span =
     ScreenStyled (fromFlatStyle span.style) span.text
 
 
+{-| Convert a list of Spans to a Screen.
+-}
 spansToScreen : (FlatStyle -> style) -> List Span -> Screen style
 spansToScreen fromFlatStyle spans =
     case spans of
@@ -156,6 +171,8 @@ spansToScreen fromFlatStyle spans =
                 |> ScreenConcat
 
 
+{-| Truncate spans to fit within a character count, adding an ellipsis if needed.
+-}
 truncateSpans : Int -> List Span -> List Span
 truncateSpans remaining spans =
     -- elm-review: known-unoptimized-recursion
