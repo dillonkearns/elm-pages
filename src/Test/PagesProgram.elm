@@ -1610,28 +1610,57 @@ clickLink linkText href (ProgramTest state) =
                         query =
                             renderScopedView ready
 
+                        linkSelectors : List Selector.Selector
+                        linkSelectors =
+                            [ Selector.tag "a"
+                            , Selector.attribute (Html.Attributes.href href)
+                            , Selector.containing [ Selector.text linkText ]
+                            ]
+
                         -- Verify link exists in the view
                         linkExists : Expectation
                         linkExists =
                             query
-                                |> Query.find
-                                    [ Selector.tag "a"
-                                    , Selector.containing [ Selector.text linkText ]
-                                    ]
+                                |> Query.find linkSelectors
                                 |> Query.has []
                     in
                     case getFailureMessage linkExists of
                         Just errMsg ->
-                            ProgramTest
-                                { state
-                                    | error =
-                                        Just
-                                            ("clickLink \""
-                                                ++ linkText
-                                                ++ "\" failed: link not found\n\n"
-                                                ++ errMsg
-                                            )
-                                }
+                            let
+                                sameTextLinkExists =
+                                    query
+                                        |> Query.find
+                                            [ Selector.tag "a"
+                                            , Selector.containing [ Selector.text linkText ]
+                                            ]
+                                        |> Query.has []
+                            in
+                            case getFailureMessage sameTextLinkExists of
+                                Nothing ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just
+                                                    ("clickLink \""
+                                                        ++ linkText
+                                                        ++ "\" failed: found link text, but no link with href \""
+                                                        ++ href
+                                                        ++ "\"\n\n"
+                                                        ++ errMsg
+                                                    )
+                                        }
+
+                                Just _ ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just
+                                                    ("clickLink \""
+                                                        ++ linkText
+                                                        ++ "\" failed: link not found\n\n"
+                                                        ++ errMsg
+                                                    )
+                                        }
 
                         Nothing ->
                             -- Link exists. Navigate using onNavigate if available.
@@ -1649,10 +1678,7 @@ clickLink linkText href (ProgramTest state) =
                                     let
                                         linkQuery =
                                             query
-                                                |> Query.find
-                                                    [ Selector.tag "a"
-                                                    , Selector.containing [ Selector.text linkText ]
-                                                    ]
+                                                |> Query.find linkSelectors
 
                                         eventResult =
                                             linkQuery
@@ -1663,8 +1689,17 @@ clickLink linkText href (ProgramTest state) =
                                         Ok msg ->
                                             applyMsgWithLabel ("clickLink \"" ++ linkText ++ "\"") Interaction (Just (ByTagAndText "a" linkText)) msg (ProgramTest state)
 
-                                        Err _ ->
-                                            ProgramTest state
+                                        Err clickErr ->
+                                            ProgramTest
+                                                { state
+                                                    | error =
+                                                        Just
+                                                            ("clickLink \""
+                                                                ++ linkText
+                                                                ++ "\" failed: no navigation handler or click handler found.\n"
+                                                                ++ clickErr
+                                                            )
+                                                }
 
 
 {-| Navigate directly to a URL path. In framework-driven tests, this triggers

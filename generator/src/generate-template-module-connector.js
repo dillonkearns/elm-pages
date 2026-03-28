@@ -319,10 +319,9 @@ submit toMsg options =
 }
 
 /**
- * Generate the TestApp module that exposes test configs for each route.
- * Uses Test.PagesProgram.Route.fromStatefulRoute so each route config is
- * a one-liner. Project-specific adapters (Effect, Shared, View) are defined
- * once and shared across all routes.
+ * Generate the TestApp module used by framework-driven ProgramTests.
+ * It exposes a single start helper backed by Test.PagesProgram.startPlatform,
+ * which drives the real elm-pages runtime for higher-fidelity route tests.
  * @param {string[][]} templates
  * @returns {string}
  */

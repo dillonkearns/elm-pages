@@ -1323,6 +1323,56 @@ all =
                         |> PagesProgram.clickLink "Go somewhere" "/somewhere"
                         |> PagesProgram.done
                         |> expectFailContaining "clickLink"
+            , test "clickLink fails when the href does not match the rendered link" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { page = "home" }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Navigate url ->
+                                        ( { model | page = url }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Nav"
+                                , body =
+                                    [ Html.a
+                                        [ Attr.href "/team"
+                                        , Html.Events.onClick (Navigate "/team")
+                                        ]
+                                        [ Html.text "About" ]
+                                    , Html.text ("Page: " ++ model.page)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickLink "About" "/about"
+                        |> PagesProgram.done
+                        |> expectFailContaining "no link with href"
+            , test "clickLink fails instead of silently succeeding when the link cannot navigate" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { page = "home" }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Navigate url ->
+                                        ( { model | page = url }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Nav"
+                                , body =
+                                    [ Html.a
+                                        [ Attr.href "/about" ]
+                                        [ Html.text "About" ]
+                                    , Html.text ("Page: " ++ model.page)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickLink "About" "/about"
+                        |> PagesProgram.done
+                        |> expectFailContaining "no navigation handler or click handler found"
             , test "clickLink finds link by text and simulates click" <|
                 \() ->
                     PagesProgram.start

@@ -5,6 +5,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
+import * as globby from "globby";
 
 // Cache for lamdera executable check
 let lamderaVerified = false;
@@ -934,6 +935,15 @@ export function findProgramTestValues(filePath) {
   return findAnnotatedValues(filePath, /ProgramTest/);
 }
 
+export function discoverProgramTestModules(
+  searchRoots = [
+    { glob: "tests/**/*.elm", baseDir: "tests" },
+    { glob: "snapshot-tests/src/**/*.elm", baseDir: "snapshot-tests/src" },
+  ]
+) {
+  return discoverAnnotatedModules(searchRoots, findProgramTestValues);
+}
+
 
 /**
  * Scan an Elm source file for exposed TuiTest values.
@@ -986,13 +996,59 @@ function findAnnotatedValues(filePath, typePattern) {
 
     // Filter to values whose type annotation matches the pattern
     return exposedNames.filter((name) => {
-      const annotationRegex = new RegExp(
-        `^${name}\\s*:.*${typePattern.source}`,
-        "m"
-      );
-      return annotationRegex.test(content);
+      const annotation = findTopLevelAnnotation(content, name);
+      return annotation !== null && typePattern.test(annotation);
     });
   } catch (_) {
     return [];
   }
+}
+
+function findTopLevelAnnotation(content, name) {
+  const lines = content.split(/\r?\n/);
+  const annotationStart = new RegExp(`^${name}\\s*:`);
+
+  for (let index = 0; index < lines.length; index++) {
+    if (!annotationStart.test(lines[index])) {
+      continue;
+    }
+
+    const annotationLines = [lines[index]];
+
+    for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex++) {
+      if (/^[a-z][a-zA-Z0-9_]*\s*(?::|=)/.test(lines[nextIndex])) {
+        break;
+      }
+
+      annotationLines.push(lines[nextIndex]);
+    }
+
+    return annotationLines.join("\n");
+  }
+
+  return null;
+}
+
+function discoverAnnotatedModules(searchRoots, findValues) {
+  const discovered = [];
+
+  for (const { glob, baseDir } of searchRoots) {
+    const files = globby.globbySync([glob]);
+
+    for (const file of files) {
+      const values = findValues(file);
+      if (values.length === 0) {
+        continue;
+      }
+
+      const moduleName = path
+        .relative(baseDir, file)
+        .replace(/\.elm$/, "")
+        .replace(/[/\\]/g, ".");
+
+      discovered.push({ moduleName, file, values });
+    }
+  }
+
+  return discovered;
 }

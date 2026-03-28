@@ -6,10 +6,13 @@ module Test.PagesProgram.Route exposing
     , mapPagesMsg
     )
 
-{-| Utilities for adapting elm-pages route modules for use with
-[`Test.PagesProgram`](Test-PagesProgram). The main entry point is
-[`fromStatefulRoute`](#fromStatefulRoute), which the generated `TestApp`
-module uses. Most users won't need to import this module directly.
+{-| Legacy utilities for adapting elm-pages route modules for use with
+[`Test.PagesProgram`](Test-PagesProgram).
+
+The generated `TestApp` module now uses
+[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform)
+directly for full-fidelity framework tests, so most users should not need to
+import this module directly.
 
 @docs fromStatefulRoute
 
@@ -33,12 +36,13 @@ import UrlPath
 
 
 {-| Adapt a route's `StatefulRoute` record into the config format that
-`Test.PagesProgram.start` expects. This is the core adapter -- one function
-handles all route types (static, dynamic, stateless, stateful, single,
-preRender, serverRender) because `RouteBuilder` normalizes them all to the
-same field signatures.
+`Test.PagesProgram.start` expects.
 
-The generated `TestApp` module calls this for each route:
+This helper predates the framework-driven `startPlatform` test path. It can
+still be useful for lower-level route harnesses, but the generated `TestApp`
+module no longer calls it.
+
+Historical usage looked like:
 
     -- Generated TestApp.elm
     index routeParams =
@@ -182,5 +186,4 @@ mapPagesMsg pagesMsg =
 
         _ ->
             Nothing
-
 

@@ -11,12 +11,13 @@
 
 import * as path from "node:path";
 import * as fs from "node:fs";
-import * as globby from "globby";
 import { restoreColorSafe } from "../error-formatter.js";
+import { resolveTestInputPath } from "../resolve-elm-module.js";
 import {
-  resolveTestInputPath,
-} from "../resolve-elm-module.js";
-import { printCaughtError, findProgramTestValues } from "./shared.js";
+  printCaughtError,
+  findProgramTestValues,
+  discoverProgramTestModules,
+} from "./shared.js";
 import {
   ensureDirSync,
   writeFileIfChanged,
@@ -41,33 +42,26 @@ export async function run(elmModulePath, options) {
     console.log("Generating elm-pages code...");
     await generate(".");
 
-    let moduleName, sourceDirectory, projectDirectory;
+    let projectDirectory;
+    let allTests = [];
 
     if (elmModulePath && elmModulePath !== "") {
       const resolved = await resolveTestInputPath(elmModulePath);
-      moduleName = resolved.moduleName;
-      sourceDirectory = resolved.sourceDirectory;
       projectDirectory = resolved.projectDirectory;
-    } else {
-      // Auto-discover test files
-      const testFiles = globby.globbySync(["tests/**/*.elm"]);
-      const candidates = [];
-
-      for (const file of testFiles) {
-        const values = findProgramTestValues(file);
-        if (values.length > 0) {
-          const relPath = path.relative("tests", file);
-          const modName = relPath
-            .replace(/\.elm$/, "")
-            .replace(/\//g, ".")
-            .replace(/\\/g, ".");
-          candidates.push({ moduleName: modName, file, values });
-        }
+      const filePath = path.join(
+        resolved.sourceDirectory,
+        resolved.moduleName.replace(/\./g, "/") + ".elm"
+      );
+      const values = findProgramTestValues(filePath);
+      if (values.length > 0) {
+        allTests.push({ moduleName: resolved.moduleName, values });
       }
+    } else {
+      const candidates = discoverProgramTestModules();
 
       if (candidates.length === 0) {
         console.error(
-          "No ProgramTest values found in tests/.\n\n" +
+          "No ProgramTest values found in tests/ or snapshot-tests/src/.\n\n" +
             "Create a test module that exposes values with a ProgramTest type annotation:\n\n" +
             "    myTest : ProgramTest Model Msg\n" +
             "    myTest =\n" +
@@ -77,28 +71,11 @@ export async function run(elmModulePath, options) {
         process.exit(1);
       }
 
-      // Use all discovered test modules
-      moduleName = candidates.map((c) => c.moduleName);
-      sourceDirectory = "tests";
       projectDirectory = ".";
-    }
-
-    // If moduleName is a string (single file), find test values in it
-    const modules = Array.isArray(moduleName) ? moduleName : [moduleName];
-    const allTests = [];
-
-    for (const mod of modules) {
-      const filePath = Array.isArray(moduleName)
-        ? path.join("tests", mod.replace(/\./g, "/") + ".elm")
-        : path.join(
-            sourceDirectory || ".",
-            mod.replace(/\./g, "/") + ".elm"
-          );
-
-      const values = findProgramTestValues(filePath);
-      if (values.length > 0) {
-        allTests.push({ moduleName: mod, values });
-      }
+      allTests = candidates.map(({ moduleName, values }) => ({
+        moduleName,
+        values,
+      }));
     }
 
     if (allTests.length === 0) {
@@ -117,6 +94,8 @@ export async function run(elmModulePath, options) {
     // Generate viewer wrapper module
     // Write generated files to the isolated test-viewer build directory
     const outputPath = path.resolve("tests/viewer.html");
+    const outputScriptPath = path.resolve("tests/viewer.js");
+    const previewOutputPath = path.resolve("tests/viewer-preview.html");
     ensureDirSync(path.dirname(outputPath));
 
     console.log("Compiling test viewer...");
@@ -137,10 +116,14 @@ export async function run(elmModulePath, options) {
     const elmJsonPath = path.resolve(projDir, "elm.json");
     const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
     const testViewerElmJson = { ...elmJson };
+    const extraSourceDirectories = ["tests"];
+    if (fs.existsSync(path.resolve(projDir, "snapshot-tests/src"))) {
+      extraSourceDirectories.push("snapshot-tests/src");
+    }
     testViewerElmJson["source-directories"] = elmJson["source-directories"]
       .filter((dir) => !dir.includes("elm-stuff/elm-pages/test-viewer"))
       .map((dir) => path.join("../../..", dir))
-      .concat(["../../../tests", "."]);
+      .concat(extraSourceDirectories.map((dir) => path.join("../../..", dir)), ["."]);
     fs.writeFileSync(
       path.join(testViewerBuildDir, "elm.json"),
       JSON.stringify(testViewerElmJson, null, 4)
@@ -163,7 +146,7 @@ export async function run(elmModulePath, options) {
       [
         "make",
         "TestViewer.elm",
-        `--output=${outputPath}`,
+        `--output=${outputScriptPath}`,
         "--debug",
       ],
       {
@@ -176,6 +159,15 @@ export async function run(elmModulePath, options) {
       console.error("Failed to compile test viewer.");
       process.exit(1);
     }
+
+    await writeFileIfChanged(
+      outputPath,
+      renderStaticViewerHtml({
+        scriptSrc: path.basename(outputScriptPath),
+        previewSrc: path.basename(previewOutputPath),
+      })
+    );
+    await writeFileIfChanged(previewOutputPath, renderStaticViewerPreviewHtml());
 
     console.log(`\nViewer compiled to: ${outputPath}`);
 
@@ -236,4 +228,164 @@ main =
         [ ${testEntries}
         ]
 `;
+}
+
+export function renderStaticViewerHtml({ scriptSrc, previewSrc }) {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>elm-pages Test Viewer</title>
+</head>
+<body>
+  <div id="app"></div>
+  <script src="${scriptSrc}"></script>
+  <script>
+    Elm.TestViewer.init({ node: document.getElementById("app") });
+
+    var previewSrc = ${JSON.stringify(previewSrc)};
+    var lastSynced = "";
+    var lastHighlightJson = "";
+    var lastScrolledHighlight = "";
+
+    function syncProperties(source, target) {
+      var sourceInputs = source.querySelectorAll('input, textarea, select');
+      var targetInputs = target.querySelectorAll('input, textarea, select');
+      for (var i = 0; i < sourceInputs.length && i < targetInputs.length; i++) {
+        if (sourceInputs[i].value !== targetInputs[i].value) {
+          targetInputs[i].value = sourceInputs[i].value;
+        }
+        if (sourceInputs[i].checked !== targetInputs[i].checked) {
+          targetInputs[i].checked = sourceInputs[i].checked;
+        }
+      }
+    }
+
+    function findHighlightTarget(doc, selector) {
+      if (!selector) return null;
+      switch (selector.type) {
+        case "id":
+          return doc.getElementById(selector.id);
+        case "tag":
+          return doc.querySelector(selector.tag);
+        case "tag-text": {
+          var els = doc.querySelectorAll(selector.tag);
+          for (var i = 0; i < els.length; i++) {
+            if (els[i].textContent.trim().indexOf(selector.text) !== -1) return els[i];
+          }
+          return null;
+        }
+        case "form-field": {
+          var form = doc.getElementById(selector.formId);
+          if (form) {
+            var input = form.querySelector('[name="' + selector.fieldName + '"]');
+            if (input) return input;
+          }
+          return null;
+        }
+        case "label-text": {
+          var labels = doc.querySelectorAll("label");
+          for (var j = 0; j < labels.length; j++) {
+            if (labels[j].textContent.indexOf(selector.text) !== -1) {
+              var inp = labels[j].querySelector("input, textarea, select");
+              if (inp) return inp;
+            }
+          }
+          return null;
+        }
+        default:
+          return null;
+      }
+    }
+
+    function updateHighlight(iframeDoc, pageBody) {
+      var highlightJson = pageBody ? pageBody.getAttribute("data-highlight") : null;
+
+      if (highlightJson !== lastHighlightJson) {
+        var old = iframeDoc.querySelectorAll(".__elm-pages-highlight");
+        for (var i = 0; i < old.length; i++) old[i].remove();
+        lastHighlightJson = highlightJson;
+      }
+
+      if (!highlightJson) return;
+
+      var selector;
+      try { selector = JSON.parse(highlightJson); } catch (e) { return; }
+
+      var el = findHighlightTarget(iframeDoc, selector);
+      if (!el) {
+        var stale = iframeDoc.querySelectorAll(".__elm-pages-highlight");
+        for (var s = 0; s < stale.length; s++) stale[s].remove();
+        return;
+      }
+
+      if (highlightJson !== lastScrolledHighlight) {
+        el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        lastScrolledHighlight = highlightJson;
+      }
+
+      var rect = el.getBoundingClientRect();
+      var scrollX = iframeDoc.defaultView.scrollX || 0;
+      var scrollY = iframeDoc.defaultView.scrollY || 0;
+
+      var overlay = iframeDoc.querySelector(".__elm-pages-highlight");
+      if (!overlay) {
+        overlay = iframeDoc.createElement("div");
+        overlay.className = "__elm-pages-highlight";
+        overlay.style.cssText = "position:absolute;pointer-events:none;z-index:2147483647;border:2px solid #a855f7;background:rgba(168,85,247,0.1);border-radius:3px;transition:all 0.15s ease;box-sizing:border-box;";
+        iframeDoc.body.appendChild(overlay);
+      }
+
+      overlay.style.top = (rect.top + scrollY) + "px";
+      overlay.style.left = (rect.left + scrollX) + "px";
+      overlay.style.width = rect.width + "px";
+      overlay.style.height = rect.height + "px";
+    }
+
+    function ensurePreviewFrame() {
+      var iframe = document.getElementById("preview-iframe");
+      if (iframe && iframe.getAttribute("src") !== previewSrc) {
+        iframe.setAttribute("src", previewSrc);
+      }
+      return iframe;
+    }
+
+    setInterval(function() {
+      var iframe = ensurePreviewFrame();
+      if (!iframe) return;
+
+      try {
+        var target = iframe.contentDocument && iframe.contentDocument.getElementById("preview-root");
+        if (!target) return;
+
+        var pageBody = document.querySelector(".page-body");
+        var html = pageBody ? pageBody.innerHTML : "";
+        if (html !== lastSynced) {
+          target.innerHTML = html;
+          lastSynced = html;
+        }
+
+        if (pageBody) syncProperties(pageBody, target);
+        updateHighlight(iframe.contentDocument, pageBody);
+      } catch (e) {
+        // iframe may not be ready yet
+      }
+    }, 50);
+  </script>
+</body>
+</html>`;
+}
+
+export function renderStaticViewerPreviewHtml() {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+  <div id="preview-root"></div>
+</body>
+</html>`;
 }

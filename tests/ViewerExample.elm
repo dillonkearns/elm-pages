@@ -1,9 +1,11 @@
 module ViewerExample exposing (main)
 
-{-| A standalone example of the visual test runner. Compile with:
+{-| A standalone example of the Elm visual runner UI.
 
-    cd tests/viewer-app && elm make ../ViewerExample.elm --output=../viewer.html
-    open tests/viewer.html
+For the full page-preview experience, use `elm-pages test-view`, which
+generates the HTML shell that syncs snapshots into the preview iframe.
+Compiling this module directly is still useful for iterating on the Elm app
+itself, but it does not include that outer shell.
 
 -}
 

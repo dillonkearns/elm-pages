@@ -369,26 +369,14 @@ export async function start(options) {
   }
 
   async function compileTestViewer() {
-    const { findProgramTestValues } = await import("./commands/shared.js");
+    const { discoverProgramTestModules } = await import("./commands/shared.js");
     const { writeFileIfChanged, ensureDirSync } = await import(
       "./file-helpers.js"
     );
 
-    // Discover test files with ProgramTest values
-    const testFiles = await import("globby").then((g) =>
-      g.globbySync(["tests/**/*.elm"])
+    const allTests = discoverProgramTestModules().map(
+      ({ moduleName, values }) => ({ moduleName, values })
     );
-    const allTests = [];
-    for (const file of testFiles) {
-      const values = findProgramTestValues(file);
-      if (values.length > 0) {
-        const relPath = path.relative("tests", file);
-        const modName = relPath
-          .replace(/\.elm$/, "")
-          .replace(/[/\\]/g, ".");
-        allTests.push({ moduleName: modName, values });
-      }
-    }
 
     if (allTests.length === 0) {
       return;
@@ -442,10 +430,14 @@ main =
       fs.readFileSync(path.resolve("elm.json"), "utf8")
     );
     const testViewerElmJson = { ...elmJson };
+    const extraSourceDirectories = ["tests"];
+    if (fs.existsSync(path.resolve("snapshot-tests/src"))) {
+      extraSourceDirectories.push("snapshot-tests/src");
+    }
     testViewerElmJson["source-directories"] = elmJson["source-directories"]
       .filter((dir) => !dir.includes("elm-stuff/elm-pages/test-viewer"))
       .map((dir) => path.join("../../..", dir))
-      .concat(["../../../tests", "."]);
+      .concat(extraSourceDirectories.map((dir) => path.join("../../..", dir)), ["."]);
     fs.writeFileSync(
       path.join(testViewerDir, "elm.json"),
       JSON.stringify(testViewerElmJson, null, 4)

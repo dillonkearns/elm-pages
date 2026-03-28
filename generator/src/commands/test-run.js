@@ -11,9 +11,13 @@
 
 import * as path from "node:path";
 import * as fs from "node:fs";
-import * as globby from "globby";
 import { restoreColorSafe } from "../error-formatter.js";
-import { findProgramTestValues, printCaughtError } from "./shared.js";
+import { resolveTestInputPath } from "../resolve-elm-module.js";
+import {
+  discoverProgramTestModules,
+  findProgramTestValues,
+  printCaughtError,
+} from "./shared.js";
 import { ensureDirSync, writeFileIfChanged } from "../file-helpers.js";
 import { generate } from "../codegen.js";
 
@@ -35,30 +39,24 @@ export async function run(elmModulePath, options) {
     console.log("Generating elm-pages code...");
     await generate(".");
 
-    // Discover test files with ProgramTest values
     let allTests = [];
 
     if (elmModulePath && elmModulePath !== "") {
-      const relPath = path.relative("tests", elmModulePath);
-      const modName = relPath
-        .replace(/\.elm$/, "")
-        .replace(/[/\\]/g, ".");
-      const values = findProgramTestValues(elmModulePath);
+      const resolved = await resolveTestInputPath(elmModulePath);
+      const modName = resolved.moduleName;
+      const filePath = path.join(
+        resolved.sourceDirectory,
+        modName.replace(/\./g, "/") + ".elm"
+      );
+      const values = findProgramTestValues(filePath);
       if (values.length > 0) {
         allTests.push({ moduleName: modName, values });
       }
     } else {
-      const testFiles = globby.globbySync(["tests/**/*.elm"]);
-      for (const file of testFiles) {
-        const values = findProgramTestValues(file);
-        if (values.length > 0) {
-          const relPath = path.relative("tests", file);
-          const modName = relPath
-            .replace(/\.elm$/, "")
-            .replace(/[/\\]/g, ".");
-          allTests.push({ moduleName: modName, values });
-        }
-      }
+      allTests = discoverProgramTestModules().map(({ moduleName, values }) => ({
+        moduleName,
+        values,
+      }));
     }
 
     if (allTests.length === 0) {
@@ -106,11 +104,18 @@ export async function run(elmModulePath, options) {
     const elmJsonPath = path.resolve("elm.json");
     const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
     const testRunnerElmJson = { ...elmJson };
+    const extraSourceDirectories = ["tests"];
+    if (fs.existsSync(path.resolve("snapshot-tests/src"))) {
+      extraSourceDirectories.push("snapshot-tests/src");
+    }
     testRunnerElmJson["source-directories"] = elmJson["source-directories"]
       .filter((dir) => !dir.includes("elm-stuff/elm-pages/test-run"))
       .filter((dir) => !dir.includes("elm-stuff/elm-pages/test-viewer"))
       .map((dir) => path.join("../../..", dir))
-      .concat(["../../../tests", "../test-viewer"]);
+      .concat(
+        extraSourceDirectories.map((dir) => path.join("../../..", dir)),
+        ["../test-viewer"]
+      );
     fs.writeFileSync(
       path.join(testRunDir, "elm.json"),
       JSON.stringify(testRunnerElmJson, null, 4)
