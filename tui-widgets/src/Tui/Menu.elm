@@ -383,22 +383,22 @@ type alias RenderedRow =
 renderBodyRows : State msg -> List RenderedRow
 renderBodyRows (State s) =
     let
-        allItems : List (ItemData msg)
-        allItems =
-            s.sections |> List.concatMap .items
+        indexedSections : List { name : String, items : List ( Int, ItemData msg ) }
+        indexedSections =
+            indexSectionItems 0 s.sections
 
         enabledItems : List ( Int, ItemData msg )
         enabledItems =
-            allItems
-                |> List.indexedMap Tuple.pair
-                |> List.filter
-                    (\( _, i ) ->
-                        case i.result of
+            indexedSections
+                |> List.concatMap .items
+                |> List.filterMap
+                    (\( flatIndex, itemData ) ->
+                        case itemData.result of
                             Enabled _ ->
-                                True
+                                Just ( flatIndex, itemData )
 
                             Disabled _ ->
-                                False
+                                Nothing
                     )
 
         highlightedFlatIndex : Maybe Int
@@ -408,29 +408,22 @@ renderBodyRows (State s) =
                 |> List.head
                 |> Maybe.map Tuple.first
     in
-    s.sections
+    indexedSections
         |> List.concatMap
-            (\sectionData ->
+            (\indexedSection ->
                 let
                     header =
-                        { screen = Tui.text ("--- " ++ sectionData.name ++ " ---") |> Tui.bold
+                        { screen = Tui.text ("--- " ++ indexedSection.name ++ " ---") |> Tui.bold
                         , isHighlighted = False
                         }
 
                     rows =
-                        sectionData.items
+                        indexedSection.items
                             |> List.map
-                                (\i ->
+                                (\( flatIdx, i ) ->
                                     let
-                                        flatIdx =
-                                            allItems
-                                                |> List.indexedMap Tuple.pair
-                                                |> List.filter (\( _, ai ) -> ai == i)
-                                                |> List.head
-                                                |> Maybe.map Tuple.first
-
                                         isHighlighted =
-                                            flatIdx == highlightedFlatIndex
+                                            Just flatIdx == highlightedFlatIndex
 
                                         keyLabel =
                                             keyToString i.key
@@ -468,6 +461,23 @@ renderBodyRows (State s) =
                 in
                 header :: rows
             )
+
+
+indexSectionItems : Int -> List (SectionData msg) -> List { name : String, items : List ( Int, ItemData msg ) }
+indexSectionItems startIndex sections =
+    case sections of
+        [] ->
+            []
+
+        sectionData :: remainingSections ->
+            let
+                indexedItems : List ( Int, ItemData msg )
+                indexedItems =
+                    sectionData.items
+                        |> List.indexedMap (\offset itemData -> ( startIndex + offset, itemData ))
+            in
+            { name = sectionData.name, items = indexedItems }
+                :: indexSectionItems (startIndex + List.length sectionData.items) remainingSections
 
 
 scrollOffsetForRow : Int -> Int -> Int -> Int -> Int

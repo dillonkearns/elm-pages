@@ -1,5 +1,6 @@
 module MenuTests exposing (suite)
 
+import Ansi.Color
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
@@ -26,6 +27,35 @@ suite =
                         |> Menu.viewBodyWithMaxRows 7
                         |> List.length
                         |> Expect.equal 7
+            ]
+        , describe "duplicate items"
+            [ test "navigating highlights the second identical item instead of the first" <|
+                \() ->
+                    let
+                        rows =
+                            duplicateMenu
+                                |> navigateDownN 1
+                                |> Menu.viewBody
+
+                        firstDuplicateBg =
+                            rows
+                                |> List.drop 1
+                                |> List.head
+                                |> Maybe.map Tui.extractStyle
+                                |> Maybe.andThen .bg
+
+                        secondDuplicateBg =
+                            rows
+                                |> List.drop 2
+                                |> List.head
+                                |> Maybe.map Tui.extractStyle
+                                |> Maybe.andThen .bg
+                    in
+                    Expect.all
+                        [ \_ -> Expect.equal Nothing firstDuplicateBg
+                        , \_ -> Expect.equal (Just Ansi.Color.blue) secondDuplicateBg
+                        ]
+                        ()
             ]
         , describe "Tui.Modal.maxBodyRows"
             [ test "matches the overlay clamp formula for a short terminal" <|
@@ -59,6 +89,24 @@ longMenu =
                             }
                     )
             )
+        ]
+
+
+duplicateMenu : Menu.State String
+duplicateMenu =
+    Menu.open
+        [ Menu.section "Duplicates"
+            [ Menu.item
+                { key = Tui.Character 'a'
+                , label = "Same"
+                , action = "same"
+                }
+            , Menu.item
+                { key = Tui.Character 'a'
+                , label = "Same"
+                , action = "same"
+                }
+            ]
         ]
 
 
