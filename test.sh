@@ -1,8 +1,10 @@
 set -ex;
 npm run build:generator
-# Exclude tui-widgets tests (LayoutTests, MiniGitTests, KeybindingTests) — they
-# import from tui-widgets/src which isn't in the root package source-directories.
-# Those tests are validated via the script build (script/elm.json includes tui-widgets/src).
+# Run tui-widgets tests through their dedicated harness, since they compile
+# against tui-widgets/elm-application.json rather than the root elm.json.
+./tui-widgets/test.sh
+
+# Root package tests exclude tui-widgets sources, which are exercised above.
 npx elm-test --compiler lamdera tests/ApiRouteTests.elm tests/CookieTest.elm tests/DbTestTests.elm tests/ExampleScriptTest.elm tests/FilePathTest.elm tests/FormDataTest.elm tests/GlobMatchTests.elm tests/HeadTests.elm tests/PathTests.elm tests/RouteTests.elm tests/ScriptTestTests.elm tests/SetCookieTest.elm tests/StaticHttpRequestsTests.elm tests/StaticResponsesTests.elm tests/TuiTests.elm
 (cd examples/routing && npm ci && npm run build && npx elm-test --compiler lamdera)
 (cd generator/dead-code-review && npx elm-test --compiler lamdera)
