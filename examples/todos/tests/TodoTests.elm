@@ -22,9 +22,10 @@ import Expect
 import Html.Attributes as Attr
 import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
-import Test.Html.Selector as Selector exposing (attribute, class, tag, text)
+import Test.Html.Selector as Selector
 import Test.Html.Query as Query
 import Test.PagesProgram as PagesProgram
+import Test.PagesProgram.Selector as PSelector
 import TestApp
 import Time
 
@@ -112,35 +113,31 @@ startLoggedInWithTodos todos =
 -}
 ensureItemsLeft : Int -> TestApp.ProgramTest -> TestApp.ProgramTest
 ensureItemsLeft n =
-    PagesProgram.within
-        (Query.find [ class "todo-count" ])
-        (PagesProgram.ensureViewHas [ text (String.fromInt n) ])
+    PagesProgram.withinFind
+        [ PSelector.class "todo-count" ]
+        (PagesProgram.ensureViewHas [ PSelector.text (String.fromInt n) ])
 
 
 {-| Click the toggle checkbox on a specific todo item.
 -}
 toggleTodo : String -> TestApp.ProgramTest -> TestApp.ProgramTest
 toggleTodo description =
-    PagesProgram.within
-        (Query.find
-            [ tag "li"
-            , Selector.containing [ attribute (Attr.value description) ]
-            ]
-        )
-        (PagesProgram.clickButtonWith [ class "toggle" ])
+    PagesProgram.withinFind
+        [ PSelector.tag "li"
+        , PSelector.containing [ PSelector.value description ]
+        ]
+        (PagesProgram.clickButtonWith [ PSelector.class "toggle" ])
 
 
 {-| Click the delete (X) button on a specific todo item.
 -}
 deleteTodo : String -> TestApp.ProgramTest -> TestApp.ProgramTest
 deleteTodo description =
-    PagesProgram.within
-        (Query.find
-            [ tag "li"
-            , Selector.containing [ attribute (Attr.value description) ]
-            ]
-        )
-        (PagesProgram.clickButtonWith [ class "destroy" ])
+    PagesProgram.withinFind
+        [ PSelector.tag "li"
+        , PSelector.containing [ PSelector.value description ]
+        ]
+        (PagesProgram.clickButtonWith [ PSelector.class "destroy" ])
 
 
 {-| Simulate submitting the form with the given CSS class.
@@ -152,7 +149,7 @@ no submit button (like the new-todo input and inline edit inputs).
 submitFormByClass : String -> TestApp.ProgramTest -> TestApp.ProgramTest
 submitFormByClass formClass =
     PagesProgram.simulateDomEvent
-        (\query -> query |> Query.find [ tag "form", class formClass ])
+        (\query -> query |> Query.find [ Selector.tag "form", Selector.class formClass ])
         ( "submit"
         , Encode.object
             [ ( "currentTarget"
@@ -177,7 +174,7 @@ fullLoginFlowTest : TestApp.ProgramTest
 fullLoginFlowTest =
     -- First verify the unauthenticated login page renders
     TestApp.start "/login" baseSetup
-        |> PagesProgram.ensureViewHas [ text "You aren't logged in yet." ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "You aren't logged in yet." ]
         |> PagesProgram.done
     -- Then exercise the full magic link login flow
     |> always
@@ -190,10 +187,10 @@ fullLoginFlowTest =
                     else
                         Expect.pass
                 )
-            |> PagesProgram.ensureViewHas [ text "todos" ]
-            |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
-            |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
-            |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
+            |> PagesProgram.ensureViewHas [ PSelector.text "todos" ]
+            |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
+            |> PagesProgram.ensureViewHas [ PSelector.value "Write tests" ]
+            |> PagesProgram.ensureViewHas [ PSelector.value "Walk the dog" ]
             |> ensureItemsLeft 2
         )
 
@@ -216,7 +213,7 @@ clearCompletedTest : TestApp.ProgramTest
 clearCompletedTest =
     startLoggedInWithTodos todosResponse
         |> ensureItemsLeft 2
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Write tests" ]
         |> PagesProgram.clickButton "Clear completed"
         |> PagesProgram.simulateCustom "clearCompletedTodos" Encode.null
         |> PagesProgram.simulateCustom "getTodosBySession"
@@ -234,9 +231,9 @@ clearCompletedTest =
                 ]
             )
         |> ensureItemsLeft 2
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
-        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Walk the dog" ]
+        |> PagesProgram.ensureViewHasNot [ PSelector.value "Write tests" ]
 
 
 {-| Optimistic UI: fire off several concurrent user actions while
@@ -288,9 +285,16 @@ optimisticUiTest =
         ---------------------------------------------------------------
         -- Assert optimistic state while everything is still in-flight
         ---------------------------------------------------------------
-        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
+        -- "Write tests" is gone (deleted)
+        |> PagesProgram.ensureViewHasNot [ PSelector.value "Write tests" ]
+        -- "Buy milk" is still incomplete (toggled twice = net no change)
+        |> PagesProgram.withinFind
+            [ PSelector.tag "li", PSelector.containing [ PSelector.value "Buy milk" ] ]
+            (PagesProgram.ensureViewHasNot [ PSelector.class "completed" ])
+        -- "Walk the dog" is now complete (toggled once)
+        |> PagesProgram.withinFind
+            [ PSelector.tag "li", PSelector.containing [ PSelector.value "Walk the dog" ] ]
+            (PagesProgram.ensureViewHas [ PSelector.class "completed" ])
         |> ensureItemsLeft 1
         ---------------------------------------------------------------
         -- Resolve all in-flight actions + data reloads
@@ -306,9 +310,13 @@ optimisticUiTest =
         ---------------------------------------------------------------
         -- Server-confirmed state matches optimistic prediction
         ---------------------------------------------------------------
-        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
+        |> PagesProgram.ensureViewHasNot [ PSelector.value "Write tests" ]
+        |> PagesProgram.withinFind
+            [ PSelector.tag "li", PSelector.containing [ PSelector.value "Buy milk" ] ]
+            (PagesProgram.ensureViewHasNot [ PSelector.class "completed" ])
+        |> PagesProgram.withinFind
+            [ PSelector.tag "li", PSelector.containing [ PSelector.value "Walk the dog" ] ]
+            (PagesProgram.ensureViewHas [ PSelector.class "completed" ])
         |> ensureItemsLeft 1
 
 
@@ -349,7 +357,7 @@ createTodoTest =
                 ]
             )
         -- New todo appears, count updated
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy eggs") ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Buy eggs" ]
         |> ensureItemsLeft 3
 
 
@@ -358,11 +366,11 @@ createTodoTest =
 editTodoTest : TestApp.ProgramTest
 editTodoTest =
     startLoggedInWithTodos todosResponse
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
         -- Edit "Buy milk" -> "Buy oat milk"
         |> PagesProgram.fillIn "edit-todo-1" "description" "Buy oat milk"
         |> PagesProgram.simulateDomEvent
-            (\query -> query |> Query.find [ tag "form", Selector.id "edit-todo-1" ])
+            (\query -> query |> Query.find [ Selector.tag "form", Selector.id "edit-todo-1" ])
             ( "submit"
             , Encode.object
                 [ ( "currentTarget"
@@ -396,8 +404,8 @@ editTodoTest =
                 ]
             )
         -- Updated description appears
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy oat milk") ]
-        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Buy milk") ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Buy oat milk" ]
+        |> PagesProgram.ensureViewHasNot [ PSelector.value "Buy milk" ]
 
 
 {-| Navigate between All / Active / Completed filter views
@@ -407,27 +415,27 @@ filterViewTest : TestApp.ProgramTest
 filterViewTest =
     startLoggedInWithTodos todosResponse
         -- All view: all 3 items visible
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Write tests" ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Walk the dog" ]
         -- Click "Active" filter
         |> PagesProgram.clickLink "Active" "/./active"
         |> PagesProgram.simulateCustom "getTodosBySession" todosResponse
         -- Active view: only incomplete items
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
-        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
+        |> PagesProgram.ensureViewHasNot [ PSelector.value "Write tests" ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Walk the dog" ]
         -- Click "Completed" filter
         |> PagesProgram.clickLink "Completed" "/./completed"
         |> PagesProgram.simulateCustom "getTodosBySession" todosResponse
         -- Completed view: only completed items
-        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Buy milk") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
-        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Walk the dog") ]
+        |> PagesProgram.ensureViewHasNot [ PSelector.value "Buy milk" ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Write tests" ]
+        |> PagesProgram.ensureViewHasNot [ PSelector.value "Walk the dog" ]
         -- Click "All" to go back
         |> PagesProgram.clickLink "All" "/."
         |> PagesProgram.simulateCustom "getTodosBySession" todosResponse
         -- All view again: everything visible
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Write tests" ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Walk the dog" ]
