@@ -102,11 +102,19 @@ startLoggedInWithTodos todos =
 
 
 
--- USER INTERACTION HELPERS
+-- USER INTERACTION / ASSERTION HELPERS
 
 
-{-| Click the toggle checkbox on a specific todo item, scoped by the
-todo's description text visible in the edit input.
+{-| Assert the footer shows exactly N items left.
+-}
+ensureItemsLeft : Int -> TestApp.ProgramTest -> TestApp.ProgramTest
+ensureItemsLeft n =
+    PagesProgram.within
+        (Query.find [ class "todo-count" ])
+        (PagesProgram.ensureViewHas [ text (String.fromInt n) ])
+
+
+{-| Click the toggle checkbox on a specific todo item.
 -}
 toggleTodo : String -> TestApp.ProgramTest -> TestApp.ProgramTest
 toggleTodo description =
@@ -160,20 +168,20 @@ fullLoginFlowTest =
             |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
             |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
             |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
-            |> PagesProgram.ensureViewHas [ text " items left" ]
+            |> ensureItemsLeft 2
         )
 
 
-{-| Login, toggle all items complete, verify the result.
+{-| Login, toggle all items complete, verify the count drops to 0.
 -}
 toggleAllTest : TestApp.ProgramTest
 toggleAllTest =
     startLoggedInWithTodos todosResponse
-        |> PagesProgram.ensureViewHas [ text " items left" ]
+        |> ensureItemsLeft 2
         |> PagesProgram.clickButton "❯"
         |> PagesProgram.simulateCustom "checkAllTodos" Encode.null
         |> PagesProgram.simulateCustom "getTodosBySession" allCompleteTodosResponse
-        |> PagesProgram.ensureViewHas [ text " items left" ]
+        |> ensureItemsLeft 0
 
 
 {-| Login, clear completed items, verify they're removed.
@@ -181,6 +189,7 @@ toggleAllTest =
 clearCompletedTest : TestApp.ProgramTest
 clearCompletedTest =
     startLoggedInWithTodos todosResponse
+        |> ensureItemsLeft 2
         |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
         |> PagesProgram.clickButton "Clear completed"
         |> PagesProgram.simulateCustom "clearCompletedTodos" Encode.null
@@ -198,15 +207,15 @@ clearCompletedTest =
                     ]
                 ]
             )
+        |> ensureItemsLeft 2
         |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
         |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
         |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
 
 
-{-| Optimistic UI: fire off several concurrent user actions (toggling
-individual items, deleting, toggle-all) while server roundtrips are
-still in-flight, then assert the optimistic view state, resolve
-everything, and verify the final state matches.
+{-| Optimistic UI: fire off several concurrent user actions while
+server roundtrips are still in-flight, assert the optimistic view
+state, resolve everything, verify the final state matches.
 
 Starting state:
   - "Buy milk" (incomplete)
@@ -214,18 +223,15 @@ Starting state:
   - "Walk the dog" (incomplete)
   -> 2 items left
 
-User actions (all fired before any server response):
+User actions (all before any server response):
   1. Delete "Write tests"
   2. Toggle "Buy milk" to complete
   3. Toggle "Walk the dog" to complete
   4. Toggle "Buy milk" back to incomplete (changed mind)
 
 Expected optimistic state:
-  - "Write tests" is gone (deleted)
-  - "Buy milk" still incomplete (toggled twice = net no change)
-  - "Walk the dog" now complete
+  - "Write tests" gone, "Buy milk" incomplete, "Walk the dog" complete
   -> 1 item left
-
 -}
 optimisticUiTest : TestApp.ProgramTest
 optimisticUiTest =
@@ -245,33 +251,21 @@ optimisticUiTest =
                 ]
     in
     startLoggedInWithTodos todosResponse
-        -- Starting state
-        |> PagesProgram.ensureViewHas [ text " items left" ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
+        |> ensureItemsLeft 2
         ---------------------------------------------------------------
         -- Rapid-fire user actions, no server responses yet
         ---------------------------------------------------------------
-        -- 1) Delete "Write tests"
         |> deleteTodo "Write tests"
-        -- 2) Toggle "Buy milk" to complete
         |> toggleTodo "Buy milk"
-        -- 3) Toggle "Walk the dog" to complete
         |> toggleTodo "Walk the dog"
-        -- 4) Toggle "Buy milk" back to incomplete (changed mind)
         |> toggleTodo "Buy milk"
         ---------------------------------------------------------------
         -- Assert optimistic state while everything is still in-flight
         ---------------------------------------------------------------
-        -- "Write tests" is gone
         |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
-        -- "Buy milk" still present and incomplete (toggled twice)
         |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
-        -- "Walk the dog" still present but now complete
         |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
-        -- 1 item left (Buy milk incomplete, Walk the dog complete)
-        |> PagesProgram.ensureViewHas [ text " item left" ]
+        |> ensureItemsLeft 1
         ---------------------------------------------------------------
         -- Resolve all in-flight actions + data reloads
         ---------------------------------------------------------------
@@ -284,9 +278,9 @@ optimisticUiTest =
         |> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
         |> PagesProgram.simulateCustom "getTodosBySession" finalServerState
         ---------------------------------------------------------------
-        -- Server-confirmed state matches what the optimistic UI showed
+        -- Server-confirmed state matches optimistic prediction
         ---------------------------------------------------------------
         |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
         |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
         |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
-        |> PagesProgram.ensureViewHas [ text " item left" ]
+        |> ensureItemsLeft 1
