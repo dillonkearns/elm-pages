@@ -3,6 +3,9 @@ module TodoTests exposing
     , toggleAllTest
     , clearCompletedTest
     , optimisticUiTest
+    , createTodoTest
+    , editTodoTest
+    , filterViewTest
     )
 
 {-| End-to-end test flows for the Todos full-stack example.
@@ -138,6 +141,29 @@ deleteTodo description =
             ]
         )
         (PagesProgram.clickButtonWith [ class "destroy" ])
+
+
+{-| Simulate submitting the form with the given CSS class.
+
+This simulates the browser's form submit event, which is what happens
+when a user presses Enter in a text input. Needed for forms that have
+no submit button (like the new-todo input and inline edit inputs).
+-}
+submitFormByClass : String -> TestApp.ProgramTest -> TestApp.ProgramTest
+submitFormByClass formClass =
+    PagesProgram.simulateDomEvent
+        (\query -> query |> Query.find [ tag "form", class formClass ])
+        ( "submit"
+        , Encode.object
+            [ ( "currentTarget"
+              , Encode.object
+                    [ ( "method", Encode.string "POST" )
+                    , ( "action", Encode.string "" )
+                    , ( "id", Encode.null )
+                    ]
+              )
+            ]
+        )
 
 
 
@@ -284,3 +310,124 @@ optimisticUiTest =
         |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
         |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
         |> ensureItemsLeft 1
+
+
+{-| Create a new todo: type a description in the input, press Enter
+(submit the form), the item appears after the server roundtrip.
+-}
+createTodoTest : TestApp.ProgramTest
+createTodoTest =
+    startLoggedInWithTodos todosResponse
+        |> ensureItemsLeft 2
+        -- Type a new todo description and submit
+        |> PagesProgram.fillIn "new-item-0" "description" "Buy eggs"
+        |> submitFormByClass "create-form"
+        -- Resolve the createTodo action + data reload
+        |> PagesProgram.simulateCustom "createTodo" Encode.null
+        |> PagesProgram.simulateCustom "getTodosBySession"
+            (Encode.list identity
+                [ Encode.object
+                    [ ( "title", Encode.string "Buy milk" )
+                    , ( "complete", Encode.bool False )
+                    , ( "id", Encode.string "todo-1" )
+                    ]
+                , Encode.object
+                    [ ( "title", Encode.string "Write tests" )
+                    , ( "complete", Encode.bool True )
+                    , ( "id", Encode.string "todo-2" )
+                    ]
+                , Encode.object
+                    [ ( "title", Encode.string "Walk the dog" )
+                    , ( "complete", Encode.bool False )
+                    , ( "id", Encode.string "todo-3" )
+                    ]
+                , Encode.object
+                    [ ( "title", Encode.string "Buy eggs" )
+                    , ( "complete", Encode.bool False )
+                    , ( "id", Encode.string "todo-4" )
+                    ]
+                ]
+            )
+        -- New todo appears, count updated
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy eggs") ]
+        |> ensureItemsLeft 3
+
+
+{-| Edit an existing todo's description inline.
+-}
+editTodoTest : TestApp.ProgramTest
+editTodoTest =
+    startLoggedInWithTodos todosResponse
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+        -- Edit "Buy milk" -> "Buy oat milk"
+        |> PagesProgram.fillIn "edit-todo-1" "description" "Buy oat milk"
+        |> PagesProgram.simulateDomEvent
+            (\query -> query |> Query.find [ tag "form", Selector.id "edit-todo-1" ])
+            ( "submit"
+            , Encode.object
+                [ ( "currentTarget"
+                  , Encode.object
+                        [ ( "method", Encode.string "POST" )
+                        , ( "action", Encode.string "" )
+                        , ( "id", Encode.null )
+                        ]
+                  )
+                ]
+            )
+        -- Resolve updateTodo action + data reload
+        |> PagesProgram.simulateCustom "updateTodo" Encode.null
+        |> PagesProgram.simulateCustom "getTodosBySession"
+            (Encode.list identity
+                [ Encode.object
+                    [ ( "title", Encode.string "Buy oat milk" )
+                    , ( "complete", Encode.bool False )
+                    , ( "id", Encode.string "todo-1" )
+                    ]
+                , Encode.object
+                    [ ( "title", Encode.string "Write tests" )
+                    , ( "complete", Encode.bool True )
+                    , ( "id", Encode.string "todo-2" )
+                    ]
+                , Encode.object
+                    [ ( "title", Encode.string "Walk the dog" )
+                    , ( "complete", Encode.bool False )
+                    , ( "id", Encode.string "todo-3" )
+                    ]
+                ]
+            )
+        -- Updated description appears
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy oat milk") ]
+        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Buy milk") ]
+
+
+{-| Navigate between All / Active / Completed filter views
+and verify the correct items are shown/hidden.
+-}
+filterViewTest : TestApp.ProgramTest
+filterViewTest =
+    startLoggedInWithTodos todosResponse
+        -- All view: all 3 items visible
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
+        -- Click "Active" filter
+        |> PagesProgram.clickLink "Active" "/./active"
+        |> PagesProgram.simulateCustom "getTodosBySession" todosResponse
+        -- Active view: only incomplete items
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
+        -- Click "Completed" filter
+        |> PagesProgram.clickLink "Completed" "/./completed"
+        |> PagesProgram.simulateCustom "getTodosBySession" todosResponse
+        -- Completed view: only completed items
+        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Buy milk") ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
+        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Walk the dog") ]
+        -- Click "All" to go back
+        |> PagesProgram.clickLink "All" "/."
+        |> PagesProgram.simulateCustom "getTodosBySession" todosResponse
+        -- All view again: everything visible
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
