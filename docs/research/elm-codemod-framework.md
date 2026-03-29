@@ -137,51 +137,186 @@ Key differences from elm-review rules:
 
 This could be implemented as a layer on top of elm-review's AST infrastructure (reusing its parser, module graph, `ModuleNameLookupTable`, etc.) without being constrained by its reporting model.
 
-### Idea 2: Build Environments as a first-class abstraction
+### Idea 2: Build Environments as a first-class abstraction (highest value)
 
-The shadow-directory + elm.json patching pattern is really defining **build environments**: "compile this set of source files with these dependencies and these generated modules." Abstract it:
+The shadow-directory + elm.json patching pattern is really defining **build environments**: "compile this set of source files with these dependencies and these generated modules." This is the biggest source of accidental complexity in the current system. Let's dig into exactly what it would replace and how.
+
+#### What the abstraction replaces today
+
+Currently, `generateClientFolder()` and `generateServerFolder()` in `codegen.js` each do ~6 things imperatively:
+
+1. `ensureDirSync` for `elm-stuff/elm-pages/{client,server}/{app,.elm-pages}`
+2. `copyFileIfNewer` for framework modules (RouteBuilder.elm, SharedTemplate.elm, SiteConfig.elm)
+3. `fsExtra.copy("./app", dest, { overwrite: true })` — force-copy because codemods mutate the copies
+4. `rewriteClientElmJson` / `rewriteElmJson` — filter source-directories, prepend `../../../`, add deps
+5. `writeFileIfChanged` for generated modules (Main.elm, Route.elm, Pages.elm, Fetcher/*.elm)
+6. `runElmReviewCodemod(cwd, target)` — two-pass analysis+fix with output parsing
+
+The server variant has extra steps: generate *temporary* modules before the codemod (so elm-review can compile), then *overwrite* them with final versions after.
+
+All of this is coupled to:
+- The nesting depth (3 levels → `../../../`)
+- Whether `app/` is local or remote (`keepAppLocal: true` for server, not for client)
+- Which elm-review config to use per target
+- Which generated modules to write at which stage
+
+#### Proposed API: `ElmBuildEnv`
 
 ```javascript
-// Conceptual API
-const clientEnv = buildEnvironment({
+import { ElmBuildEnv } from "elm-build-env";
+
+// Declare the environment — nothing happens on disk yet
+const client = new ElmBuildEnv({
   name: "client",
-  sourceFrom: ["./app"],
-  generatedModules: ["Main.elm", "Route.elm", "Pages.elm"],
-  extraDependencies: { "lamdera/codecs": "1.0.0" },
-  codemods: [
-    deadCodeElimination({ target: "client" }),
-    staticViewTransform(),
+  baseDir: "./elm-stuff/elm-pages/client",
+  projectElmJson: "./elm.json",
+
+  // Source handling: what to copy, and how
+  sources: {
+    // Copy these dirs into the env (force-copy on every build, codemods mutate them)
+    copy: [{ from: "./app", to: "app", strategy: "force" }],
+    // These stay as symlinks / path references back to the project root
+    reference: ["src", "vendor"],
+    // Generated files go here
+    generated: ".elm-pages",
+  },
+
+  // Dependencies to add beyond what's in the project elm.json
+  extraDependencies: {
+    "lamdera/codecs": "1.0.0",
+    "elm/bytes": "1.0.8",
+  },
+
+  // Framework modules to copy into .elm-pages/ (mtime-aware)
+  frameworkModules: [
+    { src: "generator/src/RouteBuilder.elm", dest: ".elm-pages/RouteBuilder.elm" },
+    { src: "generator/src/SharedTemplate.elm", dest: ".elm-pages/SharedTemplate.elm" },
+    { src: "generator/src/SiteConfig.elm", dest: ".elm-pages/SiteConfig.elm" },
   ],
 });
 
-const serverEnv = buildEnvironment({
-  name: "server",
-  sourceFrom: ["./app"],
-  generatedModules: ["Main.elm", "Route.elm"],
-  extraDependencies: { "lamdera/codecs": "1.0.0" },
-  codemods: [
-    serverDataTransform(),
-  ],
+// Phase 1: Set up the environment (creates dirs, copies files, rewrites elm.json)
+await client.prepare();
+
+// Phase 2: Write generated modules
+await client.writeGenerated({
+  ".elm-pages/Main.elm": mainModuleSource,
+  ".elm-pages/Route.elm": routeModuleSource,
+  ".elm-pages/Pages.elm": pagesSource,
+  ".elm-pages/Fetcher/Blog.elm": fetcherSource,
 });
 
-// The framework handles: shadow dirs, elm.json rewriting, force-copy,
-// temporary module generation, codemod execution, verification
-const clientResult = await clientEnv.compile({ optimize: true });
-const serverResult = await serverEnv.compile();
-
-// Agreement validation built into the framework
-assertAgreement(clientResult.metadata, serverResult.metadata, {
-  key: "ephemeralFields",
-  formatError: formatDisagreementError,
+// Phase 3: Run codemods (elm-review or whatever)
+const analysisResult = await client.runCodemod({
+  tool: "elm-review",
+  config: "generator/dead-code-review",
+  compiler: "lamdera",
+  // The env knows its own cwd, elm.json path, etc.
 });
+
+// Phase 4: Compile
+await client.compile({
+  entryPoint: ".elm-pages/Main.elm",
+  output: "./dist/elm.js",
+  optimize: true,
+  compiler: "lamdera",
+});
+
+// Metadata from codemods is available for cross-env validation
+client.metadata.ephemeralFields; // Map<module, Set<field>>
 ```
 
-This would:
-- Encapsulate the shadow-directory dance
-- Make elm.json patching declarative
-- Chain codemods explicitly
-- Handle force-copy / mtime invalidation internally
-- Provide a natural place for agreement validation
+#### What `prepare()` handles internally
+
+```javascript
+class ElmBuildEnv {
+  async prepare() {
+    // 1. Create directory structure
+    await ensureDir(this.baseDir);
+    for (const dir of this._requiredDirs()) {
+      await ensureDir(path.join(this.baseDir, dir));
+    }
+
+    // 2. Copy source directories
+    for (const { from, to, strategy } of this.config.sources.copy) {
+      const dest = path.join(this.baseDir, to);
+      if (strategy === "force") {
+        // Always overwrite — codemods mutate these files
+        await fsExtra.copy(from, dest, { overwrite: true });
+      } else {
+        await copyDirIfNewer(from, dest);
+      }
+    }
+
+    // 3. Copy framework modules (mtime-aware)
+    for (const { src, dest } of this.config.frameworkModules) {
+      await copyFileIfNewer(src, path.join(this.baseDir, dest));
+    }
+
+    // 4. Generate elm.json
+    //    The class computes path prefixes from baseDir depth automatically
+    const elmJson = await this._rewriteElmJson();
+    await writeFileIfChanged(
+      path.join(this.baseDir, "elm.json"),
+      JSON.stringify(elmJson, null, 4)
+    );
+  }
+
+  _rewriteElmJson() {
+    const original = JSON.parse(fs.readFileSync(this.config.projectElmJson, "utf8"));
+    const depth = path.relative(process.cwd(), this.baseDir).split(path.sep).length;
+    const prefix = "../".repeat(depth);
+
+    // Filter and rewrite source-directories
+    const sourceDirs = original["source-directories"]
+      .filter(d => d !== ".elm-pages") // always managed by the env
+      .map(d => {
+        // Copied dirs are local; referenced dirs get the prefix
+        const isCopied = this.config.sources.copy.some(c => c.to === d || c.from === `./${d}`);
+        if (isCopied) return d;          // local (already copied into env)
+        if (d === ".") return prefix.slice(0, -1); // project root
+        return prefix + d;               // reference back to project
+      });
+
+    sourceDirs.push(this.config.sources.generated); // .elm-pages
+
+    return {
+      ...original,
+      "source-directories": sourceDirs,
+      dependencies: {
+        ...original.dependencies,
+        direct: {
+          ...original.dependencies.direct,
+          ...this.config.extraDependencies,
+        },
+      },
+    };
+  }
+}
+```
+
+#### Why this is the highest-value abstraction
+
+1. **Eliminates the `../../../` problem.** The path prefix is computed from `baseDir` depth. No more hardcoded `../../../` that breaks if you move the directory.
+
+2. **`force` vs `mtime` copy strategy is explicit.** The `strategy: "force"` on `copy` declarations documents *why* force-copy is needed (codemods mutate) without burying it in a comment.
+
+3. **elm.json rewriting is automatic.** The two separate `rewrite-elm-json.js` and `rewrite-client-elm-json.js` files (with their subtle differences around `keepAppLocal`) collapse into a single algorithm that infers the right behavior from the `copy` vs `reference` distinction.
+
+4. **Server's "temporary modules" pattern becomes obvious.** Instead of special-casing "generate temp modules, run codemod, overwrite with real modules," the server build just calls `writeGenerated()` twice — once with stubs, once with real content. The env doesn't care.
+
+5. **Adding a new build target is trivial.** Want a "test" environment? Just declare a new `ElmBuildEnv`. No new file-management code needed.
+
+6. **Codemod invocation is scoped.** `client.runCodemod()` knows its own working directory, elm.json location, and can return structured metadata without the caller computing paths.
+
+#### What this does NOT solve
+
+The Build Environment abstraction handles the **file system orchestration** but does not address:
+- elm-review's IPC limitations (JSON-in-error-messages) — that's Idea 5
+- elm-format dependency for fix application — that's Idea 3 (elm-codegen)
+- Codemod authoring ergonomics — that's Idea 1
+
+These are complementary. The Build Environment is the foundation that the other ideas build on top of.
 
 ### Idea 3: elm-codegen as the transformation backend
 
