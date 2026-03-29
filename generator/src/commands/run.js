@@ -4,10 +4,7 @@
 
 import * as path from "node:path";
 import * as url from "node:url";
-import * as esbuild from "esbuild";
-import * as globby from "globby";
 import * as renderer from "../render.js";
-import { compileCliApp } from "../compile-elm.js";
 import { resolveInputPathOrModuleName } from "../resolve-elm-module.js";
 import { restoreColorSafe } from "../error-formatter.js";
 import {
@@ -58,6 +55,10 @@ export async function run(elmModulePath, options, options2) {
     let portsPath = portsCheck.outputPath;
 
     if (portsCheck.needed) {
+      const [esbuild, globby] = await Promise.all([
+        import("esbuild"),
+        import("globby"),
+      ]);
       const portBackendTaskCompiled = esbuild
         .build({
           entryPoints: [
@@ -89,8 +90,6 @@ export async function run(elmModulePath, options, options2) {
               path.resolve(projectDirectory, "./custom-backend-task.*")
             ).length > 0;
           if (portBackendTaskFileFound) {
-            // don't present error if there are no files matching custom-backend-task
-            // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
             console.error("Failed to load custom-backend-task file.", error);
           }
         });
@@ -99,7 +98,6 @@ export async function run(elmModulePath, options, options2) {
 
     const cwd = process.cwd();
     process.chdir(projectDirectory);
-    // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
 
     const outputPath = path.join(
       projectDirectory,
@@ -119,6 +117,7 @@ export async function run(elmModulePath, options, options2) {
         projectDirectory,
         "elm-stuff/elm-pages/elm.js"
       );
+      const { compileCliApp } = await import("../compile-elm.js");
       await compileCliApp(
         { debug: true },
         elmEntrypointPath,
