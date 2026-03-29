@@ -3,7 +3,7 @@ module Test.PagesProgram exposing
     , start, startWithEffects, startPlatform
     , clickButton, clickLink, fillIn, fillInTextarea, check
     , navigateTo, ensureBrowserUrl
-    , submitForm, submitFormTo
+    , submitFetcher, submitForm, submitFormTo
     , resolveEffect
     , simulateMsg
     , withSimulatedSubscriptions, simulateIncomingPort
@@ -50,6 +50,8 @@ use [`start`](#start) with inline config.
 @docs clickButton, clickLink, fillIn, fillInTextarea, check
 
 @docs resolveEffect
+
+@docs submitFetcher
 
 @docs simulateMsg
 
@@ -1976,6 +1978,63 @@ submitFormTo action formInfo (ProgramTest state) =
                                 }
 
 
+{-| Submit a fetcher form by its form ID. Unlike `submitForm`, this uses the
+fetcher submission path (`useFetcher = True`), which means the submission
+appears in `app.concurrentSubmissions` and enables optimistic UI.
+
+Use this for forms rendered with `Pages.Form.withConcurrent`, especially
+those whose buttons have no text content (like toggle checkboxes or delete
+icons).
+
+    TestApp.start "/" setup
+        |> PagesProgram.simulateCustom "getTodos" todosResponse
+        |> PagesProgram.submitFetcher "toggle-todo-1"
+        |> PagesProgram.ensureViewHas [ Selector.class "completed" ]
+
+-}
+submitFetcher :
+    String
+    -> ProgramTest model msg
+    -> ProgramTest model msg
+submitFetcher formId (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest
+                        { state | error = Just "submitFetcher: Cannot submit while data is resolving." }
+
+                Ready ready ->
+                    case ready.onFormSubmit of
+                        Just handler ->
+                            let
+                                fields =
+                                    ready.getFormFields
+                                        |> Maybe.map (\getFields -> getFields ready.model)
+                                        |> Maybe.withDefault []
+                            in
+                            applyMsgWithLabel
+                                ("submitFetcher \"" ++ formId ++ "\"")
+                                Interaction
+                                (if formId /= "" then
+                                    Just (ById formId)
+
+                                 else
+                                    Nothing
+                                )
+                                (handler { formId = formId, action = "", fields = fields, useFetcher = True })
+                                (ProgramTest state)
+
+                        Nothing ->
+                            ProgramTest
+                                { state
+                                    | error = Just "submitFetcher: Form submission is only supported with startPlatform (framework-driven tests)."
+                                }
+
+
 {-| Simulate checking or unchecking a checkbox. Finds the input by its `id`
 attribute and simulates a `change` event with the given checked state.
 
@@ -3301,15 +3360,23 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                     newEffect
                     (maxDepth - 1)
 
-            Platform.FetchFrozenViews { path, body } ->
+            Platform.FetchFrozenViews { path, query, body } ->
                 let
                     -- Clean relative path prefix that Platform may produce
                     -- during redirect handling
                     cleanPath =
                         normalizePath path
 
+                    pathWithQuery =
+                        case query of
+                            Just q ->
+                                cleanPath ++ "?" ++ q
+
+                            Nothing ->
+                                cleanPath
+
                     fetchUrl =
-                        makeTestUrl baseUrl cleanPath
+                        makeTestUrl baseUrl pathWithQuery
 
                     route =
                         config.urlToRoute fetchUrl
@@ -3492,7 +3559,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                                 ( { wrappedModel
                                     | virtualFs = vfsAfterData
                                     , pendingDataError = Just ("Route data has a pending BackendTask that needs a simulated response:\n\n" ++ pendingError)
-                                    , pendingDataPath = Just cleanPath
+                                    , pendingDataPath = Just pathWithQuery
                                   }
                                 , []
                                 , []

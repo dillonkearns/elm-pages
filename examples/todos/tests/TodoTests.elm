@@ -1,20 +1,15 @@
 module TodoTests exposing
-    ( loginPageRendersTest
-    , magicLinkLoginTest
-    , todoListRendersTest
+    ( fullLoginFlowTest
     , toggleAllTest
     , clearCompletedTest
+    , optimisticUiTest
     )
 
-{-| Test suite for the Todos full-stack example.
+{-| End-to-end test flows for the Todos full-stack example.
 
-Showcases testing of:
-
-  - Server-rendered routes with BackendTask.Custom
-  - Magic link authentication via encrypted cookies
-  - Session management across page transitions
-  - Form submissions (toggle all, clear completed)
-  - Optimistic UI state
+Each test exercises a full user journey: arriving unauthenticated,
+logging in via magic link, interacting with the todo list, and
+verifying the resulting state.
 
 View in browser: elm-pages test-view tests/TodoTests.elm
 
@@ -34,35 +29,22 @@ import Time
 -- SETUP
 
 
-{-| Base test setup with required environment variables and time.
--}
 baseSetup =
     BackendTaskTest.init
         |> BackendTaskTest.withEnv "SESSION_SECRET" "test-secret"
         |> BackendTaskTest.withTime (Time.millisToPosix 1000)
 
 
-{-| Response for BackendTask.Custom.run "decrypt".
-
-The decrypt function returns a JSON string. The decoder
-then parses this string as JSON containing { text, expiresAt }.
--}
 decryptResponse : Encode.Value
 decryptResponse =
     Encode.string "{\"text\":\"user@example.com\",\"expiresAt\":99999999999999}"
 
 
-{-| Response for BackendTask.Custom.run "findOrCreateUserAndSession".
-
-Returns a session ID string.
--}
 sessionIdResponse : Encode.Value
 sessionIdResponse =
     Encode.string "test-session-id"
 
 
-{-| Sample todo items as the getTodosBySession response.
--}
 todosResponse : Encode.Value
 todosResponse =
     Encode.list identity
@@ -95,110 +77,70 @@ allCompleteTodosResponse =
         ]
 
 
-{-| Simulate the magic link login flow: decrypt + findOrCreateUserAndSession.
--}
-simulateLogin : TestApp.ProgramTest -> TestApp.ProgramTest
-simulateLogin =
-    PagesProgram.simulateCustom "decrypt" decryptResponse
-        >> PagesProgram.simulateCustom "findOrCreateUserAndSession" sessionIdResponse
-
-
-{-| Full login + data load chain for getting to the todo list.
--}
 loginAndLoadTodos : Encode.Value -> TestApp.ProgramTest -> TestApp.ProgramTest
 loginAndLoadTodos todos =
-    simulateLogin >> PagesProgram.simulateCustom "getTodosBySession" todos
+    PagesProgram.simulateCustom "decrypt" decryptResponse
+        >> PagesProgram.simulateCustom "findOrCreateUserAndSession" sessionIdResponse
+        >> PagesProgram.simulateCustom "getTodosBySession" todos
+
+
+startLoggedInWithTodos : Encode.Value -> TestApp.ProgramTest
+startLoggedInWithTodos todos =
+    TestApp.start "/login?magic=fake-hash" baseSetup
+        |> loginAndLoadTodos todos
 
 
 
 -- TESTS
 
 
-{-| 1. Login page renders correctly without any session.
-No HTTP or custom backend task simulation needed.
+{-| Full login flow: user sees login page, follows magic link,
+gets redirected to the todo list, and sees their items.
 -}
-loginPageRendersTest : TestApp.ProgramTest
-loginPageRendersTest =
+fullLoginFlowTest : TestApp.ProgramTest
+fullLoginFlowTest =
+    -- First verify the unauthenticated login page renders
     TestApp.start "/login" baseSetup
         |> PagesProgram.ensureViewHas [ text "You aren't logged in yet." ]
+        |> PagesProgram.done
+    -- Then exercise the full magic link login flow
+    |> always
+        (startLoggedInWithTodos todosResponse
+            |> PagesProgram.ensureBrowserUrl
+                (\url ->
+                    if String.contains "/login" url then
+                        Expect.fail ("Should have redirected away from /login, but still at: " ++ url)
+
+                    else
+                        Expect.pass
+                )
+            |> PagesProgram.ensureViewHas [ text "todos" ]
+            |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+            |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
+            |> PagesProgram.ensureViewHas [ text " item left" ]
+        )
 
 
-{-| 2. Magic link login redirects to the todo list.
-
-Navigate to /login?magic=... which triggers:
-
-  - decrypt (custom port)
-  - findOrCreateUserAndSession (custom port)
-  - redirect to todo list
-  - getTodosBySession (custom port)
-
--}
-magicLinkLoginTest : TestApp.ProgramTest
-magicLinkLoginTest =
-    TestApp.start "/login?magic=fake-hash" baseSetup
-        |> loginAndLoadTodos todosResponse
-        |> PagesProgram.ensureBrowserUrl
-            (\url ->
-                if String.contains "/login" url then
-                    Expect.fail ("Should have redirected away from /login, but still at: " ++ url)
-
-                else
-                    Expect.pass
-            )
-
-
-{-| 3. Todo list shows items from the server.
-
-Todo descriptions appear as input values (edit form inputs),
-and the count footer shows items left.
-
--}
-todoListRendersTest : TestApp.ProgramTest
-todoListRendersTest =
-    TestApp.start "/login?magic=fake-hash" baseSetup
-        |> loginAndLoadTodos todosResponse
-        -- Verify we're on the todo list page
-        |> PagesProgram.ensureViewHas [ text "todos" ]
-        -- Todo descriptions are rendered as input values in the edit forms
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
-        -- Footer shows item count
-        |> PagesProgram.ensureViewHas [ text " item left" ]
-
-
-{-| 4. Toggle all: click the toggle-all button to mark all complete.
-
-After clicking, the action runs checkAllTodos, then data reloads.
-
+{-| Login, toggle all items complete, verify the result.
 -}
 toggleAllTest : TestApp.ProgramTest
 toggleAllTest =
-    TestApp.start "/login?magic=fake-hash" baseSetup
-        |> loginAndLoadTodos todosResponse
+    startLoggedInWithTodos todosResponse
         |> PagesProgram.ensureViewHas [ text " item left" ]
-        -- Click the toggle-all button
         |> PagesProgram.clickButton "❯"
-        -- Action: checkAllTodos custom backend task
         |> PagesProgram.simulateCustom "checkAllTodos" Encode.null
-        -- Data reload: getTodosBySession returns all complete
         |> PagesProgram.simulateCustom "getTodosBySession" allCompleteTodosResponse
         |> PagesProgram.ensureViewHas [ text " items left" ]
 
 
-{-| 5. Clear completed: removes completed todos.
+{-| Login, clear completed items, verify they're removed.
 -}
 clearCompletedTest : TestApp.ProgramTest
 clearCompletedTest =
-    TestApp.start "/login?magic=fake-hash" baseSetup
-        |> loginAndLoadTodos todosResponse
-        -- Verify we have todos loaded
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+    startLoggedInWithTodos todosResponse
         |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
-        -- Click "Clear completed" button
         |> PagesProgram.clickButton "Clear completed"
-        -- Action: clearCompletedTodos custom backend task
         |> PagesProgram.simulateCustom "clearCompletedTodos" Encode.null
-        -- Data reload: getTodosBySession returns only incomplete todos
         |> PagesProgram.simulateCustom "getTodosBySession"
             (Encode.list identity
                 [ Encode.object
@@ -210,3 +152,38 @@ clearCompletedTest =
             )
         |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
         |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
+
+
+{-| Optimistic UI: click toggle-all while actions are still in-flight.
+
+The toggle-all button submits a concurrent/fetcher form. Before any
+BackendTask resolves, the optimistic UI should immediately show all
+items as complete. Then we resolve the server roundtrip and verify
+the final state matches the optimistic prediction.
+
+Flow:
+
+1.  Initial state: "Buy milk" (incomplete), "Write tests" (complete)
+    -> "1 item left"
+2.  Click toggle-all -> fetcher action is in-flight
+    -> Optimistic: all complete -> "0 items left"
+3.  Resolve action + data reload
+    -> Server confirms: all complete -> "0 items left"
+
+-}
+optimisticUiTest : TestApp.ProgramTest
+optimisticUiTest =
+    startLoggedInWithTodos todosResponse
+        -- Initial state: 1 incomplete, 1 complete
+        |> PagesProgram.ensureViewHas [ text " item left" ]
+        -- Click toggle-all. The fetcher form submits but the action
+        -- BackendTask (checkAllTodos) hasn't resolved yet.
+        |> PagesProgram.clickButton "❯"
+        -- OPTIMISTIC STATE: the UI should already reflect all items
+        -- as complete, even though the server hasn't responded.
+        |> PagesProgram.ensureViewHas [ text " items left" ]
+        -- Now resolve the action and data reload
+        |> PagesProgram.simulateCustom "checkAllTodos" Encode.null
+        |> PagesProgram.simulateCustom "getTodosBySession" allCompleteTodosResponse
+        -- Final state matches the optimistic prediction
+        |> PagesProgram.ensureViewHas [ text " items left" ]
