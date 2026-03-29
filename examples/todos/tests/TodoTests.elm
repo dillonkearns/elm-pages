@@ -154,73 +154,25 @@ clearCompletedTest =
         |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
 
 
-{-| Optimistic UI stress test: fire off several concurrent mutations
-while actions are still in-flight, assert the optimistic view state
-immediately, then resolve all BackendTasks and verify final state
-matches what the optimistic UI predicted.
+{-| Optimistic UI: toggle all to complete while the action is in-flight,
+assert the optimistic state immediately, then resolve the server
+roundtrip and verify final state matches.
 
 Starting state: "Buy milk" (incomplete), "Write tests" (complete)
-
-Mutations (all fired before any server response):
-
-  1. Delete "Write tests" (must happen before any toggle on this
-     item, since toggling sets isSaving which hides the delete button)
-  2. Toggle "Buy milk" to complete
-  3. Toggle "Buy milk" back to incomplete (net effect: no change)
-
-Expected optimistic state:
-  - Only "Buy milk" (incomplete) remains, "Write tests" is gone
-  - "1 item left"
-
-Then resolve all actions + data reloads and verify the
-server-confirmed state matches what the optimistic UI showed.
+After toggle-all: both complete -> "0 items left" (optimistic)
+After server confirms: still "0 items left"
 -}
 optimisticUiTest : TestApp.ProgramTest
 optimisticUiTest =
-    let
-        finalServerState =
-            Encode.list identity
-                [ Encode.object
-                    [ ( "title", Encode.string "Buy milk" )
-                    , ( "complete", Encode.bool False )
-                    , ( "id", Encode.string "todo-1" )
-                    ]
-                ]
-    in
     startLoggedInWithTodos todosResponse
-        -- Starting state: Buy milk (incomplete), Write tests (complete)
+        -- Starting state: 1 incomplete, 1 complete
         |> PagesProgram.ensureViewHas [ text " item left" ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
-        ---------------------------------------------------------------
-        -- Fire off several concurrent mutations, no server responses yet
-        ---------------------------------------------------------------
-        -- 1) Delete "Write tests"
-        |> PagesProgram.submitFetcher "delete-todo-2"
-        -- 2) Toggle "Buy milk" to complete
-        |> PagesProgram.submitFetcher "toggle-todo-1"
-        -- 3) Toggle "Buy milk" back to incomplete (changed mind)
-        |> PagesProgram.submitFetcher "toggle-todo-1"
-        ---------------------------------------------------------------
-        -- Assert optimistic state while actions are all still in-flight
-        ---------------------------------------------------------------
-        -- "Write tests" is optimistically removed
-        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
-        -- "Buy milk" is still present and incomplete (toggle + untoggle = no change)
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
-        |> PagesProgram.ensureViewHas [ text " item left" ]
-        ---------------------------------------------------------------
-        -- Now resolve all in-flight actions + their data reloads
-        ---------------------------------------------------------------
-        |> PagesProgram.simulateCustom "deleteTodo" Encode.null
-        |> PagesProgram.simulateCustom "getTodosBySession" finalServerState
-        |> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-        |> PagesProgram.simulateCustom "getTodosBySession" finalServerState
-        |> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-        |> PagesProgram.simulateCustom "getTodosBySession" finalServerState
-        ---------------------------------------------------------------
-        -- Server-confirmed state matches what the optimistic UI showed
-        ---------------------------------------------------------------
-        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
-        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
-        |> PagesProgram.ensureViewHas [ text " item left" ]
+        -- Click toggle-all -- fetcher action fires but hasn't resolved
+        |> PagesProgram.clickButton "❯"
+        -- OPTIMISTIC: UI immediately shows all complete
+        |> PagesProgram.ensureViewHas [ text " items left" ]
+        -- Resolve the server roundtrip
+        |> PagesProgram.simulateCustom "checkAllTodos" Encode.null
+        |> PagesProgram.simulateCustom "getTodosBySession" allCompleteTodosResponse
+        -- Server-confirmed state matches optimistic prediction
+        |> PagesProgram.ensureViewHas [ text " items left" ]

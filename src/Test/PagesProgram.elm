@@ -3,7 +3,7 @@ module Test.PagesProgram exposing
     , start, startWithEffects, startPlatform
     , clickButton, clickLink, fillIn, fillInTextarea, check
     , navigateTo, ensureBrowserUrl
-    , submitFetcher, submitForm, submitFormTo
+    , submitForm, submitFormTo
     , resolveEffect
     , simulateMsg
     , withSimulatedSubscriptions, simulateIncomingPort
@@ -50,8 +50,6 @@ use [`start`](#start) with inline config.
 @docs clickButton, clickLink, fillIn, fillInTextarea, check
 
 @docs resolveEffect
-
-@docs submitFetcher
 
 @docs simulateMsg
 
@@ -1975,83 +1973,6 @@ submitFormTo action formInfo (ProgramTest state) =
                             ProgramTest
                                 { state
                                     | error = Just "submitForm: Form submission is only supported with startPlatform (framework-driven tests)."
-                                }
-
-
-{-| Submit a fetcher form by its form ID. This simulates the form submit
-event directly on the form element, which goes through the same pipeline
-as `clickButton` -- the form library extracts field values from the
-rendered hidden inputs and sets `useFetcher` from the `data-fetcher`
-attribute.
-
-Use this for concurrent forms whose buttons have no text content (like
-toggle checkboxes or delete icons).
-
-    TestApp.start "/" setup
-        |> PagesProgram.simulateCustom "getTodos" todosResponse
-        |> PagesProgram.submitFetcher "toggle-todo-1"
-        |> PagesProgram.ensureViewHas [ Selector.class "completed" ]
-
--}
-submitFetcher :
-    String
-    -> ProgramTest model msg
-    -> ProgramTest model msg
-submitFetcher formId (ProgramTest state) =
-    case state.error of
-        Just _ ->
-            ProgramTest state
-
-        Nothing ->
-            case state.phase of
-                Resolving _ ->
-                    ProgramTest
-                        { state | error = Just "submitFetcher: Cannot submit while data is resolving." }
-
-                Ready ready ->
-                    let
-                        query =
-                            renderScopedView ready
-
-                        formSubmitResult =
-                            query
-                                |> Query.find
-                                    [ Selector.tag "form"
-                                    , Selector.id formId
-                                    ]
-                                |> Event.simulate
-                                    ( "submit"
-                                    , Encode.object
-                                        [ ( "currentTarget"
-                                          , Encode.object
-                                                [ ( "method", Encode.string "POST" )
-                                                , ( "action", Encode.string "" )
-                                                , ( "id", Encode.null )
-                                                ]
-                                          )
-                                        ]
-                                    )
-                                |> Event.toResult
-                    in
-                    case formSubmitResult of
-                        Ok msg ->
-                            applyMsgWithLabel
-                                ("submitFetcher \"" ++ formId ++ "\"")
-                                Interaction
-                                (Just (ById formId))
-                                msg
-                                (ProgramTest state)
-
-                        Err errMsg ->
-                            ProgramTest
-                                { state
-                                    | error =
-                                        Just
-                                            ("submitFetcher \""
-                                                ++ formId
-                                                ++ "\" failed: could not find form or simulate submit event.\n"
-                                                ++ errMsg
-                                            )
                                 }
 
 
