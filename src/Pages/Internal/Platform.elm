@@ -159,6 +159,7 @@ type alias Flags =
 type InitKind shared page actionData errorPage
     = OkPage shared page (Maybe actionData)
     | NotFound { reason : NotFoundReason, path : UrlPath }
+    | InitialRedirect String
 
 
 {-| -}
@@ -986,7 +987,7 @@ update config appMsg model =
                             -- Bytes decode failed
                             ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
 
-                ( Just pageDataBytes, Just _, Err _ ) ->
+                ( Just pageDataBytes, Just pendingUrl, Err _ ) ->
                     -- Initial page load — page data arriving via port
                     let
                         pageDataResult : Maybe (InitKind sharedData pageData actionData errorPage)
@@ -1003,6 +1004,10 @@ update config appMsg model =
                                     NotFound notFound
                                         |> Just
 
+                                Just (ResponseSketch.Redirect redirectTo) ->
+                                    InitialRedirect redirectTo
+                                        |> Just
+
                                 _ ->
                                     Nothing
                     in
@@ -1011,7 +1016,7 @@ update config appMsg model =
                             let
                                 urls : { currentUrl : Url, basePath : List String }
                                 urls =
-                                    { currentUrl = model.url
+                                    { currentUrl = pendingUrl
                                     , basePath = config.basePath
                                     }
 
@@ -1031,18 +1036,18 @@ update config appMsg model =
                                     Just
                                         { path =
                                             { path = pagePath
-                                            , query = model.url.query
-                                            , fragment = model.url.fragment
+                                            , query = pendingUrl.query
+                                            , fragment = pendingUrl.fragment
                                             }
-                                        , metadata = config.urlToRoute model.url
+                                        , metadata = config.urlToRoute pendingUrl
                                         , pageUrl =
                                             Just
-                                                { protocol = model.url.protocol
-                                                , host = model.url.host
-                                                , port_ = model.url.port_
+                                                { protocol = pendingUrl.protocol
+                                                , host = pendingUrl.host
+                                                , port_ = pendingUrl.port_
                                                 , path = pagePath
-                                                , query = model.url.query |> Maybe.map QueryParams.fromString |> Maybe.withDefault Dict.empty
-                                                , fragment = model.url.fragment
+                                                , query = pendingUrl.query |> Maybe.map QueryParams.fromString |> Maybe.withDefault Dict.empty
+                                                , fragment = pendingUrl.fragment
                                                 }
                                         }
                                         |> config.init userFlags sharedData pageData actionData
@@ -1050,7 +1055,9 @@ update config appMsg model =
                                 initialModel : Model userModel pageData actionData sharedData
                                 initialModel =
                                     { model
-                                        | pageData =
+                                        | url = pendingUrl
+                                        , currentPath = pendingUrl.path
+                                        , pageData =
                                             Ok
                                                 { userModel = userModel
                                                 , sharedData = sharedData
@@ -1076,6 +1083,12 @@ update config appMsg model =
                               }
                             , NoEffect
                             )
+
+                        Just (InitialRedirect redirectTo) ->
+                            ( { model | pendingRedirect = True, pendingFrozenViewsUrl = Nothing }
+                            , NoEffect
+                            )
+                                |> startNewGetLoad (currentUrlWithPath redirectTo model)
 
                         _ ->
                             ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )

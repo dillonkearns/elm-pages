@@ -12,6 +12,7 @@ module Test.PagesProgram exposing
     , expectModel
     , within
     , simulateDomEvent
+    , simulateCustom
     , simulateHttpGet, simulateHttpPost, simulateHttpError
     , simulateHttpGetTo, simulateHttpPostTo
     , selectOption
@@ -59,6 +60,8 @@ use [`start`](#start) with inline config.
 @docs expectViewHas, expectViewHasNot, expectView, expectModel
 
 @docs simulateDomEvent
+
+@docs simulateCustom
 
 @docs simulateHttpGet, simulateHttpPost, simulateHttpError
 
@@ -240,6 +243,7 @@ type Simulation
     = SimHttpGet String Encode.Value
     | SimHttpPost String Encode.Value
     | SimHttpError String String String
+    | SimCustom String Encode.Value
 
 
 type AdvanceResult model msg
@@ -508,7 +512,108 @@ startPlatform config initialPath testSetup =
                                                     Advanced (Ready (makeReady processedWrapped))
 
                                                 Nothing ->
-                                                    AdvanceError "Failed to extract page data after initial HTTP simulation"
+                                                    case doneState.result of
+                                                        Ok (ServerResponse serverResponse) ->
+                                                            case PageServerResponse.toRedirect serverResponse of
+                                                                Just { location } ->
+                                                                    let
+                                                                        updatedJar =
+                                                                            CookieJar.empty
+                                                                                |> CookieJar.applySetCookieHeaders
+                                                                                    (extractSetCookieHeaders (ServerResponse serverResponse))
+
+                                                                        redirectUrl =
+                                                                            makeTestUrl baseUrl (normalizePath location)
+
+                                                                        redirectRoute =
+                                                                            config.urlToRoute redirectUrl
+
+                                                                        ( vfsAfterRedirect, redirectDataBt ) =
+                                                                            BackendTaskTest.resolveWithVirtualFsPartial
+                                                                                doneState.virtualFS
+                                                                                (config.data (platformTestRequest (Url.toString redirectUrl) updatedJar) redirectRoute)
+
+                                                                        continueRedirectTargetData rdBt =
+                                                                            case rdBt of
+                                                                                BackendTaskTest.Done rdDoneState ->
+                                                                                    case extractPageData config rdDoneState.result of
+                                                                                        Just pageData ->
+                                                                                            let
+                                                                                                encodedBytes =
+                                                                                                    ResponseSketch.HotUpdate pageData
+                                                                                                        sharedData
+                                                                                                        Nothing
+                                                                                                        |> encodeResponseWithPrefix config
+
+                                                                                                redirectPlatformModel =
+                                                                                                    { initModel | pendingFrozenViewsUrl = Just redirectUrl }
+
+                                                                                                ( readyModel, readyEffect ) =
+                                                                                                    platformUpdateClean config
+                                                                                                        (Platform.FrozenViewsReady (Just encodedBytes))
+                                                                                                        redirectPlatformModel
+
+                                                                                                ( processedWrapped, _, _ ) =
+                                                                                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                                                                                        { platformModel = readyModel, virtualFs = rdDoneState.virtualFS, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
+                                                                                                        readyEffect
+                                                                                                        100
+                                                                                            in
+                                                                                            Advanced (Ready (makeReady processedWrapped))
+
+                                                                                        Nothing ->
+                                                                                            AdvanceError "Failed to extract page data for redirect target"
+
+                                                                                BackendTaskTest.Running rdRunningState ->
+                                                                                    Advanced
+                                                                                        (Resolving
+                                                                                            (Resolver
+                                                                                                { advance =
+                                                                                                    \_ sim ->
+                                                                                                        continueRedirectTargetData (applySimToBt sim rdBt)
+                                                                                                , pendingDescription =
+                                                                                                    stillRunningDescription rdRunningState.pendingRequests
+                                                                                                , pendingUrls =
+                                                                                                    List.map .url rdRunningState.pendingRequests
+                                                                                                }
+                                                                                            )
+                                                                                        )
+
+                                                                                BackendTaskTest.TestError rdErrMsg ->
+                                                                                    AdvanceError rdErrMsg
+                                                                    in
+                                                                    continueRedirectTargetData redirectDataBt
+
+                                                                Nothing ->
+                                                                    AdvanceError ("Unexpected server response with status " ++ String.fromInt serverResponse.statusCode)
+
+                                                        Err fatalErr ->
+                                                            let
+                                                                errorPageData =
+                                                                    config.errorPageToData (config.internalError (fatalErrorToString fatalErr))
+
+                                                                encodedBytes =
+                                                                    ResponseSketch.HotUpdate
+                                                                        errorPageData
+                                                                        sharedData
+                                                                        Nothing
+                                                                        |> encodeResponseWithPrefix config
+
+                                                                ( readyModel, readyEffect ) =
+                                                                    platformUpdateClean config
+                                                                        (Platform.FrozenViewsReady (Just encodedBytes))
+                                                                        initModel
+
+                                                                ( processedWrapped, _, _ ) =
+                                                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                                                        { platformModel = readyModel, virtualFs = doneState.virtualFS, cookieJar = CookieJar.empty, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
+                                                                        readyEffect
+                                                                        100
+                                                            in
+                                                            Advanced (Ready (makeReady processedWrapped))
+
+                                                        _ ->
+                                                            AdvanceError "Failed to extract page data after initial HTTP simulation"
 
                                         BackendTaskTest.Running runningState ->
                                             Advanced
@@ -894,6 +999,20 @@ action handling).
 simulateHttpGet : String -> Encode.Value -> ProgramTest model msg -> ProgramTest model msg
 simulateHttpGet url jsonResponse =
     applySimulation (SimHttpGet url jsonResponse)
+
+
+{-| Simulate a pending `BackendTask.Custom.run` call resolving with the given
+JSON response. Provide the port name and the JSON value the port would return.
+
+    TestApp.start "/" setup
+        |> PagesProgram.simulateCustom "getTodos"
+            (Encode.list todoEncoder myTodos)
+        |> PagesProgram.ensureViewHas [ Selector.text "Buy milk" ]
+
+-}
+simulateCustom : String -> Encode.Value -> ProgramTest model msg -> ProgramTest model msg
+simulateCustom portName jsonResponse =
+    applySimulation (SimCustom portName jsonResponse)
 
 
 {-| Simulate a pending HTTP POST request resolving with the given JSON response
@@ -2496,6 +2615,9 @@ advanceResolver maybeModel sim state (Resolver resolver) =
                 SimHttpError method url errorString ->
                     ( "simulateHttpError " ++ method ++ " " ++ url ++ " " ++ errorString, method, url )
 
+                SimCustom portName _ ->
+                    ( "simulateCustom " ++ portName, "GET", "elm-pages-internal://port" )
+
         stepIdx =
             List.length state.snapshots
 
@@ -2958,6 +3080,9 @@ resolveDataPhase bt initFn viewFn updateFn =
 
                                         SimHttpError method url errorString ->
                                             BackendTaskTest.simulateHttpError method url errorString bt
+
+                                        SimCustom portName resp ->
+                                            BackendTaskTest.simulateCustom portName resp bt
                             in
                             Advanced (resolveDataPhase newBt initFn viewFn updateFn)
                     , pendingDescription =
@@ -3981,6 +4106,9 @@ applySimToBt sim bt =
 
         SimHttpError method url errorString ->
             BackendTaskTest.simulateHttpError method url errorString bt
+
+        SimCustom portName resp ->
+            BackendTaskTest.simulateCustom portName resp bt
 
 
 {-| Extract pending HTTP URLs from a BackendTaskTest. Used to populate

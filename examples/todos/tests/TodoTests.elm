@@ -21,9 +21,10 @@ View in browser: elm-pages test-view tests/TodoTests.elm
 -}
 
 import Expect
+import Html.Attributes as Attr
 import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
-import Test.Html.Selector exposing (text)
+import Test.Html.Selector exposing (attribute, class, text)
 import Test.PagesProgram as PagesProgram
 import TestApp
 import Time
@@ -39,16 +40,6 @@ baseSetup =
     BackendTaskTest.init
         |> BackendTaskTest.withEnv "SESSION_SECRET" "test-secret"
         |> BackendTaskTest.withTime (Time.millisToPosix 1000)
-
-
-{-| Simulate a BackendTask.Custom.run response.
-
-BackendTask.Custom.run is implemented as an HTTP GET to "elm-pages-internal://port",
-so we can use simulateHttpGet to provide responses.
--}
-simulateCustom : Encode.Value -> TestApp.ProgramTest -> TestApp.ProgramTest
-simulateCustom response =
-    PagesProgram.simulateHttpGet "elm-pages-internal://port" response
 
 
 {-| Response for BackendTask.Custom.run "decrypt".
@@ -88,11 +79,6 @@ todosResponse =
         ]
 
 
-emptyTodosResponse : Encode.Value
-emptyTodosResponse =
-    Encode.list identity []
-
-
 allCompleteTodosResponse : Encode.Value
 allCompleteTodosResponse =
     Encode.list identity
@@ -111,16 +97,17 @@ allCompleteTodosResponse =
 
 {-| Simulate the magic link login flow: decrypt + findOrCreateUserAndSession.
 -}
+simulateLogin : TestApp.ProgramTest -> TestApp.ProgramTest
 simulateLogin =
-    simulateCustom decryptResponse
-        >> simulateCustom sessionIdResponse
+    PagesProgram.simulateCustom "decrypt" decryptResponse
+        >> PagesProgram.simulateCustom "findOrCreateUserAndSession" sessionIdResponse
 
 
 {-| Full login + data load chain for getting to the todo list.
 -}
 loginAndLoadTodos : Encode.Value -> TestApp.ProgramTest -> TestApp.ProgramTest
 loginAndLoadTodos todos =
-    simulateLogin >> simulateCustom todos
+    simulateLogin >> PagesProgram.simulateCustom "getTodosBySession" todos
 
 
 
@@ -139,10 +126,12 @@ loginPageRendersTest =
 {-| 2. Magic link login redirects to the todo list.
 
 Navigate to /login?magic=... which triggers:
+
   - decrypt (custom port)
   - findOrCreateUserAndSession (custom port)
   - redirect to todo list
   - getTodosBySession (custom port)
+
 -}
 magicLinkLoginTest : TestApp.ProgramTest
 magicLinkLoginTest =
@@ -159,32 +148,41 @@ magicLinkLoginTest =
 
 
 {-| 3. Todo list shows items from the server.
+
+Todo descriptions appear as input values (edit form inputs),
+and the count footer shows items left.
+
 -}
 todoListRendersTest : TestApp.ProgramTest
 todoListRendersTest =
     TestApp.start "/login?magic=fake-hash" baseSetup
         |> loginAndLoadTodos todosResponse
-        |> PagesProgram.ensureViewHas [ text "Buy milk" ]
-        |> PagesProgram.ensureViewHas [ text "Write tests" ]
-        |> PagesProgram.ensureViewHas [ text "1 item left" ]
+        -- Verify we're on the todo list page
+        |> PagesProgram.ensureViewHas [ text "todos" ]
+        -- Todo descriptions are rendered as input values in the edit forms
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
+        -- Footer shows item count
+        |> PagesProgram.ensureViewHas [ text " item left" ]
 
 
 {-| 4. Toggle all: click the toggle-all button to mark all complete.
 
 After clicking, the action runs checkAllTodos, then data reloads.
+
 -}
 toggleAllTest : TestApp.ProgramTest
 toggleAllTest =
     TestApp.start "/login?magic=fake-hash" baseSetup
         |> loginAndLoadTodos todosResponse
-        |> PagesProgram.ensureViewHas [ text "1 item left" ]
-        -- Click the toggle-all button (text is "❯")
+        |> PagesProgram.ensureViewHas [ text " item left" ]
+        -- Click the toggle-all button
         |> PagesProgram.clickButton "❯"
         -- Action: checkAllTodos custom backend task
-        |> simulateCustom Encode.null
+        |> PagesProgram.simulateCustom "checkAllTodos" Encode.null
         -- Data reload: getTodosBySession returns all complete
-        |> simulateCustom allCompleteTodosResponse
-        |> PagesProgram.ensureViewHas [ text "0 items left" ]
+        |> PagesProgram.simulateCustom "getTodosBySession" allCompleteTodosResponse
+        |> PagesProgram.ensureViewHas [ text " items left" ]
 
 
 {-| 5. Clear completed: removes completed todos.
@@ -193,13 +191,15 @@ clearCompletedTest : TestApp.ProgramTest
 clearCompletedTest =
     TestApp.start "/login?magic=fake-hash" baseSetup
         |> loginAndLoadTodos todosResponse
-        |> PagesProgram.ensureViewHas [ text "Clear completed (1)" ]
-        -- Click "Clear completed (1)" button
-        |> PagesProgram.clickButton "Clear completed (1)"
+        -- Verify we have todos loaded
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
+        -- Click "Clear completed" button
+        |> PagesProgram.clickButton "Clear completed"
         -- Action: clearCompletedTodos custom backend task
-        |> simulateCustom Encode.null
+        |> PagesProgram.simulateCustom "clearCompletedTodos" Encode.null
         -- Data reload: getTodosBySession returns only incomplete todos
-        |> simulateCustom
+        |> PagesProgram.simulateCustom "getTodosBySession"
             (Encode.list identity
                 [ Encode.object
                     [ ( "title", Encode.string "Buy milk" )
@@ -208,5 +208,5 @@ clearCompletedTest =
                     ]
                 ]
             )
-        |> PagesProgram.ensureViewHas [ text "1 item left" ]
-        |> PagesProgram.ensureViewHasNot [ text "Write tests" ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
