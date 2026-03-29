@@ -1978,13 +1978,14 @@ submitFormTo action formInfo (ProgramTest state) =
                                 }
 
 
-{-| Submit a fetcher form by its form ID. Unlike `submitForm`, this uses the
-fetcher submission path (`useFetcher = True`), which means the submission
-appears in `app.concurrentSubmissions` and enables optimistic UI.
+{-| Submit a fetcher form by its form ID. This simulates the form submit
+event directly on the form element, which goes through the same pipeline
+as `clickButton` -- the form library extracts field values from the
+rendered hidden inputs and sets `useFetcher` from the `data-fetcher`
+attribute.
 
-Use this for forms rendered with `Pages.Form.withConcurrent`, especially
-those whose buttons have no text content (like toggle checkboxes or delete
-icons).
+Use this for concurrent forms whose buttons have no text content (like
+toggle checkboxes or delete icons).
 
     TestApp.start "/" setup
         |> PagesProgram.simulateCustom "getTodos" todosResponse
@@ -2008,30 +2009,49 @@ submitFetcher formId (ProgramTest state) =
                         { state | error = Just "submitFetcher: Cannot submit while data is resolving." }
 
                 Ready ready ->
-                    case ready.onFormSubmit of
-                        Just handler ->
-                            let
-                                fields =
-                                    ready.getFormFields
-                                        |> Maybe.map (\getFields -> getFields ready.model)
-                                        |> Maybe.withDefault []
-                            in
+                    let
+                        query =
+                            renderScopedView ready
+
+                        formSubmitResult =
+                            query
+                                |> Query.find
+                                    [ Selector.tag "form"
+                                    , Selector.id formId
+                                    ]
+                                |> Event.simulate
+                                    ( "submit"
+                                    , Encode.object
+                                        [ ( "currentTarget"
+                                          , Encode.object
+                                                [ ( "method", Encode.string "POST" )
+                                                , ( "action", Encode.string "" )
+                                                , ( "id", Encode.null )
+                                                ]
+                                          )
+                                        ]
+                                    )
+                                |> Event.toResult
+                    in
+                    case formSubmitResult of
+                        Ok msg ->
                             applyMsgWithLabel
                                 ("submitFetcher \"" ++ formId ++ "\"")
                                 Interaction
-                                (if formId /= "" then
-                                    Just (ById formId)
-
-                                 else
-                                    Nothing
-                                )
-                                (handler { formId = formId, action = "", fields = fields, useFetcher = True })
+                                (Just (ById formId))
+                                msg
                                 (ProgramTest state)
 
-                        Nothing ->
+                        Err errMsg ->
                             ProgramTest
                                 { state
-                                    | error = Just "submitFetcher: Form submission is only supported with startPlatform (framework-driven tests)."
+                                    | error =
+                                        Just
+                                            ("submitFetcher \""
+                                                ++ formId
+                                                ++ "\" failed: could not find form or simulate submit event.\n"
+                                                ++ errMsg
+                                            )
                                 }
 
 
