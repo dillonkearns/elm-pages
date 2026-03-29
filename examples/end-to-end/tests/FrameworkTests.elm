@@ -128,7 +128,7 @@ concurrentSubmissionTest =
         |> PagesProgram.ensureViewHas [ text "Quick Note" ]
         |> PagesProgram.fillIn "note-form" "note" "My test note"
         |> PagesProgram.clickButton "Save Note"
-        |> PagesProgram.ensureViewHas [ text "Saved: My test note" ]
+        |> PagesProgram.ensureViewHas [ text "Done: My test note" ]
 
 
 {-| Full login session flow with cookie jar:
