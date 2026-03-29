@@ -19,7 +19,8 @@ import Expect
 import Html.Attributes as Attr
 import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
-import Test.Html.Selector exposing (attribute, class, text)
+import Test.Html.Selector as Selector exposing (attribute, class, tag, text)
+import Test.Html.Query as Query
 import Test.PagesProgram as PagesProgram
 import TestApp
 import Time
@@ -58,6 +59,11 @@ todosResponse =
             , ( "complete", Encode.bool True )
             , ( "id", Encode.string "todo-2" )
             ]
+        , Encode.object
+            [ ( "title", Encode.string "Walk the dog" )
+            , ( "complete", Encode.bool False )
+            , ( "id", Encode.string "todo-3" )
+            ]
         ]
 
 
@@ -74,6 +80,11 @@ allCompleteTodosResponse =
             , ( "complete", Encode.bool True )
             , ( "id", Encode.string "todo-2" )
             ]
+        , Encode.object
+            [ ( "title", Encode.string "Walk the dog" )
+            , ( "complete", Encode.bool True )
+            , ( "id", Encode.string "todo-3" )
+            ]
         ]
 
 
@@ -88,6 +99,37 @@ startLoggedInWithTodos : Encode.Value -> TestApp.ProgramTest
 startLoggedInWithTodos todos =
     TestApp.start "/login?magic=fake-hash" baseSetup
         |> loginAndLoadTodos todos
+
+
+
+-- USER INTERACTION HELPERS
+
+
+{-| Click the toggle checkbox on a specific todo item, scoped by the
+todo's description text visible in the edit input.
+-}
+toggleTodo : String -> TestApp.ProgramTest -> TestApp.ProgramTest
+toggleTodo description =
+    PagesProgram.within
+        (Query.find
+            [ tag "li"
+            , Selector.containing [ attribute (Attr.value description) ]
+            ]
+        )
+        (PagesProgram.clickButtonWith [ class "toggle" ])
+
+
+{-| Click the delete (X) button on a specific todo item.
+-}
+deleteTodo : String -> TestApp.ProgramTest -> TestApp.ProgramTest
+deleteTodo description =
+    PagesProgram.within
+        (Query.find
+            [ tag "li"
+            , Selector.containing [ attribute (Attr.value description) ]
+            ]
+        )
+        (PagesProgram.clickButtonWith [ class "destroy" ])
 
 
 
@@ -117,7 +159,8 @@ fullLoginFlowTest =
             |> PagesProgram.ensureViewHas [ text "todos" ]
             |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
             |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
-            |> PagesProgram.ensureViewHas [ text " item left" ]
+            |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
+            |> PagesProgram.ensureViewHas [ text " items left" ]
         )
 
 
@@ -126,7 +169,7 @@ fullLoginFlowTest =
 toggleAllTest : TestApp.ProgramTest
 toggleAllTest =
     startLoggedInWithTodos todosResponse
-        |> PagesProgram.ensureViewHas [ text " item left" ]
+        |> PagesProgram.ensureViewHas [ text " items left" ]
         |> PagesProgram.clickButton "❯"
         |> PagesProgram.simulateCustom "checkAllTodos" Encode.null
         |> PagesProgram.simulateCustom "getTodosBySession" allCompleteTodosResponse
@@ -148,31 +191,102 @@ clearCompletedTest =
                     , ( "complete", Encode.bool False )
                     , ( "id", Encode.string "todo-1" )
                     ]
+                , Encode.object
+                    [ ( "title", Encode.string "Walk the dog" )
+                    , ( "complete", Encode.bool False )
+                    , ( "id", Encode.string "todo-3" )
+                    ]
                 ]
             )
         |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
         |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
 
 
-{-| Optimistic UI: toggle all to complete while the action is in-flight,
-assert the optimistic state immediately, then resolve the server
-roundtrip and verify final state matches.
+{-| Optimistic UI: fire off several concurrent user actions (toggling
+individual items, deleting, toggle-all) while server roundtrips are
+still in-flight, then assert the optimistic view state, resolve
+everything, and verify the final state matches.
 
-Starting state: "Buy milk" (incomplete), "Write tests" (complete)
-After toggle-all: both complete -> "0 items left" (optimistic)
-After server confirms: still "0 items left"
+Starting state:
+  - "Buy milk" (incomplete)
+  - "Write tests" (complete)
+  - "Walk the dog" (incomplete)
+  -> 2 items left
+
+User actions (all fired before any server response):
+  1. Delete "Write tests"
+  2. Toggle "Buy milk" to complete
+  3. Toggle "Walk the dog" to complete
+  4. Toggle "Buy milk" back to incomplete (changed mind)
+
+Expected optimistic state:
+  - "Write tests" is gone (deleted)
+  - "Buy milk" still incomplete (toggled twice = net no change)
+  - "Walk the dog" now complete
+  -> 1 item left
+
 -}
 optimisticUiTest : TestApp.ProgramTest
 optimisticUiTest =
+    let
+        finalServerState =
+            Encode.list identity
+                [ Encode.object
+                    [ ( "title", Encode.string "Buy milk" )
+                    , ( "complete", Encode.bool False )
+                    , ( "id", Encode.string "todo-1" )
+                    ]
+                , Encode.object
+                    [ ( "title", Encode.string "Walk the dog" )
+                    , ( "complete", Encode.bool True )
+                    , ( "id", Encode.string "todo-3" )
+                    ]
+                ]
+    in
     startLoggedInWithTodos todosResponse
-        -- Starting state: 1 incomplete, 1 complete
+        -- Starting state
+        |> PagesProgram.ensureViewHas [ text " items left" ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Write tests") ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
+        ---------------------------------------------------------------
+        -- Rapid-fire user actions, no server responses yet
+        ---------------------------------------------------------------
+        -- 1) Delete "Write tests"
+        |> deleteTodo "Write tests"
+        -- 2) Toggle "Buy milk" to complete
+        |> toggleTodo "Buy milk"
+        -- 3) Toggle "Walk the dog" to complete
+        |> toggleTodo "Walk the dog"
+        -- 4) Toggle "Buy milk" back to incomplete (changed mind)
+        |> toggleTodo "Buy milk"
+        ---------------------------------------------------------------
+        -- Assert optimistic state while everything is still in-flight
+        ---------------------------------------------------------------
+        -- "Write tests" is gone
+        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
+        -- "Buy milk" still present and incomplete (toggled twice)
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+        -- "Walk the dog" still present but now complete
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
+        -- 1 item left (Buy milk incomplete, Walk the dog complete)
         |> PagesProgram.ensureViewHas [ text " item left" ]
-        -- Click toggle-all -- fetcher action fires but hasn't resolved
-        |> PagesProgram.clickButton "❯"
-        -- OPTIMISTIC: UI immediately shows all complete
-        |> PagesProgram.ensureViewHas [ text " items left" ]
-        -- Resolve the server roundtrip
-        |> PagesProgram.simulateCustom "checkAllTodos" Encode.null
-        |> PagesProgram.simulateCustom "getTodosBySession" allCompleteTodosResponse
-        -- Server-confirmed state matches optimistic prediction
-        |> PagesProgram.ensureViewHas [ text " items left" ]
+        ---------------------------------------------------------------
+        -- Resolve all in-flight actions + data reloads
+        ---------------------------------------------------------------
+        |> PagesProgram.simulateCustom "deleteTodo" Encode.null
+        |> PagesProgram.simulateCustom "getTodosBySession" finalServerState
+        |> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+        |> PagesProgram.simulateCustom "getTodosBySession" finalServerState
+        |> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+        |> PagesProgram.simulateCustom "getTodosBySession" finalServerState
+        |> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+        |> PagesProgram.simulateCustom "getTodosBySession" finalServerState
+        ---------------------------------------------------------------
+        -- Server-confirmed state matches what the optimistic UI showed
+        ---------------------------------------------------------------
+        |> PagesProgram.ensureViewHasNot [ attribute (Attr.value "Write tests") ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Buy milk") ]
+        |> PagesProgram.ensureViewHas [ attribute (Attr.value "Walk the dog") ]
+        |> PagesProgram.ensureViewHas [ text " item left" ]

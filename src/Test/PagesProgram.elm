@@ -1,7 +1,7 @@
 module Test.PagesProgram exposing
     ( ProgramTest
     , start, startWithEffects, startPlatform
-    , clickButton, clickLink, fillIn, fillInTextarea, check
+    , clickButton, clickButtonWith, clickLink, fillIn, fillInTextarea, check
     , navigateTo, ensureBrowserUrl
     , submitForm, submitFormTo
     , resolveEffect
@@ -47,7 +47,7 @@ use [`start`](#start) with inline config.
 
 @docs start, startWithEffects, startPlatform
 
-@docs clickButton, clickLink, fillIn, fillInTextarea, check
+@docs clickButton, clickButtonWith, clickLink, fillIn, fillInTextarea, check
 
 @docs resolveEffect
 
@@ -1494,6 +1494,99 @@ clickButton buttonText (ProgramTest state) =
                                                         ++ buttonText
                                                         ++ "\" failed: no form submit handler or click handler found.\n"
                                                         ++ clickErr
+                                                    )
+                                        }
+
+
+{-| Like [`clickButton`](#clickButton), but finds the button by CSS selectors
+instead of text content. Useful for icon buttons (SVGs, empty buttons) that
+have no text. Composes with [`within`](#within) to scope interactions.
+
+    import Test.Html.Selector as Selector exposing (class, tag)
+
+    -- Within the "Buy milk" todo, click its toggle checkbox
+    TestApp.start "/" setup
+        |> PagesProgram.within
+            (Query.find [ tag "li", Selector.containing [ attribute (Attr.value "Buy milk") ] ])
+            (PagesProgram.clickButtonWith [ class "toggle" ])
+
+If the button is inside a `<form>`, the form submit event is simulated
+(setting `useFetcher` correctly for concurrent forms). Otherwise a click
+event is simulated.
+
+-}
+clickButtonWith : List Selector.Selector -> ProgramTest model msg -> ProgramTest model msg
+clickButtonWith selectors (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest
+                        { state
+                            | error =
+                                Just "clickButtonWith: Cannot interact while BackendTask data is still resolving."
+                        }
+
+                Ready ready ->
+                    let
+                        query =
+                            renderScopedView ready
+
+                        buttonSelectors =
+                            Selector.tag "button" :: selectors
+
+                        buttonQuery =
+                            query |> Query.find buttonSelectors
+
+                        -- Try form submit first (goes through form library's
+                        -- onSubmit pipeline, correctly setting useFetcher).
+                        formSubmitResult =
+                            query
+                                |> Query.find
+                                    [ Selector.tag "form"
+                                    , Selector.containing buttonSelectors
+                                    ]
+                                |> Event.simulate
+                                    ( "submit"
+                                    , Encode.object
+                                        [ ( "currentTarget"
+                                          , Encode.object
+                                                [ ( "method", Encode.string "POST" )
+                                                , ( "action", Encode.string "" )
+                                                , ( "id", Encode.null )
+                                                ]
+                                          )
+                                        ]
+                                    )
+                                |> Event.toResult
+
+                        clickResult =
+                            buttonQuery
+                                |> Event.simulate Event.click
+                                |> Event.toResult
+
+                        label =
+                            "clickButtonWith [...]"
+                    in
+                    case formSubmitResult of
+                        Ok msg ->
+                            applyMsgWithLabel label Interaction Nothing msg (ProgramTest state)
+
+                        Err _ ->
+                            case clickResult of
+                                Ok msg ->
+                                    applyMsgWithLabel label Interaction Nothing msg (ProgramTest state)
+
+                                Err errMsg ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just
+                                                    ("clickButtonWith failed: no form submit handler or click handler found.\n"
+                                                        ++ errMsg
                                                     )
                                         }
 
