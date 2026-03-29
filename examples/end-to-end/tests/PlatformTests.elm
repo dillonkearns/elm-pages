@@ -5,8 +5,9 @@ import Html.Attributes as Attr
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
-import Test.Html.Selector as Selector exposing (text)
+import Test.Html.Selector as Selector
 import Test.PagesProgram as PagesProgram
+import Test.PagesProgram.Selector as PSelector
 import Test.Runner
 import TestApp
 
@@ -17,12 +18,12 @@ suite =
         [ test "counter page renders through Shared layout" <|
             \() ->
                 TestApp.start "/counter" BackendTaskTest.init
-                    |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
                     |> PagesProgram.done
         , test "hello page renders" <|
             \() ->
                 TestApp.start "/hello" BackendTaskTest.init
-                    |> PagesProgram.ensureViewHas [ text "Hello" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Hello" ]
                     |> PagesProgram.done
         , test "counter increment and decrement" <|
             \() ->
@@ -30,16 +31,16 @@ suite =
                     |> PagesProgram.clickButton "+"
                     |> PagesProgram.clickButton "+"
                     |> PagesProgram.clickButton "+"
-                    |> PagesProgram.ensureViewHas [ text "Count: 3" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 3" ]
                     |> PagesProgram.clickButton "-"
-                    |> PagesProgram.ensureViewHas [ text "Count: 2" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 2" ]
                     |> PagesProgram.done
         , test "navigate from links to counter" <|
             \() ->
                 TestApp.start "/links" BackendTaskTest.init
-                    |> PagesProgram.ensureViewHas [ text "Links Page" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Links Page" ]
                     |> PagesProgram.clickLink "Go to Counter" "/counter"
-                    |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
                     |> PagesProgram.done
         , test "navigate and then interact" <|
             \() ->
@@ -47,7 +48,7 @@ suite =
                     |> PagesProgram.clickLink "Go to Counter" "/counter"
                     |> PagesProgram.clickButton "+"
                     |> PagesProgram.clickButton "+"
-                    |> PagesProgram.ensureViewHas [ text "Count: 2" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 2" ]
                     |> PagesProgram.done
         , test "ensureBrowserUrl tracks navigation" <|
             \() ->
@@ -64,36 +65,36 @@ suite =
                     (BackendTaskTest.init
                         |> BackendTaskTest.withFile "feedback.txt" "No messages yet"
                     )
-                    |> PagesProgram.ensureViewHas [ text "Current file: No messages yet" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Current file: No messages yet" ]
                     |> PagesProgram.fillIn "feedback-form" "message" "Hello!"
                     |> PagesProgram.clickButton "Submit Feedback"
                     -- Action wrote "Hello!" to feedback.txt.
                     -- Framework re-resolved data, which reads the updated file.
-                    |> PagesProgram.ensureViewHas [ text "You said: Hello!" ]
-                    |> PagesProgram.ensureViewHas [ text "Current file: Hello!" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "You said: Hello!" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Current file: Hello!" ]
                     |> PagesProgram.done
         , test "error page renders when data BackendTask fails" <|
             \() ->
                 TestApp.start "/error-handling" BackendTaskTest.init
-                    |> PagesProgram.ensureViewHas [ text "Something's Not Right Here" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Something's Not Right Here" ]
                     |> PagesProgram.done
         , test "concurrent form submission with fetcher" <|
             \() ->
                 TestApp.start "/quick-note" BackendTaskTest.init
-                    |> PagesProgram.ensureViewHas [ text "Quick Note" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Quick Note" ]
                     |> PagesProgram.fillIn "note-form" "note" "My test note"
                     |> PagesProgram.clickButton "Save Note"
-                    |> PagesProgram.ensureViewHas [ text "Saved: My test note" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Saved: My test note" ]
                     |> PagesProgram.done
         , test "login form redirects to counter" <|
             \() ->
                 TestApp.start "/simple-login" BackendTaskTest.init
-                    |> PagesProgram.ensureViewHas [ text "Simple Login" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Simple Login" ]
                     |> PagesProgram.fillIn "login-form" "username" "alice"
                     |> PagesProgram.clickButton "Log In"
                     |> PagesProgram.ensureBrowserUrl
                         (\url -> url |> Expect.equal "https://localhost:1234/counter")
-                    |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
                     |> PagesProgram.done
         , test "fillIn value is reflected in the rendered view" <|
             \() ->
@@ -101,32 +102,32 @@ suite =
                     (BackendTaskTest.init
                         |> BackendTaskTest.withFile "feedback.txt" "No messages yet"
                     )
-                    |> PagesProgram.ensureViewHas [ text "Current file: No messages yet" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Current file: No messages yet" ]
                     |> PagesProgram.fillIn "feedback-form" "message" "Hello from test!"
                     |> PagesProgram.ensureViewHas
-                        [ Selector.tag "input"
-                        , Selector.attribute (Attr.name "message")
-                        , Selector.attribute (Attr.value "Hello from test!")
+                        [ PSelector.tag "input"
+                        , PSelector.attribute "name=\"message\"" (Selector.attribute (Attr.name "message"))
+                        , PSelector.value "Hello from test!"
                         ]
                     |> PagesProgram.done
         , test "navigating to route with unsimulated HTTP in data surfaces pending request error" <|
             \() ->
                 TestApp.start "/counter" BackendTaskTest.init
-                    |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
                     |> PagesProgram.navigateTo "/http-data"
                     -- /http-data's data function does GET https://api.example.com/posts
                     -- which has not been simulated. ensureViewHas should report the
                     -- pending HTTP request, not a misleading "not found" view error.
-                    |> PagesProgram.ensureViewHas [ text "Post:" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Post:" ]
                     |> PagesProgram.done
                     |> expectFailContaining
                         "Route data has a pending BackendTask that needs a simulated response"
         , test "pending HTTP error message includes the request URL" <|
             \() ->
                 TestApp.start "/counter" BackendTaskTest.init
-                    |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
                     |> PagesProgram.navigateTo "/http-data"
-                    |> PagesProgram.ensureViewHas [ text "Post:" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Post:" ]
                     |> PagesProgram.done
                     |> expectFailContaining "https://api.example.com/posts"
         , test "fetcher-http route: initial data load needs HTTP" <|
@@ -137,7 +138,7 @@ suite =
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 0 ) ])
-                    |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
                     |> PagesProgram.done
         , test "fetcher-http: URL-targeted simulation" <|
             \() ->
@@ -147,9 +148,9 @@ suite =
                     |> PagesProgram.simulateHttpGetTo
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 0 ) ])
-                    |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
                     |> PagesProgram.clickButton "Increment"
-                    |> PagesProgram.ensureViewHas [ text "Count: 1" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
                     -- Resolve by URL (not order): target mutation directly
                     |> PagesProgram.simulateHttpGetTo
                         "https://api.example.com/increment"
@@ -158,7 +159,7 @@ suite =
                     |> PagesProgram.simulateHttpGetTo
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 1 ) ])
-                    |> PagesProgram.ensureViewHas [ text "Count: 2" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 2" ]
                     |> PagesProgram.done
         , test "fetcher-http: single increment with optimistic UI" <|
             \() ->
@@ -167,10 +168,10 @@ suite =
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 0 ) ])
-                    |> PagesProgram.ensureViewHas [ text "Count: 0" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
                     -- Click shows optimistic +1 (fetcher pending)
                     |> PagesProgram.clickButton "Increment"
-                    |> PagesProgram.ensureViewHas [ text "Count: 1" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
                     -- Resolve fetcher mutation
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/increment"
@@ -179,7 +180,7 @@ suite =
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 1 ) ])
-                    |> PagesProgram.ensureViewHas [ text "Count: 2" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 2" ]
                     |> PagesProgram.done
         ]
 

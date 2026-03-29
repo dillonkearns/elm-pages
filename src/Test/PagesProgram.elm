@@ -10,7 +10,7 @@ module Test.PagesProgram exposing
     , ensureViewHas, ensureViewHasNot, ensureView
     , expectViewHas, expectViewHasNot, expectView
     , expectModel
-    , within
+    , within, withinFind
     , simulateDomEvent
     , simulateCustom
     , simulateHttpGet, simulateHttpPost, simulateHttpError
@@ -31,8 +31,8 @@ via a mock resolver.
 
     import TestApp
     import Test exposing (test)
-    import Test.Html.Selector as Selector
     import Test.PagesProgram as PagesProgram
+    import Test.PagesProgram.Selector as Selector
 
     test "renders index page" <|
         \() ->
@@ -58,6 +58,8 @@ use [`start`](#start) with inline config.
 @docs ensureViewHas, ensureViewHasNot, ensureView
 
 @docs expectViewHas, expectViewHasNot, expectView, expectModel
+
+@docs within, withinFind
 
 @docs simulateDomEvent
 
@@ -108,6 +110,7 @@ import Test.PagesProgram.SimulatedSub as SimulatedSub exposing (SimulatedSub)
 import Test.Html.Event as Event
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
+import Test.PagesProgram.Selector as PSelector exposing (AssertionSelector(..))
 import Test.Runner
 import Test.Runner.Failure
 import Time
@@ -147,13 +150,15 @@ type StepKind
     | Error
 
 
-{-| An HTTP request entry in the network log.
+{-| An HTTP request or custom port entry in the network log.
 -}
 type alias NetworkEntry =
     { method : String
     , url : String
     , status : NetworkStatus
     , stepIndex : Int
+    , portName : Maybe String
+    , responsePreview : Maybe String
     }
 
 
@@ -173,6 +178,7 @@ type TargetSelector
     | ByLabelText String
     | ById String
     | ByTag String
+    | BySelectors (List AssertionSelector)
 
 
 {-| A snapshot of an in-flight fetcher's state at a point in the test pipeline.
@@ -204,6 +210,7 @@ the visual test runner to step through test execution in the browser.
 `stepKind` categorizes the step for color-coding in the viewer.
 `browserUrl` is the URL at the time of the snapshot (if URL tracking is enabled).
 `targetElement` identifies the element this step interacted with (for highlighting).
+`assertionSelectors` carries assertion selector details for highlighting in the viewer.
 
 -}
 type alias Snapshot =
@@ -219,6 +226,7 @@ type alias Snapshot =
     , pendingEffects : List String
     , networkLog : List NetworkEntry
     , targetElement : Maybe TargetSelector
+    , assertionSelectors : List AssertionSelector
     , fetcherLog : List FetcherEntry
     }
 
@@ -261,6 +269,7 @@ type alias ReadyState model msg =
     , onFormSubmit : Maybe ({ formId : String, action : String, fields : List ( String, String ), useFetcher : Bool } -> msg)
     , getFormFields : Maybe (model -> List ( String, String ))
     , viewScope : Query.Single msg -> Query.Single msg
+    , scopeLabels : List String
     , getModelError : model -> Maybe String
     }
 
@@ -322,6 +331,7 @@ start config =
                       , pendingEffects = describeEffects ready.pendingEffects
                       , networkLog = []
                       , targetElement = Nothing
+                      , assertionSelectors = []
                       , fetcherLog = []
                       }
                     ]
@@ -339,6 +349,7 @@ start config =
                       , pendingEffects = []
                       , networkLog = []
                       , targetElement = Nothing
+                      , assertionSelectors = []
                       , fetcherLog = []
                       }
                     ]
@@ -724,6 +735,7 @@ startPlatform config initialPath testSetup =
                                         )
                             )
                     , viewScope = identity
+                    , scopeLabels = []
                     , getModelError = \m_ -> m_.pendingDataError
                     }
 
@@ -930,6 +942,7 @@ startPlatform config initialPath testSetup =
                               , pendingEffects = []
                               , networkLog = []
                               , targetElement = Nothing
+                              , assertionSelectors = []
                               , fetcherLog = []
                               }
                             ]
@@ -1515,7 +1528,7 @@ If the button is inside a `<form>`, the form submit event is simulated
 event is simulated.
 
 -}
-clickButtonWith : List Selector.Selector -> ProgramTest model msg -> ProgramTest model msg
+clickButtonWith : List PSelector.Selector -> ProgramTest model msg -> ProgramTest model msg
 clickButtonWith selectors (ProgramTest state) =
     case state.error of
         Just _ ->
@@ -1535,8 +1548,11 @@ clickButtonWith selectors (ProgramTest state) =
                         query =
                             renderScopedView ready
 
+                        htmlSelectors =
+                            PSelector.toHtmlSelectors selectors
+
                         buttonSelectors =
-                            Selector.tag "button" :: selectors
+                            Selector.tag "button" :: htmlSelectors
 
                         buttonQuery =
                             query |> Query.find buttonSelectors
@@ -1569,16 +1585,19 @@ clickButtonWith selectors (ProgramTest state) =
                                 |> Event.toResult
 
                         label =
-                            "clickButtonWith [...]"
+                            "clickButtonWith " ++ PSelector.toLabel selectors
+
+                        targetSelector =
+                            Just (BySelectors (PSelector.toAssertionSelectors selectors))
                     in
                     case formSubmitResult of
                         Ok msg ->
-                            applyMsgWithLabel label Interaction Nothing msg (ProgramTest state)
+                            applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
 
                         Err _ ->
                             case clickResult of
                                 Ok msg ->
-                                    applyMsgWithLabel label Interaction Nothing msg (ProgramTest state)
+                                    applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
 
                                 Err errMsg ->
                                     ProgramTest
@@ -1994,7 +2013,7 @@ ensureBrowserUrl assertion (ProgramTest state) =
 
                                 Nothing ->
                                     ProgramTest state
-                                        |> recordAssertionSnapshot ("ensureBrowserUrl " ++ currentUrl)
+                                        |> recordAssertionSnapshot ("ensureBrowserUrl " ++ currentUrl) []
 
                         Nothing ->
                             ProgramTest
@@ -2215,7 +2234,7 @@ resolveEffect simulate (ProgramTest state) =
                                                     , lastReadyModel = Just updateResult.model
                                                     , snapshots =
                                                         state.snapshots
-                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution Nothing { ready | model = updateResult.model } state.modelToString state.fetcherExtractor state.networkLog ]
+                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution Nothing [] { ready | model = updateResult.model } state.modelToString state.fetcherExtractor state.networkLog ]
                                                 }
 
                                         Nothing ->
@@ -2244,7 +2263,7 @@ resolveEffect simulate (ProgramTest state) =
                                                     , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
                                                     , snapshots =
                                                         state.snapshots
-                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution Nothing newReady state.modelToString state.fetcherExtractor updatedLog ]
+                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution Nothing [] newReady state.modelToString state.fetcherExtractor updatedLog ]
                                                     , networkLog = updatedLog
                                                 }
 
@@ -2268,8 +2287,12 @@ continued testing.
         |> PagesProgram.ensureViewHas [ Selector.id "main-content" ]
 
 -}
-ensureViewHas : List Selector.Selector -> ProgramTest model msg -> ProgramTest model msg
+ensureViewHas : List PSelector.Selector -> ProgramTest model msg -> ProgramTest model msg
 ensureViewHas selectors (ProgramTest state) =
+    let
+        htmlSelectors =
+            PSelector.toHtmlSelectors selectors
+    in
     case state.error of
         Just _ ->
             ProgramTest state
@@ -2301,7 +2324,7 @@ ensureViewHas selectors (ProgramTest state) =
                             let
                                 result : Expectation
                                 result =
-                                    renderScopedView ready |> Query.has selectors
+                                    renderScopedView ready |> Query.has htmlSelectors
 
                             in
                             case getFailureMessage result of
@@ -2317,14 +2340,18 @@ ensureViewHas selectors (ProgramTest state) =
 
                                 Nothing ->
                                     ProgramTest state
-                                        |> recordAssertionSnapshot ("ensureViewHas " ++ selectorLabel selectors)
+                                        |> recordAssertionSnapshot ("ensureViewHas " ++ PSelector.toLabel selectors) (PSelector.toAssertionSelectors selectors)
 
 
 {-| Assert that the rendered view does NOT contain elements matching the given
 selectors. Chainable.
 -}
-ensureViewHasNot : List Selector.Selector -> ProgramTest model msg -> ProgramTest model msg
+ensureViewHasNot : List PSelector.Selector -> ProgramTest model msg -> ProgramTest model msg
 ensureViewHasNot selectors (ProgramTest state) =
+    let
+        htmlSelectors =
+            PSelector.toHtmlSelectors selectors
+    in
     case state.error of
         Just _ ->
             ProgramTest state
@@ -2343,7 +2370,7 @@ ensureViewHasNot selectors (ProgramTest state) =
                             let
                                 result : Expectation
                                 result =
-                                    renderScopedView ready |> Query.hasNot selectors
+                                    renderScopedView ready |> Query.hasNot htmlSelectors
                             in
                             case getFailureMessage result of
                                 Just failMsg ->
@@ -2358,7 +2385,7 @@ ensureViewHasNot selectors (ProgramTest state) =
 
                                 Nothing ->
                                     ProgramTest state
-                                        |> recordAssertionSnapshot ("ensureViewHasNot " ++ selectorLabel selectors)
+                                        |> recordAssertionSnapshot ("ensureViewHasNot " ++ PSelector.toLabel selectors) (PSelector.toAssertionSelectors selectors)
 
 
 {-| Assert on the rendered view using a custom assertion function.
@@ -2407,7 +2434,7 @@ ensureView assertion (ProgramTest state) =
 
                                 Nothing ->
                                     ProgramTest state
-                                        |> recordAssertionSnapshot "ensureView"
+                                        |> recordAssertionSnapshot "ensureView" []
 
 
 
@@ -2418,7 +2445,7 @@ the pipeline). Use for final view assertions.
         |> PagesProgram.expectViewHas [ Selector.text "Done!" ]
 
 -}
-expectViewHas : List Selector.Selector -> ProgramTest model msg -> Expectation
+expectViewHas : List PSelector.Selector -> ProgramTest model msg -> Expectation
 expectViewHas selectors (ProgramTest state) =
     case state.error of
         Just errMsg ->
@@ -2430,12 +2457,12 @@ expectViewHas selectors (ProgramTest state) =
                     Expect.fail "expectViewHas: Cannot check view while data is resolving."
 
                 Ready ready ->
-                    renderScopedView ready |> Query.has selectors
+                    renderScopedView ready |> Query.has (PSelector.toHtmlSelectors selectors)
 
 
 {-| Like `ensureViewHasNot`, but returns an `Expectation` (terminal).
 -}
-expectViewHasNot : List Selector.Selector -> ProgramTest model msg -> Expectation
+expectViewHasNot : List PSelector.Selector -> ProgramTest model msg -> Expectation
 expectViewHasNot selectors (ProgramTest state) =
     case state.error of
         Just errMsg ->
@@ -2447,7 +2474,7 @@ expectViewHasNot selectors (ProgramTest state) =
                     Expect.fail "expectViewHasNot: Cannot check view while data is resolving."
 
                 Ready ready ->
-                    renderScopedView ready |> Query.hasNot selectors
+                    renderScopedView ready |> Query.hasNot (PSelector.toHtmlSelectors selectors)
 
 
 {-| Like `ensureView`, but returns an `Expectation` (terminal).
@@ -2489,7 +2516,37 @@ The scope is reset after the function returns.
 
 -}
 within : (Query.Single msg -> Query.Single msg) -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
-within scopeFn action (ProgramTest state) =
+within scopeFn action =
+    withinInternal Nothing scopeFn action
+
+
+{-| Like `within`, but takes labeled selectors for the scope, which makes
+assertions inside the scope self-describing in the visual test runner.
+
+    myTest
+        |> PagesProgram.withinFind
+            [ Selector.class "todo-count" ]
+            (PagesProgram.ensureViewHas [ Selector.text "2" ])
+        |> PagesProgram.done
+
+The scope label appears in assertion labels, e.g.,
+`ensureViewHas text "2" (within .todo-count)`.
+
+-}
+withinFind : List PSelector.Selector -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
+withinFind selectors action =
+    let
+        htmlSelectors =
+            PSelector.toHtmlSelectors selectors
+
+        label =
+            PSelector.toLabel selectors
+    in
+    withinInternal (Just label) (Query.find htmlSelectors) action
+
+
+withinInternal : Maybe String -> (Query.Single msg -> Query.Single msg) -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
+withinInternal maybeLabel scopeFn action (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -2503,7 +2560,16 @@ within scopeFn action (ProgramTest state) =
                     let
                         -- Apply the new scope on top of any existing scope
                         scopedReady =
-                            { ready | viewScope = ready.viewScope >> scopeFn }
+                            { ready
+                                | viewScope = ready.viewScope >> scopeFn
+                                , scopeLabels =
+                                    case maybeLabel of
+                                        Just label ->
+                                            ready.scopeLabels ++ [ label ]
+
+                                        Nothing ->
+                                            ready.scopeLabels
+                            }
 
                         scopedState =
                             { state | phase = Ready scopedReady }
@@ -2512,13 +2578,13 @@ within scopeFn action (ProgramTest state) =
                         (ProgramTest resultState) =
                             action (ProgramTest scopedState)
                     in
-                    -- Restore the original viewScope but keep everything else
+                    -- Restore the original viewScope and scopeLabels but keep everything else
                     ProgramTest
                         { resultState
                             | phase =
                                 case resultState.phase of
                                     Ready resultReady ->
-                                        Ready { resultReady | viewScope = ready.viewScope }
+                                        Ready { resultReady | viewScope = ready.viewScope, scopeLabels = ready.scopeLabels }
 
                                     other ->
                                         other
@@ -2645,6 +2711,7 @@ toSnapshots (ProgramTest state) =
                      , pendingEffects = []
                      , networkLog = state.networkLog
                      , targetElement = Nothing
+                     , assertionSelectors = []
                      , fetcherLog = []
                      }
                    ]
@@ -2697,28 +2764,30 @@ on success, Err on AdvanceError.
 advanceResolver : Maybe model -> Simulation -> State model msg -> Resolver model msg -> Result String (ProgramTest model msg)
 advanceResolver maybeModel sim state (Resolver resolver) =
     let
-        ( simLabel, simMethod, simUrl ) =
+        simInfo =
             case sim of
-                SimHttpGet url _ ->
-                    ( "simulateHttpGet " ++ url, "GET", url )
+                SimHttpGet url responseJson ->
+                    { label = "simulateHttpGet " ++ url, method = "GET", url = url, portName = Nothing, responsePreview = Just (Encode.encode 2 responseJson) }
 
-                SimHttpPost url _ ->
-                    ( "simulateHttpPost " ++ url, "POST", url )
+                SimHttpPost url responseJson ->
+                    { label = "simulateHttpPost " ++ url, method = "POST", url = url, portName = Nothing, responsePreview = Just (Encode.encode 2 responseJson) }
 
                 SimHttpError method url errorString ->
-                    ( "simulateHttpError " ++ method ++ " " ++ url ++ " " ++ errorString, method, url )
+                    { label = "simulateHttpError " ++ method ++ " " ++ url ++ " " ++ errorString, method = method, url = url, portName = Nothing, responsePreview = Nothing }
 
-                SimCustom portName _ ->
-                    ( "simulateCustom " ++ portName, "GET", "elm-pages-internal://port" )
+                SimCustom portName responseJson ->
+                    { label = "simulateCustom " ++ portName, method = "PORT", url = portName, portName = Just portName, responsePreview = Just (Encode.encode 2 responseJson) }
 
         stepIdx =
             List.length state.snapshots
 
         networkEntry =
-            { method = simMethod
-            , url = simUrl
+            { method = simInfo.method
+            , url = simInfo.url
             , status = Stubbed
             , stepIndex = stepIdx
+            , portName = simInfo.portName
+            , responsePreview = simInfo.responsePreview
             }
 
         updatedLog =
@@ -2730,7 +2799,7 @@ advanceResolver maybeModel sim state (Resolver resolver) =
                 snapshot =
                     case newPhase of
                         Ready ready ->
-                            [ makeSnapshot simLabel EffectResolution Nothing ready state.modelToString state.fetcherExtractor updatedLog ]
+                            [ makeSnapshot simInfo.label EffectResolution Nothing [] ready state.modelToString state.fetcherExtractor updatedLog ]
 
                         Resolving _ ->
                             []
@@ -2919,24 +2988,30 @@ findResolverByUrlHelp targetUrl before remaining =
 {-| Record a snapshot for an assertion step (like Cypress's command log).
 Assertions show up in the timeline so you can see what was checked.
 -}
-recordAssertionSnapshot : String -> ProgramTest model msg -> ProgramTest model msg
-recordAssertionSnapshot label (ProgramTest state) =
+recordAssertionSnapshot : String -> List AssertionSelector -> ProgramTest model msg -> ProgramTest model msg
+recordAssertionSnapshot label assertionSels (ProgramTest state) =
     case state.phase of
         Ready ready ->
+            let
+                labelWithScope =
+                    case ready.scopeLabels of
+                        [] ->
+                            label
+
+                        scopes ->
+                            label ++ " (within " ++ String.join " > " scopes ++ ")"
+            in
             ProgramTest
                 { state
                     | snapshots =
                         state.snapshots
-                            ++ [ makeSnapshot label Assertion Nothing ready state.modelToString state.fetcherExtractor state.networkLog ]
+                            ++ [ makeSnapshot labelWithScope Assertion Nothing assertionSels ready state.modelToString state.fetcherExtractor state.networkLog ]
                 }
 
         _ ->
             ProgramTest state
 
 
-selectorLabel : List Selector.Selector -> String
-selectorLabel selectors =
-    "[" ++ String.fromInt (List.length selectors) ++ " selector(s)]"
 
 
 {-| Apply a message through update, record a snapshot, and re-render.
@@ -2977,7 +3052,7 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                                     , lastReadyModel = Just updateResult.model
                                     , snapshots =
                                         state.snapshots
-                                            ++ [ makeSnapshot label kind target newReady state.modelToString state.fetcherExtractor state.networkLog ]
+                                            ++ [ makeSnapshot label kind target [] newReady state.modelToString state.fetcherExtractor state.networkLog ]
                                 }
 
                         Nothing ->
@@ -3007,13 +3082,13 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                                     , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
                                     , snapshots =
                                         state.snapshots
-                                            ++ [ makeSnapshot label kind target newReady state.modelToString state.fetcherExtractor updatedLog ]
+                                            ++ [ makeSnapshot label kind target [] newReady state.modelToString state.fetcherExtractor updatedLog ]
                                     , networkLog = updatedLog
                                 }
 
 
-makeSnapshot : String -> StepKind -> Maybe TargetSelector -> ReadyState model msg -> Maybe (model -> String) -> Maybe (model -> List FetcherEntry) -> List NetworkEntry -> Snapshot
-makeSnapshot label kind target ready modelToString fetcherExtractor currentNetworkLog =
+makeSnapshot : String -> StepKind -> Maybe TargetSelector -> List AssertionSelector -> ReadyState model msg -> Maybe (model -> String) -> Maybe (model -> List FetcherEntry) -> List NetworkEntry -> Snapshot
+makeSnapshot label kind target assertionSels ready modelToString fetcherExtractor currentNetworkLog =
     let
         viewResult =
             ready.getView ready.model
@@ -3030,6 +3105,7 @@ makeSnapshot label kind target ready modelToString fetcherExtractor currentNetwo
     , pendingEffects = describeEffects ready.pendingEffects
     , networkLog = currentNetworkLog
     , targetElement = target
+    , assertionSelectors = assertionSels
     , fetcherLog = fetcherExtractor |> Maybe.map (\fn -> fn ready.model) |> Maybe.withDefault []
     }
 
@@ -3077,6 +3153,8 @@ parseEffectToNetworkEntry stepIndex desc =
                     , url = String.join " " rest
                     , status = Pending
                     , stepIndex = stepIndex
+                    , portName = Nothing
+                    , responsePreview = Nothing
                     }
 
             else
@@ -3135,6 +3213,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                         , onFormSubmit = Nothing
                         , getFormFields = Nothing
                         , viewScope = identity
+                        , scopeLabels = []
                         , getModelError = \_ -> Nothing
                         }
 

@@ -28,6 +28,7 @@ import Test.BackendTask as BackendTaskTest
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector exposing (text)
 import Test.PagesProgram as PagesProgram
+import Test.PagesProgram.Selector as PSelector
 import TestApp
 
 
@@ -263,7 +264,7 @@ simulateIndexDataWithCart cartOrders =
 loginPageRendersTest : TestApp.ProgramTest
 loginPageRendersTest =
     TestApp.start "/login" baseSetup
-        |> PagesProgram.ensureViewHas [ text "You aren't logged in yet." ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "You aren't logged in yet." ]
 
 
 {-| 2. Login form submission triggers redirect.
@@ -271,7 +272,7 @@ loginPageRendersTest =
 loginRedirectsTest : TestApp.ProgramTest
 loginRedirectsTest =
     TestApp.start "/login" baseSetup
-        |> PagesProgram.ensureViewHas [ text "You aren't logged in yet." ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "You aren't logged in yet." ]
         |> PagesProgram.fillIn "login" "username" "alice@example.com"
         |> PagesProgram.fillIn "login" "password" "password123"
         |> PagesProgram.clickButton "Login"
@@ -300,9 +301,9 @@ smoothieListTest =
         |> PagesProgram.clickButton "Login"
         |> simulateLogin
         |> simulateIndexData
-        |> PagesProgram.ensureViewHas [ text "Pink Berry" ]
-        |> PagesProgram.ensureViewHas [ text "Green Lime" ]
-        |> PagesProgram.ensureViewHas [ text "Welcome Alice!" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Pink Berry" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Green Lime" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Welcome Alice!" ]
 
 
 {-| 4. Add to cart: form submission updates cart total.
@@ -315,7 +316,7 @@ addToCartTest =
         |> PagesProgram.clickButton "Login"
         |> simulateLogin
         |> simulateIndexData
-        |> PagesProgram.ensureViewHas [ text "Checkout (0)" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Checkout (0)" ]
         -- Click "+" on Pink Berry
         |> PagesProgram.within
             (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
@@ -324,7 +325,7 @@ addToCartTest =
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
         -- Data reload after fetcher complete (combined response with updated cart)
         |> simulateIndexDataWithCart oneItemOrders
-        |> PagesProgram.ensureViewHas [ text "Checkout (1)" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Checkout (1)" ]
 
 
 {-| 5. THE SHOWCASE TEST: Optimistic UI via concurrentSubmissions.
@@ -339,22 +340,22 @@ optimisticCartTest =
         |> PagesProgram.clickButton "Login"
         |> simulateLogin
         |> simulateIndexData
-        |> PagesProgram.ensureViewHas [ text "Pink Berry" ]
-        |> PagesProgram.ensureViewHas [ text "Checkout (0)" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Pink Berry" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Checkout (0)" ]
         -- Click "+" on Pink Berry
         |> PagesProgram.within
             (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
             (PagesProgram.clickButton "+")
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
         |> simulateIndexDataWithCart oneItemOrders
-        |> PagesProgram.ensureViewHas [ text "Checkout (1)" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Checkout (1)" ]
         -- Click "+" again
         |> PagesProgram.within
             (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
             (PagesProgram.clickButton "+")
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
         |> simulateIndexDataWithCart twoItemOrders
-        |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Checkout (2)" ]
 
 
 {-| Concurrent fetchers: Click "+" twice before resolving either.
@@ -368,7 +369,7 @@ concurrentFetchersTest =
         |> PagesProgram.clickButton "Login"
         |> simulateLogin
         |> simulateIndexData
-        |> PagesProgram.ensureViewHas [ text "Checkout (0)" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Checkout (0)" ]
         -- Click "+" on Pink Berry (triggers fetcher HTTP, but don't resolve)
         |> PagesProgram.within
             (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
@@ -379,7 +380,7 @@ concurrentFetchersTest =
             (PagesProgram.clickButton "+")
         -- Both fetchers pending. Optimistic UI shows Checkout (2) immediately!
         -- (Second click sees optimistic qty=1, computes 1+1=2)
-        |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Checkout (2)" ]
         -- Resolve both fetcher mutations. Fetcher effects are tried first
         -- (before the stale data reload), so each sim goes to the right resolver.
         -- Only ONE data reload round needed (from the last fetcher's completion).
@@ -387,7 +388,7 @@ concurrentFetchersTest =
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
         |> simulateIndexDataWithCart twoItemOrders
         -- Server confirms 2 items. No intermediate "Checkout (1)" step!
-        |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Checkout (2)" ]
 
 
 {-| Stale data reload cancellation: when two fetchers complete in sequence,
@@ -420,7 +421,7 @@ staleFetcherDataReloadTest =
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
         -- One data reload round (3 sequential Hasura queries).
         |> simulateIndexDataWithCart twoItemOrders
-        |> PagesProgram.ensureViewHas [ text "Checkout (2)" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Checkout (2)" ]
 
 
 {-| 6. Sign out clears session and redirects to login.
@@ -433,7 +434,7 @@ signoutTest =
         |> PagesProgram.clickButton "Login"
         |> simulateLogin
         |> simulateIndexData
-        |> PagesProgram.ensureViewHas [ text "Welcome Alice!" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Welcome Alice!" ]
         -- Click "Sign out"
         |> PagesProgram.clickButton "Sign out"
         -- Should redirect to /login

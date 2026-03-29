@@ -10,8 +10,8 @@ import Expect
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
-import Test.Html.Selector exposing (class, tag, text)
 import Test.PagesProgram as PagesProgram
+import Test.PagesProgram.Selector as PSelector
 
 
 blogApp =
@@ -49,11 +49,11 @@ suite =
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/posts"
                         samplePosts
-                    |> PagesProgram.ensureViewHas [ tag "h1", text "Blog" ]
-                    |> PagesProgram.ensureViewHas [ text "Getting Started with Elm" ]
-                    |> PagesProgram.ensureViewHas [ text "BackendTask Deep Dive" ]
-                    |> PagesProgram.ensureViewHas [ text "Testing Elm Apps" ]
-                    |> PagesProgram.ensureViewHas [ text "by Dillon Kearns" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.tag "h1", PSelector.text "Blog" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Getting Started with Elm" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "BackendTask Deep Dive" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Testing Elm Apps" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "by Dillon Kearns" ]
                     |> PagesProgram.done
         , test "clicking Show GitHub Stars fetches and displays count" <|
             \() ->
@@ -61,15 +61,15 @@ suite =
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/posts"
                         samplePosts
-                    |> PagesProgram.ensureViewHas [ text "Show GitHub Stars" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Show GitHub Stars" ]
                     |> PagesProgram.clickButton "Show GitHub Stars"
                     |> PagesProgram.resolveEffect
                         (BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 4200 ) ])
                         )
-                    |> PagesProgram.ensureViewHasNot [ text "Show GitHub Stars" ]
-                    |> PagesProgram.ensureViewHas [ text "elm-pages has 4200 stars" ]
+                    |> PagesProgram.ensureViewHasNot [ PSelector.text "Show GitHub Stars" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "elm-pages has 4200 stars" ]
                     |> PagesProgram.done
         , test "posts render with author attribution" <|
             \() ->
@@ -79,7 +79,7 @@ suite =
                         (Encode.list identity
                             [ post "My Post" "Jane Doe" "A great post." ]
                         )
-                    |> PagesProgram.ensureViewHas [ text "My Post" ]
-                    |> PagesProgram.ensureViewHas [ class "author", text "by Jane Doe" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "My Post" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.class "author", PSelector.text "by Jane Doe" ]
                     |> PagesProgram.done
         ]

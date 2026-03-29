@@ -573,8 +573,95 @@ main =
           }
           return null;
         }
+        case "assertion":
+          return findAssertionTarget(doc, selector.selectors);
         default:
           return null;
+      }
+    }
+
+    // Find the best element matching a list of assertion selectors.
+    // Tries to find an element that satisfies all selectors combined.
+    function findAssertionTarget(doc, selectors) {
+      if (!selectors || selectors.length === 0) return null;
+
+      // Build a list of candidate elements from the most specific selector,
+      // then filter by the remaining ones.
+      var candidates = null;
+      for (var i = 0; i < selectors.length; i++) {
+        var sel = selectors[i];
+        var found = findByAssertionSelector(doc, sel);
+        if (!found || found.length === 0) return null;
+        if (candidates === null) {
+          candidates = found;
+        } else {
+          // Intersect: keep only elements in both sets
+          candidates = candidates.filter(function(el) { return found.indexOf(el) !== -1; });
+        }
+      }
+      return candidates && candidates.length > 0 ? candidates[0] : null;
+    }
+
+    // Find all elements matching a single assertion selector.
+    function findByAssertionSelector(doc, sel) {
+      switch (sel.kind) {
+        case "id":
+          var el = doc.getElementById(sel.value);
+          return el ? [el] : [];
+        case "class":
+          return Array.from(doc.querySelectorAll("." + CSS.escape(sel.value)));
+        case "tag":
+          return Array.from(doc.querySelectorAll(sel.value));
+        case "value": {
+          // Elm sets value as a DOM property, not an HTML attribute,
+          // so querySelectorAll('[value=...]') won't find it. Check the property directly.
+          var inputs = doc.querySelectorAll("input, textarea, select");
+          var valResults = [];
+          for (var vi = 0; vi < inputs.length; vi++) {
+            if (inputs[vi].value === sel.value) valResults.push(inputs[vi]);
+          }
+          return valResults;
+        }
+        case "text": {
+          // Walk all elements to find those containing the text
+          var all = doc.querySelectorAll("*");
+          var results = [];
+          for (var i = 0; i < all.length; i++) {
+            // Check direct text content (not just descendants)
+            for (var j = 0; j < all[i].childNodes.length; j++) {
+              if (all[i].childNodes[j].nodeType === 3 && all[i].childNodes[j].textContent.indexOf(sel.value) !== -1) {
+                results.push(all[i]);
+                break;
+              }
+            }
+          }
+          // If no direct text match, try any text content
+          if (results.length === 0) {
+            for (var k = 0; k < all.length; k++) {
+              if (all[k].textContent.indexOf(sel.value) !== -1 && all[k].children.length === 0) {
+                results.push(all[k]);
+              }
+            }
+          }
+          return results;
+        }
+        case "containing": {
+          // Find elements that contain descendants matching ALL inner selectors
+          var all2 = doc.querySelectorAll("*");
+          var results2 = [];
+          for (var m = 0; m < all2.length; m++) {
+            var parent = all2[m];
+            var allMatch = true;
+            for (var n = 0; n < sel.selectors.length; n++) {
+              var inner = findByAssertionSelector(parent, sel.selectors[n]);
+              if (!inner || inner.length === 0) { allMatch = false; break; }
+            }
+            if (allMatch) results2.push(parent);
+          }
+          return results2;
+        }
+        default:
+          return [];
       }
     }
 
@@ -592,6 +679,8 @@ main =
 
       var selector;
       try { selector = JSON.parse(highlightJson); } catch(e) { return; }
+
+      var isAssertion = selector.type === "assertion";
 
       var el = findHighlightTarget(iframeDoc, selector);
       if (!el) {
@@ -615,8 +704,14 @@ main =
       if (!overlay) {
         overlay = iframeDoc.createElement("div");
         overlay.className = "__elm-pages-highlight";
-        overlay.style.cssText = "position:absolute;pointer-events:none;z-index:2147483647;border:2px solid #a855f7;background:rgba(168,85,247,0.1);border-radius:3px;transition:all 0.15s ease;box-sizing:border-box;";
         iframeDoc.body.appendChild(overlay);
+      }
+
+      // Green for assertions, purple for interactions
+      if (isAssertion) {
+        overlay.style.cssText = "position:absolute;pointer-events:none;z-index:2147483647;border:2px solid #7ee787;background:rgba(126,231,135,0.1);border-radius:3px;transition:all 0.15s ease;box-sizing:border-box;";
+      } else {
+        overlay.style.cssText = "position:absolute;pointer-events:none;z-index:2147483647;border:2px solid #a855f7;background:rgba(168,85,247,0.1);border-radius:3px;transition:all 0.15s ease;box-sizing:border-box;";
       }
 
       overlay.style.top = (rect.top + scrollY) + "px";

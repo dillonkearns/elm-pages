@@ -16,6 +16,7 @@ import Json.Encode as Encode
 import Test.Html.Event as Event
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
+import Test.PagesProgram.Selector as PSelector exposing (AssertionSelector(..))
 import Test.BackendTask as BackendTaskTest
 import Test.BackendTask exposing (HttpError(..))
 import Test.PagesProgram as PagesProgram
@@ -35,7 +36,7 @@ all =
                         , update = \_ model -> ( model, [] )
                         , view = \_ model -> { title = "Home", body = [ Html.text model.greeting ] }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.text "Hello, World!" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Hello, World!" ]
                         |> PagesProgram.done
             , test "renders a page with unit data" <|
                 \() ->
@@ -45,7 +46,7 @@ all =
                         , update = \_ model -> ( model, [] )
                         , view = \_ _ -> { title = "Home", body = [ Html.text "Static content" ] }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.text "Static content" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Static content" ]
                         |> PagesProgram.done
             , test "can assert on HTML structure" <|
                 \() ->
@@ -64,10 +65,10 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.id "main" ]
-                        |> PagesProgram.ensureViewHas [ Selector.tag "h1", Selector.text "Welcome" ]
-                        |> PagesProgram.ensureViewHas [ Selector.class "intro" ]
-                        |> PagesProgram.ensureViewHasNot [ Selector.text "Error" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.id "main" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.tag "h1", PSelector.text "Welcome" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.class "intro" ]
+                        |> PagesProgram.ensureViewHasNot [ PSelector.text "Error" ]
                         |> PagesProgram.done
             , test "data value flows through init into model and view" <|
                 \() ->
@@ -83,7 +84,7 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.text "Alice (Admin)" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Alice (Admin)" ]
                         |> PagesProgram.done
             ]
         , describe "Step 2: data BackendTask with HTTP simulation"
@@ -102,7 +103,7 @@ all =
                         |> PagesProgram.simulateHttpGet
                             "https://api.example.com/user"
                             (Encode.object [ ( "name", Encode.string "Alice" ) ])
-                        |> PagesProgram.ensureViewHas [ Selector.text "Alice" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Alice" ]
                         |> PagesProgram.done
             , test "resolves multiple sequential HTTP POST requests with different bodies to the same URL" <|
                 \() ->
@@ -141,7 +142,7 @@ all =
                         |> PagesProgram.simulateHttpPost
                             "https://api.example.com/graphql"
                             (Encode.object [ ( "data", Encode.object [ ( "items", Encode.list identity [ Encode.object [ ( "title", Encode.string "Widget" ) ] ] ) ] ) ])
-                        |> PagesProgram.ensureViewHas [ Selector.text "Alice & Widget" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Alice & Widget" ]
                         |> PagesProgram.done
             , test "done fails when data BackendTask is unresolved" <|
                 \() ->
@@ -169,7 +170,7 @@ all =
                         , update = \_ model -> ( model, [] )
                         , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.text "Alice" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Alice" ]
                         |> PagesProgram.done
                         |> expectFailContaining "Cannot check view"
             ]
@@ -197,14 +198,14 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.text "0" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "0" ]
                         |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.ensureViewHas [ Selector.text "1" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "1" ]
                         |> PagesProgram.clickButton "+1"
                         |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.ensureViewHas [ Selector.text "3" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "3" ]
                         |> PagesProgram.clickButton "-1"
-                        |> PagesProgram.ensureViewHas [ Selector.text "2" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "2" ]
                         |> PagesProgram.done
             , test "clickButton fails with helpful message for missing button" <|
                 \() ->
@@ -251,9 +252,9 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.text "Type to search..." ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Type to search..." ]
                         |> PagesProgram.fillIn "search" "search" "elm-pages"
-                        |> PagesProgram.ensureViewHas [ Selector.text "Searching for: elm-pages" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Searching for: elm-pages" ]
                         |> PagesProgram.done
             ]
         , describe "resolveEffect"
@@ -290,14 +291,14 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.text "Load Stars" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Load Stars" ]
                         |> PagesProgram.clickButton "Load Stars"
                         |> PagesProgram.resolveEffect
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
                                 (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
                             )
-                        |> PagesProgram.ensureViewHas [ Selector.text "Stars: 1234" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Stars: 1234" ]
                         |> PagesProgram.done
             ]
         , describe "check"
@@ -330,9 +331,9 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.text "Please accept terms" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Please accept terms" ]
                         |> PagesProgram.check "agree" True
-                        |> PagesProgram.ensureViewHas [ Selector.text "Terms accepted" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
                         |> PagesProgram.done
             ]
         , describe "Snapshots"
@@ -371,10 +372,10 @@ all =
                         }
                         |> PagesProgram.clickButton "+1"
                         |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.ensureViewHas [ Selector.text "2" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "2" ]
                         |> PagesProgram.toSnapshots
                         |> List.map .label
-                        |> Expect.equal [ "start", "clickButton \"+1\"", "clickButton \"+1\"", "ensureViewHas [1 selector(s)]" ]
+                        |> Expect.equal [ "start", "clickButton \"+1\"", "clickButton \"+1\"", "ensureViewHas text \"2\"" ]
             , test "snapshots contain rendered HTML" <|
                 \() ->
                     PagesProgram.start
@@ -413,6 +414,242 @@ all =
                         |> PagesProgram.toSnapshots
                         |> List.length
                         |> Expect.equal 2
+            , test "snapshot labels show selector details for ensureViewHas" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { count = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Increment ->
+                                        ( { model | count = model.count + 1 }, [] )
+
+                                    Decrement ->
+                                        ( { model | count = model.count - 1 }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Counter"
+                                , body =
+                                    [ Html.div [ Attr.id "main", Attr.class "counter" ]
+                                        [ Html.text (String.fromInt model.count) ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHas [ PSelector.text "0" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.id "main" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.class "counter" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.tag "div" ]
+                        |> PagesProgram.ensureViewHasNot [ PSelector.text "Error" ]
+                        |> PagesProgram.toSnapshots
+                        |> List.map .label
+                        |> Expect.equal
+                            [ "start"
+                            , "ensureViewHas text \"0\""
+                            , "ensureViewHas #main"
+                            , "ensureViewHas .counter"
+                            , "ensureViewHas <div>"
+                            , "ensureViewHasNot text \"Error\""
+                            ]
+            , test "snapshot labels show multiple selectors comma-separated" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Home"
+                                , body =
+                                    [ Html.h1 [ Attr.class "title" ] [ Html.text "Welcome" ] ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHas [ PSelector.tag "h1", PSelector.text "Welcome" ]
+                        |> PagesProgram.toSnapshots
+                        |> List.map .label
+                        |> Expect.equal
+                            [ "start"
+                            , "ensureViewHas <h1>, text \"Welcome\""
+                            ]
+            , test "clickButtonWith snapshot labels show selector details" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { clicked = False }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Increment ->
+                                        ( { model | clicked = True }, [] )
+
+                                    Decrement ->
+                                        ( model, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Home"
+                                , body =
+                                    [ Html.button [ Attr.class "submit-btn", Html.Events.onClick Increment ] [ Html.text "Go" ] ]
+                                }
+                        }
+                        |> PagesProgram.clickButtonWith [ PSelector.class "submit-btn" ]
+                        |> PagesProgram.toSnapshots
+                        |> List.map .label
+                        |> Expect.equal
+                            [ "start"
+                            , "clickButtonWith .submit-btn"
+                            ]
+            , test "withinFind adds scope label to assertion snapshots" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { count = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Increment ->
+                                        ( { model | count = model.count + 1 }, [] )
+
+                                    Decrement ->
+                                        ( model, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Sections"
+                                , body =
+                                    [ Html.div [ Attr.id "counter" ]
+                                        [ Html.text (String.fromInt model.count)
+                                        , Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
+                                        ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.withinFind
+                            [ PSelector.id "counter" ]
+                            (PagesProgram.ensureViewHas [ PSelector.text "0" ])
+                        |> PagesProgram.toSnapshots
+                        |> List.map .label
+                        |> Expect.equal
+                            [ "start"
+                            , "ensureViewHas text \"0\" (within #counter)"
+                            ]
+            , test "nested withinFind shows chained scope labels" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Nested"
+                                , body =
+                                    [ Html.div [ Attr.id "outer" ]
+                                        [ Html.div [ Attr.class "inner" ]
+                                            [ Html.text "Hello" ]
+                                        ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.withinFind
+                            [ PSelector.id "outer" ]
+                            (PagesProgram.withinFind
+                                [ PSelector.class "inner" ]
+                                (PagesProgram.ensureViewHas [ PSelector.text "Hello" ])
+                            )
+                        |> PagesProgram.toSnapshots
+                        |> List.map .label
+                        |> Expect.equal
+                            [ "start"
+                            , "ensureViewHas text \"Hello\" (within #outer > .inner)"
+                            ]
+            , test "plain within does not add scope labels" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Home"
+                                , body =
+                                    [ Html.div [ Attr.id "main" ]
+                                        [ Html.text "Content" ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.within
+                            (Query.find [ Selector.id "main" ])
+                            (PagesProgram.ensureViewHas [ PSelector.text "Content" ])
+                        |> PagesProgram.toSnapshots
+                        |> List.map .label
+                        |> Expect.equal
+                            [ "start"
+                            , "ensureViewHas text \"Content\""
+                            ]
+            , test "assertion snapshots carry selector data for highlighting" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Home"
+                                , body =
+                                    [ Html.div [ Attr.class "greeting", Attr.id "main" ]
+                                        [ Html.text "Hello" ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Hello", PSelector.class "greeting" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.id "main" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.tag "div" ]
+                        |> PagesProgram.toSnapshots
+                        |> List.map .assertionSelectors
+                        |> Expect.equal
+                            [ []  -- start has no assertion selectors
+                            , [ ByText "Hello", ByClass "greeting" ]
+                            , [ ById_ "main" ]
+                            , [ ByTag_ "div" ]
+                            ]
+            , test "ensureViewHasNot stores assertion selectors for highlighting" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Home"
+                                , body = [ Html.text "Hello" ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHasNot [ PSelector.text "Goodbye" ]
+                        |> PagesProgram.toSnapshots
+                        |> List.map .assertionSelectors
+                        |> Expect.equal
+                            [ []
+                            , [ ByText "Goodbye" ]
+                            ]
+            , test "value selectors stored in assertion snapshots" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Home"
+                                , body =
+                                    [ Html.input [ Attr.value "Buy milk" ] []
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
+                        |> PagesProgram.toSnapshots
+                        |> List.map .assertionSelectors
+                        |> Expect.equal
+                            [ []
+                            , [ ByValue "Buy milk" ]
+                            ]
             ]
         , describe "disabled button detection"
             [ test "clickButton fails on disabled button" <|
@@ -458,7 +695,7 @@ all =
                                 }
                         }
                         |> PagesProgram.clickButton "Submit"
-                        |> PagesProgram.ensureViewHas [ Selector.text "Clicked!" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Clicked!" ]
                         |> PagesProgram.done
             ]
         , describe "ambiguous button detection"
@@ -579,7 +816,7 @@ all =
                                 "https://api.example.com/data"
                                 (Encode.object [ ( "value", Encode.string "hello" ) ])
                             )
-                        |> PagesProgram.ensureViewHas [ Selector.text "Result: hello" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Result: hello" ]
                         |> PagesProgram.done
             ]
         , describe "Bug fix: FatalError in data produces clean test failure"
@@ -603,7 +840,7 @@ all =
                         , update = \_ model -> ( model, [] )
                         , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.text "Hello" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Hello" ]
                         |> PagesProgram.done
                         |> expectFailContaining "Service unavailable"
             ]
@@ -637,13 +874,13 @@ all =
                                 SimulatedSub.port_ "websocketReceived"
                                     (Decode.string |> Decode.map GotWebSocket)
                             )
-                        |> PagesProgram.ensureViewHas [ Selector.text "No messages" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "No messages" ]
                         |> PagesProgram.simulateIncomingPort "websocketReceived"
                             (Encode.string "hello")
-                        |> PagesProgram.ensureViewHas [ Selector.text "hello" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "hello" ]
                         |> PagesProgram.simulateIncomingPort "websocketReceived"
                             (Encode.string "world")
-                        |> PagesProgram.ensureViewHas [ Selector.text "hello, world" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "hello, world" ]
                         |> PagesProgram.done
             , test "simulateIncomingPort fails when not subscribed to port" <|
                 \() ->
@@ -784,9 +1021,9 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.text "Selected: red" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Selected: red" ]
                         |> PagesProgram.selectOption "color-select" "Favorite Color" "blue" "Blue"
-                        |> PagesProgram.ensureViewHas [ Selector.text "Selected: blue" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Selected: blue" ]
                         |> PagesProgram.done
             , test "selectOption fails when select element not found" <|
                 \() ->
@@ -809,7 +1046,7 @@ all =
                         , update = \_ model -> ( model, [] )
                         , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
                         }
-                        |> PagesProgram.expectViewHas [ Selector.text "Hello" ]
+                        |> PagesProgram.expectViewHas [ PSelector.text "Hello" ]
             , test "fails when view does not have selector" <|
                 \() ->
                     PagesProgram.start
@@ -818,7 +1055,7 @@ all =
                         , update = \_ model -> ( model, [] )
                         , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
                         }
-                        |> PagesProgram.expectViewHas [ Selector.text "Goodbye" ]
+                        |> PagesProgram.expectViewHas [ PSelector.text "Goodbye" ]
                         |> expectFailContaining "Goodbye"
             ]
         , describe "submitFormTo (cross-route form action)"
@@ -965,14 +1202,14 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.text "No name" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "No name" ]
                         |> PagesProgram.clickButton "Load"
                         |> PagesProgram.resolveEffect
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.example.com/data"
                                 (Encode.object [ ( "name", Encode.string "Alice" ) ])
                             )
-                        |> PagesProgram.ensureViewHas [ Selector.text "Name: Alice" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Name: Alice" ]
                         |> PagesProgram.done
             ]
         , describe "effect tracking"
@@ -1237,7 +1474,7 @@ all =
                                 }
                         }
                         |> PagesProgram.fillInTextarea "Hello from textarea!"
-                        |> PagesProgram.ensureViewHas [ Selector.text "Content: Hello from textarea!" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Content: Hello from textarea!" ]
                         |> PagesProgram.done
             ]
         , describe "expectView (terminal)"
@@ -1300,11 +1537,11 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.ensureViewHas [ Selector.text "Not focused" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Not focused" ]
                         |> PagesProgram.simulateDomEvent
                             (Query.find [ Selector.id "my-input" ])
                             Event.focus
-                        |> PagesProgram.ensureViewHas [ Selector.text "Focused!" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Focused!" ]
                         |> PagesProgram.done
             ]
         , describe "clickLink"
@@ -1397,7 +1634,7 @@ all =
                                 }
                         }
                         |> PagesProgram.clickLink "About" "/about"
-                        |> PagesProgram.ensureViewHas [ Selector.text "Page: /about" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Page: /about" ]
                         |> PagesProgram.done
             ]
         , describe "navigateTo"
@@ -1504,7 +1741,7 @@ all =
                         }
                         |> PagesProgram.within
                             (Query.find [ Selector.id "nonexistent" ])
-                            (PagesProgram.ensureViewHas [ Selector.text "anything" ])
+                            (PagesProgram.ensureViewHas [ PSelector.text "anything" ])
                         |> PagesProgram.done
                         |> expectFailContaining "nonexistent"
             ]
@@ -1534,7 +1771,7 @@ all =
                                 }
                         }
                         |> PagesProgram.fillIn "editor" "editor" "Hello textarea!"
-                        |> PagesProgram.ensureViewHas [ Selector.text "Content: Hello textarea!" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Content: Hello textarea!" ]
                         |> PagesProgram.done
             ]
         ]

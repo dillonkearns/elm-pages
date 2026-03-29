@@ -20,6 +20,7 @@ import Test.BackendTask as BackendTaskTest
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.PagesProgram as PagesProgram exposing (ProgramTest)
+import Test.PagesProgram.Selector as PSelector
 
 
 
@@ -124,13 +125,13 @@ loginFlowTest =
                     }
         }
         |> PagesProgram.withModelToString Debug.toString
-        |> PagesProgram.ensureViewHas [ Selector.text "Log In" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Log In" ]
         |> PagesProgram.clickButton "Log In"
-        |> PagesProgram.ensureViewHas [ Selector.text "Email is required" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Email is required" ]
         |> PagesProgram.fillIn "email" "email" "alice@example.com"
         |> PagesProgram.fillIn "password" "password" "123"
         |> PagesProgram.clickButton "Log In"
-        |> PagesProgram.ensureViewHas [ Selector.text "Password must be at least 6 characters" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Password must be at least 6 characters" ]
         |> PagesProgram.fillIn "password" "password" "secret123"
         |> PagesProgram.check "remember" True
         |> PagesProgram.clickButton "Log In"
@@ -139,8 +140,8 @@ loginFlowTest =
                 "https://api.example.com/auth"
                 (Encode.object [ ( "name", Encode.string "Alice" ) ])
             )
-        |> PagesProgram.ensureViewHas [ Selector.text "Welcome back, Alice!" ]
-        |> PagesProgram.ensureViewHas [ Selector.text "You are now logged in." ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Welcome back, Alice!" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "You are now logged in." ]
 
 
 
@@ -297,22 +298,22 @@ todoAppTest =
                 }
         }
         |> PagesProgram.withModelToString Debug.toString
-        |> PagesProgram.ensureViewHas [ Selector.text "Todo List" ]
-        |> PagesProgram.ensureViewHas [ Selector.text "1 of 3 completed" ]
-        |> PagesProgram.ensureViewHas [ Selector.text "Learn Elm" ]
-        |> PagesProgram.ensureViewHas [ Selector.text "Build elm-pages app" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Todo List" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "1 of 3 completed" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Learn Elm" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Build elm-pages app" ]
         |> PagesProgram.fillIn "new-todo" "new-todo" "Deploy to production"
         |> PagesProgram.clickButton "Add"
-        |> PagesProgram.ensureViewHas [ Selector.text "Deploy to production" ]
-        |> PagesProgram.ensureViewHas [ Selector.text "1 of 4 completed" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Deploy to production" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "1 of 4 completed" ]
         |> PagesProgram.check "todo-2" True
-        |> PagesProgram.ensureViewHas [ Selector.text "2 of 4 completed" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "2 of 4 completed" ]
         |> PagesProgram.check "todo-3" True
-        |> PagesProgram.ensureViewHas [ Selector.text "3 of 4 completed" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "3 of 4 completed" ]
         |> PagesProgram.within
             (Query.find [ Selector.tag "li", Selector.containing [ Selector.text "Learn Elm" ] ])
             (PagesProgram.clickButton "Delete")
-        |> PagesProgram.ensureViewHas [ Selector.text "2 of 3 completed" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "2 of 3 completed" ]
 
 
 
@@ -384,16 +385,16 @@ searchFilterTest =
                 }
         }
         |> PagesProgram.withModelToString Debug.toString
-        |> PagesProgram.ensureViewHas [ Selector.text "10 results" ]
-        |> PagesProgram.ensureViewHas [ Selector.text "Haskell" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "10 results" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Haskell" ]
         |> PagesProgram.fillIn "search" "search" "elm"
-        |> PagesProgram.ensureViewHas [ Selector.text "7 results" ]
-        |> PagesProgram.ensureViewHasNot [ Selector.text "Haskell" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "7 results" ]
+        |> PagesProgram.ensureViewHasNot [ PSelector.text "Haskell" ]
         |> PagesProgram.fillIn "search" "search" "elm-"
-        |> PagesProgram.ensureViewHas [ Selector.text "6 results" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "6 results" ]
         |> PagesProgram.fillIn "search" "search" "review"
-        |> PagesProgram.ensureViewHas [ Selector.text "1 results" ]
-        |> PagesProgram.ensureViewHas [ Selector.text "elm-review" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "1 results" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "elm-review" ]
 
 
 

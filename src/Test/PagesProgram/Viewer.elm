@@ -37,6 +37,7 @@ import Json.Encode as Encode
 import Set exposing (Set)
 import Task
 import Test.PagesProgram exposing (FetcherEntry, FetcherStatus(..), NetworkEntry, NetworkStatus(..), Snapshot, StepKind(..), TargetSelector(..))
+import Test.PagesProgram.Selector exposing (AssertionSelector(..))
 import Url exposing (Url)
 
 
@@ -491,7 +492,7 @@ update msg model =
                     nextParentStep model.currentStepIndex (List.length snapshots - 1) snapshots
 
                 newModel =
-                    { model | currentStepIndex = newIndex, previewMode = After }
+                    { model | currentStepIndex = newIndex, previewMode = defaultPreviewMode snapshots newIndex }
             in
             ( newModel
             , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex ]
@@ -506,7 +507,7 @@ update msg model =
                     prevParentStep model.currentStepIndex snapshots
 
                 newModel =
-                    { model | currentStepIndex = newIndex, previewMode = After }
+                    { model | currentStepIndex = newIndex, previewMode = defaultPreviewMode snapshots newIndex }
             in
             ( newModel
             , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex ]
@@ -514,11 +515,14 @@ update msg model =
 
         GoToStep index ->
             let
+                snapshots =
+                    currentSnapshots model
+
                 newIndex =
-                    clamp 0 (currentSnapshotCount model - 1) index
+                    clamp 0 (List.length snapshots - 1) index
 
                 newModel =
-                    { model | currentStepIndex = newIndex, previewMode = After }
+                    { model | currentStepIndex = newIndex, previewMode = defaultPreviewMode snapshots newIndex }
             in
             ( newModel
             , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex ]
@@ -708,7 +712,7 @@ update msg model =
                                 nextVisibleStep model.currentStepIndex (List.length snapshots - 1) snapshots model.expandedGroups
 
                             newModel =
-                                { model | currentStepIndex = newIndex, previewMode = After }
+                                { model | currentStepIndex = newIndex, previewMode = defaultPreviewMode snapshots newIndex }
                         in
                         ( newModel
                         , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex ]
@@ -727,7 +731,7 @@ update msg model =
                                 prevVisibleStep model.currentStepIndex snapshots model.expandedGroups
 
                             newModel =
-                                { model | currentStepIndex = newIndex, previewMode = After }
+                                { model | currentStepIndex = newIndex, previewMode = defaultPreviewMode snapshots newIndex }
                         in
                         ( newModel
                         , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex ]
@@ -839,6 +843,23 @@ currentSnapshots model =
 currentSnapshotCount : Model -> Int
 currentSnapshotCount model =
     List.length (currentSnapshots model)
+
+
+{-| Interaction steps default to Before (so the user sees the element they
+clicked), all other step kinds default to After.
+-}
+defaultPreviewMode : List Snapshot -> Int -> PreviewMode
+defaultPreviewMode snapshots index =
+    case snapshots |> List.drop index |> List.head of
+        Just snapshot ->
+            if snapshot.stepKind == Interaction && snapshot.targetElement /= Nothing then
+                Before
+
+            else
+                After
+
+        Nothing ->
+            After
 
 
 displayedStepIndex : Model -> Int
@@ -1248,7 +1269,7 @@ viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isCh
             ]
             [ Html.text (stepKindIcon snapshot.stepKind) ]
         , Html.span [ Attr.class "step-label", Attr.title snapshot.label ]
-            [ Html.text snapshot.label ]
+            (viewStepLabel snapshot)
         , if isGroupParent then
             Html.span
                 [ Attr.class "step-group-toggle"
@@ -1270,6 +1291,109 @@ viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isCh
           else
             Html.text ""
         ]
+
+
+{-| Render a step label with structured formatting for assertion steps.
+For assertions, the function name is dimmed and the selector detail is highlighted.
+For other steps, the label is shown as-is.
+-}
+viewStepLabel : Snapshot -> List (Html Msg)
+viewStepLabel snapshot =
+    let
+        label =
+            snapshot.label
+    in
+    case snapshot.stepKind of
+        Assertion ->
+            -- Parse "ensureViewHas text \"Hello\" (within .foo)" into parts
+            case splitAssertionLabel label of
+                Just { fnName, selectorDetail, withinScope } ->
+                    [ Html.span [ Attr.class "step-label-fn" ] [ Html.text (fnName ++ " ") ]
+                    , Html.span [ Attr.class "step-label-selector" ] [ Html.text selectorDetail ]
+                    ]
+                        ++ (case withinScope of
+                                Just scope ->
+                                    [ Html.span [ Attr.class "step-label-scope" ] [ Html.text (" " ++ scope) ] ]
+
+                                Nothing ->
+                                    []
+                           )
+
+                Nothing ->
+                    [ Html.text label ]
+
+        _ ->
+            [ Html.text label ]
+
+
+{-| Split an assertion label like "ensureViewHas text \"Hello\" (within .foo)"
+into its function name, selector detail, and optional scope.
+-}
+splitAssertionLabel : String -> Maybe { fnName : String, selectorDetail : String, withinScope : Maybe String }
+splitAssertionLabel label =
+    let
+        prefixes =
+            [ "ensureViewHas ", "ensureViewHasNot ", "ensureView" ]
+
+        tryPrefix prefix =
+            if String.startsWith prefix label then
+                let
+                    rest =
+                        String.dropLeft (String.length prefix) label
+
+                    ( selectorPart, scopePart ) =
+                        case findWithinScope rest of
+                            Just ( sel, scope ) ->
+                                ( sel, Just scope )
+
+                            Nothing ->
+                                ( rest, Nothing )
+                in
+                Just
+                    { fnName = String.trimRight prefix
+                    , selectorDetail = selectorPart
+                    , withinScope = scopePart
+                    }
+
+            else
+                Nothing
+    in
+    firstJust tryPrefix prefixes
+
+
+{-| Extract "(within ...)" suffix from a label string.
+Returns (selector part, within part) if found.
+-}
+findWithinScope : String -> Maybe ( String, String )
+findWithinScope str =
+    let
+        marker =
+            " (within "
+    in
+    case String.indices marker str of
+        [] ->
+            Nothing
+
+        idx :: _ ->
+            Just
+                ( String.left idx str
+                , String.dropLeft idx str
+                )
+
+
+firstJust : (a -> Maybe b) -> List a -> Maybe b
+firstJust f list =
+    case list of
+        [] ->
+            Nothing
+
+        x :: rest ->
+            case f x of
+                Just result ->
+                    Just result
+
+                Nothing ->
+                    firstJust f rest
 
 
 viewMainPanel : Model -> Html Msg
@@ -1483,11 +1607,14 @@ viewRenderedPageWithOptions viewportWidth maybePreviewMode snapshot =
             ]
         , Html.div
             (Attr.class "page-body"
-                :: (case snapshot.targetElement of
-                        Just target ->
+                :: (case ( snapshot.targetElement, snapshot.assertionSelectors ) of
+                        ( Just target, _ ) ->
                             [ Attr.attribute "data-highlight" (Encode.encode 0 (encodeTargetSelector target)) ]
 
-                        Nothing ->
+                        ( Nothing, _ :: _ ) ->
+                            [ Attr.attribute "data-highlight" (Encode.encode 0 (encodeAssertionHighlight snapshot.assertionSelectors)) ]
+
+                        _ ->
                             []
                    )
             )
@@ -1643,10 +1770,21 @@ viewFetcherInspector currentStep allSnapshots =
                     (timeline
                         |> List.map
                             (\( stepIdx, entry ) ->
+                                let
+                                    temporal =
+                                        if stepIdx == currentStep then
+                                            "fetcher-timeline-current"
+
+                                        else if stepIdx < currentStep then
+                                            "fetcher-timeline-past"
+
+                                        else
+                                            "fetcher-timeline-future"
+                                in
                                 Html.div
                                     [ Attr.classList
                                         [ ( "fetcher-timeline-entry", True )
-                                        , ( "fetcher-timeline-current", stepIdx == currentStep )
+                                        , ( temporal, True )
                                         ]
                                     ]
                                     [ Html.span [ Attr.class "fetcher-step" ]
@@ -1757,7 +1895,7 @@ viewNetworkSidebar entries =
                                     , ( "network-row-pending", entry.status == Pending )
                                     ]
                                 ]
-                                [ Html.div [ Attr.class "network-row-top" ]
+                                ([ Html.div [ Attr.class "network-row-top" ]
                                     [ case entry.status of
                                         Stubbed ->
                                             Html.span [ Attr.class "net-badge net-badge-stubbed" ]
@@ -1771,9 +1909,31 @@ viewNetworkSidebar entries =
                                     , Html.span [ Attr.class "net-step" ]
                                         [ Html.text ("step " ++ String.fromInt (entry.stepIndex + 1)) ]
                                     ]
-                                , Html.div [ Attr.class "net-url", Attr.title entry.url ]
-                                    [ Html.text entry.url ]
-                                ]
+                                 , Html.div [ Attr.class "net-url", Attr.title entry.url ]
+                                    [ Html.text
+                                        (case entry.portName of
+                                            Just name ->
+                                                name
+
+                                            Nothing ->
+                                                entry.url
+                                        )
+                                    ]
+                                 ]
+                                    ++ (case entry.responsePreview of
+                                            Just preview ->
+                                                [ Html.details [ Attr.class "net-response-details" ]
+                                                    [ Html.summary [ Attr.class "net-response-summary" ]
+                                                        [ Html.text "Response" ]
+                                                    , Html.pre [ Attr.class "net-response-body" ]
+                                                        [ Html.text (truncatePreview 500 preview) ]
+                                                    ]
+                                                ]
+
+                                            Nothing ->
+                                                []
+                                       )
+                                )
                         )
                 )
         ]
@@ -1816,7 +1976,71 @@ encodeTargetSelector target =
                 , ( "tag", Encode.string tag )
                 ]
 
+        BySelectors selectors ->
+            encodeAssertionHighlight selectors
 
+
+encodeAssertionHighlight : List AssertionSelector -> Encode.Value
+encodeAssertionHighlight selectors =
+    Encode.object
+        [ ( "type", Encode.string "assertion" )
+        , ( "selectors", Encode.list encodeAssertionSelector selectors )
+        ]
+
+
+encodeAssertionSelector : AssertionSelector -> Encode.Value
+encodeAssertionSelector sel =
+    case sel of
+        ByText s ->
+            Encode.object
+                [ ( "kind", Encode.string "text" )
+                , ( "value", Encode.string s )
+                ]
+
+        ByClass s ->
+            Encode.object
+                [ ( "kind", Encode.string "class" )
+                , ( "value", Encode.string s )
+                ]
+
+        ById_ s ->
+            Encode.object
+                [ ( "kind", Encode.string "id" )
+                , ( "value", Encode.string s )
+                ]
+
+        ByTag_ s ->
+            Encode.object
+                [ ( "kind", Encode.string "tag" )
+                , ( "value", Encode.string s )
+                ]
+
+        ByValue s ->
+            Encode.object
+                [ ( "kind", Encode.string "value" )
+                , ( "value", Encode.string s )
+                ]
+
+        ByContaining inner ->
+            Encode.object
+                [ ( "kind", Encode.string "containing" )
+                , ( "selectors", Encode.list encodeAssertionSelector inner )
+                ]
+
+        ByOther label ->
+            Encode.object
+                [ ( "kind", Encode.string "other" )
+                , ( "label", Encode.string label )
+                ]
+
+
+truncatePreview : Int -> String -> String
+truncatePreview maxLen s =
+    if String.length s <= maxLen then
+        s
+
+    else
+        String.left maxLen s ++ "..."
 
 
 {-| Whether a step at the given index is a "child" (an assertion that follows
@@ -2206,6 +2430,26 @@ body {
     font-weight: 600;
 }
 
+.step-label-fn {
+    color: #8a9aaa;
+}
+
+.step-label-selector {
+    color: #7ee787;
+    font-weight: 500;
+}
+
+.step-row-active .step-label-selector {
+    color: #a5f0a5;
+    font-weight: 600;
+}
+
+.step-label-scope {
+    color: #6a7a8a;
+    font-style: italic;
+    font-size: 11px;
+}
+
 /* === TEST LIST === */
 
 .test-list-row {
@@ -2560,6 +2804,34 @@ body {
     color: #f0c040;
 }
 
+.net-response-details {
+    margin-top: 4px;
+}
+
+.net-response-summary {
+    font-size: 10px;
+    color: #8899aa;
+    cursor: pointer;
+    user-select: none;
+}
+
+.net-response-summary:hover {
+    color: #aabbcc;
+}
+
+.net-response-body {
+    font-size: 10px;
+    color: #c8d6e5;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 6px 8px;
+    border-radius: 4px;
+    margin: 4px 0 0;
+    max-height: 200px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
 /* === BEFORE/AFTER TOGGLE === */
 
 .before-after-toggle {
@@ -2669,12 +2941,24 @@ body {
     opacity: 0.6;
 }
 
+.fetcher-timeline-entry.fetcher-timeline-past {
+    opacity: 0.35;
+}
+
 .fetcher-timeline-entry.fetcher-timeline-current {
     opacity: 1;
-    background: rgba(168, 85, 247, 0.08);
+    background: rgba(168, 85, 247, 0.12);
     border-radius: 3px;
     margin-left: -2px;
     padding-left: 10px;
+    font-weight: 600;
+}
+
+.fetcher-timeline-entry.fetcher-timeline-future {
+    opacity: 0.4;
+    border-left: 2px dashed rgba(255,255,255,0.1);
+    margin-left: -2px;
+    padding-left: 6px;
 }
 
 .fetcher-step {

@@ -4,8 +4,8 @@ import Json.Encode as Encode
 import Pages.StaticHttp.Request
 import RequestsAndPending
 import Test exposing (Test, describe, test)
-import Test.Html.Selector exposing (text)
 import Test.PagesProgram as PagesProgram
+import Test.PagesProgram.Selector as PSelector
 import TestApp
 
 
@@ -16,18 +16,18 @@ suite =
             \() ->
                 TestApp.start "/" mockData
                     |> PagesProgram.ensureViewHas
-                        [ text "elm-pages is up and running!"
-                        , text "The message is: This is my message!!"
+                        [ PSelector.text "elm-pages is up and running!"
+                        , PSelector.text "The message is: This is my message!!"
                         ]
                     |> PagesProgram.done
         , test "shared layout buttons work" <|
             \() ->
                 TestApp.start "/" mockData
-                    |> PagesProgram.ensureViewHas [ text "Open Menu" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Open Menu" ]
                     |> PagesProgram.clickButton "Open Menu"
-                    |> PagesProgram.ensureViewHas [ text "Close Menu" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Close Menu" ]
                     |> PagesProgram.clickButton "Close Menu"
-                    |> PagesProgram.ensureViewHas [ text "Open Menu" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Open Menu" ]
                     |> PagesProgram.done
         ]
 
