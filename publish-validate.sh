@@ -87,6 +87,15 @@ cleanup() {
   echo ""
   echo "--- Cleaning up ---"
   wrap repository local-dev clear dillonkearns/elm-pages "$ELM_PKG_VERSION" 2>/dev/null || true
+  # Remove the ELM_HOME symlink that elm-wrap's --local-dev creates.
+  # `wrap repository local-dev clear` only removes wrap's tracking metadata,
+  # not the actual symlink in ELM_HOME, which can poison future builds.
+  local elm_home="${ELM_HOME:-$HOME/.elm}"
+  local pkg_path="$elm_home/0.19.1/packages/dillonkearns/elm-pages/$ELM_PKG_VERSION"
+  if [ -L "$pkg_path" ]; then
+    rm "$pkg_path"
+    echo "  Removed elm-wrap symlink: $pkg_path"
+  fi
   if [ "${SKIP_CLEANUP:-}" = "1" ]; then
     echo "  SKIP_CLEANUP=1 — keeping work directory."
     echo ""
