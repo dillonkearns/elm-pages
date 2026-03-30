@@ -2893,13 +2893,6 @@ applySimulation sim (ProgramTest state) =
                                     ProgramTest
                                         { newState
                                             | pendingFetcherEffects = restFetchers
-                                            , lastReadyModel =
-                                                case newState.phase of
-                                                    Resolving _ ->
-                                                        Just ready.model
-
-                                                    Ready _ ->
-                                                        state.lastReadyModel
                                         }
 
                                 Err errMsg ->
