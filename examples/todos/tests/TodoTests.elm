@@ -297,14 +297,13 @@ optimisticUiTest =
             (PagesProgram.ensureViewHas [ PSelector.class "completed" ])
         |> ensureItemsLeft 1
         ---------------------------------------------------------------
-        -- Resolve all in-flight actions + data reloads
+        -- Resolve all in-flight actions; stale data reloads are
+        -- implicitly cancelled (like Remix), only the final one
+        -- needs a response.
         ---------------------------------------------------------------
         |> PagesProgram.simulateCustom "deleteTodo" Encode.null
-        |> PagesProgram.simulateCustom "getTodosBySession" finalServerState
         |> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-        |> PagesProgram.simulateCustom "getTodosBySession" finalServerState
         |> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-        |> PagesProgram.simulateCustom "getTodosBySession" finalServerState
         |> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
         |> PagesProgram.simulateCustom "getTodosBySession" finalServerState
         ---------------------------------------------------------------

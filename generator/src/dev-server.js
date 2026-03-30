@@ -574,7 +574,17 @@ main =
           return null;
         }
         case "assertion":
-          return findAssertionTarget(doc, selector.selectors);
+        case "interaction-selectors": {
+          // When scopes are present, narrow the search to the innermost scope element
+          var searchRoot = doc;
+          if (selector.scopes && selector.scopes.length > 0) {
+            for (var si = 0; si < selector.scopes.length; si++) {
+              var scopeEl = findAssertionTarget(searchRoot, selector.scopes[si]);
+              if (scopeEl) searchRoot = scopeEl;
+            }
+          }
+          return findAssertionTarget(searchRoot, selector.selectors);
+        }
         default:
           return null;
       }
@@ -602,16 +612,48 @@ main =
       return candidates && candidates.length > 0 ? candidates[0] : null;
     }
 
-    // Find all elements matching a single assertion selector.
-    function findByAssertionSelector(doc, sel) {
+    // Check if a single element matches a selector (without searching descendants).
+    function elementMatchesSelector(el, sel) {
       switch (sel.kind) {
-        case "id":
-          var el = doc.getElementById(sel.value);
-          return el ? [el] : [];
+        case "id": return el.id === sel.value;
+        case "class": return el.classList && el.classList.contains(sel.value);
+        case "tag": return el.tagName && el.tagName.toLowerCase() === sel.value.toLowerCase();
+        case "value": return ('value' in el) && el.value === sel.value;
+        case "text": {
+          for (var i = 0; i < el.childNodes.length; i++) {
+            if (el.childNodes[i].nodeType === 3 && el.childNodes[i].textContent.indexOf(sel.value) !== -1) return true;
+          }
+          return false;
+        }
+        case "containing": {
+          if (!sel.selectors) return false;
+          for (var j = 0; j < sel.selectors.length; j++) {
+            var inner = findByAssertionSelector(el, sel.selectors[j]);
+            if (!inner || inner.length === 0) return false;
+          }
+          return true;
+        }
+        default: return false;
+      }
+    }
+
+    // Find all elements matching a single assertion selector.
+    // When doc is an Element (not Document), also checks the element itself.
+    function findByAssertionSelector(doc, sel) {
+      var results;
+      switch (sel.kind) {
+        case "id": {
+          // Use querySelector instead of getElementById so it works on both Document and Element roots
+          var el = doc.querySelector("#" + CSS.escape(sel.value));
+          results = el ? [el] : [];
+          break;
+        }
         case "class":
-          return Array.from(doc.querySelectorAll("." + CSS.escape(sel.value)));
+          results = Array.from(doc.querySelectorAll("." + CSS.escape(sel.value)));
+          break;
         case "tag":
-          return Array.from(doc.querySelectorAll(sel.value));
+          results = Array.from(doc.querySelectorAll(sel.value));
+          break;
         case "value": {
           // Elm sets value as a DOM property, not an HTML attribute,
           // so querySelectorAll('[value=...]') won't find it. Check the property directly.
@@ -620,12 +662,13 @@ main =
           for (var vi = 0; vi < inputs.length; vi++) {
             if (inputs[vi].value === sel.value) valResults.push(inputs[vi]);
           }
-          return valResults;
+          results = valResults;
+          break;
         }
         case "text": {
           // Walk all elements to find those containing the text
           var all = doc.querySelectorAll("*");
-          var results = [];
+          results = [];
           for (var i = 0; i < all.length; i++) {
             // Check direct text content (not just descendants)
             for (var j = 0; j < all[i].childNodes.length; j++) {
@@ -643,7 +686,7 @@ main =
               }
             }
           }
-          return results;
+          break;
         }
         case "containing": {
           // Find elements that contain descendants matching ALL inner selectors
@@ -658,19 +701,26 @@ main =
             }
             if (allMatch) results2.push(parent);
           }
-          return results2;
+          results = results2;
+          break;
         }
         default:
           return [];
       }
+      // When searching within a scoped element, querySelectorAll only finds
+      // descendants. Also check if the root element itself matches.
+      if (doc.nodeType === 1 && elementMatchesSelector(doc, sel) && results.indexOf(doc) === -1) {
+        results.unshift(doc);
+      }
+      return results;
     }
 
     function updateHighlight(iframeDoc, pageBody) {
       var highlightJson = pageBody ? pageBody.getAttribute("data-highlight") : null;
 
-      // Remove old highlight if selector changed
+      // Remove old highlights (both target and scope) if selector changed
       if (highlightJson !== lastHighlightJson) {
-        var old = iframeDoc.querySelectorAll(".__elm-pages-highlight");
+        var old = iframeDoc.querySelectorAll(".__elm-pages-highlight, .__elm-pages-highlight-scope");
         for (var i = 0; i < old.length; i++) old[i].remove();
         lastHighlightJson = highlightJson;
       }
@@ -684,8 +734,8 @@ main =
 
       var el = findHighlightTarget(iframeDoc, selector);
       if (!el) {
-        // Target not found, clean up any stale overlay
-        var stale = iframeDoc.querySelectorAll(".__elm-pages-highlight");
+        // Target not found, clean up any stale overlays
+        var stale = iframeDoc.querySelectorAll(".__elm-pages-highlight, .__elm-pages-highlight-scope");
         for (var s = 0; s < stale.length; s++) stale[s].remove();
         return;
       }
@@ -696,9 +746,10 @@ main =
         lastScrolledHighlight = highlightJson;
       }
 
-      var rect = el.getBoundingClientRect();
       var scrollX = iframeDoc.defaultView.scrollX || 0;
       var scrollY = iframeDoc.defaultView.scrollY || 0;
+
+      var rect = el.getBoundingClientRect();
 
       var overlay = iframeDoc.querySelector(".__elm-pages-highlight");
       if (!overlay) {
@@ -718,6 +769,28 @@ main =
       overlay.style.left = (rect.left + scrollX) + "px";
       overlay.style.width = rect.width + "px";
       overlay.style.height = rect.height + "px";
+
+      // Scope boundary overlays (dashed green border on container elements)
+      // Remove stale scope overlays first
+      var oldScopes = iframeDoc.querySelectorAll(".__elm-pages-highlight-scope");
+      for (var ri = 0; ri < oldScopes.length; ri++) oldScopes[ri].remove();
+
+      if (selector.scopes && selector.scopes.length > 0) {
+        for (var si = 0; si < selector.scopes.length; si++) {
+          var scopeEl = findAssertionTarget(iframeDoc, selector.scopes[si]);
+          if (!scopeEl) continue;
+
+          var scopeRect = scopeEl.getBoundingClientRect();
+          var scopeOverlay = iframeDoc.createElement("div");
+          scopeOverlay.className = "__elm-pages-highlight-scope";
+          scopeOverlay.style.cssText = "position:absolute;pointer-events:none;z-index:2147483646;border:2px dashed rgba(126,231,135,0.4);background:rgba(126,231,135,0.03);border-radius:3px;transition:all 0.15s ease;box-sizing:border-box;";
+          scopeOverlay.style.top = (scopeRect.top + scrollY) + "px";
+          scopeOverlay.style.left = (scopeRect.left + scrollX) + "px";
+          scopeOverlay.style.width = scopeRect.width + "px";
+          scopeOverlay.style.height = scopeRect.height + "px";
+          iframeDoc.body.appendChild(scopeOverlay);
+        }
+      }
     }
 
     setInterval(function() {

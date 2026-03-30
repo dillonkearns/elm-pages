@@ -227,6 +227,7 @@ type alias Snapshot =
     , networkLog : List NetworkEntry
     , targetElement : Maybe TargetSelector
     , assertionSelectors : List AssertionSelector
+    , scopeSelectors : List (List AssertionSelector)
     , fetcherLog : List FetcherEntry
     }
 
@@ -255,7 +256,7 @@ type Simulation
 
 
 type AdvanceResult model msg
-    = Advanced (Phase model msg)
+    = Advanced (Phase model msg) (Maybe model)
     | AdvanceError String
 
 
@@ -270,6 +271,7 @@ type alias ReadyState model msg =
     , getFormFields : Maybe (model -> List ( String, String ))
     , viewScope : Query.Single msg -> Query.Single msg
     , scopeLabels : List String
+    , scopeSelectors : List (List AssertionSelector)
     , getModelError : model -> Maybe String
     }
 
@@ -332,6 +334,7 @@ start config =
                       , networkLog = []
                       , targetElement = Nothing
                       , assertionSelectors = []
+                      , scopeSelectors = []
                       , fetcherLog = []
                       }
                     ]
@@ -350,6 +353,7 @@ start config =
                       , networkLog = []
                       , targetElement = Nothing
                       , assertionSelectors = []
+                      , scopeSelectors = []
                       , fetcherLog = []
                       }
                     ]
@@ -520,7 +524,7 @@ startPlatform config initialPath testSetup =
                                                                 readyEffect
                                                                 100
                                                     in
-                                                    Advanced (Ready (makeReady processedWrapped))
+                                                    Advanced (Ready (makeReady processedWrapped)) Nothing
 
                                                 Nothing ->
                                                     case doneState.result of
@@ -570,7 +574,7 @@ startPlatform config initialPath testSetup =
                                                                                                         readyEffect
                                                                                                         100
                                                                                             in
-                                                                                            Advanced (Ready (makeReady processedWrapped))
+                                                                                            Advanced (Ready (makeReady processedWrapped)) Nothing
 
                                                                                         Nothing ->
                                                                                             AdvanceError "Failed to extract page data for redirect target"
@@ -589,6 +593,7 @@ startPlatform config initialPath testSetup =
                                                                                                 }
                                                                                             )
                                                                                         )
+                                                                                        Nothing
 
                                                                                 BackendTaskTest.TestError rdErrMsg ->
                                                                                     AdvanceError rdErrMsg
@@ -621,7 +626,7 @@ startPlatform config initialPath testSetup =
                                                                         readyEffect
                                                                         100
                                                             in
-                                                            Advanced (Ready (makeReady processedWrapped))
+                                                            Advanced (Ready (makeReady processedWrapped)) Nothing
 
                                                         _ ->
                                                             AdvanceError "Failed to extract page data after initial HTTP simulation"
@@ -640,6 +645,7 @@ startPlatform config initialPath testSetup =
                                                         }
                                                     )
                                                 )
+                                                Nothing
 
                                         BackendTaskTest.TestError errMsg ->
                                             AdvanceError errMsg
@@ -736,6 +742,7 @@ startPlatform config initialPath testSetup =
                             )
                     , viewScope = identity
                     , scopeLabels = []
+                    , scopeSelectors = []
                     , getModelError = \m_ -> m_.pendingDataError
                     }
 
@@ -870,7 +877,7 @@ startPlatform config initialPath testSetup =
                                                 100
 
                                     in
-                                    Advanced (makePhase processedWrapped)
+                                    Advanced (makePhase processedWrapped) Nothing
 
                                 Nothing ->
                                     -- Redirect or non-renderable response
@@ -894,7 +901,7 @@ startPlatform config initialPath testSetup =
                                                                 newEffect
                                                                 100
                                                     in
-                                                    Advanced (makePhase processedWrapped)
+                                                    Advanced (makePhase processedWrapped) Nothing
 
                                                 Nothing ->
                                                     AdvanceError ("Unexpected server response: " ++ String.fromInt serverResponse.statusCode)
@@ -919,6 +926,7 @@ startPlatform config initialPath testSetup =
                                         }
                                     )
                                 )
+                                Nothing
 
                         BackendTaskTest.TestError errMsg ->
                             AdvanceError errMsg
@@ -943,6 +951,7 @@ startPlatform config initialPath testSetup =
                               , networkLog = []
                               , targetElement = Nothing
                               , assertionSelectors = []
+                              , scopeSelectors = []
                               , fetcherLog = []
                               }
                             ]
@@ -2517,7 +2526,7 @@ The scope is reset after the function returns.
 -}
 within : (Query.Single msg -> Query.Single msg) -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
 within scopeFn action =
-    withinInternal Nothing scopeFn action
+    withinInternal Nothing Nothing scopeFn action
 
 
 {-| Like `within`, but takes labeled selectors for the scope, which makes
@@ -2532,6 +2541,8 @@ assertions inside the scope self-describing in the visual test runner.
 The scope label appears in assertion labels, e.g.,
 `ensureViewHas text "2" (within .todo-count)`.
 
+The scope container is also highlighted with a dashed border in the preview.
+
 -}
 withinFind : List PSelector.Selector -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
 withinFind selectors action =
@@ -2541,12 +2552,15 @@ withinFind selectors action =
 
         label =
             PSelector.toLabel selectors
+
+        assertionSels =
+            PSelector.toAssertionSelectors selectors
     in
-    withinInternal (Just label) (Query.find htmlSelectors) action
+    withinInternal (Just label) (Just assertionSels) (Query.find htmlSelectors) action
 
 
-withinInternal : Maybe String -> (Query.Single msg -> Query.Single msg) -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
-withinInternal maybeLabel scopeFn action (ProgramTest state) =
+withinInternal : Maybe String -> Maybe (List AssertionSelector) -> (Query.Single msg -> Query.Single msg) -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
+withinInternal maybeLabel maybeScopeSelectors scopeFn action (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -2569,6 +2583,13 @@ withinInternal maybeLabel scopeFn action (ProgramTest state) =
 
                                         Nothing ->
                                             ready.scopeLabels
+                                , scopeSelectors =
+                                    case maybeScopeSelectors of
+                                        Just sels ->
+                                            ready.scopeSelectors ++ [ sels ]
+
+                                        Nothing ->
+                                            ready.scopeSelectors
                             }
 
                         scopedState =
@@ -2578,13 +2599,13 @@ withinInternal maybeLabel scopeFn action (ProgramTest state) =
                         (ProgramTest resultState) =
                             action (ProgramTest scopedState)
                     in
-                    -- Restore the original viewScope and scopeLabels but keep everything else
+                    -- Restore the original viewScope, scopeLabels, and scopeSelectors
                     ProgramTest
                         { resultState
                             | phase =
                                 case resultState.phase of
                                     Ready resultReady ->
-                                        Ready { resultReady | viewScope = ready.viewScope, scopeLabels = ready.scopeLabels }
+                                        Ready { resultReady | viewScope = ready.viewScope, scopeLabels = ready.scopeLabels, scopeSelectors = ready.scopeSelectors }
 
                                     other ->
                                         other
@@ -2712,6 +2733,7 @@ toSnapshots (ProgramTest state) =
                      , networkLog = state.networkLog
                      , targetElement = Nothing
                      , assertionSelectors = []
+                     , scopeSelectors = []
                      , fetcherLog = []
                      }
                    ]
@@ -2794,7 +2816,7 @@ advanceResolver maybeModel sim state (Resolver resolver) =
             state.networkLog ++ [ networkEntry ]
     in
     case resolver.advance maybeModel sim of
-        Advanced newPhase ->
+        Advanced newPhase maybeIntermediateModel ->
             let
                 snapshot =
                     case newPhase of
@@ -2810,6 +2832,13 @@ advanceResolver maybeModel sim state (Resolver resolver) =
                         | phase = newPhase
                         , snapshots = state.snapshots ++ snapshot
                         , networkLog = updatedLog
+                        , lastReadyModel =
+                            case maybeIntermediateModel of
+                                Just m ->
+                                    Just m
+
+                                Nothing ->
+                                    state.lastReadyModel
                     }
                 )
 
@@ -3106,6 +3135,7 @@ makeSnapshot label kind target assertionSels ready modelToString fetcherExtracto
     , networkLog = currentNetworkLog
     , targetElement = target
     , assertionSelectors = assertionSels
+    , scopeSelectors = ready.scopeSelectors
     , fetcherLog = fetcherExtractor |> Maybe.map (\fn -> fn ready.model) |> Maybe.withDefault []
     }
 
@@ -3214,6 +3244,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                         , getFormFields = Nothing
                         , viewScope = identity
                         , scopeLabels = []
+                        , scopeSelectors = []
                         , getModelError = \_ -> Nothing
                         }
 
@@ -3256,7 +3287,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                                         SimCustom portName resp ->
                                             BackendTaskTest.simulateCustom portName resp bt
                             in
-                            Advanced (resolveDataPhase newBt initFn viewFn updateFn)
+                            Advanced (resolveDataPhase newBt initFn viewFn updateFn) Nothing
                     , pendingDescription =
                         stillRunningDescription runningState.pendingRequests
                     , pendingUrls =
@@ -3988,10 +4019,12 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                                                     case processedWrapped2.pendingDataError of
                                                         Just _ ->
                                                             -- Data reload needs HTTP. Delegate to makePlatformResolver.
-                                                            Advanced (makePlatformResolver config baseUrl processedWrapped2 makeReady)
+                                                            -- Pass intermediate model so lastReadyModel stays current
+                                                            -- when stale data reloads are superseded by later fetchers.
+                                                            Advanced (makePlatformResolver config baseUrl processedWrapped2 makeReady) (Just processedWrapped2)
 
                                                         Nothing ->
-                                                            Advanced (Ready (makeReady processedWrapped2))
+                                                            Advanced (Ready (makeReady processedWrapped2)) Nothing
 
                                                 Err errMsg ->
                                                     AdvanceError ("Fetcher action resolution failed:\n\n" ++ errMsg)
@@ -4378,12 +4411,13 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                                                 }
                                             )
                                         )
+                                        Nothing
 
                                 Nothing ->
-                                    Advanced (makePhase processedWrapped)
+                                    Advanced (makePhase processedWrapped) Nothing
 
                         Nothing ->
-                            Advanced (makePhase { wrappedModel | virtualFs = vfsAfterAction, cookieJar = updatedJar, pendingActionBody = Nothing })
+                            Advanced (makePhase { wrappedModel | virtualFs = vfsAfterAction, cookieJar = updatedJar, pendingActionBody = Nothing }) Nothing
 
                 Ok ((RenderPage _ actionData) as renderResponse) ->
                     let
@@ -4415,7 +4449,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                                         newEffect
                                         100
                             in
-                            Advanced (makePhase processedWrapped)
+                            Advanced (makePhase processedWrapped) Nothing
 
                         Nothing ->
                             -- Data after action needs HTTP. Create a data Resolver.
@@ -4460,6 +4494,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                                         }
                                     )
                                 )
+                                Nothing
 
                 Err fatalErr ->
                     let
@@ -4469,7 +4504,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                     AdvanceError ("Route action failed: " ++ errInfo.title ++ ": " ++ errInfo.body)
 
                 _ ->
-                    Advanced (makePhase { wrappedModel | virtualFs = vfsAfterAction, pendingActionBody = Nothing })
+                    Advanced (makePhase { wrappedModel | virtualFs = vfsAfterAction, pendingActionBody = Nothing }) Nothing
 
         BackendTaskTest.Running runningState ->
             Advanced
@@ -4485,6 +4520,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                         }
                     )
                 )
+                Nothing
 
         BackendTaskTest.TestError errMsg ->
             AdvanceError errMsg

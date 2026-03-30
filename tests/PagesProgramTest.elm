@@ -650,6 +650,142 @@ all =
                             [ []
                             , [ ByValue "Buy milk" ]
                             ]
+            , test "withinFind snapshots carry scope selectors for highlighting" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { count = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Increment ->
+                                        ( { model | count = model.count + 1 }, [] )
+
+                                    Decrement ->
+                                        ( model, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Sections"
+                                , body =
+                                    [ Html.div [ Attr.id "counter" ]
+                                        [ Html.text (String.fromInt model.count) ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.withinFind
+                            [ PSelector.id "counter" ]
+                            (PagesProgram.ensureViewHas [ PSelector.text "0" ])
+                        |> PagesProgram.toSnapshots
+                        |> List.map .scopeSelectors
+                        |> Expect.equal
+                            [ []  -- start
+                            , [ [ ById_ "counter" ] ]  -- assertion inside withinFind
+                            ]
+            , test "nested withinFind carries nested scope selectors" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Nested"
+                                , body =
+                                    [ Html.div [ Attr.id "outer" ]
+                                        [ Html.div [ Attr.class "inner" ]
+                                            [ Html.text "Hello" ]
+                                        ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.withinFind
+                            [ PSelector.id "outer" ]
+                            (PagesProgram.withinFind
+                                [ PSelector.class "inner" ]
+                                (PagesProgram.ensureViewHas [ PSelector.text "Hello" ])
+                            )
+                        |> PagesProgram.toSnapshots
+                        |> List.map .scopeSelectors
+                        |> Expect.equal
+                            [ []  -- start
+                            , [ [ ById_ "outer" ], [ ByClass "inner" ] ]  -- nested scopes
+                            ]
+            , test "plain within has empty scope selectors" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Home"
+                                , body =
+                                    [ Html.div [ Attr.id "main" ]
+                                        [ Html.text "Content" ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.within
+                            (Query.find [ Selector.id "main" ])
+                            (PagesProgram.ensureViewHas [ PSelector.text "Content" ])
+                        |> PagesProgram.toSnapshots
+                        |> List.map .scopeSelectors
+                        |> Expect.equal
+                            [ []  -- start
+                            , []  -- plain within = no scope selectors
+                            ]
+            , test "clickButtonWith inside withinFind carries scope selectors" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { count = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Increment ->
+                                        ( { model | count = model.count + 1 }, [] )
+
+                                    Decrement ->
+                                        ( model, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Scoped Click"
+                                , body =
+                                    [ Html.div [ Attr.id "section-a" ]
+                                        [ Html.button [ Attr.class "action-btn", Html.Events.onClick Increment ] [ Html.text "Do it" ] ]
+                                    , Html.div [ Attr.id "section-b" ]
+                                        [ Html.button [ Attr.class "action-btn", Html.Events.onClick Decrement ] [ Html.text "Do it" ] ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.withinFind
+                            [ PSelector.id "section-a" ]
+                            (PagesProgram.clickButtonWith [ PSelector.class "action-btn" ])
+                        |> PagesProgram.toSnapshots
+                        |> List.map .scopeSelectors
+                        |> Expect.equal
+                            [ []  -- start
+                            , [ [ ById_ "section-a" ] ]  -- interaction inside withinFind
+                            ]
+            , test "non-scoped assertions have empty scope selectors" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Home"
+                                , body = [ Html.text "Hello" ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Hello" ]
+                        |> PagesProgram.toSnapshots
+                        |> List.map .scopeSelectors
+                        |> Expect.equal
+                            [ []  -- start
+                            , []  -- no scope
+                            ]
             ]
         , describe "disabled button detection"
             [ test "clickButton fails on disabled button" <|

@@ -1608,11 +1608,14 @@ viewRenderedPageWithOptions viewportWidth maybePreviewMode snapshot =
         , Html.div
             (Attr.class "page-body"
                 :: (case ( snapshot.targetElement, snapshot.assertionSelectors ) of
+                        ( Just (BySelectors sels), _ ) ->
+                            [ Attr.attribute "data-highlight" (Encode.encode 0 (encodeInteractionHighlight sels snapshot.scopeSelectors)) ]
+
                         ( Just target, _ ) ->
                             [ Attr.attribute "data-highlight" (Encode.encode 0 (encodeTargetSelector target)) ]
 
                         ( Nothing, _ :: _ ) ->
-                            [ Attr.attribute "data-highlight" (Encode.encode 0 (encodeAssertionHighlight snapshot.assertionSelectors)) ]
+                            [ Attr.attribute "data-highlight" (Encode.encode 0 (encodeAssertionHighlight snapshot.assertionSelectors snapshot.scopeSelectors)) ]
 
                         _ ->
                             []
@@ -1754,6 +1757,15 @@ viewFetcherInspector currentStep allSnapshots =
 
                 firstEntry =
                     timeline |> List.head |> Maybe.map Tuple.second
+
+                -- Find the "active" entry: the most recent entry at or before currentStep.
+                -- This makes the current state "sticky" between transitions.
+                activeStepIdx =
+                    timeline
+                        |> List.filter (\( idx, _ ) -> idx <= currentStep)
+                        |> List.reverse
+                        |> List.head
+                        |> Maybe.map Tuple.first
             in
             Html.div [ Attr.class "fetcher-card" ]
                 [ Html.div [ Attr.class "fetcher-card-header" ]
@@ -1771,8 +1783,14 @@ viewFetcherInspector currentStep allSnapshots =
                         |> List.map
                             (\( stepIdx, entry ) ->
                                 let
+                                    isActive =
+                                        activeStepIdx == Just stepIdx
+
+                                    isInFlight =
+                                        isActive && entry.status /= FetcherComplete
+
                                     temporal =
-                                        if stepIdx == currentStep then
+                                        if isActive then
                                             "fetcher-timeline-current"
 
                                         else if stepIdx < currentStep then
@@ -1785,6 +1803,7 @@ viewFetcherInspector currentStep allSnapshots =
                                     [ Attr.classList
                                         [ ( "fetcher-timeline-entry", True )
                                         , ( temporal, True )
+                                        , ( "fetcher-in-flight", isInFlight )
                                         ]
                                     ]
                                     [ Html.span [ Attr.class "fetcher-step" ]
@@ -1977,14 +1996,24 @@ encodeTargetSelector target =
                 ]
 
         BySelectors selectors ->
-            encodeAssertionHighlight selectors
+            encodeAssertionHighlight selectors []
 
 
-encodeAssertionHighlight : List AssertionSelector -> Encode.Value
-encodeAssertionHighlight selectors =
+encodeAssertionHighlight : List AssertionSelector -> List (List AssertionSelector) -> Encode.Value
+encodeAssertionHighlight selectors scopeSelectors =
     Encode.object
         [ ( "type", Encode.string "assertion" )
         , ( "selectors", Encode.list encodeAssertionSelector selectors )
+        , ( "scopes", Encode.list (Encode.list encodeAssertionSelector) scopeSelectors )
+        ]
+
+
+encodeInteractionHighlight : List AssertionSelector -> List (List AssertionSelector) -> Encode.Value
+encodeInteractionHighlight selectors scopeSelectors =
+    Encode.object
+        [ ( "type", Encode.string "interaction-selectors" )
+        , ( "selectors", Encode.list encodeAssertionSelector selectors )
+        , ( "scopes", Encode.list (Encode.list encodeAssertionSelector) scopeSelectors )
         ]
 
 
@@ -2993,6 +3022,29 @@ body {
     font-size: 11px;
     color: #556677;
     margin-left: 4px;
+}
+
+@keyframes fetcher-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.fetcher-in-flight {
+    animation: fetcher-pulse 2s ease-in-out infinite;
+}
+
+.fetcher-in-flight .fetcher-status-icon {
+    display: inline-block;
+    animation: fetcher-pulse 1.2s ease-in-out infinite;
+}
+
+.fetcher-in-flight .fetcher-reloading {
+    animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .effect-inspector {
