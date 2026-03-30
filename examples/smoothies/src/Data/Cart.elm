@@ -73,7 +73,7 @@ addItemToCart quantity userId itemId =
     Request.Hasura.graphqlRequest
         { query = """
             mutation AddToCart($userId: uuid!, $itemId: uuid!, $quantity: Int!) {
-                insert_order_one(object: {
+                insert_orders_one(object: {
                     user_id: $userId,
                     total: 0,
                     order_items: {

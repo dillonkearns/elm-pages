@@ -168,7 +168,7 @@ addToCartMutationResponse =
     Encode.object
         [ ( "data"
           , Encode.object
-                [ ( "insert_order_one"
+                [ ( "insert_orders_one"
                   , Encode.object [ ( "id", Encode.string "order-1" ) ]
                   )
                 ]
