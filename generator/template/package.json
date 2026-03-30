@@ -9,8 +9,7 @@
     "elm": "^0.19.1-6",
     "elm-codegen": "^0.6.3",
     "elm-format": "^0.8.7",
-    "elm-optimize-level-2": "^0.3.5",
-    "elm-pages": "3.3.1",
+    "elm-pages": "3.3.2",
     "elm-review": "^2.13.5",
     "lamdera": "^0.19.1-1.4.0",
     "vite": "^7.3.1"
