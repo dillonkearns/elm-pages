@@ -225,5 +225,9 @@ view app sharedModel =
                     |> Form.withServerResponse (app.action |> Maybe.map .errors)
                 )
                 app
+        , Html.p []
+            [ Html.text "Don't have an account? "
+            , Html.a [ Attr.href "/signup" ] [ Html.text "Sign up" ]
+            ]
         ]
     }

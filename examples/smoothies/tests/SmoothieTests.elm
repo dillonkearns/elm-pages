@@ -7,6 +7,8 @@ module SmoothieTests exposing
     , concurrentFetchersTest
     , staleFetcherDataReloadTest
     , signoutTest
+    , signupPageRendersTest
+    , signupSuccessTest
     )
 
 {-| Test suite for the Smoothies shopping cart example.
@@ -215,7 +217,12 @@ simulateIndexData =
 
 
 combinedDataResponse : Encode.Value -> Encode.Value
-combinedDataResponse cartOrders =
+combinedDataResponse =
+    combinedDataResponseForUser { name = "Alice", username = "alice@example.com" }
+
+
+combinedDataResponseForUser : { name : String, username : String } -> Encode.Value -> Encode.Value
+combinedDataResponseForUser user cartOrders =
     Encode.object
         [ ( "data"
           , Encode.object
@@ -229,8 +236,8 @@ combinedDataResponse cartOrders =
                   )
                 , ( "users_by_pk"
                   , Encode.object
-                        [ ( "name", Encode.string "Alice" )
-                        , ( "username", Encode.string "alice@example.com" )
+                        [ ( "name", Encode.string user.name )
+                        , ( "username", Encode.string user.username )
                         , ( "orders", cartOrders )
                         ]
                   )
@@ -440,3 +447,60 @@ signoutTest =
         -- Should redirect to /login
         |> PagesProgram.ensureBrowserUrl
             (\url -> url |> Expect.equal "https://localhost:1234/login")
+
+
+
+-- SIGNUP TESTS
+
+
+{-| GraphQL response for Data.User.signup mutation (insert_users_one).
+-}
+signupMutationResponse : Encode.Value
+signupMutationResponse =
+    Encode.object
+        [ ( "data"
+          , Encode.object
+                [ ( "insert_users_one"
+                  , Encode.object [ ( "id", Encode.string "new-user-id" ) ]
+                  )
+                ]
+          )
+        ]
+
+
+simulateBobIndexData =
+    let
+        resp =
+            combinedDataResponseForUser
+                { name = "Bob", username = "bob@example.com" }
+                (Encode.list identity [])
+    in
+    PagesProgram.simulateHttpPost hasuraUrl resp
+        >> PagesProgram.simulateHttpPost hasuraUrl resp
+        >> PagesProgram.simulateHttpPost hasuraUrl resp
+
+
+{-| 7. Signup page renders the form.
+-}
+signupPageRendersTest : TestApp.ProgramTest
+signupPageRendersTest =
+    TestApp.start "/signup" baseSetup
+        |> PagesProgram.ensureViewHas [ PSelector.text "Create an account" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Sign Up" ]
+
+
+{-| 8. Full signup flow: fill form, create account, redirect to index.
+-}
+signupSuccessTest : TestApp.ProgramTest
+signupSuccessTest =
+    TestApp.start "/signup" baseSetup
+        |> PagesProgram.ensureViewHas [ PSelector.text "Create an account" ]
+        |> PagesProgram.fillIn "signup" "name" "Bob"
+        |> PagesProgram.fillIn "signup" "username" "bob@example.com"
+        |> PagesProgram.fillIn "signup" "password" "secret123"
+        |> PagesProgram.clickButton "Sign Up"
+        -- Signup action: insert_users_one mutation to Hasura
+        |> PagesProgram.simulateHttpPost hasuraUrl signupMutationResponse
+        -- Redirect to Index, which loads smoothies + user + cart
+        |> simulateBobIndexData
+        |> PagesProgram.ensureViewHas [ PSelector.text "Welcome Bob!" ]

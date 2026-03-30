@@ -1,4 +1,4 @@
-module Data.User exposing (User, find, login, updateUser)
+module Data.User exposing (User, find, login, signup, updateUser)
 
 import Api.InputObject
 import Api.Mutation
@@ -50,6 +50,25 @@ login { username, expectedPasswordHash } =
         Api.Object.Users.id
         |> SelectionSet.map (List.head >> Maybe.map (\(Uuid raw) -> raw))
         |> Request.Hasura.backendTask
+
+
+signup : { name : String, username : String, password : String } -> BackendTask FatalError (Maybe String)
+signup { name, username, password } =
+    Api.Mutation.insert_users_one
+        identity
+        { object =
+            Api.InputObject.buildUsers_insert_input
+                (\opts ->
+                    { opts
+                        | name = Present name
+                        , username = Present username
+                        , password_hash = Present password
+                    }
+                )
+        }
+        Api.Object.Users.id
+        |> SelectionSet.map (Maybe.map (\(Uuid raw) -> raw))
+        |> Request.Hasura.mutationBackendTask
 
 
 eq : String -> Api.InputObject.String_comparison_exp
