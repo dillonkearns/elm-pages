@@ -1,7 +1,21 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as globby from "globby";
 import { packageVersion } from "./compatibility-key.js";
+
+/**
+ * Recursively find files matching a filter in a directory.
+ * Uses Node's built-in fs.readdirSync with recursive option (Node 18.17+)
+ * to avoid the ~25ms globby import overhead.
+ */
+function findFilesSync(dir, filter) {
+  try {
+    return fs.readdirSync(dir, { recursive: true, withFileTypes: false })
+      .filter(filter)
+      .map((rel) => path.join(dir, rel));
+  } catch {
+    return [];
+  }
+}
 
 const VERSION_MARKER_FILE = ".elm-pages-cli-version";
 
@@ -72,7 +86,7 @@ export async function needsRecompilation(projectDirectory, outputPath) {
     // Check all .elm files in source directories
     for (const srcDir of sourceDirectories) {
       const fullSrcDir = path.join(projectDirectory, srcDir);
-      const elmFiles = globby.globbySync(`${fullSrcDir}/**/*.elm`);
+      const elmFiles = findFilesSync(fullSrcDir, (f) => f.endsWith(".elm"));
 
       for (const elmFile of elmFiles) {
         try {
@@ -171,7 +185,7 @@ export async function needsCodegenInstall(projectDirectory) {
     const markerMtime = markerStat.mtimeMs;
 
     // Check all files in codegen directory
-    const codegenFiles = globby.globbySync(`${codegenDir}/**/*`);
+    const codegenFiles = findFilesSync(codegenDir, () => true);
 
     for (const file of codegenFiles) {
       try {
@@ -229,9 +243,14 @@ export async function needsPortsRecompilation(projectDirectory) {
   );
 
   // Find custom-backend-task source files
-  const sourceFiles = globby.globbySync(
-    path.join(projectDirectory, "custom-backend-task.*")
-  );
+  let sourceFiles;
+  try {
+    sourceFiles = fs.readdirSync(projectDirectory)
+      .filter((f) => f.startsWith("custom-backend-task."))
+      .map((f) => path.join(projectDirectory, f));
+  } catch {
+    sourceFiles = [];
+  }
 
   // No source files means no compilation needed
   if (sourceFiles.length === 0) {

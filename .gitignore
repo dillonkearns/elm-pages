@@ -19,3 +19,6 @@ docs.json
 
 examples/end-to-end/db/schema-history/
 test-scripts/db/schema-history/
+
+# elm-wrap artifacts
+artifacts.x.dat
