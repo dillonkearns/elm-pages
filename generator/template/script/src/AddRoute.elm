@@ -46,7 +46,6 @@ run =
                 |> createFile
                 |> Script.writeFile
                 |> BackendTask.allowFatal
-                |> BackendTask.map (\_ -> ())
         )
 
 
@@ -282,7 +281,9 @@ createFile { moduleName, fields } =
 errorsView : Function (Elm.Expression -> Elm.Expression -> Elm.Expression)
 errorsView =
     fn2 "errorsView"
-        (Elm.Arg.varWith "errors" (Type.namedWith [ "Form" ] "Errors" [ Type.string ]))
+        (Elm.Arg.varWith "errors"
+            (Type.namedWith [ "Form" ] "Errors" [ Type.string ])
+        )
         (Elm.Arg.varWith "field"
             (Type.namedWith [ "Form", "Validation" ]
                 "Field"
