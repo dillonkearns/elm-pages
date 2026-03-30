@@ -7,6 +7,12 @@ will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.3.3] - 2026-03-30
+
+### Fixed
+
+- Reject `elm-pages-internal://` URLs in `BackendTask.Http` requests. Internal requests now use a separate code path.
+
 ## [3.3.1] - 2026-03-30
 
 ### Fixed
