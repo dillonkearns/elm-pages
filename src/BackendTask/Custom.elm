@@ -122,11 +122,11 @@ But often JavaScript libraries and core APIs will give you JS Date objects, so t
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
+import BackendTask.Internal.Request
 import Date
 import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import Pages.StaticHttpRequest
 import TerminalText
 import Time
 
@@ -138,8 +138,9 @@ run :
     -> Decoder b
     -> BackendTask { fatal : FatalError, recoverable : Error } b
 run portName input decoder =
-    request
-        { body =
+    BackendTask.Internal.Request.request
+        { name = "port"
+        , body =
             Encode.object
                 [ ( "input", input )
                 , ( "portName", Encode.string portName )
@@ -152,10 +153,7 @@ run portName input decoder =
                     (\maybeInternalErrorCode ->
                         case maybeInternalErrorCode of
                             Just errorKind ->
-                                --Decode.field "elm-pages-internal-error" Decode.string
-                                --    |> Decode.andThen
-                                (--\errorKind ->
-                                 if errorKind == "CustomBackendTaskNotDefined" then
+                                (if errorKind == "CustomBackendTaskNotDefined" then
                                     FatalError.recoverable
                                         { title = "Custom BackendTask Error"
                                         , body =
@@ -270,7 +268,6 @@ run portName input decoder =
                             Nothing ->
                                 decoder |> Decode.map Ok
                     )
-                |> BackendTask.Http.expectJson
         }
         |> BackendTask.andThen BackendTask.fromResult
 
@@ -326,30 +323,3 @@ dateDecoder =
         )
 
 
-request :
-    { body : BackendTask.Http.Body
-    , expect : BackendTask.Http.Expect a
-    }
-    -> BackendTask { fatal : FatalError, recoverable : Error } a
-request { body, expect } =
-    BackendTask.Http.request
-        { url = "elm-pages-internal://port"
-        , method = "GET"
-        , headers = []
-        , body = body
-        , timeoutInMs = Nothing
-        , retries = Nothing
-        }
-        expect
-        |> BackendTask.onError
-            (\error ->
-                case error.recoverable of
-                    BackendTask.Http.BadBody (Just jsonError) _ ->
-                        { recoverable = DecodeError jsonError
-                        , fatal = error.fatal
-                        }
-                            |> BackendTask.fail
-
-                    _ ->
-                        Pages.StaticHttpRequest.InternalError error.fatal
-            )
