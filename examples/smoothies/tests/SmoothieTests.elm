@@ -503,4 +503,6 @@ signupSuccessTest =
         |> PagesProgram.simulateHttpPost hasuraUrl signupMutationResponse
         -- Redirect to Index, which loads smoothies + user + cart
         |> simulateBobIndexData
+        |> PagesProgram.ensureBrowserUrl
+            (\url -> url |> Expect.equal "https://localhost:1234/")
         |> PagesProgram.ensureViewHas [ PSelector.text "Welcome Bob!" ]
