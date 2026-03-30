@@ -1129,6 +1129,54 @@ all =
                         |> PagesProgram.done
                         |> expectFailContaining "Timeout"
             ]
+        , describe "HTTP simulation error messages"
+            [ test "simulateHttpPost with no pending requests shows the URL you tried" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed "ready"
+                        , init = \msg -> ( { text = msg }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "Test", body = [ Html.text model.text ] }
+                        }
+                        |> PagesProgram.simulateHttpPost
+                            "https://api.example.com/data"
+                            (Encode.object [])
+                        |> PagesProgram.done
+                        |> expectFailContaining "api.example.com/data"
+            , test "simulateHttpGet with no pending requests shows the URL you tried" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed "ready"
+                        , init = \msg -> ( { text = msg }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "Test", body = [ Html.text model.text ] }
+                        }
+                        |> PagesProgram.simulateHttpGet
+                            "https://api.example.com/users"
+                            (Encode.object [])
+                        |> PagesProgram.done
+                        |> expectFailContaining "api.example.com/users"
+            , test "simulateHttpPost with wrong URL shows both the attempted URL and the pending request" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.Http.getJson
+                                "https://api.example.com/actual-endpoint"
+                                Decode.string
+                                |> BackendTask.allowFatal
+                        , init = \name -> ( { name = name }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                        }
+                        |> PagesProgram.simulateHttpPost
+                            "https://api.example.com/wrong-endpoint"
+                            (Encode.object [])
+                        |> PagesProgram.done
+                        |> Expect.all
+                            [ expectFailContaining "wrong-endpoint"
+                            , expectFailContaining "actual-endpoint"
+                            ]
+            ]
         , describe "selectOption"
             [ test "selecting a dropdown option updates the view" <|
                 \() ->
@@ -1172,6 +1220,64 @@ all =
                         |> PagesProgram.selectOption "missing" "Missing" "val" "text"
                         |> PagesProgram.done
                         |> expectFailContaining "selectOption"
+            , test "selectOption fails when the associated label does not match" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { color = "red" }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    SelectColor c ->
+                                        ( { model | color = c }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Colors"
+                                , body =
+                                    [ Html.label [ Attr.for "color-select" ] [ Html.text "Favorite Color" ]
+                                    , Html.select
+                                        [ Attr.id "color-select"
+                                        , Html.Events.onInput SelectColor
+                                        ]
+                                        [ Html.option [ Attr.value "red" ] [ Html.text "Red" ]
+                                        , Html.option [ Attr.value "blue" ] [ Html.text "Blue" ]
+                                        ]
+                                    , Html.text ("Selected: " ++ model.color)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.selectOption "color-select" "Wrong Label" "blue" "Blue"
+                        |> PagesProgram.done
+                        |> expectFailContaining "Wrong Label"
+            , test "selectOption fails when the option text/value pair does not exist" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { color = "red" }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    SelectColor c ->
+                                        ( { model | color = c }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Colors"
+                                , body =
+                                    [ Html.label [ Attr.for "color-select" ] [ Html.text "Favorite Color" ]
+                                    , Html.select
+                                        [ Attr.id "color-select"
+                                        , Html.Events.onInput SelectColor
+                                        ]
+                                        [ Html.option [ Attr.value "red" ] [ Html.text "Red" ]
+                                        , Html.option [ Attr.value "blue" ] [ Html.text "Blue" ]
+                                        ]
+                                    , Html.text ("Selected: " ++ model.color)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.selectOption "color-select" "Favorite Color" "blue" "Not Blue"
+                        |> PagesProgram.done
+                        |> expectFailContaining "Not Blue"
             ]
         , describe "expectViewHas (terminal assertion)"
             [ test "passes when view has selector" <|
@@ -1506,6 +1612,40 @@ all =
                         |> PagesProgram.expectModel
                             (\model -> model.count |> Expect.equal 99)
                         |> expectFailContaining "Expect.equal"
+            ]
+        , describe "withModelToString"
+            [ test "annotates the latest snapshot when enabled mid-test without rewriting history" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { count = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Increment ->
+                                        ( { model | count = model.count + 1 }, [] )
+
+                                    Decrement ->
+                                        ( model, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Counter"
+                                , body =
+                                    [ Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
+                                    , Html.text (String.fromInt model.count)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "+1"
+                        |> PagesProgram.withModelToString (\model -> "count=" ++ String.fromInt model.count)
+                        |> PagesProgram.clickButton "+1"
+                        |> PagesProgram.toSnapshots
+                        |> List.map .modelState
+                        |> Expect.equal
+                            [ Nothing
+                            , Just "count=1"
+                            , Just "count=2"
+                            ]
             ]
         , describe "within (DOM scoping)"
             [ test "scopes clickButton to a specific element" <|

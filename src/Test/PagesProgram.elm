@@ -30,13 +30,14 @@ production. Only external I/O (HTTP, shell commands, etc.) is simulated
 via a mock resolver.
 
     import TestApp
+    import Test.BackendTask as BackendTaskTest
     import Test exposing (test)
     import Test.PagesProgram as PagesProgram
     import Test.PagesProgram.Selector as Selector
 
     test "renders index page" <|
         \() ->
-            TestApp.start "/" mockData
+            TestApp.start "/" BackendTaskTest.init
                 |> PagesProgram.ensureViewHas [ Selector.text "Hello!" ]
                 |> PagesProgram.done
 
@@ -48,6 +49,10 @@ use [`start`](#start) with inline config.
 @docs start, startWithEffects, startPlatform
 
 @docs clickButton, clickButtonWith, clickLink, fillIn, fillInTextarea, check
+
+@docs navigateTo, ensureBrowserUrl
+
+@docs submitForm, submitFormTo
 
 @docs resolveEffect
 
@@ -65,7 +70,7 @@ use [`start`](#start) with inline config.
 
 @docs simulateCustom
 
-@docs simulateHttpGet, simulateHttpPost, simulateHttpError
+@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
 
 @docs selectOption
 
@@ -276,6 +281,16 @@ type alias ReadyState model msg =
     }
 
 
+type alias PlatformTestModel userModel pageData actionData sharedData =
+    { platformModel : Platform.Model userModel pageData actionData sharedData
+    , virtualFs : BackendTaskTest.VirtualFS
+    , cookieJar : CookieJar
+    , pendingDataError : Maybe String
+    , pendingDataPath : Maybe String
+    , pendingActionBody : Maybe { body : String, path : String }
+    }
+
+
 
 -- START
 
@@ -432,7 +447,7 @@ startWithEffects extractEffects config =
 directly. The generated `TestApp` module provides the `config` (which is
 `Main.config`), so the typical usage is:
 
-    TestApp.start "/" mockData
+    TestApp.start "/" BackendTaskTest.init
         |> PagesProgram.ensureViewHas [ Selector.text "Hello" ]
         |> PagesProgram.done
 
@@ -444,6 +459,22 @@ out of the box. File writes in actions automatically update the virtual FS,
 and subsequent data resolution sees the updated files.
 
 -}
+startPlatform :
+    Platform.ProgramConfig
+        userMsg
+        userModel
+        route
+        pageData
+        actionData
+        sharedData
+        effect
+        (Platform.Msg userMsg pageData actionData sharedData errorPage)
+        errorPage
+    -> String
+    -> BackendTaskTest.TestSetup
+    -> ProgramTest
+        (PlatformTestModel userModel pageData actionData sharedData)
+        (Platform.Msg userMsg pageData actionData sharedData errorPage)
 startPlatform config initialPath testSetup =
     let
         baseUrl =
@@ -1124,37 +1155,149 @@ selectOption fieldId label optionValue optionText (ProgramTest state) =
                         query =
                             renderScopedView ready
 
+                        stepLabel =
+                            "selectOption \"" ++ fieldId ++ "\" \"" ++ optionText ++ "\""
+
+                        labelResult : Expectation
+                        labelResult =
+                            query
+                                |> Query.find
+                                    [ Selector.tag "label"
+                                    , Selector.attribute (Html.Attributes.for fieldId)
+                                    , Selector.text label
+                                    ]
+                                |> Query.has []
+
                         selectQuery : Query.Single msg
                         selectQuery =
                             query
-                                |> Query.find [ Selector.id fieldId ]
+                                |> Query.find
+                                    [ Selector.tag "select"
+                                    , Selector.id fieldId
+                                    ]
+
+                        selectResult : Expectation
+                        selectResult =
+                            selectQuery
+                                |> Query.has []
+
+                        optionResult : Expectation
+                        optionResult =
+                            selectQuery
+                                |> Query.find
+                                    [ Selector.tag "option"
+                                    , Selector.attribute (Html.Attributes.value optionValue)
+                                    , Selector.text optionText
+                                    ]
+                                |> Query.has []
+
+                        changeEventResult : Result String msg
+                        changeEventResult =
+                            selectQuery
+                                |> Event.simulate
+                                    ( "change"
+                                    , Encode.object
+                                        [ ( "target"
+                                          , Encode.object
+                                                [ ( "value", Encode.string optionValue )
+                                                ]
+                                          )
+                                        ]
+                                    )
+                                |> Event.toResult
 
                         eventResult : Result String msg
                         eventResult =
-                            selectQuery
-                                |> Event.simulate (Event.input optionValue)
-                                |> Event.toResult
-                    in
-                    case eventResult of
-                        Ok msg ->
-                            applyMsgWithLabel
-                                ("selectOption \"" ++ fieldId ++ "\" \"" ++ optionText ++ "\"")
-                                Interaction
-                                (Just (ById fieldId))
-                                msg
-                                (ProgramTest state)
+                            case changeEventResult of
+                                Ok msg ->
+                                    Ok msg
 
-                        Err errMsg ->
+                                Err changeErr ->
+                                    if String.contains "does not listen for \"change\" events" changeErr then
+                                        selectQuery
+                                            |> Event.simulate (Event.input optionValue)
+                                            |> Event.toResult
+                                            |> Result.mapError
+                                                (\inputErr ->
+                                                    if String.contains "does not listen for \"input\" events" inputErr then
+                                                        changeErr ++ "\n\nTried input fallback too:\n" ++ inputErr
+
+                                                    else
+                                                        inputErr
+                                                )
+
+                                    else
+                                        Err changeErr
+                    in
+                    case getFailureMessage labelResult of
+                        Just failMsg ->
                             ProgramTest
                                 { state
                                     | error =
                                         Just
-                                            ("selectOption \""
+                                            (stepLabel
+                                                ++ " failed: Could not find label \""
+                                                ++ label
+                                                ++ "\" associated with #"
                                                 ++ fieldId
-                                                ++ "\" failed:\n\n"
-                                                ++ errMsg
+                                                ++ ".\n\n"
+                                                ++ failMsg
                                             )
                                 }
+
+                        Nothing ->
+                            case getFailureMessage selectResult of
+                                Just failMsg ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just
+                                                    (stepLabel
+                                                        ++ " failed: Could not find <select id=\""
+                                                        ++ fieldId
+                                                        ++ "\">.\n\n"
+                                                        ++ failMsg
+                                                    )
+                                        }
+
+                                Nothing ->
+                                    case getFailureMessage optionResult of
+                                        Just failMsg ->
+                                            ProgramTest
+                                                { state
+                                                    | error =
+                                                        Just
+                                                            (stepLabel
+                                                                ++ " failed: Could not find an <option> with value \""
+                                                                ++ optionValue
+                                                                ++ "\" and text \""
+                                                                ++ optionText
+                                                                ++ "\".\n\n"
+                                                                ++ failMsg
+                                                            )
+                                                }
+
+                                        Nothing ->
+                                            case eventResult of
+                                                Ok msg ->
+                                                    applyMsgWithLabel
+                                                        stepLabel
+                                                        Interaction
+                                                        (Just (ById fieldId))
+                                                        msg
+                                                        (ProgramTest state)
+
+                                                Err errMsg ->
+                                                    ProgramTest
+                                                        { state
+                                                            | error =
+                                                                Just
+                                                                    ("selectOption \""
+                                                                        ++ fieldId
+                                                                        ++ "\" failed:\n\n"
+                                                                        ++ errMsg
+                                                                    )
+                                                        }
 
 
 {-| Simulate a DOM event on a targeted element. This is the escape hatch
@@ -1624,7 +1767,7 @@ clickButtonWith selectors (ProgramTest state) =
 For elm-pages forms, pass the form ID (from `Form.options`) and the field
 name (from `Form.field`):
 
-    TestApp.start "/feedback" mockData
+    TestApp.start "/feedback" BackendTaskTest.init
         |> PagesProgram.fillIn "feedback-form" "message" "Hello!"
         |> PagesProgram.clickButton "Submit Feedback"
 
@@ -1946,7 +2089,7 @@ clickLink linkText href (ProgramTest state) =
 the full Platform navigation cycle: `LinkClicked` -> `UrlChanged` ->
 data loading -> re-render.
 
-    TestApp.start "/" mockData
+    TestApp.start "/" BackendTaskTest.init
         |> PagesProgram.navigateTo "/counter"
         |> PagesProgram.ensureViewHas [ Selector.text "Count: 0" ]
 
@@ -1985,7 +2128,7 @@ navigateTo path (ProgramTest state) =
 {-| Assert on the current browser URL. Use with framework-driven tests
 (`startPlatform`) where navigation is tracked by the Platform.
 
-    TestApp.start "/hello" mockData
+    TestApp.start "/hello" BackendTaskTest.init
         |> PagesProgram.ensureBrowserUrl
             (\url -> url |> Expect.equal "https://localhost:1234/hello")
 
@@ -2035,7 +2178,7 @@ ensureBrowserUrl assertion (ProgramTest state) =
 triggers the full action pipeline: the action BackendTask is resolved, and
 the result is rendered as `actionData` in the view.
 
-    TestApp.start "/feedback" mockData
+    TestApp.start "/feedback" BackendTaskTest.init
         |> PagesProgram.submitForm
             { formId = "feedback-form"
             , fields = [ ( "message", "Hello!" ) ]
@@ -2669,29 +2812,43 @@ done (ProgramTest state) =
                         )
 
                 Ready ready ->
-                    if List.isEmpty ready.pendingEffects then
+                    let
+                        pendingEffectDescriptions =
+                            describeEffects ready.pendingEffects
+
+                        pendingFetcherDescriptions =
+                            state.pendingFetcherEffects
+                                |> List.map
+                                    (\(Resolver resolver) ->
+                                        resolver.pendingDescription
+                                    )
+
+                        allPendingDescriptions =
+                            pendingEffectDescriptions ++ pendingFetcherDescriptions
+
+                        pendingCount =
+                            List.length ready.pendingEffects + List.length state.pendingFetcherEffects
+                    in
+                    if pendingCount == 0 then
                         Expect.pass
 
                     else
                         let
-                            descriptions =
-                                describeEffects ready.pendingEffects
-
                             descriptionText =
-                                if List.isEmpty descriptions then
+                                if List.isEmpty allPendingDescriptions then
                                     ""
 
                                 else
                                     "\n\nPending:\n"
-                                        ++ (descriptions
+                                        ++ (allPendingDescriptions
                                                 |> List.map (\d -> "  - " ++ d)
                                                 |> String.join "\n"
                                            )
                         in
                         Expect.fail
                             ("There are "
-                                ++ String.fromInt (List.length ready.pendingEffects)
-                                ++ " pending BackendTask effect(s) that must be resolved before ending the test."
+                                ++ String.fromInt pendingCount
+                                ++ " pending BackendTask effect(s) or fetcher resolution(s) that must be resolved before ending the test."
                                 ++ descriptionText
                             )
 
@@ -2758,16 +2915,18 @@ withModelToString : (model -> String) -> ProgramTest model msg -> ProgramTest mo
 withModelToString fn (ProgramTest state) =
     let
         updatedSnapshots =
-            state.snapshots
-                |> List.map
-                    (\snapshot ->
-                        case state.phase of
-                            Ready ready ->
-                                { snapshot | modelState = Just (fn ready.model) }
+            case state.phase of
+                Ready ready ->
+                    case List.reverse state.snapshots of
+                        latest :: earlier ->
+                            List.reverse
+                                ({ latest | modelState = Just (fn ready.model) } :: earlier)
 
-                            _ ->
-                                snapshot
-                    )
+                        [] ->
+                            []
+
+                _ ->
+                    state.snapshots
     in
     ProgramTest
         { state
@@ -2902,8 +3061,45 @@ applySimulation sim (ProgramTest state) =
                             ProgramTest
                                 { state
                                     | error =
-                                        Just "No pending BackendTask to simulate. The page is already initialized."
+                                        Just
+                                            (simulationCallerName sim
+                                                ++ " "
+                                                ++ simulationUrl sim
+                                                ++ ": No pending HTTP request to resolve. The app is not currently waiting for any HTTP responses."
+                                            )
                                 }
+
+
+simulationCallerName : Simulation -> String
+simulationCallerName sim =
+    case sim of
+        SimHttpGet _ _ ->
+            "simulateHttpGet"
+
+        SimHttpPost _ _ ->
+            "simulateHttpPost"
+
+        SimHttpError _ _ _ ->
+            "simulateHttpError"
+
+        SimCustom _ _ ->
+            "simulateCustom"
+
+
+simulationUrl : Simulation -> String
+simulationUrl sim =
+    case sim of
+        SimHttpGet url _ ->
+            url
+
+        SimHttpPost url _ ->
+            url
+
+        SimHttpError _ url _ ->
+            url
+
+        SimCustom portName _ ->
+            portName
 
 
 {-| Like applySimulation, but targets a resolver whose pendingUrls contains
@@ -2960,13 +3156,6 @@ applySimulationToUrl targetUrl sim (ProgramTest state) =
                                     ProgramTest
                                         { newState
                                             | pendingFetcherEffects = restFetchers
-                                            , lastReadyModel =
-                                                case newState.phase of
-                                                    Resolving _ ->
-                                                        Just ready.model
-
-                                                    Ready _ ->
-                                                        state.lastReadyModel
                                         }
 
                                 Err errMsg ->
@@ -3114,12 +3303,21 @@ makeSnapshot label kind target assertionSels ready modelToString fetcherExtracto
     let
         viewResult =
             ready.getView ready.model
+
+        fetcherLog =
+            fetcherExtractor
+                |> Maybe.map (\fn -> fn ready.model)
+                |> Maybe.withDefault []
+
+        hasPendingFetcherEffects =
+            fetcherLog
+                |> List.any (\fetcher -> fetcher.status /= FetcherComplete)
     in
     { label = label
     , title = viewResult.title
     , body = (mapViewToSnapshot viewResult).body
     , rerender = \() -> mapViewToSnapshot (ready.getView ready.model)
-    , hasPendingEffects = not (List.isEmpty ready.pendingEffects)
+    , hasPendingEffects = hasPendingFetcherEffects || not (List.isEmpty ready.pendingEffects)
     , modelState = Maybe.map (\fn -> fn ready.model) modelToString
     , stepKind = kind
     , browserUrl = ready.getBrowserUrl |> Maybe.map (\getUrl -> getUrl ready.model)
@@ -3129,7 +3327,7 @@ makeSnapshot label kind target assertionSels ready modelToString fetcherExtracto
     , targetElement = target
     , assertionSelectors = assertionSels
     , scopeSelectors = ready.scopeSelectors
-    , fetcherLog = fetcherExtractor |> Maybe.map (\fn -> fn ready.model) |> Maybe.withDefault []
+    , fetcherLog = fetcherLog
     }
 
 
