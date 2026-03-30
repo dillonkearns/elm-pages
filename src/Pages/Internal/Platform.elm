@@ -8,7 +8,7 @@ module Pages.Internal.Platform exposing
 
 @docs Flags, Model, Msg, Program, ProgramConfig, application, init, update
 
-@docs Effect, RequestInfo, view
+@docs Effect, RequestInfo, view, ActionDataOrRedirect
 
 -}
 
@@ -209,6 +209,10 @@ type Msg userMsg pageData actionData sharedData errorPage
     | NoOp
 
 
+{-| Internal representation of an action result used while processing
+fetcher submissions. A fetcher either produced action data to merge into
+the current page state, or it triggered a redirect to another URL.
+-}
 type ActionDataOrRedirect action
     = ActionResponse (Maybe action)
     | RedirectResponse String
@@ -879,21 +883,36 @@ update config appMsg model =
                                                 | url = newUrl
                                                 , pageData = Ok updatedPageData
                                                 , transition = Nothing
+                                                , pendingRedirect = False
+                                                , pageFormState =
+                                                    if model.pendingRedirect then
+                                                        Dict.empty
+
+                                                    else
+                                                        clearedModel.pageFormState
                                             }
 
                                         onActionMsg : Maybe userMsg
                                         onActionMsg =
                                             actionData |> Maybe.andThen config.onActionData
+
+                                        urlChangeEffect : Effect userMsg pageData actionData sharedData userEffect errorPage
+                                        urlChangeEffect =
+                                            if model.pendingRedirect then
+                                                BrowserReplaceUrl newUrl.path
+
+                                            else
+                                                NoEffect
                                     in
                                     ( { updatedModel
                                         | ariaNavigationAnnouncement = mainView config updatedModel |> .title
                                         , currentPath = newUrl.path
                                       }
                                     , if not isSubmission && not stayingOnSamePath then
-                                        Batch [ ScrollToTop, userEffect ]
+                                        Batch [ ScrollToTop, userEffect, urlChangeEffect ]
 
                                       else
-                                        userEffect
+                                        Batch [ userEffect, urlChangeEffect ]
                                     )
                                         |> (case onActionMsg of
                                                 Just actionMsg ->
@@ -962,22 +981,37 @@ update config appMsg model =
                                                 | url = pendingUrl
                                                 , pageData = Ok updatedPageData_
                                                 , transition = Nothing
+                                                , pendingRedirect = False
+                                                , pageFormState =
+                                                    if model.pendingRedirect then
+                                                        Dict.empty
+
+                                                    else
+                                                        clearedModel.pageFormState
                                             }
                                                 |> clearLoadingFetchersAfterDataLoad completedTransitionKey
 
                                         onActionMsg_ : Maybe userMsg
                                         onActionMsg_ =
                                             actionData |> Maybe.andThen config.onActionData
+
+                                        urlChangeEffect_ : Effect userMsg pageData actionData sharedData userEffect errorPage
+                                        urlChangeEffect_ =
+                                            if model.pendingRedirect then
+                                                BrowserReplaceUrl pendingUrl.path
+
+                                            else
+                                                NoEffect
                                     in
                                     ( { updatedModel_
                                         | ariaNavigationAnnouncement = mainView config updatedModel_ |> .title
                                         , currentPath = pendingUrl.path
                                       }
                                     , if not isSubmission_ && not stayingOnSamePath_ then
-                                        Batch [ ScrollToTop, userEffect_ ]
+                                        Batch [ ScrollToTop, userEffect_, urlChangeEffect_ ]
 
                                       else
-                                        userEffect_
+                                        Batch [ userEffect_, urlChangeEffect_ ]
                                     )
                                         |> (case onActionMsg_ of
                                                 Just actionMsg_ ->
