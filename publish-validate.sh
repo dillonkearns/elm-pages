@@ -77,6 +77,12 @@ if [ "$FAIL" -ne 0 ]; then
   exit 1
 fi
 
+# ── Step 1b: elm-review auto-fix ───────────────────────────────────────
+echo ""
+echo "--- Running elm-review --fix-all-without-prompt ---"
+npx elm-review --fix-all-without-prompt
+echo "  Done."
+
 # ── Setup ────────────────────────────────────────────────────────────────
 WORK_DIR=$(mktemp -d)
 echo ""
