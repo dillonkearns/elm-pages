@@ -1,0 +1,66 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`elm-pages run --coverage > produces expected console output 1`] = `
+"Hello, world!
+Goodbye, world!
+
+── Coverage Report ──────────────────────────────────────
+
+  Module     Covered   Total   Coverage
+  ────────────────────────────────────
+  Greet            3       5      60.0%
+  RunGreet         1       1     100.0%
+  ────────────────────────────────────
+  TOTAL            4       6      66.7%
+
+  Coverage report written to <FIXTURE>/coverage/lcov.info
+"
+`;
+
+exports[`elm-pages run --coverage > produces expected lcov.info 1`] = `
+"TN:
+SF:<FIXTURE>/src/Greet.elm
+FN:14,greet
+FN:29,formalGreet
+FNDA:2,greet
+FNDA:0,formalGreet
+FNF:2
+FNH:1
+BRDA:16,0,0,1
+BRDA:19,0,1,1
+BRDA:22,0,2,0
+BRF:3
+BRH:2
+DA:14,2
+DA:15,2
+DA:16,1
+DA:17,1
+DA:18,2
+DA:19,1
+DA:20,1
+DA:21,2
+DA:22,0
+DA:23,0
+DA:29,0
+DA:30,0
+LF:12
+LH:8
+end_of_record
+
+TN:
+SF:<FIXTURE>/src/RunGreet.elm
+FN:9,run
+FNDA:1,run
+FNF:1
+FNH:1
+DA:9,1
+DA:10,1
+DA:11,1
+DA:12,1
+DA:13,1
+DA:14,1
+LF:6
+LH:6
+end_of_record
+"
+`;

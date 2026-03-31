@@ -117,12 +117,18 @@ export async function setupCoverage(
 export async function injectCoverageTracking(jsFilePath, coverageDataDir) {
   let js = await fs.promises.readFile(jsFilePath, "utf-8");
 
-  // Elm 0.19 compiles a 2-arg function as:
+  // In --debug mode, Elm splits the definition:
+  //   var $author$project$Coverage$track$ = function(a, b) { return _Utils_Tuple0; };
+  //   var $author$project$Coverage$track = F2($author$project$Coverage$track$);
+  // In --optimize mode, it's inlined:
   //   var $author$project$Coverage$track = F2(function(a, b) { return 0; });
-  const pattern =
+  // We match both forms.
+  const debugPattern =
+    /var \$author\$project\$Coverage\$track\$\s*=\s*function\s*\((\w+),\s*(\w+)\)\s*\{[^}]*\};\s*var \$author\$project\$Coverage\$track\s*=\s*F2\(\$author\$project\$Coverage\$track\$\)/;
+  const inlinePattern =
     /var \$author\$project\$Coverage\$track\s*=\s*F2\(\s*function\s*\((\w+),\s*(\w+)\)\s*\{[^}]*\}\s*\)/;
 
-  const match = js.match(pattern);
+  const match = js.match(debugPattern) || js.match(inlinePattern);
   if (!match) {
     console.warn(
       "Warning: Could not find $author$project$Coverage$track in compiled output.\n" +
@@ -146,11 +152,12 @@ process.on("exit", function() {
         );
     }
 });
-var $author$project$Coverage$track = F2(function(${arg1}, ${arg2}) {
+var $author$project$Coverage$track$ = function(${arg1}, ${arg2}) {
     __coverage_counters[${arg1}] = __coverage_counters[${arg1}] || [];
     __coverage_counters[${arg1}].push(${arg2});
     return 0;
-})`;
+};
+var $author$project$Coverage$track = F2($author$project$Coverage$track$)`;
 
   js = js.replace(fullMatch, replacement);
   await fs.promises.writeFile(jsFilePath, js);
