@@ -19,6 +19,7 @@ import Bytes exposing (Bytes)
 import Bytes.Decode
 import Dict exposing (Dict)
 import Form
+import Form.Validation
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
@@ -195,7 +196,7 @@ type Msg userMsg pageData actionData sharedData errorPage
     | UrlChanged Url
       -- TODO rename to PagesMsg
     | UserMsg (PagesMsg userMsg)
-      --| SetField { formId : String, name : String, value : String }
+    | SetField { formId : String, name : String, value : String }
     | FormMsg (Form.Msg (Msg userMsg pageData actionData sharedData errorPage))
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
     | FetcherComplete Bool String Int (Result Http.Error ( Maybe userMsg, ActionDataOrRedirect actionData ))
@@ -272,6 +273,32 @@ update config appMsg model =
                 | pageFormState = newModel
               }
             , RunCmd formCmd
+            )
+
+        SetField info ->
+            ( { model
+                | pageFormState =
+                    model.pageFormState
+                        |> Dict.update info.formId
+                            (\maybeFormState ->
+                                let
+                                    formState : Form.FormState
+                                    formState =
+                                        maybeFormState
+                                            |> Maybe.withDefault { fields = Dict.empty, submitAttempted = False }
+                                in
+                                { formState
+                                    | fields =
+                                        formState.fields
+                                            |> Dict.insert info.name
+                                                { value = info.value
+                                                , status = Form.Validation.Changed
+                                                }
+                                }
+                                    |> Just
+                            )
+              }
+            , NoEffect
             )
 
         LinkClicked urlRequest ->
@@ -1197,10 +1224,8 @@ perform config model effect =
                             , fromPageMsg = Pages.Internal.Msg.UserMsg >> UserMsg
                             , key = key
                             , setField =
-                                \_ ->
-                                    --Task.succeed (SetField info) |> Task.perform identity
-                                    -- TODO
-                                    Cmd.none
+                                \info ->
+                                    Task.succeed (SetField info) |> Task.perform identity
                             }
 
                 Nothing ->
