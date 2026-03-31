@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - Reject `elm-pages-internal://` URLs in `BackendTask.Http` requests. Internal requests now use a separate code path.
+- Fix browser URL not updating after a form submission that returns a redirect.
 
 ## [12.1.0] - 2026-03-14
 
