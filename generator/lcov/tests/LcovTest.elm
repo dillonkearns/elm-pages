@@ -143,24 +143,24 @@ suite =
                             , "FNDA:1,classify"
                             , "FNF:1"
                             , "FNH:1"
-                            , "BRDA:8,0,0,2"
-                            , "BRDA:11,0,1,0"
-                            , "BRDA:14,0,2,1"
+                            , "BRDA:7,0,0,2"
+                            , "BRDA:10,0,1,0"
+                            , "BRDA:13,0,2,1"
                             , "BRF:3"
                             , "BRH:2"
                             , "DA:5,1"
                             , "DA:6,1"
-                            , "DA:7,1"
+                            , "DA:7,2"
                             , "DA:8,2"
                             , "DA:9,2"
-                            , "DA:10,1"
+                            , "DA:10,0"
                             , "DA:11,0"
                             , "DA:12,0"
                             , "DA:13,1"
                             , "DA:14,1"
                             , "DA:15,1"
                             , "LF:11"
-                            , "LH:9"
+                            , "LH:8"
                             , "end_of_record"
                             , ""
                             ]
@@ -326,17 +326,70 @@ suite =
                             , "FNDA:1,foo"
                             , "FNF:1"
                             , "FNH:1"
-                            , "BRDA:8,0,0,3"
+                            , "BRDA:7,0,0,3"
                             , "BRF:1"
                             , "BRH:1"
                             , "DA:5,1"
                             , "DA:6,1"
-                            , "DA:7,1"
+                            , "DA:7,3"
                             , "DA:8,3"
                             , "DA:9,3"
                             , "DA:10,1"
                             , "LF:6"
                             , "LH:6"
+                            , "end_of_record"
+                            , ""
+                            ]
+                        )
+        , test "branch pattern lines get branch count, not parent count" <|
+            \() ->
+                -- Mirrors CounterApp: update (23-29) with Increment branch body at 26
+                -- and Decrement branch body at 29. elm-instrument only annotates the
+                -- body, not the pattern line. The pattern line (e.g. "Decrement ->")
+                -- should get the branch's count since it belongs to that branch.
+                Lcov.generate
+                    [ { filePath = "/src/CounterApp.elm"
+                      , annotations =
+                            [ { annotationType = Declaration
+                              , name = Just "update"
+                              , startLine = 23
+                              , endLine = 29
+                              }
+                            , { annotationType = CaseBranch
+                              , name = Nothing
+                              , startLine = 26
+                              , endLine = 26
+                              }
+                            , { annotationType = CaseBranch
+                              , name = Nothing
+                              , startLine = 29
+                              , endLine = 29
+                              }
+                            ]
+                      , hits = [ 0, 1 ]
+                      }
+                    ]
+                    |> Expect.equal
+                        (String.join "\n"
+                            [ "TN:"
+                            , "SF:/src/CounterApp.elm"
+                            , "FN:23,update"
+                            , "FNDA:1,update"
+                            , "FNF:1"
+                            , "FNH:1"
+                            , "BRDA:25,0,0,1"
+                            , "BRDA:28,0,1,0"
+                            , "BRF:2"
+                            , "BRH:1"
+                            , "DA:23,1"
+                            , "DA:24,1"
+                            , "DA:25,1"
+                            , "DA:26,1"
+                            , "DA:27,1"
+                            , "DA:28,0"
+                            , "DA:29,0"
+                            , "LF:7"
+                            , "LH:5"
                             , "end_of_record"
                             , ""
                             ]
