@@ -7,7 +7,7 @@ module Pages.Internal.Platform exposing
 
 @docs Flags, Model, Msg, Program, ProgramConfig, application, init, update
 
-@docs Effect, RequestInfo, view, ActionDataOrRedirect
+@docs Effect, RequestInfo, view
 
 -}
 
