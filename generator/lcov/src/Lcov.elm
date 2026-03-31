@@ -96,15 +96,33 @@ moduleToLcov mod =
         brh =
             branches |> List.filter (\( _, count ) -> count > 0) |> List.length
 
+        -- Expand each annotation to cover its full line range.
+        -- When annotations overlap, the innermost (smallest range) wins,
+        -- so an unhit branch correctly shows 0 even inside a hit declaration.
+        lineCounts =
+            let
+                allLines =
+                    annotationsWithCounts
+                        |> List.concatMap
+                            (\( ann, _ ) -> List.range ann.startLine ann.endLine)
+                        |> List.sort
+                        |> unique
+            in
+            allLines
+                |> List.map
+                    (\line ->
+                        ( line, innermostCount line annotationsWithCounts )
+                    )
+
         daLines =
-            annotationsWithCounts
-                |> List.map (\( ann, count ) -> "DA:" ++ String.fromInt ann.startLine ++ "," ++ String.fromInt count)
+            lineCounts
+                |> List.map (\( line, count ) -> "DA:" ++ String.fromInt line ++ "," ++ String.fromInt count)
 
         lf =
             List.length daLines
 
         lh =
-            annotationsWithCounts |> List.filter (\( _, count ) -> count > 0) |> List.length
+            lineCounts |> List.filter (\( _, count ) -> count > 0) |> List.length
     in
     String.join "\n"
         ([ "TN:"
@@ -136,6 +154,36 @@ moduleToLcov mod =
                , ""
                ]
         )
+
+
+{-| For a given line, find the innermost annotation that covers it
+(smallest range) and return its hit count.
+-}
+innermostCount : Int -> List ( Annotation, Int ) -> Int
+innermostCount line anns =
+    anns
+        |> List.filter (\( ann, _ ) -> ann.startLine <= line && line <= ann.endLine)
+        |> List.sortBy (\( ann, _ ) -> ann.endLine - ann.startLine)
+        |> List.head
+        |> Maybe.map Tuple.second
+        |> Maybe.withDefault 0
+
+
+unique : List Int -> List Int
+unique list =
+    case list of
+        [] ->
+            []
+
+        [ x ] ->
+            [ x ]
+
+        x :: y :: rest ->
+            if x == y then
+                unique (y :: rest)
+
+            else
+                x :: unique (y :: rest)
 
 
 isBranch : AnnotationType -> Bool

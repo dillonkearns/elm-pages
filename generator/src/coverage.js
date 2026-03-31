@@ -521,14 +521,35 @@ function generateLcov(info, allCounters, projectDirectory, modulePaths) {
       lines.push(`BRH:${branches.filter((b) => b.count > 0).length}`);
     }
 
-    // Line data (one DA per annotation)
+    // Line data — expand each annotation to its full line range.
+    // When annotations overlap, the innermost (smallest range) wins.
+    const annsWithCounts = exprList.map((ann, i) => ({
+      startLine: ann.from.line,
+      endLine: ann.to.line,
+      count: hitCounts.get(i) || 0,
+      range: ann.to.line - ann.from.line,
+    }));
+
+    const allLines = new Set();
+    for (const a of annsWithCounts) {
+      for (let l = a.startLine; l <= a.endLine; l++) allLines.add(l);
+    }
+    const sortedLines = [...allLines].sort((a, b) => a - b);
+
     let lh = 0;
-    for (let i = 0; i < exprList.length; i++) {
-      const count = hitCounts.get(i) || 0;
-      lines.push(`DA:${exprList[i].from.line},${count}`);
+    for (const line of sortedLines) {
+      // Find innermost annotation covering this line
+      let best = null;
+      for (const a of annsWithCounts) {
+        if (a.startLine <= line && line <= a.endLine) {
+          if (!best || a.range < best.range) best = a;
+        }
+      }
+      const count = best ? best.count : 0;
+      lines.push(`DA:${line},${count}`);
       if (count > 0) lh++;
     }
-    lines.push(`LF:${exprList.length}`);
+    lines.push(`LF:${sortedLines.length}`);
     lines.push(`LH:${lh}`);
     lines.push("end_of_record");
     lines.push("");

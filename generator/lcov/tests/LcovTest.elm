@@ -8,7 +8,7 @@ import Test exposing (Test, describe, test)
 suite : Test
 suite =
     describe "Lcov.generate"
-        [ test "single covered declaration" <|
+        [ test "single covered declaration spans full line range" <|
             \() ->
                 Lcov.generate
                     [ { filePath = "/project/src/MyModule.elm"
@@ -31,13 +31,15 @@ suite =
                             , "FNF:1"
                             , "FNH:1"
                             , "DA:5,1"
-                            , "LF:1"
-                            , "LH:1"
+                            , "DA:6,1"
+                            , "DA:7,1"
+                            , "LF:3"
+                            , "LH:3"
                             , "end_of_record"
                             , ""
                             ]
                         )
-        , test "uncovered declaration shows zero count" <|
+        , test "uncovered declaration shows zero for all lines" <|
             \() ->
                 Lcov.generate
                     [ { filePath = "/src/Unused.elm"
@@ -60,7 +62,9 @@ suite =
                             , "FNF:1"
                             , "FNH:0"
                             , "DA:10,0"
-                            , "LF:1"
+                            , "DA:11,0"
+                            , "DA:12,0"
+                            , "LF:3"
                             , "LH:0"
                             , "end_of_record"
                             , ""
@@ -89,14 +93,18 @@ suite =
                             , "FNF:1"
                             , "FNH:1"
                             , "DA:3,3"
-                            , "LF:1"
-                            , "LH:1"
+                            , "DA:4,3"
+                            , "DA:5,3"
+                            , "LF:3"
+                            , "LH:3"
                             , "end_of_record"
                             , ""
                             ]
                         )
-        , test "mixed annotation types including branches" <|
+        , test "branches with overlapping parent declaration" <|
             \() ->
+                -- declaration 5-15, branches at 8-9, 11-12, 14-15
+                -- branch hit counts override the parent's count on those lines
                 Lcov.generate
                     [ { filePath = "/src/Branching.elm"
                       , annotations =
@@ -122,7 +130,8 @@ suite =
                               }
                             ]
 
-                      -- index 0 (declaration) hit, index 1 (first branch) hit twice, index 2 (second branch) never hit, index 3 (third branch) hit once
+                      -- index 0 (declaration) hit once, index 1 (branch 8-9) hit twice,
+                      -- index 2 (branch 11-12) never, index 3 (branch 14-15) hit once
                       , hits = [ 0, 1, 1, 3 ]
                       }
                     ]
@@ -140,17 +149,26 @@ suite =
                             , "BRF:3"
                             , "BRH:2"
                             , "DA:5,1"
+                            , "DA:6,1"
+                            , "DA:7,1"
                             , "DA:8,2"
+                            , "DA:9,2"
+                            , "DA:10,1"
                             , "DA:11,0"
+                            , "DA:12,0"
+                            , "DA:13,1"
                             , "DA:14,1"
-                            , "LF:4"
-                            , "LH:3"
+                            , "DA:15,1"
+                            , "LF:11"
+                            , "LH:9"
                             , "end_of_record"
                             , ""
                             ]
                         )
-        , test "let declarations and lambdas are DA lines but not FN" <|
+        , test "let declarations and lambdas expand line ranges" <|
             \() ->
+                -- declaration (3-10) hit, let-decl (5-6) hit, lambda (8-9) NOT hit
+                -- Lines 8-9 should show 0 because the innermost annotation (lambda) wasn't hit
                 Lcov.generate
                     [ { filePath = "/src/Helpers.elm"
                       , annotations =
@@ -182,10 +200,15 @@ suite =
                             , "FNF:1"
                             , "FNH:1"
                             , "DA:3,1"
+                            , "DA:4,1"
                             , "DA:5,1"
+                            , "DA:6,1"
+                            , "DA:7,1"
                             , "DA:8,0"
-                            , "LF:3"
-                            , "LH:2"
+                            , "DA:9,0"
+                            , "DA:10,1"
+                            , "LF:8"
+                            , "LH:6"
                             , "end_of_record"
                             , ""
                             ]
@@ -223,8 +246,9 @@ suite =
                             , "FNF:1"
                             , "FNH:1"
                             , "DA:1,1"
-                            , "LF:1"
-                            , "LH:1"
+                            , "DA:2,1"
+                            , "LF:2"
+                            , "LH:2"
                             , "end_of_record"
                             , ""
                             , "TN:"
@@ -234,8 +258,85 @@ suite =
                             , "FNF:1"
                             , "FNH:0"
                             , "DA:1,0"
-                            , "LF:1"
+                            , "DA:2,0"
+                            , "LF:2"
                             , "LH:0"
+                            , "end_of_record"
+                            , ""
+                            ]
+                        )
+        , test "DA covers full line range, not just startLine" <|
+            \() ->
+                Lcov.generate
+                    [ { filePath = "/src/View.elm"
+                      , annotations =
+                            [ { annotationType = Declaration
+                              , name = Just "view"
+                              , startLine = 33
+                              , endLine = 38
+                              }
+                            ]
+                      , hits = [ 0 ]
+                      }
+                    ]
+                    |> Expect.equal
+                        (String.join "\n"
+                            [ "TN:"
+                            , "SF:/src/View.elm"
+                            , "FN:33,view"
+                            , "FNDA:1,view"
+                            , "FNF:1"
+                            , "FNH:1"
+                            , "DA:33,1"
+                            , "DA:34,1"
+                            , "DA:35,1"
+                            , "DA:36,1"
+                            , "DA:37,1"
+                            , "DA:38,1"
+                            , "LF:6"
+                            , "LH:6"
+                            , "end_of_record"
+                            , ""
+                            ]
+                        )
+        , test "overlapping line ranges use innermost annotation count" <|
+            \() ->
+                Lcov.generate
+                    [ { filePath = "/src/Overlap.elm"
+                      , annotations =
+                            [ { annotationType = Declaration
+                              , name = Just "foo"
+                              , startLine = 5
+                              , endLine = 10
+                              }
+                            , { annotationType = CaseBranch
+                              , name = Nothing
+                              , startLine = 8
+                              , endLine = 9
+                              }
+                            ]
+                      , hits = [ 0, 1, 1, 1 ]
+                      }
+                    ]
+                    |> Expect.equal
+                        (String.join "\n"
+                            [ "TN:"
+                            , "SF:/src/Overlap.elm"
+                            , "FN:5,foo"
+                            , "FNDA:1,foo"
+                            , "FNF:1"
+                            , "FNH:1"
+                            , "BRDA:8,0,0,3"
+                            , "BRF:1"
+                            , "BRH:1"
+                            , "DA:5,1"
+                            , "DA:6,1"
+                            , "DA:7,1"
+                            , "DA:8,3"
+                            , "DA:9,3"
+                            , "DA:10,1"
+                            , "LF:6"
+                            , "LH:6"
                             , "end_of_record"
                             , ""
                             ]
