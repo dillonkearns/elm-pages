@@ -168,9 +168,10 @@ var $author$project$Coverage$track = F2($author$project$Coverage$track$)`;
  * Must be synchronous because async code cannot run in "exit" handlers,
  * and elm-pages scripts call process.exit(0) on completion.
  *
- * @param {string} projectDirectory
+ * @param {string} projectDirectory - where the script's elm.json lives (for .coverage/ data)
+ * @param {string} outputDir - where to write coverage/lcov.info (typically the user's cwd)
  */
-export function printCoverageReportSync(projectDirectory) {
+export function printCoverageReportSync(projectDirectory, outputDir) {
   const coverageDir = path.join(projectDirectory, COVERAGE_DIR);
 
   // Read instrumentation metadata
@@ -225,7 +226,7 @@ export function printCoverageReportSync(projectDirectory) {
       );
     } catch {}
     const lcov = generateLcov(info, allCounters, projectDirectory, modulePaths);
-    const lcovDir = path.join(projectDirectory, "coverage");
+    const lcovDir = path.join(outputDir || projectDirectory, "coverage");
     try {
       fs.mkdirSync(lcovDir, { recursive: true });
     } catch {}

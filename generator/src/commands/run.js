@@ -174,8 +174,9 @@ export async function run(elmModulePath, options, options2) {
     // after the elm module's data-writing handler ensures correct ordering.
     if (coverage) {
       const { printCoverageReportSync } = await import("../coverage.js");
+      const outputCwd = cwd; // where the user ran the command
       process.on("exit", () => {
-        printCoverageReportSync(projectDirectory);
+        printCoverageReportSync(projectDirectory, outputCwd);
       });
     }
 
