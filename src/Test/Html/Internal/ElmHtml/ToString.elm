@@ -80,6 +80,23 @@ nests them under this one
 nodeRecordToString : FormatOptions -> NodeRecord msg -> List String
 nodeRecordToString options { tag, children, facts } =
     let
+        isTextarea =
+            tag == "textarea"
+
+        textareaValue =
+            if isTextarea then
+                Dict.get "value" facts.stringAttributes
+
+            else
+                Nothing
+
+        filteredStringAttributes =
+            if isTextarea then
+                Dict.remove "value" facts.stringAttributes
+
+            else
+                facts.stringAttributes
+
         openTag : List (Maybe String) -> String
         openTag extras =
             let
@@ -106,6 +123,14 @@ nodeRecordToString options { tag, children, facts } =
                 |> List.concat
                 |> List.map ((++) (String.repeat options.indent " "))
 
+        textareaContent =
+            case textareaValue of
+                Just val ->
+                    [ escapeRawText EscapableRawTextElements val ]
+
+                Nothing ->
+                    []
+
         styles =
             case Dict.toList facts.styles of
                 [] ->
@@ -119,11 +144,11 @@ nodeRecordToString options { tag, children, facts } =
                         |> Just
 
         classes =
-            Dict.get "className" facts.stringAttributes
+            Dict.get "className" filteredStringAttributes
                 |> Maybe.map (\name -> "class=\"" ++ escapeHtml name ++ "\"")
 
         stringAttributes =
-            Dict.filter (\k v -> k /= "className") facts.stringAttributes
+            Dict.filter (\k v -> k /= "className") filteredStringAttributes
                 |> Dict.toList
                 |> List.filter (\( k, _ ) -> not (isUnsafeName k))
                 |> List.map (Tuple.mapFirst propertyToAttributeName)
@@ -157,6 +182,7 @@ nodeRecordToString options { tag, children, facts } =
 
         _ ->
             [ openTag [ classes, styles, stringAttributes, boolAttributes ] ]
+                ++ textareaContent
                 ++ childrenStrings
                 ++ [ closeTag ]
 
