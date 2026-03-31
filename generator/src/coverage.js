@@ -96,6 +96,13 @@ export async function setupCoverage(
   // Redirect compile elm.json source dirs to instrumented copies
   await rewriteElmJsonForCoverage(compileDir, dirMapping);
 
+  // Save source directory info so the exit handler can resolve module → file paths
+  const modulePaths = buildModulePathMap(projectDirectory, userSourceDirs);
+  await fs.promises.writeFile(
+    path.join(coverageDir, "module-paths.json"),
+    JSON.stringify(modulePaths)
+  );
+
   return { coverageDir, dirMapping };
 }
 
@@ -201,6 +208,26 @@ export function printCoverageReportSync(projectDirectory) {
 
   const summary = computeSummary(info, allCounters);
   printSummary(summary);
+
+  // Generate lcov.info at the conventional path: coverage/lcov.info
+  try {
+    let modulePaths = {};
+    try {
+      modulePaths = JSON.parse(
+        fs.readFileSync(path.join(coverageDir, "module-paths.json"), "utf-8")
+      );
+    } catch {}
+    const lcov = generateLcov(info, allCounters, projectDirectory, modulePaths);
+    const lcovDir = path.join(projectDirectory, "coverage");
+    try {
+      fs.mkdirSync(lcovDir, { recursive: true });
+    } catch {}
+    const lcovPath = path.join(lcovDir, "lcov.info");
+    fs.writeFileSync(lcovPath, lcov);
+    console.log(`  Coverage report written to ${lcovPath}`);
+  } catch (e) {
+    console.warn("Warning: could not generate lcov.info:", e.message || e);
+  }
 }
 
 // ─── Internal helpers ────────────────────────────────────────────
@@ -395,6 +422,121 @@ function printSummary(summary) {
     `  ${"TOTAL".padEnd(maxLen)}  ${String(totalCovered).padStart(8)}  ${String(totalAll).padStart(6)}  ${oc}${(overallPct + "%").padStart(9)}\x1b[0m`
   );
   console.log("");
+}
+
+/**
+ * Build a mapping from module names to their original source file paths
+ * by scanning source directories for .elm files.
+ */
+function buildModulePathMap(projectDirectory, sourceDirs) {
+  const map = {};
+  for (const dir of sourceDirs) {
+    if (dir === ".elm-pages") continue;
+    const absDir = path.resolve(projectDirectory, dir);
+    scanElmFilesSync(absDir, absDir, map);
+  }
+  return map;
+}
+
+function scanElmFilesSync(rootDir, dir, map) {
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      scanElmFilesSync(rootDir, full, map);
+    } else if (entry.name.endsWith(".elm")) {
+      const rel = path.relative(rootDir, full);
+      const moduleName = rel.replace(/\.elm$/, "").split(path.sep).join(".");
+      // First match wins (earlier source dirs take priority)
+      if (!map[moduleName]) {
+        map[moduleName] = full;
+      }
+    }
+  }
+}
+
+/**
+ * Generate lcov.info content from coverage metadata and runtime hits.
+ * JS port of the TDD'd Elm logic in generator/lcov/src/Lcov.elm.
+ *
+ * @param {object} info - Module annotations from elm-instrument (info.json)
+ * @param {object} allCounters - Merged runtime hit data { moduleName: [indices] }
+ * @param {string} projectDirectory - For resolving module paths
+ * @param {object} modulePaths - Module name → absolute file path mapping
+ * @returns {string} lcov-formatted string
+ */
+function generateLcov(info, allCounters, projectDirectory, modulePaths) {
+  const modules = info.modules || info;
+  const sections = [];
+
+  for (const [moduleName, annotations] of Object.entries(modules)) {
+    const exprList = Array.isArray(annotations) ? annotations : [];
+    const hits = allCounters[moduleName] || [];
+
+    // Count hits per annotation index
+    const hitCounts = new Map();
+    for (const idx of hits) {
+      hitCounts.set(idx, (hitCounts.get(idx) || 0) + 1);
+    }
+
+    // Resolve module name to file path using saved mapping
+    const filePath = modulePaths[moduleName] || path.resolve(
+      projectDirectory,
+      moduleName.split(".").join("/") + ".elm"
+    );
+
+    const lines = ["TN:", `SF:${filePath}`];
+
+    // Functions (declarations with names)
+    const functions = [];
+    for (let i = 0; i < exprList.length; i++) {
+      const ann = exprList[i];
+      if (ann.type === "declaration" && ann.name) {
+        functions.push({ line: ann.from.line, name: ann.name, count: hitCounts.get(i) || 0 });
+      }
+    }
+    for (const fn of functions) lines.push(`FN:${fn.line},${fn.name}`);
+    for (const fn of functions) lines.push(`FNDA:${fn.count},${fn.name}`);
+    if (functions.length > 0) {
+      lines.push(`FNF:${functions.length}`);
+      lines.push(`FNH:${functions.filter((f) => f.count > 0).length}`);
+    }
+
+    // Branches (caseBranch, ifElseBranch)
+    const branches = [];
+    for (let i = 0; i < exprList.length; i++) {
+      const ann = exprList[i];
+      if (ann.type === "caseBranch" || ann.type === "ifElseBranch") {
+        branches.push({ line: ann.from.line, count: hitCounts.get(i) || 0 });
+      }
+    }
+    branches.forEach((br, idx) => lines.push(`BRDA:${br.line},0,${idx},${br.count}`));
+    if (branches.length > 0) {
+      lines.push(`BRF:${branches.length}`);
+      lines.push(`BRH:${branches.filter((b) => b.count > 0).length}`);
+    }
+
+    // Line data (one DA per annotation)
+    let lh = 0;
+    for (let i = 0; i < exprList.length; i++) {
+      const count = hitCounts.get(i) || 0;
+      lines.push(`DA:${exprList[i].from.line},${count}`);
+      if (count > 0) lh++;
+    }
+    lines.push(`LF:${exprList.length}`);
+    lines.push(`LH:${lh}`);
+    lines.push("end_of_record");
+    lines.push("");
+
+    sections.push(lines.join("\n"));
+  }
+
+  return sections.join("\n");
 }
 
 /**
