@@ -27,8 +27,8 @@ function normalize(text) {
 }
 
 function runCoverage(extraArgs = []) {
-  // Clean previous run
-  for (const dir of [".coverage", "coverage", "elm-stuff/elm-pages"]) {
+  // Clean previous run (coverage artifacts are in elm-stuff/elm-pages/coverage/)
+  for (const dir of ["coverage", "elm-stuff/elm-pages"]) {
     fs.rmSync(path.join(fixtureDir, dir), { recursive: true, force: true });
   }
 

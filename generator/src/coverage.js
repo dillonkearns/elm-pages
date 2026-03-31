@@ -1,8 +1,11 @@
 /**
  * Coverage instrumentation and reporting for elm-pages scripts.
  *
+ * All internal artifacts live under elm-stuff/elm-pages/coverage/ (gitignored).
+ * Only the user-facing coverage/lcov.info is written to the cwd.
+ *
  * Flow:
- * 1. Copy user source dirs to .coverage/instrumented/
+ * 1. Copy user source dirs to elm-stuff/elm-pages/coverage/instrumented/
  * 2. Run elm-instrument on the copies (instruments in place, writes metadata)
  * 3. Write Coverage.elm stub to compilation .elm-pages/ dir
  * 4. Modify compilation elm.json to point to instrumented sources
@@ -13,8 +16,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawn } from "cross-spawn";
-
-const COVERAGE_DIR = ".coverage";
 
 /**
  * Get user source directories from elm.json that should be instrumented.
@@ -46,7 +47,7 @@ export async function setupCoverage(
   userSourceDirs,
   compileDir
 ) {
-  const coverageDir = path.join(projectDirectory, COVERAGE_DIR);
+  const coverageDir = path.join(compileDir, "coverage");
   const instrumentedDir = path.join(coverageDir, "instrumented");
 
   // Clean previous coverage data
@@ -168,12 +169,12 @@ var $author$project$Coverage$track = F2($author$project$Coverage$track$)`;
  * Must be synchronous because async code cannot run in "exit" handlers,
  * and elm-pages scripts call process.exit(0) on completion.
  *
- * @param {string} projectDirectory - where the script's elm.json lives (for .coverage/ data)
+ * @param {string} projectDirectory - where the script's elm.json lives (coverage data in elm-stuff/elm-pages/coverage/)
  * @param {string} outputDir - where to write coverage/lcov.info (typically the user's cwd)
  * @param {{ include: string[], exclude: string[] }} [moduleFilter] - module name patterns
  */
 export function printCoverageReportSync(projectDirectory, outputDir, moduleFilter) {
-  const coverageDir = path.join(projectDirectory, COVERAGE_DIR);
+  const coverageDir = path.join(projectDirectory, "elm-stuff/elm-pages/coverage");
 
   // Read instrumentation metadata
   const infoPath = path.join(
@@ -294,19 +295,22 @@ async function rewriteElmJsonForCoverage(compileDir, dirMapping) {
   const elmJson = JSON.parse(await fs.promises.readFile(elmJsonPath, "utf-8"));
   const pfx = "../../";
 
+  // Instrumented sources are at compileDir/coverage/instrumented/<safeName>,
+  // so relative to the elm.json (which is at compileDir/) they're just
+  // coverage/instrumented/<safeName> — no ../../ prefix needed.
   elmJson["source-directories"] = elmJson["source-directories"].map((dir) => {
     if (dir === ".elm-pages") return dir;
 
     // parentDirectory corresponds to original source dir "."
     if (dir === "parentDirectory" && dirMapping["."]) {
-      return `${pfx}${COVERAGE_DIR}/instrumented/${dirMapping["."]}`;
+      return `coverage/instrumented/${dirMapping["."]}`;
     }
 
-    // Standard dirs: "../../<origDir>" → "../../.coverage/instrumented/<origDir>"
+    // Standard dirs: "../../<origDir>" → "coverage/instrumented/<safeName>"
     if (dir.startsWith(pfx)) {
       const original = dir.slice(pfx.length);
       if (dirMapping[original] !== undefined) {
-        return `${pfx}${COVERAGE_DIR}/instrumented/${dirMapping[original]}`;
+        return `coverage/instrumented/${dirMapping[original]}`;
       }
     }
 
