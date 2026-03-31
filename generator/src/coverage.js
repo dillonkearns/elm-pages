@@ -27,13 +27,10 @@ export async function getUserSourceDirs(projectDirectory) {
   const elmJsonPath = path.join(projectDirectory, "elm.json");
   const elmJson = JSON.parse(await fs.promises.readFile(elmJsonPath, "utf-8"));
   const sourceDirs = elmJson["source-directories"] || [];
-  const projectRoot = path.resolve(projectDirectory);
 
-  return sourceDirs.filter((dir) => {
-    if (dir === ".elm-pages") return false;
-    const resolved = path.resolve(projectDirectory, dir);
-    return resolved.startsWith(projectRoot);
-  });
+  // Include all user source dirs except .elm-pages (generated code).
+  // Dirs like "../src" that go above the project root are still user code.
+  return sourceDirs.filter((dir) => dir !== ".elm-pages");
 }
 
 /**
@@ -57,16 +54,18 @@ export async function setupCoverage(
   await fs.promises.mkdir(instrumentedDir, { recursive: true });
 
   // Copy source dirs to instrumented location.
-  // "." is special: only copy top-level .elm files → "root/" subdirectory.
+  // Dirs may contain "../" so we flatten them to safe names inside instrumentedDir.
   const dirMapping = {}; // originalDir → instrumentedDirName
   const instrumentedSourceDirs = [];
 
   for (const srcDir of userSourceDirs) {
+    const safeName = safeInstrumentedName(srcDir);
+    dirMapping[srcDir] = safeName;
+    instrumentedSourceDirs.push(safeName);
+
     if (srcDir === ".") {
-      const name = "root";
-      dirMapping["."] = name;
-      instrumentedSourceDirs.push(name);
-      const destDir = path.join(instrumentedDir, name);
+      // "." means project root — only copy top-level .elm files
+      const destDir = path.join(instrumentedDir, safeName);
       await fs.promises.mkdir(destDir, { recursive: true });
       const entries = await fs.promises.readdir(projectDirectory);
       for (const entry of entries) {
@@ -78,11 +77,9 @@ export async function setupCoverage(
         }
       }
     } else {
-      dirMapping[srcDir] = srcDir;
-      instrumentedSourceDirs.push(srcDir);
       await copyDirectoryRecursive(
         path.resolve(projectDirectory, srcDir),
-        path.join(instrumentedDir, srcDir)
+        path.join(instrumentedDir, safeName)
       );
     }
   }
@@ -208,6 +205,18 @@ export function printCoverageReportSync(projectDirectory) {
 
 // ─── Internal helpers ────────────────────────────────────────────
 
+/**
+ * Flatten a source directory path into a safe name for use inside
+ * the instrumented directory. Replaces ".." with "_up" and "/" with "_".
+ */
+function safeInstrumentedName(dir) {
+  if (dir === ".") return "root";
+  return dir
+    .split("/")
+    .map((seg) => (seg === ".." ? "_up" : seg))
+    .join("_");
+}
+
 async function rewriteElmJsonForCoverage(compileDir, dirMapping) {
   const elmJsonPath = path.join(compileDir, "elm.json");
   const elmJson = JSON.parse(await fs.promises.readFile(elmJsonPath, "utf-8"));
@@ -256,7 +265,7 @@ async function runElmInstrument(
     )
   );
 
-  // elm-instrument appends to .coverage/info.json; create the directory and seed file
+  // elm-instrument writes to .coverage/info.json; create the directory and seed file
   const coverageMetaDir = path.join(instrumentedDir, ".coverage");
   await fs.promises.mkdir(coverageMetaDir, { recursive: true });
   await fs.promises.writeFile(
@@ -264,36 +273,11 @@ async function runElmInstrument(
     "{}"
   );
 
-  // Find all .elm files in the source directories
-  const elmFiles = [];
-  for (const srcDir of sourceDirs) {
-    const absDir = path.join(instrumentedDir, srcDir);
-    await collectElmFiles(instrumentedDir, absDir, elmFiles);
-  }
-
-  // elm-instrument takes one file at a time as [INPUT]
-  for (const file of elmFiles) {
-    await instrumentOneFile(instrumentedDir, file);
-  }
-}
-
-async function collectElmFiles(rootDir, dir, result) {
-  const entries = await fs.promises.readdir(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      await collectElmFiles(rootDir, full, result);
-    } else if (entry.name.endsWith(".elm")) {
-      // Path relative to instrumentedDir (elm-instrument's cwd)
-      result.push(path.relative(rootDir, full));
-    }
-  }
-}
-
-function instrumentOneFile(cwd, relativeElmPath) {
+  // Call elm-instrument with "." to process ALL source files at once.
+  // Passing individual files causes info.json to be overwritten per file.
   return new Promise((resolve, reject) => {
-    const child = spawn("elm-instrument", [relativeElmPath], {
-      cwd,
+    const child = spawn("elm-instrument", ["."], {
+      cwd: instrumentedDir,
       stdio: "pipe",
     });
 
@@ -324,9 +308,7 @@ function instrumentOneFile(cwd, relativeElmPath) {
         resolve();
       } else {
         reject(
-          new Error(
-            `elm-instrument failed on ${relativeElmPath} (exit ${code})\n${output}`
-          )
+          new Error(`elm-instrument exited with code ${code}\n${output}`)
         );
       }
     });
