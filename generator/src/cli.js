@@ -118,6 +118,7 @@ async function main() {
   program
     .command("run <elmModulePath>")
     .description("run an elm-pages script")
+    .option("--coverage", "Instrument sources and generate a coverage report")
     .allowUnknownOption()
     .allowExcessArguments()
     .helpOption(false) // allow --help to propagate to the Script to show usage

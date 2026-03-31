@@ -33,6 +33,8 @@ export async function run(elmModulePath, options, options2) {
     unprocessedCliOptions,
     "--introspect-cli"
   );
+  const coverage = options.coverage || false;
+
   try {
     const { moduleName, projectDirectory, sourceDirectory } =
       await resolveInputPathOrModuleName(elmModulePath);
@@ -49,6 +51,29 @@ export async function run(elmModulePath, options, options2) {
       { moduleName, projectDirectory, sourceDirectory },
       { usesDb }
     );
+
+    // ── Coverage: instrument sources and redirect compilation ──
+    let coverageDataDir;
+    if (coverage) {
+      const {
+        getUserSourceDirs,
+        setupCoverage,
+      } = await import("../coverage.js");
+
+      const compileDir = path.join(projectDirectory, "elm-stuff/elm-pages");
+      const userSourceDirs = await getUserSourceDirs(projectDirectory);
+
+      if (userSourceDirs.length === 0) {
+        console.warn("Warning: No user source directories found to instrument.");
+      } else {
+        const result = await setupCoverage(
+          projectDirectory,
+          userSourceDirs,
+          compileDir
+        );
+        coverageDataDir = result.coverageDir;
+      }
+    }
 
     // Check if custom-backend-task needs recompilation
     const portsCheck = await needsPortsRecompilation(projectDirectory);
@@ -103,10 +128,10 @@ export async function run(elmModulePath, options, options2) {
       projectDirectory,
       "elm-stuff/elm-pages/elm.cjs"
     );
-    const shouldRecompile = await needsRecompilation(
-      projectDirectory,
-      outputPath
-    );
+
+    // Always recompile when coverage is enabled (instrumented sources differ)
+    const shouldRecompile =
+      coverage || (await needsRecompilation(projectDirectory, outputPath));
 
     if (shouldRecompile) {
       const elmEntrypointPath = path.join(
@@ -125,6 +150,13 @@ export async function run(elmModulePath, options, options2) {
         path.join(projectDirectory, "elm-stuff/elm-pages"),
         elmOutputPath
       );
+
+      // ── Coverage: inject tracking code into compiled JS ──
+      if (coverage && coverageDataDir) {
+        const { injectCoverageTracking } = await import("../coverage.js");
+        await injectCoverageTracking(outputPath, coverageDataDir);
+      }
+
       await updateVersionMarker(projectDirectory);
     }
     process.chdir(cwd);
@@ -140,6 +172,12 @@ export async function run(elmModulePath, options, options2) {
       undefined,
       { suppressConsoleLogDuringInit: isIntrospectionRun }
     );
+
+    // ── Coverage: generate report ──
+    if (coverage) {
+      const { generateCoverageReport } = await import("../coverage.js");
+      await generateCoverageReport(projectDirectory);
+    }
   } catch (error) {
     printCaughtError(error, restoreColorSafe);
     process.exit(1);
