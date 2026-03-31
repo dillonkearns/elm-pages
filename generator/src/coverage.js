@@ -109,8 +109,10 @@ export async function setupCoverage(
 
 /**
  * Inject coverage tracking into the compiled JS file.
- * Replaces the no-op Coverage.track with counter-incrementing code
- * and a beforeExit handler that writes data to disk.
+ * Instead of regex-matching the compiled function definition (fragile —
+ * breaks when the compiler changes output shape), we monkey-patch the
+ * function by appending an assignment. This only needs the variable name
+ * to exist, not any particular definition shape.
  *
  * @param {string} jsFilePath - Path to the compiled .cjs file
  * @param {string} coverageDataDir - Absolute path where data-*.json files are written
@@ -118,18 +120,13 @@ export async function setupCoverage(
 export async function injectCoverageTracking(jsFilePath, coverageDataDir) {
   let js = await fs.promises.readFile(jsFilePath, "utf-8");
 
-  // In --debug mode, Elm splits the definition:
-  //   var $author$project$Coverage$track$ = function(a, b) { return _Utils_Tuple0; };
-  //   var $author$project$Coverage$track = F2($author$project$Coverage$track$);
-  // In --optimize mode, it's inlined:
-  //   var $author$project$Coverage$track = F2(function(a, b) { return 0; });
-  // We match both forms.
-  const debugPattern =
-    /var \$author\$project\$Coverage\$track\$\s*=\s*function\s*\((\w+),\s*(\w+)\)\s*\{[^}]*\};\s*var \$author\$project\$Coverage\$track\s*=\s*F2\(\$author\$project\$Coverage\$track\$\)/;
-  const inlinePattern =
-    /var \$author\$project\$Coverage\$track\s*=\s*F2\(\s*function\s*\((\w+),\s*(\w+)\)\s*\{[^}]*\}\s*\)/;
+  // Find the Coverage.track$ function definition. We match just the variable
+  // declaration + function keyword, then lazily match everything to the closing };
+  // This doesn't care about argument names, return values, or debug/optimize format.
+  const trackPattern =
+    /var \$author\$project\$Coverage\$track\$\s*=\s*function[\s\S]*?};/;
 
-  const match = js.match(debugPattern) || js.match(inlinePattern);
+  const match = js.match(trackPattern);
   if (!match) {
     console.warn(
       "Warning: Could not find $author$project$Coverage$track in compiled output.\n" +
@@ -138,9 +135,10 @@ export async function injectCoverageTracking(jsFilePath, coverageDataDir) {
     return;
   }
 
-  const [fullMatch, arg1, arg2] = match;
   const dir = JSON.stringify(coverageDataDir.replace(/\\/g, "/"));
 
+  // Replace the no-op definition with tracking code. Injected at the same
+  // position in the source, so it's in the right scope (inside the IIFE).
   const replacement = `var __coverage_fs = require("fs");
 var __coverage_path = require("path");
 var __coverage_counters = {};
@@ -153,14 +151,14 @@ process.on("exit", function() {
         );
     }
 });
-var $author$project$Coverage$track$ = function(${arg1}, ${arg2}) {
-    __coverage_counters[${arg1}] = __coverage_counters[${arg1}] || [];
-    __coverage_counters[${arg1}].push(${arg2});
+var $author$project$Coverage$track$ = function(moduleName, index) {
+    __coverage_counters[moduleName] = __coverage_counters[moduleName] || [];
+    __coverage_counters[moduleName].push(index);
     return 0;
-};
-var $author$project$Coverage$track = F2($author$project$Coverage$track$)`;
+};`
 
-  js = js.replace(fullMatch, replacement);
+  js = js.replace(match[0], replacement);
+
   await fs.promises.writeFile(jsFilePath, js);
 }
 
