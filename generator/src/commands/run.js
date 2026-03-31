@@ -160,24 +160,35 @@ export async function run(elmModulePath, options, options2) {
       await updateVersionMarker(projectDirectory);
     }
     process.chdir(cwd);
+
+    // Load the compiled Elm module first so the coverage data-writing
+    // exit handler (injected in the JS) is registered.
+    const elmModule = await requireElm(
+      `${projectDirectory}/elm-stuff/elm-pages/elm.cjs`,
+      { suppressConsoleLog: isIntrospectionRun }
+    );
+
+    // ── Coverage: register report handler AFTER elm module loads ──
+    // The script calls process.exit(0) which prevents async code from
+    // running after runGenerator. A synchronous "exit" handler registered
+    // after the elm module's data-writing handler ensures correct ordering.
+    if (coverage) {
+      const { printCoverageReportSync } = await import("../coverage.js");
+      process.on("exit", () => {
+        printCoverageReportSync(projectDirectory);
+      });
+    }
+
     await renderer.runGenerator(
       unprocessedCliOptions,
       portsPath
         ? await import(url.pathToFileURL(path.resolve(portsPath)).href)
         : null,
-      await requireElm(`${projectDirectory}/elm-stuff/elm-pages/elm.cjs`, {
-        suppressConsoleLog: isIntrospectionRun,
-      }),
+      elmModule,
       moduleName,
       undefined,
       { suppressConsoleLogDuringInit: isIntrospectionRun }
     );
-
-    // ── Coverage: generate report ──
-    if (coverage) {
-      const { generateCoverageReport } = await import("../coverage.js");
-      await generateCoverageReport(projectDirectory);
-    }
   } catch (error) {
     printCaughtError(error, restoreColorSafe);
     process.exit(1);

@@ -133,7 +133,7 @@ export async function injectCoverageTracking(jsFilePath, coverageDataDir) {
   const replacement = `var __coverage_fs = require("fs");
 var __coverage_path = require("path");
 var __coverage_counters = {};
-process.on("beforeExit", function() {
+process.on("exit", function() {
     if (Object.keys(__coverage_counters).length > 0) {
         try { __coverage_fs.mkdirSync(${dir}, { recursive: true }); } catch(e) {}
         __coverage_fs.writeFileSync(
@@ -153,34 +153,40 @@ var $author$project$Coverage$track = F2(function(${arg1}, ${arg2}) {
 }
 
 /**
- * Generate and print coverage report after script execution.
+ * Synchronous coverage report for use in a process "exit" handler.
+ * Must be synchronous because async code cannot run in "exit" handlers,
+ * and elm-pages scripts call process.exit(0) on completion.
  *
  * @param {string} projectDirectory
  */
-export async function generateCoverageReport(projectDirectory) {
+export function printCoverageReportSync(projectDirectory) {
   const coverageDir = path.join(projectDirectory, COVERAGE_DIR);
 
-  // Read instrumentation metadata written by elm-instrument
-  const infoPath = path.join(coverageDir, "instrumented", ".coverage");
+  // Read instrumentation metadata
+  const infoPath = path.join(
+    coverageDir, "instrumented", ".coverage", "info.json"
+  );
   let info;
   try {
-    info = JSON.parse(await fs.promises.readFile(infoPath, "utf-8"));
+    info = JSON.parse(fs.readFileSync(infoPath, "utf-8"));
   } catch {
     console.warn("No coverage metadata found at", infoPath);
-    console.warn(
-      "Make sure elm-instrument ran successfully and wrote its metadata."
-    );
     return;
   }
 
-  // Read runtime data files (written by the beforeExit handler)
-  const entries = await fs.promises.readdir(coverageDir);
+  // Read runtime data files (written by the earlier exit handler)
+  let entries;
+  try {
+    entries = fs.readdirSync(coverageDir);
+  } catch {
+    return;
+  }
   const dataFiles = entries.filter(
     (f) => f.startsWith("data-") && f.endsWith(".json")
   );
 
   if (dataFiles.length === 0) {
-    console.warn("No coverage data collected. Did the script execute successfully?");
+    console.warn("No coverage data collected. Did the script execute?");
     return;
   }
 
@@ -188,7 +194,7 @@ export async function generateCoverageReport(projectDirectory) {
   const allCounters = {};
   for (const file of dataFiles) {
     const data = JSON.parse(
-      await fs.promises.readFile(path.join(coverageDir, file), "utf-8")
+      fs.readFileSync(path.join(coverageDir, file), "utf-8")
     );
     for (const [mod, indices] of Object.entries(data)) {
       if (!allCounters[mod]) allCounters[mod] = [];
@@ -250,9 +256,44 @@ async function runElmInstrument(
     )
   );
 
+  // elm-instrument appends to .coverage/info.json; create the directory and seed file
+  const coverageMetaDir = path.join(instrumentedDir, ".coverage");
+  await fs.promises.mkdir(coverageMetaDir, { recursive: true });
+  await fs.promises.writeFile(
+    path.join(coverageMetaDir, "info.json"),
+    "{}"
+  );
+
+  // Find all .elm files in the source directories
+  const elmFiles = [];
+  for (const srcDir of sourceDirs) {
+    const absDir = path.join(instrumentedDir, srcDir);
+    await collectElmFiles(instrumentedDir, absDir, elmFiles);
+  }
+
+  // elm-instrument takes one file at a time as [INPUT]
+  for (const file of elmFiles) {
+    await instrumentOneFile(instrumentedDir, file);
+  }
+}
+
+async function collectElmFiles(rootDir, dir, result) {
+  const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await collectElmFiles(rootDir, full, result);
+    } else if (entry.name.endsWith(".elm")) {
+      // Path relative to instrumentedDir (elm-instrument's cwd)
+      result.push(path.relative(rootDir, full));
+    }
+  }
+}
+
+function instrumentOneFile(cwd, relativeElmPath) {
   return new Promise((resolve, reject) => {
-    const child = spawn("elm-instrument", [], {
-      cwd: instrumentedDir,
+    const child = spawn("elm-instrument", [relativeElmPath], {
+      cwd,
       stdio: "pipe",
     });
 
@@ -283,7 +324,9 @@ async function runElmInstrument(
         resolve();
       } else {
         reject(
-          new Error(`elm-instrument exited with code ${code}\n${output}`)
+          new Error(
+            `elm-instrument failed on ${relativeElmPath} (exit ${code})\n${output}`
+          )
         );
       }
     });
