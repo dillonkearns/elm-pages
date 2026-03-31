@@ -119,6 +119,8 @@ async function main() {
     .command("run <elmModulePath>")
     .description("run an elm-pages script")
     .option("--coverage", "Instrument sources and generate a coverage report")
+    .option("--coverage-include <dir>", "Only instrument files in these source directories (repeatable)", collect, [])
+    .option("--coverage-exclude <dir>", "Exclude these source directories from instrumentation (repeatable)", collect, [])
     .allowUnknownOption()
     .allowExcessArguments()
     .helpOption(false) // allow --help to propagate to the Script to show usage

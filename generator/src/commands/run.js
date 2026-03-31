@@ -61,7 +61,21 @@ export async function run(elmModulePath, options, options2) {
       } = await import("../coverage.js");
 
       const compileDir = path.join(projectDirectory, "elm-stuff/elm-pages");
-      const userSourceDirs = await getUserSourceDirs(projectDirectory);
+      let userSourceDirs = await getUserSourceDirs(projectDirectory);
+
+      // Apply --coverage-include / --coverage-exclude filters
+      const include = options.coverageInclude || [];
+      const exclude = options.coverageExclude || [];
+      if (include.length > 0) {
+        userSourceDirs = userSourceDirs.filter((d) =>
+          include.some((inc) => path.normalize(d) === path.normalize(inc))
+        );
+      }
+      if (exclude.length > 0) {
+        userSourceDirs = userSourceDirs.filter((d) =>
+          !exclude.some((exc) => path.normalize(d) === path.normalize(exc))
+        );
+      }
 
       if (userSourceDirs.length === 0) {
         console.warn("Warning: No user source directories found to instrument.");
