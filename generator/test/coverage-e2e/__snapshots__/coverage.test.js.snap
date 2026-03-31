@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`elm-pages run --coverage > produces expected console output 1`] = `
+exports[`elm-pages run --coverage > console output matches snapshot 1`] = `
 "Hello, world!
 Goodbye, world!
 
@@ -17,7 +17,7 @@ Goodbye, world!
 "
 `;
 
-exports[`elm-pages run --coverage > produces expected lcov.info 1`] = `
+exports[`elm-pages run --coverage > lcov.info matches snapshot 1`] = `
 "TN:
 SF:<FIXTURE>/src/Greet.elm
 FN:14,greet
