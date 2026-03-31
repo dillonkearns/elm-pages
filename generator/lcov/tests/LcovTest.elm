@@ -143,24 +143,24 @@ suite =
                             , "FNDA:1,classify"
                             , "FNF:1"
                             , "FNH:1"
-                            , "BRDA:8,0,0,2"
-                            , "BRDA:11,0,1,0"
-                            , "BRDA:14,0,2,1"
+                            , "BRDA:7,0,0,2"
+                            , "BRDA:10,0,1,0"
+                            , "BRDA:13,0,2,1"
                             , "BRF:3"
                             , "BRH:2"
                             , "DA:5,1"
                             , "DA:6,1"
-                            , "DA:7,1"
+                            , "DA:7,2"
                             , "DA:8,2"
                             , "DA:9,2"
-                            , "DA:10,1"
+                            , "DA:10,0"
                             , "DA:11,0"
                             , "DA:12,0"
                             , "DA:13,1"
                             , "DA:14,1"
                             , "DA:15,1"
                             , "LF:11"
-                            , "LH:9"
+                            , "LH:8"
                             , "end_of_record"
                             , ""
                             ]
@@ -326,12 +326,12 @@ suite =
                             , "FNDA:1,foo"
                             , "FNF:1"
                             , "FNH:1"
-                            , "BRDA:8,0,0,3"
+                            , "BRDA:7,0,0,3"
                             , "BRF:1"
                             , "BRH:1"
                             , "DA:5,1"
                             , "DA:6,1"
-                            , "DA:7,1"
+                            , "DA:7,3"
                             , "DA:8,3"
                             , "DA:9,3"
                             , "DA:10,1"
@@ -341,14 +341,11 @@ suite =
                             , ""
                             ]
                         )
-        , test "pattern lines inherit parent count, only branch bodies show branch count" <|
+        , test "case patterns extend to pattern line (declarative, not executable)" <|
             \() ->
-                -- Mirrors CounterApp: update (23-29) with Increment body at 26,
-                -- Decrement body at 29. Pattern lines (25: "Increment ->",
-                -- 28: "Decrement ->") are NOT annotated by elm-instrument, so they
-                -- inherit the parent declaration's count. Only the body lines show
-                -- the actual branch hit count. This is truthful — the pattern IS
-                -- evaluated (the case checks it), the body is what's conditionally executed.
+                -- Case patterns like "Decrement ->" are declarative — nothing
+                -- "runs" there. They're part of the branch, so an untaken branch
+                -- should show the pattern line as uncovered too.
                 Lcov.generate
                     [ { filePath = "/src/CounterApp.elm"
                       , annotations =
@@ -379,8 +376,8 @@ suite =
                             , "FNDA:1,update"
                             , "FNF:1"
                             , "FNH:1"
-                            , "BRDA:26,0,0,1"
-                            , "BRDA:29,0,1,0"
+                            , "BRDA:25,0,0,1"
+                            , "BRDA:28,0,1,0"
                             , "BRF:2"
                             , "BRH:1"
                             , "DA:23,1"
@@ -388,8 +385,59 @@ suite =
                             , "DA:25,1"
                             , "DA:26,1"
                             , "DA:27,1"
-                            , "DA:28,1"
+                            , "DA:28,0"
                             , "DA:29,0"
+                            , "LF:7"
+                            , "LH:5"
+                            , "end_of_record"
+                            , ""
+                            ]
+                        )
+        , test "if/else does NOT extend — the condition is real code that runs" <|
+            \() ->
+                -- Unlike case patterns, the if condition is an expression that
+                -- executes. Only the branch bodies (then/else) get branch counts.
+                Lcov.generate
+                    [ { filePath = "/src/IfElse.elm"
+                      , annotations =
+                            [ { annotationType = Declaration
+                              , name = Just "check"
+                              , startLine = 8
+                              , endLine = 14
+                              }
+                            , { annotationType = IfElseBranch
+                              , name = Nothing
+                              , startLine = 11
+                              , endLine = 11
+                              }
+                            , { annotationType = IfElseBranch
+                              , name = Nothing
+                              , startLine = 14
+                              , endLine = 14
+                              }
+                            ]
+                      , hits = [ 0, 1 ]
+                      }
+                    ]
+                    |> Expect.equal
+                        (String.join "\n"
+                            [ "TN:"
+                            , "SF:/src/IfElse.elm"
+                            , "FN:8,check"
+                            , "FNDA:1,check"
+                            , "FNF:1"
+                            , "FNH:1"
+                            , "BRDA:11,0,0,1"
+                            , "BRDA:14,0,1,0"
+                            , "BRF:2"
+                            , "BRH:1"
+                            , "DA:8,1"
+                            , "DA:9,1"
+                            , "DA:10,1"
+                            , "DA:11,1"
+                            , "DA:12,1"
+                            , "DA:13,1"
+                            , "DA:14,0"
                             , "LF:7"
                             , "LH:6"
                             , "end_of_record"

@@ -561,7 +561,11 @@ function generateLcov(info, allCounters, projectDirectory, modulePaths) {
     for (let i = 0; i < exprList.length; i++) {
       const ann = exprList[i];
       if (ann.type === "caseBranch" || ann.type === "ifElseBranch") {
-        branches.push({ line: ann.from.line, count: hitCounts.get(i) || 0 });
+        // Case patterns are declarative (not executable), so extend to include
+        // the pattern line. If/else conditions ARE code that runs, so don't extend.
+        const brLine = ann.type === "caseBranch" && ann.from.line > 1
+          ? ann.from.line - 1 : ann.from.line;
+        branches.push({ line: brLine, count: hitCounts.get(i) || 0 });
       }
     }
     branches.forEach((br, idx) => lines.push(`BRDA:${br.line},0,${idx},${br.count}`));
@@ -573,7 +577,11 @@ function generateLcov(info, allCounters, projectDirectory, modulePaths) {
     // Line data — expand each annotation to its full line range.
     // When annotations overlap, the innermost (smallest range) wins.
     const annsWithCounts = exprList.map((ann, i) => {
-      const startLine = ann.from.line;
+      // Case patterns are declarative — extend to include the pattern line.
+      // If/else conditions are executable code — don't extend.
+      const isCaseBranch = ann.type === "caseBranch";
+      const startLine = isCaseBranch && ann.from.line > 1
+        ? ann.from.line - 1 : ann.from.line;
       return {
         startLine,
         endLine: ann.to.line,

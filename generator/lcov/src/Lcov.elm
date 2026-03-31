@@ -41,7 +41,7 @@ moduleToLcov mod =
             mod.annotations
                 |> List.indexedMap
                     (\i ann ->
-                        ( ann, hitCountFor i hitCounts )
+                        ( extendCaseBranchToPatternLine ann, hitCountFor i hitCounts )
                     )
 
         functions =
@@ -184,6 +184,19 @@ unique list =
 
             else
                 x :: unique (y :: rest)
+
+
+{-| Case patterns are declarative — "Decrement ->" doesn't execute code,
+it's a structural description. The pattern line belongs to the branch.
+If/else conditions ARE code that runs, so we don't extend those.
+-}
+extendCaseBranchToPatternLine : Annotation -> Annotation
+extendCaseBranchToPatternLine ann =
+    if ann.annotationType == CaseBranch && ann.startLine > 1 then
+        { ann | startLine = ann.startLine - 1 }
+
+    else
+        ann
 
 
 isBranch : AnnotationType -> Bool
