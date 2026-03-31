@@ -561,8 +561,7 @@ function generateLcov(info, allCounters, projectDirectory, modulePaths) {
     for (let i = 0; i < exprList.length; i++) {
       const ann = exprList[i];
       if (ann.type === "caseBranch" || ann.type === "ifElseBranch") {
-        const brLine = ann.from.line > 1 ? ann.from.line - 1 : ann.from.line;
-        branches.push({ line: brLine, count: hitCounts.get(i) || 0 });
+        branches.push({ line: ann.from.line, count: hitCounts.get(i) || 0 });
       }
     }
     branches.forEach((br, idx) => lines.push(`BRDA:${br.line},0,${idx},${br.count}`));
@@ -574,8 +573,7 @@ function generateLcov(info, allCounters, projectDirectory, modulePaths) {
     // Line data — expand each annotation to its full line range.
     // When annotations overlap, the innermost (smallest range) wins.
     const annsWithCounts = exprList.map((ann, i) => {
-      const isBranchType = ann.type === "caseBranch" || ann.type === "ifElseBranch";
-      const startLine = isBranchType && ann.from.line > 1 ? ann.from.line - 1 : ann.from.line;
+      const startLine = ann.from.line;
       return {
         startLine,
         endLine: ann.to.line,

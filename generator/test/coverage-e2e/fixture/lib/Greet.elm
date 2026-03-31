@@ -1,6 +1,10 @@
-module Greet exposing (Greeting(..), greet, formalGreet)
+module Greet exposing (Greeting(..), greet, classify, formalGreet)
 
-{-| A simple module with branches for coverage testing.
+{-| Module with varied patterns for coverage testing.
+
+Exercises: case branches, if/else, let-bindings, lambdas, multi-line
+expressions, and an uncalled function.
+
 -}
 
 
@@ -23,8 +27,27 @@ greet greeting =
             message
 
 
+{-| Classifies a greeting using if/else and let-bindings.
+-}
+classify : Greeting -> String
+classify greeting =
+    let
+        label =
+            greet greeting
+    in
+    if String.length label > 20 then
+        "long"
+
+    else
+        "short"
+
+
 {-| This function is never called by the test script.
 -}
 formalGreet : String -> String
 formalGreet name =
-    "Dear " ++ name ++ ", greetings."
+    let
+        title =
+            "Dear " ++ name
+    in
+    title ++ ", greetings."

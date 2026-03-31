@@ -11,4 +11,6 @@ run =
         (Script.log (Greet.greet Hello)
             |> Script.doThen
                 (Script.log (Greet.greet Goodbye))
+            |> Script.doThen
+                (Script.log (Greet.classify Hello))
         )

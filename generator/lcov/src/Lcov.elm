@@ -41,7 +41,7 @@ moduleToLcov mod =
             mod.annotations
                 |> List.indexedMap
                     (\i ann ->
-                        ( extendBranchToPatternLine ann, hitCountFor i hitCounts )
+                        ( ann, hitCountFor i hitCounts )
                     )
 
         functions =
@@ -184,19 +184,6 @@ unique list =
 
             else
                 x :: unique (y :: rest)
-
-
-{-| elm-instrument only annotates the body of a case/if branch, not the
-pattern line above it (e.g. "Decrement ->"). Extend branch annotations
-one line up so the pattern line gets the branch's hit count.
--}
-extendBranchToPatternLine : Annotation -> Annotation
-extendBranchToPatternLine ann =
-    if isBranch ann.annotationType && ann.startLine > 1 then
-        { ann | startLine = ann.startLine - 1 }
-
-    else
-        ann
 
 
 isBranch : AnnotationType -> Bool

@@ -3,15 +3,16 @@
 exports[`elm-pages run --coverage > console output matches snapshot 1`] = `
 "Hello, world!
 Goodbye, world!
+short
 
 ── Coverage Report ──────────────────────────────────────
 
   Module     Covered   Total   Coverage
   ────────────────────────────────────
-  Greet            3       5      60.0%
+  Greet            6      10      60.0%
   RunGreet         1       1     100.0%
   ────────────────────────────────────
-  TOTAL            4       6      66.7%
+  TOTAL            7      11      63.6%
 
   Coverage report written to <FIXTURE>/coverage/lcov.info
 "
@@ -20,31 +21,49 @@ Goodbye, world!
 exports[`elm-pages run --coverage > lcov.info matches snapshot 1`] = `
 "TN:
 SF:<FIXTURE>/lib/Greet.elm
-FN:14,greet
-FN:29,formalGreet
-FNDA:2,greet
+FN:18,greet
+FN:33,classify
+FN:48,formalGreet
+FNDA:3,greet
+FNDA:1,classify
 FNDA:0,formalGreet
-FNF:2
-FNH:1
-BRDA:16,0,0,1
-BRDA:19,0,1,1
-BRDA:22,0,2,0
-BRF:3
-BRH:2
-DA:14,2
-DA:15,2
-DA:16,1
-DA:17,1
-DA:18,2
-DA:19,1
-DA:20,1
+FNF:3
+FNH:2
+BRDA:21,0,0,2
+BRDA:24,0,1,1
+BRDA:27,0,2,0
+BRDA:39,0,3,0
+BRDA:42,0,4,1
+BRF:5
+BRH:3
+DA:18,3
+DA:19,3
+DA:20,3
 DA:21,2
-DA:22,0
-DA:23,0
-DA:29,0
-DA:30,0
-LF:12
-LH:8
+DA:22,3
+DA:23,3
+DA:24,1
+DA:25,3
+DA:26,3
+DA:27,0
+DA:33,1
+DA:34,1
+DA:35,1
+DA:36,1
+DA:37,1
+DA:38,1
+DA:39,0
+DA:40,1
+DA:41,1
+DA:42,1
+DA:48,0
+DA:49,0
+DA:50,0
+DA:51,0
+DA:52,0
+DA:53,0
+LF:26
+LH:18
 end_of_record
 
 TN:
@@ -59,8 +78,10 @@ DA:11,1
 DA:12,1
 DA:13,1
 DA:14,1
-LF:6
-LH:6
+DA:15,1
+DA:16,1
+LF:8
+LH:8
 end_of_record
 "
 `;
@@ -68,6 +89,7 @@ end_of_record
 exports[`elm-pages run --coverage --coverage-exclude > console output excludes Greet module 1`] = `
 "Hello, world!
 Goodbye, world!
+short
 
 ── Coverage Report ──────────────────────────────────────
 
@@ -94,8 +116,10 @@ DA:11,1
 DA:12,1
 DA:13,1
 DA:14,1
-LF:6
-LH:6
+DA:15,1
+DA:16,1
+LF:8
+LH:8
 end_of_record
 "
 `;
@@ -103,14 +127,15 @@ end_of_record
 exports[`elm-pages run --coverage --coverage-exclude-module > console output excludes the filtered module 1`] = `
 "Hello, world!
 Goodbye, world!
+short
 
 ── Coverage Report ──────────────────────────────────────
 
   Module   Covered   Total   Coverage
   ──────────────────────────────────
-  Greet          3       5      60.0%
+  Greet          6      10      60.0%
   ──────────────────────────────────
-  TOTAL          3       5      60.0%
+  TOTAL          6      10      60.0%
 
   Coverage report written to <FIXTURE>/coverage/lcov.info
 "
@@ -119,31 +144,49 @@ Goodbye, world!
 exports[`elm-pages run --coverage --coverage-exclude-module > lcov.info excludes the filtered module 1`] = `
 "TN:
 SF:<FIXTURE>/lib/Greet.elm
-FN:14,greet
-FN:29,formalGreet
-FNDA:2,greet
+FN:18,greet
+FN:33,classify
+FN:48,formalGreet
+FNDA:3,greet
+FNDA:1,classify
 FNDA:0,formalGreet
-FNF:2
-FNH:1
-BRDA:16,0,0,1
-BRDA:19,0,1,1
-BRDA:22,0,2,0
-BRF:3
-BRH:2
-DA:14,2
-DA:15,2
-DA:16,1
-DA:17,1
-DA:18,2
-DA:19,1
-DA:20,1
+FNF:3
+FNH:2
+BRDA:21,0,0,2
+BRDA:24,0,1,1
+BRDA:27,0,2,0
+BRDA:39,0,3,0
+BRDA:42,0,4,1
+BRF:5
+BRH:3
+DA:18,3
+DA:19,3
+DA:20,3
 DA:21,2
-DA:22,0
-DA:23,0
-DA:29,0
-DA:30,0
-LF:12
-LH:8
+DA:22,3
+DA:23,3
+DA:24,1
+DA:25,3
+DA:26,3
+DA:27,0
+DA:33,1
+DA:34,1
+DA:35,1
+DA:36,1
+DA:37,1
+DA:38,1
+DA:39,0
+DA:40,1
+DA:41,1
+DA:42,1
+DA:48,0
+DA:49,0
+DA:50,0
+DA:51,0
+DA:52,0
+DA:53,0
+LF:26
+LH:18
 end_of_record
 "
 `;
@@ -151,14 +194,15 @@ end_of_record
 exports[`elm-pages run --coverage --coverage-include > console output only includes Greet module 1`] = `
 "Hello, world!
 Goodbye, world!
+short
 
 ── Coverage Report ──────────────────────────────────────
 
   Module   Covered   Total   Coverage
   ──────────────────────────────────
-  Greet          3       5      60.0%
+  Greet          6      10      60.0%
   ──────────────────────────────────
-  TOTAL          3       5      60.0%
+  TOTAL          6      10      60.0%
 
   Coverage report written to <FIXTURE>/coverage/lcov.info
 "
@@ -167,31 +211,49 @@ Goodbye, world!
 exports[`elm-pages run --coverage --coverage-include > lcov.info only contains included modules 1`] = `
 "TN:
 SF:<FIXTURE>/lib/Greet.elm
-FN:14,greet
-FN:29,formalGreet
-FNDA:2,greet
+FN:18,greet
+FN:33,classify
+FN:48,formalGreet
+FNDA:3,greet
+FNDA:1,classify
 FNDA:0,formalGreet
-FNF:2
-FNH:1
-BRDA:16,0,0,1
-BRDA:19,0,1,1
-BRDA:22,0,2,0
-BRF:3
-BRH:2
-DA:14,2
-DA:15,2
-DA:16,1
-DA:17,1
-DA:18,2
-DA:19,1
-DA:20,1
+FNF:3
+FNH:2
+BRDA:21,0,0,2
+BRDA:24,0,1,1
+BRDA:27,0,2,0
+BRDA:39,0,3,0
+BRDA:42,0,4,1
+BRF:5
+BRH:3
+DA:18,3
+DA:19,3
+DA:20,3
 DA:21,2
-DA:22,0
-DA:23,0
-DA:29,0
-DA:30,0
-LF:12
-LH:8
+DA:22,3
+DA:23,3
+DA:24,1
+DA:25,3
+DA:26,3
+DA:27,0
+DA:33,1
+DA:34,1
+DA:35,1
+DA:36,1
+DA:37,1
+DA:38,1
+DA:39,0
+DA:40,1
+DA:41,1
+DA:42,1
+DA:48,0
+DA:49,0
+DA:50,0
+DA:51,0
+DA:52,0
+DA:53,0
+LF:26
+LH:18
 end_of_record
 "
 `;
