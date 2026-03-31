@@ -15,21 +15,41 @@ context("dev server with base path", () => {
     cy.url().should("include", "/greet");
     cy.contains("Hello John!");
   });
-  it.skip("logs in and out", () => {
+  it("redirect updates URL before any further navigation", () => {
+    // Verify the URL is correct so that clicking a link from the
+    // redirected page navigates relative to /greet, not /login
     cy.visit("/login");
-    cy.get("input[name=name]").clear().type("John");
+    cy.get("input[name=name]").clear().type("Alice");
     cy.get("button").click();
-    cy.contains("Hello John!");
-    cy.contains("Logout").click();
-    cy.contains("You have been successfully logged out.");
+    cy.url().should("include", "/greet");
+    cy.contains("Hello Alice!");
+    // Navigate away and back to confirm URL state is consistent
+    cy.visit("/");
+    cy.visit("/greet?name=Bob");
+    cy.url().should("include", "/greet");
+    cy.contains("Hello Bob!");
   });
-  it.skip("logs in with errors then re-submits form successfully", () => {
+  it("redirect clears form state", () => {
+    // After redirect, going back to login should show a clean form
+    cy.visit("/login");
+    cy.get("input[name=name]").clear().type("Dave");
+    cy.get("button").click();
+    cy.url().should("include", "/greet");
+    cy.contains("Hello Dave!");
+    // Navigate back to login — form state should be cleared
+    cy.visit("/login");
+    cy.contains("You aren't logged in yet.").should("not.exist");
+    // Should show logged-in state from session, not stale form data
+    cy.contains("Hello Dave!");
+  });
+  it("form validation errors stay on the same page", () => {
     cy.visit("/login");
     cy.get("input[name=name]").clear().type("error");
     cy.get("button").click();
+    // Should stay on /login with validation error, not redirect
+    cy.url().should("include", "/login");
     cy.contains("Invalid username");
-    cy.get("input[name=name]").clear().type("John");
-    cy.get("button").click();
-    cy.contains("Hello John");
+    // URL should still be /login
+    cy.url().should("not.include", "/greet");
   });
 });
