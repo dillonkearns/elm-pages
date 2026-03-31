@@ -99,3 +99,21 @@ describe("elm-pages run --coverage --coverage-include", () => {
     expect(result.lcovContent).not.toContain("RunGreet.elm");
   });
 });
+
+describe("elm-pages run --coverage --coverage-exclude-module", () => {
+  let result;
+  beforeAll(() => { result = runCoverage(["--coverage-exclude-module", "RunGreet"]); }, 120_000);
+
+  it("console output excludes the filtered module", () => {
+    expect(result.consoleOutput).toMatchSnapshot();
+    expect(result.consoleOutput).not.toMatch(/\bRunGreet\b/);
+    expect(result.consoleOutput).toContain("Greet");
+  });
+
+  it("lcov.info excludes the filtered module", () => {
+    expect(result.lcovContent).toBeDefined();
+    expect(result.lcovContent).toMatchSnapshot();
+    expect(result.lcovContent).toContain("Greet.elm");
+    expect(result.lcovContent).not.toContain("RunGreet.elm");
+  });
+});

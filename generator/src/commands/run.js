@@ -189,8 +189,12 @@ export async function run(elmModulePath, options, options2) {
     if (coverage) {
       const { printCoverageReportSync } = await import("../coverage.js");
       const outputCwd = cwd; // where the user ran the command
+      const moduleFilter = {
+        include: options.coverageIncludeModule || [],
+        exclude: options.coverageExcludeModule || [],
+      };
       process.on("exit", () => {
-        printCoverageReportSync(projectDirectory, outputCwd);
+        printCoverageReportSync(projectDirectory, outputCwd, moduleFilter);
       });
     }
 

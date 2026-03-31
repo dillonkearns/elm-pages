@@ -100,6 +100,54 @@ end_of_record
 "
 `;
 
+exports[`elm-pages run --coverage --coverage-exclude-module > console output excludes the filtered module 1`] = `
+"Hello, world!
+Goodbye, world!
+
+── Coverage Report ──────────────────────────────────────
+
+  Module   Covered   Total   Coverage
+  ──────────────────────────────────
+  Greet          3       5      60.0%
+  ──────────────────────────────────
+  TOTAL          3       5      60.0%
+
+  Coverage report written to <FIXTURE>/coverage/lcov.info
+"
+`;
+
+exports[`elm-pages run --coverage --coverage-exclude-module > lcov.info excludes the filtered module 1`] = `
+"TN:
+SF:<FIXTURE>/lib/Greet.elm
+FN:14,greet
+FN:29,formalGreet
+FNDA:2,greet
+FNDA:0,formalGreet
+FNF:2
+FNH:1
+BRDA:16,0,0,1
+BRDA:19,0,1,1
+BRDA:22,0,2,0
+BRF:3
+BRH:2
+DA:14,2
+DA:15,2
+DA:16,1
+DA:17,1
+DA:18,2
+DA:19,1
+DA:20,1
+DA:21,2
+DA:22,0
+DA:23,0
+DA:29,0
+DA:30,0
+LF:12
+LH:8
+end_of_record
+"
+`;
+
 exports[`elm-pages run --coverage --coverage-include > console output only includes Greet module 1`] = `
 "Hello, world!
 Goodbye, world!

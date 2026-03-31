@@ -170,8 +170,9 @@ var $author$project$Coverage$track = F2($author$project$Coverage$track$)`;
  *
  * @param {string} projectDirectory - where the script's elm.json lives (for .coverage/ data)
  * @param {string} outputDir - where to write coverage/lcov.info (typically the user's cwd)
+ * @param {{ include: string[], exclude: string[] }} [moduleFilter] - module name patterns
  */
-export function printCoverageReportSync(projectDirectory, outputDir) {
+export function printCoverageReportSync(projectDirectory, outputDir, moduleFilter) {
   const coverageDir = path.join(projectDirectory, COVERAGE_DIR);
 
   // Read instrumentation metadata
@@ -210,7 +211,21 @@ export function printCoverageReportSync(projectDirectory, outputDir) {
     );
     for (const [mod, indices] of Object.entries(data)) {
       if (!allCounters[mod]) allCounters[mod] = [];
-      allCounters[mod].push(...indices);
+      // Avoid push(...indices) which overflows the call stack with large arrays
+      for (let i = 0; i < indices.length; i++) {
+        allCounters[mod].push(indices[i]);
+      }
+    }
+  }
+
+  // Apply module-name filters to info (which drives both summary and lcov)
+  if (moduleFilter) {
+    const modules = info.modules || info;
+    for (const moduleName of Object.keys(modules)) {
+      if (!matchesModuleFilter(moduleName, moduleFilter)) {
+        delete modules[moduleName];
+        delete allCounters[moduleName];
+      }
     }
   }
 
@@ -239,6 +254,28 @@ export function printCoverageReportSync(projectDirectory, outputDir) {
 }
 
 // ─── Internal helpers ────────────────────────────────────────────
+
+/**
+ * Check if a module name passes the include/exclude filter.
+ * Patterns support * as a wildcard (e.g., "Gen.*" matches "Gen.CodeGen").
+ */
+function matchesModuleFilter(moduleName, { include, exclude }) {
+  if (include.length > 0) {
+    if (!include.some((p) => moduleMatchesPattern(moduleName, p))) return false;
+  }
+  if (exclude.length > 0) {
+    if (exclude.some((p) => moduleMatchesPattern(moduleName, p))) return false;
+  }
+  return true;
+}
+
+function moduleMatchesPattern(moduleName, pattern) {
+  // Exact match
+  if (moduleName === pattern) return true;
+  // Convert glob pattern to regex: escape dots, replace * with .*
+  const regexStr = "^" + pattern.replace(/\./g, "\\.").replace(/\*/g, ".*") + "$";
+  return new RegExp(regexStr).test(moduleName);
+}
 
 /**
  * Flatten a source directory path into a safe name for use inside
