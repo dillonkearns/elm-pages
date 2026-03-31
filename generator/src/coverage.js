@@ -120,11 +120,15 @@ export async function setupCoverage(
 export async function injectCoverageTracking(jsFilePath, coverageDataDir) {
   let js = await fs.promises.readFile(jsFilePath, "utf-8");
 
-  // Find the Coverage.track$ function definition. We match just the variable
-  // declaration + function keyword, then lazily match everything to the closing };
-  // This doesn't care about argument names, return values, or debug/optimize format.
+  // The Elm compiler produces two different shapes:
+  //   Debug:    var $author$project$Coverage$track$ = function(a, b) { ... };
+  //   Optimize: var $author$project$Coverage$track = F2(function(a, b) { ... });
+  // The trailing $ and F2 wrapper differ. This regex handles both:
+  //   \$? = optional trailing $
+  //   (?:F2\()? = optional F2( wrapper
+  //   \)? = optional closing ) for F2
   const trackPattern =
-    /var \$author\$project\$Coverage\$track\$\s*=\s*function[\s\S]*?};/;
+    /var \$author\$project\$Coverage\$track\$?\s*=\s*(?:F2\()?\s*function[\s\S]*?\}\)?;/;
 
   const match = js.match(trackPattern);
   if (!match) {
@@ -137,8 +141,10 @@ export async function injectCoverageTracking(jsFilePath, coverageDataDir) {
 
   const dir = JSON.stringify(coverageDataDir.replace(/\\/g, "/"));
 
-  // Replace the no-op definition with tracking code. Injected at the same
-  // position in the source, so it's in the right scope (inside the IIFE).
+  // Replace with tracking code. We always emit both the raw function (track$)
+  // and the F2 wrapper (track), so it works regardless of how calls are compiled:
+  //   Debug calls:    $author$project$Coverage$track$('Mod', 0)
+  //   Optimize calls: A2($author$project$Coverage$track, 'Mod', 0)
   const replacement = `var __coverage_fs = require("fs");
 var __coverage_path = require("path");
 var __coverage_counters = {};
@@ -155,7 +161,8 @@ var $author$project$Coverage$track$ = function(moduleName, index) {
     __coverage_counters[moduleName] = __coverage_counters[moduleName] || [];
     __coverage_counters[moduleName].push(index);
     return 0;
-};`
+};
+var $author$project$Coverage$track = F2($author$project$Coverage$track$);`
 
   js = js.replace(match[0], replacement);
 
