@@ -61,4 +61,19 @@
 <style>body > * { html & { display: none; } }</style>
 
 # closing style tag in content must not break out of raw text context
-<style><\/style><img src=x onerror=alert('xss')></style></div></body></html>
+<style><\/style><img src=x onerror=alert('xss')></style>
+
+# textarea value attribute is rendered as text content
+<textarea>my value</textarea>
+
+# textarea value attribute with special characters is escaped as text content
+<textarea>&lt;script&gt;alert(&#039;xss&#039;)&lt;/script&gt;</textarea>
+
+# textarea with value attribute and other attributes
+<textarea id="notes" rows="5">some text</textarea>
+
+# textarea without value attribute is unchanged
+<textarea></textarea>
+
+# textarea with child text content and no value attribute
+<textarea>child content</textarea></div></body></html>
