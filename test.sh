@@ -3,9 +3,10 @@ npm run build:generator
 # Run tui-widgets tests through their dedicated harness, since they compile
 # against tui-widgets/elm-application.json rather than the root elm.json.
 ./tui-widgets/test.sh
+bash test-scripts/check-tui-public-api.sh
 
 # Root package tests exclude tui-widgets sources, which are exercised above.
-npx elm-test --compiler lamdera tests/ApiRouteTests.elm tests/CookieTest.elm tests/DbTestTests.elm tests/ExampleScriptTest.elm tests/FilePathTest.elm tests/FormDataTest.elm tests/GlobMatchTests.elm tests/HeadTests.elm tests/PathTests.elm tests/RouteTests.elm tests/ScriptTestTests.elm tests/SetCookieTest.elm tests/StaticHttpRequestsTests.elm tests/StaticResponsesTests.elm tests/TuiTests.elm
+npx elm-test --compiler lamdera tests/ApiRouteTests.elm tests/CookieTest.elm tests/DbTestTests.elm tests/ExampleScriptTest.elm tests/FilePathTest.elm tests/FormDataTest.elm tests/GlobMatchTests.elm tests/HeadTests.elm tests/PathTests.elm tests/RouteTests.elm tests/ScriptTestTests.elm tests/SetCookieTest.elm tests/StaticHttpRequestsTests.elm tests/StaticResponsesTests.elm tests/TuiTests.elm tests/TuiPublicApiTests.elm
 (cd examples/routing && npm ci && npm run build && npx elm-test --compiler lamdera)
 (cd generator/dead-code-review && npx elm-test --compiler lamdera)
 (cd generator/server-review && npx elm-test --compiler lamdera)

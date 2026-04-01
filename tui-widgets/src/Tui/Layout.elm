@@ -169,7 +169,7 @@ import Tui.Menu
 import Tui.Modal
 import Tui.OptionsBar
 import Tui.Prompt
-import Tui.Screen.Internal as ScreenInternal
+import Tui.Screen as TuiScreen
 import Tui.Status
 import Tui.Sub
 
@@ -3203,9 +3203,9 @@ highlightMatchesOnLine lineIdx ss lineScreen =
 
     else
         let
-            spans : List ScreenInternal.Span
+            spans : List TuiScreen.Span
             spans =
-                case ScreenInternal.flattenToSpanLines styleToFlatStyle lineScreen of
+                case TuiScreen.toSpanLines lineScreen of
                     first :: _ ->
                         first
 
@@ -3218,7 +3218,7 @@ highlightMatchesOnLine lineIdx ss lineScreen =
 {-| Build a highlighted line from styled spans and match positions,
 preserving existing styles on non-matched segments.
 -}
-buildHighlightedLine : List ScreenInternal.Span -> List { line : Int, col : Int, len : Int } -> Maybe { line : Int, col : Int, len : Int } -> Int -> Screen
+buildHighlightedLine : List TuiScreen.Span -> List { line : Int, col : Int, len : Int } -> Maybe { line : Int, col : Int, len : Int } -> Int -> Screen
 buildHighlightedLine spans matches currentMatch col =
     case matches of
         [] ->
@@ -3263,7 +3263,7 @@ buildHighlightedLine spans matches currentMatch col =
                                     oldStyle =
                                         span.style
                                 in
-                                { span | style = { oldStyle | background = Just highlightBg } }
+                                { span | style = { oldStyle | bg = Just highlightBg } }
                             )
                         |> spansToScreen
             in
@@ -3277,7 +3277,7 @@ buildHighlightedLine spans matches currentMatch col =
 {-| Split a list of spans at a character position. Returns (before, after)
 where before contains exactly `n` characters worth of spans.
 -}
-splitSpansAt : Int -> List ScreenInternal.Span -> ( List ScreenInternal.Span, List ScreenInternal.Span )
+splitSpansAt : Int -> List TuiScreen.Span -> ( List TuiScreen.Span, List TuiScreen.Span )
 splitSpansAt n spans =
     -- elm-review: known-unoptimized-recursion
     if n <= 0 then
@@ -3313,7 +3313,7 @@ Returns `Just url` if the character at `targetCol` has a hyperlink, `Nothing` ot
 -}
 resolveHyperlinkAt : Int -> Screen -> Maybe String
 resolveHyperlinkAt targetCol screen =
-    case ScreenInternal.flattenToSpanLines styleToFlatStyle screen of
+    case TuiScreen.toSpanLines screen of
         [ spans ] ->
             let
                 ( _, right ) =
@@ -3332,95 +3332,9 @@ resolveHyperlinkAt targetCol screen =
 
 {-| Convert FlatStyle spans back to a Screen.
 -}
-spansToScreen : List ScreenInternal.Span -> Screen
+spansToScreen : List TuiScreen.Span -> Screen
 spansToScreen spans =
-    ScreenInternal.spansToScreen flatStyleToStyle spans
-
-
-{-| Convert a Tui.Style to a FlatStyle for span flattening.
--}
-styleToFlatStyle : Tui.Style -> ScreenInternal.FlatStyle
-styleToFlatStyle s =
-    let
-        base : ScreenInternal.FlatStyle
-        base =
-            { bold = False
-            , dim = False
-            , italic = False
-            , underline = False
-            , strikethrough = False
-            , inverse = False
-            , foreground = s.fg
-            , background = s.bg
-            , hyperlink = s.hyperlink
-            }
-    in
-    List.foldl
-        (\attr fs ->
-            case attr of
-                Bold ->
-                    { fs | bold = True }
-
-                Dim ->
-                    { fs | dim = True }
-
-                Italic ->
-                    { fs | italic = True }
-
-                Underline ->
-                    { fs | underline = True }
-
-                Strikethrough ->
-                    { fs | strikethrough = True }
-
-                Inverse ->
-                    { fs | inverse = True }
-        )
-        base
-        s.attributes
-
-
-{-| Convert a FlatStyle back to a Tui.Style.
--}
-flatStyleToStyle : ScreenInternal.FlatStyle -> Tui.Style
-flatStyleToStyle fs =
-    { fg = fs.foreground
-    , bg = fs.background
-    , attributes =
-        List.filterMap identity
-            [ if fs.bold then
-                Just Bold
-
-              else
-                Nothing
-            , if fs.dim then
-                Just Dim
-
-              else
-                Nothing
-            , if fs.italic then
-                Just Italic
-
-              else
-                Nothing
-            , if fs.underline then
-                Just Underline
-
-              else
-                Nothing
-            , if fs.strikethrough then
-                Just Strikethrough
-
-              else
-                Nothing
-            , if fs.inverse then
-                Just Inverse
-
-              else
-                Nothing
-            ]
-    , hyperlink = fs.hyperlink
-    }
+    TuiScreen.fromSpans spans
 
 
 clampScroll : Int -> Int -> Int -> Int
@@ -6059,81 +5973,58 @@ extractLayoutEffects :
         , Effect (FrameworkMsg msg)
         )
 extractLayoutEffects effect fw =
-    -- Walk the effect tree, extract layout effects, pass through the rest
-    case effect of
-        Effect.None ->
-            ( fw, Effect.none )
-
-        Effect.Toast message ->
-            ( { fw | statusState = Tui.Status.toast message fw.statusState }, Effect.none )
-
-        Effect.ErrorToast message ->
-            ( { fw | statusState = Tui.Status.errorToast message fw.statusState }, Effect.none )
-
-        Effect.ResetScroll paneId ->
-            ( { fw | layoutState = resetScroll paneId fw.layoutState }, Effect.none )
-
-        Effect.ScrollTo paneId offset ->
-            -- ScrollTo: reset then scroll down to the target offset
-            ( { fw
-                | layoutState =
-                    fw.layoutState
-                        |> resetScroll paneId
-                        |> scrollDown paneId offset
-              }
-            , Effect.none
-            )
-
-        Effect.ScrollDown paneId amount ->
-            ( { fw | layoutState = scrollDown paneId amount fw.layoutState }, Effect.none )
-
-        Effect.ScrollUp paneId amount ->
-            ( { fw | layoutState = scrollUp paneId amount fw.layoutState }, Effect.none )
-
-        Effect.SetSelectedIndex paneId index ->
-            let
-                totalItems =
-                    Dict.get paneId fw.previousItemCounts |> Maybe.withDefault (index + 1)
-            in
-            ( { fw | layoutState = setSelectedIndexAndScroll paneId index totalItems fw.layoutState }, Effect.none )
-
-        Effect.SelectFirst paneId ->
-            let
-                totalItems =
-                    Dict.get paneId fw.previousItemCounts |> Maybe.withDefault 1
-            in
-            ( { fw | layoutState = setSelectedIndexAndScroll paneId 0 totalItems fw.layoutState }, Effect.none )
-
-        Effect.FocusPane paneId ->
-            ( { fw | layoutState = focusPane paneId fw.layoutState }, Effect.none )
-
-        Effect.Exit ->
-            ( fw, Effect.exit )
-
-        Effect.ExitWithCode code ->
-            ( fw, Effect.exitWithCode code )
-
-        Effect.RunBackendTask bt ->
-            ( fw, Effect.RunBackendTask (BackendTask.map UserMsg bt) )
-
-        Effect.SuspendBackendTask bt ->
-            ( fw, Effect.SuspendBackendTask (BackendTask.map UserMsg bt) )
-
-        Effect.Batch effects ->
-            let
-                ( finalFw, collectedEffects ) =
-                    List.foldl
-                        (\eff ( accFw, accEffects ) ->
-                            let
-                                ( newFw, mappedEffect ) =
-                                    extractLayoutEffects eff accFw
-                            in
-                            ( newFw, mappedEffect :: accEffects )
-                        )
-                        ( fw, [] )
-                        effects
-            in
-            ( finalFw, Effect.batch (List.reverse collectedEffects) )
+    Effect.fold
+        { none = ( fw, Effect.none )
+        , batch =
+            \effects ->
+                let
+                    ( finalFw, collectedEffects ) =
+                        List.foldl
+                            (\nextEffect ( accFw, accEffects ) ->
+                                let
+                                    ( newFw, mappedEffect ) =
+                                        extractLayoutEffects nextEffect accFw
+                                in
+                                ( newFw, mappedEffect :: accEffects )
+                            )
+                            ( fw, [] )
+                            effects
+                in
+                ( finalFw, Effect.batch (List.reverse collectedEffects) )
+        , backendTask = \bt -> ( fw, Effect.perform UserMsg bt )
+        , exit = \code -> ( fw, Effect.exitWithCode code )
+        , toast = \message -> ( { fw | statusState = Tui.Status.toast message fw.statusState }, Effect.none )
+        , errorToast = \message -> ( { fw | statusState = Tui.Status.errorToast message fw.statusState }, Effect.none )
+        , resetScroll = \paneId -> ( { fw | layoutState = resetScroll paneId fw.layoutState }, Effect.none )
+        , scrollTo =
+            \paneId offset ->
+                ( { fw
+                    | layoutState =
+                        fw.layoutState
+                            |> resetScroll paneId
+                            |> scrollDown paneId offset
+                  }
+                , Effect.none
+                )
+        , scrollDown = \paneId amount -> ( { fw | layoutState = scrollDown paneId amount fw.layoutState }, Effect.none )
+        , scrollUp = \paneId amount -> ( { fw | layoutState = scrollUp paneId amount fw.layoutState }, Effect.none )
+        , setSelectedIndex =
+            \paneId index ->
+                let
+                    totalItems =
+                        Dict.get paneId fw.previousItemCounts |> Maybe.withDefault (index + 1)
+                in
+                ( { fw | layoutState = setSelectedIndexAndScroll paneId index totalItems fw.layoutState }, Effect.none )
+        , selectFirst =
+            \paneId ->
+                let
+                    totalItems =
+                        Dict.get paneId fw.previousItemCounts |> Maybe.withDefault 1
+                in
+                ( { fw | layoutState = setSelectedIndexAndScroll paneId 0 totalItems fw.layoutState }, Effect.none )
+        , focusPane = \paneId -> ( { fw | layoutState = focusPane paneId fw.layoutState }, Effect.none )
+        }
+        effect
 
 
 syncModalState :

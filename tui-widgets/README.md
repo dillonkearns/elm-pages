@@ -17,6 +17,9 @@ search, toasts — the building blocks for rich terminal UIs, all declarative El
   keybindings, status, and mouse dispatch together for you.
 - **Discoverable** — keybinding help screens, options bars, and command palettes
   are generated from the same binding declarations you use for dispatch.
+- **Testable** — `Tui.Test` lets you write pure Elm tests that simulate
+  keypresses, mouse clicks, and scroll events, then assert on the rendered
+  terminal output. No mocking, no real terminal needed.
 
 ## Example
 
@@ -111,6 +114,52 @@ run =
 
 See the full working example in
 [`examples/end-to-end/script/src/MiniGit.elm`](https://github.com/dillonkearns/elm-pages/blob/master/examples/end-to-end/script/src/MiniGit.elm).
+
+## Testing
+
+TUI apps built with `Layout.compileApp` are fully testable with `Tui.Test` —
+simulate keypresses, mouse clicks, and scroll events, then assert on the
+rendered terminal output. No mocking, no DOM — just pure Elm:
+
+```elm
+import Tui.Test as TuiTest
+
+suite : Test
+suite =
+    describe "MiniGit"
+        [ test "j/k navigates the commit list" <|
+            \() ->
+                TuiTest.startApp () appConfig
+                    |> TuiTest.ensureViewHas "▸ abc123"
+                    |> TuiTest.pressKey 'j'
+                    |> TuiTest.ensureViewHas "▸ def456"
+                    |> TuiTest.expectRunning
+        , test "c opens the commit dialog" <|
+            \() ->
+                TuiTest.startApp () appConfig
+                    |> TuiTest.pressKey 'c'
+                    |> TuiTest.ensureViewHas "Commit Message"
+                    |> TuiTest.expectRunning
+        , test "? opens help, Esc closes it" <|
+            \() ->
+                TuiTest.startApp () appConfig
+                    |> TuiTest.pressKey '?'
+                    |> TuiTest.ensureViewHas "Keybindings"
+                    |> TuiTest.pressKeyWith { key = Tui.Escape, modifiers = [] }
+                    |> TuiTest.ensureViewDoesNotHave "Keybindings"
+                    |> TuiTest.expectRunning
+        , test "clicking a link fires the link callback" <|
+            \() ->
+                TuiTest.startApp () appConfig
+                    |> TuiTest.clickText "docs link"
+                    |> TuiTest.ensureViewHas "clicked: https://example.com"
+                    |> TuiTest.expectRunning
+        ]
+```
+
+Tests run with `elm-test` — no terminal needed. The test runner gives you
+a simulated terminal context with configurable dimensions, so you can test
+scroll behavior, layout reflow, and off-screen content.
 
 ## Modules
 

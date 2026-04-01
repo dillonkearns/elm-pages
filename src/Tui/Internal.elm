@@ -11,8 +11,9 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Ansi.Color
 import Tui exposing (Attribute(..), ColorProfile(..), Context, Screen)
-import Tui.Screen.Internal as ScreenInternal
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Effect.Internal as EffectInternal
+import Tui.Screen.Internal as ScreenInternal
 import Tui.Sub as Sub exposing (Sub)
 
 
@@ -158,22 +159,22 @@ processEffectsThenRenderAndWait :
     -> BackendTask FatalError ()
 processEffectsThenRenderAndWait config context model effect =
     -- elm-review: known-unoptimized-recursion
-    Effect.toBackendTask effect
+    EffectInternal.toBackendTask effect
         |> BackendTask.quiet
         |> BackendTask.andThen
             (\result ->
                 case result of
-                    Effect.EffectDone ->
+                    EffectInternal.EffectDone ->
                         renderAndWait config context model
 
-                    Effect.EffectMsg msg ->
+                    EffectInternal.EffectMsg msg ->
                         let
                             ( newModel, newEffect ) =
                                 config.update msg model
                         in
                         processEffectsThenRenderAndWait config context newModel newEffect
 
-                    Effect.EffectExit code ->
+                    EffectInternal.EffectExit code ->
                         tuiExit code
                             |> BackendTask.andThen
                                 (\() ->
@@ -332,12 +333,22 @@ applyContextUpdate update sub context model =
 
 effectToList : Effect msg -> List (Effect msg)
 effectToList effect =
-    case effect of
-        Effect.None ->
-            []
-
-        _ ->
-            [ effect ]
+    Effect.fold
+        { none = []
+        , batch = \_ -> [ effect ]
+        , backendTask = \_ -> [ effect ]
+        , exit = \_ -> [ effect ]
+        , toast = \_ -> [ effect ]
+        , errorToast = \_ -> [ effect ]
+        , resetScroll = \_ -> [ effect ]
+        , scrollTo = \_ _ -> [ effect ]
+        , scrollDown = \_ _ -> [ effect ]
+        , scrollUp = \_ _ -> [ effect ]
+        , setSelectedIndex = \_ _ -> [ effect ]
+        , selectFirst = \_ -> [ effect ]
+        , focusPane = \_ -> [ effect ]
+        }
+        effect
 
 
 

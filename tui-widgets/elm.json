@@ -18,12 +18,14 @@
         "Tui.OptionsBar",
         "Tui.Status",
         "Tui.Menu",
-        "Tui.Prompt"
+        "Tui.Prompt",
+        "Tui.Layout.Test"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
         "dillonkearns/elm-pages": "12.1.0 <= v < 13.0.0",
         "elm/core": "1.0.5 <= v < 2.0.0",
+        "elm-explorations/test": "2.0.1 <= v < 3.0.0",
         "wolfadex/elm-ansi": "3.0.0 <= v < 4.0.0"
     },
     "test-dependencies": {}
