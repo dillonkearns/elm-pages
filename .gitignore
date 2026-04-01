@@ -23,3 +23,6 @@ test-scripts/db/schema-history/
 **/tests/viewer-preview.html
 **/tests/viewer.js
 tests/viewer-app/elm-stuff/
+
+# elm-wrap artifacts
+artifacts.x.dat

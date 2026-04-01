@@ -2,6 +2,7 @@ module Api exposing (routes)
 
 import ApiRoute exposing (ApiRoute)
 import BackendTask exposing (BackendTask)
+import BackendTask.Http
 import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
@@ -54,6 +55,7 @@ routes getStaticRoutes htmlToString =
     , xmlDecoder
     , multipleContentTypes
     , errorRoute
+    , proxy
     ]
 
 
@@ -222,4 +224,49 @@ greet =
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
         |> ApiRoute.literal "greet"
+        |> ApiRoute.serverRender
+
+
+{-| Open proxy endpoint used by tests to verify URL validation.
+-}
+proxy : ApiRoute ApiRoute.Response
+proxy =
+    let
+        decoder :
+            Decode.Decoder
+                { url : String
+                , body : Maybe Decode.Value
+                }
+        decoder =
+            Decode.map2 (\url body -> { url = url, body = body })
+                (Decode.field "url" Decode.string)
+                (Decode.maybe (Decode.field "body" Decode.value))
+    in
+    ApiRoute.succeed
+        (\request ->
+            case request |> Request.jsonBody decoder of
+                Just (Ok { url, body }) ->
+                    BackendTask.Http.request
+                        { url = url
+                        , method = "GET"
+                        , headers = []
+                        , body =
+                            body
+                                |> Maybe.map BackendTask.Http.jsonBody
+                                |> Maybe.withDefault BackendTask.Http.emptyBody
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
+                        }
+                        (BackendTask.Http.expectJson Decode.value)
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map (\json -> Response.json json)
+
+                _ ->
+                    Response.plainText "Expected JSON body with a `url` field."
+                        |> Response.withStatusCode 400
+                        |> BackendTask.succeed
+        )
+        |> ApiRoute.literal "api"
+        |> ApiRoute.slash
+        |> ApiRoute.literal "proxy"
         |> ApiRoute.serverRender

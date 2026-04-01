@@ -103,9 +103,6 @@ async function cachedWhich(executable) {
 async function ensureRequiredExecutables(options) {
   const checks = await Promise.allSettled([
     cachedWhich("lamdera"),
-    options.optimize === "2"
-      ? cachedWhich("elm-optimize-level-2")
-      : Promise.resolve(),
     cachedWhich("elm-review"),
   ]);
 
@@ -113,9 +110,6 @@ async function ensureRequiredExecutables(options) {
     throw "I couldn't find lamdera on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
   if (checks[1].status === "rejected") {
-    throw "I couldn't find elm-optimize-level-2 on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
-  }
-  if (checks[2].status === "rejected") {
     throw "I couldn't find elm-review on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
 }

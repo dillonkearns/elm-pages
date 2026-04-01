@@ -602,6 +602,24 @@ requestRaw :
     -> Expect a
     -> BackendTask { fatal : FatalError, recoverable : Error } a
 requestRaw request__ expect =
+    if String.startsWith "elm-pages-internal://" request__.url then
+        BackendTask.fail
+            (FatalError.recoverable
+                { title = "Invalid URL"
+                , body = "BackendTask.Http: Unsupported URL scheme. Got: " ++ request__.url
+                }
+                (BadUrl request__.url)
+            )
+
+    else
+        requestRawUnchecked request__ expect
+
+
+requestRawUnchecked :
+    HashRequest.Request
+    -> Expect a
+    -> BackendTask { fatal : FatalError, recoverable : Error } a
+requestRawUnchecked request__ expect =
     let
         request_ : HashRequest.Request
         request_ =

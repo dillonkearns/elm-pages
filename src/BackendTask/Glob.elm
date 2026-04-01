@@ -1117,7 +1117,6 @@ toBackendTaskWithOptions options glob =
                                         |> .match
                                 )
                     )
-                |> BackendTask.Http.expectJson
         }
         |> BackendTask.onError
             (\_ -> BackendTask.succeed [])

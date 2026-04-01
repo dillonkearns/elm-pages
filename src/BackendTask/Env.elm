@@ -60,8 +60,7 @@ get envVariableName =
         { name = "env"
         , body = BackendTask.Http.jsonBody (Encode.string envVariableName)
         , expect =
-            BackendTask.Http.expectJson
-                (Decode.nullable Decode.string)
+            Decode.nullable Decode.string
         }
 
 

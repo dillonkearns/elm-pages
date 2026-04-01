@@ -295,8 +295,7 @@ resolve filePath =
         { name = "resolve-path"
         , body = BackendTask.Http.jsonBody (Encode.string (toString filePath))
         , expect =
-            BackendTask.Http.expectJson
-                (Decode.string |> Decode.map fromString)
+            Decode.string |> Decode.map fromString
         }
 
 

@@ -200,11 +200,9 @@ showStep (Options options_) =
                 , spinner = options_.animation
                 }
         , expect =
-            BackendTask.Http.expectJson
-                (Decode.map
-                    (\s -> Spinner s (Options options_))
-                    Decode.string
-                )
+            Decode.map
+                (\s -> Spinner s (Options options_))
+                Decode.string
         }
 
 
@@ -238,7 +236,7 @@ runTaskWithOptions (Options options_) backendTask =
                                         , completionIcon = completionIcon
                                         , completionText = completionText
                                         }
-                                , expect = BackendTask.Http.expectJson (Decode.succeed ())
+                                , expect = Decode.succeed ()
                                 }
                                 |> BackendTask.andThen (\() -> BackendTask.fail error)
                         )
@@ -256,7 +254,7 @@ runTaskWithOptions (Options options_) backendTask =
                                         , completionIcon = completionIcon
                                         , completionText = completionText
                                         }
-                                , expect = BackendTask.Http.expectJson (Decode.succeed value)
+                                , expect = Decode.succeed value
                                 }
                         )
             )
@@ -316,7 +314,7 @@ runSpinnerWithTask (Spinner spinnerId (Options options_)) backendTask =
                 , immediateStart = options_.immediateStart
                 , spinner = Just "line"
                 }
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        , expect = Decode.succeed ()
         }
         |> BackendTask.andThen (\() -> backendTask)
         |> BackendTask.andThen
@@ -333,7 +331,7 @@ runSpinnerWithTask (Spinner spinnerId (Options options_)) backendTask =
                             , completionIcon = completionIcon
                             , completionText = completionText
                             }
-                    , expect = BackendTask.Http.expectJson (Decode.succeed value)
+                    , expect = Decode.succeed value
                     }
             )
         |> BackendTask.onError
@@ -350,7 +348,7 @@ runSpinnerWithTask (Spinner spinnerId (Options options_)) backendTask =
                             , completionIcon = completionIcon
                             , completionText = completionText
                             }
-                    , expect = BackendTask.Http.expectJson (Decode.succeed ())
+                    , expect = Decode.succeed ()
                     }
                     |> BackendTask.andThen (\() -> BackendTask.fail error)
             )
@@ -369,7 +367,7 @@ spinner text onCompletion task =
                 , spinner = Just "line"
                 }
         , expect =
-            BackendTask.Http.expectJson Decode.string
+            Decode.string
         }
         |> BackendTask.andThen
             (\spinnerId ->
@@ -388,7 +386,7 @@ spinner text onCompletion task =
                                         , completionIcon = completionIcon
                                         , completionText = completionText
                                         }
-                                , expect = BackendTask.Http.expectJson (Decode.succeed ())
+                                , expect = Decode.succeed ()
                                 }
                                 |> BackendTask.andThen (\() -> BackendTask.fail error)
                         )
@@ -406,7 +404,7 @@ spinner text onCompletion task =
                                         , completionIcon = completionIcon
                                         , completionText = completionText
                                         }
-                                , expect = BackendTask.Http.expectJson (Decode.succeed value)
+                                , expect = Decode.succeed value
                                 }
                         )
             )

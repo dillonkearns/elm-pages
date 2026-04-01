@@ -12,53 +12,40 @@ env:
   SESSION_SECRET: hello
 
 jobs:
-  main:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
-      - name: Use Node.js 20
-        uses: actions/setup-node@v1
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
-      # Re-use node_modules between runs until package-lock.json changes.
+          node-version: 22
       - name: Cache node_modules
         id: cache-node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/Cypress
             node_modules
-          key: node_modules-node-v${{ matrix.node }}-1-${{ hashFiles('package-lock.json') }}
-
-      # Re-use ~/.elm between runs until elm.json, elm-tooling.json or
-      # review/elm.json changes. The Elm compiler saves downloaded Elm packages
-      # to ~/.elm, and elm-tooling saves downloaded tool executables there.
+          key: node_modules-${{ hashFiles('package-lock.json') }}
       - name: Cache ~/.elm
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.elm
           key: elm-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json', 'examples/routing/elm.json', 'examples/escaping/elm.json', 'examples/base-path/elm.json') }}
       - name: Download lamdera
         run: curl https://static.lamdera.com/bin/linux/lamdera-next-alpine-musl -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
-
-      # Install npm packages, unless we restored them from cache.
-      # Since `npm ci` removes the node_modules folder before running it’s
-      # important to skip this step if cache was restored.
       - name: npm ci
         if: steps.cache-node_modules.outputs.cache-hit != 'true'
         env:
-          # If you have a `"postinstall": "elm-tooling install"` script in your
-          # package.json, this turns it into a no-op. We’ll run it in the next
-          # step because of the caching. If elm-tooling.json changes but
-          # package-lock.json does not, the postinstall script needs running
-          # but this step won’t.
           NO_ELM_TOOLING_INSTALL: 1
         run: npm ci
       - name: elm-tooling install
         run: npx --no-install elm-tooling install
-      - name: Add elm-review, elm and elm-format to path
+      - name: Install elm-instrument (for coverage tests)
+        run: npm install -g elm-coverage
+      - name: Add node_modules/.bin to PATH
         run: realpath node_modules/.bin >> $GITHUB_PATH
       - uses: sparksp/elm-review-action@v1
         env:
@@ -67,12 +54,52 @@ jobs:
         run: npm run build:generator
       - name: Tests
         run: npm test
-      #      - name: elm-format
-      #        run: npx --no-install elm-format --validate src/ generator/src
       - name: Build elm docs
-        id: docs
         run: rm -rf elm-stuff && lamdera make --docs docs.json
+      - name: Build base path example site
+        run: cd examples/base-path && npm install && npx elm-pages build --base elm-pages && cd ../..
+      - name: GitHub Pages Example Deploy
+        uses: peaceiris/actions-gh-pages@v4
+        if: github.ref == 'refs/heads/master'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./examples/base-path/dist
 
+  cypress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Cache node_modules
+        id: cache-node_modules
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/Cypress
+            node_modules
+          key: node_modules-${{ hashFiles('package-lock.json') }}
+      - name: Cache ~/.elm
+        uses: actions/cache@v5
+        with:
+          path: ~/.elm
+          key: elm-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json', 'examples/routing/elm.json', 'examples/escaping/elm.json', 'examples/base-path/elm.json') }}
+      - name: Download lamdera
+        run: curl https://static.lamdera.com/bin/linux/lamdera-next-alpine-musl -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
+      - name: npm ci
+        if: steps.cache-node_modules.outputs.cache-hit != 'true'
+        env:
+          NO_ELM_TOOLING_INSTALL: 1
+        run: npm ci
+      - name: elm-tooling install
+        run: npx --no-install elm-tooling install
+      - name: Add node_modules/.bin to PATH
+        run: realpath node_modules/.bin >> $GITHUB_PATH
+      - name: Build Generator
+        run: npm run build:generator
       - name: Setup for cypress
         run: (cd examples/end-to-end && rm -f formatted-elm.txt && npm install && npx elm-tooling install && rm -rf elm-stuff && npx elm-pages gen && lamdera make app/Route/Index.elm)
       - name: DB migration E2E test
@@ -84,26 +111,40 @@ jobs:
           start: node ../../generator/src/cli.js dev --debug
           wait-on: "http://localhost:1234"
           wait-on-timeout: 120
-
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: cypress-screenshots
-          path: cypress/screenshots
-      - uses: actions/upload-artifact@v4
+          path: examples/end-to-end/cypress/screenshots
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: cypress-videos
-          path: cypress/videos
-      - run: npx elm-tooling install
-      - name: Build base path example site
-        run: cd examples/base-path && npm install && npx elm-pages build --base elm-pages && cd ../..
-      - name: GitHub Pages Example Deploy
-        uses: peaceiris/actions-gh-pages@v3
-        if: ${{ github.ref == 'refs/heads/master' }}
+          path: examples/end-to-end/cypress/videos
+
+  publish:
+    needs: [build, cypress]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./examples/base-path/dist
+          submodules: recursive
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Cache node_modules
+        id: cache-node_modules
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: node_modules-${{ hashFiles('package-lock.json') }}
+      - name: npm ci
+        if: steps.cache-node_modules.outputs.cache-hit != 'true'
+        env:
+          NO_ELM_TOOLING_INSTALL: 1
+        run: npm ci
+      - name: elm-tooling install
+        run: npx --no-install elm-tooling install
       - name: Elm Publish
         uses: dillonkearns/elm-publish-action@v2
         with:
@@ -114,59 +155,3 @@ jobs:
         uses: JS-DevTools/npm-publish@v3
         with:
           token: ${{ secrets.NPM_TOKEN }}
-  # windows-snapshots:
-  #   runs-on: windows-latest
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - name: Download lamdera
-  #       shell: bash
-  #       run: mkdir bin && curl https://static.lamdera.com/bin/win/lamdera.exe -o ./bin/lamdera && chmod a+x ./bin/lamdera
-  #     - name: Add Lamdera to path
-  #       shell: bash
-  #       run: echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
-  #     - name: Confirm that lamdera is on path
-  #       shell: bash
-  #       run: lamdera --version && which lamdera
-  #     - name: Use Node.js 16
-  #       uses: actions/setup-node@v1
-  #       with:
-  #         node-version: 16
-  #     # Re-use node_modules between runs until package-lock.json changes.
-  #     - name: Cache node_modules
-  #       id: cache-node_modules
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: |
-  #           ~/.cache/Cypress
-  #           node_modules
-  #         key: node_modules-node-windows-v${{ matrix.node }}-${{ hashFiles('package-lock.json') }}
-  #     - run: git config core.autocrlf true
-  #     # Re-use ~/.elm between runs until elm.json, elm-tooling.json or
-  #     # review/elm.json changes. The Elm compiler saves downloaded Elm packages
-  #     # to ~/.elm, and elm-tooling saves downloaded tool executables there.
-  #     - name: Cache ~/.elm
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: ~/.elm
-  #         key: elm-windows-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json') }}
-
-  #     # Install npm packages, unless we restored them from cache.
-  #     # Since `npm ci` removes the node_modules folder before running it’s
-  #     # important to skip this step if cache was restored.
-  #     - name: npm ci
-  #       shell: bash
-  #       if: steps.cache-node_modules.outputs.cache-hit != 'true'
-  #       env:
-  #         # If you have a `"postinstall": "elm-tooling install"` script in your
-  #         # package.json, this turns it into a no-op. We’ll run it in the next
-  #         # step because of the caching. If elm-tooling.json changes but
-  #         # package-lock.json does not, the postinstall script needs running
-  #         # but this step won’t.
-  #         NO_ELM_TOOLING_INSTALL: 1
-  #       run: npm ci
-  #     - name: elm-tooling install
-  #       shell: bash
-  #       run: npx --no-install elm-tooling install
-  #     # - name: Snapshot Tests
-  #     #   shell: bash
-  #     #   run: (cd examples/escaping && npm install && npm test) && (cd examples/base-path && npm install && npm test)

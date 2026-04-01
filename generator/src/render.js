@@ -207,7 +207,12 @@ function runGeneratorAppHelp(
       const outgoingBytes = newThing.bytes || [];
       let contentDatPayload;
 
-      if (fromElm.command === "log") {
+      if (typeof fromElm === "string") {
+        // printAndExitSuccess from Elm Cli.Program (e.g. --help output)
+        console.log(fromElm);
+        resolve();
+        return;
+      } else if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
         // Finished successfully

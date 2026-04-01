@@ -75,5 +75,5 @@ int32 =
     BackendTask.Internal.Request.request
         { name = "randomSeed"
         , body = BackendTask.Http.jsonBody Encode.null
-        , expect = BackendTask.Http.expectJson Decode.int
+        , expect = Decode.int
         }

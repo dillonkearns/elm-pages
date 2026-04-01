@@ -6,6 +6,7 @@ Uses simple Bytes encoding (not Wire3) so tests work without lamdera.
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
+import BackendTask.Internal.Request
 import Bytes exposing (Bytes)
 import Bytes.Decode as BD
 import Bytes.Encode as BE
@@ -98,16 +99,11 @@ testConfig =
 -}
 get : BackendTask FatalError Db
 get =
-    BackendTask.Http.request
-        { url = "elm-pages-internal://db-read-meta"
-        , method = "GET"
-        , headers = []
+    BackendTask.Internal.Request.requestBytes
+        { name = "db-read-meta"
         , body = BackendTask.Http.jsonBody (Encode.object [])
-        , timeoutInMs = Nothing
-        , retries = Nothing
+        , expect = dbReadPayloadDecoder
         }
-        (BackendTask.Http.expectBytes dbReadPayloadDecoder)
-        |> BackendTask.allowFatal
         |> BackendTask.andThen resolvePayload
 
 
@@ -267,41 +263,27 @@ update fn =
 
 acquireLock : BackendTask FatalError String
 acquireLock =
-    BackendTask.Http.request
-        { url = "elm-pages-internal://db-lock-acquire"
-        , method = "GET"
-        , headers = []
+    BackendTask.Internal.Request.request
+        { name = "db-lock-acquire"
         , body = BackendTask.Http.jsonBody (Encode.object [])
-        , timeoutInMs = Nothing
-        , retries = Nothing
+        , expect = Decode.string
         }
-        (BackendTask.Http.expectJson Decode.string)
-        |> BackendTask.allowFatal
 
 
 releaseLock : BackendTask FatalError ()
 releaseLock =
-    BackendTask.Http.request
-        { url = "elm-pages-internal://db-lock-release"
-        , method = "GET"
-        , headers = []
+    BackendTask.Internal.Request.request
+        { name = "db-lock-release"
         , body = BackendTask.Http.jsonBody (Encode.object [ ( "token", Encode.string "test-lock-token" ) ])
-        , timeoutInMs = Nothing
-        , retries = Nothing
+        , expect = Decode.succeed ()
         }
-        (BackendTask.Http.expectJson (Decode.succeed ()))
-        |> BackendTask.allowFatal
 
 
 write : Db -> BackendTask FatalError ()
 write db =
-    BackendTask.Http.request
-        { url = "elm-pages-internal://db-write"
-        , method = "GET"
+    BackendTask.Internal.Request.requestWithHeaders
+        { name = "db-write"
         , headers = [ ( "x-schema-hash", schemaHash ) ]
         , body = BackendTask.Http.bytesBody "application/octet-stream" (encode db)
-        , timeoutInMs = Nothing
-        , retries = Nothing
+        , expect = Decode.succeed ()
         }
-        (BackendTask.Http.expectJson (Decode.succeed ()))
-        |> BackendTask.allowFatal

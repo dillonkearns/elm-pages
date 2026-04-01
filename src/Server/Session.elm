@@ -426,8 +426,7 @@ sign getSecrets input =
                                 ]
                             )
                     , expect =
-                        BackendTask.Http.expectJson
-                            Json.Decode.string
+                        Json.Decode.string
                     }
             )
 
@@ -450,6 +449,5 @@ unsign getSecrets decoder input =
                         decoder
                             |> Json.Decode.nullable
                             |> Json.Decode.map (Result.fromMaybe ())
-                            |> BackendTask.Http.expectJson
                     }
             )

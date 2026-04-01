@@ -5,6 +5,7 @@ exports[`generateMigrateChain > four-step migration (target V4) produces correct
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
+import BackendTask.Internal.Request
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
@@ -92,37 +93,26 @@ migrateFromV3 model =
     saveAndLog (MigrateV4.migrate model) 3 4
 
 
-internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
-internalRequest name body expect =
-    BackendTask.Http.request
-        { url = "elm-pages-internal://" ++ name
-        , method = "GET"
-        , headers = []
-        , body = body
-        , timeoutInMs = Nothing
-        , retries = Nothing
-        }
-        expect
-        |> BackendTask.allowFatal
-
-
 saveAndLog : Db.Db -> Int -> Int -> BackendTask FatalError ()
 saveAndLog newDb fromVersion toVersion =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db newDb)
     in
-    internalRequest "db-migrate-write"
-        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
-        (BackendTask.Http.expectJson (Decode.succeed ()))
+    BackendTask.Internal.Request.request
+        { name = "db-migrate-write"
+        , body = BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes
+        , expect = Decode.succeed ()
+        }
 
 
 readDbBin : BackendTask FatalError { version : Int, bytes : Bytes }
 readDbBin =
-    internalRequest "db-migrate-read"
-        (BackendTask.Http.jsonBody Encode.null)
-        (BackendTask.Http.expectBytes
-            (Bytes.Decode.unsignedInt32 Bytes.BE
+    BackendTask.Internal.Request.requestBytes
+        { name = "db-migrate-read"
+        , body = BackendTask.Http.jsonBody Encode.null
+        , expect =
+            Bytes.Decode.unsignedInt32 Bytes.BE
                 |> Bytes.Decode.andThen
                     (\\version ->
                         Bytes.Decode.unsignedInt32 Bytes.BE
@@ -137,8 +127,7 @@ readDbBin =
                                             )
                                 )
                     )
-            )
-        )
+        }
 "
 `;
 
@@ -147,6 +136,7 @@ exports[`generateMigrateChain > multi-step migration (target V3) produces correc
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
+import BackendTask.Internal.Request
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
@@ -215,37 +205,26 @@ migrateFromV2 model =
     saveAndLog (MigrateV3.migrate model) 2 3
 
 
-internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
-internalRequest name body expect =
-    BackendTask.Http.request
-        { url = "elm-pages-internal://" ++ name
-        , method = "GET"
-        , headers = []
-        , body = body
-        , timeoutInMs = Nothing
-        , retries = Nothing
-        }
-        expect
-        |> BackendTask.allowFatal
-
-
 saveAndLog : Db.Db -> Int -> Int -> BackendTask FatalError ()
 saveAndLog newDb fromVersion toVersion =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db newDb)
     in
-    internalRequest "db-migrate-write"
-        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
-        (BackendTask.Http.expectJson (Decode.succeed ()))
+    BackendTask.Internal.Request.request
+        { name = "db-migrate-write"
+        , body = BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes
+        , expect = Decode.succeed ()
+        }
 
 
 readDbBin : BackendTask FatalError { version : Int, bytes : Bytes }
 readDbBin =
-    internalRequest "db-migrate-read"
-        (BackendTask.Http.jsonBody Encode.null)
-        (BackendTask.Http.expectBytes
-            (Bytes.Decode.unsignedInt32 Bytes.BE
+    BackendTask.Internal.Request.requestBytes
+        { name = "db-migrate-read"
+        , body = BackendTask.Http.jsonBody Encode.null
+        , expect =
+            Bytes.Decode.unsignedInt32 Bytes.BE
                 |> Bytes.Decode.andThen
                     (\\version ->
                         Bytes.Decode.unsignedInt32 Bytes.BE
@@ -260,8 +239,7 @@ readDbBin =
                                             )
                                 )
                     )
-            )
-        )
+        }
 "
 `;
 
@@ -270,6 +248,7 @@ exports[`generateMigrateChain > single migration (target V2) produces correct El
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
+import BackendTask.Internal.Request
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
@@ -319,37 +298,26 @@ migrateFromV1 model =
     saveAndLog (MigrateV2.migrate model) 1 2
 
 
-internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
-internalRequest name body expect =
-    BackendTask.Http.request
-        { url = "elm-pages-internal://" ++ name
-        , method = "GET"
-        , headers = []
-        , body = body
-        , timeoutInMs = Nothing
-        , retries = Nothing
-        }
-        expect
-        |> BackendTask.allowFatal
-
-
 saveAndLog : Db.Db -> Int -> Int -> BackendTask FatalError ()
 saveAndLog newDb fromVersion toVersion =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db newDb)
     in
-    internalRequest "db-migrate-write"
-        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
-        (BackendTask.Http.expectJson (Decode.succeed ()))
+    BackendTask.Internal.Request.request
+        { name = "db-migrate-write"
+        , body = BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes
+        , expect = Decode.succeed ()
+        }
 
 
 readDbBin : BackendTask FatalError { version : Int, bytes : Bytes }
 readDbBin =
-    internalRequest "db-migrate-read"
-        (BackendTask.Http.jsonBody Encode.null)
-        (BackendTask.Http.expectBytes
-            (Bytes.Decode.unsignedInt32 Bytes.BE
+    BackendTask.Internal.Request.requestBytes
+        { name = "db-migrate-read"
+        , body = BackendTask.Http.jsonBody Encode.null
+        , expect =
+            Bytes.Decode.unsignedInt32 Bytes.BE
                 |> Bytes.Decode.andThen
                     (\\version ->
                         Bytes.Decode.unsignedInt32 Bytes.BE
@@ -364,7 +332,6 @@ readDbBin =
                                             )
                                 )
                     )
-            )
-        )
+        }
 "
 `;

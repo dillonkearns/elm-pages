@@ -7,6 +7,30 @@ will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.3.4] - 2026-04-01
+
+### Added
+
+- `--coverage` flag for `elm-pages run`. Generates lcov.info coverage reports using elm-instrument.
+
+### Fixed
+
+- Fix browser URL not updating after a form submission that returns a redirect.
+
+## [3.3.3] - 2026-03-30
+
+### Fixed
+
+- Reject `elm-pages-internal://` URLs in `BackendTask.Http` requests. Internal requests now use a separate code path.
+
+## [3.3.1] - 2026-03-30
+
+### Fixed
+
+- Fix `elm-pages init` producing projects with incompatible Elm dependencies. The init template referenced elm-pages 12.0.2 with elm-cli-options-parser 5.0.1, but 12.0.2 requires elm-cli-options-parser 4.x. The template now correctly references elm-pages 12.1.0 with fully resolved dependencies.
+- Update init template to use direct npm devDependencies for `elm` and `elm-format` instead of `elm-tooling`, removing the `postinstall` script.
+- Upgrade all Elm and npm dependencies in the init template to their latest compatible versions.
+
 ## [3.3.0] - 2026-03-14
 
 ### Added
