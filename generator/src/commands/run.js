@@ -39,9 +39,14 @@ export async function run(elmModulePath, options, options2) {
   // are treated as elm-pages options. Flags after are forwarded to the script.
   // We check process.argv since Commander consumes known options regardless
   // of position.
-  const { extractCoverageFlags } = await import("../coverage-cli.js");
+  const { extractCoverageFlags, reinjectConsumedFlags } = await import("../coverage-cli.js");
   const coverageFlags = extractCoverageFlags(elmModulePath, process.argv);
   const coverage = coverageFlags.coverage;
+
+  // Commander consumes known options (--coverage, --coverage-include, etc.)
+  // even when they appear after the script path. Re-inject any that were
+  // positioned after the script so the script receives them.
+  reinjectConsumedFlags(elmModulePath, process.argv, options, unprocessedCliOptions);
 
   try {
     const { moduleName, projectDirectory, sourceDirectory } =

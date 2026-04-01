@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { extractCoverageFlags } from "../src/coverage-cli.js";
+import { extractCoverageFlags, reinjectConsumedFlags } from "../src/coverage-cli.js";
 
 // Simulate process.argv: ["node", "elm-pages", "run", ...args]
 const argv = (...args) => ["node", "elm-pages", "run", ...args];
@@ -71,5 +71,43 @@ describe("extractCoverageFlags", () => {
     const result = extractCoverageFlags("missing.elm",
       argv("--coverage", "src/Script.elm"));
     expect(result.coverage).toBe(false);
+  });
+});
+
+describe("reinjectConsumedFlags", () => {
+  it("re-injects --coverage that Commander consumed from after script path", () => {
+    const unprocessed = ["--seed", "42"];
+    reinjectConsumedFlags("src/Script.elm",
+      argv("src/Script.elm", "--coverage", "--seed", "42"),
+      { coverage: true, coverageInclude: [], coverageExclude: [], coverageIncludeModule: [], coverageExcludeModule: [] },
+      unprocessed);
+    expect(unprocessed).toContain("--coverage");
+  });
+
+  it("does NOT re-inject --coverage that was before script path", () => {
+    const unprocessed = [];
+    reinjectConsumedFlags("src/Script.elm",
+      argv("--coverage", "src/Script.elm"),
+      { coverage: true, coverageInclude: [], coverageExclude: [], coverageIncludeModule: [], coverageExcludeModule: [] },
+      unprocessed);
+    expect(unprocessed).not.toContain("--coverage");
+  });
+
+  it("re-injects --coverage-include with value from after script path", () => {
+    const unprocessed = [];
+    reinjectConsumedFlags("src/Script.elm",
+      argv("src/Script.elm", "--coverage-include", "lib"),
+      { coverage: false, coverageInclude: ["lib"], coverageExclude: [], coverageIncludeModule: [], coverageExcludeModule: [] },
+      unprocessed);
+    expect(unprocessed).toEqual(["--coverage-include", "lib"]);
+  });
+
+  it("does nothing when no flags were consumed from after script", () => {
+    const unprocessed = ["--seed", "42"];
+    reinjectConsumedFlags("src/Script.elm",
+      argv("--coverage", "src/Script.elm", "--seed", "42"),
+      { coverage: true, coverageInclude: [], coverageExclude: [], coverageIncludeModule: [], coverageExcludeModule: [] },
+      unprocessed);
+    expect(unprocessed).toEqual(["--seed", "42"]);
   });
 });

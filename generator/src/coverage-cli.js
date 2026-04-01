@@ -50,3 +50,44 @@ export function extractCoverageFlags(scriptPath, argv) {
 
   return result;
 }
+
+/**
+ * Commander consumes known options regardless of position. If coverage flags
+ * appeared AFTER the script path in process.argv, they were intended for the
+ * script but Commander ate them. Re-inject them into the unprocessed args.
+ *
+ * @param {string} scriptPath
+ * @param {string[]} argv - process.argv
+ * @param {object} commanderOptions - parsed options from Commander
+ * @param {string[]} unprocessedCliOptions - mutable array to inject into
+ */
+export function reinjectConsumedFlags(scriptPath, argv, commanderOptions, unprocessedCliOptions) {
+  const scriptIdx = argv.indexOf(scriptPath);
+  if (scriptIdx === -1) return;
+
+  const postScript = argv.slice(scriptIdx + 1);
+
+  // Check each coverage flag: if it appears after the script in argv,
+  // Commander consumed it but it was meant for the script.
+  if (commanderOptions.coverage && postScript.includes("--coverage")) {
+    unprocessedCliOptions.push("--coverage");
+  }
+
+  const withValue = {
+    "--coverage-include": "coverageInclude",
+    "--coverage-exclude": "coverageExclude",
+    "--coverage-include-module": "coverageIncludeModule",
+    "--coverage-exclude-module": "coverageExcludeModule",
+  };
+
+  for (const [flag, key] of Object.entries(withValue)) {
+    const values = commanderOptions[key] || [];
+    // For each value Commander captured, check if it came from after the script
+    for (let i = 0; i < postScript.length; i++) {
+      if (postScript[i] === flag && i + 1 < postScript.length) {
+        unprocessedCliOptions.push(flag, postScript[i + 1]);
+        i++;
+      }
+    }
+  }
+}
