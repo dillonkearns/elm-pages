@@ -30,12 +30,21 @@ const fixtureElm = JSON.parse(fs.readFileSync(fixtureElmJson, "utf-8"));
 fixtureElm.dependencies.direct["dillonkearns/elm-pages"] = elmPkgVersion;
 fs.writeFileSync(fixtureElmJson, JSON.stringify(fixtureElm, null, 4) + "\n");
 
-// Register local package so the compiler resolves it
+// Register local package so the Elm compiler can resolve it.
+// Prefer elm-wrap if available; otherwise create a symlink directly.
+const elmHome = process.env.ELM_HOME || path.join(process.env.HOME, ".elm");
+const pkgPath = path.join(elmHome, "0.19.1", "packages", "dillonkearns", "elm-pages", elmPkgVersion);
 const hasWrap = spawnSync("which", ["wrap"], { encoding: "utf-8" }).status === 0;
+let createdSymlink = false;
+
 if (hasWrap) {
   spawnSync("wrap", ["install", "--local-dev", "dillonkearns/elm-pages", "-y", "-q"], {
     cwd: repoRoot, encoding: "utf-8",
   });
+} else if (!fs.existsSync(pkgPath)) {
+  fs.mkdirSync(path.dirname(pkgPath), { recursive: true });
+  fs.symlinkSync(repoRoot, pkgPath);
+  createdSymlink = true;
 }
 
 afterAll(() => {
@@ -43,6 +52,9 @@ afterAll(() => {
     spawnSync("wrap", ["repository", "local-dev", "clear", "dillonkearns/elm-pages", elmPkgVersion], {
       encoding: "utf-8",
     });
+  }
+  if (createdSymlink) {
+    try { fs.unlinkSync(pkgPath); } catch {}
   }
 });
 
