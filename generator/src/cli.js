@@ -160,6 +160,11 @@ async function main() {
   program
     .command("test-run [elmModulePath]")
     .description("run page tests headlessly via elm-test")
+    .option("--coverage", "Instrument sources and generate a coverage report (requires elm-instrument from npm install -g elm-coverage)")
+    .option("--coverage-include <dir>", "Only instrument files in these source directories (repeatable)", collect, [])
+    .option("--coverage-exclude <dir>", "Exclude these source directories from instrumentation (repeatable)", collect, [])
+    .option("--coverage-include-module <pattern>", "Only show these modules in the report, e.g. 'MyApp.*' (repeatable)", collect, [])
+    .option("--coverage-exclude-module <pattern>", "Hide these modules from the report, e.g. 'Gen.*' (repeatable)", collect, [])
     .allowUnknownOption()
     .allowExcessArguments()
     .helpOption(false)
