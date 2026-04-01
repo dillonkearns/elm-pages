@@ -88,12 +88,10 @@ tuiInit =
         { name = "tui-init"
         , body = BackendTask.Http.emptyBody
         , expect =
-            BackendTask.Http.expectJson
-                (Decode.map3 (\w h cp -> { width = w, height = h, colorProfile = cp })
-                    (Decode.field "width" Decode.int)
-                    (Decode.field "height" Decode.int)
-                    (Decode.field "colorProfile" decodeColorProfile)
-                )
+            Decode.map3 (\w h cp -> { width = w, height = h, colorProfile = cp })
+                (Decode.field "width" Decode.int)
+                (Decode.field "height" Decode.int)
+                (Decode.field "colorProfile" decodeColorProfile)
         }
 
 
@@ -112,17 +110,15 @@ tuiRenderAndWait screen sub =
                     ]
                 )
         , expect =
-            BackendTask.Http.expectJson
-                (Decode.map2 (\evts wh -> { events = evts, width = wh.width, height = wh.height })
-                    (Decode.oneOf
-                        [ Decode.field "events" (Decode.list Decode.value)
-                        , Decode.field "event" Decode.value |> Decode.map List.singleton
-                        ]
-                    )
-                    (Decode.map2 (\w h -> { width = w, height = h })
-                        (Decode.field "width" Decode.int)
-                        (Decode.field "height" Decode.int)
-                    )
+            Decode.map2 (\evts wh -> { events = evts, width = wh.width, height = wh.height })
+                (Decode.oneOf
+                    [ Decode.field "events" (Decode.list Decode.value)
+                    , Decode.field "event" Decode.value |> Decode.map List.singleton
+                    ]
+                )
+                (Decode.map2 (\w h -> { width = w, height = h })
+                    (Decode.field "width" Decode.int)
+                    (Decode.field "height" Decode.int)
                 )
         }
 
@@ -136,7 +132,7 @@ tuiExit code =
         , body =
             BackendTask.Http.jsonBody
                 (Encode.int code)
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        , expect = Decode.succeed ()
         }
 
 
