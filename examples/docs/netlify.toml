@@ -4,6 +4,9 @@
   command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install && npx --no-install elm-tooling install && npm run build:generator) && npm install && npm run build"
   ignore = "/bin/false"
 
+[build.environment]
+  NODE_VERSION = "22"
+
 [dev]
   framework = "#static"
   publish = "dist"
