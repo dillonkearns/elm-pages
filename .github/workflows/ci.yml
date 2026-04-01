@@ -18,8 +18,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
-      - name: Use Node.js 20
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - name: Cache node_modules
@@ -29,7 +28,7 @@ jobs:
           path: |
             ~/.cache/Cypress
             node_modules
-          key: node_modules-node-v${{ matrix.node }}-1-${{ hashFiles('package-lock.json') }}
+          key: node_modules-${{ hashFiles('package-lock.json') }}
       - name: Cache ~/.elm
         uses: actions/cache@v5
         with:
@@ -46,7 +45,7 @@ jobs:
         run: npx --no-install elm-tooling install
       - name: Install elm-instrument (for coverage tests)
         run: npm install -g elm-coverage
-      - name: Add elm-review, elm and elm-format to path
+      - name: Add node_modules/.bin to PATH
         run: realpath node_modules/.bin >> $GITHUB_PATH
       - uses: sparksp/elm-review-action@v1
         env:
@@ -72,8 +71,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
-      - name: Use Node.js 20
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - name: Cache node_modules
@@ -83,7 +81,7 @@ jobs:
           path: |
             ~/.cache/Cypress
             node_modules
-          key: node_modules-node-v${{ matrix.node }}-1-${{ hashFiles('package-lock.json') }}
+          key: node_modules-${{ hashFiles('package-lock.json') }}
       - name: Cache ~/.elm
         uses: actions/cache@v5
         with:
@@ -131,8 +129,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
-      - name: Use Node.js 20
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - name: Cache node_modules
@@ -140,7 +137,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: node_modules
-          key: node_modules-node-v${{ matrix.node }}-1-${{ hashFiles('package-lock.json') }}
+          key: node_modules-${{ hashFiles('package-lock.json') }}
       - name: npm ci
         if: steps.cache-node_modules.outputs.cache-hit != 'true'
         env:
