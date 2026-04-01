@@ -2,6 +2,7 @@
  * Run command - runs an elm-pages script.
  */
 
+import * as fs from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
 import * as renderer from "../render.js";
@@ -33,6 +34,20 @@ export async function run(elmModulePath, options, options2) {
     unprocessedCliOptions,
     "--introspect-cli"
   );
+
+  // Coverage flags are position-dependent: only flags BEFORE the script path
+  // are treated as elm-pages options. Flags after are forwarded to the script.
+  // We check process.argv since Commander consumes known options regardless
+  // of position.
+  const { extractCoverageFlags, reinjectConsumedFlags } = await import("../coverage-cli.js");
+  const coverageFlags = extractCoverageFlags(elmModulePath, process.argv);
+  const coverage = coverageFlags.coverage;
+
+  // Commander consumes known options (--coverage, --coverage-include, etc.)
+  // even when they appear after the script path. Re-inject any that were
+  // positioned after the script so the script receives them.
+  reinjectConsumedFlags(elmModulePath, process.argv, options, unprocessedCliOptions);
+
   try {
     const { moduleName, projectDirectory, sourceDirectory } =
       await resolveInputPathOrModuleName(elmModulePath);
@@ -49,6 +64,50 @@ export async function run(elmModulePath, options, options2) {
       { moduleName, projectDirectory, sourceDirectory },
       { usesDb }
     );
+
+    // ── Coverage: instrument sources and redirect compilation ──
+    let coverageDataDir;
+    if (coverage) {
+      const {
+        getUserSourceDirs,
+        setupCoverage,
+      } = await import("../coverage.js");
+
+      const compileDir = path.join(projectDirectory, "elm-stuff/elm-pages");
+      let userSourceDirs = await getUserSourceDirs(projectDirectory);
+
+      // Apply --coverage-include / --coverage-exclude filters
+      const include = coverageFlags.coverageInclude;
+      const exclude = coverageFlags.coverageExclude;
+      if (include.length > 0) {
+        userSourceDirs = userSourceDirs.filter((d) =>
+          include.some((inc) => path.normalize(d) === path.normalize(inc))
+        );
+      }
+      if (exclude.length > 0) {
+        userSourceDirs = userSourceDirs.filter((d) =>
+          !exclude.some((exc) => path.normalize(d) === path.normalize(exc))
+        );
+      }
+
+      if (userSourceDirs.length === 0) {
+        console.warn("Warning: No user source directories found to instrument.");
+      } else {
+        const result = await setupCoverage(
+          projectDirectory,
+          userSourceDirs,
+          compileDir
+        );
+        coverageDataDir = result.coverageDir;
+      }
+
+      // Clean stale coverage output so a failed run doesn't leave old data
+      try {
+        const staleLcov = path.join(process.cwd(), "coverage", "lcov.info");
+        if (fs.existsSync(staleLcov)) fs.unlinkSync(staleLcov);
+      } catch {}
+
+    }
 
     // Check if custom-backend-task needs recompilation
     const portsCheck = await needsPortsRecompilation(projectDirectory);
@@ -103,10 +162,11 @@ export async function run(elmModulePath, options, options2) {
       projectDirectory,
       "elm-stuff/elm-pages/elm.cjs"
     );
-    const shouldRecompile = await needsRecompilation(
-      projectDirectory,
-      outputPath
-    );
+
+    // Force recompile when coverage instrumentation succeeded (sources differ)
+    const shouldRecompile =
+      (coverage && coverageDataDir) ||
+      (await needsRecompilation(projectDirectory, outputPath));
 
     if (shouldRecompile) {
       const elmEntrypointPath = path.join(
@@ -125,17 +185,46 @@ export async function run(elmModulePath, options, options2) {
         path.join(projectDirectory, "elm-stuff/elm-pages"),
         elmOutputPath
       );
+
+      // ── Coverage: inject tracking code into compiled JS ──
+      if (coverage && coverageDataDir) {
+        const { injectCoverageTracking } = await import("../coverage.js");
+        await injectCoverageTracking(outputPath, coverageDataDir);
+      }
+
       await updateVersionMarker(projectDirectory);
     }
     process.chdir(cwd);
+
+    // Load the compiled Elm module first so the coverage data-writing
+    // exit handler (injected in the JS) is registered.
+    const elmModule = await requireElm(
+      `${projectDirectory}/elm-stuff/elm-pages/elm.cjs`,
+      { suppressConsoleLog: isIntrospectionRun }
+    );
+
+    // ── Coverage: register report handler AFTER elm module loads ──
+    // The script calls process.exit(0) which prevents async code from
+    // running after runGenerator. A synchronous "exit" handler registered
+    // after the elm module's data-writing handler ensures correct ordering.
+    if (coverage && coverageDataDir) {
+      const { printCoverageReportSync } = await import("../coverage.js");
+      const outputCwd = cwd; // where the user ran the command
+      const moduleFilter = {
+        include: coverageFlags.coverageIncludeModule,
+        exclude: coverageFlags.coverageExcludeModule,
+      };
+      process.on("exit", () => {
+        printCoverageReportSync(projectDirectory, outputCwd, moduleFilter);
+      });
+    }
+
     await renderer.runGenerator(
       unprocessedCliOptions,
       portsPath
         ? await import(url.pathToFileURL(path.resolve(portsPath)).href)
         : null,
-      await requireElm(`${projectDirectory}/elm-stuff/elm-pages/elm.cjs`, {
-        suppressConsoleLog: isIntrospectionRun,
-      }),
+      elmModule,
       moduleName,
       undefined,
       { suppressConsoleLogDuringInit: isIntrospectionRun }

@@ -58,6 +58,8 @@ jobs:
         run: npm ci
       - name: elm-tooling install
         run: npx --no-install elm-tooling install
+      - name: Install elm-instrument (for coverage tests)
+        run: npm install -g elm-coverage
       - name: Add elm-review, elm and elm-format to path
         run: realpath node_modules/.bin >> $GITHUB_PATH
       - uses: sparksp/elm-review-action@v1
