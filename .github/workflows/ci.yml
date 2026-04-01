@@ -98,6 +98,8 @@ jobs:
         run: npm ci
       - name: elm-tooling install
         run: npx --no-install elm-tooling install
+      - name: Add node_modules/.bin to PATH
+        run: realpath node_modules/.bin >> $GITHUB_PATH
       - name: Build Generator
         run: npm run build:generator
       - name: Setup for cypress
