@@ -8,7 +8,7 @@
  *   npx vitest run generator/test/coverage-e2e/coverage.test.js --update
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -16,7 +16,35 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixtureDir = path.resolve(__dirname, "fixture");
+const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const cliPath = path.resolve(__dirname, "..", "..", "src", "cli.js");
+
+// Keep fixture elm.json pinned to the local package version and register it
+// via elm-wrap so the Elm compiler can find it without a published release.
+const elmPkgVersion = JSON.parse(
+  fs.readFileSync(path.join(repoRoot, "elm.json"), "utf-8")
+).version;
+
+const fixtureElmJson = path.join(fixtureDir, "elm.json");
+const fixtureElm = JSON.parse(fs.readFileSync(fixtureElmJson, "utf-8"));
+fixtureElm.dependencies.direct["dillonkearns/elm-pages"] = elmPkgVersion;
+fs.writeFileSync(fixtureElmJson, JSON.stringify(fixtureElm, null, 4) + "\n");
+
+// Register local package so the compiler resolves it
+const hasWrap = spawnSync("which", ["wrap"], { encoding: "utf-8" }).status === 0;
+if (hasWrap) {
+  spawnSync("wrap", ["install", "--local-dev", "dillonkearns/elm-pages", "-y", "-q"], {
+    cwd: repoRoot, encoding: "utf-8",
+  });
+}
+
+afterAll(() => {
+  if (hasWrap) {
+    spawnSync("wrap", ["repository", "local-dev", "clear", "dillonkearns/elm-pages", elmPkgVersion], {
+      encoding: "utf-8",
+    });
+  }
+});
 
 
 /** Replace machine-specific absolute paths with a placeholder. */
