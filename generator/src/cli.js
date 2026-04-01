@@ -118,7 +118,7 @@ async function main() {
   program
     .command("run <elmModulePath>")
     .description("run an elm-pages script")
-    .option("--coverage", "Instrument sources and generate a coverage report")
+    .option("--coverage", "Instrument sources and generate a coverage report (requires elm-instrument from npm install -g elm-coverage)")
     .option("--coverage-include <dir>", "Only instrument files in these source directories (repeatable)", collect, [])
     .option("--coverage-exclude <dir>", "Exclude these source directories from instrumentation (repeatable)", collect, [])
     .option("--coverage-include-module <pattern>", "Only show these modules in the report, e.g. 'MyApp.*' (repeatable)", collect, [])
