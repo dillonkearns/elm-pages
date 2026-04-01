@@ -19,42 +19,40 @@ const fixtureDir = path.resolve(__dirname, "fixture");
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const cliPath = path.resolve(__dirname, "..", "..", "src", "cli.js");
 
-// Keep fixture elm.json pinned to the local package version and register it
-// via elm-wrap so the Elm compiler can find it without a published release.
-const elmPkgVersion = JSON.parse(
-  fs.readFileSync(path.join(repoRoot, "elm.json"), "utf-8")
-).version;
-
-const fixtureElmJson = path.join(fixtureDir, "elm.json");
-const fixtureElm = JSON.parse(fs.readFileSync(fixtureElmJson, "utf-8"));
-fixtureElm.dependencies.direct["dillonkearns/elm-pages"] = elmPkgVersion;
-fs.writeFileSync(fixtureElmJson, JSON.stringify(fixtureElm, null, 4) + "\n");
-
-// Register local package so the Elm compiler can resolve it.
-// Prefer elm-wrap if available; otherwise create a symlink directly.
+// Point ELM_HOME at the local source so the Elm compiler uses it instead of
+// a published release. We symlink at the version the fixture already declares
+// (keeping its resolved indirect deps valid) but the source files come from
+// the repo, so the compat key and code changes are picked up.
+const fixtureElmJson = JSON.parse(fs.readFileSync(path.join(fixtureDir, "elm.json"), "utf-8"));
+const fixturePkgVersion = fixtureElmJson.dependencies.direct["dillonkearns/elm-pages"];
 const elmHome = process.env.ELM_HOME || path.join(process.env.HOME, ".elm");
-const pkgPath = path.join(elmHome, "0.19.1", "packages", "dillonkearns", "elm-pages", elmPkgVersion);
-const hasWrap = spawnSync("which", ["wrap"], { encoding: "utf-8" }).status === 0;
+const pkgPath = path.join(elmHome, "0.19.1", "packages", "dillonkearns", "elm-pages", fixturePkgVersion);
 let createdSymlink = false;
 
-if (hasWrap) {
-  spawnSync("wrap", ["install", "--local-dev", "dillonkearns/elm-pages", "-y", "-q"], {
-    cwd: repoRoot, encoding: "utf-8",
-  });
-} else if (!fs.existsSync(pkgPath)) {
+// Replace whatever is at pkgPath with a symlink to the repo root.
+// This works whether the published version exists or not.
+if (fs.existsSync(pkgPath)) {
+  const stat = fs.lstatSync(pkgPath);
+  if (stat.isSymbolicLink() && fs.readlinkSync(pkgPath) === repoRoot) {
+    // Already pointing here — nothing to do
+  } else {
+    fs.renameSync(pkgPath, pkgPath + ".bak");
+    fs.symlinkSync(repoRoot, pkgPath);
+    createdSymlink = true;
+  }
+} else {
   fs.mkdirSync(path.dirname(pkgPath), { recursive: true });
   fs.symlinkSync(repoRoot, pkgPath);
   createdSymlink = true;
 }
 
 afterAll(() => {
-  if (hasWrap) {
-    spawnSync("wrap", ["repository", "local-dev", "clear", "dillonkearns/elm-pages", elmPkgVersion], {
-      encoding: "utf-8",
-    });
-  }
   if (createdSymlink) {
     try { fs.unlinkSync(pkgPath); } catch {}
+    // Restore backup if we moved it aside
+    if (fs.existsSync(pkgPath + ".bak")) {
+      fs.renameSync(pkgPath + ".bak", pkgPath);
+    }
   }
 });
 
