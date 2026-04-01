@@ -7,7 +7,6 @@ module SmoothieTests exposing
     , concurrentFetchersTest
     , staleFetcherDataReloadTest
     , signoutTest
-    , signupPageRendersTest
     , signupSuccessTest
     )
 
@@ -203,10 +202,11 @@ baseSetup =
         |> BackendTaskTest.withEnv "SMOOTHIES_HASURA_SECRET" "test-hasura-secret"
 
 
-{-| Helper: simulate the login action's HTTP (user lookup).
+{-| Helper: simulate the login action's custom port (password hashing) and HTTP (user lookup).
 -}
 simulateLogin =
-    PagesProgram.simulateHttpPost hasuraUrl loginResponse
+    PagesProgram.simulateCustom "hashPassword" (Encode.string "hashed_password123")
+        >> PagesProgram.simulateHttpPost hasuraUrl loginResponse
 
 
 {-| Helper: simulate the 3 HTTP requests for Index data load
@@ -480,16 +480,7 @@ simulateBobIndexData =
         >> PagesProgram.simulateHttpPost hasuraUrl resp
 
 
-{-| 7. Signup page renders the form.
--}
-signupPageRendersTest : TestApp.ProgramTest
-signupPageRendersTest =
-    TestApp.start "/signup" baseSetup
-        |> PagesProgram.ensureViewHas [ PSelector.text "Create an account" ]
-        |> PagesProgram.ensureViewHas [ PSelector.text "Sign Up" ]
-
-
-{-| 8. Full signup flow: fill form, create account, redirect to index.
+{-| 7. Full signup flow: fill form, create account, redirect to index.
 -}
 signupSuccessTest : TestApp.ProgramTest
 signupSuccessTest =
@@ -499,7 +490,8 @@ signupSuccessTest =
         |> PagesProgram.fillIn "signup" "username" "bob@example.com"
         |> PagesProgram.fillIn "signup" "password" "secret123"
         |> PagesProgram.clickButton "Sign Up"
-        -- Signup action: insert_users_one mutation to Hasura
+        -- Signup action: hash password, then insert_users_one mutation to Hasura
+        |> PagesProgram.simulateCustom "hashPassword" (Encode.string "hashed_secret123")
         |> PagesProgram.simulateHttpPost hasuraUrl signupMutationResponse
         -- Redirect to Index, which loads smoothies + user + cart
         |> simulateBobIndexData

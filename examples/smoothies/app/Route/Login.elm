@@ -2,9 +2,12 @@ module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
 import Data.User
 import BackendTask exposing (BackendTask)
+import BackendTask.Custom
 import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
+import Json.Decode
+import Json.Encode
 import Form
 import Form.Field as Field
 import Form.FieldView
@@ -60,15 +63,22 @@ form =
             { combine =
                 Validation.succeed
                     (\u p ->
-                        Data.User.login { username = u, expectedPasswordHash = p }
-                            |> BackendTask.map
-                                (\maybeUserId ->
-                                    case maybeUserId of
-                                        Just userId ->
-                                            Validation.succeed userId
+                        BackendTask.Custom.run "hashPassword"
+                            (Json.Encode.string p)
+                            Json.Decode.string
+                            |> BackendTask.allowFatal
+                            |> BackendTask.andThen
+                                (\hashed ->
+                                    Data.User.login { username = u, expectedPasswordHash = hashed }
+                                        |> BackendTask.map
+                                            (\maybeUserId ->
+                                                case maybeUserId of
+                                                    Just userId ->
+                                                        Validation.succeed userId
 
-                                        Nothing ->
-                                            Validation.fail "Username and password do not match" Validation.global
+                                                    Nothing ->
+                                                        Validation.fail "Username and password do not match" Validation.global
+                                            )
                                 )
                     )
                     |> Validation.andMap username

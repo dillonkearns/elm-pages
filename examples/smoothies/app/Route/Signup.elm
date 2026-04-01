@@ -2,8 +2,11 @@ module Route.Signup exposing (ActionData, Data, Model, Msg, route)
 
 import Data.User
 import BackendTask exposing (BackendTask)
+import BackendTask.Custom
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
+import Json.Decode
+import Json.Encode
 import Form
 import Form.Field as Field
 import Form.FieldView
@@ -53,15 +56,22 @@ form =
             { combine =
                 Validation.succeed
                     (\n u p ->
-                        Data.User.signup { name = n, username = u, password = p }
-                            |> BackendTask.map
-                                (\maybeUserId ->
-                                    case maybeUserId of
-                                        Just userId ->
-                                            Validation.succeed userId
+                        BackendTask.Custom.run "hashPassword"
+                            (Json.Encode.string p)
+                            Json.Decode.string
+                            |> BackendTask.allowFatal
+                            |> BackendTask.andThen
+                                (\hashed ->
+                                    Data.User.signup { name = n, username = u, password = hashed }
+                                        |> BackendTask.map
+                                            (\maybeUserId ->
+                                                case maybeUserId of
+                                                    Just userId ->
+                                                        Validation.succeed userId
 
-                                        Nothing ->
-                                            Validation.fail "Could not create account." Validation.global
+                                                    Nothing ->
+                                                        Validation.fail "Could not create account." Validation.global
+                                            )
                                 )
                     )
                     |> Validation.andMap name

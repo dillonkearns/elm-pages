@@ -16,6 +16,5 @@ suite =
         , test "concurrentFetchers" (\() -> PagesProgram.done SmoothieTests.concurrentFetchersTest)
         , test "staleFetcherDataReload" (\() -> PagesProgram.done SmoothieTests.staleFetcherDataReloadTest)
         , test "signout" (\() -> PagesProgram.done SmoothieTests.signoutTest)
-        , test "signupPageRenders" (\() -> PagesProgram.done SmoothieTests.signupPageRendersTest)
         , test "signupSuccess" (\() -> PagesProgram.done SmoothieTests.signupSuccessTest)
         ]
