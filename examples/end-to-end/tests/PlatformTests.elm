@@ -84,7 +84,7 @@ suite =
                     |> PagesProgram.ensureViewHas [ PSelector.text "Quick Note" ]
                     |> PagesProgram.fillIn "note-form" "note" "My test note"
                     |> PagesProgram.clickButton "Save Note"
-                    |> PagesProgram.ensureViewHas [ PSelector.text "Saved: My test note" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Done: My test note" ]
                     |> PagesProgram.done
         , test "login form redirects to counter" <|
             \() ->
@@ -155,11 +155,11 @@ suite =
                     |> PagesProgram.simulateHttpGetTo
                         "https://api.example.com/increment"
                         (Encode.object [])
-                    -- Data reload
+                    -- Data reload settles on the server count after the fetcher finishes.
                     |> PagesProgram.simulateHttpGetTo
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 1 ) ])
-                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 2" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
                     |> PagesProgram.done
         , test "fetcher-http: single increment with optimistic UI" <|
             \() ->
@@ -176,12 +176,22 @@ suite =
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/increment"
                         (Encode.object [])
-                    -- Data reload: server count=1, fetcher still "Reloading" (+1)
+                    -- Data reload completes, so the final view reflects the server count.
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 1 ) ])
-                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 2" ]
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
                     |> PagesProgram.done
+        , test "done fails while a fetcher HTTP request is still pending" <|
+            \() ->
+                TestApp.start "/fetcher-http"
+                    BackendTaskTest.init
+                    |> PagesProgram.simulateHttpGet
+                        "https://api.example.com/count"
+                        (Encode.object [ ( "count", Encode.int 0 ) ])
+                    |> PagesProgram.clickButton "Increment"
+                    |> PagesProgram.done
+                    |> expectFailContaining "https://api.example.com/increment"
         ]
 
 

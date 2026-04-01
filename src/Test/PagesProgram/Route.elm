@@ -54,6 +54,86 @@ The `projectConfig` record provides project-specific adapters that are
 defined once and shared across all routes.
 
 -}
+fromStatefulRoute :
+    { a
+        | sharedData : sharedData
+        , defaultShared : sharedModel
+        , extractEffects : effect -> List (BackendTask FatalError msg)
+        , viewToHtml : view -> { title : String, body : List (Html msg) }
+    }
+    ->
+        { b
+            | data : Internal.Request.Request -> routeParams -> BackendTask FatalError (PageServerResponse pageData errorPage)
+            , init :
+                sharedModel
+                ->
+                    { data : pageData
+                    , sharedData : sharedData
+                    , routeParams : routeParams
+                    , path : UrlPath.UrlPath
+                    , url : Maybe url
+                    , action : Maybe action
+                    , submit :
+                        { fields : List ( String, String ), headers : List ( String, String ) }
+                        -> Fetcher (Result Http.Error action)
+                    , navigation : Maybe Pages.Navigation.Navigation
+                    , concurrentSubmissions :
+                        Dict.Dict
+                            String
+                            (Pages.ConcurrentSubmission.ConcurrentSubmission (Maybe action))
+                    , pageFormState : Dict.Dict String pageFormState
+                    }
+                -> ( model, effect )
+            , update :
+                { data : pageData
+                , sharedData : sharedData
+                , routeParams : routeParams
+                , path : UrlPath.UrlPath
+                , url : Maybe url
+                , action : Maybe action
+                , submit :
+                    { fields : List ( String, String ), headers : List ( String, String ) }
+                    -> Fetcher (Result Http.Error action)
+                , navigation : Maybe Pages.Navigation.Navigation
+                , concurrentSubmissions :
+                    Dict.Dict
+                        String
+                        (Pages.ConcurrentSubmission.ConcurrentSubmission (Maybe action))
+                , pageFormState : Dict.Dict String pageFormState
+                }
+                -> msg
+                -> model
+                -> sharedModel
+                -> ( model, effect, maybeSharedMsg )
+            , view :
+                sharedModel
+                -> model
+                ->
+                    { data : pageData
+                    , sharedData : sharedData
+                    , routeParams : routeParams
+                    , path : UrlPath.UrlPath
+                    , url : Maybe url
+                    , action : Maybe action
+                    , submit :
+                        { fields : List ( String, String ), headers : List ( String, String ) }
+                        -> Fetcher (Result Http.Error action)
+                    , navigation : Maybe Pages.Navigation.Navigation
+                    , concurrentSubmissions :
+                        Dict.Dict
+                            String
+                            (Pages.ConcurrentSubmission.ConcurrentSubmission (Maybe action))
+                    , pageFormState : Dict.Dict String pageFormState
+                    }
+                -> view
+        }
+    -> routeParams
+    ->
+        { data : BackendTask FatalError pageData
+        , init : pageData -> ( ( pageData, model ), List (BackendTask FatalError msg) )
+        , update : msg -> ( pageData, model ) -> ( ( pageData, model ), List (BackendTask FatalError msg) )
+        , view : pageData -> ( pageData, model ) -> { title : String, body : List (Html msg) }
+        }
 fromStatefulRoute projectConfig route routeParams =
     let
         toApp pageData =
@@ -186,4 +266,3 @@ mapPagesMsg pagesMsg =
 
         _ ->
             Nothing
-

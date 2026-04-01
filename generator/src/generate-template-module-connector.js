@@ -341,9 +341,10 @@ The recommended way to test routes is with \`start\`, which drives the real
 elm-pages framework (Platform.init/update/view) for full fidelity:
 
     import TestApp
+    import Test.BackendTask as BackendTaskTest
     import Test.PagesProgram as PagesProgram
 
-    TestApp.start "/" mockData
+    TestApp.start "/" BackendTaskTest.init
         |> PagesProgram.ensureViewHas [ ... ]
         |> PagesProgram.done
 
