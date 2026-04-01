@@ -34,7 +34,7 @@ function runCoverage(extraArgs = []) {
 
   const result = spawnSync(
     "node",
-    [cliPath, "run", "src/RunGreet.elm", "--coverage", ...extraArgs],
+    [cliPath, "run", "--coverage", ...extraArgs, "src/RunGreet.elm"],
     { cwd: fixtureDir, encoding: "utf-8", timeout: 120_000 }
   );
 

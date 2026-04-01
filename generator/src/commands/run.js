@@ -34,7 +34,14 @@ export async function run(elmModulePath, options, options2) {
     unprocessedCliOptions,
     "--introspect-cli"
   );
-  const coverage = options.coverage || false;
+
+  // Coverage flags are position-dependent: only flags BEFORE the script path
+  // are treated as elm-pages options. Flags after are forwarded to the script.
+  // We check process.argv since Commander consumes known options regardless
+  // of position.
+  const { extractCoverageFlags } = await import("../coverage-cli.js");
+  const coverageFlags = extractCoverageFlags(elmModulePath, process.argv);
+  const coverage = coverageFlags.coverage;
 
   try {
     const { moduleName, projectDirectory, sourceDirectory } =
@@ -65,8 +72,8 @@ export async function run(elmModulePath, options, options2) {
       let userSourceDirs = await getUserSourceDirs(projectDirectory);
 
       // Apply --coverage-include / --coverage-exclude filters
-      const include = options.coverageInclude || [];
-      const exclude = options.coverageExclude || [];
+      const include = coverageFlags.coverageInclude;
+      const exclude = coverageFlags.coverageExclude;
       if (include.length > 0) {
         userSourceDirs = userSourceDirs.filter((d) =>
           include.some((inc) => path.normalize(d) === path.normalize(inc))
@@ -199,8 +206,8 @@ export async function run(elmModulePath, options, options2) {
       const { printCoverageReportSync } = await import("../coverage.js");
       const outputCwd = cwd; // where the user ran the command
       const moduleFilter = {
-        include: options.coverageIncludeModule || [],
-        exclude: options.coverageExcludeModule || [],
+        include: coverageFlags.coverageIncludeModule,
+        exclude: coverageFlags.coverageExcludeModule,
       };
       process.on("exit", () => {
         printCoverageReportSync(projectDirectory, outputCwd, moduleFilter);
