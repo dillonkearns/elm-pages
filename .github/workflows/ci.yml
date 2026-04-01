@@ -15,23 +15,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
       - name: Use Node.js 20
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
       - name: Cache node_modules
         id: cache-node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/Cypress
             node_modules
           key: node_modules-node-v${{ matrix.node }}-1-${{ hashFiles('package-lock.json') }}
       - name: Cache ~/.elm
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.elm
           key: elm-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json', 'examples/routing/elm.json', 'examples/escaping/elm.json', 'examples/base-path/elm.json') }}
@@ -60,7 +60,7 @@ jobs:
       - name: Build base path example site
         run: cd examples/base-path && npm install && npx elm-pages build --base elm-pages && cd ../..
       - name: GitHub Pages Example Deploy
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         if: github.ref == 'refs/heads/master'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -69,23 +69,23 @@ jobs:
   cypress:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
       - name: Use Node.js 20
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
       - name: Cache node_modules
         id: cache-node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/Cypress
             node_modules
           key: node_modules-node-v${{ matrix.node }}-1-${{ hashFiles('package-lock.json') }}
       - name: Cache ~/.elm
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.elm
           key: elm-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json', 'examples/routing/elm.json', 'examples/escaping/elm.json', 'examples/base-path/elm.json') }}
@@ -113,12 +113,12 @@ jobs:
           start: node ../../generator/src/cli.js dev --debug
           wait-on: "http://localhost:1234"
           wait-on-timeout: 120
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: cypress-screenshots
           path: examples/end-to-end/cypress/screenshots
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: cypress-videos
@@ -128,16 +128,16 @@ jobs:
     needs: [build, cypress]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
       - name: Use Node.js 20
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
       - name: Cache node_modules
         id: cache-node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: node_modules
           key: node_modules-node-v${{ matrix.node }}-1-${{ hashFiles('package-lock.json') }}
