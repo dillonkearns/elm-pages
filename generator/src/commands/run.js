@@ -81,18 +81,12 @@ export async function run(elmModulePath, options, options2) {
       if (userSourceDirs.length === 0) {
         console.warn("Warning: No user source directories found to instrument.");
       } else {
-        try {
-          const result = await setupCoverage(
-            projectDirectory,
-            userSourceDirs,
-            compileDir
-          );
-          coverageDataDir = result.coverageDir;
-        } catch (e) {
-          // Coverage setup failed (elm-instrument missing, parse error, etc.)
-          // Run the script normally without coverage instead of crashing.
-          console.warn(`Warning: Coverage instrumentation failed. Running without coverage.\n  ${e.message || e}`);
-        }
+        const result = await setupCoverage(
+          projectDirectory,
+          userSourceDirs,
+          compileDir
+        );
+        coverageDataDir = result.coverageDir;
       }
 
       // Clean stale coverage output so a failed run doesn't leave old data
