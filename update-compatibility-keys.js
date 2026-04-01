@@ -2,7 +2,7 @@
 
 import * as fs from "node:fs";
 
-const currentCompatibilityKey = 27;
+const currentCompatibilityKey = 28;
 const currentPackageVersion = JSON.parse(
   fs.readFileSync("./package.json")
 ).version;
