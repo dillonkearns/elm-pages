@@ -18,9 +18,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixtureDir = path.resolve(__dirname, "fixture");
 const cliPath = path.resolve(__dirname, "..", "..", "src", "cli.js");
 
-// Skip all tests if elm-instrument isn't installed (e.g., CI without elm-coverage)
-const hasElmInstrument = spawnSync("elm-instrument", ["--help"], { encoding: "utf-8" }).status === 0;
-const describeIfAvailable = hasElmInstrument ? describe : describe.skip;
 
 /** Replace machine-specific absolute paths with a placeholder. */
 function normalize(text) {
@@ -52,7 +49,7 @@ function runCoverage(extraArgs = []) {
   return { consoleOutput, lcovContent };
 }
 
-describeIfAvailable("elm-pages run --coverage", () => {
+describe("elm-pages run --coverage", () => {
   let result;
   beforeAll(() => { result = runCoverage(); }, 120_000);
 
@@ -66,7 +63,7 @@ describeIfAvailable("elm-pages run --coverage", () => {
   });
 });
 
-describeIfAvailable("elm-pages run --coverage --coverage-exclude", () => {
+describe("elm-pages run --coverage --coverage-exclude", () => {
   let result;
   beforeAll(() => { result = runCoverage(["--coverage-exclude", "lib"]); }, 120_000);
 
@@ -86,7 +83,7 @@ describeIfAvailable("elm-pages run --coverage --coverage-exclude", () => {
   });
 });
 
-describeIfAvailable("elm-pages run --coverage --coverage-include", () => {
+describe("elm-pages run --coverage --coverage-include", () => {
   let result;
   beforeAll(() => { result = runCoverage(["--coverage-include", "lib"]); }, 120_000);
 
@@ -104,7 +101,7 @@ describeIfAvailable("elm-pages run --coverage --coverage-include", () => {
   });
 });
 
-describeIfAvailable("elm-pages run --coverage --coverage-exclude-module", () => {
+describe("elm-pages run --coverage --coverage-exclude-module", () => {
   let result;
   beforeAll(() => { result = runCoverage(["--coverage-exclude-module", "RunGreet"]); }, 120_000);
 
@@ -122,7 +119,7 @@ describeIfAvailable("elm-pages run --coverage --coverage-exclude-module", () => 
   });
 });
 
-describeIfAvailable("error paths", () => {
+describe("error paths", () => {
   it("--coverage-include with no matches still runs the script", () => {
     const result = runCoverage(["--coverage-include", "nonexistent"]);
     // Script should still execute normally
