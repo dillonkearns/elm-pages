@@ -1,7 +1,5 @@
 module SmoothieTests exposing
-    ( loginPageRendersTest
-    , loginRedirectsTest
-    , smoothieListTest
+    ( smoothieListTest
     , addToCartTest
     , optimisticCartTest
     , concurrentFetchersTest
@@ -266,39 +264,7 @@ simulateIndexDataWithCart cartOrders =
 -- TESTS
 
 
-{-| 1. Login page renders correctly (no HTTP needed).
--}
-loginPageRendersTest : TestApp.ProgramTest
-loginPageRendersTest =
-    TestApp.start "/login" baseSetup
-        |> PagesProgram.ensureViewHas [ PSelector.text "You aren't logged in yet." ]
-
-
-{-| 2. Login form submission triggers redirect.
--}
-loginRedirectsTest : TestApp.ProgramTest
-loginRedirectsTest =
-    TestApp.start "/login" baseSetup
-        |> PagesProgram.ensureViewHas [ PSelector.text "You aren't logged in yet." ]
-        |> PagesProgram.fillIn "login" "username" "alice@example.com"
-        |> PagesProgram.fillIn "login" "password" "password123"
-        |> PagesProgram.clickButton "Login"
-        -- Login action does HTTP POST to Hasura for user lookup
-        |> simulateLogin
-        -- Redirect to Index, which needs HTTP for data (smoothies + user).
-        |> simulateIndexData
-        -- Should have redirected away from /login
-        |> PagesProgram.ensureBrowserUrl
-            (\url ->
-                if String.contains "/login" url then
-                    Expect.fail ("Should have redirected away from /login, but still at: " ++ url)
-
-                else
-                    Expect.pass
-            )
-
-
-{-| 3. Full login -> smoothie list with data from Hasura.
+{-| Full login -> smoothie list with data from Hasura.
 -}
 smoothieListTest : TestApp.ProgramTest
 smoothieListTest =

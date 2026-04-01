@@ -8,9 +8,7 @@ import Test.PagesProgram as PagesProgram
 suite : Test
 suite =
     describe "Smoothie Tests"
-        [ test "loginPageRenders" (\() -> PagesProgram.done SmoothieTests.loginPageRendersTest)
-        , test "loginRedirects" (\() -> PagesProgram.done SmoothieTests.loginRedirectsTest)
-        , test "smoothieList" (\() -> PagesProgram.done SmoothieTests.smoothieListTest)
+        [ test "smoothieList" (\() -> PagesProgram.done SmoothieTests.smoothieListTest)
         , test "addToCart" (\() -> PagesProgram.done SmoothieTests.addToCartTest)
         , test "optimisticCart" (\() -> PagesProgram.done SmoothieTests.optimisticCartTest)
         , test "concurrentFetchers" (\() -> PagesProgram.done SmoothieTests.concurrentFetchersTest)

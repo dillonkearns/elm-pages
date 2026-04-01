@@ -172,27 +172,20 @@ gets redirected to the todo list, and sees their items.
 -}
 fullLoginFlowTest : TestApp.ProgramTest
 fullLoginFlowTest =
-    -- First verify the unauthenticated login page renders
-    TestApp.start "/login" baseSetup
-        |> PagesProgram.ensureViewHas [ PSelector.text "You aren't logged in yet." ]
-        |> PagesProgram.done
-    -- Then exercise the full magic link login flow
-    |> always
-        (startLoggedInWithTodos todosResponse
-            |> PagesProgram.ensureBrowserUrl
-                (\url ->
-                    if String.contains "/login" url then
-                        Expect.fail ("Should have redirected away from /login, but still at: " ++ url)
+    startLoggedInWithTodos todosResponse
+        |> PagesProgram.ensureBrowserUrl
+            (\url ->
+                if String.contains "/login" url then
+                    Expect.fail ("Should have redirected away from /login, but still at: " ++ url)
 
-                    else
-                        Expect.pass
-                )
-            |> PagesProgram.ensureViewHas [ PSelector.text "todos" ]
-            |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
-            |> PagesProgram.ensureViewHas [ PSelector.value "Write tests" ]
-            |> PagesProgram.ensureViewHas [ PSelector.value "Walk the dog" ]
-            |> ensureItemsLeft 2
-        )
+                else
+                    Expect.pass
+            )
+        |> PagesProgram.ensureViewHas [ PSelector.text "todos" ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Write tests" ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Walk the dog" ]
+        |> ensureItemsLeft 2
 
 
 {-| Login, toggle all items complete, verify the count drops to 0.
