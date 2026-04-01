@@ -2,6 +2,7 @@
  * Run command - runs an elm-pages script.
  */
 
+import * as fs from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
 import * as renderer from "../render.js";
@@ -80,13 +81,26 @@ export async function run(elmModulePath, options, options2) {
       if (userSourceDirs.length === 0) {
         console.warn("Warning: No user source directories found to instrument.");
       } else {
-        const result = await setupCoverage(
-          projectDirectory,
-          userSourceDirs,
-          compileDir
-        );
-        coverageDataDir = result.coverageDir;
+        try {
+          const result = await setupCoverage(
+            projectDirectory,
+            userSourceDirs,
+            compileDir
+          );
+          coverageDataDir = result.coverageDir;
+        } catch (e) {
+          // Coverage setup failed (elm-instrument missing, parse error, etc.)
+          // Run the script normally without coverage instead of crashing.
+          console.warn(`Warning: Coverage instrumentation failed. Running without coverage.\n  ${e.message || e}`);
+        }
       }
+
+      // Clean stale coverage output so a failed run doesn't leave old data
+      try {
+        const staleLcov = path.join(process.cwd(), "coverage", "lcov.info");
+        if (fs.existsSync(staleLcov)) fs.unlinkSync(staleLcov);
+      } catch {}
+
     }
 
     // Check if custom-backend-task needs recompilation
@@ -143,9 +157,10 @@ export async function run(elmModulePath, options, options2) {
       "elm-stuff/elm-pages/elm.cjs"
     );
 
-    // Always recompile when coverage is enabled (instrumented sources differ)
+    // Force recompile when coverage instrumentation succeeded (sources differ)
     const shouldRecompile =
-      coverage || (await needsRecompilation(projectDirectory, outputPath));
+      (coverage && coverageDataDir) ||
+      (await needsRecompilation(projectDirectory, outputPath));
 
     if (shouldRecompile) {
       const elmEntrypointPath = path.join(
@@ -186,7 +201,7 @@ export async function run(elmModulePath, options, options2) {
     // The script calls process.exit(0) which prevents async code from
     // running after runGenerator. A synchronous "exit" handler registered
     // after the elm module's data-writing handler ensures correct ordering.
-    if (coverage) {
+    if (coverage && coverageDataDir) {
       const { printCoverageReportSync } = await import("../coverage.js");
       const outputCwd = cwd; // where the user ran the command
       const moduleFilter = {

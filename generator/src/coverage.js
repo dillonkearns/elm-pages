@@ -88,6 +88,26 @@ export async function setupCoverage(
   // Run elm-instrument
   await runElmInstrument(projectDirectory, instrumentedDir, instrumentedSourceDirs);
 
+  // Detect files that elm-instrument silently skipped
+  const expectedModules = buildModulePathMap(projectDirectory, userSourceDirs);
+  const infoPath = path.join(instrumentedDir, ".coverage", "info.json");
+  try {
+    const info = JSON.parse(await fs.promises.readFile(infoPath, "utf-8"));
+    const instrumentedModules = new Set(Object.keys(info));
+    const skipped = Object.keys(expectedModules).filter(
+      (m) => !instrumentedModules.has(m)
+    );
+    if (skipped.length > 0) {
+      console.warn(
+        `Warning: elm-instrument skipped ${skipped.length} file(s) ` +
+          `(possibly unparseable syntax):\n` +
+          skipped.map((m) => `  - ${m}`).join("\n")
+      );
+    }
+  } catch {
+    // info.json missing — elm-instrument produced no output at all
+  }
+
   // Write Coverage.elm stub into the compile dir's .elm-pages/ (already a source dir)
   await fs.promises.writeFile(
     path.join(compileDir, ".elm-pages", "Coverage.elm"),
@@ -98,10 +118,9 @@ export async function setupCoverage(
   await rewriteElmJsonForCoverage(compileDir, dirMapping);
 
   // Save source directory info so the exit handler can resolve module → file paths
-  const modulePaths = buildModulePathMap(projectDirectory, userSourceDirs);
   await fs.promises.writeFile(
     path.join(coverageDir, "module-paths.json"),
-    JSON.stringify(modulePaths)
+    JSON.stringify(expectedModules)
   );
 
   return { coverageDir, dirMapping };

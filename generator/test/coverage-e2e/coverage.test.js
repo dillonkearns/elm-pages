@@ -117,3 +117,29 @@ describe("elm-pages run --coverage --coverage-exclude-module", () => {
     expect(result.lcovContent).not.toContain("RunGreet.elm");
   });
 });
+
+describe("error paths", () => {
+  it("--coverage-include with no matches still runs the script", () => {
+    const result = runCoverage(["--coverage-include", "nonexistent"]);
+    // Script should still execute normally
+    expect(result.consoleOutput).toContain("Hello, world!");
+    // But warn that nothing was instrumented
+    expect(result.consoleOutput).toContain("No user source directories");
+    // No lcov.info should be produced
+    expect(result.lcovContent).toBeUndefined();
+  }, 120_000);
+
+  it("stale lcov.info is cleaned before a coverage run", () => {
+    // Write a stale lcov.info
+    const lcovDir = path.join(fixtureDir, "coverage");
+    fs.mkdirSync(lcovDir, { recursive: true });
+    fs.writeFileSync(path.join(lcovDir, "lcov.info"), "STALE DATA");
+
+    // Run with --coverage-include nonexistent so no new lcov is produced
+    const result = runCoverage(["--coverage-include", "nonexistent"]);
+    expect(result.consoleOutput).toContain("Hello, world!");
+
+    // Stale lcov.info should have been cleaned
+    expect(result.lcovContent).toBeUndefined();
+  }, 120_000);
+});
