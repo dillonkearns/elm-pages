@@ -240,6 +240,12 @@ function runGeneratorAppHelp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
+        // Yield to the event loop between batches. When Elm resolves a
+        // BackendTask chain, it may run heavy synchronous computation (e.g.
+        // interpreter evaluation) before emitting the next DoHttp. This
+        // yield gives V8 an event-loop tick for incremental GC, preventing
+        // memory buildup in long-running chains like mutation testing.
+        await new Promise((resolve) => setImmediate(resolve));
         // Build a map of request hash → raw bytes from the port's bytes field
         const outgoingBytesMap = new Map(
           outgoingBytes.map(({ key, data }) => [key, dataViewToBuffer(data)])
@@ -415,6 +421,12 @@ function runElmApp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
+        // Yield to the event loop between batches. When Elm resolves a
+        // BackendTask chain, it may run heavy synchronous computation (e.g.
+        // interpreter evaluation) before emitting the next DoHttp. This
+        // yield gives V8 an event-loop tick for incremental GC, preventing
+        // memory buildup in long-running chains like mutation testing.
+        await new Promise((resolve) => setImmediate(resolve));
         // Build a map of request hash → raw bytes from the port's bytes field
         const outgoingBytesMap = new Map(
           outgoingBytes.map(({ key, data }) => [key, dataViewToBuffer(data)])
