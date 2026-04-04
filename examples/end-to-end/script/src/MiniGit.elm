@@ -123,7 +123,7 @@ update _ msg model =
 
         GotDiff (Err _) ->
             ( { model | diffContent = "(error loading diff)", activeOp = Nothing }
-            , Effect.errorToast "Failed to load diff"
+            , Effect.toast (Effect.error "Failed to load diff")
             )
 
         OpenCommitDialog ->
@@ -132,12 +132,12 @@ update _ msg model =
         SubmitCommit message ->
             if String.isEmpty message then
                 ( { model | modal = Nothing }
-                , Effect.errorToast "(empty commit message)"
+                , Effect.toast (Effect.error "(empty commit message)")
                 )
 
             else
                 ( { model | modal = Nothing }
-                , Effect.toast ("Committed: " ++ message)
+                , Effect.toast (Effect.info ("Committed: " ++ message))
                 )
 
         CloseModal ->

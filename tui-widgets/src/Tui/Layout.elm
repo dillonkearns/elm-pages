@@ -5993,8 +5993,17 @@ extractLayoutEffects effect fw =
                 ( finalFw, Effect.batch (List.reverse collectedEffects) )
         , backendTask = \bt -> ( fw, Effect.perform UserMsg bt )
         , exit = \code -> ( fw, Effect.exitWithCode code )
-        , toast = \message -> ( { fw | statusState = Tui.Status.toast message fw.statusState }, Effect.none )
-        , errorToast = \message -> ( { fw | statusState = Tui.Status.errorToast message fw.statusState }, Effect.none )
+        , toast =
+            \t ->
+                let
+                    message =
+                        Effect.toastMessage t
+                in
+                if Effect.toastIsError t then
+                    ( { fw | statusState = Tui.Status.errorToast message fw.statusState }, Effect.none )
+
+                else
+                    ( { fw | statusState = Tui.Status.toast message fw.statusState }, Effect.none )
         , resetScroll = \paneId -> ( { fw | layoutState = resetScroll paneId fw.layoutState }, Effect.none )
         , scrollTo =
             \paneId offset ->

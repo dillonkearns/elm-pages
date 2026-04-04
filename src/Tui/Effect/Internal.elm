@@ -1,7 +1,8 @@
 module Tui.Effect.Internal exposing
     ( Effect(..)
+    , Toast(..)
     , none, batch, perform, attempt, exit, exitWithCode
-    , toast, errorToast
+    , toast, info, error, toastMessage, toastIsError
     , resetScroll, scrollTo, scrollDown, scrollUp, setSelectedIndex, selectFirst, focusPane
     , map, fold
     , EffectResult(..), toBackendTask
@@ -11,6 +12,40 @@ import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
 
 
+{-| Opaque toast configuration. Build with [`info`](#info) or [`error`](#error).
+-}
+type Toast
+    = Toast { message : String, isError : Bool }
+
+
+{-| Create an informational toast.
+-}
+info : String -> Toast
+info message =
+    Toast { message = message, isError = False }
+
+
+{-| Create an error toast.
+-}
+error : String -> Toast
+error message =
+    Toast { message = message, isError = True }
+
+
+{-| Get the message text from a toast.
+-}
+toastMessage : Toast -> String
+toastMessage (Toast t) =
+    t.message
+
+
+{-| Check whether a toast is an error toast.
+-}
+toastIsError : Toast -> Bool
+toastIsError (Toast t) =
+    t.isError
+
+
 type Effect msg
     = None
     | Batch (List (Effect msg))
@@ -18,8 +53,7 @@ type Effect msg
     | SuspendBackendTask (BackendTask FatalError msg)
     | Exit
     | ExitWithCode Int
-    | Toast String
-    | ErrorToast String
+    | ShowToast Toast
     | ResetScroll String
     | ScrollTo String Int
     | ScrollDown String Int
@@ -63,14 +97,9 @@ exitWithCode =
     ExitWithCode
 
 
-toast : String -> Effect msg
+toast : Toast -> Effect msg
 toast =
-    Toast
-
-
-errorToast : String -> Effect msg
-errorToast =
-    ErrorToast
+    ShowToast
 
 
 resetScroll : String -> Effect msg
@@ -130,11 +159,8 @@ map f effect =
         ExitWithCode code ->
             ExitWithCode code
 
-        Toast message ->
-            Toast message
-
-        ErrorToast message ->
-            ErrorToast message
+        ShowToast t ->
+            ShowToast t
 
         ResetScroll paneId ->
             ResetScroll paneId
@@ -163,8 +189,7 @@ fold :
     , batch : List (Effect msg) -> a
     , backendTask : BackendTask FatalError msg -> a
     , exit : Int -> a
-    , toast : String -> a
-    , errorToast : String -> a
+    , toast : Toast -> a
     , resetScroll : String -> a
     , scrollTo : String -> Int -> a
     , scrollDown : String -> Int -> a
@@ -196,11 +221,8 @@ fold handlers effect =
         ExitWithCode code ->
             handlers.exit code
 
-        Toast message ->
-            handlers.toast message
-
-        ErrorToast message ->
-            handlers.errorToast message
+        ShowToast t ->
+            handlers.toast t
 
         ResetScroll paneId ->
             handlers.resetScroll paneId
@@ -251,10 +273,7 @@ toBackendTask effect =
         Batch effects ->
             processBatch effects
 
-        Toast _ ->
-            BackendTask.succeed EffectDone
-
-        ErrorToast _ ->
+        ShowToast _ ->
             BackendTask.succeed EffectDone
 
         ResetScroll _ ->

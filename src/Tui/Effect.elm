@@ -1,7 +1,8 @@
 module Tui.Effect exposing
     ( Effect
+    , Toast, info, error, toastMessage, toastIsError
     , none, batch, perform, attempt, exit, exitWithCode
-    , toast, errorToast
+    , toast
     , resetScroll, scrollTo, scrollDown, scrollUp, setSelectedIndex, selectFirst, focusPane
     , map, fold
     )
@@ -28,9 +29,17 @@ update cycle.
 
 @docs Effect
 
+
+## Toast
+
+@docs Toast, info, error, toastMessage, toastIsError
+
+
+## Core Effects
+
 @docs none, batch, perform, attempt, exit, exitWithCode
 
-@docs toast, errorToast
+@docs toast
 
 @docs resetScroll, scrollTo, scrollDown, scrollUp, setSelectedIndex, selectFirst, focusPane
 
@@ -113,24 +122,61 @@ exitWithCode =
     Internal.exitWithCode
 
 
-{-| Show a normal toast (auto-dismisses after ~2 seconds). Fire and forget.
+{-| Opaque toast configuration. Build with [`info`](#info) or [`error`](#error).
 
-    Effect.toast "Saved!"
+    Effect.toast (Effect.info "Saved!")
+    Effect.toast (Effect.error "Failed to save")
 
 -}
-toast : String -> Effect msg
+type alias Toast =
+    Internal.Toast
+
+
+{-| Create an informational toast.
+
+    Effect.toast (Effect.info "Saved!")
+
+-}
+info : String -> Toast
+info =
+    Internal.info
+
+
+{-| Create an error toast.
+
+    Effect.toast (Effect.error "Failed to save")
+
+-}
+error : String -> Toast
+error =
+    Internal.error
+
+
+{-| Get the message text from a toast. Useful when interpreting effects via
+[`fold`](#fold).
+-}
+toastMessage : Toast -> String
+toastMessage =
+    Internal.toastMessage
+
+
+{-| Check whether a toast is an error toast. Useful when interpreting effects via
+[`fold`](#fold).
+-}
+toastIsError : Toast -> Bool
+toastIsError =
+    Internal.toastIsError
+
+
+{-| Show a toast notification. Fire and forget.
+
+    Effect.toast (Effect.info "Saved!")
+    Effect.toast (Effect.error "Failed to save")
+
+-}
+toast : Toast -> Effect msg
 toast =
     Internal.toast
-
-
-{-| Show an error toast (auto-dismisses after ~4 seconds). Fire and forget.
-
-    Effect.errorToast "Failed to save"
-
--}
-errorToast : String -> Effect msg
-errorToast =
-    Internal.errorToast
 
 
 {-| Reset the scroll position of a pane to the top.
@@ -221,8 +267,7 @@ fold :
     , batch : List (Effect msg) -> a
     , backendTask : BackendTask FatalError msg -> a
     , exit : Int -> a
-    , toast : String -> a
-    , errorToast : String -> a
+    , toast : Toast -> a
     , resetScroll : String -> a
     , scrollTo : String -> Int -> a
     , scrollDown : String -> Int -> a

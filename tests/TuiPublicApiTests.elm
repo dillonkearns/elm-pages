@@ -92,8 +92,16 @@ suite =
                                 , batch = List.concatMap describeEffect
                                 , backendTask = \_ -> [ "backend-task" ]
                                 , exit = \code -> [ "exit:" ++ String.fromInt code ]
-                                , toast = \message -> [ "toast:" ++ message ]
-                                , errorToast = \message -> [ "error:" ++ message ]
+                                , toast =
+                                    \t ->
+                                        [ (if Effect.toastIsError t then
+                                            "error:"
+
+                                           else
+                                            "toast:"
+                                          )
+                                            ++ Effect.toastMessage t
+                                        ]
                                 , resetScroll = \paneId -> [ "reset:" ++ paneId ]
                                 , scrollTo = \paneId offset -> [ "scrollTo:" ++ paneId ++ ":" ++ String.fromInt offset ]
                                 , scrollDown = \paneId amount -> [ "scrollDown:" ++ paneId ++ ":" ++ String.fromInt amount ]
@@ -105,7 +113,7 @@ suite =
                                 currentEffect
                     in
                     Effect.batch
-                        [ Effect.toast "Saved"
+                        [ Effect.toast (Effect.info "Saved")
                         , Effect.scrollDown "files" 3
                         , BackendTask.succeed "done"
                             |> Effect.perform identity
