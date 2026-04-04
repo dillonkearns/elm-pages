@@ -4,7 +4,7 @@ import Ansi.Color
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
-import Tui.Effect as Effect exposing (Effect)
+import Tui.Layout.Effect as Effect
 import Tui.Layout as Layout
 import Tui.Menu as Menu
 import Tui.Test as TuiTest
@@ -292,7 +292,7 @@ type HelpMsg
     | DoThing
 
 
-helpInit : () -> ( HelpModel, Effect HelpMsg )
+helpInit : () -> ( HelpModel, Effect.Effect HelpMsg )
 helpInit () =
     ( { items = [ "alpha", "beta", "gamma" ]
       , selected = ""
@@ -302,7 +302,7 @@ helpInit () =
     )
 
 
-helpUpdate : Layout.UpdateContext -> HelpMsg -> HelpModel -> ( HelpModel, Effect HelpMsg )
+helpUpdate : Layout.UpdateContext -> HelpMsg -> HelpModel -> ( HelpModel, Effect.Effect HelpMsg )
 helpUpdate _ msg model =
     case msg of
         SelectItem item ->
@@ -408,12 +408,12 @@ pickerItems =
         |> List.map (\i -> "Item " ++ String.padLeft 2 '0' (String.fromInt i))
 
 
-pickerInit : () -> ( PickerModel, Effect PickerMsg )
+pickerInit : () -> ( PickerModel, Effect.Effect PickerMsg )
 pickerInit () =
     ( { modalOpen = False, selected = Nothing }, Effect.none )
 
 
-pickerUpdate : Layout.UpdateContext -> PickerMsg -> PickerModel -> ( PickerModel, Effect PickerMsg )
+pickerUpdate : Layout.UpdateContext -> PickerMsg -> PickerModel -> ( PickerModel, Effect.Effect PickerMsg )
 pickerUpdate _ msg model =
     case msg of
         OpenPicker ->
@@ -520,12 +520,12 @@ menuItems =
             )
 
 
-menuInit : () -> ( MenuModel, Effect MenuMsg )
+menuInit : () -> ( MenuModel, Effect.Effect MenuMsg )
 menuInit () =
     ( { modalOpen = False }, Effect.none )
 
 
-menuUpdate : Layout.UpdateContext -> MenuMsg -> MenuModel -> ( MenuModel, Effect MenuMsg )
+menuUpdate : Layout.UpdateContext -> MenuMsg -> MenuModel -> ( MenuModel, Effect.Effect MenuMsg )
 menuUpdate _ msg model =
     case msg of
         OpenMenu ->
@@ -604,12 +604,12 @@ type LinkMsg
     | NoOp
 
 
-linkInit : () -> ( LinkModel, Effect LinkMsg )
+linkInit : () -> ( LinkModel, Effect.Effect LinkMsg )
 linkInit () =
     ( { clickedUrl = Nothing }, Effect.none )
 
 
-linkUpdate : Layout.UpdateContext -> LinkMsg -> LinkModel -> ( LinkModel, Effect LinkMsg )
+linkUpdate : Layout.UpdateContext -> LinkMsg -> LinkModel -> ( LinkModel, Effect.Effect LinkMsg )
 linkUpdate _ msg model =
     case msg of
         LinkClicked url ->
@@ -691,7 +691,7 @@ type LinkSelMsg
     | LinkSelSelected String
 
 
-linkSelInit : () -> ( LinkSelModel, Effect LinkSelMsg )
+linkSelInit : () -> ( LinkSelModel, Effect.Effect LinkSelMsg )
 linkSelInit () =
     ( { clickedUrl = Nothing
       , selectedItem = Nothing
@@ -701,7 +701,7 @@ linkSelInit () =
     )
 
 
-linkSelUpdate : Layout.UpdateContext -> LinkSelMsg -> LinkSelModel -> ( LinkSelModel, Effect LinkSelMsg )
+linkSelUpdate : Layout.UpdateContext -> LinkSelMsg -> LinkSelModel -> ( LinkSelModel, Effect.Effect LinkSelMsg )
 linkSelUpdate _ msg model =
     case msg of
         LinkSelLinkClicked url ->
@@ -796,12 +796,12 @@ type ScrollMsg
     = Scrolled Int
 
 
-scrollInit : () -> ( ScrollModel, Effect ScrollMsg )
+scrollInit : () -> ( ScrollModel, Effect.Effect ScrollMsg )
 scrollInit () =
     ( { scrollPos = 0 }, Effect.none )
 
 
-scrollUpdate : Layout.UpdateContext -> ScrollMsg -> ScrollModel -> ( ScrollModel, Effect ScrollMsg )
+scrollUpdate : Layout.UpdateContext -> ScrollMsg -> ScrollModel -> ( ScrollModel, Effect.Effect ScrollMsg )
 scrollUpdate _ msg model =
     case msg of
         Scrolled pos ->
@@ -880,12 +880,12 @@ setSelItems =
     [ "item-A", "item-B", "item-C", "item-D", "item-E", "item-F", "item-G", "item-H" ]
 
 
-setSelInit : () -> ( SetSelModel, Effect SetSelMsg )
+setSelInit : () -> ( SetSelModel, Effect.Effect SetSelMsg )
 setSelInit () =
     ( { selected = "" }, Effect.none )
 
 
-setSelUpdate : Layout.UpdateContext -> SetSelMsg -> SetSelModel -> ( SetSelModel, Effect SetSelMsg )
+setSelUpdate : Layout.UpdateContext -> SetSelMsg -> SetSelModel -> ( SetSelModel, Effect.Effect SetSelMsg )
 setSelUpdate _ msg model =
     case msg of
         SetSelSelect item ->

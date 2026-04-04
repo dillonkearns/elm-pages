@@ -1329,13 +1329,6 @@ extractBackendTasks effect =
         , backendTask = List.singleton
         , exit = \_ -> []
         , toast = \_ -> []
-        , resetScroll = \_ -> []
-        , scrollTo = \_ _ -> []
-        , scrollDown = \_ _ -> []
-        , scrollUp = \_ _ -> []
-        , setSelectedIndex = \_ _ -> []
-        , selectFirst = \_ -> []
-        , focusPane = \_ -> []
         }
         effect
 
@@ -1352,13 +1345,6 @@ checkForExit effect =
         , backendTask = \_ -> Nothing
         , exit = Just
         , toast = \_ -> Nothing
-        , resetScroll = \_ -> Nothing
-        , scrollTo = \_ _ -> Nothing
-        , scrollDown = \_ _ -> Nothing
-        , scrollUp = \_ _ -> Nothing
-        , setSelectedIndex = \_ _ -> Nothing
-        , selectFirst = \_ -> Nothing
-        , focusPane = \_ -> Nothing
         }
         effect
 

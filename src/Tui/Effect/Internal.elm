@@ -3,7 +3,6 @@ module Tui.Effect.Internal exposing
     , Toast(..)
     , none, batch, perform, attempt, exit, exitWithCode
     , toast, info, error, toastMessage, toastIsError
-    , resetScroll, scrollTo, scrollDown, scrollUp, setSelectedIndex, selectFirst, focusPane
     , map, fold
     , EffectResult(..), toBackendTask
     )
@@ -54,13 +53,6 @@ type Effect msg
     | Exit
     | ExitWithCode Int
     | ShowToast Toast
-    | ResetScroll String
-    | ScrollTo String Int
-    | ScrollDown String Int
-    | ScrollUp String Int
-    | SetSelectedIndex String Int
-    | SelectFirst String
-    | FocusPane String
 
 
 none : Effect msg
@@ -102,40 +94,6 @@ toast =
     ShowToast
 
 
-resetScroll : String -> Effect msg
-resetScroll =
-    ResetScroll
-
-
-scrollTo : String -> Int -> Effect msg
-scrollTo =
-    ScrollTo
-
-
-scrollDown : String -> Int -> Effect msg
-scrollDown =
-    ScrollDown
-
-
-scrollUp : String -> Int -> Effect msg
-scrollUp =
-    ScrollUp
-
-
-setSelectedIndex : String -> Int -> Effect msg
-setSelectedIndex =
-    SetSelectedIndex
-
-
-selectFirst : String -> Effect msg
-selectFirst =
-    SelectFirst
-
-
-focusPane : String -> Effect msg
-focusPane =
-    FocusPane
-
 
 map : (a -> b) -> Effect a -> Effect b
 map f effect =
@@ -162,27 +120,6 @@ map f effect =
         ShowToast t ->
             ShowToast t
 
-        ResetScroll paneId ->
-            ResetScroll paneId
-
-        ScrollTo paneId offset ->
-            ScrollTo paneId offset
-
-        ScrollDown paneId amount ->
-            ScrollDown paneId amount
-
-        ScrollUp paneId amount ->
-            ScrollUp paneId amount
-
-        SetSelectedIndex paneId index ->
-            SetSelectedIndex paneId index
-
-        SelectFirst paneId ->
-            SelectFirst paneId
-
-        FocusPane paneId ->
-            FocusPane paneId
-
 
 fold :
     { none : a
@@ -190,13 +127,6 @@ fold :
     , backendTask : BackendTask FatalError msg -> a
     , exit : Int -> a
     , toast : Toast -> a
-    , resetScroll : String -> a
-    , scrollTo : String -> Int -> a
-    , scrollDown : String -> Int -> a
-    , scrollUp : String -> Int -> a
-    , setSelectedIndex : String -> Int -> a
-    , selectFirst : String -> a
-    , focusPane : String -> a
     }
     -> Effect msg
     -> a
@@ -223,27 +153,6 @@ fold handlers effect =
 
         ShowToast t ->
             handlers.toast t
-
-        ResetScroll paneId ->
-            handlers.resetScroll paneId
-
-        ScrollTo paneId offset ->
-            handlers.scrollTo paneId offset
-
-        ScrollDown paneId amount ->
-            handlers.scrollDown paneId amount
-
-        ScrollUp paneId amount ->
-            handlers.scrollUp paneId amount
-
-        SetSelectedIndex paneId index ->
-            handlers.setSelectedIndex paneId index
-
-        SelectFirst paneId ->
-            handlers.selectFirst paneId
-
-        FocusPane paneId ->
-            handlers.focusPane paneId
 
 
 type EffectResult msg
@@ -274,27 +183,6 @@ toBackendTask effect =
             processBatch effects
 
         ShowToast _ ->
-            BackendTask.succeed EffectDone
-
-        ResetScroll _ ->
-            BackendTask.succeed EffectDone
-
-        ScrollTo _ _ ->
-            BackendTask.succeed EffectDone
-
-        ScrollDown _ _ ->
-            BackendTask.succeed EffectDone
-
-        ScrollUp _ _ ->
-            BackendTask.succeed EffectDone
-
-        SetSelectedIndex _ _ ->
-            BackendTask.succeed EffectDone
-
-        SelectFirst _ ->
-            BackendTask.succeed EffectDone
-
-        FocusPane _ ->
             BackendTask.succeed EffectDone
 
 

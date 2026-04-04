@@ -164,6 +164,7 @@ import FatalError
 import Set exposing (Set)
 import Tui exposing (Attribute(..), MouseEvent, Screen, plain)
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Layout.Effect as LayoutEffect
 import Tui.Keybinding
 import Tui.Menu
 import Tui.Modal
@@ -4943,8 +4944,8 @@ handles HOW (rendering, key routing, subscriptions, state management).
 
 -}
 compileApp :
-    { init : data -> ( model, Effect msg )
-    , update : UpdateContext -> msg -> model -> ( model, Effect msg )
+    { init : data -> ( model, LayoutEffect.Effect msg )
+    , update : UpdateContext -> msg -> model -> ( model, LayoutEffect.Effect msg )
     , view : Tui.Context -> model -> Layout msg
     , bindings : { focusedPane : Maybe String } -> model -> List (Group msg)
     , status : model -> { waiting : Maybe String }
@@ -4971,8 +4972,8 @@ compileApp config =
 
 compileInit :
     { a
-        | init : data -> ( model, Effect msg )
-        , update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        | init : data -> ( model, LayoutEffect.Effect msg )
+        , update : UpdateContext -> msg -> model -> ( model, LayoutEffect.Effect msg )
         , view : Tui.Context -> model -> Layout msg
     }
     -> data
@@ -5039,7 +5040,11 @@ compileInit config loadedData =
         initFw =
             { layoutState = layoutState, statusState = Tui.Status.init, previousItemCounts = itemCounts }
 
-        ( finalFwState, mappedSelectEffects ) =
+        allEffects : List (LayoutEffect.Effect msg)
+        allEffects =
+            userEffect :: initialSelectEffects
+
+        ( finalFwState, mappedEffects ) =
             List.foldl
                 (\eff ( accFw, accMapped ) ->
                     let
@@ -5049,7 +5054,7 @@ compileInit config loadedData =
                     ( newFw, mapped :: accMapped )
                 )
                 ( initFw, [] )
-                initialSelectEffects
+                allEffects
     in
     ( FrameworkModel
         { userModel = finalUserModel
@@ -5060,8 +5065,7 @@ compileInit config loadedData =
         , modalState = NoModal
         , previousItemCounts = itemCounts
         }
-    , Effect.batch
-        (Effect.map UserMsg userEffect :: List.reverse mappedSelectEffects)
+    , Effect.batch (List.reverse mappedEffects)
     )
 
 
@@ -5131,7 +5135,7 @@ extractItemCounts layout =
 
 compileUpdate :
     { a
-        | update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        | update : UpdateContext -> msg -> model -> ( model, LayoutEffect.Effect msg )
         , view : Tui.Context -> model -> Layout msg
         , bindings : { focusedPane : Maybe String } -> model -> List (Group msg)
         , status : model -> { waiting : Maybe String }
@@ -5267,7 +5271,7 @@ compileUpdate config fwMsg (FrameworkModel fw) =
 
 handleKeyPressed :
     { a
-        | update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        | update : UpdateContext -> msg -> model -> ( model, LayoutEffect.Effect msg )
         , view : Tui.Context -> model -> Layout msg
         , bindings : { focusedPane : Maybe String } -> model -> List (Group msg)
         , modal : model -> Maybe (Modal msg)
@@ -5415,7 +5419,7 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
 
 handlePickerKey :
     { a
-        | update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        | update : UpdateContext -> msg -> model -> ( model, LayoutEffect.Effect msg )
         , view : Tui.Context -> model -> Layout msg
         , modal : model -> Maybe (Modal msg)
     }
@@ -5609,7 +5613,7 @@ pickerVisibleLabelRows terminalHeight =
 
 handleKeyPressedNoModal :
     { a
-        | update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        | update : UpdateContext -> msg -> model -> ( model, LayoutEffect.Effect msg )
         , view : Tui.Context -> model -> Layout msg
         , bindings : { focusedPane : Maybe String } -> model -> List (Group msg)
         , modal : model -> Maybe (Modal msg)
@@ -5849,7 +5853,7 @@ builtInHelpRows =
 
 applyScrollMsgs :
     { a
-        | update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        | update : UpdateContext -> msg -> model -> ( model, LayoutEffect.Effect msg )
         , view : Tui.Context -> model -> Layout msg
         , modal : model -> Maybe (Modal msg)
     }
@@ -5871,7 +5875,7 @@ applyScrollMsgs config msgs model =
 
 applyUserMsg :
     { a
-        | update : UpdateContext -> msg -> model -> ( model, Effect msg )
+        | update : UpdateContext -> msg -> model -> ( model, LayoutEffect.Effect msg )
         , view : Tui.Context -> model -> Layout msg
         , modal : model -> Maybe (Modal msg)
     }
@@ -5957,7 +5961,7 @@ applyUserMsg config msg (FrameworkModel fw) =
 
 
 extractLayoutEffects :
-    Effect msg
+    LayoutEffect.Effect msg
     ->
         { a
             | layoutState : State
@@ -5973,6 +5977,81 @@ extractLayoutEffects :
         , Effect (FrameworkMsg msg)
         )
 extractLayoutEffects effect fw =
+    -- elm-review: known-unoptimized-recursion
+    case effect of
+        LayoutEffect.CoreEffect coreEffect ->
+            extractCoreEffect coreEffect fw
+
+        LayoutEffect.Batch effects ->
+            let
+                ( finalFw, collectedEffects ) =
+                    List.foldl
+                        (\nextEffect ( accFw, accEffects ) ->
+                            let
+                                ( newFw, mappedEffect ) =
+                                    extractLayoutEffects nextEffect accFw
+                            in
+                            ( newFw, mappedEffect :: accEffects )
+                        )
+                        ( fw, [] )
+                        effects
+            in
+            ( finalFw, Effect.batch (List.reverse collectedEffects) )
+
+        LayoutEffect.FocusPane paneId ->
+            ( { fw | layoutState = focusPane paneId fw.layoutState }, Effect.none )
+
+        LayoutEffect.ResetScroll paneId ->
+            ( { fw | layoutState = resetScroll paneId fw.layoutState }, Effect.none )
+
+        LayoutEffect.ScrollTo paneId offset ->
+            ( { fw
+                | layoutState =
+                    fw.layoutState
+                        |> resetScroll paneId
+                        |> scrollDown paneId offset
+              }
+            , Effect.none
+            )
+
+        LayoutEffect.ScrollDown paneId amount ->
+            ( { fw | layoutState = scrollDown paneId amount fw.layoutState }, Effect.none )
+
+        LayoutEffect.ScrollUp paneId amount ->
+            ( { fw | layoutState = scrollUp paneId amount fw.layoutState }, Effect.none )
+
+        LayoutEffect.SetSelectedIndex paneId index ->
+            let
+                totalItems =
+                    Dict.get paneId fw.previousItemCounts |> Maybe.withDefault (index + 1)
+            in
+            ( { fw | layoutState = setSelectedIndexAndScroll paneId index totalItems fw.layoutState }, Effect.none )
+
+        LayoutEffect.SelectFirst paneId ->
+            let
+                totalItems =
+                    Dict.get paneId fw.previousItemCounts |> Maybe.withDefault 1
+            in
+            ( { fw | layoutState = setSelectedIndexAndScroll paneId 0 totalItems fw.layoutState }, Effect.none )
+
+
+extractCoreEffect :
+    Effect msg
+    ->
+        { a
+            | layoutState : State
+            , statusState : Tui.Status.State
+            , previousItemCounts : Dict String Int
+        }
+    ->
+        ( { a
+            | layoutState : State
+            , statusState : Tui.Status.State
+            , previousItemCounts : Dict String Int
+          }
+        , Effect (FrameworkMsg msg)
+        )
+extractCoreEffect coreEffect fw =
     Effect.fold
         { none = ( fw, Effect.none )
         , batch =
@@ -5983,7 +6062,7 @@ extractLayoutEffects effect fw =
                             (\nextEffect ( accFw, accEffects ) ->
                                 let
                                     ( newFw, mappedEffect ) =
-                                        extractLayoutEffects nextEffect accFw
+                                        extractCoreEffect nextEffect accFw
                                 in
                                 ( newFw, mappedEffect :: accEffects )
                             )
@@ -6004,36 +6083,8 @@ extractLayoutEffects effect fw =
 
                 else
                     ( { fw | statusState = Tui.Status.toast message fw.statusState }, Effect.none )
-        , resetScroll = \paneId -> ( { fw | layoutState = resetScroll paneId fw.layoutState }, Effect.none )
-        , scrollTo =
-            \paneId offset ->
-                ( { fw
-                    | layoutState =
-                        fw.layoutState
-                            |> resetScroll paneId
-                            |> scrollDown paneId offset
-                  }
-                , Effect.none
-                )
-        , scrollDown = \paneId amount -> ( { fw | layoutState = scrollDown paneId amount fw.layoutState }, Effect.none )
-        , scrollUp = \paneId amount -> ( { fw | layoutState = scrollUp paneId amount fw.layoutState }, Effect.none )
-        , setSelectedIndex =
-            \paneId index ->
-                let
-                    totalItems =
-                        Dict.get paneId fw.previousItemCounts |> Maybe.withDefault (index + 1)
-                in
-                ( { fw | layoutState = setSelectedIndexAndScroll paneId index totalItems fw.layoutState }, Effect.none )
-        , selectFirst =
-            \paneId ->
-                let
-                    totalItems =
-                        Dict.get paneId fw.previousItemCounts |> Maybe.withDefault 1
-                in
-                ( { fw | layoutState = setSelectedIndexAndScroll paneId 0 totalItems fw.layoutState }, Effect.none )
-        , focusPane = \paneId -> ( { fw | layoutState = focusPane paneId fw.layoutState }, Effect.none )
         }
-        effect
+        coreEffect
 
 
 syncModalState :

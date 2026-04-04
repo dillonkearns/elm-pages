@@ -102,19 +102,11 @@ suite =
                                           )
                                             ++ Effect.toastMessage t
                                         ]
-                                , resetScroll = \paneId -> [ "reset:" ++ paneId ]
-                                , scrollTo = \paneId offset -> [ "scrollTo:" ++ paneId ++ ":" ++ String.fromInt offset ]
-                                , scrollDown = \paneId amount -> [ "scrollDown:" ++ paneId ++ ":" ++ String.fromInt amount ]
-                                , scrollUp = \paneId amount -> [ "scrollUp:" ++ paneId ++ ":" ++ String.fromInt amount ]
-                                , setSelectedIndex = \paneId index -> [ "setSelectedIndex:" ++ paneId ++ ":" ++ String.fromInt index ]
-                                , selectFirst = \paneId -> [ "selectFirst:" ++ paneId ]
-                                , focusPane = \paneId -> [ "focus:" ++ paneId ]
                                 }
                                 currentEffect
                     in
                     Effect.batch
                         [ Effect.toast (Effect.info "Saved")
-                        , Effect.scrollDown "files" 3
                         , BackendTask.succeed "done"
                             |> Effect.perform identity
                         , Effect.exitWithCode 2
@@ -122,7 +114,6 @@ suite =
                         |> describeEffect
                         |> Expect.equal
                             [ "toast:Saved"
-                            , "scrollDown:files:3"
                             , "backend-task"
                             , "exit:2"
                             ]

@@ -335,13 +335,6 @@ effectToList effect =
         , backendTask = \_ -> [ effect ]
         , exit = \_ -> [ effect ]
         , toast = \_ -> [ effect ]
-        , resetScroll = \_ -> [ effect ]
-        , scrollTo = \_ _ -> [ effect ]
-        , scrollDown = \_ _ -> [ effect ]
-        , scrollUp = \_ _ -> [ effect ]
-        , setSelectedIndex = \_ _ -> [ effect ]
-        , selectFirst = \_ -> [ effect ]
-        , focusPane = \_ -> [ effect ]
         }
         effect
 

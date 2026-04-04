@@ -3,7 +3,6 @@ module Tui.Effect exposing
     , Toast, info, error, toastMessage, toastIsError
     , none, batch, perform, attempt, exit, exitWithCode
     , toast
-    , resetScroll, scrollTo, scrollDown, scrollUp, setSelectedIndex, selectFirst, focusPane
     , map, fold
     )
 
@@ -40,8 +39,6 @@ update cycle.
 @docs none, batch, perform, attempt, exit, exitWithCode
 
 @docs toast
-
-@docs resetScroll, scrollTo, scrollDown, scrollUp, setSelectedIndex, selectFirst, focusPane
 
 @docs map, fold
 
@@ -179,75 +176,6 @@ toast =
     Internal.toast
 
 
-{-| Reset the scroll position of a pane to the top.
-
-    Effect.resetScroll "diff"
-
--}
-resetScroll : String -> Effect msg
-resetScroll =
-    Internal.resetScroll
-
-
-{-| Scroll a pane to a specific line offset.
-
-    Effect.scrollTo "diff" 100
-
--}
-scrollTo : String -> Int -> Effect msg
-scrollTo =
-    Internal.scrollTo
-
-
-{-| Scroll a pane down by N lines (relative).
-
-    Effect.scrollDown "diff" 10
-
--}
-scrollDown : String -> Int -> Effect msg
-scrollDown =
-    Internal.scrollDown
-
-
-{-| Scroll a pane up by N lines (relative).
-
-    Effect.scrollUp "diff" 10
-
--}
-scrollUp : String -> Int -> Effect msg
-scrollUp =
-    Internal.scrollUp
-
-
-{-| Set the selected index of a selectable pane.
-
-    Effect.setSelectedIndex "commits" 5
-
--}
-setSelectedIndex : String -> Int -> Effect msg
-setSelectedIndex =
-    Internal.setSelectedIndex
-
-
-{-| Reset selection to the first item in a pane.
-
-    Effect.selectFirst "items"
-
--}
-selectFirst : String -> Effect msg
-selectFirst =
-    Internal.selectFirst
-
-
-{-| Move keyboard focus to a specific pane.
-
-    Effect.focusPane "commits"
-
--}
-focusPane : String -> Effect msg
-focusPane =
-    Internal.focusPane
-
 
 {-| Transform the message type of an effect.
 -}
@@ -268,13 +196,6 @@ fold :
     , backendTask : BackendTask FatalError msg -> a
     , exit : Int -> a
     , toast : Toast -> a
-    , resetScroll : String -> a
-    , scrollTo : String -> Int -> a
-    , scrollDown : String -> Int -> a
-    , scrollUp : String -> Int -> a
-    , setSelectedIndex : String -> Int -> a
-    , selectFirst : String -> a
-    , focusPane : String -> a
     }
     -> Effect msg
     -> a
