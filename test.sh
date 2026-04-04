@@ -114,6 +114,17 @@ for s in data:
 print("Batch introspection OK")
 ')
 
+# bundle-script smoke test - verify bundled script --help has clean output (no debug noise on stderr)
+(cd test-scripts && \
+  npx elm-pages bundle-script src/TestWithSchema.elm --output ./test-bundled.mjs && \
+  node ./test-bundled.mjs --help 2>/tmp/bundle-help-stderr.txt && \
+  python3 -c '
+with open("/tmp/bundle-help-stderr.txt") as f:
+    stderr = f.read()
+assert stderr.strip() == "", "Expected clean stderr from --help, got: " + repr(stderr)
+print("bundle-script --help OK")
+' && rm -f ./test-bundled.mjs)
+
 # Stream tests - tests gzip, unzip, command stdin handling, etc.
 (cd examples/end-to-end && npm ci && npx elm-pages run script/src/StreamTests.elm)
 

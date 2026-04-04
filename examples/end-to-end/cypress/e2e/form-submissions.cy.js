@@ -6,6 +6,15 @@ context("dev server with base path", () => {
     cy.get("button").click();
     cy.contains("Successfully received user John Asdf");
   });
+  it("logs in and redirects to greet page", () => {
+    cy.visit("/login");
+    cy.contains("You aren't logged in yet.");
+    cy.get("input[name=name]").clear().type("John");
+    cy.get("button").click();
+    // After form submit, should redirect to /greet with session
+    cy.url().should("include", "/greet");
+    cy.contains("Hello John!");
+  });
   it.skip("logs in and out", () => {
     cy.visit("/login");
     cy.get("input[name=name]").clear().type("John");

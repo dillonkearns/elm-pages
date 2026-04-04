@@ -7,9 +7,28 @@ import * as kleur from "kleur/colors";
 import { inject } from "elm-hot";
 import { fileURLToPath } from "url";
 import { rewriteElmJson } from "./rewrite-elm-json-help.js";
-import { ensureDirSync } from "./file-helpers.js";
 import { patchFrozenViews } from "./frozen-view-codemod.js";
 import { requireLamdera } from "./commands/shared.js";
+// Lazy-loaded to suppress TypeScript deprecation warnings during import
+let _eol2Transform = null;
+async function getEol2Transform() {
+  if (!_eol2Transform) {
+    const origWrite = process.stderr.write;
+    process.stderr.write = function (chunk, ...args) {
+      if (
+        typeof chunk === "string" &&
+        chunk.includes("DeprecationWarning") &&
+        chunk.includes("has been deprecated since")
+      )
+        return true;
+      return origWrite.call(this, chunk, ...args);
+    };
+    const mod = await import("elm-optimize-level-2");
+    _eol2Transform = mod.transform;
+    process.stderr.write = origWrite;
+  }
+  return _eol2Transform;
+}
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -372,37 +391,28 @@ export function modeToOptions(mode) {
   }
 }
 
-export function elmOptimizeLevel2(outputPath, cwd) {
-  return new Promise((resolve, reject) => {
-    const optimizedOutputPath = outputPath + ".opt";
-    const subprocess = spawnCallback(
-      `elm-optimize-level-2`,
-      [outputPath, "--output", optimizedOutputPath],
-      {
-        // ignore stdout
-        // stdio: ["inherit", "ignore", "inherit"],
+export async function elmOptimizeLevel2(outputPath, cwd, { o3 = false } = {}) {
+  const fullPath = cwd ? path.resolve(cwd, outputPath) : outputPath;
+  const jsSource = await fsPromises.readFile(fullPath, "utf-8");
+  const eol2Transform = await getEol2Transform();
 
-        cwd: cwd,
-      }
-    );
-    let commandOutput = "";
-
-    subprocess.stderr.on("data", function (data) {
-      commandOutput += data;
-    });
-
-    subprocess.on("close", async (code) => {
-      if (
-        code === 0 &&
-        (await fsHelpers.fileExists(optimizedOutputPath))
-      ) {
-        await fs.promises.copyFile(optimizedOutputPath, outputPath);
-        resolve();
-      } else {
-        reject(commandOutput);
-      }
-    });
-  });
+  // Suppress TS deprecation warnings during transform execution
+  const origWrite = process.stderr.write;
+  process.stderr.write = function (chunk, ...args) {
+    const str = typeof chunk === "string" ? chunk : chunk.toString();
+    if (
+      str.includes("DeprecationWarning") &&
+      str.includes("has been deprecated since")
+    )
+      return true;
+    return origWrite.call(this, chunk, ...args);
+  };
+  try {
+    const optimized = await eol2Transform(jsSource, o3);
+    await fsPromises.writeFile(fullPath, optimized);
+  } finally {
+    process.stderr.write = origWrite;
+  }
 }
 
 /**

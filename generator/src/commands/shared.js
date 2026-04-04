@@ -302,6 +302,7 @@ migrateFromV${fromVersion} old =
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
+import BackendTask.Internal.Request
 import Bytes exposing (Bytes)
 import Bytes.Decode as BD
 import Db
@@ -443,23 +444,32 @@ hexDigit n =
         _ -> 'f'
 
 
-internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
+internalRequest : String -> BackendTask.Http.Body -> Decode.Decoder a -> BackendTask FatalError a
 internalRequest name body expect =
-    internalRequestWithHeaders name [] body expect
+    BackendTask.Internal.Request.request
+        { name = name
+        , body = body
+        , expect = expect
+        }
 
 
-internalRequestWithHeaders : String -> List ( String, String ) -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
+internalRequestWithHeaders : String -> List ( String, String ) -> BackendTask.Http.Body -> Decode.Decoder a -> BackendTask FatalError a
 internalRequestWithHeaders name headers body expect =
-    BackendTask.Http.request
-        { url = "elm-pages-internal://" ++ name
-        , method = "GET"
+    BackendTask.Internal.Request.requestWithHeaders
+        { name = name
         , headers = headers
         , body = body
-        , timeoutInMs = Nothing
-        , retries = Nothing
+        , expect = expect
         }
-        expect
-        |> BackendTask.allowFatal
+
+
+internalBytesRequest : String -> BackendTask.Http.Body -> BD.Decoder a -> BackendTask FatalError a
+internalBytesRequest name body expect =
+    BackendTask.Internal.Request.requestBytes
+        { name = name
+        , body = body
+        , expect = expect
+        }
 
 
 get : Connection -> BackendTask FatalError Db.Db
@@ -542,9 +552,9 @@ ${hasMigrations ? migrationBranches : ""}
 
 readPayload : Connection -> BackendTask FatalError DbReadPayload
 readPayload connection =
-    internalRequest "db-read-meta"
+    internalBytesRequest "db-read-meta"
         (BackendTask.Http.jsonBody (Encode.object (connectionFields connection)))
-        (BackendTask.Http.expectBytes dbReadPayloadBytesDecoder)
+        dbReadPayloadBytesDecoder
 
 
 persistMigrated : Connection -> Db.Db -> BackendTask FatalError Db.Db
@@ -556,7 +566,7 @@ persistMigrated connection db =
     internalRequestWithHeaders "db-migrate-write"
         (connectionHeaders connection)
         (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
-        (BackendTask.Http.expectJson (Decode.succeed ()))
+        (Decode.succeed ())
         |> BackendTask.map (\\_ -> db)
 
 
@@ -606,14 +616,14 @@ write connection db =
     internalRequestWithHeaders "db-write"
         (( "x-schema-hash", schemaHash ) :: connectionHeaders connection)
         (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
-        (BackendTask.Http.expectJson (Decode.succeed ()))
+        (Decode.succeed ())
 
 
 acquireLock : Connection -> BackendTask FatalError String
 acquireLock connection =
     internalRequest "db-lock-acquire"
         (BackendTask.Http.jsonBody (Encode.object (connectionFields connection)))
-        (BackendTask.Http.expectJson Decode.string)
+        Decode.string
 
 
 releaseLock : Connection -> String -> BackendTask FatalError ()
@@ -626,7 +636,7 @@ releaseLock connection token =
                 )
             )
         )
-        (BackendTask.Http.expectJson (Decode.succeed ()))
+        (Decode.succeed ())
 
 
 testConfig :

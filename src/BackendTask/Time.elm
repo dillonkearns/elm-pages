@@ -51,8 +51,7 @@ now =
         , body =
             BackendTask.Http.jsonBody Encode.null
         , expect =
-            BackendTask.Http.expectJson
-                (Decode.int |> Decode.map Time.millisToPosix)
+            Decode.int |> Decode.map Time.millisToPosix
         }
 
 
@@ -215,7 +214,7 @@ requestZone maybeTzId dateRange =
                         BackendTask.Http.jsonBody
                             (encodeZoneRequest maybeTzId sinceMs untilMs)
                     , expect =
-                        BackendTask.Http.expectJson zoneDecoder
+                        zoneDecoder
                     }
             )
 

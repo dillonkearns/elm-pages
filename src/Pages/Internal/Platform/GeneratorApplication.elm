@@ -297,7 +297,7 @@ logInternal message =
                     [ ( "message", Encode.string message )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        , expect = Decode.succeed ()
         }
 
 

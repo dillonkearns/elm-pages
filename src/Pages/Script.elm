@@ -127,7 +127,7 @@ writeFile { path, body } =
                 )
         , expect =
             -- TODO decode possible error details here
-            BackendTask.Http.expectJson (Decode.succeed ())
+            Decode.succeed ()
         }
 
 
@@ -155,7 +155,7 @@ log message =
                     [ ( "message", Encode.string message )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        , expect = Decode.succeed ()
         }
 
 
@@ -628,7 +628,7 @@ setDatabasePath dbPath =
                     [ ( "path", Encode.string dbPath )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        , expect = Decode.succeed ()
         }
 
 
@@ -660,7 +660,7 @@ sleep int =
                     ]
                 )
         , expect =
-            BackendTask.Http.expectJson (Decode.null ())
+            Decode.null ()
         }
 
 
@@ -691,7 +691,7 @@ which : String -> BackendTask error (Maybe String)
 which command_ =
     BackendTask.Internal.Request.request
         { body = BackendTask.Http.jsonBody (Encode.string command_)
-        , expect = BackendTask.Http.expectJson (Decode.nullable Decode.string)
+        , expect = Decode.nullable Decode.string
         , name = "which"
         }
 
@@ -765,7 +765,7 @@ question prompt =
         { body =
             BackendTask.Http.jsonBody
                 (Encode.object [ ( "prompt", Encode.string prompt ) ])
-        , expect = BackendTask.Http.expectJson Decode.string
+        , expect = Decode.string
         , name = "question"
         }
 
@@ -807,7 +807,7 @@ readKey : BackendTask error String
 readKey =
     BackendTask.Internal.Request.request
         { body = BackendTask.Http.emptyBody
-        , expect = BackendTask.Http.expectJson Decode.string
+        , expect = Decode.string
         , name = "readKey"
         }
 
@@ -858,7 +858,7 @@ removeFile filePath =
                     [ ( "path", Encode.string filePath )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        , expect = Decode.succeed ()
         }
 
 
@@ -878,7 +878,7 @@ copyFile { from, to } =
                     , ( "to", Encode.string to )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        , expect = Decode.succeed ()
         }
 
 
@@ -898,7 +898,7 @@ move { from, to } =
                     , ( "to", Encode.string to )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        , expect = Decode.succeed ()
         }
 
 
@@ -924,7 +924,7 @@ makeDirectory { recursive } dirPath =
                     , ( "recursive", Encode.bool recursive )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        , expect = Decode.succeed ()
         }
 
 
@@ -951,7 +951,7 @@ removeDirectory { recursive } dirPath =
                     , ( "recursive", Encode.bool recursive )
                     ]
                 )
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        , expect = Decode.succeed ()
         }
 
 
@@ -973,7 +973,7 @@ makeTempDirectory prefix =
     BackendTask.Internal.Request.request
         { name = "make-temp-directory"
         , body = BackendTask.Http.jsonBody (Encode.string prefix)
-        , expect = BackendTask.Http.expectJson Decode.string
+        , expect = Decode.string
         }
 
 

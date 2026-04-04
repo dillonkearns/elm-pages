@@ -118,6 +118,15 @@ async function main() {
   program
     .command("run <elmModulePath>")
     .description("run an elm-pages script")
+    // Coverage options are defined for Commander's --help display and correct
+    // positional parsing, but actual values come from position-aware extraction
+    // in run.js (flags after the script path are forwarded to the script).
+    .option("--coverage", "Instrument sources and generate a coverage report (requires elm-instrument from npm install -g elm-coverage)")
+    .option("--coverage-include <dir>", "Only instrument files in these source directories (repeatable)", collect, [])
+    .option("--coverage-exclude <dir>", "Exclude these source directories from instrumentation (repeatable)", collect, [])
+    .option("--coverage-include-module <pattern>", "Only show these modules in the report, e.g. 'MyApp.*' (repeatable)", collect, [])
+    .option("--coverage-exclude-module <pattern>", "Hide these modules from the report, e.g. 'Gen.*' (repeatable)", collect, [])
+    .addHelpText("after", "\nCoverage options must appear BEFORE the script path.\nFlags after the script path are forwarded to the script.\n")
     .allowUnknownOption()
     .allowExcessArguments()
     .helpOption(false) // allow --help to propagate to the Script to show usage

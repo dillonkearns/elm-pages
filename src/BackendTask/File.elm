@@ -361,7 +361,7 @@ You could read a file called `hello.jpg` in your root project directory like thi
 -}
 binaryFile : String -> BackendTask { fatal : FatalError, recoverable : FileReadError decoderError } Bytes
 binaryFile filePath =
-    BackendTask.Internal.Request.request
+    BackendTask.Internal.Request.requestBytes
         { name = "read-file-binary"
         , body = BackendTask.Http.stringBody "" filePath
         , expect =
@@ -374,7 +374,6 @@ binaryFile filePath =
                         else
                             Bytes.Decode.bytes length
                     )
-                |> BackendTask.Http.expectBytes
         }
         |> BackendTask.mapError (\_ -> fileNotFound filePath)
 
@@ -447,7 +446,6 @@ read filePath decoder =
                     (Decode.map Err (errorDecoder filePath))
                 , decoder |> Decode.map Ok
                 ]
-                |> BackendTask.Http.expectJson
         }
         |> BackendTask.andThen BackendTask.fromResult
 
@@ -491,7 +489,7 @@ exists filePath =
     BackendTask.Internal.Request.request
         { name = "file-exists"
         , body = BackendTask.Http.jsonBody (Encode.string filePath)
-        , expect = BackendTask.Http.expectJson Decode.bool
+        , expect = Decode.bool
         }
 
 

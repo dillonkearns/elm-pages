@@ -192,6 +192,7 @@ export function generateMigrateChain(targetVersion) {
   const imports = [
     "import BackendTask exposing (BackendTask)",
     "import BackendTask.Http",
+    "import BackendTask.Internal.Request",
     // Base64 no longer needed — raw bytes sent through port
     "import Bytes exposing (Bytes)",
     "import Bytes.Decode",
@@ -273,37 +274,26 @@ ${caseBranches}
 ${migrateFunctions}
 
 
-internalRequest : String -> BackendTask.Http.Body -> BackendTask.Http.Expect a -> BackendTask FatalError a
-internalRequest name body expect =
-    BackendTask.Http.request
-        { url = "elm-pages-internal://" ++ name
-        , method = "GET"
-        , headers = []
-        , body = body
-        , timeoutInMs = Nothing
-        , retries = Nothing
-        }
-        expect
-        |> BackendTask.allowFatal
-
-
 saveAndLog : Db.Db -> Int -> Int -> BackendTask FatalError ()
 saveAndLog newDb fromVersion toVersion =
     let
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db newDb)
     in
-    internalRequest "db-migrate-write"
-        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
-        (BackendTask.Http.expectJson (Decode.succeed ()))
+    BackendTask.Internal.Request.request
+        { name = "db-migrate-write"
+        , body = BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes
+        , expect = Decode.succeed ()
+        }
 
 
 readDbBin : BackendTask FatalError { version : Int, bytes : Bytes }
 readDbBin =
-    internalRequest "db-migrate-read"
-        (BackendTask.Http.jsonBody Encode.null)
-        (BackendTask.Http.expectBytes
-            (Bytes.Decode.unsignedInt32 Bytes.BE
+    BackendTask.Internal.Request.requestBytes
+        { name = "db-migrate-read"
+        , body = BackendTask.Http.jsonBody Encode.null
+        , expect =
+            Bytes.Decode.unsignedInt32 Bytes.BE
                 |> Bytes.Decode.andThen
                     (\\version ->
                         Bytes.Decode.unsignedInt32 Bytes.BE
@@ -318,8 +308,7 @@ readDbBin =
                                             )
                                 )
                     )
-            )
-        )
+        }
 `;
 }
 
