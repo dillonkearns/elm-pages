@@ -133,7 +133,7 @@ loginFlowTest =
         |> PagesProgram.clickButton "Log In"
         |> PagesProgram.ensureViewHas [ PSelector.text "Password must be at least 6 characters" ]
         |> PagesProgram.fillIn "password" "password" "secret123"
-        |> PagesProgram.check "remember" True
+        |> PagesProgram.check "remember" "Remember me" True
         |> PagesProgram.clickButton "Log In"
         |> PagesProgram.resolveEffect
             (BackendTaskTest.simulateHttpGet
@@ -262,6 +262,7 @@ todoAppTest =
                                             , Html.Events.onCheck (\_ -> ToggleTodo todo.id)
                                             ]
                                             []
+                                        , Html.label [ Attr.for ("todo-" ++ String.fromInt todo.id) ] [ Html.text todo.text ]
                                         , Html.span
                                             [ Attr.style "flex" "1"
                                             , Attr.style "margin-left" "12px"
@@ -306,9 +307,9 @@ todoAppTest =
         |> PagesProgram.clickButton "Add"
         |> PagesProgram.ensureViewHas [ PSelector.text "Deploy to production" ]
         |> PagesProgram.ensureViewHas [ PSelector.text "1 of 4 completed" ]
-        |> PagesProgram.check "todo-2" True
+        |> PagesProgram.check "todo-2" "Build elm-pages app" True
         |> PagesProgram.ensureViewHas [ PSelector.text "2 of 4 completed" ]
-        |> PagesProgram.check "todo-3" True
+        |> PagesProgram.check "todo-3" "Write tests" True
         |> PagesProgram.ensureViewHas [ PSelector.text "3 of 4 completed" ]
         |> PagesProgram.within
             (Query.find [ Selector.tag "li", Selector.containing [ Selector.text "Learn Elm" ] ])

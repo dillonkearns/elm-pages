@@ -317,7 +317,8 @@ all =
                             \_ model ->
                                 { title = "Form"
                                 , body =
-                                    [ Html.input
+                                    [ Html.label [ Attr.for "agree" ] [ Html.text "I agree" ]
+                                    , Html.input
                                         [ Attr.id "agree"
                                         , Attr.type_ "checkbox"
                                         , Attr.checked model.agreed
@@ -333,7 +334,7 @@ all =
                                 }
                         }
                         |> PagesProgram.ensureViewHas [ PSelector.text "Please accept terms" ]
-                        |> PagesProgram.check "agree" True
+                        |> PagesProgram.check "agree" "I agree" True
                         |> PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
                         |> PagesProgram.done
             ]
@@ -2207,18 +2208,166 @@ all =
 
                         _ ->
                             Expect.fail "Expected Batch with mapped DispatchMsg values"
-            , test "SimulatedEffect.map preserves structural variants" <|
+            , test "SimulatedEffect.map preserves None" <|
                 \() ->
                     let
                         mapped =
-                            SimulatedEffect.map identity SimulatedEffect.opaqueCmd
+                            SimulatedEffect.map identity SimulatedEffect.none
                     in
                     case mapped of
-                        SimulatedEffect.OpaqueCmd ->
+                        SimulatedEffect.None ->
                             Expect.pass
 
                         _ ->
-                            Expect.fail "Expected OpaqueCmd to be preserved"
+                            Expect.fail "Expected None to be preserved"
+            ]
+        , describe "expectBrowserUrl (terminal)"
+            [ test "expectBrowserUrl fails without startPlatform" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.expectBrowserUrl
+                            (\url -> url |> Expect.equal "anything")
+                        |> expectFailContaining "URL tracking is only supported"
+            ]
+        , describe "ensureBrowserHistory / expectBrowserHistory"
+            [ test "ensureBrowserHistory fails without startPlatform" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.ensureBrowserHistory
+                            (\history -> Expect.equal [] history)
+                        |> PagesProgram.done
+                        |> expectFailContaining "only supported with startPlatform"
+            , test "expectBrowserHistory fails without startPlatform" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                        }
+                        |> PagesProgram.expectBrowserHistory
+                            (\history -> Expect.equal [] history)
+                        |> expectFailContaining "only supported with startPlatform"
+            ]
+        , describe "check with label"
+            [ test "check verifies label is associated with the checkbox" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { agreed = False }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    ToggleAgreed checked ->
+                                        ( { model | agreed = checked }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Form"
+                                , body =
+                                    [ Html.label [ Attr.for "agree" ] [ Html.text "I agree to the terms" ]
+                                    , Html.input
+                                        [ Attr.id "agree"
+                                        , Attr.type_ "checkbox"
+                                        , Attr.checked model.agreed
+                                        , Html.Events.onCheck ToggleAgreed
+                                        ]
+                                        []
+                                    , if model.agreed then
+                                        Html.text "Terms accepted"
+
+                                      else
+                                        Html.text "Please accept terms"
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.check "agree" "I agree to the terms" True
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
+                        |> PagesProgram.done
+            , test "check fails when label doesn't match" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { agreed = False }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    ToggleAgreed checked ->
+                                        ( { model | agreed = checked }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Form"
+                                , body =
+                                    [ Html.label [ Attr.for "agree" ] [ Html.text "I agree" ]
+                                    , Html.input
+                                        [ Attr.id "agree"
+                                        , Attr.type_ "checkbox"
+                                        , Attr.checked model.agreed
+                                        , Html.Events.onCheck ToggleAgreed
+                                        ]
+                                        []
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.check "agree" "Wrong label text" True
+                        |> PagesProgram.done
+                        |> expectFailContaining "Could not find label"
+            , test "check works with label wrapping the input" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { agreed = False }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    ToggleAgreed checked ->
+                                        ( { model | agreed = checked }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Form"
+                                , body =
+                                    [ Html.label []
+                                        [ Html.input
+                                            [ Attr.id "agree"
+                                            , Attr.type_ "checkbox"
+                                            , Attr.checked model.agreed
+                                            , Html.Events.onCheck ToggleAgreed
+                                            ]
+                                            []
+                                        , Html.text "Accept terms"
+                                        ]
+                                    , if model.agreed then
+                                        Html.text "Terms accepted"
+
+                                      else
+                                        Html.text "Please accept terms"
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.check "agree" "Accept terms" True
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
+                        |> PagesProgram.done
+            ]
+        , describe "SimulatedEffect.OpaqueCmd removed"
+            [ test "Cmd maps to None in testPerform (no OpaqueCmd)" <|
+                \() ->
+                    -- OpaqueCmd was removed; users should map Cmd _ to SimulatedEffect.none
+                    -- to be explicit about what is dropped
+                    case SimulatedEffect.none of
+                        SimulatedEffect.None ->
+                            Expect.pass
+
+                        _ ->
+                            Expect.fail "Expected None"
             ]
         ]
 

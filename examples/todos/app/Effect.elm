@@ -154,7 +154,7 @@ testPerform effect =
             SimulatedEffect.none
 
         Cmd _ ->
-            SimulatedEffect.opaqueCmd
+            SimulatedEffect.none
 
         Batch list ->
             SimulatedEffect.batch (List.map testPerform list)

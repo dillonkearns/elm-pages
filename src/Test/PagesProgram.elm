@@ -2,7 +2,8 @@ module Test.PagesProgram exposing
     ( ProgramTest
     , start, startWithEffects, startPlatform
     , clickButton, clickButtonWith, clickLink, fillIn, fillInTextarea, check
-    , navigateTo, ensureBrowserUrl
+    , navigateTo, ensureBrowserUrl, expectBrowserUrl
+    , ensureBrowserHistory, expectBrowserHistory
     , submitForm, submitFormTo
     , resolveEffect
     , simulateMsg
@@ -50,7 +51,9 @@ use [`start`](#start) with inline config.
 
 @docs clickButton, clickButtonWith, clickLink, fillIn, fillInTextarea, check
 
-@docs navigateTo, ensureBrowserUrl
+@docs navigateTo, ensureBrowserUrl, expectBrowserUrl
+
+@docs ensureBrowserHistory, expectBrowserHistory
 
 @docs submitForm, submitFormTo
 
@@ -2163,6 +2166,155 @@ ensureBrowserUrl assertion (ProgramTest state) =
                                 }
 
 
+{-| Like `ensureBrowserUrl`, but returns an `Expectation` (terminal -- ends
+the pipeline).
+
+    myTest
+        |> PagesProgram.expectBrowserUrl
+            (\url -> url |> Expect.equal "https://localhost:1234/counter")
+
+-}
+expectBrowserUrl : (String -> Expectation) -> ProgramTest model msg -> Expectation
+expectBrowserUrl assertion (ProgramTest state) =
+    case state.error of
+        Just errMsg ->
+            Expect.fail errMsg
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    Expect.fail "expectBrowserUrl: Cannot check URL while data is resolving."
+
+                Ready ready ->
+                    case ready.getBrowserUrl of
+                        Just getUrl ->
+                            assertion (getUrl ready.model)
+
+                        Nothing ->
+                            Expect.fail "expectBrowserUrl: URL tracking is only supported with startPlatform (framework-driven tests)."
+
+
+{-| Assert on the browser URL history. The history is a list of URLs
+visited during the test, most recent first. Use with framework-driven
+tests (`startPlatform`).
+
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.navigateTo "/about"
+        |> PagesProgram.ensureBrowserHistory
+            (\history ->
+                history
+                    |> List.length
+                    |> Expect.equal 2
+            )
+
+-}
+ensureBrowserHistory : (List String -> Expectation) -> ProgramTest model msg -> ProgramTest model msg
+ensureBrowserHistory assertion (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest
+                        { state | error = Just "ensureBrowserHistory: Cannot check history while data is resolving." }
+
+                Ready ready ->
+                    case ready.getBrowserUrl of
+                        Just getUrl ->
+                            let
+                                history =
+                                    getBrowserHistory ready state.snapshots
+
+                                result =
+                                    assertion history
+                            in
+                            case getFailureMessage result of
+                                Just failMsg ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just ("ensureBrowserHistory failed:\n\n" ++ failMsg)
+                                        }
+
+                                Nothing ->
+                                    ProgramTest state
+                                        |> recordAssertionSnapshot "ensureBrowserHistory" []
+
+                        Nothing ->
+                            ProgramTest
+                                { state
+                                    | error = Just "ensureBrowserHistory: Browser history is only supported with startPlatform (framework-driven tests)."
+                                }
+
+
+{-| Like `ensureBrowserHistory`, but returns an `Expectation` (terminal).
+-}
+expectBrowserHistory : (List String -> Expectation) -> ProgramTest model msg -> Expectation
+expectBrowserHistory assertion (ProgramTest state) =
+    case state.error of
+        Just errMsg ->
+            Expect.fail errMsg
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    Expect.fail "expectBrowserHistory: Cannot check history while data is resolving."
+
+                Ready ready ->
+                    case ready.getBrowserUrl of
+                        Just getUrl ->
+                            assertion (getBrowserHistory ready state.snapshots)
+
+                        Nothing ->
+                            Expect.fail "expectBrowserHistory: Browser history is only supported with startPlatform (framework-driven tests)."
+
+
+{-| Extract browser URL history from snapshots (most recent first).
+-}
+getBrowserHistory : ReadyState model msg -> List Snapshot -> List String
+getBrowserHistory ready snapshots =
+    let
+        currentUrl =
+            ready.getBrowserUrl
+                |> Maybe.map (\getUrl -> getUrl ready.model)
+
+        snapshotUrls =
+            snapshots
+                |> List.filterMap .browserUrl
+    in
+    case currentUrl of
+        Just url ->
+            if List.member url snapshotUrls then
+                snapshotUrls |> List.reverse |> uniqueConsecutive
+
+            else
+                (snapshotUrls ++ [ url ]) |> List.reverse |> uniqueConsecutive
+
+        Nothing ->
+            snapshotUrls |> List.reverse |> uniqueConsecutive
+
+
+{-| Remove consecutive duplicates from a list.
+-}
+uniqueConsecutive : List a -> List a
+uniqueConsecutive list =
+    case list of
+        [] ->
+            []
+
+        [ x ] ->
+            [ x ]
+
+        x :: y :: rest ->
+            if x == y then
+                uniqueConsecutive (y :: rest)
+
+            else
+                x :: uniqueConsecutive (y :: rest)
+
+
 {-| Submit a form with the given fields. In framework-driven tests, this
 triggers the full action pipeline: the action BackendTask is resolved, and
 the result is rendered as `actionData` in the view.
@@ -2229,16 +2381,21 @@ submitFormTo action formInfo (ProgramTest state) =
                                 }
 
 
-{-| Simulate checking or unchecking a checkbox. Finds the input by its `id`
-attribute and simulates a `change` event with the given checked state.
+{-| Simulate checking or unchecking a checkbox. Provide the element's `id`,
+the label text (for accessibility verification), and the checked state.
+
+The label is verified by looking for either:
+
+1. A `<label for="fieldId">` element containing the label text
+2. A `<label>` element wrapping both the checkbox and the label text
 
     PagesProgram.start config
-        |> PagesProgram.check "agree" True
+        |> PagesProgram.check "agree" "I agree to the terms" True
         |> PagesProgram.ensureViewHas [ Selector.text "Terms accepted" ]
 
 -}
-check : String -> Bool -> ProgramTest model msg -> ProgramTest model msg
-check fieldId isChecked (ProgramTest state) =
+check : String -> String -> Bool -> ProgramTest model msg -> ProgramTest model msg
+check fieldId label isChecked (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -2262,6 +2419,35 @@ check fieldId isChecked (ProgramTest state) =
                         query =
                             renderScopedView ready
 
+                        stepLabel =
+                            "check \"" ++ fieldId ++ "\" \"" ++ label ++ "\""
+
+                        -- Strategy 1: <label for="fieldId"> with matching text
+                        forLabelResult : Expectation
+                        forLabelResult =
+                            query
+                                |> Query.find
+                                    [ Selector.tag "label"
+                                    , Selector.attribute (Html.Attributes.for fieldId)
+                                    , Selector.text label
+                                    ]
+                                |> Query.has []
+
+                        -- Strategy 2: <label> wrapping both the input and the text
+                        wrappingLabelResult : Expectation
+                        wrappingLabelResult =
+                            query
+                                |> Query.find
+                                    [ Selector.tag "label"
+                                    , Selector.containing [ Selector.id fieldId ]
+                                    , Selector.containing [ Selector.text label ]
+                                    ]
+                                |> Query.has []
+
+                        labelFound =
+                            getFailureMessage forLabelResult == Nothing
+                                || getFailureMessage wrappingLabelResult == Nothing
+
                         inputQuery : Query.Single msg
                         inputQuery =
                             query
@@ -2273,19 +2459,25 @@ check fieldId isChecked (ProgramTest state) =
                                 |> Event.simulate (Event.check isChecked)
                                 |> Event.toResult
                     in
+                    if not labelFound then
+                        ProgramTest
+                            { state
+                                | error =
+                                    Just
+                                        (stepLabel
+                                            ++ " failed: Could not find label \""
+                                            ++ label
+                                            ++ "\" associated with #"
+                                            ++ fieldId
+                                            ++ "."
+                                        )
+                            }
+
+                    else
                     case eventResult of
                         Ok msg ->
                             applyMsgWithLabel
-                                ("check \""
-                                    ++ fieldId
-                                    ++ "\" "
-                                    ++ (if isChecked then
-                                            "True"
-
-                                        else
-                                            "False"
-                                       )
-                                )
+                                stepLabel
                                 Interaction
                                 (Just (ById fieldId))
                                 msg
@@ -4301,9 +4493,6 @@ processSimulatedEffect config baseUrl makeReady makePlatformResolver handleUserC
     else
         case simEffect of
             SimulatedEffect.None ->
-                ( wrappedModel, [], [] )
-
-            SimulatedEffect.OpaqueCmd ->
                 ( wrappedModel, [], [] )
 
             SimulatedEffect.Batch effects ->

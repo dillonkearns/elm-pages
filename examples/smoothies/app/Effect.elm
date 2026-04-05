@@ -116,7 +116,7 @@ testPerform effect =
             SimulatedEffect.none
 
         Cmd _ ->
-            SimulatedEffect.opaqueCmd
+            SimulatedEffect.none
 
         SendMsg msg ->
             SimulatedEffect.dispatchMsg msg

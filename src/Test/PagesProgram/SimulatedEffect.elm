@@ -1,6 +1,6 @@
 module Test.PagesProgram.SimulatedEffect exposing
     ( SimulatedEffect(..)
-    , none, batch, dispatchMsg, setField, submitFetcher, opaqueCmd
+    , none, batch, dispatchMsg, setField, submitFetcher
     , map
     )
 
@@ -20,7 +20,9 @@ your `Effect` type into something the test framework can process.
                 SimulatedEffect.none
 
             Cmd _ ->
-                SimulatedEffect.opaqueCmd
+                -- Opaque Cmds cannot be simulated. Use simulateMsg
+                -- in your test to inject the message manually.
+                SimulatedEffect.none
 
             Batch list ->
                 SimulatedEffect.batch (List.map testPerform list)
@@ -30,7 +32,7 @@ your `Effect` type into something the test framework can process.
 
 @docs SimulatedEffect
 
-@docs none, batch, dispatchMsg, setField, submitFetcher, opaqueCmd
+@docs none, batch, dispatchMsg, setField, submitFetcher
 
 @docs map
 
@@ -46,7 +48,6 @@ import Pages.Fetcher
   - `DispatchMsg msg` -- dispatch a message through the update cycle
   - `SetField` -- set a form field value
   - `SubmitFetcher` -- submit a fetcher (concurrent form submission)
-  - `OpaqueCmd` -- an opaque `Cmd` that cannot be simulated; silently dropped
 
 -}
 type SimulatedEffect msg
@@ -55,10 +56,14 @@ type SimulatedEffect msg
     | DispatchMsg msg
     | SetField { formId : String, name : String, value : String }
     | SubmitFetcher (Pages.Fetcher.Fetcher msg)
-    | OpaqueCmd
 
 
 {-| No effect. Parallels `Effect.none`.
+
+Also use this for opaque `Cmd` values that cannot be simulated.
+Use [`simulateMsg`](Test-PagesProgram#simulateMsg) in your test to
+inject the message that the `Cmd` would have produced.
+
 -}
 none : SimulatedEffect msg
 none =
@@ -100,15 +105,6 @@ submitFetcher =
     SubmitFetcher
 
 
-{-| An opaque `Cmd` that cannot be inspected or simulated. The test framework
-silently drops these. Use [`simulateMsg`](Test-PagesProgram#simulateMsg) to
-inject the message that the `Cmd` would have produced.
--}
-opaqueCmd : SimulatedEffect msg
-opaqueCmd =
-    OpaqueCmd
-
-
 {-| Transform the messages produced by a simulated effect.
 -}
 map : (a -> msg) -> SimulatedEffect a -> SimulatedEffect msg
@@ -128,6 +124,3 @@ map f effect =
 
         SubmitFetcher fetcher ->
             SubmitFetcher (Pages.Fetcher.map f fetcher)
-
-        OpaqueCmd ->
-            OpaqueCmd
