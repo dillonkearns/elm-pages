@@ -24,19 +24,16 @@ any HTTP requests our outside interactions (from BackendTask, or from a Route's 
 `BackendTask` that can't be simulated (i.e. outside world interactions like HTTP requests),
 you pass in the fake data to simulate the real world result using the [`Test.BackendTask`](Test-BackendTask) API.
 
-Because the test framework simulates the core elm-pages runtime -- including
-cookies, URL state, and navigation -- your tests exercise realistic
+Because the test framework simulates the core elm-pages runtime, including
+cookies, URL state, and navigation, your tests exercise realistic
 end-to-end behavior deterministically:
 
-  - **Data loading** -- BackendTask HTTP and custom port responses via [`simulateHttpGet`](#simulateHttpGet), [`simulateHttpPost`](#simulateHttpPost), and [`simulateCustom`](#simulateCustom)
-  - **Forms** -- submit forms with [`clickButton`](#clickButton) or [`submitForm`](#submitForm), including concurrent fetcher submissions
-  - **Optimistic UI** -- assert on the view while fetcher submissions are still in-flight, using `app.concurrentSubmissions` in your route's view
-  - **Navigation** -- follow links with [`clickLink`](#clickLink), navigate programmatically with [`navigateTo`](#navigateTo), and assert on the URL with [`ensureBrowserUrl`](#ensureBrowserUrl)
-  - **Cookies and sessions** -- cookies set by server responses (via `Server.Response`) persist across navigations and form submissions within a test
-  - **Redirects** -- server-side redirects (from actions or data functions) are followed automatically, including cookie propagation
-
-For client-side TEA interactions (`Effect.sendMsg`, etc.), see
-[`Test.PagesProgram.SimulatedEffect`](Test-PagesProgram-SimulatedEffect).
+  - [`BackendTask`](BackendTask) data loading and actions, with simulated responses for [`BackendTask.Http`](BackendTask-Http) and [`BackendTask.Custom`](BackendTask-Custom)
+  - [`Pages.Form`](Pages-Form) submissions, including concurrent [`Pages.Fetcher`](Pages-Fetcher) submissions
+  - Optimistic UI via [`Pages.ConcurrentSubmission`](Pages-ConcurrentSubmission) - assert on the view while fetchers are still in-flight
+  - [`Server.Session`](Server-Session) and [`Server.SetCookie`](Server-SetCookie) - cookies persist across navigations and form submissions within a test
+  - [`Server.Response`](Server-Response) redirects are followed automatically, with cookie propagation
+  - Client-side TEA interactions via [`SimulatedEffect`](Test-PagesProgram-SimulatedEffect) - `Effect.sendMsg` dispatches through the update cycle
 
 
 ## Quick start
