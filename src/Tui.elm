@@ -1,72 +1,154 @@
 module Tui exposing
     ( Screen, text, styled, lines, concat, spaced, empty, blank
-    , fg, bg, bold, dim, italic, underline, strikethrough, inverse
+    , fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
     , Style, plain
     , Attribute(..)
     , Context, ColorProfile(..)
     , KeyEvent, Key(..), Direction(..), Modifier(..)
     , MouseEvent(..), MouseButton(..)
-    , truncateWidth
+    , truncateWidth, wrapWidth
     , toString, toLines, toScreenLines, lineCount
     , extractStyle
-    , encodeScreen
     )
 
-{-| Core types for building terminal user interfaces.
+{-| Build terminal user interfaces with styled text, keyboard/mouse events,
+and composable screens.
 
-`Tui.Screen` is the primitive view type — styled text with vertical and horizontal
-composition. The framework handles rendering, diffing, and terminal management.
+Use [`Pages.Script.tui`](Pages-Script#tui) to wire up a TUI as an elm-pages
+script with `init`, `update`, `view`, and `subscriptions`. This module provides
+the types you'll use in `view` (returning a `Screen`) and `subscriptions`
+(receiving `KeyEvent`, `MouseEvent`).
 
-Colors use [`Ansi.Color.Color`](https://package.elm-lang.org/packages/wolfadex/elm-ansi/latest/Ansi-Color)
-from the `wolfadex/elm-ansi` package:
+A minimal TUI view:
 
-    import Ansi.Color
-    import Tui
+    view : Tui.Context -> Model -> Tui.Screen
+    view ctx model =
+        Tui.lines
+            [ Tui.text "Hello, TUI!" |> Tui.bold
+            , Tui.blank
+            , Tui.text ("Count: " ++ String.fromInt model.count)
+                |> Tui.fg Ansi.Color.cyan
+            ]
 
-    Tui.styled { Tui.plain | fg = Just Ansi.Color.red, attributes = [ Tui.Bold ] } "error"
+
+## Building Screens
+
+Screens compose vertically with [`lines`](#lines) and horizontally with
+[`concat`](#concat). For split-pane layouts, see
+[`Tui.Layout`](Tui-Layout) in the `tui-widgets` package.
 
 @docs Screen, text, styled, lines, concat, spaced, empty, blank
 
-@docs fg, bg, bold, dim, italic, underline, strikethrough, inverse
 
-@docs Style, plain
+## Styling
 
-@docs Attribute
+Pipeline-style builders that compose on any `Screen` — text, concat, lines:
+
+    Tui.text "warning" |> Tui.fg Ansi.Color.yellow |> Tui.bold
+    Tui.concat [ a, b ] |> Tui.dim  -- dims both a and b
+
+@docs fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
+
+@docs Style, plain, Attribute
+
+
+## Terminal Context
+
+Passed to your `view` function. Use `colorProfile` to adapt themes for
+different terminal capabilities.
 
 @docs Context, ColorProfile
+
+
+## Events
+
+Subscribe to events via [`Tui.Sub`](Tui-Sub). Your `subscriptions` function
+declares which events to listen for, and they arrive as these types in your
+`update`:
+
+    subscriptions model =
+        Tui.Sub.batch
+            [ Tui.Sub.onKeyPress KeyPressed
+            , Tui.Sub.onMouse MouseEvent
+            ]
 
 @docs KeyEvent, Key, Direction, Modifier
 
 @docs MouseEvent, MouseButton
 
-@docs truncateWidth, toScreenLines, extractStyle
 
-@docs toString, toLines, lineCount
+## Text Manipulation
 
-@docs encodeScreen
+@docs truncateWidth, wrapWidth
+
+
+## Querying
+
+@docs toString, toLines, toScreenLines, lineCount, extractStyle
 
 -}
 
 import Ansi.Color
-import Json.Encode as Encode
+import Tui.Screen.Internal as Internal
 
 
 {-| Opaque type representing terminal output. Built from primitives, rendered by
 the framework.
 -}
-type Screen
-    = ScreenText String
-    | ScreenStyled Style String
-    | ScreenLines (List Screen)
-    | ScreenConcat (List Screen)
-    | ScreenEmpty
+type alias Screen =
+    Internal.Screen Style
+
+
+{-| Terminal cell style — foreground color, background color, text
+attributes, and optional hyperlink. Matches the terminal cell model
+(one fg, one bg, set of decoration flags, optional OSC 8 link).
+
+    { fg = Just Ansi.Color.red
+    , bg = Nothing
+    , attributes = [ Tui.Bold, Tui.Underline ]
+    , hyperlink = Nothing
+    }
+
+-}
+type alias Style =
+    { fg : Maybe Ansi.Color.Color
+    , bg : Maybe Ansi.Color.Color
+    , attributes : List Attribute
+    , hyperlink : Maybe String
+    }
+
+
+{-| Default style — no colors, no decorations. Use record update to customize:
+
+    { Tui.plain | fg = Just Ansi.Color.cyan }
+    { Tui.plain | attributes = [ Tui.Bold ] }
+
+-}
+plain : Style
+plain =
+    { fg = Nothing
+    , bg = Nothing
+    , attributes = []
+    , hyperlink = Nothing
+    }
+
+
+{-| A text decoration attribute.
+-}
+type Attribute
+    = Bold
+    | Dim
+    | Italic
+    | Underline
+    | Strikethrough
+    | Inverse
 
 
 {-| Unstyled text.
 -}
 text : String -> Screen
 text =
-    ScreenText
+    Internal.ScreenText
 
 
 {-| Styled text. Takes a [`Style`](#Style) record specifying foreground color,
@@ -86,21 +168,21 @@ background color, and text attributes.
 -}
 styled : Style -> String -> Screen
 styled =
-    ScreenStyled
+    Internal.ScreenStyled
 
 
 {-| Stack screens vertically. Each item starts on a new line.
 -}
 lines : List Screen -> Screen
 lines =
-    ScreenLines
+    Internal.ScreenLines
 
 
 {-| Concatenate screens horizontally on the same line.
 -}
 concat : List Screen -> Screen
 concat =
-    ScreenConcat
+    Internal.ScreenConcat
 
 
 {-| Concatenate screens horizontally with a space between each element.
@@ -113,18 +195,28 @@ concat =
 spaced : List Screen -> Screen
 spaced items =
     items
-        |> List.intersperse (ScreenText " ")
-        |> ScreenConcat
+        |> List.intersperse (Internal.ScreenText " ")
+        |> Internal.ScreenConcat
 
 
-{-| Empty screen — renders nothing.
+{-| Empty screen — renders nothing, takes up zero lines. Use this as
+a "null" value, for example with `Maybe.withDefault`:
+
+    case maybeError of
+        Just err -> Tui.text err |> Tui.fg Ansi.Color.red
+        Nothing -> Tui.empty
+
+Note: this is different from [`blank`](#blank) which renders one empty line.
+`empty` produces no output at all.
+
 -}
 empty : Screen
 empty =
-    ScreenEmpty
+    Internal.ScreenEmpty
 
 
-{-| A blank line — alias for `text ""`. Useful as a spacer in `lines`.
+{-| A blank line — renders one empty line. Useful as a vertical spacer
+in [`lines`](#lines):
 
     Tui.lines
         [ Tui.text "Title"
@@ -132,10 +224,13 @@ empty =
         , Tui.text "Content"
         ]
 
+Note: this is different from [`empty`](#empty) which renders nothing.
+`blank` produces a visible gap (one empty row).
+
 -}
 blank : Screen
 blank =
-    ScreenText ""
+    Internal.ScreenText ""
 
 
 
@@ -150,7 +245,7 @@ blank =
 -}
 fg : Ansi.Color.Color -> Screen -> Screen
 fg color screen =
-    applyStyle (\s -> { s | fg = Just color }) screen
+    Internal.applyStyle plain (\s -> { s | fg = Just color }) screen
 
 
 {-| Set background color on a Screen.
@@ -160,7 +255,7 @@ fg color screen =
 -}
 bg : Ansi.Color.Color -> Screen -> Screen
 bg color screen =
-    applyStyle (\s -> { s | bg = Just color }) screen
+    Internal.applyStyle plain (\s -> { s | bg = Just color }) screen
 
 
 {-| Apply bold attribute.
@@ -211,93 +306,129 @@ inverse =
     addAttr Inverse
 
 
-{-| Apply a style transformation to a Screen. Recursively applies to all
-children in compound screens (Concat, Lines), so `Tui.fg` and `Tui.bold`
-work on any Screen — not just text.
+{-| Wrap a Screen in a clickable hyperlink (OSC 8). In terminals that support it,
+the text becomes a clickable link. In unsupported terminals, the escape sequence
+is silently ignored and the text renders normally.
 
-    -- All of these work:
-    Tui.text "hello" |> Tui.fg green                    -- single text
-    Tui.concat [ a, b ] |> Tui.bold                     -- applies to both a and b
-    Tui.spaced [ a, b ] |> Tui.bg blue                  -- applies to a, space, and b
-    Tui.lines [ row1, row2 ] |> Tui.dim                 -- applies to all rows
-
-Note: outer styles overwrite inner styles for the same attribute.
-`Tui.text "x" |> Tui.fg red |> Tui.fg green` results in green.
+    Tui.text "elm/core"
+        |> Tui.underline
+        |> Tui.fg Ansi.Color.blue
+        |> Tui.link { url = "https://package.elm-lang.org/packages/elm/core/latest" }
 
 -}
-applyStyle : (Style -> Style) -> Screen -> Screen
-applyStyle transform screen =
-    -- elm-review: known-unoptimized-recursion
-    case screen of
-        ScreenText s ->
-            ScreenStyled (transform plain) s
-
-        ScreenStyled stl s ->
-            ScreenStyled (transform stl) s
-
-        ScreenConcat items ->
-            ScreenConcat (List.map (applyStyle transform) items)
-
-        ScreenLines items ->
-            ScreenLines (List.map (applyStyle transform) items)
-
-        ScreenEmpty ->
-            ScreenEmpty
+link : { url : String } -> Screen -> Screen
+link { url } =
+    Internal.applyStyle plain (\s -> { s | hyperlink = Just url })
 
 
 addAttr : Attribute -> Screen -> Screen
 addAttr attr =
-    applyStyle (\s -> { s | attributes = attr :: s.attributes })
+    Internal.applyStyle plain (\s -> { s | attributes = attr :: s.attributes })
 
 
 
--- STYLE RECORDS
+-- STYLE CONVERSION
 
 
-{-| Terminal cell style — foreground color, background color, and text
-attributes. Matches the terminal cell model (one fg, one bg, set of decoration
-flags).
+styleToFlatStyle : Style -> Internal.FlatStyle
+styleToFlatStyle s =
+    let
+        def : Internal.FlatStyle
+        def =
+            Internal.defaultFlatStyle
 
-    { fg = Just Ansi.Color.red
-    , bg = Nothing
-    , attributes = [ Tui.Bold, Tui.Underline ]
+        base : Internal.FlatStyle
+        base =
+            { def
+                | foreground = s.fg
+                , background = s.bg
+                , hyperlink = s.hyperlink
+            }
+    in
+    List.foldl applyAttr base s.attributes
+
+
+applyAttr : Attribute -> Internal.FlatStyle -> Internal.FlatStyle
+applyAttr attr flatStyle =
+    case attr of
+        Bold ->
+            { flatStyle | bold = True }
+
+        Dim ->
+            { flatStyle | dim = True }
+
+        Italic ->
+            { flatStyle | italic = True }
+
+        Underline ->
+            { flatStyle | underline = True }
+
+        Strikethrough ->
+            { flatStyle | strikethrough = True }
+
+        Inverse ->
+            { flatStyle | inverse = True }
+
+
+flatStyleToAttrs : Internal.FlatStyle -> List Attribute
+flatStyleToAttrs s =
+    List.filterMap identity
+        [ if s.bold then
+            Just Bold
+
+          else
+            Nothing
+        , if s.dim then
+            Just Dim
+
+          else
+            Nothing
+        , if s.italic then
+            Just Italic
+
+          else
+            Nothing
+        , if s.underline then
+            Just Underline
+
+          else
+            Nothing
+        , if s.strikethrough then
+            Just Strikethrough
+
+          else
+            Nothing
+        , if s.inverse then
+            Just Inverse
+
+          else
+            Nothing
+        ]
+
+
+flatStyleToStyle : Internal.FlatStyle -> Style
+flatStyleToStyle fs =
+    { fg = fs.foreground
+    , bg = fs.background
+    , attributes = flatStyleToAttrs fs
+    , hyperlink = fs.hyperlink
     }
 
--}
-type alias Style =
-    { fg : Maybe Ansi.Color.Color
-    , bg : Maybe Ansi.Color.Color
-    , attributes : List Attribute
-    }
+
+flattenToSpanLines : Screen -> List (List Internal.Span)
+flattenToSpanLines =
+    Internal.flattenToSpanLines styleToFlatStyle
 
 
-{-| Default style — no colors, no decorations. Use record update to customize:
-
-    { Tui.plain | fg = Just Ansi.Color.cyan }
-    { Tui.plain | attributes = [ Tui.Bold ] }
-
--}
-plain : Style
-plain =
-    { fg = Nothing
-    , bg = Nothing
-    , attributes = []
-    }
+spanToScreen : Internal.Span -> Screen
+spanToScreen =
+    Internal.spanToScreen flatStyleToStyle
 
 
+spansToScreen : List Internal.Span -> Screen
+spansToScreen =
+    Internal.spansToScreen flatStyleToStyle
 
--- ATTRIBUTES
-
-
-{-| A text decoration attribute.
--}
-type Attribute
-    = Bold
-    | Dim
-    | Italic
-    | Underline
-    | Strikethrough
-    | Inverse
 
 
 -- CONTEXT
@@ -314,7 +445,7 @@ type alias Context =
 
 {-| Terminal color capability, detected at init from environment variables.
 Follows charmbracelet/colorprofile's detection precedence:
-`$NO_COLOR` → `$COLORTERM` → known terminals → `$TERM` suffix → default.
+`$NO_COLOR` -> `$COLORTERM` -> known terminals -> `$TERM` suffix -> default.
 
 The renderer automatically degrades colors based on the profile — the Elm app
 can always use the highest fidelity colors and they'll be converted. But this
@@ -435,16 +566,8 @@ toScreenLines screen =
         |> List.map
             (\spans ->
                 spans
-                    |> List.map
-                        (\span ->
-                            ScreenStyled
-                                { fg = span.style.foreground
-                                , bg = span.style.background
-                                , attributes = flatStyleToAttrs span.style
-                                }
-                                span.text
-                        )
-                    |> ScreenConcat
+                    |> List.map spanToScreen
+                    |> Internal.ScreenConcat
             )
 
 
@@ -457,30 +580,17 @@ making a selection highlight span the full pane width).
 
 -}
 extractStyle : Screen -> Style
-extractStyle screen =
-    case screen of
-        ScreenStyled stl _ ->
-            stl
-
-        ScreenConcat items ->
-            case items of
-                (ScreenStyled stl _) :: _ ->
-                    stl
-
-                _ ->
-                    plain
-
-        _ ->
-            plain
+extractStyle =
+    Internal.extractStyle plain
 
 
 {-| Truncate a Screen to a maximum width in columns, preserving styles.
-Adds "…" if truncated. Works on the first line only (for single-line content).
+Adds "\u{2026}" if truncated. Works on the first line only (for single-line content).
 -}
 truncateWidth : Int -> Screen -> Screen
 truncateWidth maxWidth screen =
     let
-        spans : List Span
+        spans : List Internal.Span
         spans =
             case flattenToSpanLines screen of
                 first :: _ ->
@@ -489,9 +599,9 @@ truncateWidth maxWidth screen =
                 [] ->
                     []
 
-        truncated : List Span
+        truncated : List Internal.Span
         truncated =
-            truncateSpans maxWidth spans
+            Internal.truncateSpans maxWidth spans
     in
     case truncated of
         [] ->
@@ -499,79 +609,43 @@ truncateWidth maxWidth screen =
 
         _ ->
             truncated
-                |> List.map
-                    (\span ->
-                        ScreenStyled
-                            { fg = span.style.foreground
-                            , bg = span.style.background
-                            , attributes = flatStyleToAttrs span.style
-                            }
-                            span.text
-                    )
-                |> ScreenConcat
+                |> List.map spanToScreen
+                |> Internal.ScreenConcat
 
 
-truncateSpans : Int -> List Span -> List Span
-truncateSpans remaining spans =
-    -- elm-review: known-unoptimized-recursion
-    case spans of
-        [] ->
-            []
+{-| Wrap a Screen to a maximum width, preserving styles across line breaks.
+Returns a list of Screens, one per wrapped line.
 
-        span :: rest ->
-            if remaining <= 0 then
-                []
-
-            else
-                let
-                    spanLen : Int
-                    spanLen =
-                        String.length span.text
-                in
-                if spanLen <= remaining then
-                    span :: truncateSpans (remaining - spanLen) rest
-
-                else if remaining <= 1 then
-                    [ { span | text = "…" } ]
-
-                else
-                    [ { span | text = String.left (remaining - 1) span.text ++ "…" } ]
-
-
-flatStyleToAttrs : FlatStyle -> List Attribute
-flatStyleToAttrs s =
-    List.filterMap identity
-        [ if s.bold then
-            Just Bold
-
-          else
-            Nothing
-        , if s.dim then
-            Just Dim
-
-          else
-            Nothing
-        , if s.italic then
-            Just Italic
-
-          else
-            Nothing
-        , if s.underline then
-            Just Underline
-
-          else
-            Nothing
-        , if s.strikethrough then
-            Just Strikethrough
-
-          else
-            Nothing
-        , if s.inverse then
-            Just Inverse
-
-          else
-            Nothing
+    Tui.concat
+        [ Tui.text "This is a "
+        , Tui.text "very important" |> Tui.bold
+        , Tui.text " paragraph about decoding JSON values."
         ]
+        |> Tui.wrapWidth 30
+    -- Returns 3 Screens with "very important" still bold
+
+Wraps at word boundaries (spaces). Words longer than `maxWidth` are broken
+mid-word. Returns `[]` for empty screens.
+
+-}
+wrapWidth : Int -> Screen -> List Screen
+wrapWidth maxWidth screen =
+    let
+        spans : List Internal.Span
+        spans =
+            case flattenToSpanLines screen of
+                first :: _ ->
+                    first
+
+                [] ->
+                    []
+    in
+    if List.isEmpty spans then
+        []
+
+    else
+        Internal.wrapSpans maxWidth spans
+            |> List.map spansToScreen
 
 
 {-| Get the number of lines in a Screen. Useful for layout calculations.
@@ -587,252 +661,3 @@ toLines : Screen -> List String
 toLines screen =
     flattenToSpanLines screen
         |> List.map (\spans -> spans |> List.map .text |> String.concat)
-
-
-
--- INTERNAL: FLATTENING
-
-
-type alias Span =
-    { text : String
-    , style : FlatStyle
-    }
-
-
-type alias FlatStyle =
-    { bold : Bool
-    , dim : Bool
-    , italic : Bool
-    , underline : Bool
-    , strikethrough : Bool
-    , inverse : Bool
-    , foreground : Maybe Ansi.Color.Color
-    , background : Maybe Ansi.Color.Color
-    }
-
-
-defaultFlatStyle : FlatStyle
-defaultFlatStyle =
-    { bold = False
-    , dim = False
-    , italic = False
-    , underline = False
-    , strikethrough = False
-    , inverse = False
-    , foreground = Nothing
-    , background = Nothing
-    }
-
-
-styleToFlatStyle : Style -> FlatStyle
-styleToFlatStyle s =
-    let
-        base : FlatStyle
-        base =
-            { defaultFlatStyle
-                | foreground = s.fg
-                , background = s.bg
-            }
-    in
-    List.foldl applyAttr base s.attributes
-
-
-applyAttr : Attribute -> FlatStyle -> FlatStyle
-applyAttr attr flatStyle =
-    case attr of
-        Bold ->
-            { flatStyle | bold = True }
-
-        Dim ->
-            { flatStyle | dim = True }
-
-        Italic ->
-            { flatStyle | italic = True }
-
-        Underline ->
-            { flatStyle | underline = True }
-
-        Strikethrough ->
-            { flatStyle | strikethrough = True }
-
-        Inverse ->
-            { flatStyle | inverse = True }
-
-
-{-| Flatten a Screen tree into a list of lines, where each line is a list of
-styled spans.
--}
-flattenToSpanLines : Screen -> List (List Span)
-flattenToSpanLines screen =
-    -- elm-review: known-unoptimized-recursion
-    case screen of
-        ScreenEmpty ->
-            []
-
-        ScreenText s ->
-            if String.isEmpty s then
-                [ [] ]
-
-            else
-                s
-                    |> String.split "\n"
-                    |> List.map (\line -> [ { text = line, style = defaultFlatStyle } ])
-
-        ScreenStyled stl s ->
-            if String.isEmpty s then
-                [ [] ]
-
-            else
-                let
-                    flatStyle : FlatStyle
-                    flatStyle =
-                        styleToFlatStyle stl
-                in
-                s
-                    |> String.split "\n"
-                    |> List.map (\line -> [ { text = line, style = flatStyle } ])
-
-        ScreenLines items ->
-            List.concatMap flattenToSpanLines items
-
-        ScreenConcat items ->
-            let
-                allFirstLineSpans : List Span
-                allFirstLineSpans =
-                    items
-                        |> List.concatMap
-                            (\item ->
-                                case flattenToSpanLines item of
-                                    [] ->
-                                        []
-
-                                    first :: _ ->
-                                        first
-                            )
-            in
-            [ allFirstLineSpans ]
-
-
-
--- ENCODING (for sending to JS runtime)
-
-
-{-| Encode a Screen as JSON for the JS rendering pipeline.
--}
-encodeScreen : Screen -> Encode.Value
-encodeScreen screen =
-    flattenToSpanLines screen
-        |> Encode.list
-            (\spanLine ->
-                Encode.list encodeSpan spanLine
-            )
-
-
-encodeSpan : Span -> Encode.Value
-encodeSpan span =
-    Encode.object
-        [ ( "text", Encode.string span.text )
-        , ( "style", encodeFlatStyle span.style )
-        ]
-
-
-encodeFlatStyle : FlatStyle -> Encode.Value
-encodeFlatStyle flatStyle =
-    Encode.object
-        (List.filterMap identity
-            [ if flatStyle.bold then
-                Just ( "bold", Encode.bool True )
-
-              else
-                Nothing
-            , if flatStyle.dim then
-                Just ( "dim", Encode.bool True )
-
-              else
-                Nothing
-            , if flatStyle.italic then
-                Just ( "italic", Encode.bool True )
-
-              else
-                Nothing
-            , if flatStyle.underline then
-                Just ( "underline", Encode.bool True )
-
-              else
-                Nothing
-            , if flatStyle.strikethrough then
-                Just ( "strikethrough", Encode.bool True )
-
-              else
-                Nothing
-            , if flatStyle.inverse then
-                Just ( "inverse", Encode.bool True )
-
-              else
-                Nothing
-            , flatStyle.foreground |> Maybe.map (\c -> ( "foreground", encodeColor c ))
-            , flatStyle.background |> Maybe.map (\c -> ( "background", encodeColor c ))
-            ]
-        )
-
-
-encodeColor : Ansi.Color.Color -> Encode.Value
-encodeColor ansiColor =
-    case ansiColor of
-        Ansi.Color.Black ->
-            Encode.string "black"
-
-        Ansi.Color.Red ->
-            Encode.string "red"
-
-        Ansi.Color.Green ->
-            Encode.string "green"
-
-        Ansi.Color.Yellow ->
-            Encode.string "yellow"
-
-        Ansi.Color.Blue ->
-            Encode.string "blue"
-
-        Ansi.Color.Magenta ->
-            Encode.string "magenta"
-
-        Ansi.Color.Cyan ->
-            Encode.string "cyan"
-
-        Ansi.Color.White ->
-            Encode.string "white"
-
-        Ansi.Color.BrightBlack ->
-            Encode.string "brightBlack"
-
-        Ansi.Color.BrightRed ->
-            Encode.string "brightRed"
-
-        Ansi.Color.BrightGreen ->
-            Encode.string "brightGreen"
-
-        Ansi.Color.BrightYellow ->
-            Encode.string "brightYellow"
-
-        Ansi.Color.BrightBlue ->
-            Encode.string "brightBlue"
-
-        Ansi.Color.BrightMagenta ->
-            Encode.string "brightMagenta"
-
-        Ansi.Color.BrightCyan ->
-            Encode.string "brightCyan"
-
-        Ansi.Color.BrightWhite ->
-            Encode.string "brightWhite"
-
-        Ansi.Color.Custom256 { color } ->
-            Encode.object [ ( "color256", Encode.int color ) ]
-
-        Ansi.Color.CustomTrueColor { red, green, blue } ->
-            Encode.object
-                [ ( "r", Encode.int red )
-                , ( "g", Encode.int green )
-                , ( "b", Encode.int blue )
-                ]

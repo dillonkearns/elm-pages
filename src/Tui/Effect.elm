@@ -1,8 +1,9 @@
 module Tui.Effect exposing
-    ( Effect(..)
-    , none, batch, perform, attempt, exit, exitWithCode, suspend
-    , map
-    , EffectResult(..), toBackendTask
+    ( Effect
+    , none, batch, perform, attempt, exit, exitWithCode
+    , toast, errorToast
+    , resetScroll, scrollTo, scrollDown, scrollUp, setSelectedIndex, selectFirst, focusPane
+    , map, fold
     )
 
 {-| Effects for TUI scripts. The bridge between `BackendTask` and the TUI
@@ -22,49 +23,47 @@ update cycle.
                 , Effect.none
                 )
 
+`Effect` is opaque. Most apps only need the smart constructors like
+[`perform`](#perform), [`batch`](#batch), and [`toast`](#toast).
+
 @docs Effect
 
-@docs none, batch, perform, attempt, exit, exitWithCode, suspend
+@docs none, batch, perform, attempt, exit, exitWithCode
 
-@docs map
+@docs toast, errorToast
 
+@docs resetScroll, scrollTo, scrollDown, scrollUp, setSelectedIndex, selectFirst, focusPane
 
-## Internal
-
-Used by the framework and test harness. You should not need these directly.
-
-@docs EffectResult, toBackendTask
+@docs map, fold
 
 -}
 
 import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
+import Tui.Effect.Internal as Internal
 
 
 {-| An effect produced by `update` or `init`. Wraps `BackendTask` execution,
 exit, and batching.
 -}
-type Effect msg
-    = None
-    | Batch (List (Effect msg))
-    | RunBackendTask (BackendTask FatalError msg)
-    | SuspendBackendTask (BackendTask FatalError msg)
-    | Exit
-    | ExitWithCode Int
+type alias Effect msg =
+    Internal.Effect msg
 
 
 {-| No effect.
 -}
 none : Effect msg
 none =
-    None
+    Internal.none
 
 
-{-| Combine multiple effects. They run concurrently where possible.
+{-| Combine multiple effects. Effects run sequentially — if an effect produces
+a message (via `perform`/`attempt`), remaining effects are skipped and the
+message is fed back into `update`.
 -}
 batch : List (Effect msg) -> Effect msg
 batch =
-    Batch
+    Internal.batch
 
 
 {-| Run a `BackendTask` and produce a message with the result. If the
@@ -77,8 +76,8 @@ batch =
 
 -}
 perform : (a -> msg) -> BackendTask FatalError a -> Effect msg
-perform toMsg bt =
-    RunBackendTask (BackendTask.map toMsg bt)
+perform =
+    Internal.perform
 
 
 {-| Like `perform`, but the user handles errors via `Result`.
@@ -96,120 +95,143 @@ perform toMsg bt =
 
 -}
 attempt : (Result FatalError a -> msg) -> BackendTask FatalError a -> Effect msg
-attempt toMsg bt =
-    RunBackendTask
-        (bt
-            |> BackendTask.map (\a -> toMsg (Ok a))
-            |> BackendTask.onError (\err -> BackendTask.succeed (toMsg (Err err)))
-        )
+attempt =
+    Internal.attempt
 
 
 {-| Exit the TUI (exit code 0). Terminal state is restored.
 -}
 exit : Effect msg
 exit =
-    Exit
+    Internal.exit
 
 
 {-| Exit the TUI with a specific exit code. Terminal state is restored.
 -}
 exitWithCode : Int -> Effect msg
 exitWithCode =
-    ExitWithCode
+    Internal.exitWithCode
 
 
-{-| Run a `BackendTask` while temporarily restoring the normal terminal
-(exits alternate screen, disables raw mode). Useful for spawning an editor
-or other interactive process.
+{-| Show a normal toast (auto-dismisses after ~2 seconds). Fire and forget.
+
+    Effect.toast "Saved!"
+
 -}
-suspend : (a -> msg) -> BackendTask FatalError a -> Effect msg
-suspend toMsg bt =
-    SuspendBackendTask (BackendTask.map toMsg bt)
+toast : String -> Effect msg
+toast =
+    Internal.toast
+
+
+{-| Show an error toast (auto-dismisses after ~4 seconds). Fire and forget.
+
+    Effect.errorToast "Failed to save"
+
+-}
+errorToast : String -> Effect msg
+errorToast =
+    Internal.errorToast
+
+
+{-| Reset the scroll position of a pane to the top.
+
+    Effect.resetScroll "diff"
+
+-}
+resetScroll : String -> Effect msg
+resetScroll =
+    Internal.resetScroll
+
+
+{-| Scroll a pane to a specific line offset.
+
+    Effect.scrollTo "diff" 100
+
+-}
+scrollTo : String -> Int -> Effect msg
+scrollTo =
+    Internal.scrollTo
+
+
+{-| Scroll a pane down by N lines (relative).
+
+    Effect.scrollDown "diff" 10
+
+-}
+scrollDown : String -> Int -> Effect msg
+scrollDown =
+    Internal.scrollDown
+
+
+{-| Scroll a pane up by N lines (relative).
+
+    Effect.scrollUp "diff" 10
+
+-}
+scrollUp : String -> Int -> Effect msg
+scrollUp =
+    Internal.scrollUp
+
+
+{-| Set the selected index of a selectable pane.
+
+    Effect.setSelectedIndex "commits" 5
+
+-}
+setSelectedIndex : String -> Int -> Effect msg
+setSelectedIndex =
+    Internal.setSelectedIndex
+
+
+{-| Reset selection to the first item in a pane.
+
+    Effect.selectFirst "items"
+
+-}
+selectFirst : String -> Effect msg
+selectFirst =
+    Internal.selectFirst
+
+
+{-| Move keyboard focus to a specific pane.
+
+    Effect.focusPane "commits"
+
+-}
+focusPane : String -> Effect msg
+focusPane =
+    Internal.focusPane
 
 
 {-| Transform the message type of an effect.
 -}
 map : (a -> b) -> Effect a -> Effect b
-map f effect =
-    -- elm-review: known-unoptimized-recursion
-    case effect of
-        None ->
-            None
-
-        Batch effects ->
-            Batch (List.map (map f) effects)
-
-        RunBackendTask bt ->
-            RunBackendTask (BackendTask.map f bt)
-
-        SuspendBackendTask bt ->
-            SuspendBackendTask (BackendTask.map f bt)
-
-        Exit ->
-            Exit
-
-        ExitWithCode code ->
-            ExitWithCode code
+map =
+    Internal.map
 
 
+{-| Inspect an opaque `Effect` without exposing its constructors.
 
--- INTERNAL
-
-
-{-| The result of processing an effect. Used internally by the TUI loop and
-test harness.
+This is mainly useful for advanced integrations like companion packages and
+test tooling that need to interpret effects while keeping the end-user API
+clean.
 -}
-type EffectResult msg
-    = EffectDone
-    | EffectMsg msg
-    | EffectExit Int
-
-
-{-| Convert an Effect to a BackendTask that processes it and returns the result.
-Used internally by the TUI loop.
--}
-toBackendTask : Effect msg -> BackendTask FatalError (EffectResult msg)
-toBackendTask effect =
-    case effect of
-        None ->
-            BackendTask.succeed EffectDone
-
-        Exit ->
-            BackendTask.succeed (EffectExit 0)
-
-        ExitWithCode code ->
-            BackendTask.succeed (EffectExit code)
-
-        RunBackendTask bt ->
-            bt |> BackendTask.map EffectMsg
-
-        SuspendBackendTask bt ->
-            -- TODO: for PoC, suspend runs the same as perform
-            -- A real implementation would send a "tui-suspend" request first
-            bt |> BackendTask.map EffectMsg
-
-        Batch effects ->
-            processBatch effects
-
-
-processBatch : List (Effect msg) -> BackendTask FatalError (EffectResult msg)
-processBatch effects =
-    -- elm-review: known-unoptimized-recursion
-    case effects of
-        [] ->
-            BackendTask.succeed EffectDone
-
-        eff :: rest ->
-            toBackendTask eff
-                |> BackendTask.andThen
-                    (\result ->
-                        case result of
-                            EffectDone ->
-                                processBatch rest
-
-                            EffectMsg _ ->
-                                BackendTask.succeed result
-
-                            EffectExit _ ->
-                                BackendTask.succeed result
-                    )
+fold :
+    { none : a
+    , batch : List (Effect msg) -> a
+    , backendTask : BackendTask FatalError msg -> a
+    , exit : Int -> a
+    , toast : String -> a
+    , errorToast : String -> a
+    , resetScroll : String -> a
+    , scrollTo : String -> Int -> a
+    , scrollDown : String -> Int -> a
+    , scrollUp : String -> Int -> a
+    , setSelectedIndex : String -> Int -> a
+    , selectFirst : String -> a
+    , focusPane : String -> a
+    }
+    -> Effect msg
+    -> a
+fold =
+    Internal.fold

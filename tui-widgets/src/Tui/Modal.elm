@@ -1,27 +1,82 @@
-module Tui.Modal exposing (overlay)
+module Tui.Modal exposing (overlay, defaultWidth, maxBodyRows)
 
 {-| Modal overlay for TUI layouts.
 
+This is the rendering primitive used by [`Tui.Picker`](Tui-Picker),
+[`Tui.Menu`](Tui-Menu), [`Tui.Confirm`](Tui-Confirm), and [`Tui.Prompt`](Tui-Prompt).
+You can also use it directly for custom modal content.
+
 Renders a centered bordered dialog on top of background rows,
 with the background visible on the left and right edges — like lazygit's
-popup system.
+popup system. Modal height is capped at 75% of terminal height.
 
     bgRows = Layout.toRows state layout
     Tui.Modal.overlay
         { title = "Commit"
         , body = [ Input.view { width = 40 } inputState ]
         , footer = "Enter: confirm"
-        , width = 50
+        , width = Modal.defaultWidth ctx.width
         }
-        { termWidth = ctx.width, termHeight = ctx.height }
+        { width = ctx.width, height = ctx.height }
         bgRows
 
-@docs overlay
+@docs overlay, defaultWidth, maxBodyRows
 
 -}
 
 import Ansi.Color
-import Tui
+import Tui exposing (plain)
+
+
+{-| Calculate a good default modal width for the given terminal width.
+Uses lazygit's formula: `min(4 * terminalWidth / 7, 90)` with a floor
+of 80 characters (or `terminalWidth - 2` if the terminal is narrow).
+
+    Modal.defaultWidth 120  -- 68 (120 * 4/7 = 68)
+    Modal.defaultWidth 80   -- 80 (floor)
+    Modal.defaultWidth 40   -- 38 (narrow terminal)
+
+This is a convenience — you can always pass a custom `width` directly
+if the default is too wide or too narrow for your content:
+
+    Modal.overlay { ..., width = min 50 (ctx.width - 4) } ...
+
+-}
+defaultWidth : Int -> Int
+defaultWidth termWidth =
+    let
+        calculated =
+            min (4 * termWidth // 7) 90
+
+        floored =
+            if calculated < 80 then
+                min (termWidth - 2) 80
+
+            else
+                calculated
+    in
+    max 10 floored
+
+
+{-| Calculate the maximum number of body rows that [`overlay`](#overlay)
+will display for a terminal of the given height.
+
+Useful when you want to pre-window modal content before passing it to
+[`overlay`](#overlay):
+
+    Modal.overlay
+        { title = Menu.title
+        , body = Menu.viewBodyWithMaxRows (Modal.maxBodyRows ctx.height) menuState
+        , footer = "Esc: close"
+        , width = Modal.defaultWidth ctx.width
+        }
+        { width = ctx.width, height = ctx.height }
+        bgRows
+
+-}
+maxBodyRows : Int -> Int
+maxBodyRows terminalHeight =
+    max 0 ((terminalHeight * 3 // 4) - 2)
 
 
 {-| Overlay a centered modal dialog on top of background rows.
@@ -30,6 +85,10 @@ Returns a `List Screen` (one per terminal row) suitable for `Tui.lines`.
 Background rows above and below the modal pass through unchanged.
 Modal-covered rows show: background left edge | modal | background right edge.
 
+If the body content exceeds the terminal height, it is clamped to fit
+(like lazygit's popup system). The title and footer borders are always
+visible.
+
 -}
 overlay :
     { title : String
@@ -37,18 +96,29 @@ overlay :
     , footer : String
     , width : Int
     }
-    -> { termWidth : Int, termHeight : Int }
+    -> { width : Int, height : Int }
     -> List Tui.Screen
     -> List Tui.Screen
 overlay config term bgRows =
     let
+        -- Clamp modal to 75% of terminal height (lazygit uses height * 3/4).
+        -- Then subtract 2 for top/bottom borders to get max body rows.
+        -- The remaining 25% ensures the background is visible around the modal.
+        maxBodyRows_ : Int
+        maxBodyRows_ =
+            maxBodyRows term.height
+
+        clampedBody : List Tui.Screen
+        clampedBody =
+            List.take maxBodyRows_ config.body
+
         modalHeight : Int
         modalHeight =
-            List.length config.body + 2
+            List.length clampedBody + 2
 
         modalWidth : Int
         modalWidth =
-            min config.width term.termWidth
+            min config.width term.width
 
         innerWidth : Int
         innerWidth =
@@ -56,15 +126,15 @@ overlay config term bgRows =
 
         startRow : Int
         startRow =
-            (term.termHeight - modalHeight) // 2
+            (term.height - modalHeight) // 2
 
         leftPad : Int
         leftPad =
-            (term.termWidth - modalWidth) // 2
+            (term.width - modalWidth) // 2
 
         borderStyle : Tui.Style
         borderStyle =
-            { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.Bold ] }
+            { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
 
         -- Composite a modal strip onto a background row:
         -- [background left edge] [modal content] [right fill]
@@ -73,8 +143,8 @@ overlay config term bgRows =
             Tui.concat
                 [ Tui.truncateWidth leftPad bgRow
                 , modalStrip
-                , Tui.styled { fg = Nothing, bg = Nothing, attributes = [] }
-                    (String.repeat (term.termWidth - leftPad - modalWidth) " ")
+                , Tui.styled plain
+                    (String.repeat (term.width - leftPad - modalWidth) " ")
                 ]
 
         topBorder : Tui.Screen
@@ -131,7 +201,7 @@ overlay config term bgRows =
             Tui.concat
                 [ Tui.styled borderStyle "│"
                 , Tui.truncateWidth innerWidth content
-                , Tui.styled { fg = Nothing, bg = Nothing, attributes = [] }
+                , Tui.styled plain
                     (String.repeat padding " ")
                 , Tui.styled borderStyle "│"
                 ]
@@ -139,7 +209,7 @@ overlay config term bgRows =
         modalStrips : List Tui.Screen
         modalStrips =
             [ topBorder ]
-                ++ List.map bodyStrip config.body
+                ++ List.map bodyStrip clampedBody
                 ++ [ bottomBorder ]
     in
     List.indexedMap

@@ -161,10 +161,20 @@ suite =
 
                     state : Layout.State
                     state =
-                        Layout.init |> Layout.withContext { width = 30, height = 5 }
+                        Layout.init
+                            |> Layout.withContext { width = 30, height = 5 }
+                            |> Layout.switchTab "left" "files"
                 in
-                Layout.activeTab "left" state
-                    |> Expect.equal (Just "files")
+                Expect.all
+                    [ \_ ->
+                        Layout.activeTab "left" state
+                            |> Expect.equal (Just "files")
+                    , \_ ->
+                        Layout.switchTab "left" "worktrees" state
+                            |> Layout.activeTab "left"
+                            |> Expect.equal (Just "worktrees")
+                    ]
+                    ()
         , test "content changes when tab switches" <|
             \() ->
                 let

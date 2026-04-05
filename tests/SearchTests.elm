@@ -35,11 +35,6 @@ suite =
                     Search.start
                         |> Search.matchCount sampleContent
                         |> Expect.equal 0
-            , test "isActive is True after start" <|
-                \() ->
-                    Search.start
-                        |> Search.isActive
-                        |> Expect.equal True
             ]
         , describe "typing"
             [ test "typing updates query" <|

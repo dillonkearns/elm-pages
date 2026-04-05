@@ -7,9 +7,15 @@ module Tui.Confirm exposing
 
 {-| Confirmation dialogs and text prompts.
 
-Inspired by lazygit's `Confirm` and `Prompt` APIs. Two modes:
-- **Confirm**: Yes/No with a message. Enter confirms, Escape cancels.
-- **Prompt**: Text input with title. Enter submits text, Escape cancels.
+Two modes:
+
+  - **Confirm**: Yes/No with a message. Enter confirms, Escape cancels.
+  - **Prompt**: Text input with title. Enter submits text, Escape cancels.
+
+For text input with masking or suggestions, see [`Tui.Prompt`](Tui-Prompt) instead.
+When using [`Layout.compileApp`](Tui-Layout#compileApp), prefer
+[`Layout.confirmModal`](Tui-Layout#confirmModal) and
+[`Layout.promptModal`](Tui-Layout#promptModal) which handle key routing for you.
 
     -- Confirmation:
     model.dialog = Just (Confirm.confirm { title = "Delete?", message = "Cannot undo." })
@@ -35,7 +41,7 @@ Inspired by lazygit's `Confirm` and `Prompt` APIs. Two modes:
         , footer = Confirm.viewFooter state
         , width = 50
         }
-        dims bgRows
+        { width = ctx.width, height = ctx.height } bgRows
 
 @docs State
 @docs confirm, prompt

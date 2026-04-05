@@ -1,7 +1,7 @@
 module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions, withSchema, metadata, withDatabasePath
-    , tui, tuiWithCliOptions
+    , tui, tuiWithCliOptions, tuiApp, tuiAppWithCliOptions
     , writeFile, removeFile, copyFile, move
     , makeDirectory, removeDirectory, makeTempDirectory
     , command, exec
@@ -23,7 +23,21 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 ## TUI Scripts
 
-@docs tui, tuiWithCliOptions
+A TUI script is essentially a TEA (The Elm Architecture) app, but instead of
+rendering HTML, your `view` returns a [`Tui.Screen`](Tui#Screen) — styled
+terminal output with optimized cell-level diffing under the hood for smooth,
+snappy rendering.
+
+Two extra capabilities beyond a standard TEA app:
+
+  - **`data`** — resolve a [`BackendTask`](BackendTask) before `init` runs
+    (fetching git log, reading files, etc.), while the terminal is still in
+    normal mode.
+  - **[`Tui.Effect`](Tui-Effect)** — run a [`BackendTask`](BackendTask) from
+    `update` via [`Effect.perform`](Tui-Effect#perform). This bridges async
+    operations (shell commands, HTTP, file I/O) into the TUI update cycle.
+
+@docs tui, tuiWithCliOptions, tuiApp, tuiAppWithCliOptions
 
 
 ## File System Utilities
@@ -357,14 +371,15 @@ withDatabasePath dbPath (Pages.Internal.Script.Script script) =
         }
 
 
-{-| Define a TUI (Terminal User Interface) script. The lifecycle mirrors a
-Route Module:
+{-| Define a TUI (Terminal User Interface) script. It's a standard TEA app
+(`init`/`update`/`view`/`subscriptions`) with two additions:
 
-  - `data` loads initial data before the TUI starts (normal terminal mode)
-  - `init` creates the initial model from loaded data
-  - `update` handles terminal events and BackendTask results
-  - `view` renders the model to the terminal
-  - `subscriptions` declares which terminal events to listen for
+  - **`data`** resolves a [`BackendTask`](BackendTask) before `init` — use it
+    to load files, run shell commands, or fetch data while the terminal is
+    still in normal mode.
+  - **`update`** returns a [`Tui.Effect`](Tui-Effect) instead of `Cmd` — use
+    [`Effect.perform`](Tui-Effect#perform) to run a `BackendTask` and feed the
+    result back as a message.
 
 Example:
 
@@ -483,6 +498,124 @@ tuiFromConfig config =
                     }
                     loadedData
             )
+
+
+{-| Define a declarative TUI script using `Layout.compileApp`. This is the
+recommended approach for building TUI apps — you describe panes, actions,
+status, and modals; the framework handles rendering, key routing,
+subscriptions, and state management.
+
+    module MiniGit exposing (run)
+
+    import Pages.Script as Script exposing (Script)
+    import Tui.Layout as Layout
+
+    run : Script
+    run =
+        Script.tuiApp
+            { data = loadGitLog
+            , app =
+                Layout.compileApp
+                    { init = init
+                    , update = update
+                    , view = view
+                    , bindings = bindings
+                    , status = status
+                    , modal = modal
+                    , onRawEvent = Nothing
+                    }
+            }
+
+The `data` BackendTask runs before `init` while the terminal is still in normal
+mode. The `app` field takes the compiled output from `Layout.compileApp`.
+
+-}
+tuiApp :
+    { data : BackendTask FatalError data
+    , app :
+        { init : data -> ( model, Tui.Effect.Effect msg )
+        , update : msg -> model -> ( model, Tui.Effect.Effect msg )
+        , view : Tui.Context -> model -> Tui.Screen
+        , subscriptions : model -> Tui.Sub.Sub msg
+        }
+    }
+    -> Script
+tuiApp config =
+    withoutCliOptions
+        (config.data
+            |> BackendTask.quiet
+            |> BackendTask.andThen
+                (\loadedData ->
+                    Tui.Internal.run config.app loadedData
+                )
+        )
+
+
+{-| Like [`tuiApp`](#tuiApp), but with CLI option parsing.
+
+    module ElmDocs exposing (run)
+
+    import Cli.Option as Option
+    import Cli.OptionsParser as OptionsParser
+    import Cli.Program as Program
+    import Pages.Script as Script exposing (Script)
+    import Tui.Layout as Layout
+
+    run : Script
+    run =
+        Script.tuiAppWithCliOptions
+            (Program.config
+                |> Program.add
+                    (OptionsParser.build identity
+                        |> OptionsParser.with
+                            (Option.optionalKeywordArg "diff")
+                    )
+            )
+            (\diffArg ->
+                { data = loadPackages diffArg
+                , app =
+                    Layout.compileApp
+                        { init = init
+                        , update = update
+                        , view = view
+                        , bindings = bindings
+                        , status = status
+                        , modal = modal
+                        , onRawEvent = Just RawEvent
+                        }
+                }
+            )
+
+-}
+tuiAppWithCliOptions :
+    Program.Config cliOptions
+    ->
+        (cliOptions
+         ->
+            { data : BackendTask FatalError data
+            , app :
+                { init : data -> ( model, Tui.Effect.Effect msg )
+                , update : msg -> model -> ( model, Tui.Effect.Effect msg )
+                , view : Tui.Context -> model -> Tui.Screen
+                , subscriptions : model -> Tui.Sub.Sub msg
+                }
+            }
+        )
+    -> Script
+tuiAppWithCliOptions cliConfig toTuiConfig =
+    withCliOptions cliConfig
+        (\cliOptions ->
+            let
+                config =
+                    toTuiConfig cliOptions
+            in
+            config.data
+                |> BackendTask.quiet
+                |> BackendTask.andThen
+                    (\loadedData ->
+                        Tui.Internal.run config.app loadedData
+                    )
+        )
 
 
 setDatabasePath : String -> BackendTask FatalError ()

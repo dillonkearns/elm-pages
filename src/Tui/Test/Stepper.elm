@@ -12,7 +12,7 @@ navigate with arrow keys to step through the test.
 import Ansi.Color
 import BackendTask
 import Pages.Script as Script exposing (Script)
-import Tui
+import Tui exposing (plain)
 import Tui.Effect as Effect
 import Tui.Sub
 import Tui.Test as TuiTest
@@ -196,7 +196,7 @@ stepperView ctx model =
     let
         dimStyle : Tui.Style
         dimStyle =
-            { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] }
+            { plain | attributes = [ Tui.Dim ] }
 
         maybeSnapshot : Maybe TuiTest.Snapshot
         maybeSnapshot =
@@ -209,7 +209,7 @@ stepperView ctx model =
             let
                 headerStyle : Tui.Style
                 headerStyle =
-                    { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.Bold ] }
+                    { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
 
                 separator : String
                 separator =
@@ -246,13 +246,20 @@ stepperView ctx model =
                         (model.snapshots
                             |> List.indexedMap
                                 (\i snapshotForIndicator ->
+                                    let
+                                        hasAssertions : Bool
+                                        hasAssertions =
+                                            not (List.isEmpty snapshotForIndicator.assertions)
+                                    in
                                     if i == model.currentIndex then
                                         Tui.styled
-                                            { fg = Just Ansi.Color.cyan
-                                            , bg = Nothing
-                                            , attributes = [ Tui.Bold ]
-                                            }
+                                            { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
                                             (" ● " ++ snapshotForIndicator.label ++ " ")
+
+                                    else if hasAssertions then
+                                        Tui.styled
+                                            { plain | fg = Just Ansi.Color.green }
+                                            " ◆ "
 
                                     else
                                         Tui.styled dimStyle " ○ "
@@ -260,46 +267,59 @@ stepperView ctx model =
                         )
             in
             Tui.lines
-                ([ Tui.styled headerStyle headerText
-                 , Tui.text ""
-                 , Tui.concat
-                    [ Tui.styled dimStyle "  Action: "
-                    , Tui.styled
-                        { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [ Tui.Bold ] }
-                        snapshot.label
-                    , if snapshot.hasPendingEffects then
-                        Tui.styled
-                            { fg = Just Ansi.Color.magenta, bg = Nothing, attributes = [] }
-                            "  ⟳ pending effect"
-
-                      else
-                        Tui.empty
-                    ]
-                 , Tui.text ""
-                 , Tui.styled dimStyle ("  " ++ separator)
-                 , Tui.text ""
-                 ]
-                    ++ (snapshot.screen
-                            |> Tui.toScreenLines
-                            |> List.map
-                                (\line ->
-                                    Tui.concat
-                                        [ Tui.styled dimStyle "  │ "
-                                        , line
-                                        ]
-                                )
-                       )
+                ((snapshot.screen
+                    |> Tui.toScreenLines
+                    |> List.map
+                        (\line ->
+                            Tui.concat
+                                [ Tui.styled dimStyle "  │ "
+                                , line
+                                ]
+                        )
+                 )
                     ++ [ Tui.text ""
                        , Tui.styled dimStyle ("  " ++ separator)
-                       , case snapshot.modelState of
+                       , Tui.text ""
+                       , stepIndicator
+                       , Tui.text ""
+                       , Tui.styled dimStyle footerText
+                       , Tui.text ""
+                       , Tui.styled dimStyle ("  " ++ separator)
+                       , Tui.text ""
+                       , Tui.styled headerStyle headerText
+                       , Tui.text ""
+                       , Tui.concat
+                            [ Tui.styled dimStyle "  Action: "
+                            , Tui.styled
+                                { plain | fg = Just Ansi.Color.yellow, attributes = [ Tui.Bold ] }
+                                snapshot.label
+                            , if snapshot.hasPendingEffects then
+                                Tui.styled
+                                    { plain | fg = Just Ansi.Color.magenta }
+                                    "  ⟳ pending effect"
+
+                              else
+                                Tui.empty
+                            ]
+                       ]
+                    ++ (if List.isEmpty snapshot.assertions then
+                            []
+
+                        else
+                            snapshot.assertions
+                                |> List.map
+                                    (\assertion ->
+                                        Tui.styled
+                                            { plain | fg = Just Ansi.Color.green }
+                                            ("    " ++ assertion)
+                                    )
+                       )
+                    ++ [ case snapshot.modelState of
                             Just modelStr ->
                                 Tui.lines
                                     [ Tui.text ""
                                     , Tui.styled
-                                        { fg = Just Ansi.Color.green
-                                        , bg = Nothing
-                                        , attributes = [ Tui.Bold ]
-                                        }
+                                        { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
                                         "  Model:"
                                     , modelStr
                                         |> String.lines
@@ -309,10 +329,6 @@ stepperView ctx model =
 
                             Nothing ->
                                 Tui.empty
-                       , Tui.text ""
-                       , stepIndicator
-                       , Tui.text ""
-                       , Tui.styled dimStyle footerText
                        ]
                 )
 

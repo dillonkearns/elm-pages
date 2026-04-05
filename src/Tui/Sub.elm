@@ -2,7 +2,7 @@ module Tui.Sub exposing
     ( Sub
     , none, batch, onKeyPress, onMouse, onPaste, onContext, every
     , map
-    , getInterests, routeEvent
+    , getInterests, getTickInterval, routeEvent
     , RawEvent(..), decodeRawEvent
     )
 
@@ -24,7 +24,7 @@ to subscribe to resize events.
 
 @docs map
 
-@docs getInterests, routeEvent
+@docs getInterests, getTickInterval, routeEvent
 
 
 ## Internal
@@ -92,10 +92,14 @@ onPaste =
     OnPaste
 
 
-{-| Subscribe to terminal context (dimension) changes. Fires on init with the
-initial terminal size, and whenever the terminal is resized.
+{-| Subscribe to terminal dimension changes. Fires on init with the
+initial terminal size, and whenever the terminal is resized. The record
+contains `width` and `height` in columns/rows.
 
-    Tui.Sub.onContext (\ctx -> GotContext ctx)
+Use this to store dimensions in your model (e.g., for `Layout.withContext`
+or `Layout.handleMouse`).
+
+    Tui.Sub.onContext (\{ width, height } -> GotContext width height)
 
 -}
 onContext : ({ width : Int, height : Int } -> msg) -> Sub msg
@@ -103,7 +107,12 @@ onContext =
     OnContext
 
 
-{-| Periodic tick. The `Float` is the interval in milliseconds.
+{-| Periodic tick at the given interval in milliseconds. Useful for animations
+like spinners. If multiple `every` subscriptions are batched, the shortest
+interval is used.
+
+    Tui.Sub.every 50 SpinnerTick  -- fires every 50ms
+
 -}
 every : Float -> msg -> Sub msg
 every =
@@ -180,6 +189,36 @@ getInterests sub =
         |> (\interests -> "resize" :: interests)
         |> List.reverse
         |> Encode.list Encode.string
+
+
+{-| Extract the tick interval in milliseconds, if any `every` subscription
+is present. Returns the minimum interval if multiple are batched.
+-}
+getTickInterval : Sub msg -> Maybe Float
+getTickInterval sub =
+    let
+        collect : Sub msg -> Maybe Float -> Maybe Float
+        collect s acc =
+            -- elm-review: known-unoptimized-recursion
+            case s of
+                SubNone ->
+                    acc
+
+                SubBatch subs ->
+                    List.foldl (\inner a -> collect inner a) acc subs
+
+                Every interval _ ->
+                    case acc of
+                        Nothing ->
+                            Just interval
+
+                        Just existing ->
+                            Just (min existing interval)
+
+                _ ->
+                    acc
+    in
+    collect sub Nothing
 
 
 {-| Route a raw event through a subscription to produce a user message.

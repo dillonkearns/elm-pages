@@ -2,11 +2,16 @@ module Tui.Picker exposing
     ( State, Config, open
     , typeChar, backspace, navigateDown, navigateUp
     , selected, visibleItems, query, matchCount, title
-    , viewBody, viewFooter
+    , viewBody, viewBodyWithMaxRows, viewFooter
     )
 
 {-| Searchable picker popup — present a filterable list for the user to
 choose from. Supports fuzzy matching, j/k navigation, and match count.
+
+For a menu where keys fire actions directly (no search), see [`Tui.Menu`](Tui-Menu).
+For a command palette that combines Picker with keybinding display, see
+[`Tui.CommandPalette`](Tui-CommandPalette). When using [`Layout.compileApp`](Tui-Layout#compileApp),
+prefer [`Layout.pickerModal`](Tui-Layout#pickerModal) which handles key routing for you.
 
     -- Open a picker:
     Picker.open
@@ -27,7 +32,7 @@ choose from. Supports fuzzy matching, j/k navigation, and match count.
     -- Render with Modal.overlay:
     Modal.overlay
         { title = Picker.title pickerState
-        , body = Picker.viewBody pickerState
+        , body = Picker.viewBodyWithMaxRows (Modal.maxBodyRows ctx.height) pickerState
         , footer = String.fromInt (Picker.matchCount pickerState) ++ " matches"
         , width = 50
         }
@@ -36,7 +41,7 @@ choose from. Supports fuzzy matching, j/k navigation, and match count.
 @docs State, Config, open
 @docs typeChar, backspace, navigateDown, navigateUp
 @docs selected, visibleItems, query, matchCount, title
-@docs viewBody, viewFooter
+@docs viewBody, viewBodyWithMaxRows, viewFooter
 
 -}
 
@@ -162,6 +167,138 @@ of a `Tui.Modal.overlay`.
 viewBody : State item -> List Tui.Screen
 viewBody (State s) =
     let
+        ( headerRows, itemRows ) =
+            pickerBodyRows s
+    in
+    headerRows ++ itemRows
+
+
+{-| Render the picker body clamped to a maximum number of rows, keeping the
+selected item visible.
+
+This is the preferred rendering helper for long pickers in modals:
+
+    Modal.overlay
+        { title = Picker.title pickerState
+        , body = Picker.viewBodyWithMaxRows (Modal.maxBodyRows ctx.height) pickerState
+        , footer = Picker.viewFooter pickerState
+        , width = Modal.defaultWidth ctx.width
+        }
+        dims
+        bgRows
+
+If the picker is shorter than `maxRows`, all rows are returned unchanged. If it
+overflows, the returned list is padded so the modal height stays stable near the
+end of the list.
+
+-}
+viewBodyWithMaxRows : Int -> State item -> List Tui.Screen
+viewBodyWithMaxRows maxRows (State s) =
+    let
+        ( headerRows, itemRows ) =
+            pickerBodyRows s
+
+        visibleItemRows : Int
+        visibleItemRows =
+            max 0 (maxRows - List.length headerRows)
+
+        scrollPadding : Int
+        scrollPadding =
+            if visibleItemRows > 2 then
+                1
+
+            else
+                0
+
+        scrollOffset : Int
+        scrollOffset =
+            scrollOffsetForSelectedRow s.selectedIndex visibleItemRows (List.length itemRows) scrollPadding
+
+        windowedItemRows : List Tui.Screen
+        windowedItemRows =
+            if visibleItemRows <= 0 then
+                []
+
+            else
+                itemRows
+                    |> List.drop scrollOffset
+                    |> List.take visibleItemRows
+
+        paddedItemRows : List Tui.Screen
+        paddedItemRows =
+            if List.length itemRows > visibleItemRows && List.length windowedItemRows < visibleItemRows then
+                windowedItemRows
+                    ++ List.repeat (visibleItemRows - List.length windowedItemRows) Tui.empty
+
+            else
+                windowedItemRows
+    in
+    if maxRows <= 0 then
+        []
+
+    else if maxRows == 1 then
+        List.take 1 headerRows
+
+    else if List.length headerRows + List.length itemRows <= maxRows then
+        headerRows ++ itemRows
+
+    else
+        headerRows ++ paddedItemRows
+
+
+{-| Render a footer string showing match count.
+-}
+viewFooter : State item -> String
+viewFooter (State s) =
+    let
+        count =
+            List.length (getVisibleItems s)
+
+        total =
+            List.length s.allItems
+    in
+    String.fromInt count ++ "/" ++ String.fromInt total ++ " │ Enter: select │ Esc: cancel"
+
+
+
+-- INTERNAL
+
+
+getVisibleItems :
+    { a | allItems : List item, toString : item -> String, filterText : String }
+    -> List item
+getVisibleItems s =
+    if String.isEmpty s.filterText then
+        s.allItems
+
+    else
+        s.allItems
+            |> List.filterMap
+                (\item ->
+                    let
+                        label =
+                            s.toString item
+                    in
+                    if FuzzyMatch.match s.filterText label then
+                        Just ( FuzzyMatch.score s.filterText label, item )
+
+                    else
+                        Nothing
+                )
+            |> List.sortBy (\( sc, _ ) -> negate sc)
+            |> List.map Tuple.second
+
+
+pickerBodyRows :
+    { a
+        | filterText : String
+        , selectedIndex : Int
+        , toString : item -> String
+        , allItems : List item
+    }
+    -> ( List Tui.Screen, List Tui.Screen )
+pickerBodyRows s =
+    let
         items =
             getVisibleItems s
 
@@ -215,47 +352,24 @@ viewBody (State s) =
                                     Tui.text (" " ++ label)
                     )
     in
-    filterRow :: Tui.blank :: itemRows
+    ( [ filterRow, Tui.blank ], itemRows )
 
 
-{-| Render a footer string showing match count.
--}
-viewFooter : State item -> String
-viewFooter (State s) =
+scrollOffsetForSelectedRow : Int -> Int -> Int -> Int -> Int
+scrollOffsetForSelectedRow selectedRow visibleRows totalRows padding =
     let
-        count =
-            List.length (getVisibleItems s)
-
-        total =
-            List.length s.allItems
+        maxOffset : Int
+        maxOffset =
+            max 0 (totalRows - visibleRows)
     in
-    String.fromInt count ++ "/" ++ String.fromInt total ++ " │ Enter: select │ Esc: cancel"
+    if visibleRows <= 0 then
+        0
 
+    else if selectedRow < padding then
+        0
 
-
--- INTERNAL
-
-
-getVisibleItems :
-    { a | allItems : List item, toString : item -> String, filterText : String }
-    -> List item
-getVisibleItems s =
-    if String.isEmpty s.filterText then
-        s.allItems
+    else if selectedRow > visibleRows - 1 - padding then
+        clamp 0 maxOffset (selectedRow - visibleRows + 1 + padding)
 
     else
-        s.allItems
-            |> List.filterMap
-                (\item ->
-                    let
-                        label =
-                            s.toString item
-                    in
-                    if FuzzyMatch.match s.filterText label then
-                        Just ( FuzzyMatch.score s.filterText label, item )
-
-                    else
-                        Nothing
-                )
-            |> List.sortBy (\( sc, _ ) -> negate sc)
-            |> List.map Tuple.second
+        0

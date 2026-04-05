@@ -10,8 +10,10 @@ import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
 import Test.Runner
-import Tui
+import Tui exposing (plain)
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Input as Input
+import Tui.Internal
 import Tui.Sub
 import Tui.Test as TuiTest
 
@@ -43,7 +45,7 @@ suite =
                         |> Expect.equal "hello world"
             , test "styled text has plain text content" <|
                 \() ->
-                    Tui.styled { fg = Just Ansi.Color.red, bg = Nothing, attributes = [ Tui.Bold ] } "warning"
+                    Tui.styled { plain | fg = Just Ansi.Color.red, attributes = [ Tui.Bold ] } "warning"
                         |> Tui.toString
                         |> Expect.equal "warning"
             , test "empty produces nothing" <|
@@ -68,21 +70,21 @@ suite =
             [ test "fg on text produces styled output" <|
                 \() ->
                     Tui.text "hello" |> Tui.fg Ansi.Color.red
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> String.contains "red"
                         |> Expect.equal True
             , test "bold on text produces bold output" <|
                 \() ->
                     Tui.text "hello" |> Tui.bold
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> String.contains "bold"
                         |> Expect.equal True
             , test "chaining fg + bold works" <|
                 \() ->
                     Tui.text "hello" |> Tui.fg Ansi.Color.green |> Tui.bold
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 Expect.all
@@ -95,7 +97,7 @@ suite =
                 \() ->
                     Tui.concat [ Tui.text "a", Tui.text "b" ]
                         |> Tui.fg Ansi.Color.red
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 -- Both spans should have red
@@ -109,7 +111,7 @@ suite =
                 \() ->
                     Tui.concat [ Tui.text "a", Tui.text "b" ]
                         |> Tui.bold
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 let
@@ -122,7 +124,7 @@ suite =
                 \() ->
                     Tui.lines [ Tui.text "row1", Tui.text "row2" ]
                         |> Tui.fg Ansi.Color.cyan
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 let
@@ -135,7 +137,7 @@ suite =
                 \() ->
                     Tui.spaced [ Tui.text "a", Tui.text "b" ]
                         |> Tui.bg Ansi.Color.blue
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 -- Should have blue on all 3 spans (a, space, b)
@@ -148,17 +150,17 @@ suite =
             , test "outer style overwrites inner style" <|
                 \() ->
                     Tui.concat
-                        [ Tui.text "red" |> Tui.fg Ansi.Color.red
+                        [ Tui.text "inner" |> Tui.fg Ansi.Color.red
                         , Tui.text "also"
                         ]
                         |> Tui.fg Ansi.Color.green
-                        |> Tui.encodeScreen
+                        |> Tui.Internal.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 Expect.all
                                     [ \str -> str |> String.contains "green" |> Expect.equal True
                                     -- red should be gone, replaced by green
-                                    , \str -> str |> String.contains "red" |> Expect.equal False
+                                    , \str -> str |> String.contains "\"red\"" |> Expect.equal False
                                     ]
                                     s
                            )
@@ -174,6 +176,156 @@ suite =
                         |> Tui.bold
                         |> Tui.toString
                         |> Expect.equal "hello world"
+            , test "link encodes hyperlink in JSON" <|
+                \() ->
+                    Tui.text "elm/core"
+                        |> Tui.link { url = "https://package.elm-lang.org" }
+                        |> Tui.Internal.encodeScreen
+                        |> Encode.encode 0
+                        |> String.contains "https://package.elm-lang.org"
+                        |> Expect.equal True
+            , test "link composes with fg and bold" <|
+                \() ->
+                    Tui.text "elm/core"
+                        |> Tui.fg Ansi.Color.blue
+                        |> Tui.underline
+                        |> Tui.link { url = "https://example.com" }
+                        |> Tui.Internal.encodeScreen
+                        |> Encode.encode 0
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "https://example.com" |> Expect.equal True
+                                    , \str -> str |> String.contains "blue" |> Expect.equal True
+                                    , \str -> str |> String.contains "underline" |> Expect.equal True
+                                    ]
+                                    s
+                           )
+            , test "link on concat applies to all children" <|
+                \() ->
+                    Tui.concat [ Tui.text "hello ", Tui.text "world" ]
+                        |> Tui.link { url = "https://example.com" }
+                        |> Tui.Internal.encodeScreen
+                        |> Encode.encode 0
+                        |> (\s ->
+                                let
+                                    linkCount =
+                                        String.indexes "https://example.com" s |> List.length
+                                in
+                                (linkCount >= 2) |> Expect.equal True
+                           )
+            , test "link stripped by toString" <|
+                \() ->
+                    Tui.text "elm/core"
+                        |> Tui.link { url = "https://example.com" }
+                        |> Tui.toString
+                        |> Expect.equal "elm/core"
+            , test "link preserved by truncateWidth" <|
+                \() ->
+                    Tui.text "long link text"
+                        |> Tui.link { url = "https://example.com" }
+                        |> Tui.truncateWidth 10
+                        |> Tui.Internal.encodeScreen
+                        |> Encode.encode 0
+                        |> String.contains "https://example.com"
+                        |> Expect.equal True
+            , test "link preserved by wrapWidth" <|
+                \() ->
+                    Tui.text "hello world"
+                        |> Tui.link { url = "https://example.com" }
+                        |> Tui.wrapWidth 6
+                        |> List.map (\s -> Tui.extractStyle s |> .hyperlink)
+                        |> Expect.equal [ Just "https://example.com", Just "https://example.com" ]
+            ]
+        , describe "Input"
+            [ test "viewMasked preserves the inverse cursor while hiding the real text" <|
+                \() ->
+                    let
+                        encoded =
+                            Input.init "secret"
+                                |> Input.viewMasked { width = 40 }
+                                |> Tui.Internal.encodeScreen
+                                |> Encode.encode 0
+                    in
+                    Expect.all
+                        [ \json -> json |> String.contains "secret" |> Expect.equal False
+                        , \json -> json |> String.contains "******" |> Expect.equal True
+                        , \json -> json |> String.contains "\"inverse\":true" |> Expect.equal True
+                        ]
+                        encoded
+            ]
+        , describe "wrapWidth"
+            [ test "short text returns single line unchanged" <|
+                \() ->
+                    Tui.text "hello"
+                        |> Tui.wrapWidth 20
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "hello" ]
+            , test "wraps at word boundary" <|
+                \() ->
+                    Tui.text "hello world foo"
+                        |> Tui.wrapWidth 11
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "hello world", "foo" ]
+            , test "wraps long text into multiple lines" <|
+                \() ->
+                    Tui.text "one two three four five"
+                        |> Tui.wrapWidth 10
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "one two", "three four", "five" ]
+            , test "preserves style across wrap" <|
+                \() ->
+                    Tui.text "hello world"
+                        |> Tui.bold
+                        |> Tui.wrapWidth 6
+                        |> List.map (\s -> ( Tui.toString s, Tui.extractStyle s ))
+                        |> Expect.equal
+                            [ ( "hello", { plain | attributes = [ Tui.Bold ] } )
+                            , ( "world", { plain | attributes = [ Tui.Bold ] } )
+                            ]
+            , test "preserves styles in concat across wrap boundary" <|
+                \() ->
+                    Tui.concat
+                        [ Tui.text "This is a "
+                        , Tui.text "very important" |> Tui.bold
+                        , Tui.text " paragraph."
+                        ]
+                        |> Tui.wrapWidth 24
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "This is a very important", "paragraph." ]
+            , test "word longer than maxWidth is broken mid-word" <|
+                \() ->
+                    Tui.text "abcdefghij rest"
+                        |> Tui.wrapWidth 5
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "abcde", "fghij", "rest" ]
+            , test "empty screen returns empty list" <|
+                \() ->
+                    Tui.empty
+                        |> Tui.wrapWidth 10
+                        |> Expect.equal []
+            , test "single word exactly at width" <|
+                \() ->
+                    Tui.text "hello"
+                        |> Tui.wrapWidth 5
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "hello" ]
+            , test "multiple spaces treated as break points" <|
+                \() ->
+                    Tui.text "a b c d e"
+                        |> Tui.wrapWidth 5
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "a b c", "d e" ]
+            , test "styled span split preserves style on both halves" <|
+                \() ->
+                    -- "very important" is bold, gets split across lines
+                    Tui.concat
+                        [ Tui.text "xx "
+                        , Tui.text "aaa bbb" |> Tui.fg Ansi.Color.red
+                        , Tui.text " end"
+                        ]
+                        |> Tui.wrapWidth 7
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "xx aaa", "bbb end" ]
             ]
         , describe "TuiTest - Counter"
             [ test "initial view shows count 0" <|
@@ -259,6 +411,33 @@ suite =
                     counterTest
                         |> TuiTest.sendMsg (CounterKeyPressed { key = Tui.Character 'k', modifiers = [] })
                         |> TuiTest.ensureViewHas "Count: 1"
+                        |> TuiTest.expectRunning
+            ]
+        , describe "TuiTest - onContext"
+            [ test "startWithContext routes initial context through subscriptions" <|
+                \() ->
+                    contextTest False { width = 120, height = 40, colorProfile = Tui.TrueColor }
+                        |> TuiTest.ensureViewHas "Stored: 120×40"
+                        |> TuiTest.expectRunning
+            , test "resize routes context through subscriptions" <|
+                \() ->
+                    contextTest False { width = 80, height = 24, colorProfile = Tui.TrueColor }
+                        |> TuiTest.resize { width = 120, height = 40 }
+                        |> TuiTest.ensureViewHas "Stored: 120×40"
+                        |> TuiTest.expectRunning
+            , test "startWithContext keeps effects returned from initial context update" <|
+                \() ->
+                    contextTest True { width = 120, height = 40, colorProfile = Tui.TrueColor }
+                        |> TuiTest.resolveEffect identity
+                        |> TuiTest.ensureViewHas "Effect: 120×40"
+                        |> TuiTest.expectRunning
+            , test "resize keeps effects returned from context update" <|
+                \() ->
+                    contextTest True { width = 80, height = 24, colorProfile = Tui.TrueColor }
+                        |> TuiTest.resolveEffect identity
+                        |> TuiTest.resize { width = 120, height = 40 }
+                        |> TuiTest.resolveEffect identity
+                        |> TuiTest.ensureViewHas "Effect: 120×40"
                         |> TuiTest.expectRunning
             ]
         , describe "TuiTest - Stars (BackendTask Effects)"
@@ -634,7 +813,7 @@ counterUpdate msg model =
 counterView : Tui.Context -> CounterModel -> Tui.Screen
 counterView ctx model =
     Tui.lines
-        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.Bold ] } "Counter"
+        [ Tui.styled { plain | attributes = [ Tui.Bold ] } "Counter"
         , Tui.concat
             [ Tui.text "Count: "
             , Tui.text (String.fromInt model.count)
@@ -663,6 +842,82 @@ counterTest =
         , subscriptions = counterSubscriptions
         }
 
+
+
+-- Context TUI for testing framework-managed onContext behavior
+
+
+type alias ContextModel =
+    { stored : String
+    , effectStatus : String
+    , triggerEffect : Bool
+    }
+
+
+type ContextMsg
+    = ContextChanged { width : Int, height : Int }
+    | ContextEffectComplete String
+
+
+contextInit : Bool -> () -> ( ContextModel, Effect ContextMsg )
+contextInit triggerEffect () =
+    ( { stored = "none"
+      , effectStatus = "Effect: idle"
+      , triggerEffect = triggerEffect
+      }
+    , Effect.none
+    )
+
+
+contextUpdate : ContextMsg -> ContextModel -> ( ContextModel, Effect ContextMsg )
+contextUpdate msg model =
+    case msg of
+        ContextChanged ctx ->
+            let
+                sizeLabel : String
+                sizeLabel =
+                    formatSize ctx
+            in
+            if model.triggerEffect then
+                ( { model | stored = sizeLabel }
+                , BackendTask.succeed sizeLabel
+                    |> Effect.perform ContextEffectComplete
+                )
+
+            else
+                ( { model | stored = sizeLabel }, Effect.none )
+
+        ContextEffectComplete sizeLabel ->
+            ( { model | effectStatus = "Effect: " ++ sizeLabel }, Effect.none )
+
+
+contextView : Tui.Context -> ContextModel -> Tui.Screen
+contextView _ model =
+    Tui.lines
+        [ Tui.text ("Stored: " ++ model.stored)
+        , Tui.text model.effectStatus
+        ]
+
+
+contextSubscriptions : ContextModel -> Tui.Sub.Sub ContextMsg
+contextSubscriptions _ =
+    Tui.Sub.onContext ContextChanged
+
+
+contextTest : Bool -> Tui.Context -> TuiTest.TuiTest ContextModel ContextMsg
+contextTest triggerEffect context =
+    TuiTest.startWithContext context
+        { data = ()
+        , init = contextInit triggerEffect
+        , update = contextUpdate
+        , view = contextView
+        , subscriptions = contextSubscriptions
+        }
+
+
+formatSize : { a | width : Int, height : Int } -> String
+formatSize ctx =
+    String.fromInt ctx.width ++ "×" ++ String.fromInt ctx.height
 
 
 -- Stars TUI for testing
@@ -749,7 +1004,7 @@ starsFetch repo =
 starsView : Tui.Context -> StarsModel -> Tui.Screen
 starsView _ model =
     Tui.lines
-        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.Bold ] } "GitHub Stars"
+        [ Tui.styled { plain | attributes = [ Tui.Bold ] } "GitHub Stars"
         , Tui.concat
             [ Tui.text "Repo: "
             , Tui.text model.input

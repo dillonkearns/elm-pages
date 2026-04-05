@@ -1,4 +1,4 @@
-module Tui.Input exposing (State, init, update, insertText, view, text)
+module Tui.Input exposing (State, init, update, insertText, view, viewMasked, text)
 
 {-| Text input primitive for TUI applications.
 
@@ -19,7 +19,7 @@ with an inverse-video cursor indicator (the standard TUI convention).
     -- In view:
     Input.view { width = 40 } model.input
 
-@docs State, init, update, insertText, view, text
+@docs State, init, update, insertText, view, viewMasked, text
 
 -}
 
@@ -82,8 +82,13 @@ Handles: character insertion, Backspace, Delete, Arrow Left/Right,
 Home, End, Ctrl+A (home), Ctrl+E (end), Ctrl+K (kill to end),
 Ctrl+U (kill to start).
 
-Keys the input doesn't care about (Escape, Enter, Tab, etc.) return
-the state unchanged — check for those in your update function FIRST.
+Keys the input doesn't handle (Escape, Enter, Tab, etc.) return
+the state unchanged. Match those keys before calling this:
+
+    case event.key of
+        Tui.Escape -> ( closeInput model, Effect.none )
+        Tui.Enter -> ( submit model, Effect.none )
+        _ -> ( { model | input = Input.update event model.input }, Effect.none )
 
 -}
 update : Tui.KeyEvent -> State -> State
@@ -190,11 +195,56 @@ view { width } (State s) =
         afterCursor =
             String.dropLeft (s.cursorPos + 1) s.content
     in
+    renderWithCursor { width = width }
+        { beforeCursor = beforeCursor
+        , cursorChar = cursorChar
+        , afterCursor = afterCursor
+        }
+
+
+{-| Render the input as a Screen with masked characters and an inverse-video
+cursor.
+
+Useful for password-style prompts where you still want users to see the cursor
+position while hiding the actual text.
+
+-}
+viewMasked : { width : Int } -> State -> Tui.Screen
+viewMasked { width } (State s) =
+    let
+        beforeCursor : String
+        beforeCursor =
+            String.repeat s.cursorPos "*"
+
+        cursorChar : String
+        cursorChar =
+            if s.cursorPos < String.length s.content then
+                "*"
+
+            else
+                " "
+
+        afterCursor : String
+        afterCursor =
+            String.repeat (max 0 (String.length s.content - s.cursorPos - 1)) "*"
+    in
+    renderWithCursor { width = width }
+        { beforeCursor = beforeCursor
+        , cursorChar = cursorChar
+        , afterCursor = afterCursor
+        }
+
+
+renderWithCursor :
+    { width : Int }
+    -> { beforeCursor : String, cursorChar : String, afterCursor : String }
+    -> Tui.Screen
+renderWithCursor { width } parts =
     Tui.concat
-        [ Tui.text beforeCursor
+        [ Tui.text parts.beforeCursor
         , Tui.styled
-            { fg = Nothing, bg = Nothing, attributes = [ Tui.Inverse ] }
-            cursorChar
-        , Tui.text afterCursor
+            { fg = Nothing, bg = Nothing, attributes = [ Tui.Inverse ], hyperlink = Nothing }
+            parts.cursorChar
+        , Tui.text parts.afterCursor
         ]
         |> Tui.truncateWidth width

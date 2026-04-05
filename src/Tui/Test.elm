@@ -1,28 +1,24 @@
 module Tui.Test exposing
     ( TuiTest
-    , start, startWithContext
-    , pressKey, pressKeyWith, paste, resize
-    , click, clickText, scrollDown, scrollUp
+    , start, startWithContext, startApp, startAppWithContext
+    , pressKey, pressKeyWith, pressKeyN, paste, resize
+    , click, clickText, scrollDown, scrollUp, scrollDownN, scrollUpN
     , sendMsg
     , BackendTaskSimulator, resolveEffect
     , ensureView, ensureViewHas, ensureViewDoesNotHave
+    , ensureModel, annotateAssertion
+    , StyleCheck, bold, dim, italic, underline, fg, bg
+    , ensureViewHasStyled, ensureViewDoesNotHaveStyled
     , expectRunning, expectExit, expectExitWith
     , Snapshot, toSnapshots, withModelToString
     )
 
-{-| Write pure tests for TUI scripts. No terminal, no I/O — just regular
-Elm tests.
+{-| Test TUI scripts without a real terminal — simulate events, resolve
+effects, and assert on screen output. Uses a pipeline API inspired by
+[`elm-program-test`](https://package.elm-lang.org/packages/avh4/elm-program-test/latest/).
 
-Effects returned by `update` are tracked and can be resolved using
-[`resolveEffect`](#resolveEffect) with the full `Test.BackendTask` API,
-or directly with [`sendMsg`](#sendMsg).
-
-    import Expect
-    import Json.Encode as Encode
-    import Test exposing (test)
-    import Test.BackendTask as BackendTaskTest
-    import Tui
-    import Tui.Test as TuiTest
+Build a test by starting a TUI, simulating user actions, and asserting
+on the rendered screen:
 
     test "fetches stars on Enter" <|
         \() ->
@@ -45,27 +41,83 @@ or directly with [`sendMsg`](#sendMsg).
 
 @docs TuiTest
 
-@docs start, startWithContext
 
-@docs pressKey, pressKeyWith, paste, resize
+## Starting a Test
 
-@docs click, clickText, scrollDown, scrollUp
+Pass the same config you'd give to [`Script.tui`](Pages-Script#tui), but with
+`data` already resolved (not a `BackendTask`). If your app uses
+[`Tui.Sub.onContext`](Tui-Sub#onContext), the initial context is fired
+automatically.
+
+@docs start, startWithContext, startApp, startAppWithContext
+
+
+## Simulating Events
+
+Simulate user interactions in the order they would happen. Each function
+threads the `TuiTest` through the app's `update` and captures the new screen.
+
+@docs pressKey, pressKeyWith, pressKeyN, paste, resize
+
+@docs click, clickText, scrollDown, scrollUp, scrollDownN, scrollUpN
 
 @docs sendMsg
 
+
+## Resolving Effects
+
+When your `update` returns a [`Tui.Effect`](Tui-Effect) that performs a
+[`BackendTask`](BackendTask) (via [`Effect.perform`](Tui-Effect#perform)),
+the test captures it as a pending effect. Use `resolveEffect` to simulate
+the `BackendTask` result:
+
+    |> TuiTest.resolveEffect
+        (BackendTaskTest.simulateCommand "git" "M src/Main.elm")
+
 @docs BackendTaskSimulator, resolveEffect
 
+
+## Screen Assertions
+
+Assert on the plain text content of the current screen. Failed assertions
+show the full screen output for easy debugging.
+
 @docs ensureView, ensureViewHas, ensureViewDoesNotHave
+
+@docs ensureModel, annotateAssertion
+
+
+## Styled Text Assertions
+
+Assert on text that appears with specific styling (bold, color, etc.).
+Adjacent spans with the same style are merged before matching, so
+fragmented rendering like `<red>ERROR</red><red> message</red>` is
+treated as a single `"ERROR message"` red region.
+
+@docs StyleCheck, bold, dim, italic, underline, fg, bg
+@docs ensureViewHasStyled, ensureViewDoesNotHaveStyled
+
+
+## Final Assertions
+
+End every test with one of these to verify the app's final state. If
+pending effects remain unresolved, `expectRunning` and `expectExit`
+will fail — ensuring you don't accidentally ignore effects.
 
 @docs expectRunning, expectExit, expectExitWith
 
 
 ## Snapshots
 
+Record screen snapshots at each step for the interactive test stepper
+([`elm-pages test`](https://elm-pages.com)). Navigate snapshots with
+arrow keys to visually step through your test.
+
 @docs Snapshot, toSnapshots, withModelToString
 
 -}
 
+import Ansi.Color
 import BackendTask exposing (BackendTask)
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
@@ -73,6 +125,7 @@ import Test.BackendTask.Internal as BackendTaskTest
 import Test.Runner
 import Tui exposing (Context, KeyEvent, Screen)
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Screen.Internal as ScreenInternal
 import Tui.Sub as Sub exposing (Sub)
 
 
@@ -114,11 +167,16 @@ type alias Snapshot =
     , rerender : Context -> Screen
     , hasPendingEffects : Bool
     , modelState : Maybe String
+    , assertions : List String
     }
 
 
-{-| Start a TUI test. Provide the same config record you pass to `Script.tui`,
-but with `data` already resolved (not a `BackendTask`).
+{-| Start a TUI test with a default 80×24 terminal and `TrueColor` profile.
+Provide the same config record you pass to `Script.tui`, but with `data`
+already resolved (not a `BackendTask`).
+
+If your app subscribes to `Tui.Sub.onContext`, the initial context is fired
+automatically (matching runtime behavior).
 
     TuiTest.start
         { data = { files = [ "Main.elm" ] }
@@ -127,6 +185,8 @@ but with `data` already resolved (not a `BackendTask`).
         , view = MyTui.view
         , subscriptions = MyTui.subscriptions
         }
+
+Use [`startWithContext`](#startWithContext) for a custom terminal size.
 
 -}
 start :
@@ -141,10 +201,15 @@ start config =
     startWithContext { width = 80, height = 24, colorProfile = Tui.TrueColor } config
 
 
-{-| Like `start` but with a custom terminal size.
+{-| Like `start` but with a custom terminal context (dimensions and color
+profile). Useful for testing responsive layouts or color profile adaptation.
 
-    TuiTest.startWithContext { width = 120, height = 40 }
+    TuiTest.startWithContext
+        { width = 120, height = 40, colorProfile = Tui.TrueColor }
         { data = (), ... }
+
+If your app subscribes to `Tui.Sub.onContext`, the initial context is fired
+automatically (matching runtime behavior).
 
 -}
 startWithContext :
@@ -162,28 +227,105 @@ startWithContext context config =
         ( initialModel, initialEffect ) =
             config.init config.data
 
+        ( modelWithContext, contextEffect ) =
+            case Sub.routeEvent (config.subscriptions initialModel) (Sub.RawContext { width = context.width, height = context.height }) of
+                Just msg ->
+                    config.update msg initialModel
+
+                Nothing ->
+                    ( initialModel, Effect.none )
+
+        combinedEffect : Effect msg
+        combinedEffect =
+            Effect.batch [ initialEffect, contextEffect ]
+
         pendingEffects : List (BackendTask FatalError msg)
         pendingEffects =
-            extractBackendTasks initialEffect
+            extractBackendTasks combinedEffect
     in
     TuiTest
-        { model = initialModel
+        { model = modelWithContext
         , update = config.update
         , view = config.view
         , subscriptions = config.subscriptions
         , context = context
         , pendingEffects = pendingEffects
-        , exited = checkForExit initialEffect
+        , exited = checkForExit combinedEffect
         , error = Nothing
         , snapshots =
             [ { label = "init"
-              , screen = config.view context initialModel
-              , rerender = \ctx -> config.view ctx initialModel
+              , screen = config.view context modelWithContext
+              , rerender = \ctx -> config.view ctx modelWithContext
               , hasPendingEffects = not (List.isEmpty pendingEffects)
               , modelState = Nothing
+              , assertions = []
               }
             ]
         , modelToString = Nothing
+        }
+
+
+
+{-| Start a test from a compiled `Layout.compileApp` output. Eliminates the
+boilerplate of extracting `init`/`update`/`view`/`subscriptions` fields.
+
+    TuiTest.startApp ()
+        (Layout.compileApp
+            { init = init
+            , update = update
+            , view = view
+            , bindings = bindings
+            , status = status
+            , modal = modal
+            , onRawEvent = Nothing
+            }
+        )
+
+-}
+startApp :
+    data
+    ->
+        { init : data -> ( model, Effect msg )
+        , update : msg -> model -> ( model, Effect msg )
+        , view : Context -> model -> Screen
+        , subscriptions : model -> Sub msg
+        }
+    -> TuiTest model msg
+startApp data compiled =
+    start
+        { data = data
+        , init = compiled.init
+        , update = compiled.update
+        , view = compiled.view
+        , subscriptions = compiled.subscriptions
+        }
+
+
+{-| Like [`startApp`](#startApp) but with a custom terminal context.
+
+    TuiTest.startAppWithContext
+        { width = 120, height = 40, colorProfile = Tui.TrueColor }
+        ()
+        compiledApp
+
+-}
+startAppWithContext :
+    Context
+    -> data
+    ->
+        { init : data -> ( model, Effect msg )
+        , update : msg -> model -> ( model, Effect msg )
+        , view : Context -> model -> Screen
+        , subscriptions : model -> Sub msg
+        }
+    -> TuiTest model msg
+startAppWithContext context data compiled =
+    startWithContext context
+        { data = data
+        , init = compiled.init
+        , update = compiled.update
+        , view = compiled.view
+        , subscriptions = compiled.subscriptions
         }
 
 
@@ -199,6 +341,17 @@ startWithContext context config =
 pressKey : Char -> TuiTest model msg -> TuiTest model msg
 pressKey char =
     pressKeyWith { key = Tui.Character char, modifiers = [] }
+
+
+{-| Simulate pressing a character key N times.
+
+    -- Navigate down 7 items
+    test |> TuiTest.pressKeyN 7 'j'
+
+-}
+pressKeyN : Int -> Char -> TuiTest model msg -> TuiTest model msg
+pressKeyN n char tuiTest =
+    List.foldl (\_ acc -> pressKey char acc) tuiTest (List.range 1 n)
 
 
 {-| Simulate pressing any key, including special keys and modifiers.
@@ -274,7 +427,8 @@ truncateLabel s =
 
 
 {-| Simulate a terminal resize. The framework handles resize automatically —
-this just updates the `Context` that `view` receives. No user message is sent.
+this updates the `Context` that `view` receives and routes the new size through
+any `Tui.Sub.onContext` subscriptions.
 -}
 resize : { width : Int, height : Int } -> TuiTest model msg -> TuiTest model msg
 resize size (TuiTest state) =
@@ -286,7 +440,45 @@ resize size (TuiTest state) =
             TuiTest { state | error = Just "resize called after TUI exited" }
 
         ( Nothing, Nothing ) ->
-            TuiTest { state | context = { width = size.width, height = size.height, colorProfile = state.context.colorProfile } }
+            let
+                newContext : Context
+                newContext =
+                    { width = size.width, height = size.height, colorProfile = state.context.colorProfile }
+
+                ( newModel, effect ) =
+                    case Sub.routeEvent (state.subscriptions state.model) (Sub.RawContext { width = newContext.width, height = newContext.height }) of
+                        Just msg ->
+                            state.update msg state.model
+
+                        Nothing ->
+                            ( state.model, Effect.none )
+
+                newPendingEffects : List (BackendTask FatalError msg)
+                newPendingEffects =
+                    state.pendingEffects ++ extractBackendTasks effect
+
+                viewFn : Context -> Screen
+                viewFn =
+                    \ctx -> state.view ctx newModel
+
+                snapshot : Snapshot
+                snapshot =
+                    { label = "resize " ++ String.fromInt size.width ++ "×" ++ String.fromInt size.height
+                    , screen = state.view newContext newModel
+                    , rerender = viewFn
+                    , hasPendingEffects = not (List.isEmpty newPendingEffects)
+                    , modelState = Maybe.map (\f -> f newModel) state.modelToString
+                    , assertions = []
+                    }
+            in
+            TuiTest
+                { state
+                    | model = newModel
+                    , context = newContext
+                    , pendingEffects = newPendingEffects
+                    , exited = checkForExit effect
+                    , snapshots = state.snapshots ++ [ snapshot ]
+                }
 
 
 {-| Simulate a left mouse click at the given row and column (0-based).
@@ -325,19 +517,26 @@ clickText needle (TuiTest state) =
                 screenLines =
                     Tui.toLines (state.view state.context state.model)
 
-                maybeRow : Maybe Int
-                maybeRow =
+                maybeMatch : Maybe { row : Int, col : Int }
+                maybeMatch =
                     screenLines
                         |> List.indexedMap Tuple.pair
-                        |> List.filter (\( _, line ) -> String.contains needle line)
+                        |> List.filterMap
+                            (\( idx, line ) ->
+                                case String.indexes needle line of
+                                    first :: _ ->
+                                        Just { row = idx, col = first }
+
+                                    [] ->
+                                        Nothing
+                            )
                         |> List.head
-                        |> Maybe.map Tuple.first
             in
-            case maybeRow of
-                Just row ->
+            case maybeMatch of
+                Just match ->
                     simulateMouseEvent
                         ("clickText \"" ++ needle ++ "\"")
-                        (Tui.Click { row = row, col = 1, button = Tui.LeftButton })
+                        (Tui.Click { row = match.row, col = match.col, button = Tui.LeftButton })
                         (TuiTest state)
 
                 Nothing ->
@@ -369,6 +568,26 @@ scrollUp pos =
     simulateMouseEvent
         ("scrollUp (" ++ String.fromInt pos.row ++ "," ++ String.fromInt pos.col ++ ")")
         (Tui.ScrollUp { row = pos.row, col = pos.col, amount = 1 })
+
+
+{-| Simulate N scroll-down events at the given position.
+
+    test |> TuiTest.scrollDownN 10 { row = 3, col = 60 }
+
+-}
+scrollDownN : Int -> { row : Int, col : Int } -> TuiTest model msg -> TuiTest model msg
+scrollDownN n pos tuiTest =
+    List.foldl (\_ acc -> scrollDown pos acc) tuiTest (List.range 1 n)
+
+
+{-| Simulate N scroll-up events at the given position.
+
+    test |> TuiTest.scrollUpN 5 { row = 3, col = 60 }
+
+-}
+scrollUpN : Int -> { row : Int, col : Int } -> TuiTest model msg -> TuiTest model msg
+scrollUpN n pos tuiTest =
+    List.foldl (\_ acc -> scrollUp pos acc) tuiTest (List.range 1 n)
 
 
 simulateMouseEvent : String -> Tui.MouseEvent -> TuiTest model msg -> TuiTest model msg
@@ -499,7 +718,7 @@ ensureView assertion (TuiTest state) =
                     TuiTest { state | error = Just ("ensureView failed:\n" ++ msg) }
 
                 Nothing ->
-                    TuiTest state
+                    TuiTest (recordAssertion "ensureView ✓" state)
 
 
 {-| Assert that the current screen contains the given text.
@@ -520,7 +739,7 @@ ensureViewHas needle (TuiTest state) =
                     Tui.toString (state.view state.context state.model)
             in
             if String.contains needle screenText then
-                TuiTest state
+                TuiTest (recordAssertion ("ensureViewHas \"" ++ needle ++ "\" ✓") state)
 
             else
                 TuiTest
@@ -562,7 +781,334 @@ ensureViewDoesNotHave needle (TuiTest state) =
                     }
 
             else
-                TuiTest state
+                TuiTest (recordAssertion ("ensureViewDoesNotHave \"" ++ needle ++ "\" ✓") state)
+
+
+{-| Assert on the model directly. Useful for verifying internal state that
+isn't visible in the rendered output, or for building higher-level test
+helpers that query opaque framework state (like `Layout.FrameworkModel`).
+
+    test "counter is at 5" <|
+        \() ->
+            counterApp
+                |> TuiTest.pressKeyN 5 'j'
+                |> TuiTest.ensureModel
+                    (\model -> Expect.equal 5 model.count)
+                |> TuiTest.expectRunning
+
+-}
+ensureModel : (model -> Expectation) -> TuiTest model msg -> TuiTest model msg
+ensureModel assertion (TuiTest state) =
+    case state.error of
+        Just _ ->
+            TuiTest state
+
+        Nothing ->
+            case getFailureMessage (assertion state.model) of
+                Just msg ->
+                    TuiTest { state | error = Just ("ensureModel failed:\n" ++ msg) }
+
+                Nothing ->
+                    TuiTest state
+
+
+{-| Add an assertion label to the most recent snapshot. The stepper displays
+these in green beneath the action label so you can see which checks happened
+at each step.
+
+Use this when building custom assertion helpers on top of `ensureModel`:
+
+    ensureFocusedPane paneId =
+        TuiTest.ensureModel (\m -> ...)
+            >> TuiTest.annotateAssertion ("ensureFocusedPane \"" ++ paneId ++ "\" ✓")
+
+-}
+annotateAssertion : String -> TuiTest model msg -> TuiTest model msg
+annotateAssertion description (TuiTest state) =
+    case state.error of
+        Just _ ->
+            TuiTest state
+
+        Nothing ->
+            TuiTest (recordAssertion description state)
+
+
+
+-- STYLED TEXT ASSERTIONS
+
+
+{-| A check on a single style attribute. Combine multiple checks in a list
+to require all of them — `[ bold, fg Ansi.Color.red ]` means "bold AND red."
+-}
+type StyleCheck
+    = StyleCheck (ScreenInternal.FlatStyle -> Bool)
+
+
+{-| Match bold text.
+
+    |> TuiTest.ensureViewHasStyled [ TuiTest.bold ] "selected item"
+
+-}
+bold : StyleCheck
+bold =
+    StyleCheck .bold
+
+
+{-| Match dim text.
+-}
+dim : StyleCheck
+dim =
+    StyleCheck .dim
+
+
+{-| Match italic text.
+-}
+italic : StyleCheck
+italic =
+    StyleCheck .italic
+
+
+{-| Match underlined text.
+-}
+underline : StyleCheck
+underline =
+    StyleCheck .underline
+
+
+{-| Match text with a specific foreground color.
+
+    |> TuiTest.ensureViewHasStyled [ TuiTest.fg Ansi.Color.red ] "Error"
+
+-}
+fg : Ansi.Color.Color -> StyleCheck
+fg color =
+    StyleCheck (\s -> s.foreground == Just color)
+
+
+{-| Match text with a specific background color.
+
+    |> TuiTest.ensureViewHasStyled [ TuiTest.bg Ansi.Color.blue ] "Selected"
+
+-}
+bg : Ansi.Color.Color -> StyleCheck
+bg color =
+    StyleCheck (\s -> s.background == Just color)
+
+
+{-| Assert that the screen contains the given text rendered with ALL of the
+specified style checks. Adjacent spans that satisfy the checks are merged
+before matching, so fragmented rendering is handled correctly.
+
+    test "selected item is highlighted" <|
+        \() ->
+            myTest
+                |> TuiTest.ensureViewHasStyled [ TuiTest.bold, TuiTest.fg Ansi.Color.yellow ] "selected"
+                |> TuiTest.expectRunning
+
+-}
+ensureViewHasStyled : List StyleCheck -> String -> TuiTest model msg -> TuiTest model msg
+ensureViewHasStyled checks needle (TuiTest state) =
+    case state.error of
+        Just _ ->
+            TuiTest state
+
+        Nothing ->
+            let
+                screen : Screen
+                screen =
+                    state.view state.context state.model
+            in
+            if containsStyledText checks needle screen then
+                TuiTest (recordAssertion ("ensureViewHasStyled " ++ describeChecks checks ++ " \"" ++ needle ++ "\" ✓") state)
+
+            else
+                let
+                    screenText : String
+                    screenText =
+                        Tui.toString screen
+                in
+                TuiTest
+                    { state
+                        | error =
+                            Just
+                                ("ensureViewHasStyled: expected screen to contain:\n\n    \""
+                                    ++ needle
+                                    ++ "\"\n\nwith style "
+                                    ++ describeChecks checks
+                                    ++ "\n\nbut the screen was:\n\n"
+                                    ++ indentScreenText screenText
+                                )
+                    }
+
+
+{-| Assert that the screen does NOT contain the given text with ALL of the
+specified style checks.
+
+    test "error text is not bold" <|
+        \() ->
+            myTest
+                |> TuiTest.ensureViewDoesNotHaveStyled [ TuiTest.bold ] "Error"
+                |> TuiTest.expectRunning
+
+-}
+ensureViewDoesNotHaveStyled : List StyleCheck -> String -> TuiTest model msg -> TuiTest model msg
+ensureViewDoesNotHaveStyled checks needle (TuiTest state) =
+    case state.error of
+        Just _ ->
+            TuiTest state
+
+        Nothing ->
+            let
+                screen : Screen
+                screen =
+                    state.view state.context state.model
+            in
+            if containsStyledText checks needle screen then
+                let
+                    screenText : String
+                    screenText =
+                        Tui.toString screen
+                in
+                TuiTest
+                    { state
+                        | error =
+                            Just
+                                ("ensureViewDoesNotHaveStyled: expected screen NOT to contain:\n\n    \""
+                                    ++ needle
+                                    ++ "\"\n\nwith style "
+                                    ++ describeChecks checks
+                                    ++ "\n\nbut the screen was:\n\n"
+                                    ++ indentScreenText screenText
+                                )
+                    }
+
+            else
+                TuiTest (recordAssertion ("ensureViewDoesNotHaveStyled " ++ describeChecks checks ++ " \"" ++ needle ++ "\" ✓") state)
+
+
+{-| Check if any line contains the needle as a substring within a contiguous
+region where all spans satisfy the style checks. Adjacent matching spans are
+merged before searching.
+-}
+containsStyledText : List StyleCheck -> String -> Screen -> Bool
+containsStyledText checks needle screen =
+    let
+        predicate : ScreenInternal.FlatStyle -> Bool
+        predicate style =
+            List.all (\(StyleCheck check) -> check style) checks
+
+        spanLines : List (List ScreenInternal.Span)
+        spanLines =
+            ScreenInternal.flattenToSpanLines tuiStyleToFlatStyle screen
+    in
+    List.any (containsStyledInLine predicate needle) spanLines
+
+
+containsStyledInLine : (ScreenInternal.FlatStyle -> Bool) -> String -> List ScreenInternal.Span -> Bool
+containsStyledInLine predicate needle spans =
+    containsStyledInLineHelp predicate needle "" spans
+
+
+containsStyledInLineHelp : (ScreenInternal.FlatStyle -> Bool) -> String -> String -> List ScreenInternal.Span -> Bool
+containsStyledInLineHelp predicate needle acc spans =
+    case spans of
+        [] ->
+            String.contains needle acc
+
+        span :: rest ->
+            if predicate span.style then
+                containsStyledInLineHelp predicate needle (acc ++ span.text) rest
+
+            else if String.contains needle acc then
+                True
+
+            else
+                containsStyledInLineHelp predicate needle "" rest
+
+
+describeChecks : List StyleCheck -> String
+describeChecks checks =
+    let
+        names : List String
+        names =
+            List.filterMap describeCheck checks
+    in
+    case names of
+        [] ->
+            "(any style)"
+
+        _ ->
+            "[" ++ String.join ", " names ++ "]"
+
+
+describeCheck : StyleCheck -> Maybe String
+describeCheck (StyleCheck check) =
+    -- Check which attribute this check tests by probing with a styled FlatStyle
+    let
+        base : ScreenInternal.FlatStyle
+        base =
+            ScreenInternal.defaultFlatStyle
+    in
+    if check { base | bold = True } && not (check base) then
+        Just "bold"
+
+    else if check { base | dim = True } && not (check base) then
+        Just "dim"
+
+    else if check { base | italic = True } && not (check base) then
+        Just "italic"
+
+    else if check { base | underline = True } && not (check base) then
+        Just "underline"
+
+    else if check { base | foreground = Just Ansi.Color.white } && not (check base) then
+        Just "fg color"
+
+    else if check { base | background = Just Ansi.Color.white } && not (check base) then
+        Just "bg color"
+
+    else
+        Nothing
+
+
+tuiStyleToFlatStyle : Tui.Style -> ScreenInternal.FlatStyle
+tuiStyleToFlatStyle s =
+    let
+        def : ScreenInternal.FlatStyle
+        def =
+            ScreenInternal.defaultFlatStyle
+
+        base : ScreenInternal.FlatStyle
+        base =
+            { def
+                | foreground = s.fg
+                , background = s.bg
+                , hyperlink = s.hyperlink
+            }
+    in
+    List.foldl applyAttr base s.attributes
+
+
+applyAttr : Tui.Attribute -> ScreenInternal.FlatStyle -> ScreenInternal.FlatStyle
+applyAttr attr flatStyle =
+    case attr of
+        Tui.Bold ->
+            { flatStyle | bold = True }
+
+        Tui.Dim ->
+            { flatStyle | dim = True }
+
+        Tui.Italic ->
+            { flatStyle | italic = True }
+
+        Tui.Underline ->
+            { flatStyle | underline = True }
+
+        Tui.Strikethrough ->
+            { flatStyle | strikethrough = True }
+
+        Tui.Inverse ->
+            { flatStyle | inverse = True }
 
 
 
@@ -695,6 +1241,7 @@ applyMsg label msg (TuiTest state) =
                     , rerender = viewFn
                     , hasPendingEffects = not (List.isEmpty newPendingEffects)
                     , modelState = Maybe.map (\f -> f newModel) state.modelToString
+                    , assertions = []
                     }
             in
             TuiTest
@@ -759,6 +1306,7 @@ resolveNextEffect simulate (TuiTest state) =
                                     , rerender = viewFn
                                     , hasPendingEffects = not (List.isEmpty newPendingEffects)
                                     , modelState = Maybe.map (\f -> f newModel) state.modelToString
+                                    , assertions = []
                                     }
                             in
                             TuiTest
@@ -775,44 +1323,46 @@ resolveNextEffect simulate (TuiTest state) =
 
 extractBackendTasks : Effect msg -> List (BackendTask FatalError msg)
 extractBackendTasks effect =
-    -- elm-review: known-unoptimized-recursion
-    case effect of
-        Effect.None ->
-            []
-
-        Effect.Batch effects ->
-            List.concatMap extractBackendTasks effects
-
-        Effect.RunBackendTask bt ->
-            [ bt ]
-
-        Effect.SuspendBackendTask bt ->
-            [ bt ]
-
-        Effect.Exit ->
-            []
-
-        Effect.ExitWithCode _ ->
-            []
+    Effect.fold
+        { none = []
+        , batch = List.concatMap extractBackendTasks
+        , backendTask = List.singleton
+        , exit = \_ -> []
+        , toast = \_ -> []
+        , errorToast = \_ -> []
+        , resetScroll = \_ -> []
+        , scrollTo = \_ _ -> []
+        , scrollDown = \_ _ -> []
+        , scrollUp = \_ _ -> []
+        , setSelectedIndex = \_ _ -> []
+        , selectFirst = \_ -> []
+        , focusPane = \_ -> []
+        }
+        effect
 
 
 checkForExit : Effect msg -> Maybe Int
 checkForExit effect =
-    -- elm-review: known-unoptimized-recursion
-    case effect of
-        Effect.Exit ->
-            Just 0
-
-        Effect.ExitWithCode code ->
-            Just code
-
-        Effect.Batch effects ->
-            effects
-                |> List.filterMap checkForExit
-                |> List.head
-
-        _ ->
-            Nothing
+    Effect.fold
+        { none = Nothing
+        , batch =
+            \effects ->
+                effects
+                    |> List.filterMap checkForExit
+                    |> List.head
+        , backendTask = \_ -> Nothing
+        , exit = Just
+        , toast = \_ -> Nothing
+        , errorToast = \_ -> Nothing
+        , resetScroll = \_ -> Nothing
+        , scrollTo = \_ _ -> Nothing
+        , scrollDown = \_ _ -> Nothing
+        , scrollUp = \_ _ -> Nothing
+        , setSelectedIndex = \_ _ -> Nothing
+        , selectFirst = \_ -> Nothing
+        , focusPane = \_ -> Nothing
+        }
+        effect
 
 
 indentScreenText : String -> String
@@ -821,6 +1371,23 @@ indentScreenText screenText =
         |> String.lines
         |> List.map (\line -> "    " ++ line)
         |> String.join "\n"
+
+
+{-| Append an assertion description to the most recent snapshot.
+This doesn't create a new snapshot — the screen hasn't changed —
+it just annotates the last action with what was checked.
+-}
+recordAssertion : String -> State model msg -> State model msg
+recordAssertion description state =
+    case List.reverse state.snapshots of
+        last :: rest ->
+            { state
+                | snapshots =
+                    List.reverse ({ last | assertions = last.assertions ++ [ description ] } :: rest)
+            }
+
+        [] ->
+            state
 
 
 getFailureMessage : Expectation -> Maybe String
@@ -873,8 +1440,8 @@ withModelToString modelToString (TuiTest state) =
 
 
 {-| Extract the recorded snapshots from a test pipeline. Each step in the
-pipeline (start, pressKey, resolveEffect, sendMsg) records a snapshot of the
-screen, the action label, and whether effects are pending.
+pipeline (start, resize, pressKey, resolveEffect, sendMsg) records a snapshot
+of the screen, the action label, and whether effects are pending.
 
 If the pipeline encountered an error, a final snapshot with the error message
 is appended so it's visible in the stepper.
@@ -889,9 +1456,7 @@ toSnapshots (TuiTest state) =
             let
                 errorScreen : Screen
                 errorScreen =
-                    Tui.styled
-                        { fg = Nothing, bg = Nothing, attributes = [] }
-                        errorMsg
+                    Tui.text errorMsg
             in
             state.snapshots
                 ++ [ { label = "ERROR"
@@ -899,6 +1464,7 @@ toSnapshots (TuiTest state) =
                      , rerender = \_ -> errorScreen
                      , hasPendingEffects = False
                      , modelState = Nothing
+                     , assertions = []
                      }
                    ]
 

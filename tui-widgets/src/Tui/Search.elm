@@ -2,7 +2,7 @@ module Tui.Search exposing
     ( State, start
     , typeChar, backspace
     , nextMatch, prevMatch
-    , query, isActive, matchCount, currentMatch, matchLineIndex
+    , query, matchCount, currentMatch, matchLineIndex
     , statusText
     )
 
@@ -31,7 +31,7 @@ contains uppercase characters (like vim/lazygit).
 @docs State, start
 @docs typeChar, backspace
 @docs nextMatch, prevMatch
-@docs query, isActive, matchCount, currentMatch, matchLineIndex
+@docs query, matchCount, currentMatch, matchLineIndex
 @docs statusText
 
 -}
@@ -105,12 +105,6 @@ query : State -> String
 query (State s) =
     s.queryText
 
-
-{-| Is the search currently active?
--}
-isActive : State -> Bool
-isActive _ =
-    True
 
 
 {-| How many lines match the current query?

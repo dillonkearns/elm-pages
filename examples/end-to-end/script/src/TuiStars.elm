@@ -12,7 +12,7 @@ import BackendTask.Http
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Pages.Script as Script exposing (Script)
-import Tui
+import Tui exposing (plain)
 import Tui.Effect as Effect
 import Tui.Sub
 
@@ -122,28 +122,28 @@ view : Tui.Context -> Model -> Tui.Screen
 view _ model =
     let
         dimStyle =
-            { fg = Nothing, bg = Nothing, attributes = [ Tui.dim ] }
+            { plain | attributes = [ Tui.dim ] }
     in
     Tui.lines
         [ Tui.text ""
-        , Tui.styled { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [ Tui.bold ] }
+        , Tui.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.bold ] }
             "  GitHub Stars Fetcher"
         , Tui.text ""
         , Tui.concat
             [ Tui.styled dimStyle "  Repo: "
-            , Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.bold ] } model.input
+            , Tui.styled { plain | attributes = [ Tui.bold ] } model.input
             , Tui.styled dimStyle "▌"
             ]
         , Tui.text ""
         , case ( model.loading, model.result ) of
             ( True, _ ) ->
-                Tui.styled { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [] } "  ⟳ Fetching..."
+                Tui.styled { plain | fg = Just Ansi.Color.yellow } "  ⟳ Fetching..."
 
             ( _, Ok stars ) ->
                 Tui.concat
                     [ Tui.text "  "
-                    , Tui.styled { fg = Just Ansi.Color.yellow, bg = Nothing, attributes = [] } "★ "
-                    , Tui.styled { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.bold ] }
+                    , Tui.styled { plain | fg = Just Ansi.Color.yellow } "★ "
+                    , Tui.styled { plain | fg = Just Ansi.Color.green, attributes = [ Tui.bold ] }
                         (String.fromInt stars)
                     , Tui.styled dimStyle
                         (" stars on " ++ model.input)
@@ -153,7 +153,7 @@ view _ model =
                 Tui.styled dimStyle "  Press Enter to fetch"
 
             ( _, Err errMsg ) ->
-                Tui.styled { fg = Just Ansi.Color.red, bg = Nothing, attributes = [] }
+                Tui.styled { plain | fg = Just Ansi.Color.red }
                     ("  " ++ errMsg)
         , Tui.text ""
         , Tui.styled dimStyle "  Enter    fetch stars"

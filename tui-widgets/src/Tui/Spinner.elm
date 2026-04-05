@@ -1,7 +1,13 @@
 module Tui.Spinner exposing (view, subscriptions)
 
-{-| Loading spinner for TUI applications. Cycles through `|`, `/`, `-`, `\`
-at 50ms intervals — the same animation lazygit uses.
+{-| Stateless loading spinner animation.
+
+For most apps, prefer [`Tui.Status`](Tui-Status) which combines spinners with
+toast notifications. Use this module directly when you need a standalone
+spinner outside the status bar.
+
+Cycles through `|`, `/`, `-`, `\` based on a tick counter you manage
+in your model.
 
     -- In your model:
     type alias Model =

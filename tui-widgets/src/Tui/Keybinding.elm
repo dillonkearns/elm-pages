@@ -9,9 +9,14 @@ module Tui.Keybinding exposing
 
 {-| Declarative keybinding system with scoped dispatch and auto-generated help.
 
-Inspired by lazygit's keybinding architecture: bindings are data (not just
-pattern matches), grouped into named scopes, dispatched in priority order,
-and rendered as a searchable help screen.
+Bindings are data (not just pattern matches), grouped into named scopes,
+dispatched in priority order, and rendered as a searchable help screen.
+The same binding declarations drive [`Tui.OptionsBar`](Tui-OptionsBar) hints,
+[`Tui.CommandPalette`](Tui-CommandPalette) search, and help screen generation.
+
+When using [`Layout.compileApp`](Tui-Layout#compileApp), use the simpler
+[`Layout.group`](Tui-Layout#group) / [`Layout.binding`](Tui-Layout#binding) wrappers
+instead of importing this module directly.
 
     -- Declare bindings
     globalBindings =
@@ -44,7 +49,7 @@ and rendered as a searchable help screen.
 -}
 
 import Ansi.Color
-import Tui
+import Tui exposing (plain)
 
 
 {-| A keybinding: one or more key combinations mapped to an action.
@@ -362,19 +367,19 @@ helpRowsWithSelection selectedIdx filter groups =
 
         cyanStyle : Tui.Style
         cyanStyle =
-            { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [] }
+            { plain | fg = Just Ansi.Color.cyan }
 
         selectedStyle : Tui.Style
         selectedStyle =
-            { fg = Just Ansi.Color.white, bg = Just Ansi.Color.blue, attributes = [ Tui.Bold ] }
+            { plain | fg = Just Ansi.Color.white, bg = Just Ansi.Color.blue, attributes = [ Tui.Bold ] }
 
         selectedKeyStyle : Tui.Style
         selectedKeyStyle =
-            { fg = Just Ansi.Color.cyan, bg = Just Ansi.Color.blue, attributes = [ Tui.Bold ] }
+            { plain | fg = Just Ansi.Color.cyan, bg = Just Ansi.Color.blue, attributes = [ Tui.Bold ] }
 
         sectionStyle : Tui.Style
         sectionStyle =
-            { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.Bold ] }
+            { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
 
         renderBinding : Int -> Binding msg -> Tui.Screen
         renderBinding bindingIdx b =
@@ -465,7 +470,7 @@ infoRow : String -> String -> Tui.Screen
 infoRow keyLabel description =
     Tui.concat
         [ Tui.text "  "
-        , Tui.styled { fg = Just Ansi.Color.cyan, bg = Nothing, attributes = [] } keyLabel
+        , Tui.styled { plain | fg = Just Ansi.Color.cyan } keyLabel
         , Tui.text "  "
         , Tui.text description
         ]
@@ -478,5 +483,5 @@ infoRow keyLabel description =
 -}
 sectionHeader : String -> Tui.Screen
 sectionHeader name =
-    Tui.styled { fg = Just Ansi.Color.green, bg = Nothing, attributes = [ Tui.Bold ] }
+    Tui.styled { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
         ("--- " ++ name ++ " ---")

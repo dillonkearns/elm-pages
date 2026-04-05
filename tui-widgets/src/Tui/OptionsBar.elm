@@ -1,7 +1,7 @@
 module Tui.OptionsBar exposing (view)
 
-{-| Context-sensitive options bar — shows keybinding hints at the bottom
-of the screen. Inspired by lazygit's bottom bar:
+{-| Context-sensitive options bar — shows [`Tui.Keybinding`](Tui-Keybinding)
+hints at the bottom of the screen. Like lazygit's bottom bar:
 
     Stage: <space> | Commit: c | Push: P | Keybindings: ?
 
@@ -26,7 +26,8 @@ import Tui.Keybinding as Keybinding
 Shows `description: key` pairs separated by ` | `. Truncates with `…` when
 the bar would exceed the available width.
 
-Uses the first key of each binding for the display.
+Uses the full binding label for each keybinding, including alternates and
+modifiers (for example `j/↓` or `ctrl+s`).
 
 -}
 view : Int -> List (Keybinding.Group action) -> Tui.Screen
@@ -39,11 +40,7 @@ view maxWidth groups =
                 |> List.map
                     (\binding ->
                         { description = binding.description
-                        , key =
-                            binding.keys
-                                |> List.head
-                                |> Maybe.map (\k -> Keybinding.formatKey k.key k.modifiers)
-                                |> Maybe.withDefault "?"
+                        , key = Keybinding.formatBinding binding
                         }
                     )
 
@@ -51,68 +48,99 @@ view maxWidth groups =
         separator =
             " | "
 
-        formatEntry : { description : String, key : String } -> String
-        formatEntry entry =
-            entry.description ++ ": " ++ entry.key
-
-        truncated : List String
+        truncated : List (Maybe { description : String, key : String })
         truncated =
-            truncateEntries maxWidth separator (List.map formatEntry entries)
+            truncateEntries maxWidth separator entries
     in
     if List.isEmpty truncated then
         Tui.empty
 
     else
         truncated
-            |> List.map
-                (\entry ->
-                    Tui.concat
-                        [ Tui.text (String.split ": " entry |> List.head |> Maybe.withDefault entry)
-                            |> Tui.dim
-                        , Tui.text ": "
-                            |> Tui.dim
-                        , Tui.text (String.split ": " entry |> List.drop 1 |> String.join ": ")
-                            |> Tui.fg Ansi.Color.cyan
-                        ]
-                )
+            |> List.map renderEntry
             |> List.intersperse (Tui.text separator |> Tui.dim)
             |> Tui.concat
 
 
 {-| Truncate entries to fit within maxWidth, appending "…" if needed.
 -}
-truncateEntries : Int -> String -> List String -> List String
+truncateEntries :
+    Int
+    -> String
+    -> List { description : String, key : String }
+    -> List (Maybe { description : String, key : String })
 truncateEntries maxWidth separator entries =
     let
         sepLen : Int
         sepLen =
             String.length separator
 
-        addEntry : String -> ( List String, Int ) -> ( List String, Int )
-        addEntry entry ( acc, usedWidth ) =
+        entryWidth : { description : String, key : String } -> Int
+        entryWidth entry =
+            String.length entry.description + 2 + String.length entry.key
+
+        addEntry :
+            { description : String, key : String }
+            ->
+                { acc : List (Maybe { description : String, key : String })
+                , usedWidth : Int
+                , isDone : Bool
+                }
+            ->
+                { acc : List (Maybe { description : String, key : String })
+                , usedWidth : Int
+                , isDone : Bool
+                }
+        addEntry entry state =
             let
                 entryLen : Int
                 entryLen =
-                    String.length entry
+                    entryWidth entry
 
                 totalWithSep : Int
                 totalWithSep =
-                    if List.isEmpty acc then
+                    if List.isEmpty state.acc then
                         entryLen
 
                     else
-                        usedWidth + sepLen + entryLen
+                        state.usedWidth + sepLen + entryLen
             in
-            if totalWithSep <= maxWidth then
-                ( acc ++ [ entry ], totalWithSep )
+            if state.isDone then
+                state
 
-            else if usedWidth + sepLen + 1 <= maxWidth then
-                -- Room for the ellipsis
-                ( acc ++ [ "…" ], usedWidth + sepLen + 1 )
+            else if totalWithSep <= maxWidth then
+                { state | acc = state.acc ++ [ Just entry ], usedWidth = totalWithSep }
+
+            else if List.isEmpty state.acc then
+                if maxWidth >= 1 then
+                    { acc = [ Nothing ], usedWidth = 1, isDone = True }
+
+                else
+                    { state | isDone = True }
+
+            else if state.usedWidth + sepLen + 1 <= maxWidth then
+                { acc = state.acc ++ [ Nothing ], usedWidth = state.usedWidth + sepLen + 1, isDone = True }
 
             else
-                ( acc, usedWidth )
+                { state | isDone = True }
     in
     entries
-        |> List.foldl addEntry ( [], 0 )
-        |> Tuple.first
+        |> List.foldl addEntry { acc = [], usedWidth = 0, isDone = False }
+        |> .acc
+
+
+renderEntry : Maybe { description : String, key : String } -> Tui.Screen
+renderEntry entry =
+    case entry of
+        Just fullEntry ->
+            Tui.concat
+                [ Tui.text fullEntry.description
+                    |> Tui.dim
+                , Tui.text ": "
+                    |> Tui.dim
+                , Tui.text fullEntry.key
+                    |> Tui.fg Ansi.Color.cyan
+                ]
+
+        Nothing ->
+            Tui.text "…" |> Tui.dim

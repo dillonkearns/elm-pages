@@ -4,7 +4,7 @@ import Ansi.Color
 import Expect exposing (Expectation)
 import Test exposing (Test, describe, test)
 import Test.Runner
-import Tui
+import Tui exposing (plain)
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Input as Input
 import Tui.Keybinding as Keybinding
@@ -95,18 +95,10 @@ suite =
             , test "shows box borders" <|
                 \() ->
                     miniGitTest
-                        |> TuiTest.ensureView
-                            (\s ->
-                                Expect.all
-                                    [ \str -> str |> String.contains "╭" |> Expect.equal True
-                                    , \str -> str |> String.contains "╮" |> Expect.equal True
-                                    , \str -> str |> String.contains "╰" |> Expect.equal True
-                                    , \str -> str |> String.contains "╯" |> Expect.equal True
-                                    , \str -> str |> String.contains "┬" |> Expect.equal True
-                                    , \str -> str |> String.contains "┴" |> Expect.equal True
-                                    ]
-                                    s
-                            )
+                        |> TuiTest.ensureViewHas "╭"
+                        |> TuiTest.ensureViewHas "╮"
+                        |> TuiTest.ensureViewHas "│"
+                        |> TuiTest.ensureViewHas "─"
                         |> TuiTest.expectRunning
             ]
         , describe "commit dialog"
@@ -321,6 +313,78 @@ suite =
                         |> TuiTest.ensureViewHas "▸ def5678"
                         |> TuiTest.expectRunning
             ]
+        , describe "filter (lazygit-style)"
+            [ test "/ activates filter, shows Filter: in bottom bar" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '/'
+                        |> TuiTest.ensureViewHas "Filter:"
+                        |> TuiTest.expectRunning
+            , test "typing filters commits in real-time" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '/'
+                        |> TuiTest.pressKey 'f'
+                        |> TuiTest.pressKey 'i'
+                        |> TuiTest.pressKey 'x'
+                        -- Only commits containing "fix" should be visible
+                        |> TuiTest.ensureViewHas "Fix bug"
+                        -- "Initial commit" should be filtered out
+                        |> TuiTest.ensureViewDoesNotHave "Initial commit"
+                        |> TuiTest.expectRunning
+            , test "Enter applies filter, shows matches status" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '/'
+                        |> TuiTest.pressKey 'f'
+                        |> TuiTest.pressKey 'i'
+                        |> TuiTest.pressKey 'x'
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        -- Filter stays active
+                        |> TuiTest.ensureViewHas "Fix bug"
+                        |> TuiTest.ensureViewDoesNotHave "Initial commit"
+                        -- Status bar shows applied text
+                        |> TuiTest.ensureViewHas "matches for 'fix'"
+                        |> TuiTest.expectRunning
+            , test "Escape after Enter clears filter, shows all commits" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '/'
+                        |> TuiTest.pressKey 'f'
+                        |> TuiTest.pressKey 'i'
+                        |> TuiTest.pressKey 'x'
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Escape, modifiers = [] }
+                        -- All commits should be visible again
+                        |> TuiTest.ensureViewHas "Initial commit"
+                        |> TuiTest.ensureViewHas "Fix bug"
+                        -- Filter status should be gone
+                        |> TuiTest.ensureViewDoesNotHave "Filter:"
+                        |> TuiTest.expectRunning
+            , test "Escape while typing clears filter" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '/'
+                        |> TuiTest.pressKey 'x'
+                        |> TuiTest.pressKey 'y'
+                        |> TuiTest.pressKey 'z'
+                        |> TuiTest.pressKeyWith { key = Tui.Escape, modifiers = [] }
+                        -- All commits visible
+                        |> TuiTest.ensureViewHas "Initial commit"
+                        |> TuiTest.ensureViewDoesNotHave "Filter:"
+                        |> TuiTest.expectRunning
+            , test "j/k navigate filtered list after Enter" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.pressKey '/'
+                        |> TuiTest.pressKey 'a'
+                        |> TuiTest.pressKey 'd'
+                        |> TuiTest.pressKey 'd'
+                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        -- Now navigate within filtered results
+                        |> TuiTest.pressKey 'j'
+                        |> TuiTest.expectRunning
+            ]
         , describe "snapshots"
             [ test "model state shows layout changes" <|
                 \() ->
@@ -513,16 +577,16 @@ miniGitLayout model =
                 , selected =
                     \commit ->
                         Tui.styled
-                            { fg = Just Ansi.Color.yellow
-                            , bg = Nothing
-                            , attributes = [ Tui.Bold ]
-                            }
+                            { plain | fg = Just Ansi.Color.yellow, attributes = [ Tui.Bold ] }
                             ("▸ " ++ commit.sha ++ " " ++ commit.message)
                 , default =
                     \commit ->
                         Tui.text ("  " ++ commit.sha ++ " " ++ commit.message)
                 }
                 model.commits
+                |> Layout.withFilterable
+                    (\commit -> commit.sha ++ " " ++ commit.message)
+                    model.commits
             )
         , Layout.pane "diff"
             { title = "Diff", width = Layout.fillPortion 2 }
@@ -633,12 +697,22 @@ miniGitUpdate msg model =
         Nothing ->
             case msg of
                 KeyPressed event ->
-                    case Keybinding.dispatch (testActiveBindings model) event of
-                        Just action ->
-                            handleAction action model
+                    -- Layout handles filter keys (/, typing, Enter, Escape) and
+                    -- number keys for pane focus. Check it first.
+                    case Layout.handleKeyEvent event (miniGitLayout model) model.layout of
+                        ( newLayout, Just layoutMsg, _ ) ->
+                            miniGitUpdate layoutMsg { model | layout = newLayout }
 
-                        Nothing ->
-                            ( model, Effect.none )
+                        ( newLayout, Nothing, True ) ->
+                            ( { model | layout = newLayout }, Effect.none )
+
+                        ( _, Nothing, False ) ->
+                            case Keybinding.dispatch (testActiveBindings model) event of
+                                Just action ->
+                                    handleAction action model
+
+                                Nothing ->
+                                    ( model, Effect.none )
 
                 Mouse mouseEvent ->
                     let
@@ -759,7 +833,7 @@ miniGitView ctx model =
                         , footer = "Enter: confirm │ Esc: cancel"
                         , width = 50
                         }
-                        { termWidth = ctx.width, termHeight = ctx.height }
+                        { width = ctx.width, height = ctx.height }
                         bgRows
 
                 Just (HelpModal helpState) ->
@@ -783,7 +857,7 @@ miniGitView ctx model =
                             case helpState.mode of
                                 HelpSearch ->
                                     [ Tui.concat
-                                        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] } "/"
+                                        [ Tui.styled { plain | attributes = [ Tui.Dim ] } "/"
                                         , Input.view { width = 40 } helpState.filter
                                         ]
                                     , Tui.text ""
@@ -791,7 +865,7 @@ miniGitView ctx model =
 
                                 HelpBrowse ->
                                     if not (String.isEmpty filterText) then
-                                        [ Tui.styled { fg = Nothing, bg = Nothing, attributes = [ Tui.Dim ] } ("/" ++ filterText)
+                                        [ Tui.styled { plain | attributes = [ Tui.Dim ] } ("/" ++ filterText)
                                         , Tui.text ""
                                         ]
 
@@ -812,19 +886,26 @@ miniGitView ctx model =
                         , footer = footer
                         , width = 50
                         }
-                        { termWidth = ctx.width, termHeight = ctx.height }
+                        { width = ctx.width, height = ctx.height }
                         bgRows
 
                 Nothing ->
                     bgRows
     in
-    Tui.lines
-        (if String.isEmpty model.lastAction then
-            rows
+    let
+        bottomBar =
+            case Layout.filterStatusBar "commits" model.layout of
+                Just filterBar ->
+                    filterBar
 
-         else
-            List.take (List.length rows - 1) rows ++ [ Tui.text (" " ++ model.lastAction) ]
-        )
+                Nothing ->
+                    if String.isEmpty model.lastAction then
+                        Tui.empty
+
+                    else
+                        Tui.text (" " ++ model.lastAction)
+    in
+    Tui.lines (List.take (List.length rows - 1) rows ++ [ bottomBar ])
 
 
 miniGitSubscriptions : Model -> Tui.Sub.Sub Msg

@@ -2,6 +2,9 @@ module Tui.FuzzyMatch exposing (match, score, highlight)
 
 {-| Fuzzy matching for TUI search and filtering.
 
+Used internally by [`Tui.Picker`](Tui-Picker) — exposed here for custom
+filtering logic in your own widgets.
+
 Characters from the query must appear in order in the candidate, but
 not necessarily consecutively. Case-insensitive. Higher scores for
 consecutive matches, word-start matches, and exact case matches.

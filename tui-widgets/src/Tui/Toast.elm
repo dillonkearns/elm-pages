@@ -6,20 +6,23 @@ module Tui.Toast exposing
 
 {-| Auto-dismissing toast notifications for TUI applications.
 
-Inspired by lazygit's status manager: normal toasts show for 2 seconds
-in cyan, error toasts show for 4 seconds in red. Stack-based: newest
-toast wins (displayed on top). Uses `Tui.Sub.every` for auto-dismiss.
+**Note:** For new code, prefer [`Tui.Status`](Tui-Status) which combines toasts
+with waiting spinners in one module. Use `Tui.Toast` directly when you want
+toast notifications without the waiting/spinner system.
+
+Normal toasts show for 2 seconds in cyan, error toasts show for 4 seconds
+in red. Stack-based: newest toast wins. Uses `Tui.Sub.every` for auto-dismiss.
 
     -- Model
     type alias Model =
-        { toasts : Toast.State Msg
+        { toasts : Toast.State
         , ...
         }
 
     -- Show a toast
-    Toast.toast "Committed: fix parser" model.toasts
+    { model | toasts = Toast.toast "Committed: fix parser" model.toasts }
 
-    -- In subscriptions (only while toasts are active)
+    -- In subscriptions (only while toasts are active, 100ms tick)
     if Toast.hasToasts model.toasts then
         Tui.Sub.every 100 ToastTick
     else
@@ -68,14 +71,16 @@ init =
     State []
 
 
-{-| Show a normal toast (cyan, ~2 seconds = 20 ticks at 100ms).
+{-| Show a normal toast (cyan). Lasts 20 ticks — with the recommended
+`Tui.Sub.every 100` interval, that's ~2 seconds.
 -}
 toast : String -> State -> State
 toast message (State items) =
     State ({ message = message, severity = Normal, ticksRemaining = 20 } :: items)
 
 
-{-| Show an error toast (red, ~4 seconds = 40 ticks at 100ms).
+{-| Show an error toast (red). Lasts 40 ticks — with the recommended
+`Tui.Sub.every 100` interval, that's ~4 seconds.
 -}
 errorToast : String -> State -> State
 errorToast message (State items) =

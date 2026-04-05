@@ -1,4 +1,4 @@
-module Tui.Internal exposing (run)
+module Tui.Internal exposing (encodeScreen, run)
 
 {-| Internal TUI loop implementation. Not exposed to users.
 -}
@@ -9,8 +9,11 @@ import BackendTask.Internal.Request
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Tui exposing (ColorProfile(..), Context, Screen)
+import Ansi.Color
+import Tui exposing (Attribute(..), ColorProfile(..), Context, Screen)
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Effect.Internal as EffectInternal
+import Tui.Screen.Internal as ScreenInternal
 import Tui.Sub as Sub exposing (Sub)
 
 
@@ -56,22 +59,14 @@ run config loadedData =
                     ( initialModel, initialEffect ) =
                         config.init loadedData
 
-                    -- Fire initial context through subscriptions so the user
-                    -- can store terminal dimensions (e.g., in Layout.State)
-                    sub : Sub msg
-                    sub =
-                        config.subscriptions initialModel
-
-                    modelWithContext : model
-                    modelWithContext =
-                        case Sub.routeEvent sub (Sub.RawContext { width = context.width, height = context.height }) of
-                            Just msg ->
-                                config.update msg initialModel |> Tuple.first
-
-                            Nothing ->
-                                initialModel
+                    ( modelWithContext, contextEffect ) =
+                        applyContextUpdate config.update
+                            (config.subscriptions initialModel)
+                            context
+                            initialModel
                 in
-                processEffectsThenRenderAndWait config context modelWithContext initialEffect
+                processEffectsThenRenderAndWait config context modelWithContext
+                    (Effect.batch [ initialEffect, contextEffect ])
             )
 
 
@@ -105,9 +100,17 @@ tuiRenderAndWait screen sub =
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "screen", Tui.encodeScreen screen )
-                    , ( "interests", Sub.getInterests sub )
-                    ]
+                    ([ ( "screen", encodeScreen screen )
+                     , ( "interests", Sub.getInterests sub )
+                     ]
+                        ++ (case Sub.getTickInterval sub of
+                                Just interval ->
+                                    [ ( "tickInterval", Encode.float interval ) ]
+
+                                Nothing ->
+                                    []
+                           )
+                    )
                 )
         , expect =
             Decode.map2 (\evts wh -> { events = evts, width = wh.width, height = wh.height })
@@ -152,22 +155,22 @@ processEffectsThenRenderAndWait :
     -> BackendTask FatalError ()
 processEffectsThenRenderAndWait config context model effect =
     -- elm-review: known-unoptimized-recursion
-    Effect.toBackendTask effect
+    EffectInternal.toBackendTask effect
         |> BackendTask.quiet
         |> BackendTask.andThen
             (\result ->
                 case result of
-                    Effect.EffectDone ->
+                    EffectInternal.EffectDone ->
                         renderAndWait config context model
 
-                    Effect.EffectMsg msg ->
+                    EffectInternal.EffectMsg msg ->
                         let
                             ( newModel, newEffect ) =
                                 config.update msg model
                         in
                         processEffectsThenRenderAndWait config context newModel newEffect
 
-                    Effect.EffectExit code ->
+                    EffectInternal.EffectExit code ->
                         tuiExit code
                             |> BackendTask.andThen
                                 (\() ->
@@ -217,24 +220,20 @@ renderAndWait config context model =
                         }
 
                     -- Fire context change through subscription if dimensions changed
-                    modelAfterContext : model
-                    modelAfterContext =
+                    ( modelAfterContext, contextEffects ) =
                         if newContext.width /= context.width || newContext.height /= context.height then
-                            case Sub.routeEvent sub (Sub.RawContext { width = newContext.width, height = newContext.height }) of
-                                Just msg ->
-                                    config.update msg model |> Tuple.first
-
-                                Nothing ->
-                                    model
+                            applyContextUpdate config.update sub newContext model
+                                |> Tuple.mapSecond effectToList
 
                         else
-                            model
+                            ( model, [] )
                 in
-                processBatchedEvents config sub newContext modelAfterContext response.events
+                processBatchedEventsHelp config sub newContext modelAfterContext contextEffects response.events
             )
 
 
 {-| Process a list of raw events through update, folding the model.
+All effects are accumulated and run after the final event.
 Only the final model gets rendered.
 -}
 processBatchedEvents :
@@ -249,9 +248,32 @@ processBatchedEvents :
     -> List Decode.Value
     -> BackendTask FatalError ()
 processBatchedEvents config sub context model events =
+    processBatchedEventsHelp config sub context model [] events
+
+
+processBatchedEventsHelp :
+    { init : data -> ( model, Effect msg )
+    , update : msg -> model -> ( model, Effect msg )
+    , view : Context -> model -> Screen
+    , subscriptions : model -> Sub msg
+    }
+    -> Sub msg
+    -> Context
+    -> model
+    -> List (Effect msg)
+    -> List Decode.Value
+    -> BackendTask FatalError ()
+processBatchedEventsHelp config sub context model accEffects events =
+    -- elm-review: known-unoptimized-recursion
     case events of
         [] ->
-            renderAndWait config context model
+            case accEffects of
+                [] ->
+                    renderAndWait config context model
+
+                _ ->
+                    processEffectsThenRenderAndWait config context model
+                        (Effect.batch (List.reverse accEffects))
 
         rawValue :: rest ->
             let
@@ -262,7 +284,7 @@ processBatchedEvents config sub context model events =
             case rawEvent of
                 Sub.RawResize _ ->
                     -- Apply resize context, continue processing
-                    processBatchedEvents config sub context model rest
+                    processBatchedEventsHelp config sub context model accEffects rest
 
                 _ ->
                     case Sub.routeEvent sub rawEvent of
@@ -271,17 +293,10 @@ processBatchedEvents config sub context model events =
                                 ( newModel, newEffect ) =
                                     config.update msg model
                             in
-                            case rest of
-                                [] ->
-                                    -- Last event — process effects and render
-                                    processEffectsThenRenderAndWait config context newModel newEffect
-
-                                _ ->
-                                    -- More events queued — fold model, skip effects for now
-                                    processBatchedEvents config sub context newModel rest
+                            processBatchedEventsHelp config sub context newModel (newEffect :: accEffects) rest
 
                         Nothing ->
-                            processBatchedEvents config sub context model rest
+                            processBatchedEventsHelp config sub context model accEffects rest
 
 
 {-| Decode a raw JSON event into a RawEvent.
@@ -295,3 +310,202 @@ decodeRawEvent value =
         Err _ ->
             -- If we can't decode, treat as a tick (will be ignored if not subscribed)
             Sub.RawTick
+
+
+applyContextUpdate :
+    (msg -> model -> ( model, Effect msg ))
+    -> Sub msg
+    -> Context
+    -> model
+    -> ( model, Effect msg )
+applyContextUpdate update sub context model =
+    case Sub.routeEvent sub (Sub.RawContext { width = context.width, height = context.height }) of
+        Just msg ->
+            update msg model
+
+        Nothing ->
+            ( model, Effect.none )
+
+
+effectToList : Effect msg -> List (Effect msg)
+effectToList effect =
+    Effect.fold
+        { none = []
+        , batch = \_ -> [ effect ]
+        , backendTask = \_ -> [ effect ]
+        , exit = \_ -> [ effect ]
+        , toast = \_ -> [ effect ]
+        , errorToast = \_ -> [ effect ]
+        , resetScroll = \_ -> [ effect ]
+        , scrollTo = \_ _ -> [ effect ]
+        , scrollDown = \_ _ -> [ effect ]
+        , scrollUp = \_ _ -> [ effect ]
+        , setSelectedIndex = \_ _ -> [ effect ]
+        , selectFirst = \_ -> [ effect ]
+        , focusPane = \_ -> [ effect ]
+        }
+        effect
+
+
+
+-- ENCODING (for sending to JS runtime)
+
+
+encodeScreen : Screen -> Encode.Value
+encodeScreen screen =
+    ScreenInternal.flattenToSpanLines styleToFlatStyle screen
+        |> Encode.list
+            (\spanLine ->
+                Encode.list encodeSpan spanLine
+            )
+
+
+styleToFlatStyle : Tui.Style -> ScreenInternal.FlatStyle
+styleToFlatStyle s =
+    let
+        def : ScreenInternal.FlatStyle
+        def =
+            ScreenInternal.defaultFlatStyle
+
+        base : ScreenInternal.FlatStyle
+        base =
+            { def
+                | foreground = s.fg
+                , background = s.bg
+                , hyperlink = s.hyperlink
+            }
+    in
+    List.foldl applyAttr base s.attributes
+
+
+applyAttr : Attribute -> ScreenInternal.FlatStyle -> ScreenInternal.FlatStyle
+applyAttr attr flatStyle =
+    case attr of
+        Bold ->
+            { flatStyle | bold = True }
+
+        Dim ->
+            { flatStyle | dim = True }
+
+        Italic ->
+            { flatStyle | italic = True }
+
+        Underline ->
+            { flatStyle | underline = True }
+
+        Strikethrough ->
+            { flatStyle | strikethrough = True }
+
+        Inverse ->
+            { flatStyle | inverse = True }
+
+
+encodeSpan : ScreenInternal.Span -> Encode.Value
+encodeSpan span =
+    Encode.object
+        [ ( "text", Encode.string span.text )
+        , ( "style", encodeFlatStyle span.style )
+        ]
+
+
+encodeFlatStyle : ScreenInternal.FlatStyle -> Encode.Value
+encodeFlatStyle flatStyle =
+    Encode.object
+        (List.filterMap identity
+            [ if flatStyle.bold then
+                Just ( "bold", Encode.bool True )
+
+              else
+                Nothing
+            , if flatStyle.dim then
+                Just ( "dim", Encode.bool True )
+
+              else
+                Nothing
+            , if flatStyle.italic then
+                Just ( "italic", Encode.bool True )
+
+              else
+                Nothing
+            , if flatStyle.underline then
+                Just ( "underline", Encode.bool True )
+
+              else
+                Nothing
+            , if flatStyle.strikethrough then
+                Just ( "strikethrough", Encode.bool True )
+
+              else
+                Nothing
+            , if flatStyle.inverse then
+                Just ( "inverse", Encode.bool True )
+
+              else
+                Nothing
+            , flatStyle.foreground |> Maybe.map (\c -> ( "foreground", encodeColor c ))
+            , flatStyle.background |> Maybe.map (\c -> ( "background", encodeColor c ))
+            , flatStyle.hyperlink |> Maybe.map (\url -> ( "hyperlink", Encode.string url ))
+            ]
+        )
+
+
+encodeColor : Ansi.Color.Color -> Encode.Value
+encodeColor ansiColor =
+    case ansiColor of
+        Ansi.Color.Black ->
+            Encode.string "black"
+
+        Ansi.Color.Red ->
+            Encode.string "red"
+
+        Ansi.Color.Green ->
+            Encode.string "green"
+
+        Ansi.Color.Yellow ->
+            Encode.string "yellow"
+
+        Ansi.Color.Blue ->
+            Encode.string "blue"
+
+        Ansi.Color.Magenta ->
+            Encode.string "magenta"
+
+        Ansi.Color.Cyan ->
+            Encode.string "cyan"
+
+        Ansi.Color.White ->
+            Encode.string "white"
+
+        Ansi.Color.BrightBlack ->
+            Encode.string "brightBlack"
+
+        Ansi.Color.BrightRed ->
+            Encode.string "brightRed"
+
+        Ansi.Color.BrightGreen ->
+            Encode.string "brightGreen"
+
+        Ansi.Color.BrightYellow ->
+            Encode.string "brightYellow"
+
+        Ansi.Color.BrightBlue ->
+            Encode.string "brightBlue"
+
+        Ansi.Color.BrightMagenta ->
+            Encode.string "brightMagenta"
+
+        Ansi.Color.BrightCyan ->
+            Encode.string "brightCyan"
+
+        Ansi.Color.BrightWhite ->
+            Encode.string "brightWhite"
+
+        Ansi.Color.Custom256 { color } ->
+            Encode.object [ ( "color256", Encode.int color ) ]
+
+        Ansi.Color.CustomTrueColor { red, green, blue } ->
+            Encode.object
+                [ ( "r", Encode.int red )
+                , ( "g", Encode.int green )
+                , ( "b", Encode.int blue )
+                ]

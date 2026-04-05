@@ -4,7 +4,8 @@ import Ansi.Color
 import Expect
 import Json.Encode
 import Test exposing (Test, describe, test)
-import Tui
+import Tui exposing (plain)
+import Tui.Internal
 import Tui.Layout as Layout
 
 
@@ -68,10 +69,7 @@ suite =
                                         , selected =
                                             \item ->
                                                 Tui.styled
-                                                    { fg = Just Ansi.Color.yellow
-                                                    , bg = Nothing
-                                                    , attributes = [ Tui.Bold ]
-                                                    }
+                                                    { plain | fg = Just Ansi.Color.yellow, attributes = [ Tui.Bold ] }
                                                     ("▸ " ++ item)
                                         , default = \item -> Tui.text ("  " ++ item)
                                         }
@@ -84,7 +82,7 @@ suite =
                         -- We verify by encoding to JSON and checking for style data.
                         encoded : String
                         encoded =
-                            Tui.encodeScreen screen
+                            Tui.Internal.encodeScreen screen
                                 |> Json.Encode.encode 0
                     in
                     -- The encoded JSON should contain bold and foreground color
@@ -131,11 +129,11 @@ suite =
                                     ]
                                     s
                            )
-            , test "px gives fixed width" <|
+            , test "fixed gives fixed width" <|
                 \() ->
                     Layout.horizontal
                         [ Layout.pane "fixed"
-                            { title = "F", width = Layout.px 10 }
+                            { title = "F", width = Layout.fixed 10 }
                             (Layout.content [ Tui.text "fixed" ])
                         , Layout.pane "flex"
                             { title = "X", width = Layout.fill }
@@ -149,7 +147,7 @@ suite =
                                     ]
                                     s
                            )
-            , test "shared border junction" <|
+            , test "separate pane boxes with gap" <|
                 \() ->
                     Layout.horizontal
                         [ Layout.pane "a"
@@ -162,8 +160,8 @@ suite =
                         |> renderAt { width = 30, height = 5 }
                         |> (\s ->
                                 Expect.all
-                                    [ \str -> str |> String.contains "┬" |> Expect.equal True
-                                    , \str -> str |> String.contains "┴" |> Expect.equal True
+                                    [ \str -> str |> String.contains "╮ ╭" |> Expect.equal True
+                                    , \str -> str |> String.contains "╯ ╰" |> Expect.equal True
                                     ]
                                     s
                            )
@@ -342,6 +340,57 @@ suite =
                         |> renderWithState snappedState { width = 30, height = 7 }
                         |> String.contains ("▸ item " ++ String.fromInt snappedIndex)
                         |> Expect.equal True
+            , test "pageDown jumps by viewport height" <|
+                \() ->
+                    let
+                        state : Layout.State
+                        state =
+                            Layout.init |> Layout.withContext { width = 30, height = 7 }
+
+                        -- height=7, visible=5 (7-2 borders), so pageDown jumps 5
+                        ( pageState, _ ) =
+                            Layout.pageDown "list" tallList state
+                    in
+                    Layout.selectedIndex "list" pageState
+                        |> Expect.equal 5
+            , test "pageUp jumps back by viewport height" <|
+                \() ->
+                    let
+                        state : Layout.State
+                        state =
+                            Layout.init |> Layout.withContext { width = 30, height = 7 }
+
+                        -- Go to index 9 (last item) first
+                        ( downState, _ ) =
+                            List.range 1 9
+                                |> List.foldl
+                                    (\_ ( s, _ ) -> Layout.navigateDown "list" tallList s)
+                                    ( state, Nothing )
+
+                        -- pageUp from index 9, viewport=5 should go to 4
+                        ( pageState, _ ) =
+                            Layout.pageUp "list" tallList downState
+                    in
+                    Layout.selectedIndex "list" pageState
+                        |> Expect.equal 4
+            , test "pageDown clamps to last item" <|
+                \() ->
+                    let
+                        state : Layout.State
+                        state =
+                            Layout.init |> Layout.withContext { width = 30, height = 7 }
+
+                        -- tallList has 10 items (0-9), viewport=5
+                        -- First pageDown: 0 + 5 = 5
+                        -- Second pageDown: 5 + 5 = 10, clamped to 9
+                        ( page1, _ ) =
+                            Layout.pageDown "list" tallList state
+
+                        ( page2, _ ) =
+                            Layout.pageDown "list" tallList page1
+                    in
+                    Layout.selectedIndex "list" page2
+                        |> Expect.equal 9
             ]
         , describe "Selectable list"
             [ test "selectableList renders items with default style" <|
@@ -485,7 +534,126 @@ suite =
                                 Layout.init
                     in
                     Layout.scrollPosition "list" newState
-                        |> Expect.equal 3
+                        |> Expect.equal 2
+            , test "scroll does not change focused pane (lazygit behavior)" <|
+                \() ->
+                    let
+                        layout : Layout.Layout Int
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.content
+                                        (List.range 1 20
+                                            |> List.map (\i -> Tui.text ("left " ++ String.fromInt i))
+                                        )
+                                    )
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content
+                                        (List.range 1 20
+                                            |> List.map (\i -> Tui.text ("right " ++ String.fromInt i))
+                                        )
+                                    )
+                                ]
+
+                        -- Focus the left pane
+                        state : Layout.State
+                        state =
+                            Layout.init |> Layout.focusPane "left"
+
+                        -- Scroll in the RIGHT pane (col > half width)
+                        ( stateAfterScroll, _ ) =
+                            Layout.handleMouse
+                                (Tui.ScrollDown { row = 3, col = 25, amount = 1 })
+                                { width = 40, height = 10 }
+                                layout
+                                state
+                    in
+                    -- Focus should remain on "left", NOT switch to "right"
+                    Expect.all
+                        [ \_ -> Layout.focusedPane stateAfterScroll |> Expect.equal (Just "left")
+                        , \_ -> Layout.scrollPosition "right" stateAfterScroll |> Expect.equal 2
+                        ]
+                        ()
+            , test "scroll up does not change focused pane" <|
+                \() ->
+                    let
+                        layout : Layout.Layout Int
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.content
+                                        (List.range 1 20
+                                            |> List.map (\i -> Tui.text ("left " ++ String.fromInt i))
+                                        )
+                                    )
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content
+                                        (List.range 1 20
+                                            |> List.map (\i -> Tui.text ("right " ++ String.fromInt i))
+                                        )
+                                    )
+                                ]
+
+                        -- Focus the left pane, scroll right pane down first
+                        stateWithScroll : Layout.State
+                        stateWithScroll =
+                            Layout.init
+                                |> Layout.focusPane "left"
+                                |> Layout.scrollDown "right" 6
+
+                        -- Now scroll UP in the right pane
+                        ( stateAfterScroll, _ ) =
+                            Layout.handleMouse
+                                (Tui.ScrollUp { row = 3, col = 25, amount = 1 })
+                                { width = 40, height = 10 }
+                                layout
+                                stateWithScroll
+                    in
+                    Layout.focusedPane stateAfterScroll |> Expect.equal (Just "left")
+            , test "click DOES change focused pane" <|
+                \() ->
+                    let
+                        layout : Layout.Layout Int
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("▸ " ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        [ "a", "b", "c" ]
+                                    )
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("▸ " ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        [ "x", "y", "z" ]
+                                    )
+                                ]
+
+                        state : Layout.State
+                        state =
+                            Layout.init |> Layout.focusPane "left"
+
+                        -- Click in the RIGHT pane
+                        ( stateAfterClick, _ ) =
+                            Layout.handleMouse
+                                (Tui.Click { row = 2, col = 25, button = Tui.LeftButton })
+                                { width = 40, height = 10 }
+                                layout
+                                state
+                    in
+                    -- Click SHOULD change focus to right pane
+                    Layout.focusedPane stateAfterClick |> Expect.equal (Just "right")
             ]
         , describe "Scrollbar"
             [ test "scrollbar shows on right border when content overflows" <|
@@ -554,7 +722,7 @@ suite =
 
                         encoded : String
                         encoded =
-                            Tui.encodeScreen screen |> Json.Encode.encode 0
+                            Tui.Internal.encodeScreen screen |> Json.Encode.encode 0
                     in
                     -- Focused pane border should have green color
                     encoded
@@ -571,18 +739,125 @@ suite =
                     Layout.init
                         |> Layout.focusedPane
                         |> Expect.equal Nothing
+            , test "unfocused pane uses inactive selection style (lazygit)" <|
+                \() ->
+                    let
+                        layout : Layout.Layout Int
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (let
+                                        items =
+                                            [ "a", "b", "c" ]
+                                     in
+                                     Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("FOCUSED:" ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        items
+                                        |> Layout.withUnfocusedStyle
+                                            (\item -> Tui.text ("dim:" ++ item))
+                                            items
+                                    )
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (let
+                                        items =
+                                            [ "x", "y", "z" ]
+                                     in
+                                     Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("FOCUSED:" ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        items
+                                        |> Layout.withUnfocusedStyle
+                                            (\item -> Tui.text ("dim:" ++ item))
+                                            items
+                                    )
+                                ]
+
+                        -- Focus left pane
+                        state : Layout.State
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 40, height = 7 }
+                                |> Layout.focusPane "left"
+
+                        rendered : String
+                        rendered =
+                            layout
+                                |> Layout.toScreen state
+                                |> Tui.toString
+                    in
+                    Expect.all
+                        [ -- Left pane is focused: selected item uses FOCUSED style
+                          \s -> s |> String.contains "FOCUSED:a" |> Expect.equal True
+                        , -- Right pane is unfocused: selected item uses dim style
+                          \s -> s |> String.contains "dim:x" |> Expect.equal True
+                        , -- Right pane should NOT use focused style
+                          \s -> s |> String.contains "FOCUSED:x" |> Expect.equal False
+                        ]
+                        rendered
+            , test "without withUnfocusedStyle, unfocused pane uses selected style" <|
+                \() ->
+                    let
+                        layout : Layout.Layout Int
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("SEL:" ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        [ "a", "b", "c" ]
+                                    )
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.selectableList
+                                        { onSelect = identity
+                                        , selected = \item -> Tui.text ("SEL:" ++ item)
+                                        , default = \item -> Tui.text ("  " ++ item)
+                                        }
+                                        [ "x", "y", "z" ]
+                                    )
+                                ]
+
+                        state : Layout.State
+                        state =
+                            Layout.init
+                                |> Layout.withContext { width = 40, height = 7 }
+                                |> Layout.focusPane "left"
+
+                        rendered : String
+                        rendered =
+                            layout
+                                |> Layout.toScreen state
+                                |> Tui.toString
+                    in
+                    -- Without withUnfocusedStyle, both panes use the same selected style
+                    Expect.all
+                        [ \s -> s |> String.contains "SEL:a" |> Expect.equal True
+                        , \s -> s |> String.contains "SEL:x" |> Expect.equal True
+                        ]
+                        rendered
             ]
         , describe "Pane groups (tabs)"
             [ test "paneGroup shows active tab content" <|
                 \() ->
                     Layout.horizontal
-                        [ Layout.paneGroup
+                        [ Layout.paneGroup "left"
                             { tabs =
                                 [ { id = "files", label = "Files", content = Layout.content [ Tui.text "file-content" ] }
                                 , { id = "worktrees", label = "Worktrees", content = Layout.content [ Tui.text "worktree-content" ] }
                                 ]
                             , activeTab = "files"
                             , width = Layout.fill
+                            , onTabClick = Nothing
                             }
                         ]
                         |> renderAt { width = 30, height = 5 }
@@ -596,13 +871,14 @@ suite =
             , test "paneGroup shows other tab content when switched" <|
                 \() ->
                     Layout.horizontal
-                        [ Layout.paneGroup
+                        [ Layout.paneGroup "left"
                             { tabs =
                                 [ { id = "files", label = "Files", content = Layout.content [ Tui.text "file-content" ] }
                                 , { id = "worktrees", label = "Worktrees", content = Layout.content [ Tui.text "worktree-content" ] }
                                 ]
                             , activeTab = "worktrees"
                             , width = Layout.fill
+                            , onTabClick = Nothing
                             }
                         ]
                         |> renderAt { width = 40, height = 5 }
@@ -616,13 +892,14 @@ suite =
             , test "paneGroup shows tab labels in title" <|
                 \() ->
                     Layout.horizontal
-                        [ Layout.paneGroup
+                        [ Layout.paneGroup "left"
                             { tabs =
                                 [ { id = "files", label = "Files", content = Layout.content [] }
                                 , { id = "worktrees", label = "Worktrees", content = Layout.content [] }
                                 ]
                             , activeTab = "files"
                             , width = Layout.fill
+                            , onTabClick = Nothing
                             }
                         ]
                         |> renderAt { width = 40, height = 5 }
@@ -639,7 +916,7 @@ suite =
                         filesTabLayout : Layout.Layout Int
                         filesTabLayout =
                             Layout.horizontal
-                                [ Layout.paneGroup
+                                [ Layout.paneGroup "left"
                                     { tabs =
                                         [ { id = "files"
                                           , label = "Files"
@@ -658,6 +935,7 @@ suite =
                                         ]
                                     , activeTab = "files"
                                     , width = Layout.fill
+                                    , onTabClick = Nothing
                                     }
                                 ]
 
@@ -665,38 +943,12 @@ suite =
                         state =
                             Layout.init |> Layout.withContext { width = 30, height = 8 }
 
-                        -- Navigate down in files tab
+                        -- Navigate down in files tab using the GROUP id
                         ( stateAfterNav, _ ) =
-                            Layout.navigateDown "files" filesTabLayout state
-
-                        -- Switch to worktrees tab — files selection should be preserved
-                        worktreesLayout : Layout.Layout Int
-                        worktreesLayout =
-                            Layout.horizontal
-                                [ Layout.paneGroup
-                                    { tabs =
-                                        [ { id = "files"
-                                          , label = "Files"
-                                          , content =
-                                                Layout.selectableList
-                                                    { onSelect = identity
-                                                    , selected = \item -> Tui.text ("▸ " ++ item)
-                                                    , default = \item -> Tui.text ("  " ++ item)
-                                                    }
-                                                    [ "a.elm", "b.elm", "c.elm" ]
-                                          }
-                                        , { id = "worktrees"
-                                          , label = "Worktrees"
-                                          , content = Layout.content [ Tui.text "wt" ]
-                                          }
-                                        ]
-                                    , activeTab = "files"
-                                    , width = Layout.fill
-                                    }
-                                ]
+                            Layout.navigateDown "left" filesTabLayout state
                     in
-                    -- The files tab should still have index 1 selected
-                    Layout.selectedIndex "files" stateAfterNav
+                    -- The files tab should still have index 1 selected via group ID
+                    Layout.selectedIndex "left" stateAfterNav
                         |> Expect.equal 1
             ]
         , describe "Title badges and footer"
@@ -721,6 +973,220 @@ suite =
                         ]
                         |> renderAt { width = 30, height = 5 }
                         |> String.contains "3 of 300"
+                        |> Expect.equal True
+            ]
+        , describe "Panel jump labels (lazygit-style)"
+            [ test "panes show [1], [2], etc. in title" <|
+                \() ->
+                    Layout.horizontal
+                        [ Layout.pane "left"
+                            { title = "Files", width = Layout.fill }
+                            (Layout.content [ Tui.text "a" ])
+                        , Layout.pane "right"
+                            { title = "Diff", width = Layout.fill }
+                            (Layout.content [ Tui.text "b" ])
+                        ]
+                        |> renderAt { width = 40, height = 5 }
+                        |> (\s ->
+                                Expect.all
+                                    [ \str -> str |> String.contains "[1]" |> Expect.equal True
+                                    , \str -> str |> String.contains "[2]" |> Expect.equal True
+                                    , \str -> str |> String.contains "Files" |> Expect.equal True
+                                    , \str -> str |> String.contains "Diff" |> Expect.equal True
+                                    ]
+                                    s
+                           )
+            , test "number keys focus the corresponding pane" <|
+                \() ->
+                    let
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.content [ Tui.text "a" ])
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content [ Tui.text "b" ])
+                                ]
+
+                        state =
+                            Layout.init |> Layout.focusPane "left"
+
+                        -- Press '2' to focus the second pane
+                        ( newState, _, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Character '2', modifiers = [] }
+                                layout
+                                state
+                    in
+                    Layout.focusedPane newState |> Expect.equal (Just "right")
+            , test "pressing current pane number is a no-op" <|
+                \() ->
+                    let
+                        layout =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.content [ Tui.text "a" ])
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content [ Tui.text "b" ])
+                                ]
+
+                        state =
+                            Layout.init |> Layout.focusPane "left"
+
+                        -- Press '1' — already focused on pane 1
+                        ( newState, _, _ ) =
+                            Layout.handleKeyEvent
+                                { key = Tui.Character '1', modifiers = [] }
+                                layout
+                                state
+                    in
+                    Layout.focusedPane newState |> Expect.equal (Just "left")
+            ]
+        , describe "Tab click in title bar"
+            [ test "clicking a tab label fires onTabClick" <|
+                \() ->
+                    let
+                        layout =
+                            Layout.horizontal
+                                [ Layout.paneGroup "nav"
+                                    { tabs =
+                                        [ { id = "files", label = "Files", content = Layout.content [ Tui.text "f" ] }
+                                        , { id = "branches", label = "Branches", content = Layout.content [ Tui.text "b" ] }
+                                        ]
+                                    , activeTab = "files"
+                                    , width = Layout.fill
+                                    , onTabClick = Just identity
+                                    }
+                                ]
+
+                        state =
+                            Layout.init |> Layout.focusPane "nav"
+
+                        -- Click on row 0 (title bar), col where "Branches" starts
+                        -- Title: "[1]Files - Branches..."
+                        -- [1] = 3 chars, border = 1 char, "Files" = 5 chars, " - " = 3 chars
+                        -- So "Branches" starts at border(1) + jumpLabel(3) + "Files"(5) + " - "(3) = 12
+                        ( _, maybeMsg ) =
+                            Layout.handleMouse
+                                (Tui.Click { row = 0, col = 12, button = Tui.LeftButton })
+                                { width = 40, height = 8 }
+                                layout
+                                state
+                    in
+                    maybeMsg |> Expect.equal (Just "branches")
+            , test "clicking active tab also fires onTabClick" <|
+                \() ->
+                    let
+                        layout =
+                            Layout.horizontal
+                                [ Layout.paneGroup "nav"
+                                    { tabs =
+                                        [ { id = "files", label = "Files", content = Layout.content [ Tui.text "f" ] }
+                                        , { id = "branches", label = "Branches", content = Layout.content [ Tui.text "b" ] }
+                                        ]
+                                    , activeTab = "files"
+                                    , width = Layout.fill
+                                    , onTabClick = Just identity
+                                    }
+                                ]
+
+                        state =
+                            Layout.init |> Layout.focusPane "nav"
+
+                        -- Click on "Files" at col 5 (border + jump label + start of "Files")
+                        ( _, maybeMsg ) =
+                            Layout.handleMouse
+                                (Tui.Click { row = 0, col = 5, button = Tui.LeftButton })
+                                { width = 40, height = 8 }
+                                layout
+                                state
+                    in
+                    maybeMsg |> Expect.equal (Just "files")
+            , test "clicking title bar without onTabClick just focuses" <|
+                \() ->
+                    let
+                        layout =
+                            Layout.horizontal
+                                [ Layout.paneGroup "nav"
+                                    { tabs =
+                                        [ { id = "files", label = "Files", content = Layout.content [ Tui.text "f" ] }
+                                        ]
+                                    , activeTab = "files"
+                                    , width = Layout.fill
+                                    , onTabClick = Nothing
+                                    }
+                                ]
+
+                        state =
+                            Layout.init
+
+                        ( newState, maybeMsg ) =
+                            Layout.handleMouse
+                                (Tui.Click { row = 0, col = 5, button = Tui.LeftButton })
+                                { width = 40, height = 8 }
+                                layout
+                                state
+                    in
+                    Expect.all
+                        [ \_ -> maybeMsg |> Expect.equal Nothing
+                        , \_ -> Layout.focusedPane newState |> Expect.equal (Just "nav")
+                        ]
+                        ()
+            ]
+        , describe "Search border color"
+            [ test "search mode changes focused border to cyan" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.focusPane "left"
+                                |> Layout.setSearching True
+
+                        screen =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.content [ Tui.text "a" ])
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content [ Tui.text "b" ])
+                                ]
+                                |> Layout.toScreen (Layout.withContext { width = 40, height = 5 } state)
+
+                        encoded =
+                            Tui.Internal.encodeScreen screen |> Json.Encode.encode 0
+                    in
+                    -- Focused pane border should be cyan (not green) during search
+                    Expect.all
+                        [ \s -> s |> String.contains "cyan" |> Expect.equal True
+                        ]
+                        encoded
+            , test "search mode off uses normal green border" <|
+                \() ->
+                    let
+                        state =
+                            Layout.init
+                                |> Layout.focusPane "left"
+
+                        screen =
+                            Layout.horizontal
+                                [ Layout.pane "left"
+                                    { title = "Left", width = Layout.fill }
+                                    (Layout.content [ Tui.text "a" ])
+                                , Layout.pane "right"
+                                    { title = "Right", width = Layout.fill }
+                                    (Layout.content [ Tui.text "b" ])
+                                ]
+                                |> Layout.toScreen (Layout.withContext { width = 40, height = 5 } state)
+
+                        encoded =
+                            Tui.Internal.encodeScreen screen |> Json.Encode.encode 0
+                    in
+                    encoded
+                        |> String.contains "green"
                         |> Expect.equal True
             ]
         ]
