@@ -21,69 +21,147 @@ module Test.PagesProgram exposing
     , Snapshot, StepKind(..), NetworkEntry, NetworkStatus(..), TargetSelector(..), FetcherEntry, FetcherStatus(..), toSnapshots, withModelToString
     )
 
-{-| Test elm-pages programs with realistic simulation.
+{-| Write tests for your elm-pages app that simulate user interactions,
+BackendTask data loading, and form submissions -- then step through them
+visually in the browser.
 
-For full-fidelity route tests, use [`startPlatform`](#startPlatform) with a
-generated `TestApp` module. This drives the real elm-pages framework
-(`Pages.Internal.Platform`) so that shared data, shared view, navigation,
-form submission, and all other framework behavior works identically to
-production. Only external I/O (HTTP, shell commands, etc.) is simulated
-via a mock resolver.
 
-    import TestApp
+## Quick start
+
+elm-pages generates a `TestApp` module for you. Write tests in a module
+that exposes `TestApp.ProgramTest` values:
+
+    module MyTests exposing (homepageTest)
+
     import Test.BackendTask as BackendTaskTest
-    import Test exposing (test)
     import Test.PagesProgram as PagesProgram
     import Test.PagesProgram.Selector as Selector
+    import TestApp
 
-    test "renders index page" <|
-        \() ->
-            TestApp.start "/" BackendTaskTest.init
-                |> PagesProgram.ensureViewHas [ Selector.text "Hello!" ]
-                |> PagesProgram.done
+    homepageTest : TestApp.ProgramTest
+    homepageTest =
+        TestApp.start "/" BackendTaskTest.init
+            |> PagesProgram.ensureViewHas [ Selector.text "Welcome" ]
+            |> PagesProgram.done
 
-For simple, self-contained page-state tests that don't need the full framework,
-use [`start`](#start) with inline config.
+Run tests headlessly:
+
+    elm-pages test-run
+
+Or open the visual test runner in your browser:
+
+    elm-pages test-view
+
+
+## How it works
+
+`TestApp.start` boots the real elm-pages framework for the route matching
+the URL you provide. External I/O (HTTP requests, custom ports) is
+simulated -- you supply mock responses inline:
+
+    loginFlowTest : TestApp.ProgramTest
+    loginFlowTest =
+        TestApp.start "/login" setup
+            |> PagesProgram.fillIn "login" "email" "alice@example.com"
+            |> PagesProgram.fillIn "login" "password" "secret123"
+            |> PagesProgram.clickButton "Log In"
+            |> PagesProgram.simulateHttpPost "https://api.example.com/auth"
+                (Encode.object [ ( "token", Encode.string "abc" ) ])
+            |> PagesProgram.ensureViewHas [ Selector.text "Welcome Alice!" ]
+            |> PagesProgram.done
+
+Every step in the pipeline records a snapshot of the rendered page.
+The visual test runner (`elm-pages test-view`) lets you step through
+these snapshots like a Cypress command log.
+
+
+## Testing client-side interactions
+
+If your route uses the Elm Architecture (Model/update/Msg) for
+client-side state, those interactions work automatically. When your
+update function returns `Effect.sendMsg`, the message is dispatched
+through the framework's update cycle:
+
+    counterTest : TestApp.ProgramTest
+    counterTest =
+        TestApp.start "/counter" BackendTaskTest.init
+            |> PagesProgram.simulateHttpGet counterUrl counterJson
+            |> PagesProgram.clickButton "+"
+            |> PagesProgram.ensureViewHas [ Selector.text "Count: 1" ]
+            |> PagesProgram.done
+
+This requires an `Effect.testPerform` function in your Effect module
+that maps your Effect type to [`SimulatedEffect`](Test-PagesProgram-SimulatedEffect).
+The default Effect module template includes this.
+
 
 @docs ProgramTest
 
+
+## Starting a test
+
 @docs start, startWithEffects, startPlatform
 
+
+## User interactions
+
 @docs clickButton, clickButtonWith, clickLink, fillIn, fillInTextarea, check
+
+@docs selectOption
+
+@docs simulateDomEvent
+
+@docs simulateMsg
+
+
+## Navigation
 
 @docs navigateTo, ensureBrowserUrl, expectBrowserUrl
 
 @docs ensureBrowserHistory, expectBrowserHistory
 
+
+## Form submission
+
 @docs submitForm, submitFormTo
+
+
+## Simulating external I/O
+
+@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
+
+@docs simulateCustom
 
 @docs resolveEffect
 
-@docs simulateMsg
+
+## Subscriptions
 
 @docs withSimulatedSubscriptions, simulateIncomingPort
+
+
+## View assertions
 
 @docs ensureViewHas, ensureViewHasNot, ensureView
 
 @docs expectViewHas, expectViewHasNot, expectView, expectModel
 
+
+## Scoping
+
 @docs within, withinFind
 
-@docs simulateDomEvent
 
-@docs simulateCustom
-
-@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
-
-@docs selectOption
+## Finishing a test
 
 @docs done
 
 
 ## Snapshots
 
-Snapshots record the rendered view at each step of the test pipeline. Use them
-with the visual test runner to step through your test in the browser.
+Snapshots record the rendered view at each step of the test pipeline.
+The visual test runner (`elm-pages test-view`) uses them to let you
+step through test execution in the browser.
 
 @docs Snapshot, StepKind, TargetSelector, NetworkEntry, NetworkStatus, FetcherEntry, FetcherStatus, toSnapshots, withModelToString
 
