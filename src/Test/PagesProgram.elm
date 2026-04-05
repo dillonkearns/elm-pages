@@ -29,7 +29,7 @@ cookies, URL state, and navigation, your tests exercise realistic
 end-to-end behavior deterministically:
 
   - [`BackendTask`](BackendTask) data loading and actions, with simulated responses for [`BackendTask.Http`](BackendTask-Http) and [`BackendTask.Custom`](BackendTask-Custom)
-  - [`Pages.Form`](Pages-Form) submissions, including concurrent [`Pages.Fetcher`](Pages-Fetcher) submissions
+  - [`Pages.Form`](Pages-Form) submissions, including [concurrent submissions](Pages-Form#withConcurrent)
   - Optimistic UI via [`Pages.ConcurrentSubmission`](Pages-ConcurrentSubmission) - assert on the view while fetchers are still in-flight
   - [`Server.Session`](Server-Session) and [`Server.SetCookie`](Server-SetCookie) - cookies persist across navigations and form submissions within a test
   - [`Server.Response`](Server-Response) redirects are followed automatically, with cookie propagation
