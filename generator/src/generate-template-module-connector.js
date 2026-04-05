@@ -403,7 +403,7 @@ it alongside the initial path:
 
 -}
 start =
-    Test.PagesProgram.startPlatform Main.config
+    Test.PagesProgram.startPlatform Effect.testPerform Main.config
 `;
 }
 

@@ -96,6 +96,7 @@ import Dict
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Form
+import Form.Validation
 import Html exposing (Html)
 import Html.Attributes
 import Http
@@ -111,6 +112,7 @@ import Pages.Internal.ResponseSketch as ResponseSketch
 import Pages.StaticHttp.Request as StaticHttpRequest
 import Test.BackendTask exposing (HttpError(..))
 import Test.BackendTask.Internal as BackendTaskTest
+import Test.PagesProgram.SimulatedEffect as SimulatedEffect
 import Test.PagesProgram.SimulatedSub as SimulatedSub exposing (SimulatedSub)
 import Test.Html.Event as Event
 import Test.Html.Query as Query
@@ -459,23 +461,7 @@ out of the box. File writes in actions automatically update the virtual FS,
 and subsequent data resolution sees the updated files.
 
 -}
-startPlatform :
-    Platform.ProgramConfig
-        userMsg
-        userModel
-        route
-        pageData
-        actionData
-        sharedData
-        effect
-        (Platform.Msg userMsg pageData actionData sharedData errorPage)
-        errorPage
-    -> String
-    -> BackendTaskTest.TestSetup
-    -> ProgramTest
-        (PlatformTestModel userModel pageData actionData sharedData)
-        (Platform.Msg userMsg pageData actionData sharedData errorPage)
-startPlatform config initialPath testSetup =
+startPlatform simulateEffect config initialPath testSetup =
     let
         baseUrl =
             "https://localhost:1234"
@@ -519,8 +505,8 @@ startPlatform config initialPath testSetup =
                                     platformUpdateClean config (Platform.FrozenViewsReady (Just pageDataBytes)) initModel
 
                                 ( wrapped, _, _ ) =
-                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver
-                                        { platformModel = readyModel, virtualFs = vfs, cookieJar = CookieJar.empty, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
+                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
+                                        { platformModel = readyModel, virtualFs = vfs, cookieJar = CookieJar.empty, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
                                         readyEffect
                                         100
                             in
@@ -550,7 +536,7 @@ startPlatform config initialPath testSetup =
                                                                 initModel
 
                                                         ( processedWrapped, _, _ ) =
-                                                            processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                                            processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                                                 { platformModel = readyModel, virtualFs = doneState.virtualFS, cookieJar = CookieJar.empty, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                                                 readyEffect
                                                                 100
@@ -600,7 +586,7 @@ startPlatform config initialPath testSetup =
                                                                                                         redirectPlatformModel
 
                                                                                                 ( processedWrapped, _, _ ) =
-                                                                                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                                                                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                                                                                         { platformModel = readyModel, virtualFs = rdDoneState.virtualFS, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                                                                                         readyEffect
                                                                                                         100
@@ -652,7 +638,7 @@ startPlatform config initialPath testSetup =
                                                                         initModel
 
                                                                 ( processedWrapped, _, _ ) =
-                                                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                                                         { platformModel = readyModel, virtualFs = doneState.virtualFS, cookieJar = CookieJar.empty, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                                                         readyEffect
                                                                         100
@@ -711,7 +697,7 @@ startPlatform config initialPath testSetup =
                             platformUpdateClean config msg wrappedModel.platformModel
 
                         ( processedWrapped, _, fetcherResolvers ) =
-                            processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                            processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                 { wrappedModel | platformModel = newPlatformModel }
                                 effectFromUpdate
                                 100
@@ -784,6 +770,9 @@ startPlatform config initialPath testSetup =
                     in
                     { title = doc.title, body = doc.body }
 
+                handleUserCmd wm userEffect md =
+                    processSimulatedEffect config baseUrl makeReady makePlatformResolver handleUserCmd wm (simulateEffect userEffect) md
+
                 -- Create a Resolving phase for a platform model that paused on HTTP.
                 -- Re-resolves the pending BackendTask to get the BackendTaskTest,
                 -- then wraps it in a Resolver that uses Test.BackendTask's
@@ -824,7 +813,7 @@ startPlatform config initialPath testSetup =
                                 (Resolver
                                     { advance =
                                         \_ sim ->
-                                            continueActionWithBt config_ baseUrl_ makeReady_ makePlatformResolver continueDataWithBt wrappedModel fetchUrl makePhase (applySimToBt sim bt)
+                                            continueActionWithBt config_ baseUrl_ makeReady_ makePlatformResolver handleUserCmd continueDataWithBt wrappedModel fetchUrl makePhase (applySimToBt sim bt)
                                     , pendingDescription =
                                         wrappedModel.pendingDataError |> Maybe.withDefault "Pending action HTTP"
                                     , pendingUrls = btPendingUrls bt
@@ -902,7 +891,7 @@ startPlatform config initialPath testSetup =
                                             { newPlatformModel | notFound = Nothing }
 
                                         ( processedWrapped, _, _ ) =
-                                            processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                            processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                                 { platformModel = cleanedModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                                 newEffect
                                                 100
@@ -927,7 +916,7 @@ startPlatform config initialPath testSetup =
                                                                 wrappedModel.platformModel
 
                                                         ( processedWrapped, _, _ ) =
-                                                            processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                                            processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                                                 { platformModel = newPlatformModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                                                 newEffect
                                                                 100
@@ -3642,7 +3631,7 @@ virtual FS and subsequent data resolution sees the updated files.
 Returns (wrappedModel, trackedEffects) where wrappedModel contains both
 the Platform model and the updated virtual FS.
 -}
-processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel effect maxDepth =
+processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd wrappedModel effect maxDepth =
     if maxDepth <= 0 then
         ( wrappedModel, [], [] )
 
@@ -3663,8 +3652,8 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
             Platform.RunCmd _ ->
                 ( wrappedModel, [], [] )
 
-            Platform.UserCmd _ ->
-                ( wrappedModel, [], [] )
+            Platform.UserCmd userEffect ->
+                handleUserCmd wrappedModel userEffect maxDepth
 
             Platform.BrowserLoadUrl _ ->
                 ( wrappedModel, [], [] )
@@ -3677,7 +3666,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                     ( newModel, newEffect ) =
                         platformUpdateClean config (Platform.UrlChanged newUrl) wrappedModel.platformModel
                 in
-                processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                     { wrappedModel | platformModel = newModel }
                     newEffect
                     (maxDepth - 1)
@@ -3690,7 +3679,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                     ( newModel, newEffect ) =
                         platformUpdateClean config (Platform.UrlChanged newUrl) wrappedModel.platformModel
                 in
-                processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                     { wrappedModel | platformModel = newModel }
                     newEffect
                     (maxDepth - 1)
@@ -3786,7 +3775,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                                                             (Platform.FrozenViewsReady (Just encodedBytes))
                                                             wrappedModel.platformModel
                                                 in
-                                                processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                                processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                                     { platformModel = newModel, virtualFs = vfsAfterAction, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                                     newEffect
                                                     (maxDepth - 1)
@@ -3818,7 +3807,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                                                             (Platform.FrozenViewsReady (Just encodedBytes))
                                                             wrappedModel.platformModel
                                                 in
-                                                processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                                processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                                     { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                                     newEffect
                                                     (maxDepth - 1)
@@ -3882,7 +3871,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                                                     (Platform.FrozenViewsReady (Just encodedBytes))
                                                     wrappedModel.platformModel
                                         in
-                                        processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                        processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                             { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                             newEffect
                                             (maxDepth - 1)
@@ -3929,7 +3918,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                                             cleanedModel =
                                                 { newModel | notFound = Nothing }
                                         in
-                                        processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                        processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                             { platformModel = cleanedModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                             newEffect
                                             (maxDepth - 1)
@@ -3950,7 +3939,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                         ( newModel, newEffect ) =
                             platformUpdateClean config (Platform.UrlChanged newUrl) wrappedModel.platformModel
                     in
-                    processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                    processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                         { wrappedModel | platformModel = newModel }
                         newEffect
                         (maxDepth - 1)
@@ -4040,7 +4029,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                                                         (Platform.FrozenViewsReady (Just encodedBytes))
                                                         wrappedModel.platformModel
                                             in
-                                            processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                            processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                                 { platformModel = newModel, virtualFs = vfsAfterAction, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                                 newEffect
                                                 (maxDepth - 1)
@@ -4072,7 +4061,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                                                         (Platform.FrozenViewsReady (Just encodedBytes))
                                                         wrappedModel.platformModel
                                             in
-                                            processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                            processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                                 { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                                 newEffect
                                                 (maxDepth - 1)
@@ -4202,7 +4191,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                                                                 effectiveModel.platformModel
 
                                                         ( processedWrapped2, _, _ ) =
-                                                            processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                                            processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                                                 { platformModel = modelAfterComplete, virtualFs = effectiveModel.virtualFs, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                                                 completeEffect
                                                                 100
@@ -4284,7 +4273,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                                     (Platform.FetcherComplete False fetcherKey transitionId fetcherResult)
                                     modelAfterStarted
                         in
-                        processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                        processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                             { platformModel = modelAfterComplete, virtualFs = vfsAfterAction, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                             completeEffect
                             (maxDepth - 1)
@@ -4294,12 +4283,95 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver wrappedModel
                     (\eff ( wm, effs, resolvers ) ->
                         let
                             ( newWm, newEffs, newResolvers ) =
-                                processEffectsWrapped config baseUrl makeReady makePlatformResolver wm eff (maxDepth - 1)
+                                processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd wm eff (maxDepth - 1)
                         in
                         ( newWm, effs ++ newEffs, resolvers ++ newResolvers )
                     )
                     ( wrappedModel, [], [] )
                     effects
+
+
+{-| Process a `SimulatedEffect` produced by the user's `testPerform` function.
+Called when `processEffectsWrapped` encounters a `Platform.UserCmd`.
+-}
+processSimulatedEffect config baseUrl makeReady makePlatformResolver handleUserCmd wrappedModel simEffect maxDepth =
+    if maxDepth <= 0 then
+        ( wrappedModel, [], [] )
+
+    else
+        case simEffect of
+            SimulatedEffect.None ->
+                ( wrappedModel, [], [] )
+
+            SimulatedEffect.OpaqueCmd ->
+                ( wrappedModel, [], [] )
+
+            SimulatedEffect.Batch effects ->
+                List.foldl
+                    (\eff ( wm, effs, resolvers ) ->
+                        let
+                            ( newWm, newEffs, newResolvers ) =
+                                processSimulatedEffect config baseUrl makeReady makePlatformResolver handleUserCmd wm eff (maxDepth - 1)
+                        in
+                        ( newWm, effs ++ newEffs, resolvers ++ newResolvers )
+                    )
+                    ( wrappedModel, [], [] )
+                    effects
+
+            SimulatedEffect.DispatchMsg userMsg ->
+                let
+                    platformMsg =
+                        Platform.UserMsg (Pages.Internal.Msg.UserMsg userMsg)
+
+                    ( newPlatformModel, newEffect ) =
+                        platformUpdateClean config platformMsg wrappedModel.platformModel
+                in
+                processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
+                    { wrappedModel | platformModel = newPlatformModel }
+                    newEffect
+                    (maxDepth - 1)
+
+            SimulatedEffect.SetField { formId, name, value } ->
+                let
+                    updateField maybeFormState =
+                        let
+                            formState =
+                                maybeFormState
+                                    |> Maybe.withDefault { fields = Dict.empty, submitAttempted = False }
+                        in
+                        Just
+                            { formState
+                                | fields =
+                                    Dict.insert name
+                                        { value = value, status = Form.Validation.NotVisited }
+                                        formState.fields
+                            }
+
+                    updatedPlatformModel =
+                        let
+                            pm =
+                                wrappedModel.platformModel
+                        in
+                        { pm | pageFormState = Dict.update formId updateField pm.pageFormState }
+                in
+                ( { wrappedModel | platformModel = updatedPlatformModel }, [], [] )
+
+            SimulatedEffect.SubmitFetcher fetcher ->
+                -- Delegate to Platform.SubmitFetcher handling
+                let
+                    transitionId =
+                        wrappedModel.platformModel.nextTransitionKey
+                in
+                processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
+                    wrappedModel
+                    (Platform.SubmitFetcher "user-effect" transitionId
+                        { fields = []
+                        , method = Form.Post
+                        , action = ""
+                        , id = Nothing
+                        }
+                    )
+                    (maxDepth - 1)
 
 
 {-| Wrapper around Platform.update that cleans relative path segments
@@ -4532,7 +4604,7 @@ btPendingUrls bt =
 When Done, processes the action result (redirect, render, etc).
 When Running, creates a Resolver capturing the BackendTaskTest for subsequent sims.
 -}
-continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataWithBt wrappedModel fetchUrl makePhase bt =
+continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd continueDataWithBt wrappedModel fetchUrl makePhase bt =
     let
         vfsAfterAction =
             BackendTaskTest.extractVirtualFs bt
@@ -4566,7 +4638,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                                         wrappedModel.platformModel
 
                                 ( processedWrapped, _, _ ) =
-                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                         { platformModel = newModel, virtualFs = vfsAfterAction, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                         newEffect
                                         100
@@ -4635,7 +4707,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                                         wrappedModel.platformModel
 
                                 ( processedWrapped, _, _ ) =
-                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver
+                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
                                         { platformModel = newModel, virtualFs = vfsAfterData, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing}
                                         newEffect
                                         100
@@ -4703,7 +4775,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataW
                     (Resolver
                         { advance =
                             \_ sim ->
-                                continueActionWithBt config baseUrl makeReady makePlatformResolver continueDataWithBt wrappedModel fetchUrl makePhase (applySimToBt sim bt)
+                                continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd continueDataWithBt wrappedModel fetchUrl makePhase (applySimToBt sim bt)
                         , pendingDescription =
                             stillRunningDescription runningState.pendingRequests
                         , pendingUrls =

@@ -57,7 +57,8 @@
         "Test.BackendTask.Time",
         "Test.PagesProgram",
         "Test.PagesProgram.Route",
-        "Test.PagesProgram.Selector"
+        "Test.PagesProgram.Selector",
+        "Test.PagesProgram.SimulatedEffect"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {

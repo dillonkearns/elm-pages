@@ -20,6 +20,7 @@ import Test.PagesProgram.Selector as PSelector exposing (AssertionSelector(..))
 import Test.BackendTask as BackendTaskTest
 import Test.BackendTask exposing (HttpError(..))
 import Test.PagesProgram as PagesProgram
+import Test.PagesProgram.SimulatedEffect as SimulatedEffect
 import Test.PagesProgram.SimulatedSub as SimulatedSub
 import Test.Runner
 
@@ -2050,7 +2051,197 @@ all =
                         |> PagesProgram.ensureViewHas [ PSelector.text "Content: Hello textarea!" ]
                         |> PagesProgram.done
             ]
+        , describe "SimulatedEffect (Effect.testPerform integration)"
+            [ test "simulateMsg dispatches a message through update" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { count = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    SimIncrement ->
+                                        ( { model | count = model.count + 1 }, [] )
+
+                                    SimReset ->
+                                        ( { model | count = 0 }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Counter"
+                                , body =
+                                    [ Html.text ("Count: " ++ String.fromInt model.count)
+                                    , Html.button [ Html.Events.onClick SimIncrement ] [ Html.text "+" ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
+                        |> PagesProgram.simulateMsg SimIncrement
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
+                        |> PagesProgram.simulateMsg SimIncrement
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 2" ]
+                        |> PagesProgram.simulateMsg SimReset
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
+                        |> PagesProgram.done
+            , test "simulateMsg chains through update effects" <|
+                \() ->
+                    -- When update returns an effect that should dispatch another msg,
+                    -- the user uses simulateMsg to inject it (the start path equivalent
+                    -- of SimulatedEffect.DispatchMsg in startPlatform)
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { items = [], status = "idle" }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    SimLoadItems ->
+                                        ( { model | status = "loading" }, [] )
+
+                                    SimItemsLoaded items ->
+                                        ( { model | items = items, status = "loaded" }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Items"
+                                , body =
+                                    [ Html.text ("Status: " ++ model.status)
+                                    , Html.ul []
+                                        (List.map (\item -> Html.li [] [ Html.text item ]) model.items)
+                                    , Html.button [ Html.Events.onClick SimLoadItems ] [ Html.text "Load" ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "Load"
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Status: loading" ]
+                        |> PagesProgram.simulateMsg (SimItemsLoaded [ "Apple", "Banana" ])
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Status: loaded" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Apple" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Banana" ]
+                        |> PagesProgram.done
+            , test "startWithEffects with SimulatedEffect-style decomposition" <|
+                \() ->
+                    -- The startWithEffects path converts custom effects to BackendTasks.
+                    -- When an effect is pure (no HTTP needed), use BackendTask.succeed
+                    -- to dispatch the message immediately via resolveEffect.
+                    PagesProgram.startWithEffects
+                        (\effect ->
+                            case effect of
+                                SimEffectNone ->
+                                    []
+
+                                SimEffectSendMsg msg ->
+                                    [ BackendTask.succeed msg
+                                        |> BackendTask.allowFatal
+                                    ]
+
+                                SimEffectBatch effects ->
+                                    List.concatMap
+                                        (\e ->
+                                            case e of
+                                                SimEffectSendMsg msg ->
+                                                    [ BackendTask.succeed msg |> BackendTask.allowFatal ]
+
+                                                _ ->
+                                                    []
+                                        )
+                                        effects
+                        )
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { message = "initial" }, SimEffectNone )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    SimSetMessage s ->
+                                        ( { model | message = s }, SimEffectNone )
+
+                                    SimTriggerChain ->
+                                        ( model, SimEffectSendMsg (SimSetMessage "chained!") )
+                        , view =
+                            \_ model ->
+                                { title = "Effect Chain"
+                                , body =
+                                    [ Html.text ("Message: " ++ model.message)
+                                    , Html.button [ Html.Events.onClick SimTriggerChain ] [ Html.text "Chain" ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Message: initial" ]
+                        |> PagesProgram.clickButton "Chain"
+                        |> PagesProgram.resolveEffect identity
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Message: chained!" ]
+                        |> PagesProgram.done
+            , test "SimulatedEffect.map preserves message transformation" <|
+                \() ->
+                    -- Verify that SimulatedEffect.map correctly transforms messages
+                    let
+                        original =
+                            SimulatedEffect.dispatchMsg 42
+
+                        mapped =
+                            SimulatedEffect.map (\n -> String.fromInt n) original
+                    in
+                    case mapped of
+                        SimulatedEffect.DispatchMsg s ->
+                            s |> Expect.equal "42"
+
+                        _ ->
+                            Expect.fail "Expected DispatchMsg after map"
+            , test "SimulatedEffect.map over Batch transforms all messages" <|
+                \() ->
+                    let
+                        original =
+                            SimulatedEffect.batch
+                                [ SimulatedEffect.dispatchMsg 1
+                                , SimulatedEffect.none
+                                , SimulatedEffect.dispatchMsg 2
+                                ]
+
+                        mapped =
+                            SimulatedEffect.map (\n -> n * 10) original
+                    in
+                    case mapped of
+                        SimulatedEffect.Batch [ SimulatedEffect.DispatchMsg a, SimulatedEffect.None, SimulatedEffect.DispatchMsg b ] ->
+                            Expect.all
+                                [ \_ -> a |> Expect.equal 10
+                                , \_ -> b |> Expect.equal 20
+                                ]
+                                ()
+
+                        _ ->
+                            Expect.fail "Expected Batch with mapped DispatchMsg values"
+            , test "SimulatedEffect.map preserves structural variants" <|
+                \() ->
+                    let
+                        mapped =
+                            SimulatedEffect.map identity SimulatedEffect.opaqueCmd
+                    in
+                    case mapped of
+                        SimulatedEffect.OpaqueCmd ->
+                            Expect.pass
+
+                        _ ->
+                            Expect.fail "Expected OpaqueCmd to be preserved"
+            ]
         ]
+
+
+type SimCounterMsg
+    = SimIncrement
+    | SimReset
+
+
+type SimItemsMsg
+    = SimLoadItems
+    | SimItemsLoaded (List String)
+
+
+type SimEffect msg
+    = SimEffectNone
+    | SimEffectSendMsg msg
+    | SimEffectBatch (List (SimEffect msg))
+
+
+type SimChainMsg
+    = SimSetMessage String
+    | SimTriggerChain
 
 
 type ContentMsg
