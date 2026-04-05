@@ -464,6 +464,23 @@ out of the box. File writes in actions automatically update the virtual FS,
 and subsequent data resolution sees the updated files.
 
 -}
+startPlatform :
+    (effect -> SimulatedEffect.SimulatedEffect userMsg)
+    -> Platform.ProgramConfig
+        userMsg
+        userModel
+        route
+        pageData
+        actionData
+        sharedData
+        effect
+        (Platform.Msg userMsg pageData actionData sharedData errorPage)
+        errorPage
+    -> String
+    -> BackendTaskTest.TestSetup
+    -> ProgramTest
+        (PlatformTestModel userModel pageData actionData sharedData)
+        (Platform.Msg userMsg pageData actionData sharedData errorPage)
 startPlatform simulateEffect config initialPath testSetup =
     let
         baseUrl =
