@@ -129,6 +129,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , internalError : String -> errorPage
     , errorPageToData : errorPage -> pageData
     , notFoundRoute : route
+    , pageModelToString : userModel -> String
     }
 
 

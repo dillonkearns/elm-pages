@@ -190,6 +190,36 @@ otherFile routes phaseString routesWithEphemeral =
             , internalError = Gen.ErrorPage.values_.internalError
             , errorPageToData = Elm.val "DataErrorPage____"
             , notFoundRoute = Elm.nothing
+            , pageModelToString =
+                Elm.fn (Elm.Arg.var "model")
+                    (\model ->
+                        Elm.Case.custom (model |> Elm.get "page")
+                            Type.unit
+                            ((routes
+                                |> List.map
+                                    (\route ->
+                                        Elm.Case.branch
+                                            (destructureRouteVariant Model "pageModel" route)
+                                            (\pageModel ->
+                                                Gen.Debug.toString pageModel
+                                            )
+                                    )
+                             )
+                                ++ [ Elm.Case.branch
+                                        (Elm.Arg.customType "ModelErrorPage____" identity
+                                            |> Elm.Arg.item (Elm.Arg.var "errorModel")
+                                        )
+                                        (\errorModel ->
+                                            Gen.Debug.toString errorModel
+                                        )
+                                   , Elm.Case.branch
+                                        (Elm.Arg.customType "NotFound" ())
+                                        (\() ->
+                                            Elm.string "(not found)"
+                                        )
+                                   ]
+                            )
+                    )
             }
                 |> make_
 
@@ -2493,6 +2523,7 @@ make_ :
     , internalError : Elm.Expression
     , errorPageToData : Elm.Expression
     , notFoundRoute : Elm.Expression
+    , pageModelToString : Elm.Expression
     }
     -> Elm.Expression
 make_ programConfig_args =
@@ -2559,4 +2590,7 @@ make_ programConfig_args =
         , Tuple.pair
             "notFoundRoute"
             programConfig_args.notFoundRoute
+        , Tuple.pair
+            "pageModelToString"
+            programConfig_args.pageModelToString
         ]

@@ -954,6 +954,14 @@ startPlatform simulateEffect config initialPath testSetup =
                         BackendTaskTest.TestError errMsg ->
                             AdvanceError errMsg
 
+                platformModelToString wrappedModel =
+                    case wrappedModel.platformModel.pageData of
+                        Ok pd ->
+                            config.pageModelToString pd.userModel
+
+                        Err err ->
+                            "(error: " ++ err ++ ")"
+
                 initSnapshots =
                     case initialPhase of
                         Ready readyState ->
@@ -966,7 +974,7 @@ startPlatform simulateEffect config initialPath testSetup =
                               , body = (mapViewToSnapshot viewResult).body
                               , rerender = \() -> mapViewToSnapshot (readyState.getView readyState.model)
                               , hasPendingEffects = False
-                              , modelState = Nothing
+                              , modelState = Just (platformModelToString readyState.model)
                               , stepKind = Start
                               , browserUrl = Just (Url.toString readyState.model.platformModel.url)
                               , errorMessage = Nothing
@@ -1014,7 +1022,7 @@ startPlatform simulateEffect config initialPath testSetup =
                 { phase = initialPhase
                 , error = Nothing
                 , snapshots = initSnapshots
-                , modelToString = Nothing
+                , modelToString = Just platformModelToString
                 , fetcherExtractor = Just extractFetchers
                 , pendingFetcherEffects = []
                 , lastReadyModel = Nothing

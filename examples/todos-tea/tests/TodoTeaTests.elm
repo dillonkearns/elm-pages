@@ -81,7 +81,6 @@ startLoggedIn : TestApp.ProgramTest
 startLoggedIn =
     TestApp.start "/login?magic=fake-hash" baseSetup
         |> loginAndLoadTodos
-        |> PagesProgram.withModelToString Debug.toString
 
 
 

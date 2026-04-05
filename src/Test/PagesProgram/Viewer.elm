@@ -37,6 +37,7 @@ import Json.Encode as Encode
 import Set exposing (Set)
 import Task
 import Test.PagesProgram exposing (FetcherEntry, FetcherStatus(..), NetworkEntry, NetworkStatus(..), Snapshot, StepKind(..), TargetSelector(..))
+import Test.PagesProgram.DebugParser as DebugParser
 import Test.PagesProgram.Selector exposing (AssertionSelector(..))
 import Url exposing (Url)
 
@@ -70,6 +71,7 @@ type alias Model =
     , showFetchers : Bool
     , previewMode : PreviewMode
     , expandedGroups : Set Int
+    , modelTreeExpanded : Set String
     }
 
 
@@ -105,6 +107,7 @@ type Msg
     | ToggleFetchers
     | SetPreviewMode PreviewMode
     | ToggleGroup Int
+    | ToggleModelNode String
     | UrlChanged Url
     | LinkClicked Browser.UrlRequest
     | NoOp
@@ -190,6 +193,7 @@ app tests =
                   , showFetchers = False
                   , previewMode = After
                   , expandedGroups = Set.empty
+                  , modelTreeExpanded = Set.empty
                   }
                 , Cmd.none
                 )
@@ -624,6 +628,18 @@ update msg model =
 
                     else
                         Set.insert parentIndex model.expandedGroups
+              }
+            , Cmd.none
+            )
+
+        ToggleModelNode path ->
+            ( { model
+                | modelTreeExpanded =
+                    if Set.member path model.modelTreeExpanded then
+                        Set.remove path model.modelTreeExpanded
+
+                    else
+                        Set.insert path model.modelTreeExpanded
               }
             , Cmd.none
             )
@@ -1450,7 +1466,7 @@ viewMainPanel model =
                               else
                                 Html.text ""
                             , if model.showModel then
-                                viewModelInspector
+                                viewModelInspector model.modelTreeExpanded
                                     (previousSnapshot
                                         |> Maybe.withDefault snapshot
                                     )
@@ -1506,7 +1522,7 @@ viewMainPanel model =
                               else
                                 Html.text ""
                             , if model.showModel then
-                                viewModelInspector previewSnapshot
+                                viewModelInspector model.modelTreeExpanded previewSnapshot
 
                               else
                                 Html.text ""
@@ -1665,15 +1681,28 @@ viewBeforeAfterToggle current =
         ]
 
 
-viewModelInspector : Snapshot -> Html Msg
-viewModelInspector snapshot =
+viewModelInspector : Set String -> Snapshot -> Html Msg
+viewModelInspector expandedNodes snapshot =
     Html.div [ Attr.class "model-inspector" ]
         [ Html.div [ Attr.class "inspector-header" ] [ Html.text "Model" ]
-        , Html.pre [ Attr.class "inspector-body" ]
-            [ Html.text
-                (snapshot.modelState
-                    |> Maybe.withDefault "(use withModelToString to enable)"
-                )
+        , Html.div [ Attr.class "inspector-body" ]
+            [ case snapshot.modelState of
+                Nothing ->
+                    Html.span [ Attr.class "dv-internals" ]
+                        [ Html.text "(use withModelToString to enable)" ]
+
+                Just modelStr ->
+                    case DebugParser.parse modelStr of
+                        Ok value ->
+                            DebugParser.viewValue
+                                { expanded = expandedNodes
+                                , onToggle = ToggleModelNode
+                                }
+                                "root"
+                                value
+
+                        Err _ ->
+                            Html.pre [] [ Html.text modelStr ]
             ]
         ]
 
@@ -3091,7 +3120,7 @@ body {
 
 .model-inspector {
     flex-shrink: 0;
-    max-height: 200px;
+    max-height: 300px;
     overflow: auto;
     background: #0d1117;
     border-top: 1px solid #0f3460;
@@ -3111,9 +3140,57 @@ body {
     padding: 4px 12px 12px;
     font-family: "SF Mono", "Fira Code", monospace;
     font-size: 12px;
-    color: #7ee787;
-    white-space: pre-wrap;
-    word-break: break-all;
+    color: #c9d1d9;
+    line-height: 1.5;
+}
+
+/* Debug value tree */
+
+.dv-string { color: #7ee787; }
+.dv-number { color: #79c0ff; }
+.dv-keyword { color: #d2a8ff; }
+.dv-constructor { color: #ffa657; }
+.dv-field-name { color: #79c0ff; }
+.dv-punct { color: #6e7681; }
+.dv-internals { color: #6e7681; font-style: italic; }
+
+.dv-toggle {
+    cursor: pointer;
+    color: #6e7681;
+    user-select: none;
+    display: inline;
+}
+
+.dv-toggle:hover {
+    color: #c9d1d9;
+}
+
+.dv-collapsed {
+    cursor: pointer;
+}
+
+.dv-collapsed:hover {
+    background: rgba(110, 118, 129, 0.1);
+    border-radius: 3px;
+}
+
+.dv-indent {
+    padding-left: 16px;
+    border-left: 1px solid #21262d;
+}
+
+.dv-row {
+    padding: 1px 0;
+}
+
+.dv-collection,
+.dv-record,
+.dv-custom {
+    display: inline;
+}
+
+.dv-inline {
+    display: inline;
 }
 
 /* === ERROR PANEL === */
