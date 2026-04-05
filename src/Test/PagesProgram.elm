@@ -36,7 +36,7 @@ Say you have a route that fetches GitHub stars via a BackendTask:
         BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
             (Decode.field "stargazers_count" Decode.int)
             |> BackendTask.allowFatal
-            |> BackendTask.map (\stars -> { stars = stars })
+            |> BackendTask.map Data
 
     view app _ _ =
         { title = "Home"
