@@ -6,6 +6,8 @@ module SmoothieTests exposing
     , staleFetcherDataReloadTest
     , signoutTest
     , signupSuccessTest
+    , smoothieNotFoundTest
+    , internalErrorTest
     )
 
 {-| Test suite for the Smoothies shopping cart example.
@@ -23,7 +25,7 @@ View in browser: elm-pages test-view tests/SmoothieTests.elm
 
 import Expect
 import Json.Encode as Encode
-import Test.BackendTask as BackendTaskTest
+import Test.BackendTask as BackendTaskTest exposing (HttpError(..))
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector exposing (text)
 import Test.PagesProgram as PagesProgram
@@ -464,3 +466,51 @@ signupSuccessTest =
         |> PagesProgram.ensureBrowserUrl
             (\url -> url |> Expect.equal "https://localhost:1234/")
         |> PagesProgram.ensureViewHas [ PSelector.text "Welcome Bob!" ]
+
+
+{-| Navigate to a non-existent smoothie. The server returns null for
+the product lookup, so the route responds with `Response.errorPage
+ErrorPage.NotFound`. The framework renders the error page view.
+-}
+smoothieNotFoundTest : TestApp.ProgramTest
+smoothieNotFoundTest =
+    TestApp.start "/login" baseSetup
+        |> PagesProgram.fillIn "login" "username" "alice@example.com"
+        |> PagesProgram.fillIn "login" "password" "password123"
+        |> PagesProgram.clickButton "Login"
+        |> simulateLogin
+        |> simulateIndexData
+        -- Navigate to a smoothie edit page with a non-existent ID
+        |> PagesProgram.navigateTo "/non-existent-smoothie-id/edit"
+        -- Hasura returns null for products_by_pk (smoothie not found)
+        |> PagesProgram.simulateHttpPost hasuraUrl
+            (Encode.object
+                [ ( "data"
+                  , Encode.object
+                        [ ( "products_by_pk", Encode.null )
+                        ]
+                  )
+                ]
+            )
+        -- The error page should be rendered
+        |> PagesProgram.ensureViewHas [ PSelector.text "Page not found" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "our menu" ]
+
+
+{-| When a BackendTask fails with a FatalError during data loading,
+the framework renders the InternalError error page.
+-}
+internalErrorTest : TestApp.ProgramTest
+internalErrorTest =
+    TestApp.start "/login" baseSetup
+        |> PagesProgram.fillIn "login" "username" "alice@example.com"
+        |> PagesProgram.fillIn "login" "password" "password123"
+        |> PagesProgram.clickButton "Login"
+        |> simulateLogin
+        |> simulateIndexData
+        -- Navigate to a smoothie edit page
+        |> PagesProgram.navigateTo "/some-smoothie-id/edit"
+        -- Hasura returns a network error (simulate HTTP error)
+        |> PagesProgram.simulateHttpError "POST" hasuraUrl NetworkError
+        -- The internal error page should be rendered
+        |> PagesProgram.ensureViewHas [ PSelector.text "Something went wrong" ]

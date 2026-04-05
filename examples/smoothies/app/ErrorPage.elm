@@ -54,17 +54,27 @@ internalError =
 view : ErrorPage -> Model -> View Msg
 view error model =
     case error of
-        _ ->
+        NotFound ->
             { body =
                 [ Html.div []
-                    [ Html.p []
+                    [ Html.h2 [] [ Html.text "Page not found" ]
+                    , Html.p []
                         [ Html.text "Let's find you a nice refreshing smoothie. Check out "
                         , Route.Index |> Route.link [] [ Html.text "our menu" |> Html.toUnstyled ] |> Html.fromUnstyled
                         ]
-                    , Html.div [] []
                     ]
                 ]
-            , title = "This is a NotFound Error"
+            , title = "Page Not Found"
+            }
+
+        InternalError message ->
+            { body =
+                [ Html.div []
+                    [ Html.h2 [] [ Html.text "Something went wrong" ]
+                    , Html.p [] [ Html.text message ]
+                    ]
+                ]
+            , title = "Internal Error"
             }
 
 

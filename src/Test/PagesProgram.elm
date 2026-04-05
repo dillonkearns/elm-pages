@@ -1081,8 +1081,36 @@ startPlatform simulateEffect config initialPath testSetup =
                                                 Nothing ->
                                                     AdvanceError ("Unexpected server response: " ++ String.fromInt serverResponse.statusCode)
 
-                                        Err err ->
-                                            AdvanceError (fatalErrorToString err)
+                                        Err fatalErr ->
+                                            -- Render the error page for FatalErrors (matching server behavior)
+                                            let
+                                                errorPageData =
+                                                    config.errorPageToData (config.internalError (fatalErrorToString fatalErr))
+
+                                                encodedBytes =
+                                                    case wrappedModel.platformModel.pageData of
+                                                        Ok prevData ->
+                                                            ResponseSketch.HotUpdate errorPageData
+                                                                prevData.sharedData
+                                                                Nothing
+                                                                |> encodeResponseWithPrefix config
+
+                                                        Err _ ->
+                                                            ResponseSketch.RenderPage errorPageData Nothing
+                                                                |> encodeResponseWithPrefix config
+
+                                                ( newPlatformModel, newEffect ) =
+                                                    platformUpdateClean config
+                                                        (Platform.FrozenViewsReady (Just encodedBytes))
+                                                        wrappedModel.platformModel
+
+                                                ( processedWrapped, _, _ ) =
+                                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
+                                                        { platformModel = newPlatformModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
+                                                        newEffect
+                                                        100
+                                            in
+                                            Advanced (makePhase processedWrapped) Nothing
 
                                         _ ->
                                             AdvanceError "Failed to resolve route data after HTTP simulation"
