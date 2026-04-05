@@ -31,6 +31,9 @@ visually in the browser.
 Say you have a route that fetches GitHub stars via a BackendTask:
 
     -- app/Route/Index.elm
+    type alias Data =
+        { stars : Int }
+
     data : BackendTask FatalError Data
     data =
         BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
