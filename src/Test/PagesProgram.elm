@@ -3,15 +3,15 @@ module Test.PagesProgram exposing
     , clickButton, clickButtonWith, clickLink, fillIn, fillInTextarea, check
     , selectOption
     , simulateDomEvent
-    , navigateTo, ensureBrowserUrl, expectBrowserUrl
-    , ensureBrowserHistory, expectBrowserHistory
-    , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
-    , simulateCustom
-    , resolveBackendTask
-    , withSimulatedSubscriptions, simulateIncomingPort
     , ensureViewHas, ensureViewHasNot, ensureView
     , expectViewHas, expectViewHasNot, expectView
     , within, withinFind
+    , navigateTo, ensureBrowserUrl, expectBrowserUrl
+    , ensureBrowserHistory, expectBrowserHistory
+    , simulateCustom
+    , resolveBackendTask
+    , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
+    , withSimulatedSubscriptions, simulateIncomingPort
     , Snapshot, toSnapshots, withModelToString
     , start, startWithEffects, startPlatform
     )
@@ -105,11 +105,18 @@ going on with your app during any given step.
 
 ![Visual Test Runner](https://raw.githubusercontent.com/dillonkearns/elm-pages/visual-test-runner/docs/visual-test-runner.png)
 
-
 @docs ProgramTest, done
 
 
 ## Simulating user input
+
+`Test.ProgramTest` follows a philosophy (inspired by `elm-program-test`)
+of driving the browser in a way that mirrors how a user would ineteract
+with your elm-pages app.
+
+That gives us confidence that the scenarios in our automated tests
+match the real user experience. It also helps keep us honest about
+making our apps accessible and usable.
 
 @docs clickButton, clickButtonWith, clickLink, fillIn, fillInTextarea, check
 
@@ -1617,7 +1624,6 @@ findPortMatches portName value sub =
 
 
 
-
 -- USER INTERACTIONS
 
 
@@ -2992,7 +2998,6 @@ renderScopedView ready =
     in
     Query.fromHtml (Html.div [] viewHtml.body)
         |> ready.viewScope
-
 
 
 
