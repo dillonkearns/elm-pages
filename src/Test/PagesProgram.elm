@@ -3,15 +3,14 @@ module Test.PagesProgram exposing
     , clickButton, clickButtonWith, clickLink, fillIn, fillInTextarea, check
     , selectOption
     , simulateDomEvent
-    , simulateMsg
     , navigateTo, ensureBrowserUrl, expectBrowserUrl
     , ensureBrowserHistory, expectBrowserHistory
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
     , simulateCustom
-    , resolveEffect
+    , resolveBackendTask
     , withSimulatedSubscriptions, simulateIncomingPort
     , ensureViewHas, ensureViewHasNot, ensureView
-    , expectViewHas, expectViewHasNot, expectView, expectModel
+    , expectViewHas, expectViewHasNot, expectView
     , within, withinFind
     , Snapshot, toSnapshots, withModelToString
     , start, startWithEffects, startPlatform
@@ -107,46 +106,10 @@ going on with your app during any given step.
 ![Visual Test Runner](https://raw.githubusercontent.com/dillonkearns/elm-pages/visual-test-runner/docs/visual-test-runner.png)
 
 
-## User interactions
-
-Tests can simulate clicks, form input, and navigation. Each step
-records a snapshot that the visual test runner lets you step through:
-
-    loginFlowTest : TestApp.ProgramTest
-    loginFlowTest =
-        TestApp.start "/login" BackendTaskTest.init
-            |> PagesProgram.fillIn "login" "email" "alice@example.com"
-            |> PagesProgram.fillIn "login" "password" "secret123"
-            |> PagesProgram.clickButton "Log In"
-            |> PagesProgram.simulateHttpPost "https://api.example.com/auth"
-                (Encode.object [ ( "userId", Encode.string "user-1" ) ])
-            |> PagesProgram.ensureViewHas [ Selector.text "Welcome Alice!" ]
-            |> PagesProgram.done
-
-
-## Client-side TEA interactions
-
-If your route uses the Elm Architecture (`Model`/`update`/`Msg`) for
-client-side state, those interactions work automatically. When your
-update function returns `Effect.sendMsg`, the message is dispatched
-through the update cycle and the view reflects the change:
-
-    counterTest : TestApp.ProgramTest
-    counterTest =
-        TestApp.start "/counter" BackendTaskTest.init
-            |> PagesProgram.simulateHttpGet counterUrl counterJson
-            |> PagesProgram.clickButton "+"
-            |> PagesProgram.ensureViewHas [ Selector.text "Count: 1" ]
-            |> PagesProgram.done
-
-This requires an `Effect.testPerform` function in your Effect module
-that maps your Effect type to [`SimulatedEffect`](Test-PagesProgram-SimulatedEffect).
-The default Effect module template includes this.
-
 @docs ProgramTest, done
 
 
-## User interactions
+## Simulating user input
 
 @docs clickButton, clickButtonWith, clickLink, fillIn, fillInTextarea, check
 
@@ -154,7 +117,17 @@ The default Effect module template includes this.
 
 @docs simulateDomEvent
 
-@docs simulateMsg
+
+## View assertions
+
+@docs ensureViewHas, ensureViewHasNot, ensureView
+
+@docs expectViewHas, expectViewHasNot, expectView
+
+
+## Scoping
+
+@docs within, withinFind
 
 
 ## Navigation
@@ -164,30 +137,31 @@ The default Effect module template includes this.
 @docs ensureBrowserHistory, expectBrowserHistory
 
 
-## Simulating external I/O
+## Simulating BackendTask responses
 
-@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
+When a `BackendTask` in your route's `data` or `action` makes an HTTP request
+or calls a custom port, the test pauses until you provide a simulated response.
 
 @docs simulateCustom
 
-@docs resolveEffect
+@docs resolveBackendTask
 
 
-## Subscriptions
+## Client-side TEA (buildWithLocalState / buildWithSharedState)
+
+If your route uses `buildWithLocalState` or `buildWithSharedState`, it has
+its own `Model`, `update`, and `Msg`. The user interactions above (clicks,
+form input, etc.) automatically dispatch messages through your update function.
+
+When your `update` returns an `Effect` that triggers an HTTP request (via
+`BackendTask.Http`), use these functions to provide simulated responses.
+This requires an `Effect.testPerform` function in your Effect module
+that maps your Effect type to [`SimulatedEffect`](Test-PagesProgram-SimulatedEffect).
+The default Effect module template includes this.
+
+@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
 
 @docs withSimulatedSubscriptions, simulateIncomingPort
-
-
-## View assertions
-
-@docs ensureViewHas, ensureViewHasNot, ensureView
-
-@docs expectViewHas, expectViewHasNot, expectView, expectModel
-
-
-## Scoping
-
-@docs within, withinFind
 
 
 ## Snapshots
@@ -1642,26 +1616,6 @@ findPortMatches portName value sub =
                 []
 
 
-{-| Dispatch a message directly, as if it came from a subscription.
-
-Elm's `Sub msg` is opaque and can't be fired from test code. Instead of
-trying to simulate the subscription itself, send the message that the
-subscription would produce. This works for any subscription type:
-
-    -- Time.every produces a Tick message:
-    |> PagesProgram.simulateMsg (Tick (Time.millisToPosix 1000))
-
-    -- Browser.Events.onResize produces a Resize message:
-    |> PagesProgram.simulateMsg (WindowResized 1920 1080)
-
-    -- An incoming port produces a PortData message:
-    |> PagesProgram.simulateMsg (GotWebSocketData "hello")
-
--}
-simulateMsg : msg -> ProgramTest model msg -> ProgramTest model msg
-simulateMsg msg programTest =
-    applyMsgWithLabel "simulateMsg" Interaction Nothing msg programTest
-
 
 
 -- USER INTERACTIONS
@@ -2602,7 +2556,7 @@ external dependency and feed the result back through `update`.
 
     PagesProgram.start fetchConfig
         |> PagesProgram.clickButton "Fetch"
-        |> PagesProgram.resolveEffect
+        |> PagesProgram.resolveBackendTask
             (BackendTaskTest.simulateHttpGet
                 "https://api.example.com/data"
                 (Encode.list Encode.string [ "a", "b" ])
@@ -2610,11 +2564,11 @@ external dependency and feed the result back through `update`.
         |> PagesProgram.ensureViewHas [ Selector.text "a" ]
 
 -}
-resolveEffect :
+resolveBackendTask :
     (BackendTaskTest.BackendTaskTest msg -> BackendTaskTest.BackendTaskTest msg)
     -> ProgramTest model msg
     -> ProgramTest model msg
-resolveEffect simulate (ProgramTest state) =
+resolveBackendTask simulate (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -2625,7 +2579,7 @@ resolveEffect simulate (ProgramTest state) =
                     ProgramTest
                         { state
                             | error =
-                                Just "resolveEffect: Cannot resolve effects while data BackendTask is still resolving."
+                                Just "resolveBackendTask: Cannot resolve effects while data BackendTask is still resolving."
                         }
 
                 Ready ready ->
@@ -2634,7 +2588,7 @@ resolveEffect simulate (ProgramTest state) =
                             ProgramTest
                                 { state
                                     | error =
-                                        Just "resolveEffect: No pending BackendTask effects to resolve."
+                                        Just "resolveBackendTask: No pending BackendTask effects to resolve."
                                 }
 
                         bt :: rest ->
@@ -2661,7 +2615,7 @@ resolveEffect simulate (ProgramTest state) =
                                                     , lastReadyModel = Just updateResult.model
                                                     , snapshots =
                                                         state.snapshots
-                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution Nothing [] { ready | model = updateResult.model } state.modelToString state.fetcherExtractor state.networkLog ]
+                                                            ++ [ makeSnapshot "resolveBackendTask" EffectResolution Nothing [] { ready | model = updateResult.model } state.modelToString state.fetcherExtractor state.networkLog ]
                                                 }
 
                                         Nothing ->
@@ -2690,14 +2644,14 @@ resolveEffect simulate (ProgramTest state) =
                                                     , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
                                                     , snapshots =
                                                         state.snapshots
-                                                            ++ [ makeSnapshot "resolveEffect" EffectResolution Nothing [] newReady state.modelToString state.fetcherExtractor updatedLog ]
+                                                            ++ [ makeSnapshot "resolveBackendTask" EffectResolution Nothing [] newReady state.modelToString state.fetcherExtractor updatedLog ]
                                                     , networkLog = updatedLog
                                                 }
 
                                 Err errMsg ->
                                     ProgramTest
                                         { state
-                                            | error = Just ("resolveEffect failed:\n\n" ++ errMsg)
+                                            | error = Just ("resolveBackendTask failed:\n\n" ++ errMsg)
                                         }
 
 
@@ -3040,29 +2994,6 @@ renderScopedView ready =
         |> ready.viewScope
 
 
-{-| Inspect the model directly. Useful for debugging or asserting on
-internal state that isn't visible in the view.
-
-    myTest
-        |> PagesProgram.clickButton "+1"
-        |> PagesProgram.expectModel
-            (\model -> model.count |> Expect.equal 1)
-
--}
-expectModel : (model -> Expectation) -> ProgramTest model msg -> Expectation
-expectModel assertion (ProgramTest state) =
-    case state.error of
-        Just errMsg ->
-            Expect.fail errMsg
-
-        Nothing ->
-            case state.phase of
-                Resolving _ ->
-                    Expect.fail "expectModel: Cannot inspect model while BackendTask is resolving."
-
-                Ready ready ->
-                    assertion ready.model
-
 
 
 -- TERMINAL
@@ -3132,7 +3063,7 @@ done (ProgramTest state) =
 
 
 {-| Extract snapshots from a test pipeline. Each step (start, clickButton,
-fillIn, resolveEffect, simulateHttp) records a snapshot of the rendered view.
+fillIn, resolveBackendTask, simulateHttp) records a snapshot of the rendered view.
 
 If the pipeline encountered an error, a final snapshot with the error is
 appended so it's visible in the test stepper.

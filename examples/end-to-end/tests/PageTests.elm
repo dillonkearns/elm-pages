@@ -135,7 +135,7 @@ loginFlowTest =
         |> PagesProgram.fillIn "password" "password" "secret123"
         |> PagesProgram.check "remember" "Remember me" True
         |> PagesProgram.clickButton "Log In"
-        |> PagesProgram.resolveEffect
+        |> PagesProgram.resolveBackendTask
             (BackendTaskTest.simulateHttpGet
                 "https://api.example.com/auth"
                 (Encode.object [ ( "name", Encode.string "Alice" ) ])

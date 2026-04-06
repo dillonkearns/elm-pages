@@ -94,7 +94,7 @@ blogFullJourney =
         |> PagesProgram.ensureViewHas [ PSelector.text "by Aaron VonderHaar" ]
         |> PagesProgram.ensureViewHas [ PSelector.text "Show GitHub Stars" ]
         |> PagesProgram.clickButton "Show GitHub Stars"
-        |> PagesProgram.resolveEffect
+        |> PagesProgram.resolveBackendTask
             (BackendTaskTest.simulateHttpGet
                 "https://api.github.com/repos/dillonkearns/elm-pages"
                 (Encode.object [ ( "stargazers_count", Encode.int 4200 ) ])
@@ -219,7 +219,7 @@ loginFlowTest =
         |> PagesProgram.check "remember" True
         |> PagesProgram.clickButton "Log In"
         -- Resolve the auth API call
-        |> PagesProgram.resolveEffect
+        |> PagesProgram.resolveBackendTask
             (BackendTaskTest.simulateHttpGet
                 "https://api.example.com/auth"
                 (Encode.object [ ( "name", Encode.string "Alice" ) ])

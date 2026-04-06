@@ -63,7 +63,7 @@ suite =
                         samplePosts
                     |> PagesProgram.ensureViewHas [ PSelector.text "Show GitHub Stars" ]
                     |> PagesProgram.clickButton "Show GitHub Stars"
-                    |> PagesProgram.resolveEffect
+                    |> PagesProgram.resolveBackendTask
                         (BackendTaskTest.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 4200 ) ])

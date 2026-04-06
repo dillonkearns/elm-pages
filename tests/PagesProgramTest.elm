@@ -258,7 +258,7 @@ all =
                         |> PagesProgram.ensureViewHas [ PSelector.text "Searching for: elm-pages" ]
                         |> PagesProgram.done
             ]
-        , describe "resolveEffect"
+        , describe "resolveBackendTask"
             [ test "resolves a BackendTask effect from update" <|
                 \() ->
                     PagesProgram.start
@@ -294,7 +294,7 @@ all =
                         }
                         |> PagesProgram.ensureViewHas [ PSelector.text "Load Stars" ]
                         |> PagesProgram.clickButton "Load Stars"
-                        |> PagesProgram.resolveEffect
+                        |> PagesProgram.resolveBackendTask
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
                                 (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
@@ -907,7 +907,7 @@ all =
                         -- done should fail: the HTTP effect from "Fetch" is still pending
                         |> PagesProgram.done
                         |> expectFailContaining "pending"
-            , test "resolveEffect works after another interaction" <|
+            , test "resolveBackendTask works after another interaction" <|
                 \() ->
                     -- The effect from the first click should survive a second click
                     PagesProgram.start
@@ -949,7 +949,7 @@ all =
                         |> PagesProgram.clickButton "Fetch"
                         |> PagesProgram.clickButton "Other"
                         -- Should still be able to resolve the effect from "Fetch"
-                        |> PagesProgram.resolveEffect
+                        |> PagesProgram.resolveBackendTask
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.example.com/data"
                                 (Encode.object [ ( "value", Encode.string "hello" ) ])
@@ -1432,7 +1432,7 @@ all =
                         }
                         |> PagesProgram.ensureViewHas [ PSelector.text "No name" ]
                         |> PagesProgram.clickButton "Load"
-                        |> PagesProgram.resolveEffect
+                        |> PagesProgram.resolveBackendTask
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.example.com/data"
                                 (Encode.object [ ( "name", Encode.string "Alice" ) ])
@@ -1544,61 +1544,6 @@ all =
                         |> PagesProgram.done
                         |> expectFailContaining "api.example.com"
             ]
-        , describe "expectModel"
-            [ test "can inspect the model directly" <|
-                \() ->
-                    PagesProgram.start
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { count = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Increment ->
-                                        ( { model | count = model.count + 1 }, [] )
-
-                                    Decrement ->
-                                        ( { model | count = model.count - 1 }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Counter"
-                                , body =
-                                    [ Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
-                                    , Html.text (String.fromInt model.count)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.expectModel
-                            (\model -> model.count |> Expect.equal 3)
-            , test "expectModel fails with useful message" <|
-                \() ->
-                    PagesProgram.start
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { count = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Increment ->
-                                        ( { model | count = model.count + 1 }, [] )
-
-                                    Decrement ->
-                                        ( model, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Counter"
-                                , body =
-                                    [ Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
-                                    , Html.text (String.fromInt model.count)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.expectModel
-                            (\model -> model.count |> Expect.equal 99)
-                        |> expectFailContaining "Expect.equal"
-            ]
         , describe "withModelToString"
             [ test "annotates the latest snapshot when enabled mid-test without rewriting history" <|
                 \() ->
@@ -1665,10 +1610,9 @@ all =
                         |> PagesProgram.within
                             (Query.find [ Selector.id "section-b" ])
                             (PagesProgram.clickButton "+1")
-                        |> PagesProgram.expectModel
-                            (\model ->
-                                Expect.equal { a = 0, b = 1 } { a = model.a, b = model.b }
-                            )
+                        |> PagesProgram.ensureViewHas [ PSelector.text "A: 0" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "B: 1" ]
+                        |> PagesProgram.done
             , test "within resets scope after block" <|
                 \() ->
                     PagesProgram.start
@@ -1706,10 +1650,9 @@ all =
                         |> PagesProgram.within
                             (Query.find [ Selector.id "section-a" ])
                             (PagesProgram.clickButton "+1")
-                        |> PagesProgram.expectModel
-                            (\model ->
-                                Expect.equal { a = 1, b = 1 } { a = model.a, b = model.b }
-                            )
+                        |> PagesProgram.ensureViewHas [ PSelector.text "A: 1" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "B: 1" ]
+                        |> PagesProgram.done
             ]
         , describe "fillInTextarea"
             [ test "fills in a textarea by finding the first one" <|
@@ -2037,75 +1980,11 @@ all =
                         |> PagesProgram.done
             ]
         , describe "SimulatedEffect (Effect.testPerform integration)"
-            [ test "simulateMsg dispatches a message through update" <|
-                \() ->
-                    PagesProgram.start
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { count = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    SimIncrement ->
-                                        ( { model | count = model.count + 1 }, [] )
-
-                                    SimReset ->
-                                        ( { model | count = 0 }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Counter"
-                                , body =
-                                    [ Html.text ("Count: " ++ String.fromInt model.count)
-                                    , Html.button [ Html.Events.onClick SimIncrement ] [ Html.text "+" ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
-                        |> PagesProgram.simulateMsg SimIncrement
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
-                        |> PagesProgram.simulateMsg SimIncrement
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 2" ]
-                        |> PagesProgram.simulateMsg SimReset
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
-                        |> PagesProgram.done
-            , test "simulateMsg chains through update effects" <|
-                \() ->
-                    -- When update returns an effect that should dispatch another msg,
-                    -- the user uses simulateMsg to inject it (the start path equivalent
-                    -- of SimulatedEffect.DispatchMsg in startPlatform)
-                    PagesProgram.start
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { items = [], status = "idle" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    SimLoadItems ->
-                                        ( { model | status = "loading" }, [] )
-
-                                    SimItemsLoaded items ->
-                                        ( { model | items = items, status = "loaded" }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Items"
-                                , body =
-                                    [ Html.text ("Status: " ++ model.status)
-                                    , Html.ul []
-                                        (List.map (\item -> Html.li [] [ Html.text item ]) model.items)
-                                    , Html.button [ Html.Events.onClick SimLoadItems ] [ Html.text "Load" ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "Load"
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Status: loading" ]
-                        |> PagesProgram.simulateMsg (SimItemsLoaded [ "Apple", "Banana" ])
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Status: loaded" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Apple" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Banana" ]
-                        |> PagesProgram.done
-            , test "startWithEffects with SimulatedEffect-style decomposition" <|
+            [ test "startWithEffects with SimulatedEffect-style decomposition" <|
                 \() ->
                     -- The startWithEffects path converts custom effects to BackendTasks.
                     -- When an effect is pure (no HTTP needed), use BackendTask.succeed
-                    -- to dispatch the message immediately via resolveEffect.
+                    -- to dispatch the message immediately via resolveBackendTask.
                     PagesProgram.startWithEffects
                         (\effect ->
                             case effect of
@@ -2150,7 +2029,7 @@ all =
                         }
                         |> PagesProgram.ensureViewHas [ PSelector.text "Message: initial" ]
                         |> PagesProgram.clickButton "Chain"
-                        |> PagesProgram.resolveEffect identity
+                        |> PagesProgram.resolveBackendTask identity
                         |> PagesProgram.ensureViewHas [ PSelector.text "Message: chained!" ]
                         |> PagesProgram.done
             , test "SimulatedEffect.map preserves message transformation" <|
