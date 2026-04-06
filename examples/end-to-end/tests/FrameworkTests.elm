@@ -211,11 +211,10 @@ logoutFlowTest =
         |> PagesProgram.ensureBrowserUrl
             (\url -> url |> Expect.equal "https://localhost:1234/greet")
         |> PagesProgram.ensureViewHas [ PSelector.text "Hello Alice!" ]
-        -- TODO: Logout flow needs submitFormTo to dispatch through
-        -- Platform's SubmitFetcher or Submit path for cross-route POST.
-        -- Currently submitFormTo goes through onFormSubmit which dispatches
-        -- Pages.Internal.Msg.Submit, but the /logout action needs the
-        -- request to be routed correctly.
+        -- TODO: Logout flow needs a way to submit the logout form that
+        -- posts to a different route (/logout). This should be done through
+        -- a user-centric interaction (clicking the logout button), not a
+        -- programmatic form submission bypass.
 
 
 {-| Test navigating to a route whose data BackendTask does an HTTP request.

@@ -1302,22 +1302,6 @@ all =
                         |> PagesProgram.expectViewHas [ PSelector.text "Goodbye" ]
                         |> expectFailContaining "Goodbye"
             ]
-        , describe "submitFormTo (cross-route form action)"
-            [ test "submitFormTo fails gracefully without startPlatform" <|
-                \() ->
-                    -- submitFormTo requires startPlatform (which provides
-                    -- onFormSubmit). With plain start, it errors clearly.
-                    PagesProgram.start
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.submitFormTo "/logout"
-                            { formId = "logout-form", fields = [] }
-                        |> PagesProgram.done
-                        |> expectFailContaining "Form submission is only supported"
-            ]
         , describe "cookie jar"
             [ test "CookieJar.empty has no cookies" <|
                 \() ->
