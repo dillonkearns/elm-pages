@@ -1,6 +1,5 @@
 module Test.PagesProgram exposing
-    ( ProgramTest
-    , start, startWithEffects, startPlatform
+    ( ProgramTest, done
     , clickButton, clickButtonWith, clickLink, fillIn, fillInTextarea, check
     , selectOption
     , simulateDomEvent
@@ -14,8 +13,8 @@ module Test.PagesProgram exposing
     , ensureViewHas, ensureViewHasNot, ensureView
     , expectViewHas, expectViewHasNot, expectView, expectModel
     , within, withinFind
-    , done
-    , Snapshot, StepKind(..), TargetSelector(..), NetworkEntry, NetworkStatus(..), FetcherEntry, FetcherStatus(..), toSnapshots, withModelToString
+    , Snapshot, toSnapshots, withModelToString
+    , start, startWithEffects, startPlatform
     )
 
 {-| Write pure tests for your elm-pages Route Modules. These tests will not actually perform
@@ -144,7 +143,7 @@ This requires an `Effect.testPerform` function in your Effect module
 that maps your Effect type to [`SimulatedEffect`](Test-PagesProgram-SimulatedEffect).
 The default Effect module template includes this.
 
-@docs ProgramTest
+@docs ProgramTest, done
 
 
 ## User interactions
@@ -191,18 +190,13 @@ The default Effect module template includes this.
 @docs within, withinFind
 
 
-## Finishing a test
-
-@docs done
-
-
 ## Snapshots
 
 Snapshots record the rendered view at each step of the test pipeline.
 The visual test runner (`elm-pages test-view`) uses them to let you
 step through test execution in the browser.
 
-@docs Snapshot, StepKind, TargetSelector, NetworkEntry, NetworkStatus, FetcherEntry, FetcherStatus, toSnapshots, withModelToString
+@docs Snapshot, toSnapshots, withModelToString
 
 
 ## Internal: starting a test
@@ -251,6 +245,13 @@ import Test.BackendTask.Internal as BackendTaskTest
 import Test.Html.Event as Event
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
+import Test.PagesProgram.Internal as Internal
+    exposing
+        ( FetcherStatus(..)
+        , NetworkStatus(..)
+        , StepKind(..)
+        , TargetSelector(..)
+        )
 import Test.PagesProgram.Selector as PSelector exposing (AssertionSelector(..))
 import Test.PagesProgram.SimulatedEffect as SimulatedEffect
 import Test.PagesProgram.SimulatedSub as SimulatedSub exposing (SimulatedSub)
@@ -282,97 +283,37 @@ type alias State model msg =
     }
 
 
-{-| The kind of step that produced a snapshot. Used by the visual test runner
-to color-code and categorize steps in the command log.
--}
-type StepKind
-    = Start
-    | Interaction
-    | Assertion
-    | EffectResolution
-    | Error
-
-
-{-| An HTTP request or custom port entry in the network log.
--}
-type alias NetworkEntry =
-    { method : String
-    , url : String
-    , status : NetworkStatus
-    , stepIndex : Int
-    , portName : Maybe String
-    , responsePreview : Maybe String
-    }
-
-
-{-| Whether an HTTP request was stubbed (resolved via simulate\*) or is pending.
--}
-type NetworkStatus
-    = Stubbed
-    | Pending
-
-
-{-| Describes which DOM element a test interaction targeted, so the visual
-test runner can highlight it in the preview.
--}
-type TargetSelector
-    = ByTagAndText String String
-    | ByFormField String String
-    | ByLabelText String
-    | ById String
-    | ByTag String
-    | BySelectors (List AssertionSelector)
-
-
-{-| A snapshot of an in-flight fetcher's state at a point in the test pipeline.
-Used by the visual test runner to display fetcher lifecycle timelines.
--}
-type alias FetcherEntry =
-    { id : String
-    , status : FetcherStatus
-    , fields : List ( String, String )
-    , action : String
-    , method : String
-    }
-
-
-{-| The status of a fetcher submission.
--}
-type FetcherStatus
-    = FetcherSubmitting
-    | FetcherReloading
-    | FetcherComplete
-
-
-{-| A snapshot of the program state at a point in the test pipeline. Used by
-the visual test runner to step through test execution in the browser.
-
-`body` contains the rendered HTML at this step. `title` is the page title.
-`rerender` lets the viewer re-render the view (e.g., at a different size).
-`modelState` contains the model as a string if `withModelToString` was used.
-`stepKind` categorizes the step for color-coding in the viewer.
-`browserUrl` is the URL at the time of the snapshot (if URL tracking is enabled).
-`targetElement` identifies the element this step interacted with (for highlighting).
-`assertionSelectors` carries assertion selector details for highlighting in the viewer.
-
+{-| A snapshot of the program state at a point in the test pipeline.
+You don't need to inspect this directly -- pass snapshots to
+[`Test.PagesProgram.Viewer.app`](Test-PagesProgram-Viewer#app) to view
+them in the browser.
 -}
 type alias Snapshot =
-    { label : String
-    , title : String
-    , body : List (Html Never)
-    , rerender : () -> { title : String, body : List (Html Never) }
-    , hasPendingEffects : Bool
-    , modelState : Maybe String
-    , stepKind : StepKind
-    , browserUrl : Maybe String
-    , errorMessage : Maybe String
-    , pendingEffects : List String
-    , networkLog : List NetworkEntry
-    , targetElement : Maybe TargetSelector
-    , assertionSelectors : List AssertionSelector
-    , scopeSelectors : List (List AssertionSelector)
-    , fetcherLog : List FetcherEntry
-    }
+    Internal.Snapshot
+
+
+type alias StepKind =
+    Internal.StepKind
+
+
+type alias NetworkEntry =
+    Internal.NetworkEntry
+
+
+type alias NetworkStatus =
+    Internal.NetworkStatus
+
+
+type alias TargetSelector =
+    Internal.TargetSelector
+
+
+type alias FetcherEntry =
+    Internal.FetcherEntry
+
+
+type alias FetcherStatus =
+    Internal.FetcherStatus
 
 
 type Phase model msg
