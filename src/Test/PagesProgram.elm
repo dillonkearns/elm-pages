@@ -56,9 +56,11 @@ Say you have a route that fetches GitHub stars via a BackendTask:
         , body = [ Html.text ("Stars: " ++ String.fromInt app.data.stars) ]
         }
 
-To test this, create a test module that exposes `TestApp.ProgramTest`
-values. The test provides a simulated HTTP response for the BackendTask
-and asserts on the rendered view:
+Unlike a regular `elm-test` suite where you expose values of type `Test`,
+here we expose values of type `TestApp.ProgramTest`.
+This allows us to either run the tests via the `elm-test` CLI, or
+view them in our [visual test runner](#visual-test-runner)
+through the dev server.
 
     module MyTests exposing (starsTest)
 
@@ -87,6 +89,21 @@ npx elm-pages test-run
 npx elm-pages dev
 open http://localhost:1234/__test-viewer
 ```
+
+
+## Visual Test Runner
+
+The visual test runner lets you time travel through each step
+of a test in the browser. While the test run itself is pure
+(no HTTP requests to the outside world, etc.), the view is rendered
+with your full Vite configuration so any styles are applied as they
+would be in your dev server or production build.
+
+The visual test runner also includes inspectors for the network requests,
+form fetcher state, model, and other tools that let you inspect what's
+going on with your app during any given step.
+
+![Visual Test Runner](https://raw.githubusercontent.com/dillonkearns/elm-pages/visual-test-runner/docs/visual-test-runner.png)
 
 
 ## User interactions
@@ -1105,7 +1122,11 @@ startPlatform simulateEffect config initialPath testSetup =
                                                         wrappedModel.platformModel
 
                                                 ( processedWrapped, _, _ ) =
-                                                    processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd
+                                                    processEffectsWrapped config
+                                                        baseUrl
+                                                        makeReady
+                                                        makePlatformResolver
+                                                        handleUserCmd
                                                         { platformModel = newPlatformModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
                                                         newEffect
                                                         100
