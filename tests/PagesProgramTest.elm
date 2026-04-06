@@ -1544,7 +1544,7 @@ all =
                         |> PagesProgram.done
                         |> expectFailContaining "api.example.com"
             ]
-        , describe "withModelToString"
+        , describe "withModelInspector"
             [ test "annotates the latest snapshot when enabled mid-test without rewriting history" <|
                 \() ->
                     PagesProgram.start
@@ -1568,7 +1568,7 @@ all =
                                 }
                         }
                         |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.withModelToString (\model -> "count=" ++ String.fromInt model.count)
+                        |> PagesProgram.withModelInspector (\model -> "count=" ++ String.fromInt model.count)
                         |> PagesProgram.clickButton "+1"
                         |> PagesProgram.toSnapshots
                         |> List.map .modelState

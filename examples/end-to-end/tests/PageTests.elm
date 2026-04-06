@@ -124,7 +124,7 @@ loginFlowTest =
                         ]
                     }
         }
-        |> PagesProgram.withModelToString Debug.toString
+        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas [ PSelector.text "Log In" ]
         |> PagesProgram.clickButton "Log In"
         |> PagesProgram.ensureViewHas [ PSelector.text "Email is required" ]
@@ -298,7 +298,7 @@ todoAppTest =
                     ]
                 }
         }
-        |> PagesProgram.withModelToString Debug.toString
+        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas [ PSelector.text "Todo List" ]
         |> PagesProgram.ensureViewHas [ PSelector.text "1 of 3 completed" ]
         |> PagesProgram.ensureViewHas [ PSelector.text "Learn Elm" ]
@@ -385,7 +385,7 @@ searchFilterTest =
                     ]
                 }
         }
-        |> PagesProgram.withModelToString Debug.toString
+        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas [ PSelector.text "10 results" ]
         |> PagesProgram.ensureViewHas [ PSelector.text "Haskell" ]
         |> PagesProgram.fillIn "search" "search" "elm"
@@ -439,7 +439,7 @@ counterTest =
                     ]
                 }
         }
-        |> PagesProgram.withModelToString Debug.toString
+        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.clickButton "+1"
         |> PagesProgram.clickButton "+1"
         |> PagesProgram.clickButton "+1"

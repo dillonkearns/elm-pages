@@ -1689,7 +1689,7 @@ viewModelInspector expandedNodes snapshot =
             [ case snapshot.modelState of
                 Nothing ->
                     Html.span [ Attr.class "dv-internals" ]
-                        [ Html.text "(use withModelToString to enable)" ]
+                        [ Html.text "(use withModelInspector to enable)" ]
 
                 Just modelStr ->
                     case DebugParser.parse modelStr of

@@ -204,7 +204,7 @@ loginFlowTest =
                         ]
                     }
         }
-        |> PagesProgram.withModelToString Debug.toString
+        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas [ PSelector.text "Log In" ]
         -- Try submitting empty form -> validation error
         |> PagesProgram.clickButton "Log In"
@@ -381,7 +381,7 @@ todoAppTest =
                     ]
                 }
         }
-        |> PagesProgram.withModelToString Debug.toString
+        |> PagesProgram.withModelInspector Debug.toString
         -- Initial state: 3 todos, 1 completed
         |> PagesProgram.ensureViewHas [ PSelector.text "Todo List" ]
         |> PagesProgram.ensureViewHas [ PSelector.text "1 of 3 completed" ]
@@ -465,7 +465,7 @@ counterTest =
                     ]
                 }
         }
-        |> PagesProgram.withModelToString Debug.toString
+        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.clickButton "+1"
         |> PagesProgram.clickButton "+1"
         |> PagesProgram.clickButton "+1"
@@ -540,7 +540,7 @@ searchTest =
                     ]
                 }
         }
-        |> PagesProgram.withModelToString Debug.toString
+        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas [ PSelector.text "10 results" ]
         |> PagesProgram.ensureViewHas [ PSelector.text "Haskell" ]
         |> PagesProgram.ensureViewHas [ PSelector.text "elm-pages" ]
