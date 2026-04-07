@@ -30,6 +30,7 @@ end-to-end behavior deterministically and efficiently:
   - Optimistic UI via [`Pages.ConcurrentSubmission`](Pages-ConcurrentSubmission) - assert on the view while fetchers are still in-flight
   - [`Server.Session`](Server-Session) and [`Server.SetCookie`](Server-SetCookie) - cookies persist across navigations and form submissions within a test
   - [`Server.Response`](Server-Response) redirects are followed automatically, with cookie propagation
+  - Server-rendered [Error Page](https://elm-pages.com/docs/error-pages) responses are rendered and can be tested like any other page
   - Client-side TEA interactions via [`SimulatedEffect`](Test-PagesProgram-SimulatedEffect) - `Effect.sendMsg` dispatches through the update cycle
 
 
