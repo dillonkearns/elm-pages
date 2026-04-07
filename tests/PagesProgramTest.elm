@@ -892,6 +892,28 @@ all =
                         |> PagesProgram.clickButton "Delete"
                         |> PagesProgram.done
                         |> expectFailContaining "Delete"
+            , test "clickButtonWith fails when multiple buttons match selectors" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "List"
+                                , body =
+                                    [ Html.button
+                                        [ Attr.class "delete-btn", Html.Events.onClick () ]
+                                        [ Html.text "Remove A" ]
+                                    , Html.button
+                                        [ Attr.class "delete-btn", Html.Events.onClick () ]
+                                        [ Html.text "Remove B" ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButtonWith [ PSelector.class "delete-btn" ]
+                        |> PagesProgram.done
+                        |> expectFailContaining "multiple buttons"
             ]
         , describe "Bug fix: pending effects must not be overwritten"
             [ test "done fails when effects are pending after another interaction" <|
@@ -1913,6 +1935,22 @@ all =
                         |> PagesProgram.clickLink "Not a link"
                         |> PagesProgram.done
                         |> expectFailContaining "clickLink"
+            , test "clickLink gives helpful error when <a> has no href" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Nav"
+                                , body =
+                                    [ Html.a [] [ Html.text "Broken link" ] ]
+                                }
+                        }
+                        |> PagesProgram.clickLink "Broken link"
+                        |> PagesProgram.done
+                        |> expectFailContaining "href"
             ]
         , describe "navigateTo"
             [ test "navigateTo fails without startPlatform" <|

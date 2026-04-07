@@ -1863,6 +1863,27 @@ clickButtonWith selectors (ProgramTest state) =
 
                     else
                     let
+                        -- Check for multiple matching buttons
+                        hasMultiple : Bool
+                        hasMultiple =
+                            query
+                                |> Query.findAll buttonSelectors
+                                |> Query.count (Expect.atMost 1)
+                                |> (\expectation -> getFailureMessage expectation /= Nothing)
+                    in
+                    if hasMultiple then
+                        ProgramTest
+                            { state
+                                | error =
+                                    Just
+                                        ("clickButtonWith "
+                                            ++ PSelector.toLabel selectors
+                                            ++ " found multiple buttons matching those selectors. Use `withinFind` to scope to a specific element, or use more specific selectors."
+                                        )
+                            }
+
+                    else
+                    let
                         buttonQuery =
                             query |> Query.find buttonSelectors
 
