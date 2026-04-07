@@ -9,7 +9,6 @@ module Test.PagesProgram exposing
     , navigateTo, ensureBrowserUrl, expectBrowserUrl
     , ensureBrowserHistory, expectBrowserHistory
     , simulateCustom
-    , resolveBackendTask
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
     , withSimulatedSubscriptions, simulateIncomingPort
     , Snapshot, toSnapshots, withModelInspector
@@ -159,8 +158,6 @@ form actions, or BackendTask effects returned from `update`.
 @docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
 
 @docs simulateCustom
-
-@docs resolveBackendTask
 
 
 ## Subscriptions and incoming ports
@@ -3309,7 +3306,7 @@ done (ProgramTest state) =
 
 
 {-| Extract snapshots from a test pipeline. Each step (start, clickButton,
-fillIn, resolveBackendTask, simulateHttp) records a snapshot of the rendered view.
+fillIn, simulateHttp) records a snapshot of the rendered view.
 
 If the pipeline encountered an error, a final snapshot with the error is
 appended so it's visible in the test stepper.
@@ -3840,17 +3837,21 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
 
                         Nothing ->
                             let
+                                -- Auto-resolve pure BackendTask effects (e.g. BackendTask.succeed msg)
+                                autoResolved =
+                                    autoResolveEffects ready.update updateResult.model updateResult.effects 100
+
                                 newReady =
                                     { ready
-                                        | model = updateResult.model
-                                        , pendingEffects = ready.pendingEffects ++ updateResult.effects
+                                        | model = autoResolved.model
+                                        , pendingEffects = ready.pendingEffects ++ autoResolved.pendingEffects
                                     }
 
                                 stepIdx =
                                     List.length state.snapshots
 
                                 newPendingEntries =
-                                    describeEffects updateResult.effects
+                                    describeEffects autoResolved.pendingEffects
                                         |> List.filterMap
                                             (\desc ->
                                                 parseEffectToNetworkEntry stepIdx desc
@@ -3863,15 +3864,29 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                                 updatedLog =
                                     state.networkLog ++ newPendingEntries ++ fetcherEntries
                             in
-                            ProgramTest
-                                { state
-                                    | phase = Ready newReady
-                                    , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
-                                    , snapshots =
-                                        state.snapshots
-                                            ++ [ makeSnapshot label kind target [] newReady state.modelToString state.fetcherExtractor updatedLog ]
-                                    , networkLog = updatedLog
-                                }
+                            case autoResolved.pendingPhase of
+                                Just pendingPhase ->
+                                    ProgramTest
+                                        { state
+                                            | phase = pendingPhase
+                                            , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
+                                            , lastReadyModel = Just autoResolved.model
+                                            , snapshots =
+                                                state.snapshots
+                                                    ++ [ makeSnapshot label kind target [] { ready | model = autoResolved.model } state.modelToString state.fetcherExtractor updatedLog ]
+                                            , networkLog = updatedLog
+                                        }
+
+                                Nothing ->
+                                    ProgramTest
+                                        { state
+                                            | phase = Ready newReady
+                                            , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
+                                            , snapshots =
+                                                state.snapshots
+                                                    ++ [ makeSnapshot label kind target [] newReady state.modelToString state.fetcherExtractor updatedLog ]
+                                            , networkLog = updatedLog
+                                        }
 
 
 makeSnapshot : String -> StepKind -> Maybe TargetSelector -> List AssertionSelector -> ReadyState model msg -> Maybe (model -> String) -> Maybe (model -> List FetcherEntry) -> List NetworkEntry -> Snapshot
@@ -3937,6 +3952,77 @@ describeEffects effects =
 describeHttpRequest : StaticHttpRequest.Request -> String
 describeHttpRequest req =
     req.method ++ " " ++ req.url
+
+
+{-| Auto-resolve pure BackendTask effects (those with no external dependencies).
+When `update` returns `BackendTask.succeed msg`, the effect resolves immediately
+without user intervention. Chains through update until only external-dependency
+effects remain or the fuel runs out.
+-}
+autoResolveEffects :
+    (msg -> model -> { model : model, effects : List (BackendTask FatalError msg), pendingPhase : Maybe (Phase model msg), fetcherResolvers : List (Resolver model msg) })
+    -> model
+    -> List (BackendTask FatalError msg)
+    -> Int
+    -> { model : model, pendingEffects : List (BackendTask FatalError msg), pendingPhase : Maybe (Phase model msg) }
+autoResolveEffects updateFn model effects fuel =
+    if fuel <= 0 then
+        { model = model, pendingEffects = effects, pendingPhase = Nothing }
+
+    else
+        let
+            ( autoResolvable, pending ) =
+                List.partition
+                    (\bt ->
+                        case BackendTaskTest.fromBackendTask bt of
+                            BackendTaskTest.Done _ ->
+                                True
+
+                            _ ->
+                                False
+                    )
+                    effects
+        in
+        case autoResolvable of
+            [] ->
+                -- Nothing to auto-resolve
+                { model = model, pendingEffects = pending, pendingPhase = Nothing }
+
+            _ ->
+                -- Resolve each pure effect by feeding its result through update
+                let
+                    resolveOne bt ( accModel, accEffects, accPhase ) =
+                        case accPhase of
+                            Just _ ->
+                                -- Already triggered navigation, stop resolving
+                                ( accModel, accEffects ++ [ bt ], accPhase )
+
+                            Nothing ->
+                                case BackendTaskTest.fromBackendTask bt |> BackendTaskTest.toResult of
+                                    Ok msg ->
+                                        let
+                                            result =
+                                                updateFn msg accModel
+                                        in
+                                        ( result.model
+                                        , accEffects ++ result.effects
+                                        , result.pendingPhase
+                                        )
+
+                                    Err _ ->
+                                        -- Shouldn't happen since we partitioned, but be safe
+                                        ( accModel, accEffects ++ [ bt ], accPhase )
+
+                    ( newModel, newEffects, newPhase ) =
+                        List.foldl resolveOne ( model, [], Nothing ) autoResolvable
+                in
+                case newPhase of
+                    Just phase ->
+                        { model = newModel, pendingEffects = pending ++ newEffects, pendingPhase = Just phase }
+
+                    Nothing ->
+                        -- Recurse: the newly produced effects might also be auto-resolvable
+                        autoResolveEffects updateFn newModel (pending ++ newEffects) (fuel - 1)
 
 
 {-| Parse an effect description string into a NetworkEntry if it's an HTTP request.

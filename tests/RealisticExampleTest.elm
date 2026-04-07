@@ -63,11 +63,9 @@ suite =
                         samplePosts
                     |> PagesProgram.ensureViewHas [ PSelector.text "Show GitHub Stars" ]
                     |> PagesProgram.clickButton "Show GitHub Stars"
-                    |> PagesProgram.resolveBackendTask
-                        (BackendTaskTest.simulateHttpGet
-                            "https://api.github.com/repos/dillonkearns/elm-pages"
-                            (Encode.object [ ( "stargazers_count", Encode.int 4200 ) ])
-                        )
+                    |> PagesProgram.simulateHttpGet
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
+                        (Encode.object [ ( "stargazers_count", Encode.int 4200 ) ])
                     |> PagesProgram.ensureViewHasNot [ PSelector.text "Show GitHub Stars" ]
                     |> PagesProgram.ensureViewHas [ PSelector.text "elm-pages has 4200 stars" ]
                     |> PagesProgram.done

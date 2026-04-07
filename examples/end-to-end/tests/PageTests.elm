@@ -135,11 +135,9 @@ loginFlowTest =
         |> PagesProgram.fillIn "password" "password" "secret123"
         |> PagesProgram.check "Remember me" True
         |> PagesProgram.clickButton "Log In"
-        |> PagesProgram.resolveBackendTask
-            (BackendTaskTest.simulateHttpGet
-                "https://api.example.com/auth"
-                (Encode.object [ ( "name", Encode.string "Alice" ) ])
-            )
+        |> PagesProgram.simulateHttpGet
+            "https://api.example.com/auth"
+            (Encode.object [ ( "name", Encode.string "Alice" ) ])
         |> PagesProgram.ensureViewHas [ PSelector.text "Welcome back, Alice!" ]
         |> PagesProgram.ensureViewHas [ PSelector.text "You are now logged in." ]
 

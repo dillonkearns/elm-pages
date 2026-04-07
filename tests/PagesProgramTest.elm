@@ -17,7 +17,6 @@ import Test.Html.Event as Event
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.PagesProgram.Selector as PSelector exposing (AssertionSelector(..))
-import Test.BackendTask as BackendTaskTest
 import Test.BackendTask exposing (HttpError(..))
 import Test.PagesProgram as PagesProgram
 import Test.PagesProgram.Internal exposing (NetworkSource(..), NetworkStatus(..))
@@ -259,8 +258,8 @@ all =
                         |> PagesProgram.ensureViewHas [ PSelector.text "Searching for: elm-pages" ]
                         |> PagesProgram.done
             ]
-        , describe "resolveBackendTask"
-            [ test "resolves a BackendTask effect from update" <|
+        , describe "simulateHttpGet for effects from update"
+            [ test "simulateHttpGet resolves BackendTask effect from update" <|
                 \() ->
                     PagesProgram.start
                         { data = BackendTask.succeed ()
@@ -295,11 +294,9 @@ all =
                         }
                         |> PagesProgram.ensureViewHas [ PSelector.text "Load Stars" ]
                         |> PagesProgram.clickButton "Load Stars"
-                        |> PagesProgram.resolveBackendTask
-                            (BackendTaskTest.simulateHttpGet
-                                "https://api.github.com/repos/dillonkearns/elm-pages"
-                                (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
-                            )
+                        |> PagesProgram.simulateHttpGet
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
                         |> PagesProgram.ensureViewHas [ PSelector.text "Stars: 1234" ]
                         |> PagesProgram.done
             , test "simulateHttpGet works for BackendTask effects from update (not just data loading)" <|
@@ -1002,7 +999,7 @@ all =
                         -- done should fail: the HTTP effect from "Fetch" is still pending
                         |> PagesProgram.done
                         |> expectFailContaining "pending"
-            , test "resolveBackendTask works after another interaction" <|
+            , test "simulateHttpGet works after another interaction" <|
                 \() ->
                     -- The effect from the first click should survive a second click
                     PagesProgram.start
@@ -1044,11 +1041,9 @@ all =
                         |> PagesProgram.clickButton "Fetch"
                         |> PagesProgram.clickButton "Other"
                         -- Should still be able to resolve the effect from "Fetch"
-                        |> PagesProgram.resolveBackendTask
-                            (BackendTaskTest.simulateHttpGet
-                                "https://api.example.com/data"
-                                (Encode.object [ ( "value", Encode.string "hello" ) ])
-                            )
+                        |> PagesProgram.simulateHttpGet
+                            "https://api.example.com/data"
+                            (Encode.object [ ( "value", Encode.string "hello" ) ])
                         |> PagesProgram.ensureViewHas [ PSelector.text "Result: hello" ]
                         |> PagesProgram.done
             ]
@@ -1520,11 +1515,9 @@ all =
                         }
                         |> PagesProgram.ensureViewHas [ PSelector.text "No name" ]
                         |> PagesProgram.clickButton "Load"
-                        |> PagesProgram.resolveBackendTask
-                            (BackendTaskTest.simulateHttpGet
-                                "https://api.example.com/data"
-                                (Encode.object [ ( "name", Encode.string "Alice" ) ])
-                            )
+                        |> PagesProgram.simulateHttpGet
+                            "https://api.example.com/data"
+                            (Encode.object [ ( "name", Encode.string "Alice" ) ])
                         |> PagesProgram.ensureViewHas [ PSelector.text "Name: Alice" ]
                         |> PagesProgram.done
             ]
@@ -2126,7 +2119,7 @@ all =
                 \() ->
                     -- The startWithEffects path converts custom effects to BackendTasks.
                     -- When an effect is pure (no HTTP needed), use BackendTask.succeed
-                    -- to dispatch the message immediately via resolveBackendTask.
+                    -- Pure effects (BackendTask.succeed msg) auto-resolve immediately.
                     PagesProgram.startWithEffects
                         (\effect ->
                             case effect of
@@ -2171,7 +2164,6 @@ all =
                         }
                         |> PagesProgram.ensureViewHas [ PSelector.text "Message: initial" ]
                         |> PagesProgram.clickButton "Chain"
-                        |> PagesProgram.resolveBackendTask identity
                         |> PagesProgram.ensureViewHas [ PSelector.text "Message: chained!" ]
                         |> PagesProgram.done
             , test "SimulatedEffect.map preserves message transformation" <|
