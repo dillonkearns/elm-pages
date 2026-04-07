@@ -36,7 +36,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Set exposing (Set)
 import Task
-import Test.PagesProgram.Internal exposing (FetcherEntry, FetcherStatus(..), NetworkEntry, NetworkStatus(..), Snapshot, StepKind(..), TargetSelector(..))
+import Test.PagesProgram.Internal exposing (FetcherEntry, FetcherStatus(..), NetworkEntry, NetworkSource(..), NetworkStatus(..), Snapshot, StepKind(..), TargetSelector(..))
 import Test.PagesProgram.DebugParser as DebugParser
 import Test.PagesProgram.Selector exposing (AssertionSelector(..))
 import Url exposing (Url)
@@ -68,6 +68,8 @@ type alias Model =
     , viewportWidth : Maybe Int
     , showEffects : Bool
     , showNetwork : Bool
+    , showNetworkBackend : Bool
+    , showNetworkFrontend : Bool
     , showFetchers : Bool
     , previewMode : PreviewMode
     , expandedGroups : Set Int
@@ -104,6 +106,8 @@ type Msg
     | SetViewport (Maybe Int)
     | ToggleEffects
     | ToggleNetwork
+    | ToggleNetworkBackend
+    | ToggleNetworkFrontend
     | ToggleFetchers
     | SetPreviewMode PreviewMode
     | ToggleGroup Int
@@ -190,6 +194,8 @@ app tests =
                   , viewportWidth = Nothing
                   , showEffects = False
                   , showNetwork = False
+                  , showNetworkBackend = True
+                  , showNetworkFrontend = True
                   , showFetchers = False
                   , previewMode = After
                   , expandedGroups = Set.empty
@@ -650,6 +656,12 @@ update msg model =
         ToggleNetwork ->
             ( { model | showNetwork = not model.showNetwork }, Cmd.none )
 
+        ToggleNetworkBackend ->
+            ( { model | showNetworkBackend = not model.showNetworkBackend }, Cmd.none )
+
+        ToggleNetworkFrontend ->
+            ( { model | showNetworkFrontend = not model.showNetworkFrontend }, Cmd.none )
+
         ToggleFetchers ->
             ( { model | showFetchers = not model.showFetchers }, Cmd.none )
 
@@ -964,11 +976,9 @@ view model =
                 [ viewSidebar model
                 , viewMainPanel model
                 , if model.showNetwork then
-                    viewNetworkSidebar
-                        (displayedSnapshot model
-                            |> Maybe.map .networkLog
-                            |> Maybe.withDefault []
-                        )
+                    viewNetworkSidebar model
+                        (displayedStepIndex model)
+                        (currentSnapshots model)
 
                   else
                     Html.text ""
@@ -1921,37 +1931,168 @@ viewEffectInspector snapshot =
 
 
 
-viewNetworkSidebar : List NetworkEntry -> Html Msg
-viewNetworkSidebar entries =
+viewNetworkSidebar : Model -> Int -> List Snapshot -> Html Msg
+viewNetworkSidebar model currentStep allSnapshots =
+    let
+        -- Collect all unique network entries across all snapshots (by url + stepIndex of first appearance).
+        -- Use the final snapshot's log as the complete list, since it's cumulative.
+        allEntries =
+            allSnapshots
+                |> List.concatMap .networkLog
+                |> dedupeNetworkEntries
+
+        -- For the current step, find each entry's status at that point.
+        currentLog =
+            allSnapshots
+                |> List.take (currentStep + 1)
+                |> List.concatMap .networkLog
+                |> dedupeNetworkEntries
+
+        -- Build a lookup of url -> status at current step
+        currentStatusOf entry =
+            currentLog
+                |> List.filter (\e -> e.url == entry.url && e.stepIndex == entry.stepIndex)
+                |> List.head
+                |> Maybe.map .status
+
+        -- An entry is "future" if it doesn't exist in the current step's log yet
+        entryAtCurrentStep entry =
+            case currentStatusOf entry of
+                Just status ->
+                    { entry | status = status }
+
+                Nothing ->
+                    -- Not yet created at this step -- show as a dimmed future entry
+                    { entry | status = Pending }
+
+        entriesWithStatus =
+            allEntries |> List.map entryAtCurrentStep
+
+        -- Whether this entry has appeared by the current step
+        isVisible entry =
+            currentLog |> List.any (\e -> e.url == entry.url && e.stepIndex == entry.stepIndex)
+
+        hasBackend =
+            List.any (\e -> e.source == Backend) allEntries
+
+        hasFrontend =
+            List.any (\e -> e.source == Frontend) allEntries
+
+        hasBoth =
+            hasBackend && hasFrontend
+
+        filtered =
+            entriesWithStatus
+                |> List.filter
+                    (\entry ->
+                        case entry.source of
+                            Backend ->
+                                model.showNetworkBackend
+
+                            Frontend ->
+                                model.showNetworkFrontend
+                    )
+    in
     Html.div [ Attr.class "network-sidebar" ]
         [ Html.div [ Attr.class "network-sidebar-header" ]
             [ Html.span [ Attr.class "sidebar-title" ]
-                [ Html.text ("Network (" ++ String.fromInt (List.length entries) ++ ")") ]
+                [ Html.text ("Network (" ++ String.fromInt (List.length filtered) ++ ")") ]
+            , if hasBackend || hasFrontend then
+                Html.div [ Attr.class "net-filter-buttons" ]
+                    [ Html.button
+                        [ Attr.classList
+                            [ ( "net-filter-btn net-filter-backend", True )
+                            , ( "net-filter-active", model.showNetworkBackend )
+                            ]
+                        , Html.Events.onClick ToggleNetworkBackend
+                        ]
+                        [ Html.text "Backend" ]
+                    , Html.button
+                        [ Attr.classList
+                            [ ( "net-filter-btn net-filter-frontend", True )
+                            , ( "net-filter-active", model.showNetworkFrontend )
+                            ]
+                        , Html.Events.onClick ToggleNetworkFrontend
+                        ]
+                        [ Html.text "Frontend" ]
+                    ]
+
+              else
+                Html.text ""
             ]
-        , if List.isEmpty entries then
+        , if List.isEmpty filtered then
             Html.div [ Attr.class "network-empty" ]
-                [ Html.text "No HTTP requests recorded." ]
+                [ Html.text
+                    (if List.isEmpty allEntries then
+                        "No HTTP requests recorded."
+
+                     else
+                        "No matching requests. Adjust filters above."
+                    )
+                ]
 
           else
             Html.div [ Attr.class "network-list" ]
-                (entries
+                (filtered
                     |> List.map
                         (\entry ->
+                            let
+                                appeared =
+                                    isVisible entry
+
+                                entryStatus =
+                                    if appeared then
+                                        entry.status
+
+                                    else
+                                        Pending
+                            in
                             Html.div
                                 [ Attr.classList
                                     [ ( "network-row", True )
-                                    , ( "network-row-pending", entry.status == Pending )
+                                    , ( "network-row-pending", entryStatus == Pending )
+                                    , ( "network-row-future", not appeared )
+                                    , ( "network-row-backend", entry.source == Backend )
+                                    , ( "network-row-frontend", entry.source == Frontend )
                                     ]
                                 ]
                                 ([ Html.div [ Attr.class "network-row-top" ]
-                                    [ case entry.status of
+                                    [ case entryStatus of
                                         Stubbed ->
-                                            Html.span [ Attr.class "net-badge net-badge-stubbed" ]
-                                                [ Html.text "stubbed" ]
+                                            Html.span [ Attr.class "net-status-icon net-status-stubbed" ]
+                                                [ Html.text "\u{2713}" ]
 
                                         Pending ->
-                                            Html.span [ Attr.class "net-badge net-badge-pending" ]
-                                                [ Html.text "pending" ]
+                                            if appeared then
+                                                Html.span [ Attr.class "net-status-icon net-status-pending" ]
+                                                    [ Html.text "\u{25B6}" ]
+
+                                            else
+                                                Html.span [ Attr.class "net-status-icon net-status-future" ]
+                                                    [ Html.text "\u{25CB}" ]
+                                    , if hasBoth then
+                                        Html.span
+                                            [ Attr.class
+                                                (case entry.source of
+                                                    Backend ->
+                                                        "net-source-badge net-source-backend"
+
+                                                    Frontend ->
+                                                        "net-source-badge net-source-frontend"
+                                                )
+                                            ]
+                                            [ Html.text
+                                                (case entry.source of
+                                                    Backend ->
+                                                        "BE"
+
+                                                    Frontend ->
+                                                        "FE"
+                                                )
+                                            ]
+
+                                      else
+                                        Html.text ""
                                     , Html.span [ Attr.class "net-method" ]
                                         [ Html.text entry.method ]
                                     , Html.span [ Attr.class "net-step" ]
@@ -1968,23 +2109,60 @@ viewNetworkSidebar entries =
                                         )
                                     ]
                                  ]
-                                    ++ (case entry.responsePreview of
-                                            Just preview ->
-                                                [ Html.details [ Attr.class "net-response-details" ]
-                                                    [ Html.summary [ Attr.class "net-response-summary" ]
-                                                        [ Html.text "Response" ]
-                                                    , Html.pre [ Attr.class "net-response-body" ]
-                                                        [ Html.text (truncatePreview 500 preview) ]
+                                    ++ (if appeared then
+                                            case entry.responsePreview of
+                                                Just preview ->
+                                                    [ Html.details [ Attr.class "net-response-details" ]
+                                                        [ Html.summary [ Attr.class "net-response-summary" ]
+                                                            [ Html.text "Response" ]
+                                                        , Html.pre [ Attr.class "net-response-body" ]
+                                                            [ Html.text (truncatePreview 500 preview) ]
+                                                        ]
                                                     ]
-                                                ]
 
-                                            Nothing ->
-                                                []
+                                                Nothing ->
+                                                    []
+
+                                        else
+                                            []
                                        )
                                 )
                         )
                 )
         ]
+
+
+{-| Deduplicate network entries, keeping the latest version of each unique entry
+(identified by url + stepIndex of first appearance).
+-}
+dedupeNetworkEntries : List NetworkEntry -> List NetworkEntry
+dedupeNetworkEntries entries =
+    entries
+        |> List.foldl
+            (\entry ( seen, acc ) ->
+                let
+                    key =
+                        entry.url ++ ":" ++ String.fromInt entry.stepIndex
+                in
+                if List.member key seen then
+                    -- Update existing entry with latest status
+                    ( seen
+                    , acc
+                        |> List.map
+                            (\e ->
+                                if e.url == entry.url && e.stepIndex == entry.stepIndex then
+                                    entry
+
+                                else
+                                    e
+                            )
+                    )
+
+                else
+                    ( key :: seen, acc ++ [ entry ] )
+            )
+            ( [], [] )
+        |> Tuple.second
 
 
 
@@ -2784,6 +2962,68 @@ body {
 .network-sidebar-header {
     padding: 10px 12px 8px;
     border-bottom: 1px solid #0f3460;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.net-filter-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.net-filter-btn {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid #30363d;
+    background: transparent;
+    color: #556677;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.net-filter-btn:hover {
+    color: #c9d1d9;
+    border-color: #484f58;
+}
+
+.net-filter-backend.net-filter-active {
+    background: rgba(168, 85, 247, 0.15);
+    border-color: #a855f7;
+    color: #d2a8ff;
+}
+
+.net-filter-frontend.net-filter-active {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: #38bdf8;
+    color: #7dd3fc;
+}
+
+.net-source-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+}
+
+.net-source-backend {
+    background: rgba(168, 85, 247, 0.2);
+    color: #d2a8ff;
+}
+
+.net-source-frontend {
+    background: rgba(56, 189, 248, 0.2);
+    color: #7dd3fc;
+}
+
+.network-row-backend {
+    border-left: 2px solid rgba(168, 85, 247, 0.4);
+}
+
+.network-row-frontend {
+    border-left: 2px solid rgba(56, 189, 248, 0.4);
 }
 
 .network-empty {
@@ -2842,24 +3082,30 @@ body {
     margin-left: auto;
 }
 
-.net-badge {
-    font-size: 9px;
-    padding: 1px 6px;
-    border-radius: 3px;
-    text-transform: uppercase;
+.net-status-icon {
+    font-size: 11px;
+    width: 16px;
+    text-align: center;
     letter-spacing: 0.3px;
     font-weight: 600;
     flex-shrink: 0;
 }
 
-.net-badge-stubbed {
-    background: rgba(42, 110, 78, 0.3);
+.net-status-stubbed {
     color: #7ee787;
 }
 
-.net-badge-pending {
-    background: rgba(240, 192, 64, 0.15);
+.net-status-pending {
     color: #f0c040;
+    animation: fetcher-pulse 1.2s ease-in-out infinite;
+}
+
+.net-status-future {
+    color: #30363d;
+}
+
+.network-row-future {
+    opacity: 0.35;
 }
 
 .net-response-details {

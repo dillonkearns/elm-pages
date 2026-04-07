@@ -4,6 +4,7 @@ module Test.PagesProgram.Internal exposing
     , TargetSelector(..)
     , NetworkEntry
     , NetworkStatus(..)
+    , NetworkSource(..)
     , FetcherEntry
     , FetcherStatus(..)
     )
@@ -59,6 +60,7 @@ type alias NetworkEntry =
     , stepIndex : Int
     , portName : Maybe String
     , responsePreview : Maybe String
+    , source : NetworkSource
     }
 
 
@@ -67,6 +69,14 @@ type alias NetworkEntry =
 type NetworkStatus
     = Stubbed
     | Pending
+
+
+{-| Whether the request originated from a BackendTask (server-side) or
+from a client-side TEA Effect.
+-}
+type NetworkSource
+    = Backend
+    | Frontend
 
 
 {-| Describes which DOM element a test interaction targeted.

@@ -12,7 +12,7 @@ module Test.PagesProgram exposing
     , resolveBackendTask
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
     , withSimulatedSubscriptions, simulateIncomingPort
-    , Snapshot, toSnapshots, withModelToString
+    , Snapshot, toSnapshots, withModelInspector
     , start, startWithEffects, startPlatform
     )
 
@@ -177,7 +177,7 @@ Snapshots record the rendered view at each step of the test pipeline.
 The visual test runner (`elm-pages test-view`) uses them to let you
 step through test execution in the browser.
 
-@docs Snapshot, toSnapshots, withModelToString
+@docs Snapshot, toSnapshots, withModelInspector
 
 
 ## Internal: starting a test
@@ -229,6 +229,7 @@ import Test.Html.Selector as Selector
 import Test.PagesProgram.Internal as Internal
     exposing
         ( FetcherStatus(..)
+        , NetworkSource(..)
         , NetworkStatus(..)
         , StepKind(..)
         , TargetSelector(..)
@@ -287,6 +288,10 @@ type alias NetworkStatus =
 
 type alias TargetSelector =
     Internal.TargetSelector
+
+
+type alias NetworkSource =
+    Internal.NetworkSource
 
 
 type alias FetcherEntry =
@@ -3116,13 +3121,13 @@ Since published packages cannot use `Debug.toString` directly, this must be
 called from your test code:
 
     myTest
-        |> PagesProgram.withModelToString Debug.toString
+        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.clickButton "+1"
         |> PagesProgram.toSnapshots
 
 -}
-withModelToString : (model -> String) -> ProgramTest model msg -> ProgramTest model msg
-withModelToString fn (ProgramTest state) =
+withModelInspector : (model -> String) -> ProgramTest model msg -> ProgramTest model msg
+withModelInspector fn (ProgramTest state) =
     let
         updatedSnapshots =
             case state.phase of
@@ -3152,8 +3157,8 @@ withModelToString fn (ProgramTest state) =
 {-| Try advancing a resolver with a simulation. Returns Ok ProgramTest
 on success, Err on AdvanceError.
 -}
-advanceResolver : Maybe model -> Simulation -> State model msg -> Resolver model msg -> Result String (ProgramTest model msg)
-advanceResolver maybeModel sim state (Resolver resolver) =
+advanceResolver : NetworkSource -> Maybe model -> Simulation -> State model msg -> Resolver model msg -> Result String (ProgramTest model msg)
+advanceResolver source maybeModel sim state (Resolver resolver) =
     let
         simInfo =
             case sim of
@@ -3179,10 +3184,30 @@ advanceResolver maybeModel sim state (Resolver resolver) =
             , stepIndex = stepIdx
             , portName = simInfo.portName
             , responsePreview = simInfo.responsePreview
+            , source = source
             }
 
         updatedLog =
-            state.networkLog ++ [ networkEntry ]
+            let
+                ( found, updated ) =
+                    List.foldl
+                        (\entry ( matched, acc ) ->
+                            if not matched && entry.status == Pending && entry.url == simInfo.url then
+                                ( True
+                                , acc ++ [ { entry | status = Stubbed, responsePreview = simInfo.responsePreview, stepIndex = stepIdx } ]
+                                )
+
+                            else
+                                ( matched, acc ++ [ entry ] )
+                        )
+                        ( False, [] )
+                        state.networkLog
+            in
+            if found then
+                updated
+
+            else
+                state.networkLog ++ [ networkEntry ]
     in
     case resolver.advance maybeModel sim of
         Advanced newPhase maybeIntermediateModel ->
@@ -3215,9 +3240,9 @@ advanceResolver maybeModel sim state (Resolver resolver) =
             Err errMsg
 
 
-advanceResolverOrError : Maybe model -> Simulation -> State model msg -> Resolver model msg -> ProgramTest model msg
-advanceResolverOrError maybeModel sim state resolver =
-    case advanceResolver maybeModel sim state resolver of
+advanceResolverOrError : NetworkSource -> Maybe model -> Simulation -> State model msg -> Resolver model msg -> ProgramTest model msg
+advanceResolverOrError source maybeModel sim state resolver =
+    case advanceResolver source maybeModel sim state resolver of
         Ok programTest ->
             programTest
 
@@ -3241,23 +3266,23 @@ applySimulation sim (ProgramTest state) =
                     -- happen when mutation and data responses share the same JSON shape).
                     case ( state.pendingFetcherEffects, state.lastReadyModel ) of
                         ( ((Resolver _) as fetcherResolver) :: restFetchers, Just currentModel ) ->
-                            case advanceResolver (Just currentModel) sim state fetcherResolver of
+                            case advanceResolver Backend (Just currentModel) sim state fetcherResolver of
                                 Ok (ProgramTest newState) ->
                                     -- Fetcher advanced. The stale data reload is superseded.
                                     ProgramTest { newState | pendingFetcherEffects = restFetchers }
 
                                 Err _ ->
                                     -- Fetcher didn't accept this sim. Try the main resolver.
-                                    advanceResolverOrError Nothing sim state resolver
+                                    advanceResolverOrError Backend Nothing sim state resolver
 
                         _ ->
-                            advanceResolverOrError Nothing sim state resolver
+                            advanceResolverOrError Backend Nothing sim state resolver
 
                 Ready ready ->
                     -- No navigation/action HTTP pending. Check for pending fetcher effects.
                     case state.pendingFetcherEffects of
                         ((Resolver _) as fetcherResolver) :: restFetchers ->
-                            case advanceResolver (Just ready.model) sim state fetcherResolver of
+                            case advanceResolver Backend (Just ready.model) sim state fetcherResolver of
                                 Ok (ProgramTest newState) ->
                                     ProgramTest
                                         { newState
@@ -3326,7 +3351,7 @@ applySimulationToUrl targetUrl sim (ProgramTest state) =
                 Resolving ((Resolver resolverRecord) as resolver) ->
                     if List.member targetUrl resolverRecord.pendingUrls then
                         -- Phase resolver matches the URL
-                        advanceResolverOrError Nothing sim state resolver
+                        advanceResolverOrError Backend Nothing sim state resolver
 
                     else
                         -- Phase resolver doesn't match. Search pendingFetcherEffects.
@@ -3334,7 +3359,7 @@ applySimulationToUrl targetUrl sim (ProgramTest state) =
                             Just ( matchedResolver, restFetchers ) ->
                                 case state.lastReadyModel of
                                     Just currentModel ->
-                                        case advanceResolver (Just currentModel) sim state matchedResolver of
+                                        case advanceResolver Backend (Just currentModel) sim state matchedResolver of
                                             Ok (ProgramTest newState) ->
                                                 ProgramTest { newState | pendingFetcherEffects = restFetchers }
 
@@ -3361,7 +3386,7 @@ applySimulationToUrl targetUrl sim (ProgramTest state) =
                 Ready ready ->
                     case findResolverByUrl targetUrl state.pendingFetcherEffects of
                         Just ( matchedResolver, restFetchers ) ->
-                            case advanceResolver (Just ready.model) sim state matchedResolver of
+                            case advanceResolver Backend (Just ready.model) sim state matchedResolver of
                                 Ok (ProgramTest newState) ->
                                     ProgramTest
                                         { newState
@@ -3463,6 +3488,24 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                             let
                                 newReady =
                                     { ready | model = updateResult.model }
+
+                                stepIdx =
+                                    List.length state.snapshots
+
+                                phaseEntries =
+                                    case pendingPhase of
+                                        Resolving resolver ->
+                                            pendingEntriesFromResolver stepIdx resolver
+
+                                        _ ->
+                                            []
+
+                                fetcherEntries =
+                                    updateResult.fetcherResolvers
+                                        |> List.concatMap (pendingEntriesFromResolver stepIdx)
+
+                                updatedLog =
+                                    state.networkLog ++ phaseEntries ++ fetcherEntries
                             in
                             ProgramTest
                                 { state
@@ -3471,7 +3514,8 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                                     , lastReadyModel = Just updateResult.model
                                     , snapshots =
                                         state.snapshots
-                                            ++ [ makeSnapshot label kind target [] newReady state.modelToString state.fetcherExtractor state.networkLog ]
+                                            ++ [ makeSnapshot label kind target [] newReady state.modelToString state.fetcherExtractor updatedLog ]
+                                    , networkLog = updatedLog
                                 }
 
                         Nothing ->
@@ -3492,8 +3536,12 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                                                 parseEffectToNetworkEntry stepIdx desc
                                             )
 
+                                fetcherEntries =
+                                    updateResult.fetcherResolvers
+                                        |> List.concatMap (pendingEntriesFromResolver stepIdx)
+
                                 updatedLog =
-                                    state.networkLog ++ newPendingEntries
+                                    state.networkLog ++ newPendingEntries ++ fetcherEntries
                             in
                             ProgramTest
                                 { state
@@ -3584,6 +3632,7 @@ parseEffectToNetworkEntry stepIndex desc =
                     , stepIndex = stepIndex
                     , portName = Nothing
                     , responsePreview = Nothing
+                    , source = Frontend
                     }
 
             else
@@ -3591,6 +3640,36 @@ parseEffectToNetworkEntry stepIndex desc =
 
         _ ->
             Nothing
+
+
+{-| Create pending network entries from a resolver's pending URLs/description.
+-}
+pendingEntriesFromResolver : Int -> Resolver model msg -> List NetworkEntry
+pendingEntriesFromResolver stepIndex (Resolver resolver) =
+    if List.isEmpty resolver.pendingUrls then
+        -- Custom port or other BackendTask with no URL -- use the description
+        case String.split " " resolver.pendingDescription of
+            [] ->
+                []
+
+            _ ->
+                [ { method = "PORT"
+                  , url = resolver.pendingDescription
+                  , status = Pending
+                  , stepIndex = stepIndex
+                  , portName = Just resolver.pendingDescription
+                  , responsePreview = Nothing
+                  , source = Backend
+                  }
+                ]
+
+    else
+        resolver.pendingUrls
+            |> List.filterMap
+                (\url ->
+                    parseEffectToNetworkEntry stepIndex url
+                        |> Maybe.map (\entry -> { entry | source = Backend })
+                )
 
 
 mapViewToSnapshot : { title : String, body : List (Html msg) } -> { title : String, body : List (Html Never) }
