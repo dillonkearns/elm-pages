@@ -257,7 +257,7 @@ scrollToStep index =
         |> Task.attempt (\_ -> NoOp)
 
 
-{-| Extract the base path (e.g., "/__test-viewer") from the initial URL.
+{-| Extract the base path (e.g., "/_tests") from the initial URL.
 This is everything up to and including the viewer route prefix.
 -}
 extractBasePath : Url -> String
@@ -266,21 +266,21 @@ extractBasePath url =
         path =
             url.path
     in
-    if String.contains "/__test-viewer" path then
+    if String.contains "/_tests" path then
         let
             idx =
-                String.indexes "/__test-viewer" path
+                String.indexes "/_tests" path
                     |> List.head
                     |> Maybe.withDefault 0
         in
-        String.left (idx + String.length "/__test-viewer") path
+        String.left (idx + String.length "/_tests") path
 
     else
         path
 
 
 {-| Extract the test name from the URL path after the base path.
-e.g., "/__test-viewer/FrameworkTests.counterClicksTest" -> Just "FrameworkTests.counterClicksTest"
+e.g., "/_tests/FrameworkTests.counterClicksTest" -> Just "FrameworkTests.counterClicksTest"
 -}
 extractTestName : String -> Url -> Maybe String
 extractTestName basePath url =
@@ -1624,7 +1624,7 @@ viewEmptyRenderedPage =
     Html.div [ Attr.class "rendered-page" ]
         [ Html.node "iframe"
             [ Attr.id "preview-iframe"
-            , Attr.attribute "src" "/__test-viewer-preview"
+            , Attr.attribute "src" "/_tests-preview"
             ]
             []
         ]
@@ -1683,7 +1683,7 @@ viewRenderedPageWithOptions viewportWidth maybePreviewMode snapshot =
             )
         , Html.node "iframe"
             ([ Attr.id "preview-iframe"
-             , Attr.attribute "src" "/__test-viewer-preview"
+             , Attr.attribute "src" "/_tests-preview"
              ]
                 ++ (case viewportWidth of
                         Just w ->
@@ -2141,18 +2141,53 @@ viewNetworkSidebar model currentStep allSnapshots =
                                     ]
                                  ]
                                     ++ (if appeared then
-                                            case entry.responsePreview of
-                                                Just preview ->
-                                                    [ Html.details [ Attr.class "net-response-details" ]
-                                                        [ Html.summary [ Attr.class "net-response-summary" ]
-                                                            [ Html.text "Response" ]
-                                                        , Html.pre [ Attr.class "net-response-body" ]
-                                                            [ Html.text (truncatePreview 500 preview) ]
-                                                        ]
-                                                    ]
+                                            List.filterMap identity
+                                                [ -- Request headers (only if non-empty)
+                                                  if List.isEmpty entry.requestHeaders then
+                                                    Nothing
 
-                                                Nothing ->
-                                                    []
+                                                  else
+                                                    Just
+                                                        (Html.details [ Attr.class "net-response-details" ]
+                                                            [ Html.summary [ Attr.class "net-response-summary net-headers-summary" ]
+                                                                [ Html.text ("Headers (" ++ String.fromInt (List.length entry.requestHeaders) ++ ")") ]
+                                                            , Html.div [ Attr.class "net-headers-list" ]
+                                                                (entry.requestHeaders
+                                                                    |> List.map
+                                                                        (\( name, value ) ->
+                                                                            Html.div [ Attr.class "net-header-row" ]
+                                                                                [ Html.span [ Attr.class "net-header-name" ] [ Html.text (name ++ ": ") ]
+                                                                                , Html.span [ Attr.class "net-header-value" ] [ Html.text value ]
+                                                                                ]
+                                                                        )
+                                                                )
+                                                            ]
+                                                        )
+
+                                                -- Request body
+                                                , entry.requestBody
+                                                    |> Maybe.map
+                                                        (\body ->
+                                                            Html.details [ Attr.class "net-response-details" ]
+                                                                [ Html.summary [ Attr.class "net-response-summary net-request-summary" ]
+                                                                    [ Html.text "Request Body" ]
+                                                                , Html.pre [ Attr.class "net-response-body" ]
+                                                                    [ Html.text (formatJsonPreview body) ]
+                                                                ]
+                                                        )
+
+                                                -- Response body
+                                                , entry.responsePreview
+                                                    |> Maybe.map
+                                                        (\preview ->
+                                                            Html.details [ Attr.class "net-response-details" ]
+                                                                [ Html.summary [ Attr.class "net-response-summary" ]
+                                                                    [ Html.text "Response" ]
+                                                                , Html.pre [ Attr.class "net-response-body" ]
+                                                                    [ Html.text (formatJsonPreview preview) ]
+                                                                ]
+                                                        )
+                                                ]
 
                                         else
                                             []
@@ -2308,6 +2343,26 @@ truncatePreview maxLen s =
 
     else
         String.left maxLen s ++ "..."
+
+
+{-| Pretty-print a string as JSON if it looks like JSON, otherwise return as-is.
+-}
+formatJsonPreview : String -> String
+formatJsonPreview s =
+    let
+        trimmed =
+            String.trim s
+    in
+    if String.startsWith "{" trimmed || String.startsWith "[" trimmed then
+        case Decode.decodeString Decode.value trimmed of
+            Ok value ->
+                Encode.encode 2 value
+
+            Err _ ->
+                s
+
+    else
+        s
 
 
 {-| Whether a step at the given index is a "child" (an assertion that follows
@@ -3377,6 +3432,38 @@ body {
     overflow: auto;
     white-space: pre-wrap;
     word-break: break-all;
+}
+
+.net-request-summary {
+    color: #4cc9f0;
+}
+
+.net-headers-summary {
+    color: #a88beb;
+}
+
+.net-headers-list {
+    padding: 4px 8px;
+    margin: 4px 0 0;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    font-size: 10px;
+}
+
+.net-header-row {
+    padding: 1px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.net-header-name {
+    color: #a88beb;
+    font-weight: 600;
+}
+
+.net-header-value {
+    color: #c8d6e5;
 }
 
 /* === BEFORE/AFTER TOGGLE === */

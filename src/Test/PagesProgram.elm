@@ -87,7 +87,7 @@ npx elm-pages test-run
 
 ## Or view it in your dev server
 npx elm-pages dev
-open http://localhost:1234/__test-viewer
+open http://localhost:1234/_tests
 ```
 
 
@@ -111,7 +111,7 @@ going on with your app during any given step.
 ## Simulating user input
 
 `Test.ProgramTest` follows a philosophy (inspired by `elm-program-test`)
-of driving the browser in a way that mirrors how a user would ineteract
+of driving the browser in a way that mirrors how a user would interact
 with your elm-pages app.
 
 That gives us confidence that the scenarios in our automated tests
@@ -225,6 +225,7 @@ import Pages.Internal.FatalError
 import Pages.Internal.Msg
 import Pages.Internal.Platform as Platform
 import Pages.Internal.ResponseSketch as ResponseSketch
+import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.StaticHttp.Request as StaticHttpRequest
 import Test.BackendTask exposing (HttpError(..))
 import Test.BackendTask.Internal as BackendTaskTest
@@ -320,6 +321,7 @@ type Resolver model msg
         { advance : Maybe model -> Simulation -> AdvanceResult model msg
         , pendingDescription : String
         , pendingUrls : List String
+        , pendingRequestDetails : List { url : String, method : String, headers : List ( String, String ), body : Maybe String }
         }
 
 
@@ -571,6 +573,7 @@ startPlatform simulateEffect config initialPath testSetup =
                             { advance = \_ _ -> AdvanceError errMsg
                             , pendingDescription = errMsg
                             , pendingUrls = []
+                            , pendingRequestDetails = []
                             }
                         )
                 , error = Just errMsg
@@ -707,6 +710,8 @@ startPlatform simulateEffect config initialPath testSetup =
                                                                                                     stillRunningDescription rdRunningState.pendingRequests
                                                                                                 , pendingUrls =
                                                                                                     List.map .url rdRunningState.pendingRequests
+                                                                                                , pendingRequestDetails =
+                                                                                                    requestDetailsFromRequests rdRunningState.pendingRequests
                                                                                                 }
                                                                                             )
                                                                                         )
@@ -763,6 +768,8 @@ startPlatform simulateEffect config initialPath testSetup =
                                                             stillRunningDescription runningState.pendingRequests
                                                         , pendingUrls =
                                                             List.map .url runningState.pendingRequests
+                                                        , pendingRequestDetails =
+                                                            requestDetailsFromRequests runningState.pendingRequests
                                                         }
                                                     )
                                                 )
@@ -781,6 +788,8 @@ startPlatform simulateEffect config initialPath testSetup =
                                         "Initial data pending HTTP"
                                     , pendingUrls =
                                         btPendingUrls dataBt
+                                    , pendingRequestDetails =
+                                        btPendingRequestDetails dataBt
                                     }
                                 )
                             )
@@ -925,6 +934,7 @@ startPlatform simulateEffect config initialPath testSetup =
                                     , pendingDescription =
                                         wrappedModel.pendingDataError |> Maybe.withDefault "Pending action HTTP"
                                     , pendingUrls = btPendingUrls bt
+                                    , pendingRequestDetails = btPendingRequestDetails bt
                                     }
                                 )
 
@@ -952,6 +962,7 @@ startPlatform simulateEffect config initialPath testSetup =
                                             , pendingDescription =
                                                 wrappedModel.pendingDataError |> Maybe.withDefault "Pending data HTTP"
                                             , pendingUrls = btPendingUrls bt
+                                            , pendingRequestDetails = btPendingRequestDetails bt
                                             }
                                         )
 
@@ -1089,6 +1100,8 @@ startPlatform simulateEffect config initialPath testSetup =
                                             stillRunningDescription runningState.pendingRequests
                                         , pendingUrls =
                                             List.map .url runningState.pendingRequests
+                                        , pendingRequestDetails =
+                                            requestDetailsFromRequests runningState.pendingRequests
                                         }
                                     )
                                 )
@@ -3229,6 +3242,11 @@ advanceResolver source maybeModel sim state (Resolver resolver) =
         stepIdx =
             List.length state.snapshots
 
+        matchingRequest =
+            resolver.pendingRequestDetails
+                |> List.filter (\r -> r.url == simInfo.url)
+                |> List.head
+
         networkEntry =
             { method = simInfo.method
             , url = simInfo.url
@@ -3237,6 +3255,8 @@ advanceResolver source maybeModel sim state (Resolver resolver) =
             , portName = simInfo.portName
             , responsePreview = simInfo.responsePreview
             , source = source
+            , requestBody = matchingRequest |> Maybe.andThen .body
+            , requestHeaders = matchingRequest |> Maybe.map .headers |> Maybe.withDefault []
             }
 
         updatedLog =
@@ -3686,6 +3706,8 @@ parseEffectToNetworkEntry stepIndex desc =
                     , portName = Nothing
                     , responsePreview = Nothing
                     , source = Frontend
+                    , requestBody = Nothing
+                    , requestHeaders = []
                     }
 
             else
@@ -3713,6 +3735,8 @@ pendingEntriesFromResolver stepIndex (Resolver resolver) =
                   , portName = Just resolver.pendingDescription
                   , responsePreview = Nothing
                   , source = Backend
+                  , requestBody = Nothing
+                  , requestHeaders = []
                   }
                 ]
 
@@ -3720,8 +3744,21 @@ pendingEntriesFromResolver stepIndex (Resolver resolver) =
         resolver.pendingUrls
             |> List.filterMap
                 (\url ->
+                    let
+                        matchingRequest =
+                            resolver.pendingRequestDetails
+                                |> List.filter (\r -> r.url == url)
+                                |> List.head
+                    in
                     parseEffectToNetworkEntry stepIndex url
-                        |> Maybe.map (\entry -> { entry | source = Backend })
+                        |> Maybe.map
+                            (\entry ->
+                                { entry
+                                    | source = Backend
+                                    , requestBody = matchingRequest |> Maybe.andThen .body
+                                    , requestHeaders = matchingRequest |> Maybe.map .headers |> Maybe.withDefault []
+                                }
+                            )
                 )
 
 
@@ -3800,6 +3837,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                                     ++ "\n"
                                     ++ errInfo.body
                             , pendingUrls = []
+                            , pendingRequestDetails = []
                             }
                         )
 
@@ -3829,6 +3867,8 @@ resolveDataPhase bt initFn viewFn updateFn =
                         stillRunningDescription runningState.pendingRequests
                     , pendingUrls =
                         List.map .url runningState.pendingRequests
+                    , pendingRequestDetails =
+                        requestDetailsFromRequests runningState.pendingRequests
                     }
                 )
 
@@ -3838,6 +3878,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                     { advance = \_ _ -> AdvanceError msg
                     , pendingDescription = msg
                     , pendingUrls = []
+                    , pendingRequestDetails = []
                     }
                 )
 
@@ -4193,6 +4234,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                                                             ("Route data has a pending BackendTask that needs a simulated response after action completed:\n\n"
                                                                 ++ (dataResult |> resultErrorToString)
                                                             )
+                                                    , pendingDataPath = Just pathWithQuery
                                                   }
                                                 , []
                                                 , []
@@ -4608,6 +4650,8 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                                         stillRunningDescription runningState.pendingRequests
                                     , pendingUrls =
                                         List.map .url runningState.pendingRequests
+                                    , pendingRequestDetails =
+                                        requestDetailsFromRequests runningState.pendingRequests
                                     }
                         in
                         ( { wrappedModel
@@ -5008,6 +5052,56 @@ btPendingUrls bt =
             []
 
 
+{-| Extract pending request details from a BackendTaskTest. Used to populate
+the Resolver's pendingRequestDetails field for network panel display.
+-}
+btPendingRequestDetails : BackendTaskTest.BackendTaskTest a -> List { url : String, method : String, headers : List ( String, String ), body : Maybe String }
+btPendingRequestDetails bt =
+    case bt of
+        BackendTaskTest.Running runningState ->
+            List.map requestToDetails runningState.pendingRequests
+
+        _ ->
+            []
+
+
+{-| Convert a StaticHttpRequest.Request to the simplified details we need for network display.
+-}
+requestToDetails : StaticHttpRequest.Request -> { url : String, method : String, headers : List ( String, String ), body : Maybe String }
+requestToDetails req =
+    { url = req.url
+    , method = req.method
+    , headers = req.headers
+    , body = bodyToString req.body
+    }
+
+
+{-| Serialize a request body to a string for display in the network panel.
+-}
+bodyToString : StaticHttpBody.Body -> Maybe String
+bodyToString body =
+    case body of
+        StaticHttpBody.EmptyBody ->
+            Nothing
+
+        StaticHttpBody.JsonBody value ->
+            Just (Encode.encode 2 value)
+
+        StaticHttpBody.StringBody _ content ->
+            Just content
+
+        StaticHttpBody.BytesBody _ _ ->
+            Just "<binary data>"
+
+        StaticHttpBody.MultipartBody _ _ ->
+            Just "<multipart data>"
+
+
+requestDetailsFromRequests : List StaticHttpRequest.Request -> List { url : String, method : String, headers : List ( String, String ), body : Maybe String }
+requestDetailsFromRequests =
+    List.map requestToDetails
+
+
 {-| Handle the result of advancing an action BackendTaskTest after simulation.
 When Done, processes the action result (redirect, render, etc).
 When Running, creates a Resolver capturing the BackendTaskTest for subsequent sims.
@@ -5083,6 +5177,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                                                 , pendingDescription =
                                                     processedWrapped.pendingDataError |> Maybe.withDefault "Pending data HTTP after action redirect"
                                                 , pendingUrls = btPendingUrls dataBt
+                                                , pendingRequestDetails = btPendingRequestDetails dataBt
                                                 }
                                             )
                                         )
@@ -5170,6 +5265,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                                         , pendingDescription =
                                             "Pending data HTTP after action"
                                         , pendingUrls = btPendingUrls dataBt
+                                        , pendingRequestDetails = btPendingRequestDetails dataBt
                                         }
                                     )
                                 )
@@ -5196,6 +5292,8 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                             stillRunningDescription runningState.pendingRequests
                         , pendingUrls =
                             List.map .url runningState.pendingRequests
+                        , pendingRequestDetails =
+                            requestDetailsFromRequests runningState.pendingRequests
                         }
                     )
                 )

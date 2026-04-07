@@ -20,6 +20,7 @@ import Test.PagesProgram.Selector as PSelector exposing (AssertionSelector(..))
 import Test.BackendTask as BackendTaskTest
 import Test.BackendTask exposing (HttpError(..))
 import Test.PagesProgram as PagesProgram
+import Test.PagesProgram.Internal exposing (NetworkSource(..), NetworkStatus(..))
 import Test.PagesProgram.SimulatedEffect as SimulatedEffect
 import Test.PagesProgram.SimulatedSub as SimulatedSub
 import Test.Runner
@@ -2231,6 +2232,104 @@ all =
 
                         _ ->
                             Expect.fail "Expected None"
+            ]
+        , describe "Network entry enrichment"
+            [ test "GET request has no requestBody" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.Http.getJson
+                                "https://api.example.com/user"
+                                (Decode.field "name" Decode.string)
+                                |> BackendTask.allowFatal
+                        , init = \name -> ( { name = name }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                        }
+                        |> PagesProgram.simulateHttpGet
+                            "https://api.example.com/user"
+                            (Encode.object [ ( "name", Encode.string "Alice" ) ])
+                        |> PagesProgram.toSnapshots
+                        |> List.concatMap .networkLog
+                        |> List.filter (\e -> e.url == "https://api.example.com/user")
+                        |> List.head
+                        |> Maybe.map .requestBody
+                        |> Expect.equal (Just Nothing)
+            , test "POST request captures requestBody as pretty-printed JSON" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.Http.request
+                                { url = "https://api.example.com/graphql"
+                                , method = "POST"
+                                , headers = []
+                                , body = BackendTask.Http.jsonBody (Encode.object [ ( "query", Encode.string "{ users }" ) ])
+                                , retries = Nothing
+                                , timeoutInMs = Nothing
+                                }
+                                (BackendTask.Http.expectJson (Decode.field "data" Decode.string))
+                                |> BackendTask.allowFatal
+                        , init = \result -> ( { text = result }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "Test", body = [ Html.text model.text ] }
+                        }
+                        |> PagesProgram.simulateHttpPost
+                            "https://api.example.com/graphql"
+                            (Encode.object [ ( "data", Encode.string "ok" ) ])
+                        |> PagesProgram.toSnapshots
+                        |> List.concatMap .networkLog
+                        |> List.filter (\e -> e.url == "https://api.example.com/graphql")
+                        |> List.head
+                        |> Maybe.map .requestBody
+                        |> Expect.equal (Just (Just "{\n  \"query\": \"{ users }\"\n}"))
+            , test "POST request captures requestHeaders" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.Http.request
+                                { url = "https://api.example.com/data"
+                                , method = "POST"
+                                , headers = [ ( "Authorization", "Bearer token123" ), ( "X-Custom", "value" ) ]
+                                , body = BackendTask.Http.jsonBody (Encode.object [ ( "key", Encode.string "val" ) ])
+                                , retries = Nothing
+                                , timeoutInMs = Nothing
+                                }
+                                (BackendTask.Http.expectJson (Decode.field "ok" Decode.bool))
+                                |> BackendTask.allowFatal
+                        , init = \_ -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ _ -> { title = "Test", body = [ Html.text "ok" ] }
+                        }
+                        |> PagesProgram.simulateHttpPost
+                            "https://api.example.com/data"
+                            (Encode.object [ ( "ok", Encode.bool True ) ])
+                        |> PagesProgram.toSnapshots
+                        |> List.concatMap .networkLog
+                        |> List.filter (\e -> e.url == "https://api.example.com/data")
+                        |> List.head
+                        |> Maybe.map (.requestHeaders >> List.filter (\( name, _ ) -> not (String.startsWith "elm-pages-internal" name)))
+                        |> Expect.equal (Just [ ( "Authorization", "Bearer token123" ), ( "X-Custom", "value" ) ])
+            , test "response preview is captured" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.Http.getJson
+                                "https://api.example.com/user"
+                                (Decode.field "name" Decode.string)
+                                |> BackendTask.allowFatal
+                        , init = \name -> ( { name = name }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                        }
+                        |> PagesProgram.simulateHttpGet
+                            "https://api.example.com/user"
+                            (Encode.object [ ( "name", Encode.string "Alice" ) ])
+                        |> PagesProgram.toSnapshots
+                        |> List.concatMap .networkLog
+                        |> List.filter (\e -> e.url == "https://api.example.com/user" && e.status == Stubbed)
+                        |> List.head
+                        |> Maybe.andThen .responsePreview
+                        |> Expect.equal (Just "{\n  \"name\": \"Alice\"\n}")
             ]
         ]
 

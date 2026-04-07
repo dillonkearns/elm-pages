@@ -957,11 +957,13 @@ main =
           );
         }
 
+        // Mark test viewer for recompilation regardless of main app result.
+        // The test viewer compiles independently and may succeed even when
+        // the main app fails (e.g., generated Main.elm is stale).
+        testViewerDirty = true;
         Promise.all([clientElmMakeProcess, pendingCliCompile])
           .then(() => {
             elmMakeRunning = false;
-            // Mark test viewer for recompilation (will compile on next request)
-            testViewerDirty = true;
           })
           .catch(() => {
             elmMakeRunning = false;

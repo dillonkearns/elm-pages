@@ -62,6 +62,8 @@ type alias NetworkEntry =
     , portName : Maybe String
     , responsePreview : Maybe String
     , source : NetworkSource
+    , requestBody : Maybe String
+    , requestHeaders : List ( String, String )
     }
 
 
