@@ -2163,13 +2163,65 @@ clickLink linkText (ProgramTest state) =
                             , Selector.containing [ Selector.text linkText ]
                             ]
 
-                        -- Verify link exists in the view
+                        -- Check for multiple matching links first
+                        hasMultiple : Bool
+                        hasMultiple =
+                            query
+                                |> Query.findAll linkSelectors
+                                |> Query.count (Expect.atMost 1)
+                                |> (\expectation -> getFailureMessage expectation /= Nothing)
+
+                        -- Verify exactly one link exists
                         linkExists : Expectation
                         linkExists =
                             query
                                 |> Query.find linkSelectors
                                 |> Query.has []
                     in
+                    if hasMultiple then
+                        -- Extract hrefs from the Query.find failure message,
+                        -- which lists each matching element once with numbers.
+                        let
+                            findFailureDescription =
+                                case getFailureMessage linkExists of
+                                    Just desc ->
+                                        desc
+
+                                    Nothing ->
+                                        ""
+
+                            -- Only parse hrefs from after the "Query.find" section
+                            -- to avoid duplicates from the full view HTML in "Query.fromHtml".
+                            findSection =
+                                case findSubstringBetween "Query.find" "\n\n\n" findFailureDescription of
+                                    Just section ->
+                                        section
+
+                                    Nothing ->
+                                        findFailureDescription
+
+                            hrefs =
+                                findAllSubstrings "href=\"" "\"" findSection
+
+                            hrefList =
+                                hrefs
+                                    |> List.indexedMap (\i href -> "  " ++ String.fromInt (i + 1) ++ ") <a href=\"" ++ href ++ "\">")
+                                    |> String.join "\n"
+                        in
+                        ProgramTest
+                            { state
+                                | error =
+                                    Just
+                                        ("clickLink \""
+                                            ++ linkText
+                                            ++ "\" failed: found multiple links with that text.\n\n"
+                                            ++ "Use withinFind to scope to the section containing the link you want.\n\n"
+                                            ++ "Links found:\n"
+                                            ++ hrefList
+                                        )
+                            }
+
+                    else
                     case getFailureMessage linkExists of
                         Just errMsg ->
                             ProgramTest
@@ -2178,7 +2230,7 @@ clickLink linkText (ProgramTest state) =
                                         Just
                                             ("clickLink \""
                                                 ++ linkText
-                                                ++ "\" failed: link not found\n\n"
+                                                ++ "\" failed: no <a> element found with that text.\n\n"
                                                 ++ errMsg
                                             )
                                 }
@@ -3928,6 +3980,39 @@ extractHrefFromLink query selectors =
 
         Just reason ->
             extractHrefFromHtml reason.description
+
+
+
+{-| Find all occurrences of substrings between two markers. -}
+findAllSubstrings : String -> String -> String -> List String
+findAllSubstrings startMarker endMarker haystack =
+    findAllSubstringsHelper startMarker endMarker haystack []
+
+
+findAllSubstringsHelper : String -> String -> String -> List String -> List String
+findAllSubstringsHelper startMarker endMarker haystack acc =
+    case String.indexes startMarker haystack of
+        [] ->
+            List.reverse acc
+
+        firstIndex :: _ ->
+            let
+                afterStart =
+                    String.dropLeft (firstIndex + String.length startMarker) haystack
+            in
+            case String.indexes endMarker afterStart of
+                [] ->
+                    List.reverse acc
+
+                endIndex :: _ ->
+                    let
+                        found =
+                            String.left endIndex afterStart
+
+                        rest =
+                            String.dropLeft (endIndex + String.length endMarker) afterStart
+                    in
+                    findAllSubstringsHelper startMarker endMarker rest (found :: acc)
 
 
 {-| Parse an href attribute value from an HTML string in a failure description.

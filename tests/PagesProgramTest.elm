@@ -1851,6 +1851,50 @@ all =
                         |> PagesProgram.clickLink "Click me"
                         |> PagesProgram.ensureViewHas [ PSelector.text "Page: /the-real-href" ]
                         |> PagesProgram.done
+            , test "clickLink fails with helpful message when multiple links match" <|
+                \() ->
+                    let
+                        result =
+                            PagesProgram.start
+                                { data = BackendTask.succeed ()
+                                , init = \() -> ( {}, [] )
+                                , update = \_ model -> ( model, [] )
+                                , view =
+                                    \_ _ ->
+                                        { title = "Nav"
+                                        , body =
+                                            [ Html.a [ Attr.href "/about" ] [ Html.text "Click me" ]
+                                            , Html.a [ Attr.href "/contact" ] [ Html.text "Click me" ]
+                                            ]
+                                        }
+                                }
+                                |> PagesProgram.clickLink "Click me"
+                                |> PagesProgram.done
+                    in
+                    case Test.Runner.getFailureReason result of
+                        Nothing ->
+                            Expect.fail "Expected test to fail, but it passed"
+
+                        Just { description } ->
+                            description
+                                |> Expect.all
+                                    [ \d ->
+                                        d
+                                            |> String.contains "found multiple links with that text"
+                                            |> Expect.equal True
+                                    , \d ->
+                                        d
+                                            |> String.contains "withinFind"
+                                            |> Expect.equal True
+                                    , \d ->
+                                        d
+                                            |> String.contains "<a href=\"/about\">"
+                                            |> Expect.equal True
+                                    , \d ->
+                                        d
+                                            |> String.contains "<a href=\"/contact\">"
+                                            |> Expect.equal True
+                                    ]
             , test "clickLink fails when no <a> element has the given text" <|
                 \() ->
                     PagesProgram.start
