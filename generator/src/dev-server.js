@@ -793,12 +793,24 @@ main =
       }
     }
 
+    // Prevent all interactive events in the preview iframe.
+    // The preview is a static snapshot -- clicks, form submits, etc. would
+    // navigate or blank the iframe since there's no Elm runtime.
+    function disableIframeInteractions(iframeDoc) {
+      if (iframeDoc.__interactionsDisabled) return;
+      iframeDoc.addEventListener("click", function(e) { e.preventDefault(); e.stopPropagation(); }, true);
+      iframeDoc.addEventListener("submit", function(e) { e.preventDefault(); e.stopPropagation(); }, true);
+      iframeDoc.addEventListener("auxclick", function(e) { e.preventDefault(); e.stopPropagation(); }, true);
+      iframeDoc.__interactionsDisabled = true;
+    }
+
     setInterval(function() {
       var iframe = document.getElementById('preview-iframe');
       if (!iframe) return;
       try {
         var target = iframe.contentDocument && iframe.contentDocument.getElementById('preview-root');
         if (!target) return;
+        disableIframeInteractions(iframe.contentDocument);
         var pageBody = document.querySelector('.page-body');
         var html = pageBody ? pageBody.innerHTML : "";
         if (html !== lastSynced) {

@@ -744,6 +744,14 @@ export function renderStaticViewerHtml({
       return iframe;
     }
 
+    function disableIframeInteractions(iframeDoc) {
+      if (iframeDoc.__interactionsDisabled) return;
+      iframeDoc.addEventListener("click", function(e) { e.preventDefault(); e.stopPropagation(); }, true);
+      iframeDoc.addEventListener("submit", function(e) { e.preventDefault(); e.stopPropagation(); }, true);
+      iframeDoc.addEventListener("auxclick", function(e) { e.preventDefault(); e.stopPropagation(); }, true);
+      iframeDoc.__interactionsDisabled = true;
+    }
+
     setInterval(function() {
       var iframe = ensurePreviewFrame();
       if (!iframe) return;
@@ -751,6 +759,7 @@ export function renderStaticViewerHtml({
       try {
         var target = iframe.contentDocument && iframe.contentDocument.getElementById("preview-root");
         if (!target) return;
+        disableIframeInteractions(iframe.contentDocument);
 
         var pageBody = document.querySelector(".page-body");
         var html = pageBody ? pageBody.innerHTML : "";
