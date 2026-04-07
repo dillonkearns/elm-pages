@@ -2143,14 +2143,13 @@ fillInTextarea newContent (ProgramTest state) =
                                 }
 
 
-{-| Simulate clicking a link with the given text. Finds the `<a>` element
-by text content, extracts the `href` from the rendered DOM, and triggers
-navigation. You don't need to provide the href -- the test framework reads
-it from the view, just like a real browser would.
+{-| Simulate clicking a link with the given text. The `href` is read
+from the rendered view automatically, just like a real browser.
 
-    PagesProgram.start counterConfig
+    TestApp.start "/" BackendTaskTest.init
         |> PagesProgram.clickLink "About"
-        |> PagesProgram.ensureBrowserUrl (\url -> url |> String.contains "/about" |> Expect.true "")
+        |> PagesProgram.ensureBrowserUrl
+            (\url -> url |> String.contains "/about" |> Expect.true "")
 
 -}
 clickLink : String -> ProgramTest model msg -> ProgramTest model msg
