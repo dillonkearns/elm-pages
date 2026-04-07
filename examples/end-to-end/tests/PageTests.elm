@@ -133,7 +133,7 @@ loginFlowTest =
         |> PagesProgram.clickButton "Log In"
         |> PagesProgram.ensureViewHas [ PSelector.text "Password must be at least 6 characters" ]
         |> PagesProgram.fillIn "password" "password" "secret123"
-        |> PagesProgram.check "remember" "Remember me" True
+        |> PagesProgram.check "Remember me" True
         |> PagesProgram.clickButton "Log In"
         |> PagesProgram.resolveBackendTask
             (BackendTaskTest.simulateHttpGet
@@ -307,9 +307,9 @@ todoAppTest =
         |> PagesProgram.clickButton "Add"
         |> PagesProgram.ensureViewHas [ PSelector.text "Deploy to production" ]
         |> PagesProgram.ensureViewHas [ PSelector.text "1 of 4 completed" ]
-        |> PagesProgram.check "todo-2" "Build elm-pages app" True
+        |> PagesProgram.check "Build elm-pages app" True
         |> PagesProgram.ensureViewHas [ PSelector.text "2 of 4 completed" ]
-        |> PagesProgram.check "todo-3" "Write tests" True
+        |> PagesProgram.check "Write tests" True
         |> PagesProgram.ensureViewHas [ PSelector.text "3 of 4 completed" ]
         |> PagesProgram.within
             (Query.find [ Selector.tag "li", Selector.containing [ Selector.text "Learn Elm" ] ])

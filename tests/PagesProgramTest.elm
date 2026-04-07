@@ -335,7 +335,7 @@ all =
                                 }
                         }
                         |> PagesProgram.ensureViewHas [ PSelector.text "Please accept terms" ]
-                        |> PagesProgram.check "agree" "I agree" True
+                        |> PagesProgram.check "I agree" True
                         |> PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
                         |> PagesProgram.done
             ]
@@ -1307,6 +1307,28 @@ all =
                         |> PagesProgram.selectOption "Favorite Color" "Not Blue"
                         |> PagesProgram.done
                         |> expectFailContaining "Not Blue"
+            , test "selectOption fails when multiple labels match" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Form"
+                                , body =
+                                    [ Html.label [ Attr.for "size-1" ] [ Html.text "Size" ]
+                                    , Html.select [ Attr.id "size-1" ]
+                                        [ Html.option [ Attr.value "s" ] [ Html.text "Small" ] ]
+                                    , Html.label [ Attr.for "size-2" ] [ Html.text "Size" ]
+                                    , Html.select [ Attr.id "size-2" ]
+                                        [ Html.option [ Attr.value "m" ] [ Html.text "Medium" ] ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.selectOption "Size" "Small"
+                        |> PagesProgram.done
+                        |> expectFailContaining "multiple"
             ]
         , describe "expectViewHas (terminal assertion)"
             [ test "passes when view has selector" <|
@@ -2234,7 +2256,7 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.check "agree" "I agree to the terms" True
+                        |> PagesProgram.check "I agree to the terms" True
                         |> PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
                         |> PagesProgram.done
             , test "check fails when label doesn't match" <|
@@ -2262,9 +2284,9 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.check "agree" "Wrong label text" True
+                        |> PagesProgram.check "Wrong label text" True
                         |> PagesProgram.done
-                        |> expectFailContaining "Could not find label"
+                        |> expectFailContaining "Could not find"
             , test "check works with label wrapping the input" <|
                 \() ->
                     PagesProgram.start
@@ -2281,8 +2303,7 @@ all =
                                 , body =
                                     [ Html.label []
                                         [ Html.input
-                                            [ Attr.id "agree"
-                                            , Attr.type_ "checkbox"
+                                            [ Attr.type_ "checkbox"
                                             , Attr.checked model.agreed
                                             , Html.Events.onCheck ToggleAgreed
                                             ]
@@ -2297,9 +2318,29 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.check "agree" "Accept terms" True
+                        |> PagesProgram.check "Accept terms" True
                         |> PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
                         |> PagesProgram.done
+            , test "check fails when multiple checkboxes match the label" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Form"
+                                , body =
+                                    [ Html.label [ Attr.for "opt-a" ] [ Html.text "Enable" ]
+                                    , Html.input [ Attr.id "opt-a", Attr.type_ "checkbox" ] []
+                                    , Html.label [ Attr.for "opt-b" ] [ Html.text "Enable" ]
+                                    , Html.input [ Attr.id "opt-b", Attr.type_ "checkbox" ] []
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.check "Enable" True
+                        |> PagesProgram.done
+                        |> expectFailContaining "multiple"
             ]
         , describe "SimulatedEffect.OpaqueCmd removed"
             [ test "Cmd maps to None in testPerform (no OpaqueCmd)" <|

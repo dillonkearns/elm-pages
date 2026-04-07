@@ -1328,7 +1328,27 @@ selectOption labelText optionText (ProgramTest state) =
                             query
                                 |> Query.find labelSelectors
                                 |> Query.has []
+
+                        hasMultipleLabels : Bool
+                        hasMultipleLabels =
+                            query
+                                |> Query.findAll labelSelectors
+                                |> Query.count (Expect.atMost 1)
+                                |> (\expectation -> getFailureMessage expectation /= Nothing)
                     in
+                    if hasMultipleLabels then
+                        ProgramTest
+                            { state
+                                | error =
+                                    Just
+                                        (stepLabel
+                                            ++ " failed: found multiple labels with text \""
+                                            ++ labelText
+                                            ++ "\". Use `withinFind` to scope to the section containing the dropdown you want."
+                                        )
+                            }
+
+                    else
                     case getFailureMessage labelExists of
                         Just failMsg ->
                             ProgramTest
@@ -2583,22 +2603,21 @@ uniqueConsecutive list =
                 x :: uniqueConsecutive (y :: rest)
 
 
-{-| Simulate checking or unchecking a checkbox. Provide the element's `id`,
-the label text (for accessibility verification), and the checked state.
+{-| Simulate checking or unchecking a checkbox. The checkbox is found
+by its label text, just like a user would identify it on screen.
 
-The label is verified by looking for either:
+Supports two common HTML patterns:
 
-1.  A `<label for="fieldId">` element containing the label text
+1.  A separate `<label for="id">` pointing to an `<input id="id">`
+2.  A `<label>` wrapping both the checkbox and the label text
 
-2.  A `<label>` element wrapping both the checkbox and the label text
-
-    PagesProgram.start config
-    |> PagesProgram.check "agree" "I agree to the terms" True
-    |> PagesProgram.ensureViewHas [ Selector.text "Terms accepted" ]
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.check "I agree to the terms" True
+        |> PagesProgram.ensureViewHas [ Selector.text "Terms accepted" ]
 
 -}
-check : String -> String -> Bool -> ProgramTest model msg -> ProgramTest model msg
-check fieldId label isChecked (ProgramTest state) =
+check : String -> Bool -> ProgramTest model msg -> ProgramTest model msg
+check labelText isChecked (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -2611,7 +2630,7 @@ check fieldId label isChecked (ProgramTest state) =
                             | error =
                                 Just
                                     ("check \""
-                                        ++ fieldId
+                                        ++ labelText
                                         ++ "\": Cannot interact while BackendTask data is still resolving."
                                     )
                         }
@@ -2623,82 +2642,121 @@ check fieldId label isChecked (ProgramTest state) =
                             renderScopedView ready
 
                         stepLabel =
-                            "check \"" ++ fieldId ++ "\" \"" ++ label ++ "\""
+                            "check \""
+                                ++ labelText
+                                ++ "\" "
+                                ++ (if isChecked then
+                                        "True"
 
-                        -- Strategy 1: <label for="fieldId"> with matching text
-                        forLabelResult : Expectation
-                        forLabelResult =
+                                    else
+                                        "False"
+                                   )
+
+                        labelSelectors =
+                            [ Selector.tag "label"
+                            , Selector.containing [ Selector.text labelText ]
+                            ]
+
+                        -- Check for ambiguous labels
+                        hasMultipleLabels : Bool
+                        hasMultipleLabels =
                             query
-                                |> Query.find
-                                    [ Selector.tag "label"
-                                    , Selector.attribute (Html.Attributes.for fieldId)
-                                    , Selector.text label
-                                    ]
-                                |> Query.has []
-
-                        -- Strategy 2: <label> wrapping both the input and the text
-                        wrappingLabelResult : Expectation
-                        wrappingLabelResult =
-                            query
-                                |> Query.find
-                                    [ Selector.tag "label"
-                                    , Selector.containing [ Selector.id fieldId ]
-                                    , Selector.containing [ Selector.text label ]
-                                    ]
-                                |> Query.has []
-
-                        labelFound =
-                            getFailureMessage forLabelResult
-                                == Nothing
-                                || getFailureMessage wrappingLabelResult
-                                == Nothing
-
-                        inputQuery : Query.Single msg
-                        inputQuery =
-                            query
-                                |> Query.find [ Selector.id fieldId ]
-
-                        eventResult : Result String msg
-                        eventResult =
-                            inputQuery
-                                |> Event.simulate (Event.check isChecked)
-                                |> Event.toResult
+                                |> Query.findAll labelSelectors
+                                |> Query.count (Expect.atMost 1)
+                                |> (\expectation -> getFailureMessage expectation /= Nothing)
                     in
-                    if not labelFound then
+                    if hasMultipleLabels then
                         ProgramTest
                             { state
                                 | error =
                                     Just
                                         (stepLabel
-                                            ++ " failed: Could not find label \""
-                                            ++ label
-                                            ++ "\" associated with #"
-                                            ++ fieldId
-                                            ++ "."
+                                            ++ " failed: found multiple labels with that text. Use `withinFind` to scope to the section containing the checkbox you want."
                                         )
                             }
 
                     else
-                        case eventResult of
-                            Ok msg ->
-                                applyMsgWithLabel
-                                    stepLabel
-                                    Interaction
-                                    (Just (ById fieldId))
-                                    msg
-                                    (ProgramTest state)
+                    -- Strategy 1: <label for="id"> with matching text (separate label)
+                    case extractAttribute "for" query labelSelectors of
+                        Ok fieldId ->
+                            let
+                                inputQuery =
+                                    query |> Query.find [ Selector.id fieldId ]
 
-                            Err errMsg ->
-                                ProgramTest
-                                    { state
-                                        | error =
-                                            Just
-                                                ("check \""
-                                                    ++ fieldId
-                                                    ++ "\" failed:\n\n"
-                                                    ++ errMsg
-                                                )
-                                    }
+                                eventResult =
+                                    inputQuery
+                                        |> Event.simulate (Event.check isChecked)
+                                        |> Event.toResult
+                            in
+                            case eventResult of
+                                Ok msg ->
+                                    applyMsgWithLabel
+                                        stepLabel
+                                        Interaction
+                                        (Just (ByLabelText labelText))
+                                        msg
+                                        (ProgramTest state)
+
+                                Err errMsg ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just (stepLabel ++ " failed:\n\n" ++ errMsg)
+                                        }
+
+                        Err _ ->
+                            -- Strategy 2: <label> wrapping both the input and text
+                            let
+                                wrappingLabelQuery =
+                                    query
+                                        |> Query.find
+                                            [ Selector.tag "label"
+                                            , Selector.containing [ Selector.text labelText ]
+                                            , Selector.containing [ Selector.tag "input" ]
+                                            ]
+
+                                wrappingLabelExists =
+                                    wrappingLabelQuery |> Query.has []
+                            in
+                            case getFailureMessage wrappingLabelExists of
+                                Just _ ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just
+                                                    (stepLabel
+                                                        ++ " failed: Could not find a <label> with text \""
+                                                        ++ labelText
+                                                        ++ "\" that either has a `for` attribute or wraps a checkbox input."
+                                                    )
+                                        }
+
+                                Nothing ->
+                                    let
+                                        inputQuery =
+                                            wrappingLabelQuery
+                                                |> Query.find [ Selector.tag "input" ]
+
+                                        eventResult =
+                                            inputQuery
+                                                |> Event.simulate (Event.check isChecked)
+                                                |> Event.toResult
+                                    in
+                                    case eventResult of
+                                        Ok msg ->
+                                            applyMsgWithLabel
+                                                stepLabel
+                                                Interaction
+                                                (Just (ByLabelText labelText))
+                                                msg
+                                                (ProgramTest state)
+
+                                        Err errMsg ->
+                                            ProgramTest
+                                                { state
+                                                    | error =
+                                                        Just (stepLabel ++ " failed:\n\n" ++ errMsg)
+                                                }
 
 
 
