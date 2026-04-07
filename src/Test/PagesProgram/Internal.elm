@@ -38,6 +38,7 @@ type alias Snapshot =
     , assertionSelectors : List AssertionSelector
     , scopeSelectors : List (List AssertionSelector)
     , fetcherLog : List FetcherEntry
+    , groupLabel : Maybe String
     }
 
 

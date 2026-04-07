@@ -1231,9 +1231,14 @@ viewCommandLogSidebar model =
                 ]
             )
         , Html.div [ Attr.class "sidebar-steps", Attr.id "sidebar-steps" ]
-            (snapshots
-                |> List.indexedMap
-                    (\i snapshot ->
+            (let
+                namedGroupStartSet =
+                    computeNamedGroupStarts snapshots
+             in
+             snapshots
+                |> List.indexedMap Tuple.pair
+                |> List.concatMap
+                    (\( i, snapshot ) ->
                         let
                             isChild =
                                 isChildStep i snapshots
@@ -1242,19 +1247,45 @@ viewCommandLogSidebar model =
                                 childCount i snapshots
 
                             isGroupParent =
-                                not isChild && numChildren > 0
+                                not isChild && numChildren > 0 && snapshot.stepKind /= Assertion
 
                             isExpanded =
                                 Set.member i model.expandedGroups
 
                             isHiddenChild =
                                 isChild && not (Set.member (parentOfChild i snapshots) model.expandedGroups)
-                        in
-                        if isHiddenChild then
-                            Html.text ""
 
-                        else
-                            viewStepRow i snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (failureCauseIndex == Just i) isChild isGroupParent isExpanded numChildren
+                            isNamedGroupStart =
+                                Set.member i namedGroupStartSet
+
+                            namedGroupKey =
+                                -(i + 1)
+
+                            isNamedGroupExpanded =
+                                Set.member namedGroupKey model.expandedGroups
+
+                            hiddenByGroup =
+                                isHiddenByNamedGroup i snapshots model.expandedGroups
+
+                            groupHeader =
+                                if isNamedGroupStart then
+                                    [ viewNamedGroupHeader i
+                                        (Maybe.withDefault "" snapshot.groupLabel)
+                                        isNamedGroupExpanded
+                                        (namedGroupChildCount i snapshots)
+                                    ]
+
+                                else
+                                    []
+
+                            stepRow =
+                                if isHiddenChild || hiddenByGroup then
+                                    []
+
+                                else
+                                    [ viewStepRow i snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (failureCauseIndex == Just i) isChild isGroupParent isExpanded numChildren ]
+                        in
+                        groupHeader ++ stepRow
                     )
             )
         ]
@@ -2290,7 +2321,19 @@ isChildStep i snapshots =
     else
         case List.drop i snapshots |> List.head of
             Just s ->
-                s.stepKind == Assertion
+                if s.stepKind /= Assertion then
+                    False
+
+                else
+                    -- Don't treat as child if the parent would be in a different named group
+                    let
+                        parentIdx =
+                            parentOfChildHelp (i - 1) snapshots
+
+                        parentGroupLabel =
+                            snapshots |> List.drop parentIdx |> List.head |> Maybe.andThen .groupLabel
+                    in
+                    s.groupLabel == parentGroupLabel
 
             Nothing ->
                 False
@@ -2301,14 +2344,25 @@ non-child step).
 -}
 parentOfChild : Int -> List Snapshot -> Int
 parentOfChild i snapshots =
+    parentOfChildHelp i snapshots
+
+
+parentOfChildHelp : Int -> List Snapshot -> Int
+parentOfChildHelp i snapshots =
     if i <= 0 then
         0
 
-    else if not (isChildStep i snapshots) then
-        i
-
     else
-        parentOfChild (i - 1) snapshots
+        case List.drop i snapshots |> List.head of
+            Just s ->
+                if s.stepKind == Assertion then
+                    parentOfChildHelp (i - 1) snapshots
+
+                else
+                    i
+
+            Nothing ->
+                i
 
 
 {-| Find the next non-child step index at or after the given index.
@@ -2367,6 +2421,9 @@ nextVisibleStepHelp original current maxIndex snapshots expanded =
     else if isChildStep next snapshots && not (Set.member (parentOfChild next snapshots) expanded) then
         nextVisibleStepHelp original next maxIndex snapshots expanded
 
+    else if isHiddenByNamedGroup next snapshots expanded then
+        nextVisibleStepHelp original next maxIndex snapshots expanded
+
     else
         next
 
@@ -2392,6 +2449,9 @@ prevVisibleStepHelp original current snapshots expanded =
         -- Child of a collapsed group: skip past it
         prevVisibleStepHelp original prev snapshots expanded
 
+    else if isHiddenByNamedGroup prev snapshots expanded then
+        prevVisibleStepHelp original prev snapshots expanded
+
     else
         prev
 
@@ -2401,11 +2461,15 @@ given parent index.
 -}
 childCount : Int -> List Snapshot -> Int
 childCount parentIndex snapshots =
+    let
+        parentGroupLabel =
+            snapshots |> List.drop parentIndex |> List.head |> Maybe.andThen .groupLabel
+    in
     snapshots
         |> List.drop (parentIndex + 1)
         |> List.foldl
             (\s ( count, continue ) ->
-                if continue && s.stepKind == Assertion then
+                if continue && s.stepKind == Assertion && s.groupLabel == parentGroupLabel then
                     ( count + 1, True )
 
                 else
@@ -2414,6 +2478,146 @@ childCount parentIndex snapshots =
             ( 0, True )
         |> Tuple.first
 
+
+
+{-| Check if a step is hidden because its named group is collapsed.
+-}
+isHiddenByNamedGroup : Int -> List Snapshot -> Set Int -> Bool
+isHiddenByNamedGroup i snapshots expanded =
+    case snapshots |> List.drop i |> List.head |> Maybe.andThen .groupLabel of
+        Just _ ->
+            let
+                groupStart =
+                    namedGroupStart i snapshots
+            in
+            not (Set.member (-(groupStart + 1)) expanded)
+
+        Nothing ->
+            False
+
+
+{-| Compute the set of snapshot indices that start a new named group.
+-}
+computeNamedGroupStarts : List Snapshot -> Set Int
+computeNamedGroupStarts snapshots =
+    snapshots
+        |> List.indexedMap Tuple.pair
+        |> List.foldl
+            (\( i, snap ) acc ->
+                case snap.groupLabel of
+                    Just name ->
+                        let
+                            prevLabel =
+                                if i == 0 then
+                                    Nothing
+
+                                else
+                                    snapshots
+                                        |> List.drop (i - 1)
+                                        |> List.head
+                                        |> Maybe.andThen .groupLabel
+                        in
+                        if prevLabel /= Just name then
+                            Set.insert i acc
+
+                        else
+                            acc
+
+                    Nothing ->
+                        acc
+            )
+            Set.empty
+
+
+{-| Find the index of the first snapshot in the same named group.
+-}
+namedGroupStart : Int -> List Snapshot -> Int
+namedGroupStart i snapshots =
+    let
+        targetLabel =
+            snapshots
+                |> List.drop i
+                |> List.head
+                |> Maybe.andThen .groupLabel
+    in
+    case targetLabel of
+        Nothing ->
+            i
+
+        Just label ->
+            namedGroupStartHelp (i - 1) label snapshots
+
+
+namedGroupStartHelp : Int -> String -> List Snapshot -> Int
+namedGroupStartHelp i label snapshots =
+    if i < 0 then
+        0
+
+    else
+        case snapshots |> List.drop i |> List.head |> Maybe.andThen .groupLabel of
+            Just l ->
+                if l == label then
+                    namedGroupStartHelp (i - 1) label snapshots
+
+                else
+                    i + 1
+
+            Nothing ->
+                i + 1
+
+
+{-| Count snapshots in a named group starting at the given index.
+-}
+namedGroupChildCount : Int -> List Snapshot -> Int
+namedGroupChildCount startIndex snapshots =
+    let
+        targetLabel =
+            snapshots
+                |> List.drop startIndex
+                |> List.head
+                |> Maybe.andThen .groupLabel
+    in
+    case targetLabel of
+        Nothing ->
+            0
+
+        Just label ->
+            snapshots
+                |> List.drop startIndex
+                |> List.foldl
+                    (\s ( count, continue ) ->
+                        if continue && s.groupLabel == Just label then
+                            ( count + 1, True )
+
+                        else
+                            ( count, False )
+                    )
+                    ( 0, True )
+                |> Tuple.first
+
+
+{-| Render a named group header row.
+-}
+viewNamedGroupHeader : Int -> String -> Bool -> Int -> Html Msg
+viewNamedGroupHeader groupStartIndex name isExpanded count =
+    Html.div
+        [ Attr.class "named-group-header"
+        , Html.Events.onClick (ToggleGroup (-(groupStartIndex + 1)))
+        ]
+        [ Html.span [ Attr.class "named-group-icon" ]
+            [ Html.text
+                (if isExpanded then
+                    "\u{25BE}"
+
+                 else
+                    "\u{25B8}"
+                )
+            ]
+        , Html.span [ Attr.class "named-group-name" ]
+            [ Html.text name ]
+        , Html.span [ Attr.class "named-group-count" ]
+            [ Html.text (String.fromInt count) ]
+        ]
 
 
 -- CSS
@@ -2810,6 +3014,45 @@ body {
 .step-group-toggle:hover {
     background: rgba(126, 231, 135, 0.2);
     color: #7ee787;
+}
+
+/* Named group headers */
+
+.named-group-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    background: rgba(76, 201, 240, 0.04);
+    border-left: 3px solid #0f3460;
+    font-size: 11px;
+    color: #8899aa;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.named-group-header:hover {
+    background: rgba(76, 201, 240, 0.08);
+}
+
+.named-group-icon {
+    font-size: 10px;
+    color: #556677;
+}
+
+.named-group-name {
+    font-weight: 600;
+    color: #6ba3c0;
+}
+
+.named-group-count {
+    margin-left: auto;
+    font-size: 10px;
+    color: #556677;
+    background: rgba(76, 201, 240, 0.1);
+    padding: 1px 6px;
+    border-radius: 3px;
 }
 
 /* === MAIN PANEL === */

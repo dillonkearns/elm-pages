@@ -268,48 +268,39 @@ optimisticUiTest =
     in
     startLoggedInWithTodos todosResponse
         |> ensureItemsLeft 2
-        ---------------------------------------------------------------
-        -- Rapid-fire user actions, no server responses yet
-        ---------------------------------------------------------------
-        |> deleteTodo "Write tests"
-        |> toggleTodo "Buy milk"
-        |> toggleTodo "Walk the dog"
-        |> toggleTodo "Buy milk"
-        ---------------------------------------------------------------
-        -- Assert optimistic state while everything is still in-flight
-        ---------------------------------------------------------------
-        -- "Write tests" is gone (deleted)
-        |> PagesProgram.ensureViewHasNot [ PSelector.value "Write tests" ]
-        -- "Buy milk" is still incomplete (toggled twice = net no change)
-        |> PagesProgram.withinFind
-            [ PSelector.tag "li", PSelector.containing [ PSelector.value "Buy milk" ] ]
-            (PagesProgram.ensureViewHasNot [ PSelector.class "completed" ])
-        -- "Walk the dog" is now complete (toggled once)
-        |> PagesProgram.withinFind
-            [ PSelector.tag "li", PSelector.containing [ PSelector.value "Walk the dog" ] ]
-            (PagesProgram.ensureViewHas [ PSelector.class "completed" ])
-        |> ensureItemsLeft 1
-        ---------------------------------------------------------------
-        -- Resolve all in-flight actions; stale data reloads are
-        -- implicitly cancelled (like Remix), only the final one
-        -- needs a response.
-        ---------------------------------------------------------------
-        |> PagesProgram.simulateCustom "deleteTodo" Encode.null
-        |> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-        |> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-        |> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-        |> PagesProgram.simulateCustom "getTodosBySession" finalServerState
-        ---------------------------------------------------------------
-        -- Server-confirmed state matches optimistic prediction
-        ---------------------------------------------------------------
-        |> PagesProgram.ensureViewHasNot [ PSelector.value "Write tests" ]
-        |> PagesProgram.withinFind
-            [ PSelector.tag "li", PSelector.containing [ PSelector.value "Buy milk" ] ]
-            (PagesProgram.ensureViewHasNot [ PSelector.class "completed" ])
-        |> PagesProgram.withinFind
-            [ PSelector.tag "li", PSelector.containing [ PSelector.value "Walk the dog" ] ]
-            (PagesProgram.ensureViewHas [ PSelector.class "completed" ])
-        |> ensureItemsLeft 1
+        |> PagesProgram.group "Rapid-fire user actions"
+            (deleteTodo "Write tests"
+                >> toggleTodo "Buy milk"
+                >> toggleTodo "Walk the dog"
+                >> toggleTodo "Buy milk"
+            )
+        |> PagesProgram.group "Verify optimistic state"
+            (PagesProgram.ensureViewHasNot [ PSelector.value "Write tests" ]
+                >> PagesProgram.withinFind
+                    [ PSelector.tag "li", PSelector.containing [ PSelector.value "Buy milk" ] ]
+                    (PagesProgram.ensureViewHasNot [ PSelector.class "completed" ])
+                >> PagesProgram.withinFind
+                    [ PSelector.tag "li", PSelector.containing [ PSelector.value "Walk the dog" ] ]
+                    (PagesProgram.ensureViewHas [ PSelector.class "completed" ])
+                >> ensureItemsLeft 1
+            )
+        |> PagesProgram.group "Resolve server responses"
+            (PagesProgram.simulateCustom "deleteTodo" Encode.null
+                >> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                >> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                >> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                >> PagesProgram.simulateCustom "getTodosBySession" finalServerState
+            )
+        |> PagesProgram.group "Verify server-confirmed state"
+            (PagesProgram.ensureViewHasNot [ PSelector.value "Write tests" ]
+                >> PagesProgram.withinFind
+                    [ PSelector.tag "li", PSelector.containing [ PSelector.value "Buy milk" ] ]
+                    (PagesProgram.ensureViewHasNot [ PSelector.class "completed" ])
+                >> PagesProgram.withinFind
+                    [ PSelector.tag "li", PSelector.containing [ PSelector.value "Walk the dog" ] ]
+                    (PagesProgram.ensureViewHas [ PSelector.class "completed" ])
+                >> ensureItemsLeft 1
+            )
 
 
 {-| Create a new todo: type a description in the input, press Enter

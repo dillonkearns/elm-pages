@@ -5,7 +5,7 @@ module Test.PagesProgram exposing
     , simulateDomEvent
     , ensureViewHas, ensureViewHasNot, ensureView
     , expectViewHas, expectViewHasNot, expectView
-    , within, withinFind
+    , within, withinFind, group
     , navigateTo, ensureBrowserUrl, expectBrowserUrl
     , ensureBrowserHistory, expectBrowserHistory
     , simulateCustom
@@ -135,6 +135,11 @@ making our apps accessible and usable.
 ## Scoping
 
 @docs within, withinFind
+
+
+## Grouping
+
+@docs group
 
 
 ## Navigation
@@ -416,6 +421,7 @@ start config =
                       , assertionSelectors = []
                       , scopeSelectors = []
                       , fetcherLog = []
+                      , groupLabel = Nothing
                       }
                     ]
 
@@ -435,6 +441,7 @@ start config =
                       , assertionSelectors = []
                       , scopeSelectors = []
                       , fetcherLog = []
+                      , groupLabel = Nothing
                       }
                     ]
     in
@@ -1120,6 +1127,7 @@ startPlatform simulateEffect config initialPath testSetup =
                               , assertionSelectors = []
                               , scopeSelectors = []
                               , fetcherLog = []
+                              , groupLabel = Nothing
                               }
                             ]
 
@@ -2993,6 +3001,49 @@ withinInternal maybeLabel maybeScopeSelectors scopeFn action (ProgramTest state)
                         }
 
 
+{-| Group a sequence of test steps under a named label. The visual test runner
+renders groups as collapsible sections in the command log sidebar.
+
+    myTest
+        |> PagesProgram.group "Log in"
+            (PagesProgram.fillIn "email" "Email" "alice@example.com"
+                >> PagesProgram.fillIn "password" "Password" "secret"
+                >> PagesProgram.clickButton "Log In"
+            )
+        |> PagesProgram.group "Create todos"
+            (PagesProgram.fillIn "new-todo" "description" "Buy milk"
+                >> PagesProgram.clickButton "Add"
+            )
+
+-}
+group : String -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
+group name pipeline (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            let
+                startIndex =
+                    List.length state.snapshots
+
+                (ProgramTest innerState) =
+                    pipeline (ProgramTest state)
+
+                updatedSnapshots =
+                    innerState.snapshots
+                        |> List.indexedMap
+                            (\i snap ->
+                                if i >= startIndex then
+                                    { snap | groupLabel = Just name }
+
+                                else
+                                    snap
+                            )
+            in
+            ProgramTest { innerState | snapshots = updatedSnapshots }
+
+
 {-| Render the view and apply the current viewScope for querying.
 -}
 renderScopedView : ReadyState model msg -> Query.Single msg
@@ -3107,6 +3158,7 @@ toSnapshots (ProgramTest state) =
                      , assertionSelectors = []
                      , scopeSelectors = []
                      , fetcherLog = []
+                      , groupLabel = Nothing
                      }
                    ]
 
@@ -3584,6 +3636,7 @@ makeSnapshot label kind target assertionSels ready modelToString fetcherExtracto
     , assertionSelectors = assertionSels
     , scopeSelectors = ready.scopeSelectors
     , fetcherLog = fetcherLog
+    , groupLabel = Nothing
     }
 
 
