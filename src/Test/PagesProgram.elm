@@ -1310,7 +1310,11 @@ is currently pending.
 -}
 ensurePendingCustom : String -> ProgramTest model msg -> ProgramTest model msg
 ensurePendingCustom portName (ProgramTest state) =
-    ensurePendingRequest "ensurePendingCustom" (\r -> r.url == ("elm-pages-internal://custom/" ++ portName)) portName (ProgramTest state)
+    ensurePendingRequest
+        "ensurePendingCustom"
+        (\r -> r.url == "elm-pages-internal://port" && pendingPortName r == Just portName)
+        portName
+        (ProgramTest state)
 
 
 ensurePendingRequest : String -> ({ url : String, method : String, headers : List ( String, String ), body : Maybe String } -> Bool) -> String -> ProgramTest model msg -> ProgramTest model msg
@@ -1371,15 +1375,7 @@ gatherAllPendingRequestDetails state =
                             (\bt ->
                                 case BackendTaskTest.fromBackendTask bt of
                                     BackendTaskTest.Running runningState ->
-                                        runningState.pendingRequests
-                                            |> List.map
-                                                (\req ->
-                                                    { url = req.url
-                                                    , method = req.method
-                                                    , headers = req.headers
-                                                    , body = Nothing
-                                                    }
-                                                )
+                                        List.map requestToDetails runningState.pendingRequests
 
                                     _ ->
                                         []
@@ -1393,6 +1389,18 @@ gatherAllPendingRequestDetails state =
                     )
     in
     phaseDetails ++ fetcherDetails
+
+
+pendingPortName : { url : String, method : String, headers : List ( String, String ), body : Maybe String } -> Maybe String
+pendingPortName request =
+    case request.body of
+        Just body ->
+            body
+                |> Json.Decode.decodeString (Json.Decode.field "portName" Json.Decode.string)
+                |> Result.toMaybe
+
+        Nothing ->
+            Nothing
 
 
 {-| Select an option from a dropdown `<select>` element. The framework

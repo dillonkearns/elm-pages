@@ -1,6 +1,7 @@
 module PagesProgramTest exposing (all)
 
 import BackendTask
+import BackendTask.Custom
 import BackendTask.Http
 import CookieJar
 import Dict
@@ -1229,6 +1230,23 @@ all =
                         |> PagesProgram.ensurePendingHttpGet "https://api.example.com/wrong-url"
                         |> PagesProgram.done
                         |> expectFailContaining "wrong-url"
+            ]
+        , describe "ensurePendingCustom"
+            [ test "passes when a custom BackendTask port is pending" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.Custom.run "getTodos"
+                                Encode.null
+                                Decode.string
+                                |> BackendTask.allowFatal
+                        , init = \todos -> ( { todos = todos }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "Todos", body = [ Html.text model.todos ] }
+                        }
+                        |> PagesProgram.ensurePendingCustom "getTodos"
+                        |> PagesProgram.simulateCustom "getTodos" (Encode.string "[]")
+                        |> PagesProgram.done
             ]
         , describe "simulateHttpError"
             [ test "simulates a network error on data loading" <|
