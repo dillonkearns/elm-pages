@@ -1264,10 +1264,10 @@ all =
                                 }
                         }
                         |> PagesProgram.ensureViewHas [ PSelector.text "Selected: red" ]
-                        |> PagesProgram.selectOption "color-select" "Favorite Color" "blue" "Blue"
+                        |> PagesProgram.selectOption "Favorite Color" "Blue"
                         |> PagesProgram.ensureViewHas [ PSelector.text "Selected: blue" ]
                         |> PagesProgram.done
-            , test "selectOption fails when select element not found" <|
+            , test "selectOption fails when no label matches" <|
                 \() ->
                     PagesProgram.start
                         { data = BackendTask.succeed ()
@@ -1275,10 +1275,10 @@ all =
                         , update = \_ model -> ( model, [] )
                         , view = \_ _ -> { title = "Home", body = [ Html.text "No selects" ] }
                         }
-                        |> PagesProgram.selectOption "missing" "Missing" "val" "text"
+                        |> PagesProgram.selectOption "Missing" "text"
                         |> PagesProgram.done
                         |> expectFailContaining "selectOption"
-            , test "selectOption fails when the associated label does not match" <|
+            , test "selectOption fails when the option text does not exist" <|
                 \() ->
                     PagesProgram.start
                         { data = BackendTask.succeed ()
@@ -1304,36 +1304,7 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.selectOption "color-select" "Wrong Label" "blue" "Blue"
-                        |> PagesProgram.done
-                        |> expectFailContaining "Wrong Label"
-            , test "selectOption fails when the option text/value pair does not exist" <|
-                \() ->
-                    PagesProgram.start
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { color = "red" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    SelectColor c ->
-                                        ( { model | color = c }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Colors"
-                                , body =
-                                    [ Html.label [ Attr.for "color-select" ] [ Html.text "Favorite Color" ]
-                                    , Html.select
-                                        [ Attr.id "color-select"
-                                        , Html.Events.onInput SelectColor
-                                        ]
-                                        [ Html.option [ Attr.value "red" ] [ Html.text "Red" ]
-                                        , Html.option [ Attr.value "blue" ] [ Html.text "Blue" ]
-                                        ]
-                                    , Html.text ("Selected: " ++ model.color)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.selectOption "color-select" "Favorite Color" "blue" "Not Blue"
+                        |> PagesProgram.selectOption "Favorite Color" "Not Blue"
                         |> PagesProgram.done
                         |> expectFailContaining "Not Blue"
             ]
@@ -2031,7 +2002,7 @@ all =
                         , update = \_ model -> ( model, [] )
                         , view = \_ _ -> { title = "Home", body = [ Html.text "No select" ] }
                         }
-                        |> PagesProgram.selectOption "missing" "Label" "val" "text"
+                        |> PagesProgram.selectOption "Label" "text"
                         |> PagesProgram.done
                         |> expectFailContaining "selectOption"
             ]

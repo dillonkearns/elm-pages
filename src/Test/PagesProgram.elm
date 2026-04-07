@@ -1279,16 +1279,17 @@ simulateHttpPostTo targetUrl jsonResponse =
     applySimulationToUrl targetUrl (SimHttpPost targetUrl jsonResponse)
 
 
-{-| Select an option from a dropdown `<select>` element. Follows elm-program-test's
-API: provide the element ID, label text, option value, and option text.
+{-| Select an option from a dropdown `<select>` element. The framework
+finds the `<select>` by its label text and the `<option>` by its display
+text -- just what the user sees, no IDs or internal values needed.
 
-    PagesProgram.start counterConfig
-        |> PagesProgram.selectOption "color-select" "Favorite Color" "blue" "Blue"
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.selectOption "Favorite Color" "Blue"
         |> PagesProgram.ensureViewHas [ Selector.text "Selected: blue" ]
 
 -}
-selectOption : String -> String -> String -> String -> ProgramTest model msg -> ProgramTest model msg
-selectOption fieldId label optionValue optionText (ProgramTest state) =
+selectOption : String -> String -> ProgramTest model msg -> ProgramTest model msg
+selectOption labelText optionText (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -1301,7 +1302,9 @@ selectOption fieldId label optionValue optionText (ProgramTest state) =
                             | error =
                                 Just
                                     ("selectOption \""
-                                        ++ fieldId
+                                        ++ labelText
+                                        ++ "\" \""
+                                        ++ optionText
                                         ++ "\": Cannot interact while BackendTask data is still resolving."
                                     )
                         }
@@ -1313,148 +1316,181 @@ selectOption fieldId label optionValue optionText (ProgramTest state) =
                             renderScopedView ready
 
                         stepLabel =
-                            "selectOption \"" ++ fieldId ++ "\" \"" ++ optionText ++ "\""
+                            "selectOption \"" ++ labelText ++ "\" \"" ++ optionText ++ "\""
 
-                        labelResult : Expectation
-                        labelResult =
+                        -- Step 1: Find the <label> by text
+                        labelSelectors =
+                            [ Selector.tag "label"
+                            , Selector.containing [ Selector.text labelText ]
+                            ]
+
+                        labelExists =
                             query
-                                |> Query.find
-                                    [ Selector.tag "label"
-                                    , Selector.attribute (Html.Attributes.for fieldId)
-                                    , Selector.text label
-                                    ]
+                                |> Query.find labelSelectors
                                 |> Query.has []
-
-                        selectQuery : Query.Single msg
-                        selectQuery =
-                            query
-                                |> Query.find
-                                    [ Selector.tag "select"
-                                    , Selector.id fieldId
-                                    ]
-
-                        selectResult : Expectation
-                        selectResult =
-                            selectQuery
-                                |> Query.has []
-
-                        optionResult : Expectation
-                        optionResult =
-                            selectQuery
-                                |> Query.find
-                                    [ Selector.tag "option"
-                                    , Selector.attribute (Html.Attributes.value optionValue)
-                                    , Selector.text optionText
-                                    ]
-                                |> Query.has []
-
-                        changeEventResult : Result String msg
-                        changeEventResult =
-                            selectQuery
-                                |> Event.simulate
-                                    ( "change"
-                                    , Encode.object
-                                        [ ( "target"
-                                          , Encode.object
-                                                [ ( "value", Encode.string optionValue )
-                                                ]
-                                          )
-                                        ]
-                                    )
-                                |> Event.toResult
-
-                        eventResult : Result String msg
-                        eventResult =
-                            case changeEventResult of
-                                Ok msg ->
-                                    Ok msg
-
-                                Err changeErr ->
-                                    if String.contains "does not listen for \"change\" events" changeErr then
-                                        selectQuery
-                                            |> Event.simulate (Event.input optionValue)
-                                            |> Event.toResult
-                                            |> Result.mapError
-                                                (\inputErr ->
-                                                    if String.contains "does not listen for \"input\" events" inputErr then
-                                                        changeErr ++ "\n\nTried input fallback too:\n" ++ inputErr
-
-                                                    else
-                                                        inputErr
-                                                )
-
-                                    else
-                                        Err changeErr
                     in
-                    case getFailureMessage labelResult of
+                    case getFailureMessage labelExists of
                         Just failMsg ->
                             ProgramTest
                                 { state
                                     | error =
                                         Just
                                             (stepLabel
-                                                ++ " failed: Could not find label \""
-                                                ++ label
-                                                ++ "\" associated with #"
-                                                ++ fieldId
-                                                ++ ".\n\n"
+                                                ++ " failed: Could not find a <label> with text \""
+                                                ++ labelText
+                                                ++ "\".\n\n"
                                                 ++ failMsg
                                             )
                                 }
 
                         Nothing ->
-                            case getFailureMessage selectResult of
-                                Just failMsg ->
+                            -- Step 2: Extract the `for` attribute from the label
+                            case extractAttribute "for" query labelSelectors of
+                                Err extractErr ->
                                     ProgramTest
                                         { state
                                             | error =
                                                 Just
                                                     (stepLabel
-                                                        ++ " failed: Could not find <select id=\""
-                                                        ++ fieldId
-                                                        ++ "\">.\n\n"
-                                                        ++ failMsg
+                                                        ++ " failed: Found a <label> with text \""
+                                                        ++ labelText
+                                                        ++ "\" but it has no `for` attribute.\n\n"
+                                                        ++ extractErr
                                                     )
                                         }
 
-                                Nothing ->
-                                    case getFailureMessage optionResult of
+                                Ok fieldId ->
+                                    -- Step 3: Find the <select> by the extracted ID
+                                    let
+                                        selectQuery =
+                                            query
+                                                |> Query.find
+                                                    [ Selector.tag "select"
+                                                    , Selector.id fieldId
+                                                    ]
+
+                                        selectResult =
+                                            selectQuery |> Query.has []
+                                    in
+                                    case getFailureMessage selectResult of
                                         Just failMsg ->
                                             ProgramTest
                                                 { state
                                                     | error =
                                                         Just
                                                             (stepLabel
-                                                                ++ " failed: Could not find an <option> with value \""
-                                                                ++ optionValue
-                                                                ++ "\" and text \""
-                                                                ++ optionText
-                                                                ++ "\".\n\n"
+                                                                ++ " failed: Found <label for=\""
+                                                                ++ fieldId
+                                                                ++ "\">, but no <select id=\""
+                                                                ++ fieldId
+                                                                ++ "\"> exists.\n\n"
                                                                 ++ failMsg
                                                             )
                                                 }
 
                                         Nothing ->
-                                            case eventResult of
-                                                Ok msg ->
-                                                    applyMsgWithLabel
-                                                        stepLabel
-                                                        Interaction
-                                                        (Just (ById fieldId))
-                                                        msg
-                                                        (ProgramTest state)
+                                            -- Step 4: Find the <option> by text
+                                            let
+                                                optionSelectors =
+                                                    [ Selector.tag "option"
+                                                    , Selector.containing [ Selector.text optionText ]
+                                                    ]
 
-                                                Err errMsg ->
+                                                optionExists =
+                                                    selectQuery
+                                                        |> Query.find optionSelectors
+                                                        |> Query.has []
+                                            in
+                                            case getFailureMessage optionExists of
+                                                Just failMsg ->
                                                     ProgramTest
                                                         { state
                                                             | error =
                                                                 Just
-                                                                    ("selectOption \""
-                                                                        ++ fieldId
-                                                                        ++ "\" failed:\n\n"
-                                                                        ++ errMsg
+                                                                    (stepLabel
+                                                                        ++ " failed: Could not find an <option> with text \""
+                                                                        ++ optionText
+                                                                        ++ "\".\n\n"
+                                                                        ++ failMsg
                                                                     )
                                                         }
+
+                                                Nothing ->
+                                                    -- Step 5: Extract the value from the option.
+                                                    -- Use forced failure on the specific option element.
+                                                    let
+                                                        optionQuery =
+                                                            selectQuery
+                                                                |> Query.find optionSelectors
+
+                                                        optionValueResult =
+                                                            extractAttributeFromElement "value" optionQuery
+                                                    in
+                                                    case optionValueResult of
+                                                        Err _ ->
+                                                            -- No value attribute -- use the option text as value
+                                                            -- (matches browser behavior: <option>Foo</option> has value "Foo")
+                                                            selectOptionWithValue stepLabel fieldId optionText selectQuery state
+
+                                                        Ok optionValue ->
+                                                            selectOptionWithValue stepLabel fieldId optionValue selectQuery state
+
+
+selectOptionWithValue : String -> String -> String -> Query.Single msg -> State model msg -> ProgramTest model msg
+selectOptionWithValue stepLabel fieldId optionValue selectQuery state =
+    let
+        changeEventResult =
+            selectQuery
+                |> Event.simulate
+                    ( "change"
+                    , Encode.object
+                        [ ( "target"
+                          , Encode.object
+                                [ ( "value", Encode.string optionValue )
+                                ]
+                          )
+                        ]
+                    )
+                |> Event.toResult
+
+        eventResult =
+            case changeEventResult of
+                Ok msg ->
+                    Ok msg
+
+                Err changeErr ->
+                    if String.contains "does not listen for \"change\" events" changeErr then
+                        selectQuery
+                            |> Event.simulate (Event.input optionValue)
+                            |> Event.toResult
+                            |> Result.mapError
+                                (\inputErr ->
+                                    if String.contains "does not listen for \"input\" events" inputErr then
+                                        changeErr ++ "\n\nTried input fallback too:\n" ++ inputErr
+
+                                    else
+                                        inputErr
+                                )
+
+                    else
+                        Err changeErr
+    in
+    case eventResult of
+        Ok msg ->
+            applyMsgWithLabel
+                stepLabel
+                Interaction
+                (Just (ByLabelText fieldId))
+                msg
+                (ProgramTest state)
+
+        Err errMsg ->
+            ProgramTest
+                { state
+                    | error =
+                        Just
+                            (stepLabel ++ " failed:\n\n" ++ errMsg)
+                }
 
 
 {-| Simulate a DOM event on a targeted element. This is the escape hatch
@@ -3972,20 +4008,19 @@ resolveDataPhase bt initFn viewFn updateFn =
                 )
 
 
-{-| Extract the href attribute from a link element in the virtual DOM.
+{-| Extract an attribute value from a DOM element found by selectors.
 
 Uses a forced-failure technique: we assert an impossible condition on the
-found element, then parse the href from the failure message which contains
-the rendered HTML. This works around elm-html-test's limitation of not
-exposing attribute values.
+found element, then parse the attribute from the failure message which
+contains the rendered HTML. This works around elm-html-test's limitation
+of not exposing attribute values.
 
 -}
-extractHrefFromLink : Query.Single msg -> List Selector.Selector -> Result String String
-extractHrefFromLink query selectors =
+extractAttribute : String -> Query.Single msg -> List Selector.Selector -> Result String String
+extractAttribute attrName query selectors =
     let
-        -- Force a failure by looking for impossible text in the found element
         marker =
-            "elm-pages-internal-href-extract-impossible-marker-7f3a9b2e"
+            "elm-pages-internal-attr-extract-impossible-marker-7f3a9b2e"
 
         forcedFailure : Expectation
         forcedFailure =
@@ -3995,12 +4030,106 @@ extractHrefFromLink query selectors =
     in
     case Test.Runner.getFailureReason forcedFailure of
         Nothing ->
-            -- The impossible marker matched?! This should never happen.
             Err "Internal error: forced failure did not fail"
 
         Just reason ->
-            extractHrefFromHtml reason.description
+            -- elm-html-test renders some attributes with their JS property name
+            -- (e.g. "for" becomes "htmlFor", "class" becomes "className").
+            let
+                jsName =
+                    case attrName of
+                        "for" ->
+                            "htmlFor"
 
+                        "class" ->
+                            "className"
+
+                        other ->
+                            other
+
+                -- Only parse from the matched element in the Query.find section.
+                -- The format is "1)  <tag attr=\"val\">" -- look for "1)" to find
+                -- just the single matched element, avoiding siblings.
+                findSection =
+                    findSubstringBetween "\n    1)" "\n\n" reason.description
+                        |> Maybe.withDefault
+                            (findSubstringBetween "Query.find" "\n\n\n" reason.description
+                                |> Maybe.withDefault reason.description
+                            )
+            in
+            case findSubstringBetween (attrName ++ "=\"") "\"" findSection of
+                Just value ->
+                    Ok value
+
+                Nothing ->
+                    case findSubstringBetween (jsName ++ "=\"") "\"" findSection of
+                        Just value ->
+                            Ok value
+
+                        Nothing ->
+                            Err ("Could not find " ++ attrName ++ " attribute in element HTML")
+
+
+{-| Extract an attribute from an already-found element (Query.Single).
+Forces a failure directly on the element to get its HTML.
+-}
+extractAttributeFromElement : String -> Query.Single msg -> Result String String
+extractAttributeFromElement attrName element =
+    let
+        marker =
+            "elm-pages-internal-attr-extract-impossible-marker-7f3a9b2e"
+
+        forcedFailure : Expectation
+        forcedFailure =
+            element
+                |> Query.has [ Selector.text marker ]
+
+        jsName =
+            case attrName of
+                "for" ->
+                    "htmlFor"
+
+                "class" ->
+                    "className"
+
+                other ->
+                    other
+    in
+    case Test.Runner.getFailureReason forcedFailure of
+        Nothing ->
+            Err "Internal error: forced failure did not fail"
+
+        Just reason ->
+            -- For a Query.Single (already found element), the description
+            -- contains the element HTML after "Query.has". Parse from the
+            -- last Query.find section, or fall back to full description.
+            let
+                -- Look for the innermost Query.find result
+                sections =
+                    String.split "▼ Query.find" reason.description
+
+                lastSection =
+                    sections
+                        |> List.reverse
+                        |> List.head
+                        |> Maybe.withDefault reason.description
+            in
+            case findSubstringBetween (attrName ++ "=\"") "\"" lastSection of
+                Just value ->
+                    Ok value
+
+                Nothing ->
+                    case findSubstringBetween (jsName ++ "=\"") "\"" lastSection of
+                        Just value ->
+                            Ok value
+
+                        Nothing ->
+                            Err ("Could not find " ++ attrName ++ " attribute")
+
+
+extractHrefFromLink : Query.Single msg -> List Selector.Selector -> Result String String
+extractHrefFromLink query selectors =
+    extractAttribute "href" query selectors
 
 
 {-| Find all occurrences of substrings between two markers. -}
@@ -4033,26 +4162,6 @@ findAllSubstringsHelper startMarker endMarker haystack acc =
                             String.dropLeft (endIndex + String.length endMarker) afterStart
                     in
                     findAllSubstringsHelper startMarker endMarker rest (found :: acc)
-
-
-{-| Parse an href attribute value from an HTML string in a failure description.
-The failure description from elm-html-test contains rendered HTML like:
-
-    <a href="/about" class="nav-link">
-        About
-    </a>
-
-We look for `href="..."` in the output.
-
--}
-extractHrefFromHtml : String -> Result String String
-extractHrefFromHtml description =
-    case findSubstringBetween "href=\"" "\"" description of
-        Just href ->
-            Ok href
-
-        Nothing ->
-            Err ("Could not find href attribute in element HTML:\n\n" ++ description)
 
 
 {-| Find the substring between two markers in a string.
