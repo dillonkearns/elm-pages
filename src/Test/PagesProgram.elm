@@ -10,6 +10,7 @@ module Test.PagesProgram exposing
     , ensureBrowserHistory, expectBrowserHistory
     , simulateCustom
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
+    , ensurePendingHttpGet, ensurePendingHttpPost, ensurePendingCustom
     , withSimulatedSubscriptions, simulateIncomingPort
     , Snapshot, toSnapshots, withModelInspector
     , start, startWithEffects, startPlatform
@@ -158,6 +159,11 @@ form actions, or BackendTask effects returned from `update`.
 @docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
 
 @docs simulateCustom
+
+
+## Asserting on pending requests
+
+@docs ensurePendingHttpGet, ensurePendingHttpPost, ensurePendingCustom
 
 
 ## Subscriptions and incoming ports
@@ -1263,6 +1269,130 @@ pending URL matches.
 simulateHttpPostTo : String -> Encode.Value -> ProgramTest model msg -> ProgramTest model msg
 simulateHttpPostTo targetUrl jsonResponse =
     applySimulationToUrl targetUrl (SimHttpPost targetUrl jsonResponse)
+
+
+
+-- PENDING REQUEST ASSERTIONS
+
+
+{-| Assert that a GET request to the given URL is currently pending.
+Use this before `simulateHttpGet` to verify the right request was made.
+
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.ensurePendingHttpGet "https://api.example.com/user"
+        |> PagesProgram.simulateHttpGet "https://api.example.com/user" response
+
+-}
+ensurePendingHttpGet : String -> ProgramTest model msg -> ProgramTest model msg
+ensurePendingHttpGet url (ProgramTest state) =
+    ensurePendingRequest "ensurePendingHttpGet" (\r -> r.method == "GET" && r.url == url) url (ProgramTest state)
+
+
+{-| Assert that a POST request to the given URL is currently pending.
+
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.ensurePendingHttpPost "https://api.example.com/submit"
+        |> PagesProgram.simulateHttpPost "https://api.example.com/submit" response
+
+-}
+ensurePendingHttpPost : String -> ProgramTest model msg -> ProgramTest model msg
+ensurePendingHttpPost url (ProgramTest state) =
+    ensurePendingRequest "ensurePendingHttpPost" (\r -> r.method == "POST" && r.url == url) url (ProgramTest state)
+
+
+{-| Assert that a `BackendTask.Custom.run` call with the given port name
+is currently pending.
+
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.ensurePendingCustom "getTodos"
+        |> PagesProgram.simulateCustom "getTodos" response
+
+-}
+ensurePendingCustom : String -> ProgramTest model msg -> ProgramTest model msg
+ensurePendingCustom portName (ProgramTest state) =
+    ensurePendingRequest "ensurePendingCustom" (\r -> r.url == ("elm-pages-internal://custom/" ++ portName)) portName (ProgramTest state)
+
+
+ensurePendingRequest : String -> ({ url : String, method : String, headers : List ( String, String ), body : Maybe String } -> Bool) -> String -> ProgramTest model msg -> ProgramTest model msg
+ensurePendingRequest callerName predicate target (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            let
+                allPending =
+                    gatherAllPendingRequestDetails state
+
+                found =
+                    List.any predicate allPending
+            in
+            if found then
+                ProgramTest state
+
+            else
+                let
+                    pendingList =
+                        allPending
+                            |> List.map (\r -> "  " ++ r.method ++ " " ++ r.url)
+                            |> String.join "\n"
+
+                    pendingMsg =
+                        if List.isEmpty allPending then
+                            "No requests are currently pending."
+
+                        else
+                            "Currently pending requests:\n" ++ pendingList
+                in
+                ProgramTest
+                    { state
+                        | error =
+                            Just
+                                (callerName
+                                    ++ " \""
+                                    ++ target
+                                    ++ "\" failed: no matching request is pending.\n\n"
+                                    ++ pendingMsg
+                                )
+                    }
+
+
+gatherAllPendingRequestDetails : State model msg -> List { url : String, method : String, headers : List ( String, String ), body : Maybe String }
+gatherAllPendingRequestDetails state =
+    let
+        phaseDetails =
+            case state.phase of
+                Resolving (Resolver r) ->
+                    r.pendingRequestDetails
+
+                Ready ready ->
+                    ready.pendingEffects
+                        |> List.concatMap
+                            (\bt ->
+                                case BackendTaskTest.fromBackendTask bt of
+                                    BackendTaskTest.Running runningState ->
+                                        runningState.pendingRequests
+                                            |> List.map
+                                                (\req ->
+                                                    { url = req.url
+                                                    , method = req.method
+                                                    , headers = req.headers
+                                                    , body = Nothing
+                                                    }
+                                                )
+
+                                    _ ->
+                                        []
+                            )
+
+        fetcherDetails =
+            state.pendingFetcherEffects
+                |> List.concatMap
+                    (\(Resolver r) ->
+                        r.pendingRequestDetails
+                    )
+    in
+    phaseDetails ++ fetcherDetails
 
 
 {-| Select an option from a dropdown `<select>` element. The framework

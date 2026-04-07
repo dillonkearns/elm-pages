@@ -1185,6 +1185,51 @@ all =
                         |> PagesProgram.done
                         |> expectFailContaining "not currently subscribed"
             ]
+        , describe "ensurePendingHttpGet"
+            [ test "passes when a GET request to the URL is pending" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.Http.getJson
+                                "https://api.example.com/user"
+                                (Decode.field "name" Decode.string)
+                                |> BackendTask.allowFatal
+                        , init = \name -> ( { name = name }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                        }
+                        |> PagesProgram.ensurePendingHttpGet "https://api.example.com/user"
+                        |> PagesProgram.simulateHttpGet
+                            "https://api.example.com/user"
+                            (Encode.object [ ( "name", Encode.string "Alice" ) ])
+                        |> PagesProgram.done
+            , test "fails when no GET request to the URL is pending" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed "static"
+                        , init = \name -> ( { name = name }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                        }
+                        |> PagesProgram.ensurePendingHttpGet "https://api.example.com/user"
+                        |> PagesProgram.done
+                        |> expectFailContaining "https://api.example.com/user"
+            , test "fails when the URL is wrong" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.Http.getJson
+                                "https://api.example.com/user"
+                                (Decode.field "name" Decode.string)
+                                |> BackendTask.allowFatal
+                        , init = \name -> ( { name = name }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                        }
+                        |> PagesProgram.ensurePendingHttpGet "https://api.example.com/wrong-url"
+                        |> PagesProgram.done
+                        |> expectFailContaining "wrong-url"
+            ]
         , describe "simulateHttpError"
             [ test "simulates a network error on data loading" <|
                 \() ->
