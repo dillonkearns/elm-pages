@@ -302,7 +302,7 @@ all =
                             )
                         |> PagesProgram.ensureViewHas [ PSelector.text "Stars: 1234" ]
                         |> PagesProgram.done
-            , test "simulateHttpGet works for client-side effects (not just data loading)" <|
+            , test "simulateHttpGet works for BackendTask effects from update (not just data loading)" <|
                 \() ->
                     PagesProgram.start
                         { data = BackendTask.succeed ()

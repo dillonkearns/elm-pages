@@ -154,7 +154,7 @@ making our apps accessible and usable.
 When a `BackendTask` makes an HTTP request or calls a custom port, the
 test pauses until you provide a simulated response. These functions work
 regardless of where the `BackendTask` originated -- route data loading,
-form actions, or client-side effects from `update`.
+form actions, or BackendTask effects returned from `update`.
 
 @docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
 
@@ -1186,7 +1186,7 @@ startPlatform simulateEffect config initialPath testSetup =
 
 {-| Provide a simulated JSON response for a pending HTTP GET request.
 Works for any pending `BackendTask.Http` request -- route data loading,
-form actions, or client-side effects from `update`.
+form actions, or BackendTask effects returned from `update`.
 
     TestApp.start "/" BackendTaskTest.init
         |> PagesProgram.simulateHttpGet
@@ -2765,7 +2765,7 @@ on what request was made before responding:
 
 For the common case of just providing an HTTP response, prefer
 [`simulateHttpGet`](#simulateHttpGet) or [`simulateHttpPost`](#simulateHttpPost)
-which work for both data loading and client-side effects.
+which work for all pending `BackendTask.Http` requests.
 
 -}
 resolveBackendTask :
@@ -3537,7 +3537,7 @@ applySimulation sim (ProgramTest state) =
                                     ProgramTest { state | error = Just ("Fetcher effect resolution failed:\n\n" ++ errMsg) }
 
                         [] ->
-                            -- No fetcher effects. Check for pending client-side effects
+                            -- No fetcher effects. Check for pending BackendTask effects from update
                             -- (BackendTasks returned from update).
                             case ready.pendingEffects of
                                 bt :: rest ->
