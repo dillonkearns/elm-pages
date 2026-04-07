@@ -151,27 +151,19 @@ making our apps accessible and usable.
 
 ## Simulating BackendTask responses
 
-When a `BackendTask` in your route's `data` or `action` makes an HTTP request
-or calls a custom port, the test pauses until you provide a simulated response.
+When a `BackendTask` makes an HTTP request or calls a custom port, the
+test pauses until you provide a simulated response. These functions work
+regardless of where the `BackendTask` originated -- route data loading,
+form actions, or client-side effects from `update`.
+
+@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
 
 @docs simulateCustom
 
 @docs resolveBackendTask
 
 
-## Client-side TEA (buildWithLocalState / buildWithSharedState)
-
-If your route uses `buildWithLocalState` or `buildWithSharedState`, it has
-its own `Model`, `update`, and `Msg`. The user interactions above (clicks,
-form input, etc.) automatically dispatch messages through your update function.
-
-When your `update` returns an `Effect` that triggers an HTTP request (via
-`BackendTask.Http`), use these functions to provide simulated responses.
-This requires an `Effect.testPerform` function in your Effect module
-that maps your Effect type to [`SimulatedEffect`](Test-PagesProgram-SimulatedEffect).
-The default Effect module template includes this.
-
-@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
+## Subscriptions and incoming ports
 
 @docs withSimulatedSubscriptions, simulateIncomingPort
 
@@ -1192,14 +1184,11 @@ startPlatform simulateEffect config initialPath testSetup =
 -- SIMULATION
 
 
-{-| Simulate a pending HTTP GET request resolving with the given JSON response
-body. Applies to whichever BackendTask is currently pending (data loading or
-action handling).
+{-| Provide a simulated JSON response for a pending HTTP GET request.
+Works for any pending `BackendTask.Http` request -- route data loading,
+form actions, or client-side effects from `update`.
 
-    PagesProgram.start
-        { data = BackendTask.Http.getJson "https://api.example.com/user" userDecoder
-        , ...
-        }
+    TestApp.start "/" BackendTaskTest.init
         |> PagesProgram.simulateHttpGet
             "https://api.example.com/user"
             (Encode.object [ ( "name", Encode.string "Alice" ) ])
@@ -2763,20 +2752,20 @@ check labelText isChecked (ProgramTest state) =
 -- EFFECT RESOLUTION
 
 
-{-| Resolve a pending BackendTask effect using the full `Test.BackendTask` API.
-When `init` or `update` returns a BackendTask effect, use this to simulate the
-external dependency and feed the result back through `update`.
+{-| Resolve a pending BackendTask effect from `update` using the full
+[`Test.BackendTask`](Test-BackendTask) API. This is the escape hatch for
+when you need more than just providing a response -- for example, asserting
+on what request was made before responding:
 
-    import Test.BackendTask as BackendTaskTest
-
-    PagesProgram.start fetchConfig
-        |> PagesProgram.clickButton "Fetch"
-        |> PagesProgram.resolveBackendTask
-            (BackendTaskTest.simulateHttpGet
-                "https://api.example.com/data"
+    |> PagesProgram.resolveBackendTask
+        (BackendTaskTest.ensureHttpGet "https://api.example.com/data"
+            >> BackendTaskTest.simulateHttpGet "https://api.example.com/data"
                 (Encode.list Encode.string [ "a", "b" ])
-            )
-        |> PagesProgram.ensureViewHas [ Selector.text "a" ]
+        )
+
+For the common case of just providing an HTTP response, prefer
+[`simulateHttpGet`](#simulateHttpGet) or [`simulateHttpPost`](#simulateHttpPost)
+which work for both data loading and client-side effects.
 
 -}
 resolveBackendTask :
@@ -3534,7 +3523,7 @@ applySimulation sim (ProgramTest state) =
                             advanceResolverOrError Backend Nothing sim state resolver
 
                 Ready ready ->
-                    -- No navigation/action HTTP pending. Check for pending fetcher effects.
+                    -- No navigation/action HTTP pending. Check for pending fetcher effects first.
                     case state.pendingFetcherEffects of
                         ((Resolver _) as fetcherResolver) :: restFetchers ->
                             case advanceResolver Backend (Just ready.model) sim state fetcherResolver of
@@ -3548,16 +3537,92 @@ applySimulation sim (ProgramTest state) =
                                     ProgramTest { state | error = Just ("Fetcher effect resolution failed:\n\n" ++ errMsg) }
 
                         [] ->
-                            ProgramTest
-                                { state
-                                    | error =
-                                        Just
-                                            (simulationCallerName sim
-                                                ++ " "
-                                                ++ simulationUrl sim
-                                                ++ ": No pending HTTP request to resolve. The app is not currently waiting for any HTTP responses."
-                                            )
-                                }
+                            -- No fetcher effects. Check for pending client-side effects
+                            -- (BackendTasks returned from update).
+                            case ready.pendingEffects of
+                                bt :: rest ->
+                                    let
+                                        testResult : Result String msg
+                                        testResult =
+                                            bt
+                                                |> BackendTaskTest.fromBackendTask
+                                                |> applySimToBt sim
+                                                |> BackendTaskTest.toResult
+                                    in
+                                    case testResult of
+                                        Ok msg ->
+                                            let
+                                                updateResult =
+                                                    ready.update msg ready.model
+
+                                                stepLabel =
+                                                    simulationCallerName sim ++ " " ++ simulationUrl sim
+                                            in
+                                            case updateResult.pendingPhase of
+                                                Just pendingPhase ->
+                                                    ProgramTest
+                                                        { state
+                                                            | phase = pendingPhase
+                                                            , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
+                                                            , lastReadyModel = Just updateResult.model
+                                                            , snapshots =
+                                                                state.snapshots
+                                                                    ++ [ makeSnapshot stepLabel EffectResolution Nothing [] { ready | model = updateResult.model } state.modelToString state.fetcherExtractor state.networkLog ]
+                                                        }
+
+                                                Nothing ->
+                                                    let
+                                                        newReady =
+                                                            { ready
+                                                                | model = updateResult.model
+                                                                , pendingEffects = rest ++ updateResult.effects
+                                                            }
+
+                                                        updatedLog =
+                                                            state.networkLog
+                                                                |> List.map
+                                                                    (\entry ->
+                                                                        if entry.status == Pending then
+                                                                            { entry | status = Stubbed, stepIndex = List.length state.snapshots }
+
+                                                                        else
+                                                                            entry
+                                                                    )
+                                                    in
+                                                    ProgramTest
+                                                        { state
+                                                            | phase = Ready newReady
+                                                            , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
+                                                            , snapshots =
+                                                                state.snapshots
+                                                                    ++ [ makeSnapshot stepLabel EffectResolution Nothing [] newReady state.modelToString state.fetcherExtractor updatedLog ]
+                                                            , networkLog = updatedLog
+                                                        }
+
+                                        Err errMsg ->
+                                            ProgramTest
+                                                { state
+                                                    | error =
+                                                        Just
+                                                            (simulationCallerName sim
+                                                                ++ " "
+                                                                ++ simulationUrl sim
+                                                                ++ " failed:\n\n"
+                                                                ++ errMsg
+                                                            )
+                                                }
+
+                                [] ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just
+                                                    (simulationCallerName sim
+                                                        ++ " "
+                                                        ++ simulationUrl sim
+                                                        ++ ": No pending HTTP request to resolve. The app is not currently waiting for any HTTP responses."
+                                                    )
+                                        }
 
 
 simulationCallerName : Simulation -> String

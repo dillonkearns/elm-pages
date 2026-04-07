@@ -302,6 +302,45 @@ all =
                             )
                         |> PagesProgram.ensureViewHas [ PSelector.text "Stars: 1234" ]
                         |> PagesProgram.done
+            , test "simulateHttpGet works for client-side effects (not just data loading)" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { stars = Nothing }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    FetchStars ->
+                                        ( model
+                                        , [ BackendTask.Http.getJson
+                                                "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                (Decode.field "stargazers_count" Decode.int)
+                                                |> BackendTask.allowFatal
+                                                |> BackendTask.map GotStars
+                                          ]
+                                        )
+
+                                    GotStars count ->
+                                        ( { model | stars = Just count }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Stars"
+                                , body =
+                                    [ case model.stars of
+                                        Nothing ->
+                                            Html.button [ Html.Events.onClick FetchStars ] [ Html.text "Load Stars" ]
+
+                                        Just count ->
+                                            Html.text ("Stars: " ++ String.fromInt count)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "Load Stars"
+                        |> PagesProgram.simulateHttpGet
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            (Encode.object [ ( "stargazers_count", Encode.int 5678 ) ])
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Stars: 5678" ]
+                        |> PagesProgram.done
             ]
         , describe "check"
             [ test "checking a checkbox updates the view" <|
