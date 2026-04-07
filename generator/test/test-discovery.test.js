@@ -200,7 +200,7 @@ responsiveTest =
         response.text()
       );
 
-      assert.match(viewerHtml, /__test-viewer-preview/);
+      assert.match(viewerHtml, /_tests-preview/);
       assert.match(previewHtml, /name="transformed" content="yes"/);
       assert.deepStrictEqual(transformed && transformed.url, TEST_VIEWER_PREVIEW_ROUTE);
       assert.match(scriptText, /viewer loaded/);

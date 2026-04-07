@@ -6,7 +6,7 @@ module PageTests exposing
     )
 
 {-| Rich page tests for the end-to-end example.
-View in browser: elm-pages dev, then open localhost:1234/__test-viewer
+View in browser: elm-pages dev, then open localhost:1234/_tests
 -}
 
 import BackendTask

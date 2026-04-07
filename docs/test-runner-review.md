@@ -147,7 +147,7 @@ Evidence:
 
 - `generator/src/cli.js:129-149` splits `elm-pages test` (TUI stepper) from `elm-pages test-view` (browser viewer).
 - The only tracked "how to open the visual runner" note I found is the inline comment in `examples/end-to-end/tests/PageTests.elm:8-10`.
-- I did not find README or docs pages that explain the relationship between `elm-pages test`, `elm-pages test-view`, and `elm-pages dev` + `/__test-viewer`.
+- I did not find README or docs pages that explain the relationship between `elm-pages test`, `elm-pages test-view`, and `elm-pages dev` + `/_tests`.
 
 Practical consequences:
 
