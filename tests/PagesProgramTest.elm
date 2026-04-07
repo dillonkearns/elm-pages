@@ -836,6 +836,39 @@ all =
                         |> PagesProgram.clickButton "Submit"
                         |> PagesProgram.ensureViewHas [ PSelector.text "Clicked!" ]
                         |> PagesProgram.done
+            , test "clickButtonWith fails on disabled button" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { clicked = False }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Increment ->
+                                        ( { model | clicked = True }, [] )
+
+                                    Decrement ->
+                                        ( model, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Form"
+                                , body =
+                                    [ Html.button
+                                        [ Attr.class "submit-btn"
+                                        , Attr.disabled True
+                                        , Html.Events.onClick Increment
+                                        ]
+                                        [ Html.text "Submit" ]
+                                    , if model.clicked then
+                                        Html.text "Should not appear!"
+                                      else
+                                        Html.text ""
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButtonWith [ PSelector.class "submit-btn" ]
+                        |> PagesProgram.done
+                        |> expectFailContaining "disabled"
             ]
         , describe "ambiguous button detection"
             [ test "clickButton fails when multiple buttons match" <|
@@ -1751,72 +1784,7 @@ all =
                         |> PagesProgram.done
             ]
         , describe "clickLink"
-            [ test "clickLink fails when link text not found" <|
-                \() ->
-                    PagesProgram.start
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Page"
-                                , body = [ Html.text "No links here" ]
-                                }
-                        }
-                        |> PagesProgram.clickLink "Go somewhere" "/somewhere"
-                        |> PagesProgram.done
-                        |> expectFailContaining "clickLink"
-            , test "clickLink fails when the href does not match the rendered link" <|
-                \() ->
-                    PagesProgram.start
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { page = "home" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Navigate url ->
-                                        ( { model | page = url }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Nav"
-                                , body =
-                                    [ Html.a
-                                        [ Attr.href "/team"
-                                        , Html.Events.onClick (Navigate "/team")
-                                        ]
-                                        [ Html.text "About" ]
-                                    , Html.text ("Page: " ++ model.page)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickLink "About" "/about"
-                        |> PagesProgram.done
-                        |> expectFailContaining "no link with href"
-            , test "clickLink fails instead of silently succeeding when the link cannot navigate" <|
-                \() ->
-                    PagesProgram.start
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { page = "home" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Navigate url ->
-                                        ( { model | page = url }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Nav"
-                                , body =
-                                    [ Html.a
-                                        [ Attr.href "/about" ]
-                                        [ Html.text "About" ]
-                                    , Html.text ("Page: " ++ model.page)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickLink "About" "/about"
-                        |> PagesProgram.done
-                        |> expectFailContaining "no navigation handler or click handler found"
-            , test "clickLink finds link by text and simulates click" <|
+            [ test "clickLink extracts href from DOM and navigates" <|
                 \() ->
                     PagesProgram.start
                         { data = BackendTask.succeed ()
@@ -1839,9 +1807,68 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.clickLink "About" "/about"
+                        |> PagesProgram.clickLink "About"
                         |> PagesProgram.ensureViewHas [ PSelector.text "Page: /about" ]
                         |> PagesProgram.done
+            , test "clickLink fails when link text not found" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Page"
+                                , body = [ Html.text "No links here" ]
+                                }
+                        }
+                        |> PagesProgram.clickLink "Go somewhere"
+                        |> PagesProgram.done
+                        |> expectFailContaining "clickLink"
+            , test "clickLink navigates using href from the DOM, not user-supplied" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { page = "home" }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    Navigate url ->
+                                        ( { model | page = url }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Nav"
+                                , body =
+                                    [ Html.a
+                                        [ Attr.href "/the-real-href"
+                                        , Html.Events.onClick (Navigate "/the-real-href")
+                                        ]
+                                        [ Html.text "Click me" ]
+                                    , Html.text ("Page: " ++ model.page)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickLink "Click me"
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Page: /the-real-href" ]
+                        |> PagesProgram.done
+            , test "clickLink fails when no <a> element has the given text" <|
+                \() ->
+                    PagesProgram.start
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Nav"
+                                , body =
+                                    [ Html.a [ Attr.href "/about" ] [ Html.text "About" ]
+                                    , Html.span [] [ Html.text "Not a link" ]
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickLink "Not a link"
+                        |> PagesProgram.done
+                        |> expectFailContaining "clickLink"
             ]
         , describe "navigateTo"
             [ test "navigateTo fails without startPlatform" <|

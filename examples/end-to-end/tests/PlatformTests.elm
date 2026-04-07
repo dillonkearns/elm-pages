@@ -39,13 +39,13 @@ suite =
             \() ->
                 TestApp.start "/links" BackendTaskTest.init
                     |> PagesProgram.ensureViewHas [ PSelector.text "Links Page" ]
-                    |> PagesProgram.clickLink "Go to Counter" "/counter"
+                    |> PagesProgram.clickLink "Go to Counter"
                     |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
                     |> PagesProgram.done
         , test "navigate and then interact" <|
             \() ->
                 TestApp.start "/links" BackendTaskTest.init
-                    |> PagesProgram.clickLink "Go to Counter" "/counter"
+                    |> PagesProgram.clickLink "Go to Counter"
                     |> PagesProgram.clickButton "+"
                     |> PagesProgram.clickButton "+"
                     |> PagesProgram.ensureViewHas [ PSelector.text "Count: 2" ]

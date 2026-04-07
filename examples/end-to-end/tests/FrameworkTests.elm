@@ -52,7 +52,7 @@ navigationTest =
         |> PagesProgram.ensureBrowserUrl
             (\url -> url |> Expect.equal "https://localhost:1234/links")
         |> PagesProgram.ensureViewHas [ PSelector.text "Links Page" ]
-        |> PagesProgram.clickLink "Go to Counter" "/counter"
+        |> PagesProgram.clickLink "Go to Counter"
         |> PagesProgram.ensureBrowserUrl
             (\url -> url |> Expect.equal "https://localhost:1234/counter")
         |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
@@ -62,7 +62,7 @@ navigateAndInteractTest : TestApp.ProgramTest
 navigateAndInteractTest =
     TestApp.start "/links" BackendTaskTest.init
         |> PagesProgram.ensureViewHas [ PSelector.text "Links Page" ]
-        |> PagesProgram.clickLink "Go to Counter" "/counter"
+        |> PagesProgram.clickLink "Go to Counter"
         |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
         |> PagesProgram.clickButton "+"
         |> PagesProgram.clickButton "+"

@@ -1842,6 +1842,27 @@ clickButtonWith selectors (ProgramTest state) =
                         buttonSelectors =
                             Selector.tag "button" :: htmlSelectors
 
+                        -- Check for disabled button first (elm-program-test pattern)
+                        disabledButtonExists : Bool
+                        disabledButtonExists =
+                            query
+                                |> Query.has
+                                    (buttonSelectors ++ [ Selector.disabled True ])
+                                |> (\expectation -> getFailureMessage expectation == Nothing)
+                    in
+                    if disabledButtonExists then
+                        ProgramTest
+                            { state
+                                | error =
+                                    Just
+                                        ("clickButtonWith "
+                                            ++ PSelector.toLabel selectors
+                                            ++ " failed: the button is disabled."
+                                        )
+                            }
+
+                    else
+                    let
                         buttonQuery =
                             query |> Query.find buttonSelectors
 
@@ -2101,10 +2122,18 @@ fillInTextarea newContent (ProgramTest state) =
                                 }
 
 
-{-| Simulate clicking a link with the given text and href.
+{-| Simulate clicking a link with the given text. Finds the `<a>` element
+by text content, extracts the `href` from the rendered DOM, and triggers
+navigation. You don't need to provide the href -- the test framework reads
+it from the view, just like a real browser would.
+
+    PagesProgram.start counterConfig
+        |> PagesProgram.clickLink "About"
+        |> PagesProgram.ensureBrowserUrl (\url -> url |> String.contains "/about" |> Expect.true "")
+
 -}
-clickLink : String -> String -> ProgramTest model msg -> ProgramTest model msg
-clickLink linkText href (ProgramTest state) =
+clickLink : String -> ProgramTest model msg -> ProgramTest model msg
+clickLink linkText (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -2131,7 +2160,6 @@ clickLink linkText href (ProgramTest state) =
                         linkSelectors : List Selector.Selector
                         linkSelectors =
                             [ Selector.tag "a"
-                            , Selector.attribute (Html.Attributes.href href)
                             , Selector.containing [ Selector.text linkText ]
                             ]
 
@@ -2144,80 +2172,69 @@ clickLink linkText href (ProgramTest state) =
                     in
                     case getFailureMessage linkExists of
                         Just errMsg ->
-                            let
-                                sameTextLinkExists =
-                                    query
-                                        |> Query.find
-                                            [ Selector.tag "a"
-                                            , Selector.containing [ Selector.text linkText ]
-                                            ]
-                                        |> Query.has []
-                            in
-                            case getFailureMessage sameTextLinkExists of
-                                Nothing ->
-                                    ProgramTest
-                                        { state
-                                            | error =
-                                                Just
-                                                    ("clickLink \""
-                                                        ++ linkText
-                                                        ++ "\" failed: found link text, but no link with href \""
-                                                        ++ href
-                                                        ++ "\"\n\n"
-                                                        ++ errMsg
-                                                    )
-                                        }
-
-                                Just _ ->
-                                    ProgramTest
-                                        { state
-                                            | error =
-                                                Just
-                                                    ("clickLink \""
-                                                        ++ linkText
-                                                        ++ "\" failed: link not found\n\n"
-                                                        ++ errMsg
-                                                    )
-                                        }
+                            ProgramTest
+                                { state
+                                    | error =
+                                        Just
+                                            ("clickLink \""
+                                                ++ linkText
+                                                ++ "\" failed: link not found\n\n"
+                                                ++ errMsg
+                                            )
+                                }
 
                         Nothing ->
-                            -- Link exists. Navigate using onNavigate if available.
-                            case ready.onNavigate of
-                                Just navigate ->
-                                    applyMsgWithLabel
-                                        ("clickLink \"" ++ linkText ++ "\"")
-                                        Interaction
-                                        (Just (ByTagAndText "a" linkText))
-                                        (navigate href)
-                                        (ProgramTest state)
+                            -- Link exists. Extract the href from the DOM.
+                            case extractHrefFromLink query linkSelectors of
+                                Err extractErr ->
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just
+                                                    ("clickLink \""
+                                                        ++ linkText
+                                                        ++ "\" failed: could not extract href from link element.\n\n"
+                                                        ++ extractErr
+                                                    )
+                                        }
 
-                                Nothing ->
-                                    -- No navigation handler (old API). Try event simulation.
-                                    let
-                                        linkQuery =
-                                            query
-                                                |> Query.find linkSelectors
+                                Ok href ->
+                                    case ready.onNavigate of
+                                        Just navigate ->
+                                            applyMsgWithLabel
+                                                ("clickLink \"" ++ linkText ++ "\"")
+                                                Interaction
+                                                (Just (ByTagAndText "a" linkText))
+                                                (navigate href)
+                                                (ProgramTest state)
 
-                                        eventResult =
-                                            linkQuery
-                                                |> Event.simulate Event.click
-                                                |> Event.toResult
-                                    in
-                                    case eventResult of
-                                        Ok msg ->
-                                            applyMsgWithLabel ("clickLink \"" ++ linkText ++ "\"") Interaction (Just (ByTagAndText "a" linkText)) msg (ProgramTest state)
+                                        Nothing ->
+                                            -- No navigation handler (old API). Try event simulation.
+                                            let
+                                                linkQuery =
+                                                    query
+                                                        |> Query.find linkSelectors
 
-                                        Err clickErr ->
-                                            ProgramTest
-                                                { state
-                                                    | error =
-                                                        Just
-                                                            ("clickLink \""
-                                                                ++ linkText
-                                                                ++ "\" failed: no navigation handler or click handler found.\n"
-                                                                ++ clickErr
-                                                            )
-                                                }
+                                                eventResult =
+                                                    linkQuery
+                                                        |> Event.simulate Event.click
+                                                        |> Event.toResult
+                                            in
+                                            case eventResult of
+                                                Ok msg ->
+                                                    applyMsgWithLabel ("clickLink \"" ++ linkText ++ "\"") Interaction (Just (ByTagAndText "a" linkText)) msg (ProgramTest state)
+
+                                                Err clickErr ->
+                                                    ProgramTest
+                                                        { state
+                                                            | error =
+                                                                Just
+                                                                    ("clickLink \""
+                                                                        ++ linkText
+                                                                        ++ "\" failed: no navigation handler or click handler found.\n"
+                                                                        ++ clickErr
+                                                                    )
+                                                        }
 
 
 {-| Navigate directly to a URL path. In framework-driven tests, this triggers
@@ -3881,6 +3898,78 @@ resolveDataPhase bt initFn viewFn updateFn =
                     , pendingRequestDetails = []
                     }
                 )
+
+
+{-| Extract the href attribute from a link element in the virtual DOM.
+
+Uses a forced-failure technique: we assert an impossible condition on the
+found element, then parse the href from the failure message which contains
+the rendered HTML. This works around elm-html-test's limitation of not
+exposing attribute values.
+
+-}
+extractHrefFromLink : Query.Single msg -> List Selector.Selector -> Result String String
+extractHrefFromLink query selectors =
+    let
+        -- Force a failure by looking for impossible text in the found element
+        marker =
+            "elm-pages-internal-href-extract-impossible-marker-7f3a9b2e"
+
+        forcedFailure : Expectation
+        forcedFailure =
+            query
+                |> Query.find selectors
+                |> Query.has [ Selector.text marker ]
+    in
+    case Test.Runner.getFailureReason forcedFailure of
+        Nothing ->
+            -- The impossible marker matched?! This should never happen.
+            Err "Internal error: forced failure did not fail"
+
+        Just reason ->
+            extractHrefFromHtml reason.description
+
+
+{-| Parse an href attribute value from an HTML string in a failure description.
+The failure description from elm-html-test contains rendered HTML like:
+
+    <a href="/about" class="nav-link">
+        About
+    </a>
+
+We look for `href="..."` in the output.
+
+-}
+extractHrefFromHtml : String -> Result String String
+extractHrefFromHtml description =
+    case findSubstringBetween "href=\"" "\"" description of
+        Just href ->
+            Ok href
+
+        Nothing ->
+            Err ("Could not find href attribute in element HTML:\n\n" ++ description)
+
+
+{-| Find the substring between two markers in a string.
+Returns the content between the first occurrence of `start` and the next `end` after it.
+-}
+findSubstringBetween : String -> String -> String -> Maybe String
+findSubstringBetween startMarker endMarker haystack =
+    case String.indexes startMarker haystack of
+        [] ->
+            Nothing
+
+        firstIndex :: _ ->
+            let
+                afterStart =
+                    String.dropLeft (firstIndex + String.length startMarker) haystack
+            in
+            case String.indexes endMarker afterStart of
+                [] ->
+                    Nothing
+
+                endIndex :: _ ->
+                    Just (String.left endIndex afterStart)
 
 
 getFailureMessage : Expectation -> Maybe String

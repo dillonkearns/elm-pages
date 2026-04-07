@@ -402,21 +402,21 @@ filterViewTest =
         |> PagesProgram.ensureViewHas [ PSelector.value "Write tests" ]
         |> PagesProgram.ensureViewHas [ PSelector.value "Walk the dog" ]
         -- Click "Active" filter
-        |> PagesProgram.clickLink "Active" "/./active"
+        |> PagesProgram.clickLink "Active"
         |> PagesProgram.simulateCustom "getTodosBySession" todosResponse
         -- Active view: only incomplete items
         |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
         |> PagesProgram.ensureViewHasNot [ PSelector.value "Write tests" ]
         |> PagesProgram.ensureViewHas [ PSelector.value "Walk the dog" ]
         -- Click "Completed" filter
-        |> PagesProgram.clickLink "Completed" "/./completed"
+        |> PagesProgram.clickLink "Completed"
         |> PagesProgram.simulateCustom "getTodosBySession" todosResponse
         -- Completed view: only completed items
         |> PagesProgram.ensureViewHasNot [ PSelector.value "Buy milk" ]
         |> PagesProgram.ensureViewHas [ PSelector.value "Write tests" ]
         |> PagesProgram.ensureViewHasNot [ PSelector.value "Walk the dog" ]
         -- Click "All" to go back
-        |> PagesProgram.clickLink "All" "/."
+        |> PagesProgram.clickLink "All"
         |> PagesProgram.simulateCustom "getTodosBySession" todosResponse
         -- All view again: everything visible
         |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
