@@ -30,8 +30,8 @@ import {
 } from "../file-helpers.js";
 import { generate } from "../codegen.js";
 
-export const TEST_VIEWER_ROUTE = "/__test-viewer";
-export const TEST_VIEWER_PREVIEW_ROUTE = "/__test-viewer-preview";
+export const TEST_VIEWER_ROUTE = "/_tests";
+export const TEST_VIEWER_PREVIEW_ROUTE = "/_tests-preview";
 export const TEST_VIEWER_SCRIPT_ROUTE = "/test-viewer.js";
 
 export async function run(elmModulePath, options) {

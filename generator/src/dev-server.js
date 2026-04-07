@@ -299,9 +299,9 @@ export async function start(options) {
   function processRequest(request, response, next) {
     if (request.url && request.url.startsWith("/stream")) {
       handleStream(request, response);
-    } else if (request.url && request.url.startsWith("/__test-viewer-preview")) {
+    } else if (request.url && request.url.startsWith("/_tests-preview")) {
       handleTestViewerPreview(request, response);
-    } else if (request.url && request.url.startsWith("/__test-viewer")) {
+    } else if (request.url && request.url.startsWith("/_tests")) {
       handleTestViewer(request, response);
     } else {
       handleNavigationRequest(request, response, next);
@@ -312,7 +312,7 @@ export async function start(options) {
   let testViewerCompileError = null;
 
   /**
-   * Serve the visual test viewer at /__test-viewer.
+   * Serve the visual test viewer at /_tests.
    * Only recompiles when source files have changed (testViewerDirty flag).
    * Live reloads via the same SSE /stream mechanism as the main app.
    * Preserves viewer state (current test/step) across reloads via sessionStorage.
@@ -357,7 +357,7 @@ export async function start(options) {
 </body>
 </html>`;
       const processedHtml = await vite.transformIndexHtml(
-        "/__test-viewer-preview",
+        "/_tests-preview",
         previewHtml
       );
       response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
