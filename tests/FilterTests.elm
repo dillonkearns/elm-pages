@@ -34,6 +34,7 @@ suite =
             [ test "pressing / activates filter mode" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -53,6 +54,7 @@ suite =
             , test "/ only works on panes with filterable content" <|
                 \() ->
                     let
+                        nonFilterableLayout : Layout.Layout Int
                         nonFilterableLayout =
                             Layout.horizontal
                                 [ Layout.pane "plain"
@@ -66,6 +68,7 @@ suite =
                                     )
                                 ]
 
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -83,6 +86,7 @@ suite =
             [ test "typing a character filters the list" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -95,6 +99,7 @@ suite =
                                 filterableList
                                 s1Init
 
+                        s1Init : Layout.State
                         s1Init =
                             state
 
@@ -105,6 +110,7 @@ suite =
                                 filterableList
                                 s1
 
+                        rendered : String
                         rendered =
                             filterableList
                                 |> Layout.toScreen s2
@@ -123,6 +129,7 @@ suite =
             , test "typing resets selection to 0" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -154,6 +161,7 @@ suite =
             [ test "Enter dismisses input but keeps filter" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -185,6 +193,7 @@ suite =
                                 filterableList
                                 s2
 
+                        rendered : String
                         rendered =
                             filterableList
                                 |> Layout.toScreen s3
@@ -203,6 +212,7 @@ suite =
             , test "Enter with empty query cancels filter" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -227,6 +237,7 @@ suite =
             [ test "Escape while typing clears filter" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -252,6 +263,7 @@ suite =
                                 filterableList
                                 s2
 
+                        rendered : String
                         rendered =
                             filterableList
                                 |> Layout.toScreen s3
@@ -268,6 +280,7 @@ suite =
             , test "Escape after Enter clears filter" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -304,6 +317,7 @@ suite =
             [ test "Escape clears filter on original pane after switching away" <|
                 \() ->
                     let
+                        twoPanes : Layout.Layout Int
                         twoPanes =
                             Layout.horizontal
                                 [ Layout.pane "left"
@@ -321,12 +335,14 @@ suite =
                                     (Layout.content [ Tui.text "details" ])
                                 ]
 
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 50, height = 10 }
                                 |> Layout.focusPane "left"
 
                         -- Filter on left pane, apply with Enter
+                        s1 : Layout.State
                         s1 =
                             startFilterWithLayout "an" twoPanes state
 
@@ -337,6 +353,7 @@ suite =
                                 s1
 
                         -- Switch focus to right pane
+                        s3 : Layout.State
                         s3 =
                             Layout.focusPane "right" s2
 
@@ -357,6 +374,7 @@ suite =
             [ test "typing filter that narrows to one item fires onSelect with original index" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -372,13 +390,13 @@ suite =
                         -- Type "fig" — should uniquely match "fig" (original index 7)
                         -- Each keystroke resets selection to 0, and onSelect should fire
                         -- with the original index of the first filtered item
-                        ( s2, msg1, _ ) =
+                        ( s2, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character 'f', modifiers = [] }
                                 filterableList
                                 s1
 
-                        ( s3, msg2, _ ) =
+                        ( s3, _, _ ) =
                             Layout.handleKeyEvent
                                 { key = Tui.Character 'i', modifiers = [] }
                                 filterableList
@@ -396,6 +414,7 @@ suite =
             , test "each filter keystroke fires onSelect for new first item" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -422,6 +441,7 @@ suite =
             [ test "clicking filtered item fires original index" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -447,7 +467,7 @@ suite =
                                 s2
 
                         -- Navigate down once (from "banana" to "blueberry")
-                        ( s4, maybeMsg ) =
+                        ( _, maybeMsg ) =
                             Layout.navigateDown "fruits" filterableList s3
                     in
                     -- "blueberry" is at original index 3
@@ -457,12 +477,14 @@ suite =
             [ test "Escape preserves selected item from filtered list" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
                                 |> Layout.focusPane "fruits"
 
                         -- Filter to "berry" → blueberry(3), elderberry(6)
+                        s1 : Layout.State
                         s1 =
                             startFilterWith "berry" state
 
@@ -485,6 +507,7 @@ suite =
                                 s3
 
                         -- elderberry is at original index 6
+                        rendered : String
                         rendered =
                             filterableList
                                 |> Layout.toScreen s4
@@ -505,6 +528,7 @@ suite =
             , test "Escape while typing preserves current selection" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -518,6 +542,7 @@ suite =
                                     ( state, Nothing )
 
                         -- Start filter (resets to 0), type "a" → apple(0), apricot(1), banana(2), date(5), grape(8)
+                        s1 : Layout.State
                         s1 =
                             startFilterWith "a" navState
 
@@ -546,6 +571,7 @@ suite =
             [ test "filter only affects the focused pane, not others" <|
                 \() ->
                     let
+                        twoFilterablePanes : Layout.Layout Int
                         twoFilterablePanes =
                             Layout.horizontal
                                 [ Layout.pane "modules"
@@ -570,6 +596,7 @@ suite =
                                     )
                                 ]
 
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 50, height = 10 }
@@ -594,6 +621,7 @@ suite =
                                     )
                                     ( s1, Nothing, False )
 
+                        rendered : String
                         rendered =
                             twoFilterablePanes
                                 |> Layout.toScreen s2
@@ -617,12 +645,14 @@ suite =
             [ test "clicking a filtered item fires onSelect with original index" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
                                 |> Layout.focusPane "fruits"
 
                         -- Filter to "berry" → blueberry(3), elderberry(6)
+                        s1 : Layout.State
                         s1 =
                             startFilterWith "berry" state
 
@@ -647,12 +677,14 @@ suite =
             [ test "scroll clamps to filtered list length" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
                                 |> Layout.focusPane "fruits"
 
                         -- Filter to "berry" → blueberry(3), elderberry(6) — only 2 items
+                        s1 : Layout.State
                         s1 =
                             startFilterWith "berry" state
 
@@ -677,12 +709,14 @@ suite =
             [ test "selectedItem returns the correct item when filtered" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
                                 |> Layout.focusPane "fruits"
 
                         -- Filter to "berry" → blueberry(3), elderberry(6)
+                        s1 : Layout.State
                         s1 =
                             startFilterWith "berry" state
 
@@ -693,6 +727,7 @@ suite =
                                 s1
 
                         -- Selection is at filtered index 0 = blueberry
+                        item : Maybe String
                         item =
                             Layout.selectedItem "fruits" items filterableList s2
                     in
@@ -700,6 +735,7 @@ suite =
             , test "selectedItem without filter returns item at selected index" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -712,6 +748,7 @@ suite =
                                     (\_ ( s2, _ ) -> Layout.navigateDown "fruits" filterableList s2)
                                     ( state, Nothing )
 
+                        item : Maybe String
                         item =
                             Layout.selectedItem "fruits" items filterableList s
                     in
@@ -721,15 +758,18 @@ suite =
             [ test "lowercase query is case-insensitive" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
                                 |> Layout.focusPane "fruits"
 
                         -- Type "APPLE" — uppercase should be case-sensitive
+                        s : Layout.State
                         s =
                             startFilterWith "apple" state
 
+                        rendered : String
                         rendered =
                             filterableList |> Layout.toScreen s |> Tui.toString
                     in
@@ -739,14 +779,17 @@ suite =
             [ test "filterStatusBar shows filter text while typing" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
                                 |> Layout.focusPane "fruits"
 
+                        s : Layout.State
                         s =
                             startFilterWith "ber" state
 
+                        status : Maybe String
                         status =
                             Layout.filterStatusBar "fruits" s
                                 |> Maybe.map Tui.toString
@@ -755,11 +798,13 @@ suite =
             , test "filterStatusBar shows applied text after Enter" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
                                 |> Layout.focusPane "fruits"
 
+                        s1 : Layout.State
                         s1 =
                             startFilterWith "ber" state
 
@@ -769,6 +814,7 @@ suite =
                                 filterableList
                                 s1
 
+                        status : Maybe String
                         status =
                             Layout.filterStatusBar "fruits" s2
                                 |> Maybe.map Tui.toString
@@ -777,6 +823,7 @@ suite =
             , test "filterStatusBar returns Nothing when not filtering" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
@@ -786,14 +833,17 @@ suite =
             , test "activeFilterStatusBar returns status for whichever pane is filtering" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
                                 |> Layout.focusPane "fruits"
 
+                        s : Layout.State
                         s =
                             startFilterWith "ber" state
 
+                        status : Maybe String
                         status =
                             Layout.activeFilterStatusBar s
                                 |> Maybe.map Tui.toString
@@ -808,14 +858,17 @@ suite =
                 \() ->
                     let
                         -- "blue berry" should match "blueberry" (both terms present)
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
                                 |> Layout.focusPane "fruits"
 
+                        s : Layout.State
                         s =
                             startFilterWith "blue berry" state
 
+                        rendered : String
                         rendered =
                             filterableList |> Layout.toScreen s |> Tui.toString
                     in
@@ -828,14 +881,17 @@ suite =
             , test "single term matches normally" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
                                 |> Layout.focusPane "fruits"
 
+                        s : Layout.State
                         s =
                             startFilterWith "berry" state
 
+                        rendered : String
                         rendered =
                             filterableList |> Layout.toScreen s |> Tui.toString
                     in
@@ -849,14 +905,17 @@ suite =
                 \() ->
                     let
                         -- "Apple" has uppercase → case-sensitive for that term
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 30, height = 12 }
                                 |> Layout.focusPane "fruits"
 
+                        s : Layout.State
                         s =
                             startFilterWith "Apple" state
 
+                        rendered : String
                         rendered =
                             filterableList |> Layout.toScreen s |> Tui.toString
                     in

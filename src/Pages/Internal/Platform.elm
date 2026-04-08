@@ -273,6 +273,7 @@ update config appMsg model =
                 ( newFormModel, maybeMsg ) =
                     Form.updateWithMsg formMsg model.pageFormState
 
+                updatedModel : Model userModel pageData actionData sharedData
                 updatedModel =
                     { model | pageFormState = newFormModel }
             in
@@ -491,6 +492,7 @@ update config appMsg model =
                         ( newFormModel, maybeMsg ) =
                             Form.updateWithMsg formMsg model.pageFormState
 
+                        updatedModel : Model userModel pageData actionData sharedData
                         updatedModel =
                             { model | pageFormState = newFormModel }
                     in

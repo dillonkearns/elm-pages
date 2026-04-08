@@ -30,11 +30,11 @@ snappy rendering.
 
 Two extra capabilities beyond a standard TEA app:
 
-  - **`data`** — resolve a [`BackendTask`](BackendTask) before `init` runs
+  - **`data`** — resolve a `BackendTask` before `init` runs
     (fetching git log, reading files, etc.), while the terminal is still in
     normal mode.
-  - **[`Tui.Effect`](Tui-Effect)** — run a [`BackendTask`](BackendTask) from
-    `update` via [`Effect.perform`](Tui-Effect#perform). This bridges async
+  - **`Tui.Effect`** — run a `BackendTask` from
+    `update` via `Effect.perform`. This bridges async
     operations (shell commands, HTTP, file I/O) into the TUI update cycle.
 
 @docs tui, tuiWithCliOptions, tuiApp, tuiAppWithCliOptions
@@ -374,11 +374,11 @@ withDatabasePath dbPath (Pages.Internal.Script.Script script) =
 {-| Define a TUI (Terminal User Interface) script. It's a standard TEA app
 (`init`/`update`/`view`/`subscriptions`) with two additions:
 
-  - **`data`** resolves a [`BackendTask`](BackendTask) before `init` — use it
+  - **`data`** resolves a `BackendTask` before `init` — use it
     to load files, run shell commands, or fetch data while the terminal is
     still in normal mode.
-  - **`update`** returns a [`Tui.Effect`](Tui-Effect) instead of `Cmd` — use
-    [`Effect.perform`](Tui-Effect#perform) to run a `BackendTask` and feed the
+  - **`update`** returns a `Tui.Effect` instead of `Cmd` — use
+    `Effect.perform` to run a `BackendTask` and feed the
     result back as a message.
 
 Example:
@@ -606,6 +606,15 @@ tuiAppWithCliOptions cliConfig toTuiConfig =
     withCliOptions cliConfig
         (\cliOptions ->
             let
+                config :
+                    { data : BackendTask FatalError data
+                    , app :
+                        { init : data -> ( model, Tui.Effect.Effect msg )
+                        , update : msg -> model -> ( model, Tui.Effect.Effect msg )
+                        , view : Tui.Context -> model -> Tui.Screen
+                        , subscriptions : model -> Tui.Sub.Sub msg
+                        }
+                    }
                 config =
                     toTuiConfig cliOptions
             in
@@ -685,7 +694,7 @@ doThen task1 task2 =
         |> BackendTask.andThen (\() -> task1)
 
 
-{-| Same as [`expectWhich`](#expectWhich), but returns `Nothing` if the command is not found instead of failing with a [`FatalError`](FatalError).
+{-| Same as [`expectWhich`](#expectWhich), but returns `Nothing` if the command is not found instead of failing with a `FatalError`.
 -}
 which : String -> BackendTask error (Maybe String)
 which command_ =
@@ -696,7 +705,7 @@ which command_ =
         }
 
 
-{-| Check if a command is available on the system. If it is, return the full path to the command, otherwise fail with a [`FatalError`](FatalError).
+{-| Check if a command is available on the system. If it is, return the full path to the command, otherwise fail with a `FatalError`.
 
     module MyScript exposing (run)
 
@@ -998,7 +1007,7 @@ exec command_ args_ =
 
 {-| Run a single command and return stderr and stdout combined as a single String.
 
-If you want to do more advanced things like piping together multiple commands in a pipeline, or piping in a file to a command, etc., see the [`Stream`](BackendTask-Stream) module.
+If you want to do more advanced things like piping together multiple commands in a pipeline, or piping in a file to a command, etc., see the `BackendTask.Stream` module.
 
     module MyScript exposing (run)
 

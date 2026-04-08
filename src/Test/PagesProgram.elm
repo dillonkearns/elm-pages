@@ -5,11 +5,12 @@ module Test.PagesProgram exposing
     , simulateDomEvent
     , ensureViewHas, ensureViewHasNot, ensureView
     , expectViewHas, expectViewHasNot, expectView
-    , within, withinFind, group
+    , within, withinFind
+    , group
     , navigateTo, ensureBrowserUrl, expectBrowserUrl
     , ensureBrowserHistory, expectBrowserHistory
-    , simulateCustom
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
+    , simulateCustom
     , ensurePendingHttpGet, ensurePendingHttpPost, ensurePendingCustom
     , withSimulatedSubscriptions, simulateIncomingPort
     , Snapshot, toSnapshots, withModelInspector
@@ -1474,111 +1475,111 @@ selectOption labelText optionText (ProgramTest state) =
                             }
 
                     else
-                    case getFailureMessage labelExists of
-                        Just failMsg ->
-                            ProgramTest
-                                { state
-                                    | error =
-                                        Just
-                                            (stepLabel
-                                                ++ " failed: Could not find a <label> with text \""
-                                                ++ labelText
-                                                ++ "\".\n\n"
-                                                ++ failMsg
-                                            )
-                                }
+                        case getFailureMessage labelExists of
+                            Just failMsg ->
+                                ProgramTest
+                                    { state
+                                        | error =
+                                            Just
+                                                (stepLabel
+                                                    ++ " failed: Could not find a <label> with text \""
+                                                    ++ labelText
+                                                    ++ "\".\n\n"
+                                                    ++ failMsg
+                                                )
+                                    }
 
-                        Nothing ->
-                            -- Step 2: Extract the `for` attribute from the label
-                            case extractAttribute "for" query labelSelectors of
-                                Err extractErr ->
-                                    ProgramTest
-                                        { state
-                                            | error =
-                                                Just
-                                                    (stepLabel
-                                                        ++ " failed: Found a <label> with text \""
-                                                        ++ labelText
-                                                        ++ "\" but it has no `for` attribute.\n\n"
-                                                        ++ extractErr
-                                                    )
-                                        }
+                            Nothing ->
+                                -- Step 2: Extract the `for` attribute from the label
+                                case extractAttribute "for" query labelSelectors of
+                                    Err extractErr ->
+                                        ProgramTest
+                                            { state
+                                                | error =
+                                                    Just
+                                                        (stepLabel
+                                                            ++ " failed: Found a <label> with text \""
+                                                            ++ labelText
+                                                            ++ "\" but it has no `for` attribute.\n\n"
+                                                            ++ extractErr
+                                                        )
+                                            }
 
-                                Ok fieldId ->
-                                    -- Step 3: Find the <select> by the extracted ID
-                                    let
-                                        selectQuery =
-                                            query
-                                                |> Query.find
-                                                    [ Selector.tag "select"
-                                                    , Selector.id fieldId
-                                                    ]
+                                    Ok fieldId ->
+                                        -- Step 3: Find the <select> by the extracted ID
+                                        let
+                                            selectQuery =
+                                                query
+                                                    |> Query.find
+                                                        [ Selector.tag "select"
+                                                        , Selector.id fieldId
+                                                        ]
 
-                                        selectResult =
-                                            selectQuery |> Query.has []
-                                    in
-                                    case getFailureMessage selectResult of
-                                        Just failMsg ->
-                                            ProgramTest
-                                                { state
-                                                    | error =
-                                                        Just
-                                                            (stepLabel
-                                                                ++ " failed: Found <label for=\""
-                                                                ++ fieldId
-                                                                ++ "\">, but no <select id=\""
-                                                                ++ fieldId
-                                                                ++ "\"> exists.\n\n"
-                                                                ++ failMsg
-                                                            )
-                                                }
+                                            selectResult =
+                                                selectQuery |> Query.has []
+                                        in
+                                        case getFailureMessage selectResult of
+                                            Just failMsg ->
+                                                ProgramTest
+                                                    { state
+                                                        | error =
+                                                            Just
+                                                                (stepLabel
+                                                                    ++ " failed: Found <label for=\""
+                                                                    ++ fieldId
+                                                                    ++ "\">, but no <select id=\""
+                                                                    ++ fieldId
+                                                                    ++ "\"> exists.\n\n"
+                                                                    ++ failMsg
+                                                                )
+                                                    }
 
-                                        Nothing ->
-                                            -- Step 4: Find the <option> by text
-                                            let
-                                                optionSelectors =
-                                                    [ Selector.tag "option"
-                                                    , Selector.containing [ Selector.text optionText ]
-                                                    ]
+                                            Nothing ->
+                                                -- Step 4: Find the <option> by text
+                                                let
+                                                    optionSelectors =
+                                                        [ Selector.tag "option"
+                                                        , Selector.containing [ Selector.text optionText ]
+                                                        ]
 
-                                                optionExists =
-                                                    selectQuery
-                                                        |> Query.find optionSelectors
-                                                        |> Query.has []
-                                            in
-                                            case getFailureMessage optionExists of
-                                                Just failMsg ->
-                                                    ProgramTest
-                                                        { state
-                                                            | error =
-                                                                Just
-                                                                    (stepLabel
-                                                                        ++ " failed: Could not find an <option> with text \""
-                                                                        ++ optionText
-                                                                        ++ "\".\n\n"
-                                                                        ++ failMsg
-                                                                    )
-                                                        }
+                                                    optionExists =
+                                                        selectQuery
+                                                            |> Query.find optionSelectors
+                                                            |> Query.has []
+                                                in
+                                                case getFailureMessage optionExists of
+                                                    Just failMsg ->
+                                                        ProgramTest
+                                                            { state
+                                                                | error =
+                                                                    Just
+                                                                        (stepLabel
+                                                                            ++ " failed: Could not find an <option> with text \""
+                                                                            ++ optionText
+                                                                            ++ "\".\n\n"
+                                                                            ++ failMsg
+                                                                        )
+                                                            }
 
-                                                Nothing ->
-                                                    -- Step 5: Extract the value from the option.
-                                                    -- Use forced failure on the specific option element.
-                                                    let
-                                                        optionQuery =
-                                                            selectQuery
-                                                                |> Query.find optionSelectors
+                                                    Nothing ->
+                                                        -- Step 5: Extract the value from the option.
+                                                        -- Use forced failure on the specific option element.
+                                                        let
+                                                            optionQuery =
+                                                                selectQuery
+                                                                    |> Query.find optionSelectors
 
-                                                        optionValueResult =
-                                                            extractAttributeFromElement "value" optionQuery
-                                                    in
-                                                    case optionValueResult of
-                                                        Err _ ->
-                                                            -- No value attribute -- use the option text as value
-                                                            -- (matches browser behavior: <option>Foo</option> has value "Foo")
-                                                            selectOptionWithValue stepLabel fieldId optionText selectQuery state
+                                                            optionValueResult =
+                                                                extractAttributeFromElement "value" optionQuery
+                                                        in
+                                                        case optionValueResult of
+                                                            Err _ ->
+                                                                -- No value attribute -- use the option text as value
+                                                                -- (matches browser behavior: <option>Foo</option> has value "Foo")
+                                                                selectOptionWithValue stepLabel fieldId optionText selectQuery state
 
-                                                        Ok optionValue ->
-                                                            selectOptionWithValue stepLabel fieldId optionValue selectQuery state
+                                                            Ok optionValue ->
+                                                                selectOptionWithValue stepLabel fieldId optionValue selectQuery state
 
 
 selectOptionWithValue : String -> String -> String -> Query.Single msg -> State model msg -> ProgramTest model msg
@@ -2043,82 +2044,82 @@ clickButtonWith selectors (ProgramTest state) =
                             }
 
                     else
-                    let
-                        -- Check for multiple matching buttons
-                        hasMultiple : Bool
-                        hasMultiple =
-                            query
-                                |> Query.findAll buttonSelectors
-                                |> Query.count (Expect.atMost 1)
-                                |> (\expectation -> getFailureMessage expectation /= Nothing)
-                    in
-                    if hasMultiple then
-                        ProgramTest
-                            { state
-                                | error =
-                                    Just
-                                        ("clickButtonWith "
-                                            ++ PSelector.toLabel selectors
-                                            ++ " found multiple buttons matching those selectors. Use `withinFind` to scope to a specific element, or use more specific selectors."
-                                        )
-                            }
+                        let
+                            -- Check for multiple matching buttons
+                            hasMultiple : Bool
+                            hasMultiple =
+                                query
+                                    |> Query.findAll buttonSelectors
+                                    |> Query.count (Expect.atMost 1)
+                                    |> (\expectation -> getFailureMessage expectation /= Nothing)
+                        in
+                        if hasMultiple then
+                            ProgramTest
+                                { state
+                                    | error =
+                                        Just
+                                            ("clickButtonWith "
+                                                ++ PSelector.toLabel selectors
+                                                ++ " found multiple buttons matching those selectors. Use `withinFind` to scope to a specific element, or use more specific selectors."
+                                            )
+                                }
 
-                    else
-                    let
-                        buttonQuery =
-                            query |> Query.find buttonSelectors
+                        else
+                            let
+                                buttonQuery =
+                                    query |> Query.find buttonSelectors
 
-                        -- Try form submit first (goes through form library's
-                        -- onSubmit pipeline, correctly setting useFetcher).
-                        formSubmitResult =
-                            query
-                                |> Query.find
-                                    [ Selector.tag "form"
-                                    , Selector.containing buttonSelectors
-                                    ]
-                                |> Event.simulate
-                                    ( "submit"
-                                    , Encode.object
-                                        [ ( "currentTarget"
-                                          , Encode.object
-                                                [ ( "method", Encode.string "POST" )
-                                                , ( "action", Encode.string "" )
-                                                , ( "id", Encode.null )
+                                -- Try form submit first (goes through form library's
+                                -- onSubmit pipeline, correctly setting useFetcher).
+                                formSubmitResult =
+                                    query
+                                        |> Query.find
+                                            [ Selector.tag "form"
+                                            , Selector.containing buttonSelectors
+                                            ]
+                                        |> Event.simulate
+                                            ( "submit"
+                                            , Encode.object
+                                                [ ( "currentTarget"
+                                                  , Encode.object
+                                                        [ ( "method", Encode.string "POST" )
+                                                        , ( "action", Encode.string "" )
+                                                        , ( "id", Encode.null )
+                                                        ]
+                                                  )
                                                 ]
-                                          )
-                                        ]
-                                    )
-                                |> Event.toResult
+                                            )
+                                        |> Event.toResult
 
-                        clickResult =
-                            buttonQuery
-                                |> Event.simulate Event.click
-                                |> Event.toResult
+                                clickResult =
+                                    buttonQuery
+                                        |> Event.simulate Event.click
+                                        |> Event.toResult
 
-                        label =
-                            "clickButtonWith " ++ PSelector.toLabel selectors
+                                label =
+                                    "clickButtonWith " ++ PSelector.toLabel selectors
 
-                        targetSelector =
-                            Just (BySelectors (PSelector.toAssertionSelectors selectors))
-                    in
-                    case formSubmitResult of
-                        Ok msg ->
-                            applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
-
-                        Err _ ->
-                            case clickResult of
+                                targetSelector =
+                                    Just (BySelectors (PSelector.toAssertionSelectors selectors))
+                            in
+                            case formSubmitResult of
                                 Ok msg ->
                                     applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
 
-                                Err errMsg ->
-                                    ProgramTest
-                                        { state
-                                            | error =
-                                                Just
-                                                    ("clickButtonWith failed: no form submit handler or click handler found.\n"
-                                                        ++ errMsg
-                                                    )
-                                        }
+                                Err _ ->
+                                    case clickResult of
+                                        Ok msg ->
+                                            applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
+
+                                        Err errMsg ->
+                                            ProgramTest
+                                                { state
+                                                    | error =
+                                                        Just
+                                                            ("clickButtonWith failed: no form submit handler or click handler found.\n"
+                                                                ++ errMsg
+                                                            )
+                                                }
 
 
 {-| Simulate typing text into an input field.
@@ -2423,71 +2424,71 @@ clickLink linkText (ProgramTest state) =
                             }
 
                     else
-                    case getFailureMessage linkExists of
-                        Just errMsg ->
-                            ProgramTest
-                                { state
-                                    | error =
-                                        Just
-                                            ("clickLink \""
-                                                ++ linkText
-                                                ++ "\" failed: no <a> element found with that text.\n\n"
-                                                ++ errMsg
-                                            )
-                                }
+                        case getFailureMessage linkExists of
+                            Just errMsg ->
+                                ProgramTest
+                                    { state
+                                        | error =
+                                            Just
+                                                ("clickLink \""
+                                                    ++ linkText
+                                                    ++ "\" failed: no <a> element found with that text.\n\n"
+                                                    ++ errMsg
+                                                )
+                                    }
 
-                        Nothing ->
-                            -- Link exists. Extract the href from the DOM.
-                            case extractHrefFromLink query linkSelectors of
-                                Err extractErr ->
-                                    ProgramTest
-                                        { state
-                                            | error =
-                                                Just
-                                                    ("clickLink \""
-                                                        ++ linkText
-                                                        ++ "\" failed: could not extract href from link element.\n\n"
-                                                        ++ extractErr
-                                                    )
-                                        }
+                            Nothing ->
+                                -- Link exists. Extract the href from the DOM.
+                                case extractHrefFromLink query linkSelectors of
+                                    Err extractErr ->
+                                        ProgramTest
+                                            { state
+                                                | error =
+                                                    Just
+                                                        ("clickLink \""
+                                                            ++ linkText
+                                                            ++ "\" failed: could not extract href from link element.\n\n"
+                                                            ++ extractErr
+                                                        )
+                                            }
 
-                                Ok href ->
-                                    case ready.onNavigate of
-                                        Just navigate ->
-                                            applyMsgWithLabel
-                                                ("clickLink \"" ++ linkText ++ "\"")
-                                                Interaction
-                                                (Just (ByTagAndText "a" linkText))
-                                                (navigate href)
-                                                (ProgramTest state)
+                                    Ok href ->
+                                        case ready.onNavigate of
+                                            Just navigate ->
+                                                applyMsgWithLabel
+                                                    ("clickLink \"" ++ linkText ++ "\"")
+                                                    Interaction
+                                                    (Just (ByTagAndText "a" linkText))
+                                                    (navigate href)
+                                                    (ProgramTest state)
 
-                                        Nothing ->
-                                            -- No navigation handler (old API). Try event simulation.
-                                            let
-                                                linkQuery =
-                                                    query
-                                                        |> Query.find linkSelectors
+                                            Nothing ->
+                                                -- No navigation handler (old API). Try event simulation.
+                                                let
+                                                    linkQuery =
+                                                        query
+                                                            |> Query.find linkSelectors
 
-                                                eventResult =
-                                                    linkQuery
-                                                        |> Event.simulate Event.click
-                                                        |> Event.toResult
-                                            in
-                                            case eventResult of
-                                                Ok msg ->
-                                                    applyMsgWithLabel ("clickLink \"" ++ linkText ++ "\"") Interaction (Just (ByTagAndText "a" linkText)) msg (ProgramTest state)
+                                                    eventResult =
+                                                        linkQuery
+                                                            |> Event.simulate Event.click
+                                                            |> Event.toResult
+                                                in
+                                                case eventResult of
+                                                    Ok msg ->
+                                                        applyMsgWithLabel ("clickLink \"" ++ linkText ++ "\"") Interaction (Just (ByTagAndText "a" linkText)) msg (ProgramTest state)
 
-                                                Err clickErr ->
-                                                    ProgramTest
-                                                        { state
-                                                            | error =
-                                                                Just
-                                                                    ("clickLink \""
-                                                                        ++ linkText
-                                                                        ++ "\" failed: no navigation handler or click handler found.\n"
-                                                                        ++ clickErr
-                                                                    )
-                                                        }
+                                                    Err clickErr ->
+                                                        ProgramTest
+                                                            { state
+                                                                | error =
+                                                                    Just
+                                                                        ("clickLink \""
+                                                                            ++ linkText
+                                                                            ++ "\" failed: no navigation handler or click handler found.\n"
+                                                                            ++ clickErr
+                                                                        )
+                                                            }
 
 
 {-| Navigate directly to a URL path. In framework-driven tests, this triggers
@@ -2734,11 +2735,12 @@ by its label text, just like a user would identify it on screen.
 Supports two common HTML patterns:
 
 1.  A separate `<label for="id">` pointing to an `<input id="id">`
+
 2.  A `<label>` wrapping both the checkbox and the label text
 
     TestApp.start "/" BackendTaskTest.init
-        |> PagesProgram.check "I agree to the terms" True
-        |> PagesProgram.ensureViewHas [ Selector.text "Terms accepted" ]
+    |> PagesProgram.check "I agree to the terms" True
+    |> PagesProgram.ensureViewHas [ Selector.text "Terms accepted" ]
 
 -}
 check : String -> Bool -> ProgramTest model msg -> ProgramTest model msg
@@ -2801,87 +2803,87 @@ check labelText isChecked (ProgramTest state) =
                             }
 
                     else
-                    -- Strategy 1: <label for="id"> with matching text (separate label)
-                    case extractAttribute "for" query labelSelectors of
-                        Ok fieldId ->
-                            let
-                                inputQuery =
-                                    query |> Query.find [ Selector.id fieldId ]
+                        -- Strategy 1: <label for="id"> with matching text (separate label)
+                        case extractAttribute "for" query labelSelectors of
+                            Ok fieldId ->
+                                let
+                                    inputQuery =
+                                        query |> Query.find [ Selector.id fieldId ]
 
-                                eventResult =
-                                    inputQuery
-                                        |> Event.simulate (Event.check isChecked)
-                                        |> Event.toResult
-                            in
-                            case eventResult of
-                                Ok msg ->
-                                    applyMsgWithLabel
-                                        stepLabel
-                                        Interaction
-                                        (Just (ByLabelText labelText))
-                                        msg
-                                        (ProgramTest state)
+                                    eventResult =
+                                        inputQuery
+                                            |> Event.simulate (Event.check isChecked)
+                                            |> Event.toResult
+                                in
+                                case eventResult of
+                                    Ok msg ->
+                                        applyMsgWithLabel
+                                            stepLabel
+                                            Interaction
+                                            (Just (ByLabelText labelText))
+                                            msg
+                                            (ProgramTest state)
 
-                                Err errMsg ->
-                                    ProgramTest
-                                        { state
-                                            | error =
-                                                Just (stepLabel ++ " failed:\n\n" ++ errMsg)
-                                        }
+                                    Err errMsg ->
+                                        ProgramTest
+                                            { state
+                                                | error =
+                                                    Just (stepLabel ++ " failed:\n\n" ++ errMsg)
+                                            }
 
-                        Err _ ->
-                            -- Strategy 2: <label> wrapping both the input and text
-                            let
-                                wrappingLabelQuery =
-                                    query
-                                        |> Query.find
-                                            [ Selector.tag "label"
-                                            , Selector.containing [ Selector.text labelText ]
-                                            , Selector.containing [ Selector.tag "input" ]
-                                            ]
+                            Err _ ->
+                                -- Strategy 2: <label> wrapping both the input and text
+                                let
+                                    wrappingLabelQuery =
+                                        query
+                                            |> Query.find
+                                                [ Selector.tag "label"
+                                                , Selector.containing [ Selector.text labelText ]
+                                                , Selector.containing [ Selector.tag "input" ]
+                                                ]
 
-                                wrappingLabelExists =
-                                    wrappingLabelQuery |> Query.has []
-                            in
-                            case getFailureMessage wrappingLabelExists of
-                                Just _ ->
-                                    ProgramTest
-                                        { state
-                                            | error =
-                                                Just
-                                                    (stepLabel
-                                                        ++ " failed: Could not find a <label> with text \""
-                                                        ++ labelText
-                                                        ++ "\" that either has a `for` attribute or wraps a checkbox input."
-                                                    )
-                                        }
+                                    wrappingLabelExists =
+                                        wrappingLabelQuery |> Query.has []
+                                in
+                                case getFailureMessage wrappingLabelExists of
+                                    Just _ ->
+                                        ProgramTest
+                                            { state
+                                                | error =
+                                                    Just
+                                                        (stepLabel
+                                                            ++ " failed: Could not find a <label> with text \""
+                                                            ++ labelText
+                                                            ++ "\" that either has a `for` attribute or wraps a checkbox input."
+                                                        )
+                                            }
 
-                                Nothing ->
-                                    let
-                                        inputQuery =
-                                            wrappingLabelQuery
-                                                |> Query.find [ Selector.tag "input" ]
+                                    Nothing ->
+                                        let
+                                            inputQuery =
+                                                wrappingLabelQuery
+                                                    |> Query.find [ Selector.tag "input" ]
 
-                                        eventResult =
-                                            inputQuery
-                                                |> Event.simulate (Event.check isChecked)
-                                                |> Event.toResult
-                                    in
-                                    case eventResult of
-                                        Ok msg ->
-                                            applyMsgWithLabel
-                                                stepLabel
-                                                Interaction
-                                                (Just (ByLabelText labelText))
-                                                msg
-                                                (ProgramTest state)
+                                            eventResult =
+                                                inputQuery
+                                                    |> Event.simulate (Event.check isChecked)
+                                                    |> Event.toResult
+                                        in
+                                        case eventResult of
+                                            Ok msg ->
+                                                applyMsgWithLabel
+                                                    stepLabel
+                                                    Interaction
+                                                    (Just (ByLabelText labelText))
+                                                    msg
+                                                    (ProgramTest state)
 
-                                        Err errMsg ->
-                                            ProgramTest
-                                                { state
-                                                    | error =
-                                                        Just (stepLabel ++ " failed:\n\n" ++ errMsg)
-                                                }
+                                            Err errMsg ->
+                                                ProgramTest
+                                                    { state
+                                                        | error =
+                                                            Just (stepLabel ++ " failed:\n\n" ++ errMsg)
+                                                    }
 
 
 
@@ -3479,7 +3481,7 @@ toSnapshots (ProgramTest state) =
                      , assertionSelectors = []
                      , scopeSelectors = []
                      , fetcherLog = []
-                      , groupLabel = Nothing
+                     , groupLabel = Nothing
                      }
                    ]
 
@@ -4480,7 +4482,8 @@ extractHrefFromLink query selectors =
     extractAttribute "href" query selectors
 
 
-{-| Find all occurrences of substrings between two markers. -}
+{-| Find all occurrences of substrings between two markers.
+-}
 findAllSubstrings : String -> String -> String -> List String
 findAllSubstrings startMarker endMarker haystack =
     findAllSubstringsHelper startMarker endMarker haystack []

@@ -246,23 +246,24 @@ stepperView ctx model =
                         (model.snapshots
                             |> List.indexedMap
                                 (\i snapshotForIndicator ->
-                                    let
-                                        hasAssertions : Bool
-                                        hasAssertions =
-                                            not (List.isEmpty snapshotForIndicator.assertions)
-                                    in
                                     if i == model.currentIndex then
                                         Tui.styled
                                             { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
                                             (" ● " ++ snapshotForIndicator.label ++ " ")
 
-                                    else if hasAssertions then
-                                        Tui.styled
-                                            { plain | fg = Just Ansi.Color.green }
-                                            " ◆ "
-
                                     else
-                                        Tui.styled dimStyle " ○ "
+                                        let
+                                            hasAssertions : Bool
+                                            hasAssertions =
+                                                not (List.isEmpty snapshotForIndicator.assertions)
+                                        in
+                                        if hasAssertions then
+                                            Tui.styled
+                                                { plain | fg = Just Ansi.Color.green }
+                                                " ◆ "
+
+                                        else
+                                            Tui.styled dimStyle " ○ "
                                 )
                         )
             in

@@ -3,13 +3,13 @@ module Tui.Internal exposing (encodeScreen, run)
 {-| Internal TUI loop implementation. Not exposed to users.
 -}
 
+import Ansi.Color
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Ansi.Color
 import Tui exposing (Attribute(..), ColorProfile(..), Context, Screen)
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Effect.Internal as EffectInternal
@@ -65,7 +65,9 @@ run config loadedData =
                             context
                             initialModel
                 in
-                processEffectsThenRenderAndWait config context modelWithContext
+                processEffectsThenRenderAndWait config
+                    context
+                    modelWithContext
                     (Effect.batch [ initialEffect, contextEffect ])
             )
 
@@ -232,25 +234,6 @@ renderAndWait config context model =
             )
 
 
-{-| Process a list of raw events through update, folding the model.
-All effects are accumulated and run after the final event.
-Only the final model gets rendered.
--}
-processBatchedEvents :
-    { init : data -> ( model, Effect msg )
-    , update : msg -> model -> ( model, Effect msg )
-    , view : Context -> model -> Screen
-    , subscriptions : model -> Sub msg
-    }
-    -> Sub msg
-    -> Context
-    -> model
-    -> List Decode.Value
-    -> BackendTask FatalError ()
-processBatchedEvents config sub context model events =
-    processBatchedEventsHelp config sub context model [] events
-
-
 processBatchedEventsHelp :
     { init : data -> ( model, Effect msg )
     , update : msg -> model -> ( model, Effect msg )
@@ -272,7 +255,9 @@ processBatchedEventsHelp config sub context model accEffects events =
                     renderAndWait config context model
 
                 _ ->
-                    processEffectsThenRenderAndWait config context model
+                    processEffectsThenRenderAndWait config
+                        context
+                        model
                         (Effect.batch (List.reverse accEffects))
 
         rawValue :: rest ->

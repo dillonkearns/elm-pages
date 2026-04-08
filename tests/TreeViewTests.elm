@@ -42,9 +42,11 @@ suite =
             [ test "tree mode groups files by directory" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState
 
+                        rendered : String
                         rendered =
                             treeLayout
                                 |> Layout.toScreen state
@@ -61,6 +63,7 @@ suite =
             , test "backtick toggles between tree and flat view" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState
 
@@ -71,6 +74,7 @@ suite =
                                 treeLayout
                                 state
 
+                        rendered : String
                         rendered =
                             treeLayout
                                 |> Layout.toScreen s1
@@ -87,9 +91,11 @@ suite =
             [ test "Enter on directory toggles collapse" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState
 
+                        rendered1 : String
                         rendered1 =
                             treeLayout
                                 |> Layout.toScreen state
@@ -102,6 +108,7 @@ suite =
                                 treeLayout
                                 state
 
+                        rendered2 : String
                         rendered2 =
                             treeLayout
                                 |> Layout.toScreen s1
@@ -119,6 +126,7 @@ suite =
             , test "- collapses all directories" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState
 
@@ -128,6 +136,7 @@ suite =
                                 treeLayout
                                 state
 
+                        rendered : String
                         rendered =
                             treeLayout
                                 |> Layout.toScreen s1
@@ -147,6 +156,7 @@ suite =
             , test "= expands all directories" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState
 
@@ -164,6 +174,7 @@ suite =
                                 treeLayout
                                 s1
 
+                        rendered : String
                         rendered =
                             treeLayout
                                 |> Layout.toScreen s2
@@ -180,6 +191,7 @@ suite =
             [ test "j/k navigate the flattened tree rows" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState
 
@@ -187,6 +199,7 @@ suite =
                         ( s1, _ ) =
                             Layout.navigateDown "files" treeLayout state
 
+                        idx : Int
                         idx =
                             Layout.selectedIndex "files" s1
                     in
@@ -195,6 +208,7 @@ suite =
             , test "onSelect fires with original item index for leaf nodes" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState
 
@@ -210,7 +224,7 @@ suite =
                         ( s2, _ ) =
                             Layout.navigateDown "files" treeLayout s1
 
-                        ( s3, maybeMsg ) =
+                        ( _, maybeMsg ) =
                             Layout.navigateDown "files" treeLayout s2
                     in
                     -- README.md is at original index 5 in the files list
@@ -220,6 +234,7 @@ suite =
             [ test "selectedItem returns the actual item, not an index" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState
 
@@ -230,6 +245,7 @@ suite =
                         ( s2, _ ) =
                             Layout.navigateDown "files" treeLayout s1
 
+                        item : Maybe String
                         item =
                             Layout.selectedItem "files" files treeLayout s2
                     in
@@ -238,10 +254,12 @@ suite =
             , test "selectedItem returns Nothing for directory nodes" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState
 
                         -- First item in tree is the "src" directory
+                        item : Maybe String
                         item =
                             Layout.selectedItem "files" files treeLayout state
                     in
@@ -250,6 +268,7 @@ suite =
             , test "selectedItem works with filtered tree" <|
                 \() ->
                     let
+                        filterableTreeLayout : Layout.Layout Int
                         filterableTreeLayout =
                             Layout.horizontal
                                 [ Layout.pane "files"
@@ -267,9 +286,11 @@ suite =
                                     )
                                 ]
 
+                        state : Layout.State
                         state =
                             initState
 
+                        item : Maybe String
                         item =
                             Layout.selectedItem "files" files filterableTreeLayout state
                     in
@@ -282,9 +303,11 @@ suite =
                     let
                         -- src/Api/ has two children, so no compression
                         -- tests/ has one child, so tests/MainTest.elm compressed to one row
+                        state : Layout.State
                         state =
                             initState
 
+                        rendered : String
                         rendered =
                             treeLayout
                                 |> Layout.toScreen state

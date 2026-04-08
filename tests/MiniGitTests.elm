@@ -611,6 +611,7 @@ miniGitUpdate msg model =
 
                         Tui.Enter ->
                             let
+                                commitMsg : String
                                 commitMsg =
                                     Input.text modalState.input
                             in
@@ -728,6 +729,7 @@ miniGitUpdate msg model =
 
                 SelectCommit index ->
                     let
+                        sha : String
                         sha =
                             model.commits
                                 |> List.drop index
@@ -773,6 +775,7 @@ handleAction action model =
 
         DoSwitchPane ->
             let
+                nextFocus : String
                 nextFocus =
                     if Layout.focusedPane model.layout == Just "commits" then
                         "diff"
@@ -784,6 +787,7 @@ handleAction action model =
 
         DoScrollDiff delta ->
             let
+                newLayout : Layout.State
                 newLayout =
                     if delta > 0 then
                         Layout.scrollDown "diff" delta model.layout
@@ -814,85 +818,15 @@ handleAction action model =
 miniGitView : Tui.Context -> Model -> Tui.Screen
 miniGitView ctx model =
     let
+        layoutState : Layout.State
         layoutState =
             Layout.withContext { width = ctx.width, height = ctx.height } model.layout
 
+        bgRows : List Tui.Screen
         bgRows =
             Layout.toRows layoutState (miniGitLayout model)
-
-        rows =
-            case model.modal of
-                Just (CommitModal modalState) ->
-                    Tui.Modal.overlay
-                        { title = "Commit"
-                        , body =
-                            [ Tui.text ""
-                            , Input.view { width = 40 } modalState.input
-                            , Tui.text ""
-                            ]
-                        , footer = "Enter: confirm │ Esc: cancel"
-                        , width = 50
-                        }
-                        { width = ctx.width, height = ctx.height }
-                        bgRows
-
-                Just (HelpModal helpState) ->
-                    let
-                        filterText =
-                            Input.text helpState.filter
-
-                        groups =
-                            testActiveBindings model
-
-                        rowCount =
-                            Keybinding.helpRowCount filterText groups
-
-                        clampedIdx =
-                            clamp 0 (max 0 (rowCount - 1)) helpState.selectedIndex
-
-                        helpBody =
-                            Keybinding.helpRowsWithSelection clampedIdx filterText groups
-
-                        searchRow =
-                            case helpState.mode of
-                                HelpSearch ->
-                                    [ Tui.concat
-                                        [ Tui.styled { plain | attributes = [ Tui.Dim ] } "/"
-                                        , Input.view { width = 40 } helpState.filter
-                                        ]
-                                    , Tui.text ""
-                                    ]
-
-                                HelpBrowse ->
-                                    if not (String.isEmpty filterText) then
-                                        [ Tui.styled { plain | attributes = [ Tui.Dim ] } ("/" ++ filterText)
-                                        , Tui.text ""
-                                        ]
-
-                                    else
-                                        []
-
-                        footer =
-                            case helpState.mode of
-                                HelpSearch ->
-                                    "Enter: confirm │ Esc: cancel"
-
-                                HelpBrowse ->
-                                    "j/k: navigate │ /: search │ Esc: close"
-                    in
-                    Tui.Modal.overlay
-                        { title = "Keybindings"
-                        , body = searchRow ++ helpBody
-                        , footer = footer
-                        , width = 50
-                        }
-                        { width = ctx.width, height = ctx.height }
-                        bgRows
-
-                Nothing ->
-                    bgRows
-    in
-    let
+        
+        bottomBar : Tui.Screen
         bottomBar =
             case Layout.filterStatusBar "commits" model.layout of
                 Just filterBar ->
@@ -905,7 +839,85 @@ miniGitView ctx model =
                     else
                         Tui.text (" " ++ model.lastAction)
     in
-    Tui.lines (List.take (List.length rows - 1) rows ++ [ bottomBar ])
+    (case model.modal of
+        Just (CommitModal modalState) ->
+            Tui.Modal.overlay
+                { title = "Commit"
+                , body =
+                    [ Tui.text ""
+                    , Input.view { width = 40 } modalState.input
+                    , Tui.text ""
+                    ]
+                , footer = "Enter: confirm │ Esc: cancel"
+                , width = 50
+                }
+                { width = ctx.width, height = ctx.height }
+                bgRows
+
+        Just (HelpModal helpState) ->
+            let
+                filterText : String
+                filterText =
+                    Input.text helpState.filter
+
+                groups : List (Keybinding.Group Action)
+                groups =
+                    testActiveBindings model
+
+                rowCount : Int
+                rowCount =
+                    Keybinding.helpRowCount filterText groups
+
+                clampedIdx : Int
+                clampedIdx =
+                    clamp 0 (max 0 (rowCount - 1)) helpState.selectedIndex
+
+                helpBody : List Tui.Screen
+                helpBody =
+                    Keybinding.helpRowsWithSelection clampedIdx filterText groups
+
+                searchRow : List Tui.Screen
+                searchRow =
+                    case helpState.mode of
+                        HelpSearch ->
+                            [ Tui.concat
+                                [ Tui.styled { plain | attributes = [ Tui.Dim ] } "/"
+                                , Input.view { width = 40 } helpState.filter
+                                ]
+                            , Tui.text ""
+                            ]
+
+                        HelpBrowse ->
+                            if not (String.isEmpty filterText) then
+                                [ Tui.styled { plain | attributes = [ Tui.Dim ] } ("/" ++ filterText)
+                                , Tui.text ""
+                                ]
+
+                            else
+                                []
+
+                footer : String
+                footer =
+                    case helpState.mode of
+                        HelpSearch ->
+                            "Enter: confirm │ Esc: cancel"
+
+                        HelpBrowse ->
+                            "j/k: navigate │ /: search │ Esc: close"
+            in
+            Tui.Modal.overlay
+                { title = "Keybindings"
+                , body = searchRow ++ helpBody
+                , footer = footer
+                , width = 50
+                }
+                { width = ctx.width, height = ctx.height }
+                bgRows
+
+        Nothing ->
+            bgRows
+    )
+        |> (\rows -> Tui.lines (List.take (List.length rows - 1) rows ++ [ bottomBar ]))
 
 
 miniGitSubscriptions : Model -> Tui.Sub.Sub Msg

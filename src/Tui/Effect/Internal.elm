@@ -1,10 +1,24 @@
 module Tui.Effect.Internal exposing
     ( Effect(..)
-    , none, batch, perform, attempt, exit, exitWithCode
-    , toast, errorToast
-    , resetScroll, scrollTo, scrollDown, scrollUp, setSelectedIndex, selectFirst, focusPane
-    , map, fold
-    , EffectResult(..), toBackendTask
+    , EffectResult(..)
+    , attempt
+    , batch
+    , errorToast
+    , exit
+    , exitWithCode
+    , focusPane
+    , fold
+    , map
+    , none
+    , perform
+    , resetScroll
+    , scrollDown
+    , scrollTo
+    , scrollUp
+    , selectFirst
+    , setSelectedIndex
+    , toBackendTask
+    , toast
     )
 
 import BackendTask exposing (BackendTask)
@@ -15,7 +29,6 @@ type Effect msg
     = None
     | Batch (List (Effect msg))
     | RunBackendTask (BackendTask FatalError msg)
-    | SuspendBackendTask (BackendTask FatalError msg)
     | Exit
     | ExitWithCode Int
     | Toast String
@@ -121,9 +134,6 @@ map f effect =
         RunBackendTask bt ->
             RunBackendTask (BackendTask.map f bt)
 
-        SuspendBackendTask bt ->
-            SuspendBackendTask (BackendTask.map f bt)
-
         Exit ->
             Exit
 
@@ -187,9 +197,6 @@ fold handlers effect =
         RunBackendTask bt ->
             handlers.backendTask bt
 
-        SuspendBackendTask bt ->
-            handlers.backendTask bt
-
         Exit ->
             handlers.exit 0
 
@@ -243,9 +250,6 @@ toBackendTask effect =
             BackendTask.succeed (EffectExit code)
 
         RunBackendTask bt ->
-            bt |> BackendTask.map EffectMsg
-
-        SuspendBackendTask bt ->
             bt |> BackendTask.map EffectMsg
 
         Batch effects ->

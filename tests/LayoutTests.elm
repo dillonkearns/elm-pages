@@ -748,6 +748,7 @@ suite =
                                 [ Layout.pane "left"
                                     { title = "Left", width = Layout.fill }
                                     (let
+                                        items : List String
                                         items =
                                             [ "a", "b", "c" ]
                                      in
@@ -764,6 +765,7 @@ suite =
                                 , Layout.pane "right"
                                     { title = "Right", width = Layout.fill }
                                     (let
+                                        items : List String
                                         items =
                                             [ "x", "y", "z" ]
                                      in
@@ -999,6 +1001,7 @@ suite =
             , test "number keys focus the corresponding pane" <|
                 \() ->
                     let
+                        layout : Layout.Layout msg
                         layout =
                             Layout.horizontal
                                 [ Layout.pane "left"
@@ -1009,6 +1012,7 @@ suite =
                                     (Layout.content [ Tui.text "b" ])
                                 ]
 
+                        state : Layout.State
                         state =
                             Layout.init |> Layout.focusPane "left"
 
@@ -1023,6 +1027,7 @@ suite =
             , test "pressing current pane number is a no-op" <|
                 \() ->
                     let
+                        layout : Layout.Layout msg
                         layout =
                             Layout.horizontal
                                 [ Layout.pane "left"
@@ -1033,6 +1038,7 @@ suite =
                                     (Layout.content [ Tui.text "b" ])
                                 ]
 
+                        state : Layout.State
                         state =
                             Layout.init |> Layout.focusPane "left"
 
@@ -1049,6 +1055,7 @@ suite =
             [ test "clicking a tab label fires onTabClick" <|
                 \() ->
                     let
+                        layout : Layout.Layout String
                         layout =
                             Layout.horizontal
                                 [ Layout.paneGroup "nav"
@@ -1062,6 +1069,7 @@ suite =
                                     }
                                 ]
 
+                        state : Layout.State
                         state =
                             Layout.init |> Layout.focusPane "nav"
 
@@ -1080,6 +1088,7 @@ suite =
             , test "clicking active tab also fires onTabClick" <|
                 \() ->
                     let
+                        layout : Layout.Layout String
                         layout =
                             Layout.horizontal
                                 [ Layout.paneGroup "nav"
@@ -1093,6 +1102,7 @@ suite =
                                     }
                                 ]
 
+                        state : Layout.State
                         state =
                             Layout.init |> Layout.focusPane "nav"
 
@@ -1108,6 +1118,7 @@ suite =
             , test "clicking title bar without onTabClick just focuses" <|
                 \() ->
                     let
+                        layout : Layout.Layout String
                         layout =
                             Layout.horizontal
                                 [ Layout.paneGroup "nav"
@@ -1120,6 +1131,7 @@ suite =
                                     }
                                 ]
 
+                        state : Layout.State
                         state =
                             Layout.init
 
@@ -1140,11 +1152,13 @@ suite =
             [ test "search mode changes focused border to cyan" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.focusPane "left"
                                 |> Layout.setSearching True
 
+                        screen : Tui.Screen
                         screen =
                             Layout.horizontal
                                 [ Layout.pane "left"
@@ -1156,6 +1170,7 @@ suite =
                                 ]
                                 |> Layout.toScreen (Layout.withContext { width = 40, height = 5 } state)
 
+                        encoded : String
                         encoded =
                             Tui.Internal.encodeScreen screen |> Json.Encode.encode 0
                     in
@@ -1167,10 +1182,12 @@ suite =
             , test "search mode off uses normal green border" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.focusPane "left"
 
+                        screen : Tui.Screen
                         screen =
                             Layout.horizontal
                                 [ Layout.pane "left"
@@ -1182,6 +1199,7 @@ suite =
                                 ]
                                 |> Layout.toScreen (Layout.withContext { width = 40, height = 5 } state)
 
+                        encoded : String
                         encoded =
                             Tui.Internal.encodeScreen screen |> Json.Encode.encode 0
                     in

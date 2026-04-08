@@ -13,9 +13,11 @@ suite =
             [ test "modal with body shorter than 75% renders normally" <|
                 \() ->
                     let
+                        bgRows : List Tui.Screen
                         bgRows =
                             List.repeat 20 (Tui.text (String.repeat 40 " "))
 
+                        result : List Tui.Screen
                         result =
                             Modal.overlay
                                 { title = "Small"
@@ -26,6 +28,7 @@ suite =
                                 { width = 40, height = 20 }
                                 bgRows
 
+                        rendered : String
                         rendered =
                             result |> List.map Tui.toString |> String.join "\n"
                     in
@@ -42,13 +45,16 @@ suite =
                     let
                         -- 20 body lines, terminal height 20
                         -- Max modal = 20 * 3 // 4 = 15, max body = 15 - 2 = 13
+                        bodyLines : List Tui.Screen
                         bodyLines =
                             List.range 1 20
                                 |> List.map (\i -> Tui.text ("item " ++ String.fromInt i))
 
+                        bgRows : List Tui.Screen
                         bgRows =
                             List.repeat 20 (Tui.text (String.repeat 40 " "))
 
+                        result : List Tui.Screen
                         result =
                             Modal.overlay
                                 { title = "Big"
@@ -59,6 +65,7 @@ suite =
                                 { width = 40, height = 20 }
                                 bgRows
 
+                        rendered : String
                         rendered =
                             result |> List.map Tui.toString |> String.join "\n"
                     in
@@ -79,14 +86,17 @@ suite =
                         -- Max modal = 24 * 3 // 4 = 18, max body = 16
                         -- Modal height = 18 (16 body + 2 borders)
                         -- startRow = (24 - 18) // 2 = 3 (3 rows of bg above)
+                        bodyLines : List Tui.Screen
                         bodyLines =
                             List.range 1 50
                                 |> List.map (\i -> Tui.text ("row " ++ String.fromInt i))
 
+                        bgRows : List Tui.Screen
                         bgRows =
                             List.range 0 23
                                 |> List.map (\i -> Tui.text ("bg" ++ String.fromInt i ++ String.repeat 37 " "))
 
+                        result : List Tui.Screen
                         result =
                             Modal.overlay
                                 { title = "T"
@@ -97,6 +107,7 @@ suite =
                                 { width = 40, height = 24 }
                                 bgRows
 
+                        renderedRows : List String
                         renderedRows =
                             result |> List.map Tui.toString
                     in
@@ -116,13 +127,16 @@ suite =
                 \() ->
                     let
                         -- height 8, max modal = 8 * 3 // 4 = 6, max body = 4
+                        bodyLines : List Tui.Screen
                         bodyLines =
                             List.range 1 20
                                 |> List.map (\i -> Tui.text ("x" ++ String.fromInt i))
 
+                        bgRows : List Tui.Screen
                         bgRows =
                             List.repeat 8 (Tui.text (String.repeat 40 " "))
 
+                        result : List Tui.Screen
                         result =
                             Modal.overlay
                                 { title = "S"
@@ -133,6 +147,7 @@ suite =
                                 { width = 40, height = 8 }
                                 bgRows
 
+                        rendered : String
                         rendered =
                             result |> List.map Tui.toString |> String.join "\n"
                     in
@@ -146,9 +161,11 @@ suite =
             , test "modal with zero body lines still shows borders" <|
                 \() ->
                     let
+                        bgRows : List Tui.Screen
                         bgRows =
                             List.repeat 10 (Tui.text (String.repeat 40 " "))
 
+                        result : List Tui.Screen
                         result =
                             Modal.overlay
                                 { title = "Empty"
@@ -159,6 +176,7 @@ suite =
                                 { width = 40, height = 10 }
                                 bgRows
 
+                        rendered : String
                         rendered =
                             result |> List.map Tui.toString |> String.join "\n"
                     in

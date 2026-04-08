@@ -2572,6 +2572,7 @@ but the pending requests are:
             , test "map3 with andThen-based requests to same URL, different bodies" <|
                 \() ->
                     let
+                        makeRequest : String -> Decode.Decoder a -> BackendTask FatalError a
                         makeRequest body decoder =
                             BackendTask.Env.expect "SECRET"
                                 |> BackendTask.allowFatal
@@ -2589,15 +2590,19 @@ but the pending requests are:
                                             |> BackendTask.allowFatal
                                     )
 
+                        smoothiesReq : BackendTask FatalError String
                         smoothiesReq =
                             makeRequest "{ products }" (Decode.field "data" (Decode.field "products" (Decode.index 0 (Decode.field "name" Decode.string))))
 
+                        userReq : BackendTask FatalError String
                         userReq =
                             makeRequest "{ users_by_pk }" (Decode.field "data" (Decode.field "users_by_pk" (Decode.field "name" Decode.string)))
 
+                        cartReq : BackendTask FatalError String
                         cartReq =
                             makeRequest "{ cart }" (Decode.field "data" (Decode.field "users_by_pk" (Decode.field "orders" (Decode.list (Decode.field "qty" Decode.int) |> Decode.map List.sum |> Decode.map String.fromInt))))
 
+                        combinedResponse : Encode.Value
                         combinedResponse =
                             Encode.object
                                 [ ( "data"

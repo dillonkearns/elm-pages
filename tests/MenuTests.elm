@@ -139,6 +139,7 @@ suite =
             [ test "viewBody shows section headers" <|
                 \() ->
                     let
+                        rendered : String
                         rendered =
                             Menu.viewBody sampleMenu
                                 |> List.map Tui.toString
@@ -152,6 +153,7 @@ suite =
             , test "viewBody shows item labels with keys" <|
                 \() ->
                     let
+                        rendered : String
                         rendered =
                             Menu.viewBody sampleMenu
                                 |> List.map Tui.toString
@@ -167,6 +169,7 @@ suite =
             , test "viewBody shows disabled items with reason" <|
                 \() ->
                     let
+                        rendered : String
                         rendered =
                             Menu.viewBody sampleMenu
                                 |> List.map Tui.toString

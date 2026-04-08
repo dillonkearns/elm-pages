@@ -76,6 +76,7 @@ post title author excerpt =
 -- TEST 1: Blog full user journey
 
 
+blogFullJourney : PagesProgram.ProgramTest Blog.Model Blog.Msg
 blogFullJourney =
     PagesProgram.start
         { data = Blog.data
@@ -114,6 +115,16 @@ type LoginMsg
     | ToggleRemember Bool
 
 
+loginFlowTest :
+    PagesProgram.ProgramTest
+        { email : String
+        , password : String
+        , remember : Bool
+        , loggedIn : Bool
+        , userName : String
+        , error : Maybe String
+        }
+        LoginMsg
 loginFlowTest =
     PagesProgram.start
         { data = BackendTask.succeed ()
@@ -238,6 +249,13 @@ type TodoMsg
     | DeleteTodo Int
 
 
+todoAppTest :
+    PagesProgram.ProgramTest
+        { newTodo : String
+        , todos : List { id : Int, text : String, done : Bool }
+        , nextId : Int
+        }
+        TodoMsg
 todoAppTest =
     PagesProgram.start
         { data = BackendTask.succeed ()
@@ -293,9 +311,11 @@ todoAppTest =
         , view =
             \_ model ->
                 let
+                    completedCount : Int
                     completedCount =
                         List.length (List.filter .done model.todos)
 
+                    totalCount : Int
                     totalCount =
                         List.length model.todos
                 in
@@ -408,6 +428,7 @@ todoAppTest =
 -- TEST 4: Blog loads posts (simple)
 
 
+blogLoadsPostsTest : PagesProgram.ProgramTest Blog.Model Blog.Msg
 blogLoadsPostsTest =
     PagesProgram.start
         { data = Blog.data
@@ -431,6 +452,7 @@ type CounterMsg
     = Increment
 
 
+counterTest : PagesProgram.ProgramTest { count : Int } CounterMsg
 counterTest =
     PagesProgram.start
         { data = BackendTask.succeed ()
@@ -479,6 +501,7 @@ type SearchMsg
     = UpdateSearch String
 
 
+searchTest : PagesProgram.ProgramTest { search : String, items : List String } SearchMsg
 searchTest =
     PagesProgram.start
         { data =
@@ -498,6 +521,7 @@ searchTest =
         , view =
             \_ model ->
                 let
+                    filtered : List String
                     filtered =
                         if String.isEmpty model.search then
                             model.items

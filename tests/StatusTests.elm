@@ -29,11 +29,13 @@ suite =
             , test "toast auto-dismisses after enough ticks" <|
                 \() ->
                     let
+                        state : Status.State
                         state =
                             Status.init
                                 |> Status.toast "Gone soon"
 
                         -- Tick 21 times (toast lasts 20 ticks)
+                        ticked : Status.State
                         ticked =
                             List.range 1 21
                                 |> List.foldl (\_ s -> Status.tick s) state
@@ -45,11 +47,13 @@ suite =
             , test "errorToast lasts longer than normal toast" <|
                 \() ->
                     let
+                        state : Status.State
                         state =
                             Status.init
                                 |> Status.errorToast "Error!"
 
                         -- Tick 25 times (error toast lasts 40 ticks)
+                        ticked : Status.State
                         ticked =
                             List.range 1 25
                                 |> List.foldl (\_ s -> Status.tick s) state
@@ -101,11 +105,13 @@ suite =
             , test "spinner animates with tick" <|
                 \() ->
                     let
+                        view0 : String
                         view0 =
                             Status.init
                                 |> Status.view { waiting = Just "Loading", tick = 0 }
                                 |> Tui.toString
 
+                        view1 : String
                         view1 =
                             Status.init
                                 |> Status.view { waiting = Just "Loading", tick = 1 }

@@ -16,6 +16,7 @@ suite =
             [ test "toSpanLines preserves styled text in public spans" <|
                 \() ->
                     let
+                        spanLines : List (List Screen.Span)
                         spanLines =
                             Tui.concat
                                 [ Tui.text "Hello" |> Tui.fg Ansi.Color.red |> Tui.bold
@@ -40,9 +41,11 @@ suite =
             , test "fromSpans rebuilds a screen from public spans" <|
                 \() ->
                     let
+                        plainStyle : Tui.Style
                         plainStyle =
                             Tui.plain
 
+                        greenBoldStyle : Tui.Style
                         greenBoldStyle =
                             { plainStyle | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
                     in
@@ -55,9 +58,11 @@ suite =
             , test "truncateSpans keeps style information on the truncated span" <|
                 \() ->
                     let
+                        plainStyle : Tui.Style
                         plainStyle =
                             Tui.plain
 
+                        linkStyle : Tui.Style
                         linkStyle =
                             { plainStyle | hyperlink = Just "https://elm-pages.com" }
                     in
@@ -68,9 +73,11 @@ suite =
             , test "wrapSpans preserves style information across wrapped lines" <|
                 \() ->
                     let
+                        plainStyle : Tui.Style
                         plainStyle =
                             Tui.plain
 
+                        cyanStyle : Tui.Style
                         cyanStyle =
                             { plainStyle | fg = Just Ansi.Color.cyan }
                     in

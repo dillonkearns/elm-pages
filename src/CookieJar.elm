@@ -88,18 +88,21 @@ applyOneSetCookie header jar =
             case String.split "=" (String.trim nameValuePart) of
                 name :: valueParts ->
                     let
+                        cookieName : String
                         cookieName =
                             String.trim name
-
-                        cookieValue =
-                            String.join "=" valueParts
-                                |> String.trim
-                                |> (\v -> Url.percentDecode v |> Maybe.withDefault v)
                     in
                     if String.isEmpty cookieName || isCookieAttribute cookieName then
                         jar
 
                     else
+                        let
+                            cookieValue : String
+                            cookieValue =
+                                String.join "=" valueParts
+                                    |> String.trim
+                                    |> (\v -> Url.percentDecode v |> Maybe.withDefault v)
+                        in
                         set cookieName cookieValue jar
 
                 _ ->

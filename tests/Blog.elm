@@ -13,7 +13,6 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
 import Json.Decode as Decode
-import Json.Encode as Encode
 
 
 type alias Post =

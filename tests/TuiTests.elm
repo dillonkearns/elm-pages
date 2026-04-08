@@ -102,6 +102,7 @@ suite =
                         |> (\s ->
                                 -- Both spans should have red
                                 let
+                                    redCount : Int
                                     redCount =
                                         String.indexes "red" s |> List.length
                                 in
@@ -115,6 +116,7 @@ suite =
                         |> Encode.encode 0
                         |> (\s ->
                                 let
+                                    boldCount : Int
                                     boldCount =
                                         String.indexes "bold" s |> List.length
                                 in
@@ -128,6 +130,7 @@ suite =
                         |> Encode.encode 0
                         |> (\s ->
                                 let
+                                    cyanCount : Int
                                     cyanCount =
                                         String.indexes "cyan" s |> List.length
                                 in
@@ -142,6 +145,7 @@ suite =
                         |> (\s ->
                                 -- Should have blue on all 3 spans (a, space, b)
                                 let
+                                    blueCount : Int
                                     blueCount =
                                         String.indexes "blue" s |> List.length
                                 in
@@ -208,6 +212,7 @@ suite =
                         |> Encode.encode 0
                         |> (\s ->
                                 let
+                                    linkCount : Int
                                     linkCount =
                                         String.indexes "https://example.com" s |> List.length
                                 in
@@ -240,6 +245,7 @@ suite =
             [ test "viewMasked preserves the inverse cursor while hiding the real text" <|
                 \() ->
                     let
+                        encoded : String
                         encoded =
                             Input.init "secret"
                                 |> Input.viewMasked { width = 40 }

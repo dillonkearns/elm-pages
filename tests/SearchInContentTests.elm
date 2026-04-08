@@ -52,6 +52,7 @@ suite =
             [ test "/ on searchable pane activates search mode" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "diff"
 
@@ -69,6 +70,7 @@ suite =
             , test "/ on non-searchable static pane does nothing" <|
                 \() ->
                     let
+                        nonSearchable : Layout.Layout Int
                         nonSearchable =
                             Layout.horizontal
                                 [ Layout.pane "plain"
@@ -76,6 +78,7 @@ suite =
                                     (Layout.content [ Tui.text "hello" ])
                                 ]
 
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "plain"
 
@@ -91,13 +94,16 @@ suite =
             [ test "typing in search prompt does not highlight yet" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "diff"
 
+                        s : Layout.State
                         s =
                             startSearchWith "added" state
 
                         -- Before Enter, no search results computed
+                        status : Maybe String
                         status =
                             Layout.searchStatusBar "diff" s
                                 |> Maybe.map Tui.toString
@@ -109,9 +115,11 @@ suite =
             [ test "Enter computes matches and shows count" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "diff"
 
+                        s1 : Layout.State
                         s1 =
                             startSearchWith "added" state
 
@@ -121,6 +129,7 @@ suite =
                                 searchableLayout
                                 s1
 
+                        status : Maybe String
                         status =
                             Layout.searchStatusBar "diff" s2
                                 |> Maybe.map Tui.toString
@@ -134,6 +143,7 @@ suite =
             , test "Enter with empty query cancels search" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "diff"
 
@@ -155,9 +165,11 @@ suite =
             [ test "n moves to next match" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "diff"
 
+                        s : Layout.State
                         s =
                             commitSearch "added" state
 
@@ -167,6 +179,7 @@ suite =
                                 searchableLayout
                                 s
 
+                        status : Maybe String
                         status =
                             Layout.searchStatusBar "diff" s2
                                 |> Maybe.map Tui.toString
@@ -175,9 +188,11 @@ suite =
             , test "N moves to previous match" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "diff"
 
+                        s : Layout.State
                         s =
                             commitSearch "added" state
 
@@ -188,6 +203,7 @@ suite =
                                 searchableLayout
                                 s
 
+                        status : Maybe String
                         status =
                             Layout.searchStatusBar "diff" s2
                                 |> Maybe.map Tui.toString
@@ -196,16 +212,20 @@ suite =
             , test "n wraps around from last to first" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "diff"
 
+                        s : Layout.State
                         s =
                             commitSearch "added" state
 
                         -- n three times: 1→2→3→1 (wraps)
+                        s2 : Layout.State
                         s2 =
                             pressN 3 s
 
+                        status : Maybe String
                         status =
                             Layout.searchStatusBar "diff" s2
                                 |> Maybe.map Tui.toString
@@ -214,9 +234,11 @@ suite =
             , test "n is intercepted (returns True) during active search" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "diff"
 
+                        s : Layout.State
                         s =
                             commitSearch "added" state
 
@@ -232,9 +254,11 @@ suite =
             [ test "Escape while typing clears search" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "diff"
 
+                        s : Layout.State
                         s =
                             startSearchWith "added" state
 
@@ -248,9 +272,11 @@ suite =
             , test "Escape after Enter clears search" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "diff"
 
+                        s : Layout.State
                         s =
                             commitSearch "added" state
 
@@ -266,12 +292,15 @@ suite =
             [ test "current match has cyan background in encoded output" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "diff"
 
+                        s : Layout.State
                         s =
                             commitSearch "added" state
 
+                        encoded : String
                         encoded =
                             searchableLayout
                                 |> Layout.toScreen s
@@ -284,6 +313,7 @@ suite =
                 \() ->
                     let
                         -- Use magenta (unique, not used by borders/highlights)
+                        styledLayout : Layout.Layout Int
                         styledLayout =
                             Layout.horizontal
                                 [ Layout.pane "styled"
@@ -296,6 +326,7 @@ suite =
                                     )
                                 ]
 
+                        state : Layout.State
                         state =
                             Layout.init
                                 |> Layout.withContext { width = 60, height = 10 }
@@ -303,9 +334,11 @@ suite =
 
                         -- Search for "new" — splits the magenta line:
                         -- "+ added " (should stay magenta), "new" (cyan bg), " function" (should stay magenta)
+                        s : Layout.State
                         s =
                             commitSearchWith "new" styledLayout state
 
+                        encoded : String
                         encoded =
                             styledLayout
                                 |> Layout.toScreen s
@@ -322,12 +355,15 @@ suite =
             , test "other matches have yellow background" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "diff"
 
+                        s : Layout.State
                         s =
                             commitSearch "added" state
 
+                        encoded : String
                         encoded =
                             searchableLayout
                                 |> Layout.toScreen s
@@ -343,12 +379,15 @@ suite =
             , test "activeFilterStatusBar also returns search status" <|
                 \() ->
                     let
+                        state : Layout.State
                         state =
                             initState |> Layout.focusPane "diff"
 
+                        s : Layout.State
                         s =
                             commitSearch "added" state
 
+                        status : Maybe String
                         status =
                             Layout.activeFilterStatusBar s
                                 |> Maybe.map Tui.toString
@@ -399,6 +438,7 @@ commitSearchWith query layout state =
                 layout
                 state
 
+        s2 : Layout.State
         s2 =
             query
                 |> String.toList

@@ -13,14 +13,13 @@ import Html.Events
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
-import Json.Encode as Encode
+import Test.BackendTask exposing (HttpError(..))
 import Test.Html.Event as Event
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
-import Test.PagesProgram.Selector as PSelector exposing (AssertionSelector(..))
-import Test.BackendTask exposing (HttpError(..))
 import Test.PagesProgram as PagesProgram
-import Test.PagesProgram.Internal exposing (NetworkSource(..), NetworkStatus(..))
+import Test.PagesProgram.Internal exposing (NetworkStatus(..))
+import Test.PagesProgram.Selector as PSelector exposing (AssertionSelector(..))
 import Test.PagesProgram.SimulatedEffect as SimulatedEffect
 import Test.PagesProgram.SimulatedSub as SimulatedSub
 import Test.Runner
@@ -525,7 +524,7 @@ all =
                                     Decrement ->
                                         ( model, [] )
                         , view =
-                            \_ model ->
+                            \_ _ ->
                                 { title = "Home"
                                 , body =
                                     [ Html.button [ Attr.class "submit-btn", Html.Events.onClick Increment ] [ Html.text "Go" ] ]
@@ -645,7 +644,7 @@ all =
                         |> PagesProgram.toSnapshots
                         |> List.map .assertionSelectors
                         |> Expect.equal
-                            [ []  -- start has no assertion selectors
+                            [ [] -- start has no assertion selectors
                             , [ ByText "Hello", ByClass "greeting" ]
                             , [ ById_ "main" ]
                             , [ ByTag_ "div" ]
@@ -718,8 +717,8 @@ all =
                         |> PagesProgram.toSnapshots
                         |> List.map .scopeSelectors
                         |> Expect.equal
-                            [ []  -- start
-                            , [ [ ById_ "counter" ] ]  -- assertion inside withinFind
+                            [ [] -- start
+                            , [ [ ById_ "counter" ] ] -- assertion inside withinFind
                             ]
             , test "nested withinFind carries nested scope selectors" <|
                 \() ->
@@ -747,8 +746,8 @@ all =
                         |> PagesProgram.toSnapshots
                         |> List.map .scopeSelectors
                         |> Expect.equal
-                            [ []  -- start
-                            , [ [ ById_ "outer" ], [ ByClass "inner" ] ]  -- nested scopes
+                            [ [] -- start
+                            , [ [ ById_ "outer" ], [ ByClass "inner" ] ] -- nested scopes
                             ]
             , test "plain within has empty scope selectors" <|
                 \() ->
@@ -771,8 +770,8 @@ all =
                         |> PagesProgram.toSnapshots
                         |> List.map .scopeSelectors
                         |> Expect.equal
-                            [ []  -- start
-                            , []  -- plain within = no scope selectors
+                            [ [] -- start
+                            , [] -- plain within = no scope selectors
                             ]
             , test "clickButtonWith inside withinFind carries scope selectors" <|
                 \() ->
@@ -788,7 +787,7 @@ all =
                                     Decrement ->
                                         ( model, [] )
                         , view =
-                            \_ model ->
+                            \_ _ ->
                                 { title = "Scoped Click"
                                 , body =
                                     [ Html.div [ Attr.id "section-a" ]
@@ -804,8 +803,8 @@ all =
                         |> PagesProgram.toSnapshots
                         |> List.map .scopeSelectors
                         |> Expect.equal
-                            [ []  -- start
-                            , [ [ ById_ "section-a" ] ]  -- interaction inside withinFind
+                            [ [] -- start
+                            , [ [ ById_ "section-a" ] ] -- interaction inside withinFind
                             ]
             , test "non-scoped assertions have empty scope selectors" <|
                 \() ->
@@ -823,8 +822,8 @@ all =
                         |> PagesProgram.toSnapshots
                         |> List.map .scopeSelectors
                         |> Expect.equal
-                            [ []  -- start
-                            , []  -- no scope
+                            [ [] -- start
+                            , [] -- no scope
                             ]
             ]
         , describe "disabled button detection"
@@ -865,6 +864,7 @@ all =
                                         [ Html.text "Submit" ]
                                     , if model.clicked then
                                         Html.text "Clicked!"
+
                                       else
                                         Html.text ""
                                     ]
@@ -898,6 +898,7 @@ all =
                                         [ Html.text "Submit" ]
                                     , if model.clicked then
                                         Html.text "Should not appear!"
+
                                       else
                                         Html.text ""
                                     ]
@@ -1487,6 +1488,7 @@ all =
             , test "multiple Set-Cookie headers accumulate" <|
                 \() ->
                     let
+                        jar : CookieJar.CookieJar
                         jar =
                             CookieJar.empty
                                 |> CookieJar.applySetCookieHeaders
@@ -1645,7 +1647,7 @@ all =
                                     GotEffectResult v ->
                                         ( { model | value = Just v }, [] )
                         , view =
-                            \_ model ->
+                            \_ _ ->
                                 { title = "Effect"
                                 , body =
                                     [ Html.button [ Html.Events.onClick TriggerEffect ] [ Html.text "Go" ]
@@ -1678,7 +1680,7 @@ all =
                                     GotEffectResult v ->
                                         ( { model | value = Just v }, [] )
                         , view =
-                            \_ model ->
+                            \_ _ ->
                                 { title = "Effect"
                                 , body =
                                     [ Html.button [ Html.Events.onClick TriggerEffect ] [ Html.text "Go" ] ]
@@ -1964,6 +1966,7 @@ all =
             , test "clickLink fails with helpful message when multiple links match" <|
                 \() ->
                     let
+                        result : Expectation
                         result =
                             PagesProgram.start
                                 { data = BackendTask.succeed ()
@@ -2233,9 +2236,11 @@ all =
                 \() ->
                     -- Verify that SimulatedEffect.map correctly transforms messages
                     let
+                        original : SimulatedEffect.SimulatedEffect Int
                         original =
                             SimulatedEffect.dispatchMsg 42
 
+                        mapped : SimulatedEffect.SimulatedEffect String
                         mapped =
                             SimulatedEffect.map (\n -> String.fromInt n) original
                     in
@@ -2248,6 +2253,7 @@ all =
             , test "SimulatedEffect.map over Batch transforms all messages" <|
                 \() ->
                     let
+                        original : SimulatedEffect.SimulatedEffect Int
                         original =
                             SimulatedEffect.batch
                                 [ SimulatedEffect.dispatchMsg 1
@@ -2255,6 +2261,7 @@ all =
                                 , SimulatedEffect.dispatchMsg 2
                                 ]
 
+                        mapped : SimulatedEffect.SimulatedEffect Int
                         mapped =
                             SimulatedEffect.map (\n -> n * 10) original
                     in
@@ -2271,6 +2278,7 @@ all =
             , test "SimulatedEffect.map preserves None" <|
                 \() ->
                     let
+                        mapped : SimulatedEffect.SimulatedEffect String
                         mapped =
                             SimulatedEffect.map identity SimulatedEffect.none
                     in
@@ -2549,16 +2557,6 @@ all =
         ]
 
 
-type SimCounterMsg
-    = SimIncrement
-    | SimReset
-
-
-type SimItemsMsg
-    = SimLoadItems
-    | SimItemsLoaded (List String)
-
-
 type SimEffect msg
     = SimEffectNone
     | SimEffectSendMsg msg
@@ -2638,8 +2636,6 @@ type MyEffect msg
 type CustomEffectMsg
     = LoadName
     | GotName String
-
-
 
 
 {-| Assert that an Expectation is a failure containing the given substring.

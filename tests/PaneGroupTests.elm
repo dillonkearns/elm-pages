@@ -146,19 +146,6 @@ suite =
         , test "switchTab changes which tab is active" <|
             \() ->
                 let
-                    layout : Layout.Layout Int
-                    layout =
-                        Layout.horizontal
-                            [ Layout.paneGroup "left"
-                                { tabs =
-                                    [ { id = "files", label = "Files", content = Layout.content [ Tui.text "f" ] }
-                                    , { id = "worktrees", label = "Worktrees", content = Layout.content [ Tui.text "w" ] }
-                                    ]
-                                , activeTab = "files"
-                                , width = Layout.fill
-                                }
-                            ]
-
                     state : Layout.State
                     state =
                         Layout.init

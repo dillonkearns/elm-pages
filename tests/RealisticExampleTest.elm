@@ -6,20 +6,20 @@ PagesProgram.start, simulate HTTP responses, and assert on the rendered view.
 -}
 
 import Blog
-import Expect
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
-import Test.BackendTask as BackendTaskTest
 import Test.PagesProgram as PagesProgram
 import Test.PagesProgram.Selector as PSelector
 
 
+blogApp : PagesProgram.ProgramTest Blog.Model Blog.Msg
 blogApp =
-    { data = Blog.data
-    , init = Blog.init
-    , update = Blog.update
-    , view = Blog.view
-    }
+    PagesProgram.start
+        { data = Blog.data
+        , init = Blog.init
+        , update = Blog.update
+        , view = Blog.view
+        }
 
 
 samplePosts : Encode.Value
@@ -43,24 +43,24 @@ post title author excerpt =
 suite : Test
 suite =
     describe "Blog"
-        [ test "loads and displays posts from API" <|
-            \() ->
-                PagesProgram.start blogApp
-                    |> PagesProgram.simulateHttpGet
-                        "https://api.example.com/posts"
-                        samplePosts
+            [ test "loads and displays posts from API" <|
+                \() ->
+                    blogApp
+                        |> PagesProgram.simulateHttpGet
+                            "https://api.example.com/posts"
+                            samplePosts
                     |> PagesProgram.ensureViewHas [ PSelector.tag "h1", PSelector.text "Blog" ]
                     |> PagesProgram.ensureViewHas [ PSelector.text "Getting Started with Elm" ]
                     |> PagesProgram.ensureViewHas [ PSelector.text "BackendTask Deep Dive" ]
                     |> PagesProgram.ensureViewHas [ PSelector.text "Testing Elm Apps" ]
                     |> PagesProgram.ensureViewHas [ PSelector.text "by Dillon Kearns" ]
                     |> PagesProgram.done
-        , test "clicking Show GitHub Stars fetches and displays count" <|
-            \() ->
-                PagesProgram.start blogApp
-                    |> PagesProgram.simulateHttpGet
-                        "https://api.example.com/posts"
-                        samplePosts
+            , test "clicking Show GitHub Stars fetches and displays count" <|
+                \() ->
+                    blogApp
+                        |> PagesProgram.simulateHttpGet
+                            "https://api.example.com/posts"
+                            samplePosts
                     |> PagesProgram.ensureViewHas [ PSelector.text "Show GitHub Stars" ]
                     |> PagesProgram.clickButton "Show GitHub Stars"
                     |> PagesProgram.simulateHttpGet
@@ -69,12 +69,12 @@ suite =
                     |> PagesProgram.ensureViewHasNot [ PSelector.text "Show GitHub Stars" ]
                     |> PagesProgram.ensureViewHas [ PSelector.text "elm-pages has 4200 stars" ]
                     |> PagesProgram.done
-        , test "posts render with author attribution" <|
-            \() ->
-                PagesProgram.start blogApp
-                    |> PagesProgram.simulateHttpGet
-                        "https://api.example.com/posts"
-                        (Encode.list identity
+            , test "posts render with author attribution" <|
+                \() ->
+                    blogApp
+                        |> PagesProgram.simulateHttpGet
+                            "https://api.example.com/posts"
+                            (Encode.list identity
                             [ post "My Post" "Jane Doe" "A great post." ]
                         )
                     |> PagesProgram.ensureViewHas [ PSelector.text "My Post" ]

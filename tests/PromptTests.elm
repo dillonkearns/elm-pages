@@ -13,6 +13,7 @@ suite =
             [ test "typing adds characters" <|
                 \() ->
                     let
+                        state : Prompt.State
                         state =
                             Prompt.open { title = "Name", placeholder = "" }
 
@@ -30,6 +31,7 @@ suite =
             , test "Enter submits the text" <|
                 \() ->
                     let
+                        state : Prompt.State
                         state =
                             typeString "hello" (Prompt.open { title = "Name", placeholder = "" })
 
@@ -42,6 +44,7 @@ suite =
             , test "Escape cancels" <|
                 \() ->
                     let
+                        state : Prompt.State
                         state =
                             typeString "partial" (Prompt.open { title = "Name", placeholder = "" })
 
@@ -54,6 +57,7 @@ suite =
             , test "typing returns Continue" <|
                 \() ->
                     let
+                        state : Prompt.State
                         state =
                             Prompt.open { title = "Name", placeholder = "" }
 
@@ -66,6 +70,7 @@ suite =
             , test "Backspace removes last character" <|
                 \() ->
                     let
+                        state : Prompt.State
                         state =
                             typeString "hello" (Prompt.open { title = "Name", placeholder = "" })
 
@@ -87,11 +92,13 @@ suite =
             [ test "masked prompt hides text in view" <|
                 \() ->
                     let
+                        state : Prompt.State
                         state =
                             Prompt.open { title = "Password", placeholder = "" }
                                 |> Prompt.withMasking
                                 |> typeString "secret"
 
+                        rendered : String
                         rendered =
                             Prompt.viewBody { width = 40 } state
                                 |> List.map Tui.toString
@@ -107,6 +114,7 @@ suite =
             , test "masked prompt still returns real text on Submit" <|
                 \() ->
                     let
+                        state : Prompt.State
                         state =
                             Prompt.open { title = "Password", placeholder = "" }
                                 |> Prompt.withMasking
@@ -123,15 +131,18 @@ suite =
             [ test "suggestions appear based on input" <|
                 \() ->
                     let
+                        suggest : String -> List String
                         suggest query =
                             [ "apple", "apricot", "banana" ]
                                 |> List.filter (String.contains query)
 
+                        state : Prompt.State
                         state =
                             Prompt.open { title = "Fruit", placeholder = "" }
                                 |> Prompt.withSuggestions suggest
                                 |> typeString "ap"
 
+                        rendered : String
                         rendered =
                             Prompt.viewBody { width = 40 } state
                                 |> List.map Tui.toString
@@ -146,10 +157,12 @@ suite =
             , test "Tab selects the first suggestion" <|
                 \() ->
                     let
+                        suggest : String -> List String
                         suggest query =
                             [ "apple", "apricot", "banana" ]
                                 |> List.filter (String.contains query)
 
+                        state : Prompt.State
                         state =
                             Prompt.open { title = "Fruit", placeholder = "" }
                                 |> Prompt.withSuggestions suggest
@@ -164,10 +177,12 @@ suite =
             , test "Tab then Enter submits the suggestion" <|
                 \() ->
                     let
+                        suggest : String -> List String
                         suggest query =
                             [ "apple", "apricot", "banana" ]
                                 |> List.filter (String.contains query)
 
+                        state : Prompt.State
                         state =
                             Prompt.open { title = "Fruit", placeholder = "" }
                                 |> Prompt.withSuggestions suggest
@@ -187,14 +202,17 @@ suite =
             , test "no suggestions when input is empty" <|
                 \() ->
                     let
+                        suggest : String -> List String
                         suggest query =
                             [ "apple", "apricot", "banana" ]
                                 |> List.filter (String.contains query)
 
+                        state : Prompt.State
                         state =
                             Prompt.open { title = "Fruit", placeholder = "" }
                                 |> Prompt.withSuggestions suggest
 
+                        rendered : String
                         rendered =
                             Prompt.viewBody { width = 40 } state
                                 |> List.map Tui.toString
@@ -206,10 +224,12 @@ suite =
             [ test "shows the input field" <|
                 \() ->
                     let
+                        state : Prompt.State
                         state =
                             Prompt.open { title = "Name", placeholder = "" }
                                 |> typeString "hello"
 
+                        rendered : String
                         rendered =
                             Prompt.viewBody { width = 40 } state
                                 |> List.map Tui.toString
@@ -219,9 +239,11 @@ suite =
             , test "shows placeholder when empty" <|
                 \() ->
                     let
+                        state : Prompt.State
                         state =
                             Prompt.open { title = "Name", placeholder = "Type a name..." }
 
+                        rendered : String
                         rendered =
                             Prompt.viewBody { width = 40 } state
                                 |> List.map Tui.toString

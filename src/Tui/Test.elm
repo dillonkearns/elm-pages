@@ -46,7 +46,7 @@ on the rendered screen:
 
 Pass the same config you'd give to [`Script.tui`](Pages-Script#tui), but with
 `data` already resolved (not a `BackendTask`). If your app uses
-[`Tui.Sub.onContext`](Tui-Sub#onContext), the initial context is fired
+`Tui.Sub.onContext`, the initial context is fired
 automatically.
 
 @docs start, startWithContext, startApp, startAppWithContext
@@ -66,8 +66,8 @@ threads the `TuiTest` through the app's `update` and captures the new screen.
 
 ## Resolving Effects
 
-When your `update` returns a [`Tui.Effect`](Tui-Effect) that performs a
-[`BackendTask`](BackendTask) (via [`Effect.perform`](Tui-Effect#perform)),
+When your `update` returns a `Tui.Effect` that performs a
+`BackendTask` (via `Effect.perform`),
 the test captures it as a pending effect. Use `resolveEffect` to simulate
 the `BackendTask` result:
 
@@ -125,6 +125,7 @@ import Test.BackendTask.Internal as BackendTaskTest
 import Test.Runner
 import Tui exposing (Context, KeyEvent, Screen)
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Effect.Internal as EffectInternal
 import Tui.Screen.Internal as ScreenInternal
 import Tui.Sub as Sub exposing (Sub)
 
@@ -1323,46 +1324,114 @@ resolveNextEffect simulate (TuiTest state) =
 
 extractBackendTasks : Effect msg -> List (BackendTask FatalError msg)
 extractBackendTasks effect =
-    Effect.fold
-        { none = []
-        , batch = List.concatMap extractBackendTasks
-        , backendTask = List.singleton
-        , exit = \_ -> []
-        , toast = \_ -> []
-        , errorToast = \_ -> []
-        , resetScroll = \_ -> []
-        , scrollTo = \_ _ -> []
-        , scrollDown = \_ _ -> []
-        , scrollUp = \_ _ -> []
-        , setSelectedIndex = \_ _ -> []
-        , selectFirst = \_ -> []
-        , focusPane = \_ -> []
-        }
-        effect
+    extractBackendTasksHelp [ effect ] []
+
+
+extractBackendTasksHelp : List (Effect msg) -> List (BackendTask FatalError msg) -> List (BackendTask FatalError msg)
+extractBackendTasksHelp remaining collected =
+    case remaining of
+        [] ->
+            List.reverse collected
+
+        next :: rest ->
+            case next of
+                EffectInternal.None ->
+                    extractBackendTasksHelp rest collected
+
+                EffectInternal.Batch effects ->
+                    extractBackendTasksHelp (List.reverse effects ++ rest) collected
+
+                EffectInternal.RunBackendTask backendTask ->
+                    extractBackendTasksHelp rest (backendTask :: collected)
+
+                EffectInternal.Exit ->
+                    extractBackendTasksHelp rest collected
+
+                EffectInternal.ExitWithCode _ ->
+                    extractBackendTasksHelp rest collected
+
+                EffectInternal.Toast _ ->
+                    extractBackendTasksHelp rest collected
+
+                EffectInternal.ErrorToast _ ->
+                    extractBackendTasksHelp rest collected
+
+                EffectInternal.ResetScroll _ ->
+                    extractBackendTasksHelp rest collected
+
+                EffectInternal.ScrollTo _ _ ->
+                    extractBackendTasksHelp rest collected
+
+                EffectInternal.ScrollDown _ _ ->
+                    extractBackendTasksHelp rest collected
+
+                EffectInternal.ScrollUp _ _ ->
+                    extractBackendTasksHelp rest collected
+
+                EffectInternal.SetSelectedIndex _ _ ->
+                    extractBackendTasksHelp rest collected
+
+                EffectInternal.SelectFirst _ ->
+                    extractBackendTasksHelp rest collected
+
+                EffectInternal.FocusPane _ ->
+                    extractBackendTasksHelp rest collected
 
 
 checkForExit : Effect msg -> Maybe Int
 checkForExit effect =
-    Effect.fold
-        { none = Nothing
-        , batch =
-            \effects ->
-                effects
-                    |> List.filterMap checkForExit
-                    |> List.head
-        , backendTask = \_ -> Nothing
-        , exit = Just
-        , toast = \_ -> Nothing
-        , errorToast = \_ -> Nothing
-        , resetScroll = \_ -> Nothing
-        , scrollTo = \_ _ -> Nothing
-        , scrollDown = \_ _ -> Nothing
-        , scrollUp = \_ _ -> Nothing
-        , setSelectedIndex = \_ _ -> Nothing
-        , selectFirst = \_ -> Nothing
-        , focusPane = \_ -> Nothing
-        }
-        effect
+    checkForExitHelp [ effect ]
+
+
+checkForExitHelp : List (Effect msg) -> Maybe Int
+checkForExitHelp remaining =
+    case remaining of
+        [] ->
+            Nothing
+
+        next :: rest ->
+            case next of
+                EffectInternal.None ->
+                    checkForExitHelp rest
+
+                EffectInternal.Batch effects ->
+                    checkForExitHelp (List.reverse effects ++ rest)
+
+                EffectInternal.RunBackendTask _ ->
+                    checkForExitHelp rest
+
+                EffectInternal.Exit ->
+                    Just 0
+
+                EffectInternal.ExitWithCode code ->
+                    Just code
+
+                EffectInternal.Toast _ ->
+                    checkForExitHelp rest
+
+                EffectInternal.ErrorToast _ ->
+                    checkForExitHelp rest
+
+                EffectInternal.ResetScroll _ ->
+                    checkForExitHelp rest
+
+                EffectInternal.ScrollTo _ _ ->
+                    checkForExitHelp rest
+
+                EffectInternal.ScrollDown _ _ ->
+                    checkForExitHelp rest
+
+                EffectInternal.ScrollUp _ _ ->
+                    checkForExitHelp rest
+
+                EffectInternal.SetSelectedIndex _ _ ->
+                    checkForExitHelp rest
+
+                EffectInternal.SelectFirst _ ->
+                    checkForExitHelp rest
+
+                EffectInternal.FocusPane _ ->
+                    checkForExitHelp rest
 
 
 indentScreenText : String -> String

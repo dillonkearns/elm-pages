@@ -34,8 +34,8 @@ A minimal TUI view:
 ## Building Screens
 
 Screens compose vertically with [`lines`](#lines) and horizontally with
-[`concat`](#concat). For split-pane layouts, see
-[`Tui.Layout`](Tui-Layout) in the `tui-widgets` package.
+[`concat`](#concat). For split-pane layouts, see the `Tui.Layout` module in
+the `tui-widgets` package.
 
 @docs Screen, text, styled, lines, concat, spaced, empty, blank
 
@@ -62,7 +62,7 @@ different terminal capabilities.
 
 ## Events
 
-Subscribe to events via [`Tui.Sub`](Tui-Sub). Your `subscriptions` function
+Subscribe to events via `Tui.Sub`. Your `subscriptions` function
 declares which events to listen for, and they arrive as these types in your
 `update`:
 

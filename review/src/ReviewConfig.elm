@@ -157,6 +157,7 @@ noUnusedRules =
         |> Rule.ignoreErrorsForFiles
             [ "src/StructuredData.elm"
             , "src/Router.elm" -- used in generated code
+            , "tests/ViewerExample.elm" -- standalone browser example entrypoint
             ]
     , NoUnused.Parameters.rule
         |> Rule.ignoreErrorsForFiles

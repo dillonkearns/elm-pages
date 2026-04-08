@@ -84,6 +84,7 @@ suite =
             , test "matches binding with modifiers" <|
                 \() ->
                     let
+                        groups : List (Keybinding.Group Action)
                         groups =
                             [ Keybinding.group "Test"
                                 [ Keybinding.withModifiers [ Tui.Ctrl ]
@@ -99,6 +100,7 @@ suite =
             , test "modifier mismatch does not match" <|
                 \() ->
                     let
+                        groups : List (Keybinding.Group Action)
                         groups =
                             [ Keybinding.group "Test"
                                 [ Keybinding.withModifiers [ Tui.Ctrl ]
@@ -193,6 +195,7 @@ suite =
             , test "shows key labels and descriptions" <|
                 \() ->
                     let
+                        rows : List String
                         rows =
                             Keybinding.helpRows "" [ sampleGlobal ]
                                 |> List.map Tui.toString
@@ -213,6 +216,7 @@ suite =
             , test "filters by description" <|
                 \() ->
                     let
+                        rows : List String
                         rows =
                             Keybinding.helpRows "quit" [ sampleGlobal ]
                                 |> List.map Tui.toString
@@ -226,6 +230,7 @@ suite =
             , test "filters by key with @ prefix" <|
                 \() ->
                     let
+                        rows : List String
                         rows =
                             Keybinding.helpRows "@tab" [ sampleGlobal ]
                                 |> List.map Tui.toString
