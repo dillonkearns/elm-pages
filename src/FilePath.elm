@@ -244,6 +244,10 @@ extension filePath =
 
 Returns `Nothing` when roots differ.
 
+    fromString "/foo/bar/qux"
+        |> relativeTo (fromString "/foo")
+        --> Just (fromString "bar/qux")
+
 -}
 relativeTo : FilePath -> FilePath -> Maybe FilePath
 relativeTo basePath targetPath =
