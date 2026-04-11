@@ -34,8 +34,6 @@ jobs:
         with:
           path: ~/.elm
           key: elm-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json', 'examples/routing/elm.json', 'examples/escaping/elm.json', 'examples/base-path/elm.json') }}
-      - name: Download lamdera
-        run: curl https://static.lamdera.com/bin/linux/lamdera-next-alpine-musl -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
       - name: npm ci
         if: steps.cache-node_modules.outputs.cache-hit != 'true'
         env:
@@ -87,8 +85,6 @@ jobs:
         with:
           path: ~/.elm
           key: elm-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json', 'examples/routing/elm.json', 'examples/escaping/elm.json', 'examples/base-path/elm.json') }}
-      - name: Download lamdera
-        run: curl https://static.lamdera.com/bin/linux/lamdera-next-alpine-musl -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
       - name: npm ci
         if: steps.cache-node_modules.outputs.cache-hit != 'true'
         env:
