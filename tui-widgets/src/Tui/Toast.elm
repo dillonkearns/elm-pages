@@ -11,7 +11,7 @@ with waiting spinners in one module. Use `Tui.Toast` directly when you want
 toast notifications without the waiting/spinner system.
 
 Normal toasts show for 2 seconds in cyan, error toasts show for 4 seconds
-in red. Stack-based: newest toast wins. Uses `Tui.Sub.every` for auto-dismiss.
+in red. Stack-based: newest toast wins. Uses `Tui.Sub.everyMillis` for auto-dismiss.
 
     -- Model
     type alias Model =
@@ -24,7 +24,7 @@ in red. Stack-based: newest toast wins. Uses `Tui.Sub.every` for auto-dismiss.
 
     -- In subscriptions (only while toasts are active, 100ms tick)
     if Toast.hasToasts model.toasts then
-        Tui.Sub.every 100 ToastTick
+        Tui.Sub.everyMillis 100 (\_ -> ToastTick)
     else
         Tui.Sub.none
 
@@ -72,7 +72,7 @@ init =
 
 
 {-| Show a normal toast (cyan). Lasts 20 ticks — with the recommended
-`Tui.Sub.every 100` interval, that's ~2 seconds.
+`Tui.Sub.everyMillis 100` interval, that's ~2 seconds.
 -}
 toast : String -> State -> State
 toast message (State items) =
@@ -80,7 +80,7 @@ toast message (State items) =
 
 
 {-| Show an error toast (red). Lasts 40 ticks — with the recommended
-`Tui.Sub.every 100` interval, that's ~4 seconds.
+`Tui.Sub.everyMillis 100` interval, that's ~4 seconds.
 -}
 errorToast : String -> State -> State
 errorToast message (State items) =
@@ -108,7 +108,7 @@ tick (State items) =
 to the tick timer.
 
     if Toast.hasToasts model.toasts then
-        Tui.Sub.every 100 ToastTick
+        Tui.Sub.everyMillis 100 (\_ -> ToastTick)
     else
         Tui.Sub.none
 

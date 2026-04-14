@@ -166,19 +166,23 @@ view ctx model =
                         \{ selection } commit ->
                             case selection of
                                 Layout.Selected { focused } ->
-                                    Tui.spaced
+                                    Tui.concat
                                         [ Tui.text "▸"
                                             |> (if focused then Tui.fg Ansi.Color.yellow else identity)
+                                        , Tui.text " "
                                         , Tui.text commit.sha
                                             |> (if focused then Tui.fg Ansi.Color.yellow >> Tui.bold else Tui.bold)
+                                        , Tui.text " "
                                         , Tui.text commit.message
                                         ]
                                         |> (if focused then Tui.bg Ansi.Color.blue else identity)
 
                                 Layout.NotSelected ->
-                                    Tui.spaced
+                                    Tui.concat
                                         [ Tui.text " "
+                                        , Tui.text " "
                                         , Tui.text commit.sha |> Tui.dim
+                                        , Tui.text " "
                                         , Tui.text commit.message
                                         ]
                     }

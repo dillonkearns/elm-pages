@@ -36,7 +36,7 @@ just renders it.
 
     -- In subscriptions (only while active)
     if Status.hasActivity model.status { waiting = model.pushing } then
-        Tui.Sub.every 100 Tick
+        Tui.Sub.everyMillis 100 (\_ -> Tick)
     else
         Tui.Sub.none
 
@@ -90,7 +90,7 @@ init =
 
 
 {-| Show a normal toast (cyan). Lasts 20 ticks — with the recommended
-`Tui.Sub.every 100` interval, that's ~2 seconds.
+`Tui.Sub.everyMillis 100` interval, that's ~2 seconds.
 -}
 toast : String -> State -> State
 toast message (State items) =
@@ -98,7 +98,7 @@ toast message (State items) =
 
 
 {-| Show an error toast (red). Lasts 40 ticks — with the recommended
-`Tui.Sub.every 100` interval, that's ~4 seconds.
+`Tui.Sub.everyMillis 100` interval, that's ~4 seconds.
 -}
 errorToast : String -> State -> State
 errorToast message (State items) =
@@ -182,7 +182,7 @@ view config (State items) =
 conditionally subscribe to the tick timer.
 
     if Status.hasActivity model.status { waiting = model.pushing } then
-        Tui.Sub.every 100 Tick
+        Tui.Sub.everyMillis 100 (\_ -> Tick)
     else
         Tui.Sub.none
 

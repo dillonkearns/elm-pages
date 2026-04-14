@@ -73,4 +73,4 @@ The message fires every 50ms to advance the spinner frame.
 -}
 subscriptions : msg -> Tui.Sub.Sub msg
 subscriptions msg =
-    Tui.Sub.every 50 msg
+    Tui.Sub.everyMillis 50 (\_ -> msg)

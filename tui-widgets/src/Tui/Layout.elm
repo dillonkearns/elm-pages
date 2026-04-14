@@ -6460,7 +6460,7 @@ compileSubscriptions config (FrameworkModel fw) =
         tickSub : Tui.Sub.Sub (FrameworkMsg msg)
         tickSub =
             if hasStatusActivity then
-                Tui.Sub.every 100 StatusTick
+                Tui.Sub.everyMillis 100 (\_ -> StatusTick)
 
             else
                 Tui.Sub.none

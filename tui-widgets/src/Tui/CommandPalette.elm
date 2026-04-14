@@ -287,15 +287,17 @@ paletteBodyRows s =
                                 i == s.selectedIndex
                         in
                         if isSelected then
-                            Tui.spaced
+                            Tui.concat
                                 [ Tui.text entry.keyLabel |> Tui.fg Ansi.Color.cyan |> Tui.bold
+                                , Tui.text " "
                                 , Tui.text entry.description
                                 ]
                                 |> Tui.bg Ansi.Color.blue
 
                         else
-                            Tui.spaced
+                            Tui.concat
                                 [ Tui.text entry.keyLabel |> Tui.fg Ansi.Color.cyan
+                                , Tui.text " "
                                 , Tui.text entry.description
                                 ]
                     )
