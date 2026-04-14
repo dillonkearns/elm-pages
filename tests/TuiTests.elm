@@ -10,6 +10,7 @@ import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
 import Test.Runner
+import Time
 import Tui exposing (plain)
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Input as Input
@@ -135,21 +136,6 @@ suite =
                                         String.indexes "cyan" s |> List.length
                                 in
                                 (cyanCount >= 2) |> Expect.equal True
-                           )
-            , test "spaced with fg applies to gaps too" <|
-                \() ->
-                    Tui.spaced [ Tui.text "a", Tui.text "b" ]
-                        |> Tui.bg Ansi.Color.blue
-                        |> Tui.Internal.encodeScreen
-                        |> Encode.encode 0
-                        |> (\s ->
-                                -- Should have blue on all 3 spans (a, space, b)
-                                let
-                                    blueCount : Int
-                                    blueCount =
-                                        String.indexes "blue" s |> List.length
-                                in
-                                (blueCount >= 3) |> Expect.equal True
                            )
             , test "outer style overwrites inner style" <|
                 \() ->
@@ -711,18 +697,116 @@ suite =
                         |> List.filterMap .modelState
                         |> List.map (String.contains "count = 2")
                         |> Expect.equal [ False, False, True ]
-            , test "snapshot.rerender re-renders at a different terminal size" <|
+            ]
+        , describe "TuiTest - everyMillis + advanceTime"
+            [ test "advanceTime 0 fires nothing" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.toSnapshots
-                        |> List.drop 1
-                        |> List.head
-                        |> Maybe.map (\s -> s.rerender { width = 100, height = 50, colorProfile = Tui.TrueColor })
-                        |> Maybe.map Tui.toString
-                        |> Maybe.withDefault ""
-                        |> String.contains "100×50"
-                        |> Expect.equal True
+                    singleIntervalTickerTest 50
+                        |> TuiTest.advanceTime 0
+                        |> TuiTest.ensureModel
+                            (\m -> m.ticks |> Expect.equal [])
+                        |> TuiTest.expectRunning
+            , test "advanceTime below one interval fires nothing" <|
+                \() ->
+                    singleIntervalTickerTest 50
+                        |> TuiTest.advanceTime 49
+                        |> TuiTest.ensureModel
+                            (\m -> m.ticks |> Expect.equal [])
+                        |> TuiTest.expectRunning
+            , test "advanceTime exactly one interval fires once at the interval boundary" <|
+                \() ->
+                    singleIntervalTickerTest 50
+                        |> TuiTest.advanceTime 50
+                        |> TuiTest.ensureModel
+                            (\m -> m.ticks |> Expect.equal [ ( 50, 50 ) ])
+                        |> TuiTest.expectRunning
+            , test "advanceTime three intervals fires three times at 50, 100, 150" <|
+                \() ->
+                    singleIntervalTickerTest 50
+                        |> TuiTest.advanceTime 150
+                        |> TuiTest.ensureModel
+                            (\m ->
+                                m.ticks
+                                    |> Expect.equal
+                                        [ ( 50, 50 ), ( 50, 100 ), ( 50, 150 ) ]
+                            )
+                        |> TuiTest.expectRunning
+            , test "consecutive advanceTime calls continue the clock forward" <|
+                \() ->
+                    singleIntervalTickerTest 50
+                        |> TuiTest.advanceTime 50
+                        |> TuiTest.advanceTime 50
+                        |> TuiTest.ensureModel
+                            (\m ->
+                                m.ticks
+                                    |> Expect.equal [ ( 50, 50 ), ( 50, 100 ) ]
+                            )
+                        |> TuiTest.expectRunning
+            , test "Posix timestamp reaching a long elapsed window is correct" <|
+                \() ->
+                    singleIntervalTickerTest 1000
+                        |> TuiTest.advanceTime 5000
+                        |> TuiTest.ensureModel
+                            (\m ->
+                                m.ticks
+                                    |> List.map Tuple.second
+                                    |> Expect.equal
+                                        [ 1000, 2000, 3000, 4000, 5000 ]
+                            )
+                        |> TuiTest.expectRunning
+            , test "multiple intervals fire independently at their own rates" <|
+                \() ->
+                    twoIntervalTickerTest 50 1000
+                        |> TuiTest.advanceTime 1000
+                        |> TuiTest.ensureModel
+                            (\m ->
+                                Expect.all
+                                    [ \_ ->
+                                        m.ticks
+                                            |> List.filter (\( i, _ ) -> i == 50)
+                                            |> List.length
+                                            |> Expect.equal 20
+                                    , \_ ->
+                                        m.ticks
+                                            |> List.filter (\( i, _ ) -> i == 1000)
+                                            |> List.length
+                                            |> Expect.equal 1
+                                    ]
+                                    ()
+                            )
+                        |> TuiTest.expectRunning
+            , test "ticks across intervals arrive in chronological order" <|
+                \() ->
+                    twoIntervalTickerTest 50 100
+                        |> TuiTest.advanceTime 200
+                        |> TuiTest.ensureModel
+                            (\m ->
+                                m.ticks
+                                    |> List.map Tuple.second
+                                    |> isSorted
+                                    |> Expect.equal True
+                            )
+                        |> TuiTest.expectRunning
+            , test "two subscriptions at the same interval both fire" <|
+                \() ->
+                    sameIntervalDualSubTest 1000
+                        |> TuiTest.advanceTime 1000
+                        |> TuiTest.ensureModel
+                            (\m ->
+                                Expect.all
+                                    [ \_ -> m.primaryCount |> Expect.equal 1
+                                    , \_ -> m.secondaryCount |> Expect.equal 1
+                                    ]
+                                    ()
+                            )
+                        |> TuiTest.expectRunning
+            , test "conditional subscription that returns Sub.none does not fire" <|
+                \() ->
+                    conditionalTickerTest
+                        |> TuiTest.advanceTime 500
+                        |> TuiTest.ensureModel
+                            (\m -> m.ticks |> Expect.equal [])
+                        |> TuiTest.expectRunning
             ]
         ]
 
@@ -1044,3 +1128,144 @@ starsTest =
         , view = starsView
         , subscriptions = starsSubscriptions
         }
+
+
+
+-- Ticker TUI for exercising everyMillis + advanceTime
+
+
+type alias TickerModel =
+    { ticks : List ( Int, Int )
+    , intervals : List Int
+    }
+
+
+type TickerMsg
+    = Ticked Int Time.Posix
+
+
+tickerInit : List Int -> () -> ( TickerModel, Effect TickerMsg )
+tickerInit intervals () =
+    ( { ticks = [], intervals = intervals }, Effect.none )
+
+
+tickerUpdate : TickerMsg -> TickerModel -> ( TickerModel, Effect TickerMsg )
+tickerUpdate msg model =
+    case msg of
+        Ticked interval posix ->
+            ( { model
+                | ticks =
+                    model.ticks ++ [ ( interval, Time.posixToMillis posix ) ]
+              }
+            , Effect.none
+            )
+
+
+tickerView : Tui.Context -> TickerModel -> Tui.Screen
+tickerView _ model =
+    Tui.text ("Ticks: " ++ String.fromInt (List.length model.ticks))
+
+
+tickerSubscriptions : TickerModel -> Tui.Sub.Sub TickerMsg
+tickerSubscriptions model =
+    model.intervals
+        |> List.map (\i -> Tui.Sub.everyMillis i (Ticked i))
+        |> Tui.Sub.batch
+
+
+singleIntervalTickerTest : Int -> TuiTest.TuiTest TickerModel TickerMsg
+singleIntervalTickerTest interval =
+    TuiTest.start
+        { data = ()
+        , init = tickerInit [ interval ]
+        , update = tickerUpdate
+        , view = tickerView
+        , subscriptions = tickerSubscriptions
+        }
+
+
+twoIntervalTickerTest : Int -> Int -> TuiTest.TuiTest TickerModel TickerMsg
+twoIntervalTickerTest a b =
+    TuiTest.start
+        { data = ()
+        , init = tickerInit [ a, b ]
+        , update = tickerUpdate
+        , view = tickerView
+        , subscriptions = tickerSubscriptions
+        }
+
+
+
+-- Dual-subscription-at-same-interval fixture (exercises the routeEvents
+-- fix: multiple subs at the same interval should all fire on one tick)
+
+
+type alias DualSubModel =
+    { primaryCount : Int
+    , secondaryCount : Int
+    , interval : Int
+    }
+
+
+type DualSubMsg
+    = Primary Time.Posix
+    | Secondary Time.Posix
+
+
+dualSubUpdate : DualSubMsg -> DualSubModel -> ( DualSubModel, Effect DualSubMsg )
+dualSubUpdate msg model =
+    case msg of
+        Primary _ ->
+            ( { model | primaryCount = model.primaryCount + 1 }, Effect.none )
+
+        Secondary _ ->
+            ( { model | secondaryCount = model.secondaryCount + 1 }, Effect.none )
+
+
+sameIntervalDualSubTest : Int -> TuiTest.TuiTest DualSubModel DualSubMsg
+sameIntervalDualSubTest interval =
+    TuiTest.start
+        { data = ()
+        , init =
+            \() ->
+                ( { primaryCount = 0, secondaryCount = 0, interval = interval }
+                , Effect.none
+                )
+        , update = dualSubUpdate
+        , view = \_ _ -> Tui.text "dual"
+        , subscriptions =
+            \model ->
+                Tui.Sub.batch
+                    [ Tui.Sub.everyMillis model.interval Primary
+                    , Tui.Sub.everyMillis model.interval Secondary
+                    ]
+        }
+
+
+
+-- Conditional ticker: subscription returns Sub.none until a flag flips.
+-- With the flag never flipped, advanceTime should fire nothing.
+
+
+conditionalTickerTest : TuiTest.TuiTest TickerModel TickerMsg
+conditionalTickerTest =
+    TuiTest.start
+        { data = ()
+        , init = \() -> ( { ticks = [], intervals = [] }, Effect.none )
+        , update = tickerUpdate
+        , view = tickerView
+        , subscriptions = \_ -> Tui.Sub.none
+        }
+
+
+isSorted : List Int -> Bool
+isSorted xs =
+    case xs of
+        [] ->
+            True
+
+        _ :: [] ->
+            True
+
+        a :: ((b :: _) as rest) ->
+            (a <= b) && isSorted rest

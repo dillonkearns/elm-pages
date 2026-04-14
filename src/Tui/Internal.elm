@@ -1,4 +1,4 @@
-module Tui.Internal exposing (encodeScreen, run)
+module Tui.Internal exposing (encodeScreen, run, toScreenLines)
 
 {-| Internal TUI loop implementation. Not exposed to users.
 -}
@@ -15,6 +15,7 @@ import Tui.Effect as Effect exposing (Effect)
 import Tui.Effect.Internal as EffectInternal
 import Tui.Screen.Internal as ScreenInternal
 import Tui.Sub as Sub exposing (Sub)
+import Tui.Sub.Internal as SubInternal
 
 
 decodeColorProfile : Decode.Decoder ColorProfile
@@ -102,17 +103,12 @@ tuiRenderAndWait screen sub =
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    ([ ( "screen", encodeScreen screen )
-                     , ( "interests", Sub.getInterests sub )
-                     ]
-                        ++ (case Sub.getTickInterval sub of
-                                Just interval ->
-                                    [ ( "tickInterval", Encode.float interval ) ]
-
-                                Nothing ->
-                                    []
-                           )
-                    )
+                    [ ( "screen", encodeScreen screen )
+                    , ( "interests", SubInternal.getInterests sub )
+                    , ( "tickIntervals"
+                      , Encode.list Encode.int (SubInternal.getTickIntervals sub)
+                      )
+                    ]
                 )
         , expect =
             Decode.map2 (\evts wh -> { events = evts, width = wh.width, height = wh.height })
@@ -262,39 +258,43 @@ processBatchedEventsHelp config sub context model accEffects events =
 
         rawValue :: rest ->
             let
-                rawEvent : Sub.RawEvent
+                rawEvent : SubInternal.RawEvent
                 rawEvent =
                     decodeRawEvent rawValue
             in
             case rawEvent of
-                Sub.RawResize _ ->
+                SubInternal.RawResize _ ->
                     -- Apply resize context, continue processing
                     processBatchedEventsHelp config sub context model accEffects rest
 
                 _ ->
-                    case Sub.routeEvent sub rawEvent of
-                        Just msg ->
-                            let
-                                ( newModel, newEffect ) =
-                                    config.update msg model
-                            in
-                            processBatchedEventsHelp config sub context newModel (newEffect :: accEffects) rest
+                    let
+                        ( newModel, newAccEffects ) =
+                            List.foldl
+                                (\msg ( m, effs ) ->
+                                    let
+                                        ( m2, newEffect ) =
+                                            config.update msg m
+                                    in
+                                    ( m2, newEffect :: effs )
+                                )
+                                ( model, accEffects )
+                                (SubInternal.routeEvents sub rawEvent)
+                    in
+                    processBatchedEventsHelp config sub context newModel newAccEffects rest
 
-                        Nothing ->
-                            processBatchedEventsHelp config sub context model accEffects rest
 
-
-{-| Decode a raw JSON event into a RawEvent.
+{-| Decode a raw JSON event into a RawEvent. Unknown event types fall through
+as a synthetic resize event, which is silently skipped by the processing loop.
 -}
-decodeRawEvent : Decode.Value -> Sub.RawEvent
+decodeRawEvent : Decode.Value -> SubInternal.RawEvent
 decodeRawEvent value =
-    case Decode.decodeValue Sub.decodeRawEvent value of
+    case Decode.decodeValue SubInternal.decodeRawEvent value of
         Ok event ->
             event
 
         Err _ ->
-            -- If we can't decode, treat as a tick (will be ignored if not subscribed)
-            Sub.RawTick
+            SubInternal.RawResize { width = 0, height = 0 }
 
 
 applyContextUpdate :
@@ -304,11 +304,15 @@ applyContextUpdate :
     -> model
     -> ( model, Effect msg )
 applyContextUpdate update sub context model =
-    case Sub.routeEvent sub (Sub.RawContext { width = context.width, height = context.height }) of
-        Just msg ->
-            update msg model
-
-        Nothing ->
+    SubInternal.routeEvents sub (SubInternal.RawContext { width = context.width, height = context.height })
+        |> List.foldl
+            (\msg ( m, accEffect ) ->
+                let
+                    ( newModel, newEffect ) =
+                        update msg m
+                in
+                ( newModel, Effect.batch [ accEffect, newEffect ] )
+            )
             ( model, Effect.none )
 
 
@@ -343,6 +347,62 @@ encodeScreen screen =
             (\spanLine ->
                 Encode.list encodeSpan spanLine
             )
+
+
+toScreenLines : Screen -> List Screen
+toScreenLines screen =
+    ScreenInternal.flattenToSpanLines styleToFlatStyle screen
+        |> List.map
+            (\spans ->
+                spans
+                    |> List.map (ScreenInternal.spanToScreen flatStyleToStyle)
+                    |> ScreenInternal.ScreenConcat
+            )
+
+
+flatStyleToStyle : ScreenInternal.FlatStyle -> Tui.Style
+flatStyleToStyle fs =
+    { fg = fs.foreground
+    , bg = fs.background
+    , attributes = flatStyleToAttrs fs
+    , hyperlink = fs.hyperlink
+    }
+
+
+flatStyleToAttrs : ScreenInternal.FlatStyle -> List Attribute
+flatStyleToAttrs s =
+    List.filterMap identity
+        [ if s.bold then
+            Just Bold
+
+          else
+            Nothing
+        , if s.dim then
+            Just Dim
+
+          else
+            Nothing
+        , if s.italic then
+            Just Italic
+
+          else
+            Nothing
+        , if s.underline then
+            Just Underline
+
+          else
+            Nothing
+        , if s.strikethrough then
+            Just Strikethrough
+
+          else
+            Nothing
+        , if s.inverse then
+            Just Inverse
+
+          else
+            Nothing
+        ]
 
 
 styleToFlatStyle : Tui.Style -> ScreenInternal.FlatStyle

@@ -3,7 +3,7 @@ module Tui.Test exposing
     , start, startWithContext, startApp, startAppWithContext
     , pressKey, pressKeyWith, pressKeyN, paste, resize
     , click, clickText, scrollDown, scrollUp, scrollDownN, scrollUpN
-    , sendMsg
+    , sendMsg, advanceTime
     , BackendTaskSimulator, resolveEffect
     , ensureView, ensureViewHas, ensureViewDoesNotHave
     , ensureModel, annotateAssertion
@@ -61,7 +61,7 @@ threads the `TuiTest` through the app's `update` and captures the new screen.
 
 @docs click, clickText, scrollDown, scrollUp, scrollDownN, scrollUpN
 
-@docs sendMsg
+@docs sendMsg, advanceTime
 
 
 ## Resolving Effects
@@ -119,15 +119,18 @@ arrow keys to visually step through your test.
 
 import Ansi.Color
 import BackendTask exposing (BackendTask)
+import Dict exposing (Dict)
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Test.BackendTask.Internal as BackendTaskTest
 import Test.Runner
+import Time
 import Tui exposing (Context, KeyEvent, Screen)
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Effect.Internal as EffectInternal
 import Tui.Screen.Internal as ScreenInternal
 import Tui.Sub as Sub exposing (Sub)
+import Tui.Sub.Internal as SubInternal
 
 
 {-| An in-progress TUI test. Thread this through the pipeline to simulate
@@ -148,6 +151,8 @@ type alias State model msg =
     , error : Maybe String
     , snapshots : List Snapshot
     , modelToString : Maybe (model -> String)
+    , currentTime : Int
+    , tickFireTimes : Dict Int Int
     }
 
 
@@ -158,14 +163,10 @@ type alias State model msg =
 Use `Tui.toString` to get plain text, or render it through the TUI pipeline
 for styled output.
 
-`rerender` lets you render the view at a different terminal size than the
-one used during the test.
-
 -}
 type alias Snapshot =
     { label : String
     , screen : Screen
-    , rerender : Context -> Screen
     , hasPendingEffects : Bool
     , modelState : Maybe String
     , assertions : List String
@@ -229,11 +230,17 @@ startWithContext context config =
             config.init config.data
 
         ( modelWithContext, contextEffect ) =
-            case Sub.routeEvent (config.subscriptions initialModel) (Sub.RawContext { width = context.width, height = context.height }) of
-                Just msg ->
-                    config.update msg initialModel
-
-                Nothing ->
+            SubInternal.routeEvents
+                (config.subscriptions initialModel)
+                (SubInternal.RawContext { width = context.width, height = context.height })
+                |> List.foldl
+                    (\msg ( m, accEffect ) ->
+                        let
+                            ( newModel, newEffect ) =
+                                config.update msg m
+                        in
+                        ( newModel, Effect.batch [ accEffect, newEffect ] )
+                    )
                     ( initialModel, Effect.none )
 
         combinedEffect : Effect msg
@@ -256,13 +263,14 @@ startWithContext context config =
         , snapshots =
             [ { label = "init"
               , screen = config.view context modelWithContext
-              , rerender = \ctx -> config.view ctx modelWithContext
               , hasPendingEffects = not (List.isEmpty pendingEffects)
               , modelState = Nothing
               , assertions = []
               }
             ]
         , modelToString = Nothing
+        , currentTime = 0
+        , tickFireTimes = Dict.empty
         }
 
 
@@ -377,12 +385,8 @@ pressKeyWith keyEvent (TuiTest state) =
                 sub =
                     state.subscriptions state.model
             in
-            case Sub.routeEvent sub (Sub.RawKeyPress keyEvent) of
-                Just msg ->
-                    applyMsg (keyEventLabel keyEvent) msg (TuiTest state)
-
-                Nothing ->
-                    TuiTest state
+            SubInternal.routeEvents sub (SubInternal.RawKeyPress keyEvent)
+                |> List.foldl (applyMsg (keyEventLabel keyEvent)) (TuiTest state)
 
 
 {-| Simulate a bracketed paste event. Delivers the text as a single `OnPaste`
@@ -410,12 +414,10 @@ paste pastedText (TuiTest state) =
                 sub =
                     state.subscriptions state.model
             in
-            case Sub.routeEvent sub (Sub.RawPaste pastedText) of
-                Just msg ->
-                    applyMsg ("paste \"" ++ truncateLabel pastedText ++ "\"") msg (TuiTest state)
-
-                Nothing ->
-                    TuiTest state
+            SubInternal.routeEvents sub (SubInternal.RawPaste pastedText)
+                |> List.foldl
+                    (applyMsg ("paste \"" ++ truncateLabel pastedText ++ "\""))
+                    (TuiTest state)
 
 
 truncateLabel : String -> String
@@ -447,26 +449,27 @@ resize size (TuiTest state) =
                     { width = size.width, height = size.height, colorProfile = state.context.colorProfile }
 
                 ( newModel, effect ) =
-                    case Sub.routeEvent (state.subscriptions state.model) (Sub.RawContext { width = newContext.width, height = newContext.height }) of
-                        Just msg ->
-                            state.update msg state.model
-
-                        Nothing ->
+                    SubInternal.routeEvents
+                        (state.subscriptions state.model)
+                        (SubInternal.RawContext { width = newContext.width, height = newContext.height })
+                        |> List.foldl
+                            (\msg ( m, accEffect ) ->
+                                let
+                                    ( m2, newEffect ) =
+                                        state.update msg m
+                                in
+                                ( m2, Effect.batch [ accEffect, newEffect ] )
+                            )
                             ( state.model, Effect.none )
 
                 newPendingEffects : List (BackendTask FatalError msg)
                 newPendingEffects =
                     state.pendingEffects ++ extractBackendTasks effect
 
-                viewFn : Context -> Screen
-                viewFn =
-                    \ctx -> state.view ctx newModel
-
                 snapshot : Snapshot
                 snapshot =
                     { label = "resize " ++ String.fromInt size.width ++ "×" ++ String.fromInt size.height
                     , screen = state.view newContext newModel
-                    , rerender = viewFn
                     , hasPendingEffects = not (List.isEmpty newPendingEffects)
                     , modelState = Maybe.map (\f -> f newModel) state.modelToString
                     , assertions = []
@@ -516,7 +519,8 @@ clickText needle (TuiTest state) =
             let
                 screenLines : List String
                 screenLines =
-                    Tui.toLines (state.view state.context state.model)
+                    Tui.toString (state.view state.context state.model)
+                        |> String.split "\n"
 
                 maybeMatch : Maybe { row : Int, col : Int }
                 maybeMatch =
@@ -606,12 +610,8 @@ simulateMouseEvent label mouseEvent (TuiTest state) =
                 sub =
                     state.subscriptions state.model
             in
-            case Sub.routeEvent sub (Sub.RawMouse mouseEvent) of
-                Just msg ->
-                    applyMsg label msg (TuiTest state)
-
-                Nothing ->
-                    TuiTest state
+            SubInternal.routeEvents sub (SubInternal.RawMouse mouseEvent)
+                |> List.foldl (applyMsg label) (TuiTest state)
 
 
 {-| Send a message directly through `update`. Useful for simulating
@@ -626,6 +626,114 @@ simulateMouseEvent label mouseEvent (TuiTest state) =
 sendMsg : msg -> TuiTest model msg -> TuiTest model msg
 sendMsg msg =
     applyMsg "sendMsg" msg
+
+
+{-| Advance simulated time by the given number of milliseconds. Any
+[`Tui.Sub.everyMillis`](Tui-Sub#everyMillis) subscriptions fire for each
+interval boundary crossed, passing the simulated `Time.Posix` at the moment
+of fire to the user's message constructor.
+
+    import Time
+
+    test "animation advances one frame per 50ms tick" <|
+        \() ->
+            spinnerTest
+                |> TuiTest.advanceTime 50
+                |> TuiTest.ensureViewHas "frame 1"
+                |> TuiTest.advanceTime 50
+                |> TuiTest.ensureViewHas "frame 2"
+
+Multi-interval subscriptions fire independently at their own rates. If
+multiple ticks fall in the same `advanceTime` call, they are delivered to
+`update` in chronological order; same-timestamp ticks from different
+intervals fire in subscription order. Catch-up semantics match the runtime:
+each interval fires at most once per `advanceTime` call with the actual
+simulated fire time, not the target time.
+
+The starting simulated clock is `1970-01-01T00:00:00Z` (posix 0). The first
+fire of `everyMillis n _` is at simulated posix `n`.
+
+-}
+advanceTime : Int -> TuiTest model msg -> TuiTest model msg
+advanceTime deltaMs (TuiTest state) =
+    case ( state.error, state.exited ) of
+        ( Just _, _ ) ->
+            TuiTest state
+
+        ( _, Just _ ) ->
+            TuiTest { state | error = Just "advanceTime called after TUI exited" }
+
+        ( Nothing, Nothing ) ->
+            advanceTimeHelp (state.currentTime + deltaMs) (TuiTest state)
+
+
+advanceTimeHelp : Int -> TuiTest model msg -> TuiTest model msg
+advanceTimeHelp targetTime (TuiTest state) =
+    -- elm-review: known-unoptimized-recursion
+    case ( state.error, state.exited ) of
+        ( Just _, _ ) ->
+            TuiTest { state | currentTime = targetTime }
+
+        ( _, Just _ ) ->
+            TuiTest { state | currentTime = targetTime }
+
+        ( Nothing, Nothing ) ->
+            let
+                sub : Sub msg
+                sub =
+                    state.subscriptions state.model
+
+                intervals : List Int
+                intervals =
+                    SubInternal.getTickIntervals sub
+
+                nextFires : List ( Int, Int )
+                nextFires =
+                    intervals
+                        |> List.map
+                            (\interval ->
+                                let
+                                    lastFire : Int
+                                    lastFire =
+                                        Dict.get interval state.tickFireTimes
+                                            |> Maybe.withDefault 0
+                                in
+                                ( interval, lastFire + interval )
+                            )
+                        |> List.filter (\( _, t ) -> t <= targetTime)
+                        |> List.sortBy Tuple.second
+            in
+            case nextFires of
+                [] ->
+                    TuiTest { state | currentTime = targetTime }
+
+                ( interval, fireTime ) :: _ ->
+                    let
+                        rawEvent : SubInternal.RawEvent
+                        rawEvent =
+                            SubInternal.RawTick
+                                { interval = interval
+                                , time = Time.millisToPosix fireTime
+                                }
+
+                        stateWithClock : State model msg
+                        stateWithClock =
+                            { state
+                                | currentTime = fireTime
+                                , tickFireTimes =
+                                    Dict.insert interval fireTime state.tickFireTimes
+                            }
+
+                        msgs : List msg
+                        msgs =
+                            SubInternal.routeEvents sub rawEvent
+
+                        label : String
+                        label =
+                            "advance " ++ String.fromInt fireTime ++ "ms"
+                    in
+                    List.foldl (applyMsg label) (TuiTest stateWithClock) msgs
+                        |> advanceTimeHelp targetTime
 
 
 
@@ -1231,15 +1339,10 @@ applyMsg label msg (TuiTest state) =
                 newPendingEffects =
                     extractBackendTasks effect
 
-                viewFn : Context -> Screen
-                viewFn =
-                    \ctx -> state.view ctx newModel
-
                 snapshot : Snapshot
                 snapshot =
                     { label = label
                     , screen = state.view state.context newModel
-                    , rerender = viewFn
                     , hasPendingEffects = not (List.isEmpty newPendingEffects)
                     , modelState = Maybe.map (\f -> f newModel) state.modelToString
                     , assertions = []
@@ -1296,15 +1399,10 @@ resolveNextEffect simulate (TuiTest state) =
                                 newPendingEffects =
                                     rest ++ extractBackendTasks newEffect
 
-                                viewFn : Context -> Screen
-                                viewFn =
-                                    \ctx -> state.view ctx newModel
-
                                 snapshot : Snapshot
                                 snapshot =
                                     { label = "resolveEffect"
                                     , screen = state.view state.context newModel
-                                    , rerender = viewFn
                                     , hasPendingEffects = not (List.isEmpty newPendingEffects)
                                     , modelState = Maybe.map (\f -> f newModel) state.modelToString
                                     , assertions = []
@@ -1530,7 +1628,6 @@ toSnapshots (TuiTest state) =
             state.snapshots
                 ++ [ { label = "ERROR"
                      , screen = errorScreen
-                     , rerender = \_ -> errorScreen
                      , hasPendingEffects = False
                      , modelState = Nothing
                      , assertions = []

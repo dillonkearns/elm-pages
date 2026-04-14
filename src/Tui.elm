@@ -1,14 +1,13 @@
 module Tui exposing
-    ( Screen, text, styled, lines, concat, spaced, empty, blank
+    ( Screen, text, styled, lines, concat, empty, blank
     , fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
-    , Style, plain
+    , Style, plain, extractStyle
     , Attribute(..)
     , Context, ColorProfile(..)
     , KeyEvent, Key(..), Direction(..), Modifier(..)
     , MouseEvent(..), MouseButton(..)
     , truncateWidth, wrapWidth
-    , toString, toLines, toScreenLines, lineCount
-    , extractStyle
+    , toString
     )
 
 {-| Build terminal user interfaces with styled text, keyboard/mouse events,
@@ -37,7 +36,7 @@ Screens compose vertically with [`lines`](#lines) and horizontally with
 [`concat`](#concat). For split-pane layouts, see the `Tui.Layout` module in
 the `tui-widgets` package.
 
-@docs Screen, text, styled, lines, concat, spaced, empty, blank
+@docs Screen, text, styled, lines, concat, empty, blank
 
 
 ## Styling
@@ -49,7 +48,7 @@ Pipeline-style builders that compose on any `Screen` — text, concat, lines:
 
 @docs fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
 
-@docs Style, plain, Attribute
+@docs Style, plain, extractStyle, Attribute
 
 
 ## Terminal Context
@@ -82,9 +81,9 @@ declares which events to listen for, and they arrive as these types in your
 @docs truncateWidth, wrapWidth
 
 
-## Querying
+## Inspecting
 
-@docs toString, toLines, toScreenLines, lineCount, extractStyle
+@docs toString
 
 -}
 
@@ -183,20 +182,6 @@ lines =
 concat : List Screen -> Screen
 concat =
     Internal.ScreenConcat
-
-
-{-| Concatenate screens horizontally with a space between each element.
-
-    Tui.spaced [ badge, name, count ]
-    -- equivalent to:
-    -- Tui.concat [ badge, Tui.text " ", name, Tui.text " ", count ]
-
--}
-spaced : List Screen -> Screen
-spaced items =
-    items
-        |> List.intersperse (Internal.ScreenText " ")
-        |> Internal.ScreenConcat
 
 
 {-| Empty screen — renders nothing, takes up zero lines. Use this as
@@ -536,39 +521,17 @@ type MouseButton
 
 
 
--- QUERYING
+-- INSPECTING
 
 
-{-| Convert a Screen to a plain text string (no ANSI codes). Useful for testing
-and debugging.
+{-| Convert a Screen to a plain text string (no ANSI codes). Useful for testing,
+layout measurement, and debugging.
 -}
 toString : Screen -> String
 toString screen =
-    screen
-        |> toLines
-        |> String.join "\n"
-
-
-{-| Split a Screen into a list of row Screens, preserving styles.
-Unlike `toLines` (which returns `List String` and strips styles),
-this returns `List Screen` with full styling information intact.
-
-Useful for compositing: overlay a styled Screen on top of another
-row-by-row, or render a snapshot in the test stepper with colors.
-
-    rows = Tui.toScreenLines myScreen
-    -- Each row is a styled Screen
-
--}
-toScreenLines : Screen -> List Screen
-toScreenLines screen =
     flattenToSpanLines screen
-        |> List.map
-            (\spans ->
-                spans
-                    |> List.map spanToScreen
-                    |> Internal.ScreenConcat
-            )
+        |> List.map (\spans -> spans |> List.map .text |> String.concat)
+        |> String.join "\n"
 
 
 {-| Extract the outermost style from a Screen. Returns `plain` for unstyled
@@ -646,18 +609,3 @@ wrapWidth maxWidth screen =
     else
         Internal.wrapSpans maxWidth spans
             |> List.map spansToScreen
-
-
-{-| Get the number of lines in a Screen. Useful for layout calculations.
--}
-lineCount : Screen -> Int
-lineCount screen =
-    flattenToSpanLines screen |> List.length
-
-
-{-| Convert a Screen to a list of plain text lines. Useful for testing.
--}
-toLines : Screen -> List String
-toLines screen =
-    flattenToSpanLines screen
-        |> List.map (\spans -> spans |> List.map .text |> String.concat)

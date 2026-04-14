@@ -14,6 +14,7 @@ import BackendTask
 import Pages.Script as Script exposing (Script)
 import Tui exposing (plain)
 import Tui.Effect as Effect
+import Tui.Internal
 import Tui.Sub
 import Tui.Test as TuiTest
 
@@ -269,7 +270,7 @@ stepperView ctx model =
             in
             Tui.lines
                 ((snapshot.screen
-                    |> Tui.toScreenLines
+                    |> Tui.Internal.toScreenLines
                     |> List.map
                         (\line ->
                             Tui.concat

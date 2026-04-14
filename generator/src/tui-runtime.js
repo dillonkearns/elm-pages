@@ -22,8 +22,8 @@ let tuiActive = false;
 // to suppress bounce-back events within a short window.
 let tuiLastScrollDir = null; // 'scrollUp' | 'scrollDown' | null
 let tuiLastScrollTime = 0;
-let tuiTickTimer = null; // setInterval ID for tick events
-let tuiTickInterval = null; // current tick interval in ms
+/** @type {Map<number, ReturnType<typeof setInterval>>} */
+let tuiTickTimers = new Map(); // intervalMs -> setInterval handle, one per subscribed interval
 let tuiEventQueue = []; // events that arrived during Elm processing
 let tuiEventResolve = null; // pending promise resolver for next wait
 let tuiStdinLeftover = ""; // partial escape sequence carried across data chunks
@@ -384,11 +384,8 @@ export function tuiCleanup() {
     clearTimeout(tuiPendingRender);
     tuiPendingRender = null;
   }
-  if (tuiTickTimer) {
-    clearInterval(tuiTickTimer);
-    tuiTickTimer = null;
-    tuiTickInterval = null;
-  }
+  tuiTickTimers.forEach(clearInterval);
+  tuiTickTimers.clear();
 
   // Step 4: Now safe to exit raw mode — mouse tracking is already off,
   // and the drain listener will consume any stragglers.
@@ -799,35 +796,44 @@ export async function runTuiRenderAndWait(req) {
   const args = req.body.args[0];
   tuiRenderScreen(args.screen);
 
-  // Start/stop tick timer based on subscription interests.
-  // Uses the interval from Elm's Sub.every (defaults to 50ms for backwards compat).
-  const interests = args.interests || [];
-  const wantsTick = interests.includes("tick");
-  const tickInterval = args.tickInterval || 50;
-  if (wantsTick && (!tuiTickTimer || tuiTickInterval !== tickInterval)) {
-    if (tuiTickTimer) {
-      clearInterval(tuiTickTimer);
+  // Diff subscribed tick intervals against active timers.
+  // Each interval gets its own setInterval; ticks carry their interval + fire
+  // timestamp so Elm-side routing can match subscriptions and pass Posix time.
+  /** @type {number[]} */
+  const wantIntervals = args.tickIntervals || [];
+
+  // Clear timers we no longer need.
+  tuiTickTimers.forEach((timer, interval) => {
+    if (wantIntervals.indexOf(interval) === -1) {
+      clearInterval(timer);
+      tuiTickTimers.delete(interval);
     }
-    tuiTickInterval = tickInterval;
-    tuiTickTimer = setInterval(() => {
-      const tickEvent = { type: "tick" };
-      if (tuiEventResolve) {
-        const resolve = tuiEventResolve;
-        tuiEventResolve = null;
-        resolve(tickEvent);
-      } else {
-        // Coalesce: only keep one tick in the queue
-        const hasQueuedTick = tuiEventQueue.some(e => e.type === "tick");
-        if (!hasQueuedTick) {
-          tuiEventQueue.push(tickEvent);
+  });
+
+  // Start timers for new intervals.
+  wantIntervals.forEach((interval) => {
+    if (!tuiTickTimers.has(interval)) {
+      const timer = setInterval(() => {
+        const tickEvent = { type: "tick", interval, time: Date.now() };
+        if (tuiEventResolve) {
+          const resolve = tuiEventResolve;
+          tuiEventResolve = null;
+          resolve(tickEvent);
+        } else {
+          // Per-interval coalescing: only one pending tick per interval.
+          // On catch-up after a long block, the single pending tick carries
+          // a fresh Date.now() so Elm sees the real elapsed time.
+          const hasQueuedTick = tuiEventQueue.some(
+            (e) => e.type === "tick" && e.interval === interval
+          );
+          if (!hasQueuedTick) {
+            tuiEventQueue.push(tickEvent);
+          }
         }
-      }
-    }, tickInterval);
-  } else if (!wantsTick && tuiTickTimer) {
-    clearInterval(tuiTickTimer);
-    tuiTickTimer = null;
-    tuiTickInterval = null;
-  }
+      }, interval);
+      tuiTickTimers.set(interval, timer);
+    }
+  });
 
   return runTuiWaitEventImpl(req);
 }
