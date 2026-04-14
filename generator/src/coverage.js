@@ -579,7 +579,14 @@ function generateLcov(info, allCounters, projectDirectory, modulePaths) {
   const modules = info.modules || info;
   const sections = [];
 
-  for (const [moduleName, annotations] of Object.entries(modules)) {
+  // Sort by module name so lcov.info is deterministic across filesystems.
+  // elm-instrument's info.json key order follows directory traversal, which
+  // differs between macOS and Linux; downstream tools (and our snapshot tests)
+  // rely on stable output.
+  const sortedEntries = Object.entries(modules).sort(([a], [b]) =>
+    a.localeCompare(b)
+  );
+  for (const [moduleName, annotations] of sortedEntries) {
     const exprList = Array.isArray(annotations) ? annotations : [];
     const hits = allCounters[moduleName] || [];
 

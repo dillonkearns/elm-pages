@@ -46,7 +46,6 @@
     "fs-extra": "^11.3.3",
     "globby": "^16.2.0",
     "gray-matter": "^4.0.3",
-    "jsesc": "^3.1.0",
     "kleur": "^4.1.5",
     "make-fetch-happen": "^15.0.5",
     "memfs": "^4.57.1",
@@ -74,7 +73,7 @@
     "elm-test": "^0.19.1-revision17",
     "elm-tooling": "^1.17.0",
     "elm-verify-examples": "^6.0.3",
-    "lamdera": "^0.19.1-1.4.0",
+    "lamdera": "0.19.1-1.4.0",
     "prettier": "^3.8.1",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
