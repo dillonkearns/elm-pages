@@ -23,6 +23,7 @@ suite =
                         -- always hitting the first pane)
                         |> TuiTest.ensureViewHas "clicked: none"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "withOnLinkClick"
             [ test "fires callback with URL when clicking linked text" <|
@@ -31,12 +32,14 @@ suite =
                         |> TuiTest.clickText "Click me"
                         |> TuiTest.ensureViewHas "clicked: https://example.com"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "does NOT fire when clicking non-linked text" <|
                 \() ->
                     linkAppTest
                         |> TuiTest.clickText "plain text"
                         |> TuiTest.ensureViewHas "clicked: none"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "on selectable pane: link click fires link callback without changing selection" <|
                 \() ->
                     linkSelectableAppTest
@@ -50,6 +53,7 @@ suite =
                         |> TuiTest.ensureViewHas "link: https://item.example"
                         |> TuiTest.ensureViewHas "selected: plain-item"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "on selectable pane: non-link click fires onSelect" <|
                 \() ->
                     linkSelectableAppTest
@@ -57,6 +61,7 @@ suite =
                         |> TuiTest.ensureViewHas "link: none"
                         |> TuiTest.ensureViewHas "selected: plain-item"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "Bottom border"
             [ test "compileApp renders bottom border with ╰ and ╯" <|
@@ -65,6 +70,7 @@ suite =
                         |> TuiTest.ensureViewHas "╰"
                         |> TuiTest.ensureViewHas "╯"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "j/k scrolls content panes"
             [ test "j scrolls content pane down when focused" <|
@@ -78,6 +84,7 @@ suite =
                         -- Scroll position should have changed
                         |> TuiTest.ensureViewHas "scroll: 3"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "k scrolls content pane up after scrolling down" <|
                 \() ->
                     scrollAppTest
@@ -91,6 +98,7 @@ suite =
                         -- Should be back to 0
                         |> TuiTest.ensureViewHas "scroll: 0"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "Effect.setSelectedIndex auto-scrolls"
             [ test "setSelectedIndex scrolls pane to keep selection visible" <|
@@ -105,6 +113,7 @@ suite =
                         -- After setSelectedIndex, the pane should have scrolled to show item-H
                         |> TuiTest.ensureViewHas "item-H"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "setSelectedIndex to middle item scrolls correctly with many items below" <|
                 \() ->
                     -- 'e' triggers Effect.setSelectedIndex "items" 5 (item-F, index 5)
@@ -116,6 +125,7 @@ suite =
                         |> TuiTest.pressKey 'e'
                         |> TuiTest.ensureViewHas "item-F"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "j/k keeps selection visible at bottom of long list"
             [ test "navigating to last item with j keeps it visible" <|
@@ -134,6 +144,7 @@ suite =
                         -- The pane must have scrolled so item-H is visible
                         |> TuiTest.ensureViewHas "item-H"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "withOnScroll"
             [ test "scroll callback fires when mouse wheel scrolls a pane" <|
@@ -143,6 +154,7 @@ suite =
                         |> TuiTest.scrollDown { row = 1, col = 1 }
                         |> TuiTest.ensureViewDoesNotHave "scroll: 0"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "Help modal"
             [ test "Esc closes help modal and stays closed on next j press" <|
@@ -158,6 +170,7 @@ suite =
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.ensureViewDoesNotHave "Keybindings"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "j/k scrolls through ALL help items including built-in navigation" <|
                 \() ->
                     helpAppTest
@@ -168,6 +181,7 @@ suite =
                         |> TuiTest.ensureViewHas "Navigate down"
                         |> TuiTest.ensureViewHas "Do thing"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "pressing j in help modal scrolls content without shrinking the modal" <|
                 \() ->
                     let
@@ -232,6 +246,7 @@ suite =
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.ensureViewHas "▸ Item 09"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "Menu modal"
             [ test "j keeps the highlighted action visible in long menus" <|
@@ -249,6 +264,7 @@ suite =
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.ensureViewHas "Item 09"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         ]
 
@@ -330,7 +346,12 @@ helpView _ model =
                         case selection of
                             Layout.Selected { focused } ->
                                 Tui.text ("▸ " ++ item)
-                                    |> (if focused then Tui.bg Ansi.Color.blue else Tui.bold)
+                                    |> (if focused then
+                                            Tui.bg Ansi.Color.blue
+
+                                        else
+                                            Tui.bold
+                                       )
 
                             Layout.NotSelected ->
                                 Tui.text ("  " ++ item)

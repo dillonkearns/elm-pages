@@ -1,9 +1,9 @@
 /**
- * Test command - runs a TUI test module through the interactive stepper.
+ * Test command - runs named TUI tests through the interactive stepper.
  *
- * Looks for a `stepper` export in the given Elm module (a TuiTest pipeline),
- * generates a ScriptMain that wraps it with Tui.Test.Stepper.run, and runs
- * the result as an interactive TUI.
+ * Looks for exposed values annotated as `TuiTest.Test` / `Tui.Test.Test`,
+ * generates a ScriptMain that renders their snapshots in the terminal
+ * stepper, and runs the result as an interactive TUI.
  *
  * Usage: elm-pages test tests/TuiTests.elm
  *        elm-pages test script/src/MyTuiTest.elm
@@ -36,8 +36,8 @@ export async function run(elmModulePath, options, options2) {
   if (elmModulePath === "--help" || elmModulePath === "-h") {
     console.log(
       "Usage: elm-pages test <path-to-module>\n\n" +
-        "Run a TUI test through the interactive stepper.\n" +
-        "The module must expose a value with a TuiTest type annotation.\n" +
+        "Run named TUI tests through the interactive stepper.\n" +
+        "The module must expose a value with a TuiTest.Test type annotation.\n" +
         "Test files in tests/ are automatically discovered (like elm-test).\n\n" +
         "Example:\n" +
         "  elm-pages test tests/MyTuiTest.elm\n" +
@@ -50,7 +50,7 @@ export async function run(elmModulePath, options, options2) {
     const { moduleName, projectDirectory, sourceDirectory } =
       await resolveTestInputPath(elmModulePath);
 
-    // Find all exposed TuiTest values by scanning type annotations
+    // Find all exposed named TUI tests by scanning type annotations
     const fullPath = path.resolve(
       sourceDirectory,
       moduleName.replace(/\./g, "/") + ".elm"
@@ -60,39 +60,28 @@ export async function run(elmModulePath, options, options2) {
 
     if (tuiTestValues.length === 0) {
       console.error(
-        `Error: No TuiTest values found in ${moduleName}.\n\n` +
-          "elm-pages test discovers exposed values with a TuiTest type annotation.\n" +
-          "Add a type annotation to your test pipeline:\n\n" +
-          `    myTest : TuiTest.TuiTest Model Msg\n` +
-          `    myTest =\n` +
-          `        TuiTest.start { ... }\n` +
-          `            |> TuiTest.pressKey 'j'\n`
+        `Error: No TUI test values found in ${moduleName}.\n\n` +
+          "elm-pages test discovers exposed values with a TuiTest.Test type annotation.\n" +
+          "Add a named test tree:\n\n" +
+          `    myTests : TuiTest.Test\n` +
+          `    myTests =\n` +
+          `        TuiTest.describe "My TUI"\n` +
+          `            [ TuiTest.test "navigates" <| ... ]\n`
       );
       process.exit(1);
     }
 
     console.log(
-      `Found ${tuiTestValues.length} TuiTest value${tuiTestValues.length > 1 ? "s" : ""}: ${tuiTestValues.join(", ")}`
-    );
-
-    // Generate stepper wrapper
-    const [{ ensureDirSync, writeFileIfChanged }] = await Promise.all([
-      import("../file-helpers.js"),
-    ]);
-
-    ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages`);
-
-    await writeFileIfChanged(
-      path.join(
-        `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/ScriptMain.elm`
-      ),
-      testStepperWrapperFile(moduleName, tuiTestValues)
+      `Found ${tuiTestValues.length} TUI test value${tuiTestValues.length > 1 ? "s" : ""}: ${tuiTestValues.join(", ")}`
     );
 
     // Compile (reuses the same pipeline as `run`).
     // Include tests/ and snapshot-tests/src/ as extra source directories
     // so test files outside source-directories can be compiled.
     // Only include directories that actually exist.
+    const [{ ensureDirSync, writeFileIfChanged }] = await Promise.all([
+      import("../file-helpers.js"),
+    ]);
     const fs = await import("node:fs");
     const possibleTestDirs = ["tests", "snapshot-tests/src"];
     const extraSourceDirs = possibleTestDirs.filter((dir) => {
@@ -108,6 +97,16 @@ export async function run(elmModulePath, options, options2) {
       elmModulePath,
       { moduleName, projectDirectory, sourceDirectory },
       { usesDb: false, extraSourceDirs }
+    );
+
+    // Overwrite the default script wrapper with the interactive TUI test runner.
+    ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages`);
+
+    await writeFileIfChanged(
+      path.join(
+        `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/ScriptMain.elm`
+      ),
+      testStepperWrapperFile(moduleName, tuiTestValues)
     );
 
     const portsCheck = await needsPortsRecompilation(projectDirectory);

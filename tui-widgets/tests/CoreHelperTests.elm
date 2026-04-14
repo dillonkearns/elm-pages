@@ -18,18 +18,21 @@ suite =
                         |> TuiTest.pressKeyN 3 'j'
                         |> TuiTest.ensureViewHas "count: 3"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "pressKeyN 0 does nothing" <|
                 \() ->
                     counterApp
                         |> TuiTest.pressKeyN 0 'j'
                         |> TuiTest.ensureViewHas "count: 0"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "pressKeyN 1 is same as pressKey" <|
                 \() ->
                     counterApp
                         |> TuiTest.pressKeyN 1 'j'
                         |> TuiTest.ensureViewHas "count: 1"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "scrollDownN / scrollUpN"
             [ test "scrollDownN 5 scrolls down 5 times" <|
@@ -38,6 +41,7 @@ suite =
                         |> TuiTest.scrollDownN 5 { row = 1, col = 1 }
                         |> TuiTest.ensureViewHas "scrolled: 5"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "scrollUpN 3 scrolls up 3 times" <|
                 \() ->
                     scrollApp
@@ -45,12 +49,14 @@ suite =
                         |> TuiTest.scrollUpN 3 { row = 1, col = 1 }
                         |> TuiTest.ensureViewHas "scrolled: 2"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "scrollDownN 0 does nothing" <|
                 \() ->
                     scrollApp
                         |> TuiTest.scrollDownN 0 { row = 1, col = 1 }
                         |> TuiTest.ensureViewHas "scrolled: 0"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "ensureModel"
             [ test "can inspect model directly" <|
@@ -60,6 +66,7 @@ suite =
                         |> TuiTest.ensureModel
                             (\model -> Expect.equal 5 model.count)
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "fails when model expectation fails" <|
                 \() ->
                     counterApp
@@ -67,6 +74,7 @@ suite =
                         |> TuiTest.ensureModel
                             (\model -> Expect.equal 3 model.count)
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         ]
 

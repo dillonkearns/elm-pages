@@ -1,8 +1,10 @@
 module Tui.Sub.Internal exposing
-    ( Sub(..)
-    , RawEvent(..)
-    , getInterests, getTickIntervals, routeEvents
+    ( RawEvent(..)
+    , Sub(..)
     , decodeRawEvent
+    , getInterests
+    , getTickIntervals
+    , routeEvents
     )
 
 {-| Internal machinery for `Tui.Sub`. Not exposed from the package.
@@ -34,7 +36,7 @@ type RawEvent
     = RawKeyPress KeyEvent
     | RawMouse MouseEvent
     | RawPaste String
-    | RawResize { width : Int, height : Int }
+    | RawResize
     | RawContext { width : Int, height : Int }
     | RawTick { interval : Int, time : Posix }
 
@@ -181,11 +183,7 @@ decodeRawEvent =
                             (Decode.field "text" Decode.string)
 
                     "resize" ->
-                        Decode.map RawResize
-                            (Decode.map2 (\w h -> { width = w, height = h })
-                                (Decode.field "width" Decode.int)
-                                (Decode.field "height" Decode.int)
-                            )
+                        Decode.succeed RawResize
 
                     "tick" ->
                         Decode.map2

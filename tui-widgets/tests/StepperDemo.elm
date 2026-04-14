@@ -1,31 +1,31 @@
-module StepperDemo exposing (run)
+module StepperDemo exposing (tuiTests)
 
 import Ansi.Color
-import Pages.Script as Script
 import Tui
 import Tui.Effect as Effect
 import Tui.Layout as Layout
 import Tui.Layout.Test as LayoutTest
 import Tui.Test as TuiTest
-import Tui.Test.Stepper
 
 
-run : Script.Script
-run =
-    TuiTest.startApp () appConfig
-        |> LayoutTest.ensureFocusedPane "left"
-        |> LayoutTest.ensureSelectedIndex "left" 0
-        |> TuiTest.pressKeyN 3 'j'
-        |> LayoutTest.ensureSelectedIndex "left" 3
-        |> LayoutTest.ensurePaneHas "Left" "delta"
-        |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
-        |> LayoutTest.ensureFocusedPane "right"
-        |> LayoutTest.ensurePaneHas "Right" "details"
-        |> LayoutTest.ensurePaneDoesNotHave "Right" "alpha"
-        |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
-        |> LayoutTest.ensureFocusedPane "left"
-        |> TuiTest.ensureViewHasStyled [ TuiTest.bold ] "delta"
-        |> Tui.Test.Stepper.run
+tuiTests : TuiTest.Test
+tuiTests =
+    TuiTest.test "layout stepper demo"
+        (TuiTest.startApp () appConfig
+            |> LayoutTest.ensureFocusedPane "left"
+            |> LayoutTest.ensureSelectedIndex "left" 0
+            |> TuiTest.pressKeyN 3 'j'
+            |> LayoutTest.ensureSelectedIndex "left" 3
+            |> LayoutTest.ensurePaneHas "Left" "delta"
+            |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
+            |> LayoutTest.ensureFocusedPane "right"
+            |> LayoutTest.ensurePaneHas "Right" "details"
+            |> LayoutTest.ensurePaneDoesNotHave "Right" "alpha"
+            |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
+            |> LayoutTest.ensureFocusedPane "left"
+            |> TuiTest.ensureViewHasStyled [ TuiTest.bold ] "delta"
+            |> TuiTest.expectRunning
+        )
 
 
 type Msg
@@ -62,7 +62,12 @@ appView _ _ =
                             Layout.Selected { focused } ->
                                 Tui.text ("▸ " ++ item)
                                     |> Tui.bold
-                                    |> (if focused then Tui.bg Ansi.Color.blue else identity)
+                                    |> (if focused then
+                                            Tui.bg Ansi.Color.blue
+
+                                        else
+                                            identity
+                                       )
 
                             Layout.NotSelected ->
                                 Tui.text ("  " ++ item)

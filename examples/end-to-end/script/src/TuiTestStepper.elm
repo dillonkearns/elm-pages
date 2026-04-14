@@ -1,58 +1,41 @@
-module TuiTestStepper exposing (run, stepper)
+module TuiTestStepper exposing (tuiTests)
 
-{-| TUI test with interactive stepper support.
-
-Run as a script:
-elm-pages run script/src/TuiTestStepper.elm
-
-Run through the interactive stepper:
-elm-pages test script/src/TuiTestStepper.elm
-
+{-| TUI test with named scenarios for `elm-pages test`.
 -}
 
 import Ansi.Color
-import Pages.Script exposing (Script)
 import Tui exposing (plain)
 import Tui.Effect as Effect
 import Tui.Sub
 import Tui.Test as TuiTest
-import Tui.Test.Stepper
 
 
-{-| The test pipeline — shared between unit tests and the stepper.
--}
-stepper : TuiTest.TuiTest Model Msg
-stepper =
-    TuiTest.startWithContext { width = 60, height = 12, colorProfile = Tui.TrueColor }
-        { data = sampleCommits
-        , init = miniGitInit
-        , update = miniGitUpdate
-        , view = miniGitView
-        , subscriptions = miniGitSubscriptions
-        }
-        |> TuiTest.withModelToString Debug.toString
-        -- Navigate down through visible commits
-        |> TuiTest.pressKey 'j'
-        |> TuiTest.pressKey 'j'
-        |> TuiTest.pressKey 'j'
-        |> TuiTest.pressKey 'j'
-        -- Past the 5-row window — viewport scrolls, new commits appear
-        |> TuiTest.pressKey 'j'
-        |> TuiTest.pressKey 'j'
-        |> TuiTest.pressKey 'j'
-        -- Scroll back up
-        |> TuiTest.pressKey 'k'
-        |> TuiTest.pressKey 'k'
-        |> TuiTest.pressKey 'k'
-        -- Click on a visible commit
-        |> TuiTest.click { row = 3, col = 5 }
-
-
-{-| Run the stepper as a script (for elm-pages run).
--}
-run : Script
-run =
-    Tui.Test.Stepper.run stepper
+tuiTests : TuiTest.Test
+tuiTests =
+    TuiTest.describe "Mini Git"
+        [ TuiTest.test "navigates and clicks through commits"
+            (TuiTest.startWithContext { width = 60, height = 12, colorProfile = Tui.TrueColor }
+                { data = sampleCommits
+                , init = miniGitInit
+                , update = miniGitUpdate
+                , view = miniGitView
+                , subscriptions = miniGitSubscriptions
+                }
+                |> TuiTest.withModelToString Debug.toString
+                |> TuiTest.pressKey 'j'
+                |> TuiTest.pressKey 'j'
+                |> TuiTest.pressKey 'j'
+                |> TuiTest.pressKey 'j'
+                |> TuiTest.pressKey 'j'
+                |> TuiTest.pressKey 'j'
+                |> TuiTest.pressKey 'j'
+                |> TuiTest.pressKey 'k'
+                |> TuiTest.pressKey 'k'
+                |> TuiTest.pressKey 'k'
+                |> TuiTest.click { row = 3, col = 5 }
+                |> TuiTest.expectRunning
+            )
+        ]
 
 
 

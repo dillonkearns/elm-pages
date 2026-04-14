@@ -152,30 +152,37 @@ port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe
 }
 
 /**
- * Generate a ScriptMain.elm that runs the test stepper on a module's
- * `stepper` export.
+ * Generate a ScriptMain.elm that runs named TUI tests through the
+ * interactive terminal stepper.
  * @param {string} moduleName
- */
-/**
- * @param {string} moduleName
- * @param {string[]} tuiTestValues - names of exposed TuiTest values
+ * @param {string[]} tuiTestValues - names of exposed `Tui.Test.Test` values
  */
 export function testStepperWrapperFile(moduleName, tuiTestValues) {
+  const shouldPrefixExportName = tuiTestValues.length > 1;
   const snapshotEntries = tuiTestValues
     .map(
       (name) =>
-        `            ( "${name}", Tui.Test.toSnapshots ${moduleName}.${name} )`
+        shouldPrefixExportName
+          ? `            ${moduleName}.${name}\n` +
+            `                |> Tui.Test.toNamedSnapshots\n` +
+            `                |> List.map (\\( testName, snapshots ) -> ( "${name}: " ++ testName, snapshots ))`
+          : `            Tui.Test.toNamedSnapshots ${moduleName}.${name}`
     )
     .join("\n            , ");
 
   return `port module ScriptMain exposing (main)
 
+import Ansi.Color
+import BackendTask
 import Bytes exposing (Bytes)
 import Json.Decode
 import Json.Encode
 import Pages.Internal.Platform.GeneratorApplication
+import Pages.Script as Script exposing (Script)
+import Tui exposing (plain)
+import Tui.Effect as Effect
+import Tui.Sub
 import Tui.Test
-import Tui.Test.Stepper
 import ${moduleName}
 
 
@@ -183,15 +190,268 @@ main : Pages.Internal.Platform.GeneratorApplication.Program
 main =
     Pages.Internal.Platform.GeneratorApplication.app
         { data =
-            Tui.Test.Stepper.runNamed
-                [ ${snapshotEntries}
-                ]
+            runNamed
+                (List.concat
+                    [ ${snapshotEntries}
+                    ]
+                )
         , scriptModuleName = "${moduleName}.Stepper"
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , gotBatchSub = gotBatchSub identity
         , sendPageData = \\_ -> Cmd.none
         }
+
+
+runNamed : List ( String, List Tui.Test.Snapshot ) -> Script
+runNamed namedTests =
+    let
+        allTests : List { name : String, snapshots : List Tui.Test.Snapshot }
+        allTests =
+            namedTests
+                |> List.map (\\( name, snapshots ) -> { name = name, snapshots = snapshots })
+    in
+    Script.tui
+        { data = BackendTask.succeed allTests
+        , init = namedStepperInit
+        , update = stepperUpdate
+        , view = stepperView
+        , subscriptions = stepperSubscriptions
+        }
+
+
+type alias StepperModel =
+    { snapshots : List Tui.Test.Snapshot
+    , currentIndex : Int
+    , allTests : List { name : String, snapshots : List Tui.Test.Snapshot }
+    , currentTestIndex : Int
+    }
+
+
+type StepperMsg
+    = KeyPressed Tui.KeyEvent
+
+
+namedStepperInit : List { name : String, snapshots : List Tui.Test.Snapshot } -> ( StepperModel, Effect.Effect StepperMsg )
+namedStepperInit tests =
+    let
+        firstSnapshots : List Tui.Test.Snapshot
+        firstSnapshots =
+            tests
+                |> List.head
+                |> Maybe.map .snapshots
+                |> Maybe.withDefault []
+    in
+    ( { snapshots = firstSnapshots
+      , currentIndex = 0
+      , allTests = tests
+      , currentTestIndex = 0
+      }
+    , Effect.none
+    )
+
+
+stepperUpdate : StepperMsg -> StepperModel -> ( StepperModel, Effect.Effect StepperMsg )
+stepperUpdate msg model =
+    case msg of
+        KeyPressed event ->
+            case event.key of
+                Tui.Arrow Tui.Right ->
+                    ( { model
+                        | currentIndex =
+                            min (List.length model.snapshots - 1) (model.currentIndex + 1)
+                      }
+                    , Effect.none
+                    )
+
+                Tui.Arrow Tui.Left ->
+                    ( { model
+                        | currentIndex = max 0 (model.currentIndex - 1)
+                      }
+                    , Effect.none
+                    )
+
+                Tui.Tab ->
+                    switchToNextTest model
+
+                Tui.Character 'q' ->
+                    ( model, Effect.exit )
+
+                Tui.Escape ->
+                    ( model, Effect.exit )
+
+                _ ->
+                    ( model, Effect.none )
+
+
+switchToNextTest : StepperModel -> ( StepperModel, Effect.Effect StepperMsg )
+switchToNextTest model =
+    if List.length model.allTests <= 1 then
+        ( model, Effect.none )
+
+    else
+        let
+            nextIndex : Int
+            nextIndex =
+                modBy (List.length model.allTests) (model.currentTestIndex + 1)
+
+            nextSnapshots : List Tui.Test.Snapshot
+            nextSnapshots =
+                model.allTests
+                    |> List.drop nextIndex
+                    |> List.head
+                    |> Maybe.map .snapshots
+                    |> Maybe.withDefault []
+        in
+        ( { model
+            | currentTestIndex = nextIndex
+            , snapshots = nextSnapshots
+            , currentIndex = 0
+          }
+        , Effect.none
+        )
+
+
+stepperView : Tui.Context -> StepperModel -> Tui.Screen
+stepperView ctx model =
+    let
+        dimStyle : Tui.Style
+        dimStyle =
+            { plain | attributes = [ Tui.Dim ] }
+
+        maybeSnapshot : Maybe Tui.Test.Snapshot
+        maybeSnapshot =
+            model.snapshots
+                |> List.drop model.currentIndex
+                |> List.head
+    in
+    case maybeSnapshot of
+        Just snapshot ->
+            let
+                headerStyle : Tui.Style
+                headerStyle =
+                    { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
+
+                separator : String
+                separator =
+                    String.repeat (ctx.width - 4) "─"
+
+                headerText : String
+                headerText =
+                    if List.length model.allTests > 1 then
+                        let
+                            testName : String
+                            testName =
+                                model.allTests
+                                    |> List.drop model.currentTestIndex
+                                    |> List.head
+                                    |> Maybe.map .name
+                                    |> Maybe.withDefault "test"
+                        in
+                        "  " ++ testName ++ " — Step " ++ String.fromInt (model.currentIndex + 1) ++ " of " ++ String.fromInt (List.length model.snapshots)
+
+                    else
+                        "  Test Stepper — Step " ++ String.fromInt (model.currentIndex + 1) ++ " of " ++ String.fromInt (List.length model.snapshots)
+
+                footerText : String
+                footerText =
+                    if List.length model.allTests > 1 then
+                        "  ← → navigate   Tab next test   q quit"
+
+                    else
+                        "  ← → navigate   q quit"
+
+                stepIndicator : Tui.Screen
+                stepIndicator =
+                    Tui.concat
+                        (model.snapshots
+                            |> List.indexedMap
+                                (\\i snapshotForIndicator ->
+                                    if i == model.currentIndex then
+                                        Tui.styled
+                                            { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
+                                            (" ● " ++ snapshotForIndicator.label ++ " ")
+
+                                    else
+                                        let
+                                            hasAssertions : Bool
+                                            hasAssertions =
+                                                not (List.isEmpty snapshotForIndicator.assertions)
+                                        in
+                                        if hasAssertions then
+                                            Tui.styled
+                                                { plain | fg = Just Ansi.Color.green }
+                                                " ◆ "
+
+                                        else
+                                            Tui.styled dimStyle " ○ "
+                                )
+                        )
+            in
+            Tui.lines
+                ([ snapshot.screen
+                 , Tui.text ""
+                       , Tui.styled dimStyle ("  " ++ separator)
+                       , Tui.text ""
+                       , stepIndicator
+                       , Tui.text ""
+                       , Tui.styled dimStyle footerText
+                       , Tui.text ""
+                       , Tui.styled dimStyle ("  " ++ separator)
+                       , Tui.text ""
+                       , Tui.styled headerStyle headerText
+                       , Tui.text ""
+                       , Tui.concat
+                            [ Tui.styled dimStyle "  Action: "
+                            , Tui.styled
+                                { plain | fg = Just Ansi.Color.yellow, attributes = [ Tui.Bold ] }
+                                snapshot.label
+                            , if snapshot.hasPendingEffects then
+                                Tui.styled
+                                    { plain | fg = Just Ansi.Color.magenta }
+                                    "  ⟳ pending effect"
+
+                              else
+                                Tui.empty
+                            ]
+                       ]
+                    ++ (if List.isEmpty snapshot.assertions then
+                            []
+
+                        else
+                            snapshot.assertions
+                                |> List.map
+                                    (\\assertion ->
+                                        Tui.styled
+                                            { plain | fg = Just Ansi.Color.green }
+                                            ("    " ++ assertion)
+                                    )
+                       )
+                    ++ [ case snapshot.modelState of
+                            Just modelStr ->
+                                Tui.lines
+                                    [ Tui.text ""
+                                    , Tui.styled
+                                        { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
+                                        "  Model:"
+                                    , modelStr
+                                        |> String.lines
+                                        |> List.map (\\line -> Tui.styled dimStyle ("    " ++ line))
+                                        |> Tui.lines
+                                    ]
+
+                            Nothing ->
+                                Tui.empty
+                       ]
+                )
+
+        Nothing ->
+            Tui.styled dimStyle "  No snapshots"
+
+
+stepperSubscriptions : StepperModel -> Tui.Sub.Sub StepperMsg
+stepperSubscriptions _ =
+    Tui.Sub.onKeyPress KeyPressed
 
 
 port toJsPort : { json : Json.Encode.Value, bytes : List { key : String, data : Bytes } } -> Cmd msg
@@ -956,12 +1216,22 @@ export function discoverProgramTestModules(
 
 
 /**
- * Scan an Elm source file for exposed TuiTest values.
+ * Scan an Elm source file for exposed named TUI test values.
+ * These are values annotated as `TuiTest.Test` or `Tui.Test.Test`.
  * @param {string} filePath
  * @returns {string[]}
  */
 export function findTuiTestValues(filePath) {
-  return findAnnotatedValues(filePath, /TuiTest|Tui\.Test\.TuiTest/);
+  return findAnnotatedValues(filePath, /TuiTest\.Test|Tui\.Test\.Test/);
+}
+
+export function discoverTuiTestModules(
+  searchRoots = [
+    { glob: "tests/**/*.elm", baseDir: "tests" },
+    { glob: "snapshot-tests/src/**/*.elm", baseDir: "snapshot-tests/src" },
+  ]
+) {
+  return discoverAnnotatedModules(searchRoots, findTuiTestValues);
 }
 
 

@@ -1,4 +1,4 @@
-module MiniGitTests exposing (stepper, suite)
+module MiniGitTests exposing (suite, tuiTests)
 
 import Ansi.Color
 import Expect exposing (Expectation)
@@ -24,12 +24,14 @@ suite =
                         |> TuiTest.ensureViewHas "▸ abc1234"
                         |> TuiTest.ensureViewHas "def5678"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "j moves selection down" <|
                 \() ->
                     miniGitTest
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.ensureViewHas "▸ def5678"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "k moves selection up" <|
                 \() ->
                     miniGitTest
@@ -37,11 +39,13 @@ suite =
                         |> TuiTest.pressKey 'k'
                         |> TuiTest.ensureViewHas "▸ abc1234"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "q exits" <|
                 \() ->
                     miniGitTest
                         |> TuiTest.pressKey 'q'
                         |> TuiTest.expectExit
+                        |> TuiTest.done
             ]
         , describe "mouse interactions"
             [ test "clicking on a commit selects it (coordinates)" <|
@@ -50,36 +54,42 @@ suite =
                         |> TuiTest.click { row = 2, col = 5 }
                         |> TuiTest.ensureViewHas "▸ def5678"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "clickText finds and clicks by content" <|
                 \() ->
                     miniGitTest
                         |> TuiTest.clickText "345cdef"
                         |> TuiTest.ensureViewHas "▸ 345cdef"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "clickText on last item" <|
                 \() ->
                     miniGitTest
                         |> TuiTest.clickText "bbb2222"
                         |> TuiTest.ensureViewHas "▸ bbb2222"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "clickText fails with helpful message when text not found" <|
                 \() ->
                     miniGitTest
                         |> TuiTest.clickText "nonexistent"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
                         |> expectFailureContaining "nonexistent"
             , test "scroll down moves viewport" <|
                 \() ->
                     miniGitTest
                         |> TuiTest.scrollDown { row = 2, col = 5 }
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "Layout.resetScroll"
             [ test "resetScroll sets scroll to 0" <|
                 \() ->
                     let
                         ( state, _ ) =
-                            Layout.navigateDown "list" (miniGitLayout { layout = Layout.init |> Layout.withContext { width = 80, height = 24 }, commits = sampleCommits, diffContent = "", modal = Nothing, lastAction = "" })
+                            Layout.navigateDown "list"
+                                (miniGitLayout { layout = Layout.init |> Layout.withContext { width = 80, height = 24 }, commits = sampleCommits, diffContent = "", modal = Nothing, lastAction = "" })
                                 (Layout.init |> Layout.withContext { width = 80, height = 24 })
                     in
                     Layout.scrollPosition "list" (Layout.resetScroll "list" state)
@@ -92,6 +102,7 @@ suite =
                         |> TuiTest.ensureViewHas "Commits"
                         |> TuiTest.ensureViewHas "Diff"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "shows box borders" <|
                 \() ->
                     miniGitTest
@@ -100,6 +111,7 @@ suite =
                         |> TuiTest.ensureViewHas "│"
                         |> TuiTest.ensureViewHas "─"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "commit dialog"
             [ test "c opens commit dialog" <|
@@ -109,6 +121,7 @@ suite =
                         |> TuiTest.ensureViewHas "Commit"
                         |> TuiTest.ensureViewHas "Enter: confirm"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "typing in commit dialog" <|
                 \() ->
                     miniGitTest
@@ -118,6 +131,7 @@ suite =
                         |> TuiTest.pressKey 'x'
                         |> TuiTest.ensureViewHas "fix"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "escape dismisses commit dialog" <|
                 \() ->
                     miniGitTest
@@ -126,6 +140,7 @@ suite =
                         |> TuiTest.pressKeyWith { key = Tui.Escape, modifiers = [] }
                         |> TuiTest.ensureViewDoesNotHave "Enter: confirm"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "enter confirms commit with typed message" <|
                 \() ->
                     miniGitTest
@@ -136,6 +151,7 @@ suite =
                         |> TuiTest.ensureViewHas "Committed: hi"
                         |> TuiTest.ensureViewDoesNotHave "Enter: confirm"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "keys don't navigate while modal is open" <|
                 \() ->
                     miniGitTest
@@ -147,6 +163,7 @@ suite =
                         |> TuiTest.ensureViewHas "jjj"
                         |> TuiTest.ensureViewHas "▸ abc1234"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "bracketed paste"
             [ test "paste inserts text into commit dialog" <|
@@ -156,6 +173,7 @@ suite =
                         |> TuiTest.paste "fix: resolve null pointer in parser"
                         |> TuiTest.ensureViewHas "fix: resolve null pointer"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "paste after typing appends at cursor" <|
                 \() ->
                     miniGitTest
@@ -166,6 +184,7 @@ suite =
                         |> TuiTest.pressKey 'E'
                         |> TuiTest.ensureViewHas "ABCDE"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "paste with enter confirms the pasted message" <|
                 \() ->
                     miniGitTest
@@ -174,6 +193,7 @@ suite =
                         |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Committed: docs: update README"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "paste with newlines strips them for single-line input" <|
                 \() ->
                     miniGitTest
@@ -181,6 +201,7 @@ suite =
                         |> TuiTest.paste "line one\nline two\nline three"
                         |> TuiTest.ensureViewHas "line one line two line three"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "paste is ignored when no modal is open" <|
                 \() ->
                     miniGitTest
@@ -188,6 +209,7 @@ suite =
                         |> TuiTest.ensureViewHas "▸ abc1234"
                         |> TuiTest.ensureViewDoesNotHave "should be ignored"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "help modal"
             [ test "? opens help modal" <|
@@ -197,6 +219,7 @@ suite =
                         |> TuiTest.ensureViewHas "Keybindings"
                         |> TuiTest.ensureViewHas "Esc: close"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "help shows binding descriptions" <|
                 \() ->
                     miniGitTest
@@ -204,6 +227,7 @@ suite =
                         |> TuiTest.ensureViewHas "Quit"
                         |> TuiTest.ensureViewHas "Next commit"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "escape closes help" <|
                 \() ->
                     miniGitTest
@@ -212,6 +236,7 @@ suite =
                         |> TuiTest.pressKeyWith { key = Tui.Escape, modifiers = [] }
                         |> TuiTest.ensureViewDoesNotHave "Keybindings"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "/ enters search mode, typing filters by description" <|
                 \() ->
                     miniGitTest
@@ -224,6 +249,7 @@ suite =
                         |> TuiTest.ensureViewHas "Quit"
                         |> TuiTest.ensureViewDoesNotHave "Next commit"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "Esc in search mode returns to browse, not close" <|
                 \() ->
                     miniGitTest
@@ -234,6 +260,7 @@ suite =
                         -- Should still show help modal (back to browse mode)
                         |> TuiTest.ensureViewHas "Keybindings"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "j/k navigate in help modal browse mode" <|
                 \() ->
                     miniGitTest
@@ -243,6 +270,7 @@ suite =
                         -- Navigating, should still show help modal
                         |> TuiTest.ensureViewHas "Keybindings"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "q quits even when help modal is open" <|
                 \() ->
                     miniGitTest
@@ -250,6 +278,7 @@ suite =
                         |> TuiTest.ensureViewHas "Keybindings"
                         |> TuiTest.pressKey 'q'
                         |> TuiTest.expectExit
+                        |> TuiTest.done
             , test "@ prefix in search mode filters by key name" <|
                 \() ->
                     miniGitTest
@@ -262,6 +291,7 @@ suite =
                         |> TuiTest.ensureViewHas "Switch pane"
                         |> TuiTest.ensureViewDoesNotHave "Quit"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "diff scroll reset"
             [ test "selecting a new commit resets diff scroll to top" <|
@@ -282,6 +312,7 @@ suite =
                         |> TuiTest.ensureViewHas "commit def5678"
                         |> TuiTest.ensureViewHas "Message for def5678"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "clicking a commit resets diff scroll to top" <|
                 \() ->
                     miniGitTest
@@ -298,6 +329,7 @@ suite =
                         |> TuiTest.ensureViewHas "commit def5678"
                         |> TuiTest.ensureViewHas "Message for def5678"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "keybinding dispatch"
             [ test "j navigates via keybinding dispatch" <|
@@ -306,12 +338,14 @@ suite =
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.ensureViewHas "▸ def5678"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "down arrow navigates as alternate key" <|
                 \() ->
                     miniGitTest
                         |> TuiTest.pressKeyWith { key = Tui.Arrow Tui.Down, modifiers = [] }
                         |> TuiTest.ensureViewHas "▸ def5678"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "filter (lazygit-style)"
             [ test "/ activates filter, shows Filter: in bottom bar" <|
@@ -320,6 +354,7 @@ suite =
                         |> TuiTest.pressKey '/'
                         |> TuiTest.ensureViewHas "Filter:"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "typing filters commits in real-time" <|
                 \() ->
                     miniGitTest
@@ -332,6 +367,7 @@ suite =
                         -- "Initial commit" should be filtered out
                         |> TuiTest.ensureViewDoesNotHave "Initial commit"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "Enter applies filter, shows matches status" <|
                 \() ->
                     miniGitTest
@@ -346,6 +382,7 @@ suite =
                         -- Status bar shows applied text
                         |> TuiTest.ensureViewHas "matches for 'fix'"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "Escape after Enter clears filter, shows all commits" <|
                 \() ->
                     miniGitTest
@@ -361,6 +398,7 @@ suite =
                         -- Filter status should be gone
                         |> TuiTest.ensureViewDoesNotHave "Filter:"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "Escape while typing clears filter" <|
                 \() ->
                     miniGitTest
@@ -373,6 +411,7 @@ suite =
                         |> TuiTest.ensureViewHas "Initial commit"
                         |> TuiTest.ensureViewDoesNotHave "Filter:"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "j/k navigate filtered list after Enter" <|
                 \() ->
                     miniGitTest
@@ -384,6 +423,7 @@ suite =
                         -- Now navigate within filtered results
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "snapshots"
             [ test "model state shows layout changes" <|
@@ -429,18 +469,23 @@ expectFailureContaining needle expectation =
 
 
 
--- Stepper for elm-pages test
+-- Named TUI tests for elm-pages test
 
 
-stepper : TuiTest.TuiTest Model Msg
-stepper =
-    miniGitTest
-        |> TuiTest.withModelToString Debug.toString
-        |> TuiTest.pressKey 'j'
-        |> TuiTest.pressKey 'j'
-        |> TuiTest.pressKey 'j'
-        |> TuiTest.pressKey 'k'
-        |> TuiTest.click { row = 2, col = 5 }
+tuiTests : TuiTest.Test
+tuiTests =
+    TuiTest.describe "MiniGit"
+        [ TuiTest.test "keyboard and click flow"
+            (miniGitTest
+                |> TuiTest.withModelToString Debug.toString
+                |> TuiTest.pressKey 'j'
+                |> TuiTest.pressKey 'j'
+                |> TuiTest.pressKey 'j'
+                |> TuiTest.pressKey 'k'
+                |> TuiTest.click { row = 2, col = 5 }
+                |> TuiTest.expectRunning
+            )
+        ]
 
 
 
@@ -560,7 +605,11 @@ miniGitInit commits =
 
 diffForCommit : String -> String
 diffForCommit sha =
-    "commit " ++ sha ++ "\nAuthor: Test\nDate: today\n\n    Message for " ++ sha ++ "\n---\n"
+    "commit "
+        ++ sha
+        ++ "\nAuthor: Test\nDate: today\n\n    Message for "
+        ++ sha
+        ++ "\n---\n"
         ++ (List.range 1 40
                 |> List.map (\i -> "+ line " ++ String.fromInt i ++ " of diff for " ++ sha)
                 |> String.join "\n"
@@ -825,7 +874,7 @@ miniGitView ctx model =
         bgRows : List Tui.Screen
         bgRows =
             Layout.toRows layoutState (miniGitLayout model)
-        
+
         bottomBar : Tui.Screen
         bottomBar =
             case Layout.filterStatusBar "commits" model.layout of

@@ -3,11 +3,11 @@ module LayoutTestHelperTests exposing (suite)
 import Ansi.Color
 import Expect
 import Test exposing (Test, describe, test)
+import Test.Runner
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Layout as Layout
 import Tui.Layout.Test as LayoutTest
-import Test.Runner
 import Tui.Test as TuiTest
 
 
@@ -20,12 +20,14 @@ suite =
                     twoPane
                         |> LayoutTest.ensureFocusedPane "left"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "Tab moves focus to second pane" <|
                 \() ->
                     twoPane
                         |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
                         |> LayoutTest.ensureFocusedPane "right"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "Tab Tab moves focus back to first pane" <|
                 \() ->
                     twoPane
@@ -33,6 +35,7 @@ suite =
                         |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
                         |> LayoutTest.ensureFocusedPane "left"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "ensureFocusedPane error messages"
             [ test "names expected and actual pane" <|
@@ -48,12 +51,14 @@ suite =
                     twoPane
                         |> LayoutTest.ensureSelectedIndex "left" 0
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "j moves selection down" <|
                 \() ->
                     twoPane
                         |> TuiTest.pressKeyN 3 'j'
                         |> LayoutTest.ensureSelectedIndex "left" 3
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "j then k moves selection back" <|
                 \() ->
                     twoPane
@@ -61,6 +66,7 @@ suite =
                         |> TuiTest.pressKey 'k'
                         |> LayoutTest.ensureSelectedIndex "left" 1
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "ensureSelectedIndex error messages"
             [ test "names pane and shows expected vs actual index" <|
@@ -76,6 +82,7 @@ suite =
                     twoPane
                         |> LayoutTest.ensureScrollPosition "left" 0
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "ensureScrollPosition error messages"
             [ test "names pane and shows expected vs actual position" <|
@@ -90,21 +97,25 @@ suite =
                     twoPane
                         |> LayoutTest.ensurePaneHas "Right" "details here"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "left pane has list items" <|
                 \() ->
                     twoPane
                         |> LayoutTest.ensurePaneHas "Left" "alpha"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "right pane does not have left pane content" <|
                 \() ->
                     twoPane
                         |> LayoutTest.ensurePaneDoesNotHave "Right" "alpha"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             , test "left pane does not have right pane content" <|
                 \() ->
                     twoPane
                         |> LayoutTest.ensurePaneDoesNotHave "Left" "details here"
                         |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "ensurePaneHas error messages"
             [ test "shows pane title and needle on failure" <|
@@ -131,8 +142,12 @@ the given substring.
 -}
 expectFailureContaining : String -> TuiTest.TuiTest model msg -> Expect.Expectation
 expectFailureContaining expectedSubstring tuiTest =
-    case tuiTest |> TuiTest.expectRunning of
-        -- expectRunning returns a failed Expectation when there's an error,
+    case
+        tuiTest
+            |> TuiTest.expectRunning
+            |> TuiTest.done
+    of
+        -- expectRunning returns a failed Outcome when there's an error,
         -- which means our assertion did fail as expected. Check the message.
         _ ->
             -- We need to extract the error. Use ensureView to probe for it.
@@ -142,6 +157,7 @@ expectFailureContaining expectedSubstring tuiTest =
                 result : Expect.Expectation
                 result =
                     TuiTest.expectRunning tuiTest
+                        |> TuiTest.done
             in
             case Test.Runner.getFailureReason result of
                 Just reason ->

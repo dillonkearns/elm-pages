@@ -1,5 +1,5 @@
 module Tui.Test exposing
-    ( TuiTest
+    ( TuiTest, Test, Outcome
     , start, startWithContext, startApp, startAppWithContext
     , pressKey, pressKeyWith, pressKeyN, paste, resize
     , click, clickText, scrollDown, scrollUp, scrollDownN, scrollUpN
@@ -10,6 +10,7 @@ module Tui.Test exposing
     , StyleCheck, bold, dim, italic, underline, fg, bg
     , ensureViewHasStyled, ensureViewDoesNotHaveStyled
     , expectRunning, expectExit, expectExitWith
+    , test, describe, toTest, done, toNamedSnapshots
     , Snapshot, toSnapshots, withModelToString
     )
 
@@ -17,29 +18,63 @@ module Tui.Test exposing
 effects, and assert on screen output. Uses a pipeline API inspired by
 [`elm-program-test`](https://package.elm-lang.org/packages/avh4/elm-program-test/latest/).
 
-Build a test by starting a TUI, simulating user actions, and asserting
-on the rendered screen:
+Build named tests by turning a `TuiTest` scenario into an `Outcome`, then
+wrapping those outcomes in a `Test` tree. That same `Test` value can be:
 
-    test "fetches stars on Enter" <|
-        \() ->
-            TuiTest.start
-                { data = ()
-                , init = Stars.init
-                , update = Stars.update
-                , view = Stars.view
-                , subscriptions = Stars.subscriptions
-                }
-                |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
-                |> TuiTest.ensureViewHas "Loading..."
-                |> TuiTest.resolveEffect
-                    (BackendTaskTest.simulateHttpGet
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
-                        (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
-                    )
-                |> TuiTest.ensureViewHas "Stars: 1234"
-                |> TuiTest.expectRunning
+  - run headlessly through [`toTest`](#toTest) with `elm-test`
 
-@docs TuiTest
+  - visualized through `elm-pages test`, which reads the same named tests and
+    shows their recorded snapshots in the terminal stepper
+
+    import Tui
+    import Test
+    import Tui.Effect as Effect
+    import Tui.Sub
+    import Tui.Test as TuiTest
+
+    type Msg
+    = Increment
+    | Quit
+
+    tuiTests : TuiTest.Test
+    tuiTests =
+    TuiTest.describe "Counter"
+    [ TuiTest.test "increments with j" <|
+    TuiTest.start
+    { data = ()
+    , init = () -> ( 0, Effect.none )
+    , update =
+    \\msg count ->
+    case msg of
+    Increment ->
+    ( count + 1, Effect.none )
+
+                                Quit ->
+                                    ( count, Effect.exit )
+                    , view = \_ count -> Tui.text ("Count: " ++ String.fromInt count)
+                    , subscriptions = \_ -> Tui.Sub.onKeyPress keyToMsg
+                    }
+                    |> TuiTest.pressKey 'j'
+                    |> TuiTest.ensureViewHas "Count: 1"
+                    |> TuiTest.expectRunning
+            ]
+
+```
+keyToMsg : Tui.KeyEvent -> Msg
+keyToMsg event =
+    case event.key of
+        Tui.Character 'j' ->
+            Increment
+
+        _ ->
+            Quit
+
+suite : Test.Test
+suite =
+    TuiTest.toTest tuiTests
+```
+
+@docs TuiTest, Test, Outcome
 
 
 ## Starting a Test
@@ -100,11 +135,15 @@ treated as a single `"ERROR message"` red region.
 
 ## Final Assertions
 
-End every test with one of these to verify the app's final state. If
+End a `TuiTest` scenario with one of these to produce an `Outcome`. If
 pending effects remain unresolved, `expectRunning` and `expectExit`
-will fail — ensuring you don't accidentally ignore effects.
+will fail — ensuring you don't accidentally ignore effects. Use
+[`test`](#test) and [`describe`](#describe) to turn those outcomes into a named
+test tree, then [`toTest`](#toTest) to run it with `elm-test`.
 
 @docs expectRunning, expectExit, expectExitWith
+
+@docs test, describe, toTest, done, toNamedSnapshots
 
 
 ## Snapshots
@@ -122,6 +161,7 @@ import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
+import Test as ElmTest
 import Test.BackendTask.Internal as BackendTaskTest
 import Test.Runner
 import Time
@@ -129,7 +169,7 @@ import Tui exposing (Context, KeyEvent, Screen)
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Effect.Internal as EffectInternal
 import Tui.Screen.Internal as ScreenInternal
-import Tui.Sub as Sub exposing (Sub)
+import Tui.Sub exposing (Sub)
 import Tui.Sub.Internal as SubInternal
 
 
@@ -171,6 +211,62 @@ type alias Snapshot =
     , modelState : Maybe String
     , assertions : List String
     }
+
+
+{-| A named tree of TUI tests.
+
+Use [`test`](#test) for leaf tests and [`describe`](#describe) to group them,
+then pass the resulting value to [`toTest`](#toTest) for `elm-test` or expose it
+for `elm-pages test`.
+
+    import Test
+    import Tui.Test as TuiTest
+
+    tuiTests : TuiTest.Test
+    tuiTests =
+        TuiTest.describe "Counter"
+            [ TuiTest.test "increments" <|
+                counterScenario
+                    |> TuiTest.pressKey 'j'
+                    |> TuiTest.expectRunning
+            ]
+
+    suite : Test.Test
+    suite =
+        TuiTest.toTest tuiTests
+
+-}
+type Test
+    = SingleTest String Outcome
+    | Describe String (List Test)
+
+
+{-| The finalized result of a single `TuiTest` scenario.
+
+Create an `Outcome` with [`expectRunning`](#expectRunning),
+[`expectExit`](#expectExit), or [`expectExitWith`](#expectExitWith). You can
+wrap it in a named test with [`test`](#test) or run it directly with
+[`done`](#done).
+
+    import Expect
+    import Tui.Test as TuiTest
+
+    result : TuiTest.Outcome
+    result =
+        counterScenario
+            |> TuiTest.pressKey 'q'
+            |> TuiTest.expectExit
+
+    check : Expect.Expectation
+    check =
+        TuiTest.done result
+
+-}
+type Outcome
+    = Outcome
+        { expectation : Expectation
+        , snapshots : List Snapshot
+        }
 
 
 {-| Start a TUI test with a default 80×24 terminal and `TrueColor` profile.
@@ -272,7 +368,6 @@ startWithContext context config =
         , currentTime = 0
         , tickFireTimes = Dict.empty
         }
-
 
 
 {-| Start a test from a compiled `Layout.compileApp` output. Eliminates the
@@ -394,8 +489,10 @@ event, just like a real terminal with bracketed paste mode enabled. Use this
 instead of typing character-by-character when testing paste behavior.
 
     test
-        |> TuiTest.pressKey 'c'              -- open commit dialog
-        |> TuiTest.paste "fix: null pointer"  -- paste commit message
+        |> TuiTest.pressKey 'c'
+        -- open commit dialog
+        |> TuiTest.paste "fix: null pointer"
+        -- paste commit message
         |> TuiTest.ensureViewHas "fix: null pointer"
 
 -}
@@ -635,13 +732,13 @@ of fire to the user's message constructor.
 
     import Time
 
-    test "animation advances one frame per 50ms tick" <|
-        \() ->
-            spinnerTest
-                |> TuiTest.advanceTime 50
-                |> TuiTest.ensureViewHas "frame 1"
-                |> TuiTest.advanceTime 50
-                |> TuiTest.ensureViewHas "frame 2"
+    TuiTest.test "animation advances one frame per 50ms tick" <|
+        spinnerTest
+            |> TuiTest.advanceTime 50
+            |> TuiTest.ensureViewHas "frame 1"
+            |> TuiTest.advanceTime 50
+            |> TuiTest.ensureViewHas "frame 2"
+            |> TuiTest.expectRunning
 
 Multi-interval subscriptions fire independently at their own rates. If
 multiple ticks fall in the same `advanceTime` call, they are delivered to
@@ -755,16 +852,16 @@ simulation function is applied, and the resolved result is fed through `update`.
 
     import Test.BackendTask as BackendTaskTest
 
-    test "fetches stars on Enter" <|
-        \() ->
-            starsTest
-                |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
-                |> TuiTest.resolveEffect
-                    (BackendTaskTest.simulateHttpGet
-                        "https://api.github.com/repos/elm/core"
-                        (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
-                    )
-                |> TuiTest.ensureViewHas "Stars: 7500"
+    TuiTest.test "fetches stars on Enter" <|
+        starsTest
+            |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+            |> TuiTest.resolveEffect
+                (BackendTaskTest.simulateHttpGet
+                    "https://api.github.com/repos/elm/core"
+                    (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
+                )
+            |> TuiTest.ensureViewHas "Stars: 7500"
+            |> TuiTest.expectRunning
 
 You can chain multiple simulations for BackendTasks that require more than one:
 
@@ -897,13 +994,12 @@ ensureViewDoesNotHave needle (TuiTest state) =
 isn't visible in the rendered output, or for building higher-level test
 helpers that query opaque framework state (like `Layout.FrameworkModel`).
 
-    test "counter is at 5" <|
-        \() ->
-            counterApp
-                |> TuiTest.pressKeyN 5 'j'
-                |> TuiTest.ensureModel
-                    (\model -> Expect.equal 5 model.count)
-                |> TuiTest.expectRunning
+    TuiTest.test "counter is at 5" <|
+        counterApp
+            |> TuiTest.pressKeyN 5 'j'
+            |> TuiTest.ensureModel
+                (\model -> Expect.equal 5 model.count)
+            |> TuiTest.expectRunning
 
 -}
 ensureModel : (model -> Expectation) -> TuiTest model msg -> TuiTest model msg
@@ -1008,11 +1104,10 @@ bg color =
 specified style checks. Adjacent spans that satisfy the checks are merged
 before matching, so fragmented rendering is handled correctly.
 
-    test "selected item is highlighted" <|
-        \() ->
-            myTest
-                |> TuiTest.ensureViewHasStyled [ TuiTest.bold, TuiTest.fg Ansi.Color.yellow ] "selected"
-                |> TuiTest.expectRunning
+    TuiTest.test "selected item is highlighted" <|
+        myTest
+            |> TuiTest.ensureViewHasStyled [ TuiTest.bold, TuiTest.fg Ansi.Color.yellow ] "selected"
+            |> TuiTest.expectRunning
 
 -}
 ensureViewHasStyled : List StyleCheck -> String -> TuiTest model msg -> TuiTest model msg
@@ -1053,11 +1148,10 @@ ensureViewHasStyled checks needle (TuiTest state) =
 {-| Assert that the screen does NOT contain the given text with ALL of the
 specified style checks.
 
-    test "error text is not bold" <|
-        \() ->
-            myTest
-                |> TuiTest.ensureViewDoesNotHaveStyled [ TuiTest.bold ] "Error"
-                |> TuiTest.expectRunning
+    TuiTest.test "error text is not bold" <|
+        myTest
+            |> TuiTest.ensureViewDoesNotHaveStyled [ TuiTest.bold ] "Error"
+            |> TuiTest.expectRunning
 
 -}
 ensureViewDoesNotHaveStyled : List StyleCheck -> String -> TuiTest model msg -> TuiTest model msg
@@ -1227,81 +1321,217 @@ applyAttr attr flatStyle =
 {-| Assert that the TUI is still running (has not exited).
 Fails if there are unresolved pending `BackendTask` effects — use
 [`resolveEffect`](#resolveEffect) or [`sendMsg`](#sendMsg) to resolve them
-before calling this.
+before calling this. Returns an [`Outcome`](#Outcome) so the same scenario can
+be wrapped in a named [`test`](#test) or inspected directly with [`done`](#done).
 -}
-expectRunning : TuiTest model msg -> Expectation
+expectRunning : TuiTest model msg -> Outcome
 expectRunning (TuiTest state) =
-    case state.error of
-        Just msg ->
-            Expect.fail msg
+    outcomeFromState state <|
+        case state.error of
+            Just msg ->
+                Expect.fail msg
 
-        Nothing ->
-            case ( state.exited, state.pendingEffects ) of
-                ( Nothing, [] ) ->
-                    Expect.pass
+            Nothing ->
+                case ( state.exited, state.pendingEffects ) of
+                    ( Nothing, [] ) ->
+                        Expect.pass
 
-                ( Nothing, pending ) ->
-                    Expect.fail (pendingEffectsError (List.length pending))
+                    ( Nothing, pending ) ->
+                        Expect.fail (pendingEffectsError (List.length pending))
 
-                ( Just code, _ ) ->
-                    Expect.fail ("Expected TUI to be running, but it exited with code " ++ String.fromInt code)
+                    ( Just code, _ ) ->
+                        Expect.fail ("Expected TUI to be running, but it exited with code " ++ String.fromInt code)
 
 
 {-| Assert that the TUI exited with code 0.
-Fails if there are unresolved pending `BackendTask` effects.
+Fails if there are unresolved pending `BackendTask` effects. Returns an
+[`Outcome`](#Outcome) so the same scenario can be wrapped in a named
+[`test`](#test) or inspected directly with [`done`](#done).
 -}
-expectExit : TuiTest model msg -> Expectation
+expectExit : TuiTest model msg -> Outcome
 expectExit (TuiTest state) =
-    case state.error of
-        Just msg ->
-            Expect.fail msg
+    outcomeFromState state <|
+        case state.error of
+            Just msg ->
+                Expect.fail msg
 
-        Nothing ->
-            case ( state.exited, state.pendingEffects ) of
-                ( Just 0, [] ) ->
-                    Expect.pass
+            Nothing ->
+                case ( state.exited, state.pendingEffects ) of
+                    ( Just 0, [] ) ->
+                        Expect.pass
 
-                ( Just 0, pending ) ->
-                    Expect.fail (pendingEffectsError (List.length pending))
-
-                ( Just code, _ ) ->
-                    Expect.fail ("Expected exit code 0, but got " ++ String.fromInt code)
-
-                ( Nothing, pending ) ->
-                    if List.isEmpty pending then
-                        Expect.fail "Expected TUI to exit, but it is still running"
-
-                    else
+                    ( Just 0, pending ) ->
                         Expect.fail (pendingEffectsError (List.length pending))
+
+                    ( Just code, _ ) ->
+                        Expect.fail ("Expected exit code 0, but got " ++ String.fromInt code)
+
+                    ( Nothing, pending ) ->
+                        if List.isEmpty pending then
+                            Expect.fail "Expected TUI to exit, but it is still running"
+
+                        else
+                            Expect.fail (pendingEffectsError (List.length pending))
 
 
 {-| Assert that the TUI exited with a specific exit code.
-Fails if there are unresolved pending `BackendTask` effects.
+Fails if there are unresolved pending `BackendTask` effects. Returns an
+[`Outcome`](#Outcome) so the same scenario can be wrapped in a named
+[`test`](#test) or inspected directly with [`done`](#done).
 -}
-expectExitWith : Int -> TuiTest model msg -> Expectation
+expectExitWith : Int -> TuiTest model msg -> Outcome
 expectExitWith expectedCode (TuiTest state) =
-    case state.error of
-        Just msg ->
-            Expect.fail msg
+    outcomeFromState state <|
+        case state.error of
+            Just msg ->
+                Expect.fail msg
 
-        Nothing ->
-            case ( state.exited, state.pendingEffects ) of
-                ( Just code, [] ) ->
-                    if code == expectedCode then
-                        Expect.pass
+            Nothing ->
+                case ( state.exited, state.pendingEffects ) of
+                    ( Just code, [] ) ->
+                        if code == expectedCode then
+                            Expect.pass
 
-                    else
-                        Expect.fail ("Expected exit code " ++ String.fromInt expectedCode ++ ", but got " ++ String.fromInt code)
+                        else
+                            Expect.fail ("Expected exit code " ++ String.fromInt expectedCode ++ ", but got " ++ String.fromInt code)
 
-                ( Just _, pending ) ->
-                    Expect.fail (pendingEffectsError (List.length pending))
-
-                ( Nothing, pending ) ->
-                    if List.isEmpty pending then
-                        Expect.fail ("Expected TUI to exit with code " ++ String.fromInt expectedCode ++ ", but it is still running")
-
-                    else
+                    ( Just _, pending ) ->
                         Expect.fail (pendingEffectsError (List.length pending))
+
+                    ( Nothing, pending ) ->
+                        if List.isEmpty pending then
+                            Expect.fail ("Expected TUI to exit with code " ++ String.fromInt expectedCode ++ ", but it is still running")
+
+                        else
+                            Expect.fail (pendingEffectsError (List.length pending))
+
+
+{-| Wrap a single named TUI test.
+
+    import Tui.Test as TuiTest
+
+    counterTests : TuiTest.Test
+    counterTests =
+        TuiTest.test "increments" <|
+            counterScenario
+                |> TuiTest.pressKey 'j'
+                |> TuiTest.expectRunning
+
+-}
+test : String -> Outcome -> Test
+test label outcome =
+    SingleTest label outcome
+
+
+{-| Group TUI tests under a shared heading.
+
+    import Tui.Test as TuiTest
+
+    counterTests : TuiTest.Test
+    counterTests =
+        TuiTest.describe "Counter"
+            [ TuiTest.test "increments" <|
+                counterScenario
+                    |> TuiTest.pressKey 'j'
+                    |> TuiTest.expectRunning
+            , TuiTest.test "quits" <|
+                counterScenario
+                    |> TuiTest.pressKey 'q'
+                    |> TuiTest.expectExit
+            ]
+
+-}
+describe : String -> List Test -> Test
+describe label children =
+    Describe label children
+
+
+{-| Convert a named TUI test tree into an `elm-test` `Test.Test`.
+
+    import Test
+    import Tui.Test as TuiTest
+
+    suite : Test.Test
+    suite =
+        TuiTest.toTest tuiTests
+
+-}
+toTest : Test -> ElmTest.Test
+toTest tuiTest =
+    -- elm-review: known-unoptimized-recursion
+    case tuiTest of
+        SingleTest label outcome ->
+            ElmTest.test label <|
+                \() ->
+                    done outcome
+
+        Describe label children ->
+            ElmTest.describe label (List.map toTest children)
+
+
+{-| Run a single finalized outcome directly as an `Expect.Expectation`.
+
+This is mostly useful in low-level helper tests for `Tui.Test` itself. Most
+user code will prefer wrapping outcomes in [`test`](#test) and [`describe`](#describe),
+then calling [`toTest`](#toTest).
+
+    import Expect
+    import Tui.Test as TuiTest
+
+    expectation : Expect.Expectation
+    expectation =
+        counterScenario
+            |> TuiTest.pressKey 'q'
+            |> TuiTest.expectExit
+            |> TuiTest.done
+
+-}
+done : Outcome -> Expectation
+done (Outcome outcome) =
+    outcome.expectation
+
+
+{-| Flatten a named TUI test tree into named snapshot sequences.
+
+`elm-pages test` uses this to populate the interactive terminal stepper. The
+names include any enclosing [`describe`](#describe) labels so the selected test
+is easy to identify.
+
+    import Tui.Test as TuiTest
+
+    snapshotNames : List String
+    snapshotNames =
+        tuiTests
+            |> TuiTest.toNamedSnapshots
+            |> List.map Tuple.first
+
+-}
+toNamedSnapshots : Test -> List ( String, List Snapshot )
+toNamedSnapshots tuiTest =
+    toNamedSnapshotsHelp [] tuiTest
+
+
+toNamedSnapshotsHelp : List String -> Test -> List ( String, List Snapshot )
+toNamedSnapshotsHelp ancestors tuiTest =
+    -- elm-review: known-unoptimized-recursion
+    case tuiTest of
+        SingleTest label (Outcome outcome) ->
+            [ ( String.join " / " (ancestors ++ [ label ])
+              , outcome.snapshots
+              )
+            ]
+
+        Describe label children ->
+            children
+                |> List.concatMap (toNamedSnapshotsHelp (ancestors ++ [ label ]))
+
+
+outcomeFromState : State model msg -> Expectation -> Outcome
+outcomeFromState state expectation =
+    Outcome
+        { expectation = expectation
+        , snapshots = toSnapshots (TuiTest state)
+        }
 
 
 pendingEffectsError : Int -> String

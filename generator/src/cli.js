@@ -137,7 +137,7 @@ async function main() {
 
   program
     .command("test <elmModulePath>")
-    .description("step through a TUI test interactively")
+    .description("step through named TUI tests interactively")
     .allowUnknownOption()
     .allowExcessArguments()
     .helpOption(false)
@@ -159,7 +159,7 @@ async function main() {
 
   program
     .command("test-run [elmModulePath]")
-    .description("run page tests headlessly via elm-test")
+    .description("run page tests and TUI tests headlessly via elm-test")
     .option("--coverage", "Instrument sources and generate a coverage report (requires elm-instrument from npm install -g elm-coverage)")
     .option("--coverage-include <dir>", "Only instrument files in these source directories (repeatable)", collect, [])
     .option("--coverage-exclude <dir>", "Exclude these source directories from instrumentation (repeatable)", collect, [])

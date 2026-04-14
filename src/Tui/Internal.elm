@@ -1,4 +1,4 @@
-module Tui.Internal exposing (encodeScreen, run, toScreenLines)
+module Tui.Internal exposing (encodeScreen, run)
 
 {-| Internal TUI loop implementation. Not exposed to users.
 -}
@@ -14,7 +14,7 @@ import Tui exposing (Attribute(..), ColorProfile(..), Context, Screen)
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Effect.Internal as EffectInternal
 import Tui.Screen.Internal as ScreenInternal
-import Tui.Sub as Sub exposing (Sub)
+import Tui.Sub exposing (Sub)
 import Tui.Sub.Internal as SubInternal
 
 
@@ -263,7 +263,7 @@ processBatchedEventsHelp config sub context model accEffects events =
                     decodeRawEvent rawValue
             in
             case rawEvent of
-                SubInternal.RawResize _ ->
+                SubInternal.RawResize ->
                     -- Apply resize context, continue processing
                     processBatchedEventsHelp config sub context model accEffects rest
 
@@ -294,7 +294,7 @@ decodeRawEvent value =
             event
 
         Err _ ->
-            SubInternal.RawResize { width = 0, height = 0 }
+            SubInternal.RawResize
 
 
 applyContextUpdate :
@@ -347,62 +347,6 @@ encodeScreen screen =
             (\spanLine ->
                 Encode.list encodeSpan spanLine
             )
-
-
-toScreenLines : Screen -> List Screen
-toScreenLines screen =
-    ScreenInternal.flattenToSpanLines styleToFlatStyle screen
-        |> List.map
-            (\spans ->
-                spans
-                    |> List.map (ScreenInternal.spanToScreen flatStyleToStyle)
-                    |> ScreenInternal.ScreenConcat
-            )
-
-
-flatStyleToStyle : ScreenInternal.FlatStyle -> Tui.Style
-flatStyleToStyle fs =
-    { fg = fs.foreground
-    , bg = fs.background
-    , attributes = flatStyleToAttrs fs
-    , hyperlink = fs.hyperlink
-    }
-
-
-flatStyleToAttrs : ScreenInternal.FlatStyle -> List Attribute
-flatStyleToAttrs s =
-    List.filterMap identity
-        [ if s.bold then
-            Just Bold
-
-          else
-            Nothing
-        , if s.dim then
-            Just Dim
-
-          else
-            Nothing
-        , if s.italic then
-            Just Italic
-
-          else
-            Nothing
-        , if s.underline then
-            Just Underline
-
-          else
-            Nothing
-        , if s.strikethrough then
-            Just Strikethrough
-
-          else
-            Nothing
-        , if s.inverse then
-            Just Inverse
-
-          else
-            Nothing
-        ]
 
 
 styleToFlatStyle : Tui.Style -> ScreenInternal.FlatStyle

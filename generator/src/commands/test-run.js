@@ -1,9 +1,10 @@
 /**
- * Test runner command - runs ProgramTest values headlessly via elm-test.
+ * Test runner command - runs ProgramTest values and named TUI tests
+ * headlessly via elm-test.
  *
- * Discovers ProgramTest values in test modules (same as test-view),
- * generates a TestRunner.elm that wraps each one with `done` and
- * `Test.test`, then runs elm-test with the lamdera compiler.
+ * Discovers ProgramTest values and TuiTest.Test values in test modules,
+ * generates a TestRunner.elm that wraps them with `done` / `toTest`,
+ * then runs elm-test with the lamdera compiler.
  *
  * Usage: elm-pages test-run
  *        elm-pages test-run tests/MyTests.elm
@@ -17,7 +18,9 @@ import { restoreColorSafe } from "../error-formatter.js";
 import { resolveTestInputPath } from "../resolve-elm-module.js";
 import {
   discoverProgramTestModules,
+  discoverTuiTestModules,
   findProgramTestValues,
+  findTuiTestValues,
   printCaughtError,
 } from "./shared.js";
 import { ensureDirSync, writeFileIfChanged } from "../file-helpers.js";
@@ -27,8 +30,8 @@ export async function run(elmModulePath, options) {
   if (elmModulePath === "--help" || elmModulePath === "-h") {
     console.log(
       "Usage: elm-pages test-run [path-to-module]\n\n" +
-        "Run page tests headlessly via elm-test.\n" +
-        "Discovers ProgramTest values and runs them with `done`.\n\n" +
+        "Run page tests and TUI tests headlessly via elm-test.\n" +
+        "Discovers ProgramTest values and TuiTest.Test values.\n\n" +
         "Options:\n" +
         "  --coverage                          Instrument sources and generate a coverage report\n" +
         "  --coverage-include <dir>            Only instrument these source directories (repeatable)\n" +
@@ -44,45 +47,68 @@ export async function run(elmModulePath, options) {
   }
 
   try {
-    // First, ensure generated code is up to date (including TestApp.elm)
-    console.log("Generating elm-pages code...");
-    await generate(".");
-
-    let allTests = [];
+    let resolved = null;
+    let projectDirectory = process.cwd();
 
     if (elmModulePath && elmModulePath !== "") {
-      const resolved = await resolveTestInputPath(elmModulePath);
+      resolved = await resolveTestInputPath(elmModulePath);
+      projectDirectory = resolved.projectDirectory;
+      process.chdir(projectDirectory);
+    }
+
+    let allProgramTests = [];
+    let allTuiTests = [];
+
+    if (resolved) {
       const modName = resolved.moduleName;
       const filePath = path.join(
         resolved.sourceDirectory,
         modName.replace(/\./g, "/") + ".elm"
       );
-      const values = findProgramTestValues(filePath);
-      if (values.length > 0) {
-        allTests.push({ moduleName: modName, values });
+      const programValues = findProgramTestValues(filePath);
+      const tuiValues = findTuiTestValues(filePath);
+      if (programValues.length > 0) {
+        allProgramTests.push({ moduleName: modName, values: programValues });
+      }
+      if (tuiValues.length > 0) {
+        allTuiTests.push({ moduleName: modName, values: tuiValues });
       }
     } else {
-      allTests = discoverProgramTestModules().map(({ moduleName, values }) => ({
+      allProgramTests = discoverProgramTestModules().map(({ moduleName, values }) => ({
+        moduleName,
+        values,
+      }));
+      allTuiTests = discoverTuiTestModules().map(({ moduleName, values }) => ({
         moduleName,
         values,
       }));
     }
 
-    if (allTests.length === 0) {
+    if (allProgramTests.length > 0) {
+      // ProgramTest relies on generated app test modules like TestApp.elm.
+      console.log("Generating elm-pages code...");
+      await generate(".");
+    }
+
+    if (allProgramTests.length === 0 && allTuiTests.length === 0) {
       console.error(
-        "No ProgramTest values found.\n\n" +
-          "Create a test module that exposes values with a ProgramTest type annotation:\n\n" +
-          "    myTest : TestApp.ProgramTest\n" +
-          "    myTest =\n" +
+        "No ProgramTest or TuiTest.Test values found.\n\n" +
+          "Expose values with one of these type annotations:\n\n" +
+          "    myPageTest : TestApp.ProgramTest\n" +
+          "    myPageTest =\n" +
           '        TestApp.start "/" BackendTaskTest.init\n' +
-          '            |> PagesProgram.ensureViewHas [ text "Hello" ]\n'
+          '            |> PagesProgram.ensureViewHas [ text "Hello" ]\n\n' +
+          "    myTuiTests : TuiTest.Test\n" +
+          "    myTuiTests =\n" +
+          '        TuiTest.describe "My TUI" [ TuiTest.test "works" <| ... ]\n'
       );
       process.exit(1);
     }
 
-    const totalValues = allTests.reduce((n, t) => n + t.values.length, 0);
+    const totalProgramValues = allProgramTests.reduce((n, t) => n + t.values.length, 0);
+    const totalTuiValues = allTuiTests.reduce((n, t) => n + t.values.length, 0);
     console.log(
-      `Found ${totalValues} ProgramTest value${totalValues > 1 ? "s" : ""} in ${allTests.length} module${allTests.length > 1 ? "s" : ""}`
+      `Found ${totalProgramValues} ProgramTest value${totalProgramValues === 1 ? "" : "s"} and ${totalTuiValues} TUI test tree${totalTuiValues === 1 ? "" : "s"}`
     );
 
     // Set up the build directory for the test runner.
@@ -111,7 +137,6 @@ export async function run(elmModulePath, options) {
         COVERAGE_ELM_STUB,
       } = await import("../coverage.js");
 
-      const projectDirectory = path.resolve(".");
       const compileDir = path.resolve("elm-stuff/elm-pages");
       let userSourceDirs = await getUserSourceDirs(projectDirectory);
 
@@ -156,7 +181,7 @@ export async function run(elmModulePath, options) {
 
     // Generate the headless test runner module in the test-viewer dir
     // (where TestApp.elm also lives)
-    const runnerModule = generateTestRunnerModule(allTests);
+    const runnerModule = generateTestRunnerModule(allProgramTests, allTuiTests);
     await writeFileIfChanged(
       path.join(testViewerDir, "TestRunner.elm"),
       runnerModule
@@ -168,10 +193,9 @@ export async function run(elmModulePath, options) {
     const elmJsonPath = path.resolve("elm.json");
     const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
     const testRunnerElmJson = { ...elmJson };
-    const extraSourceDirectories = ["tests"];
-    if (fs.existsSync(path.resolve("snapshot-tests/src"))) {
-      extraSourceDirectories.push("snapshot-tests/src");
-    }
+    const extraSourceDirectories = ["tests", "snapshot-tests/src"].filter((dir) =>
+      fs.existsSync(path.join(projectDirectory, dir))
+    );
 
     // Map source dirs: if coverage, remap instrumented dirs; otherwise use originals
     const mapSourceDir = (dir) => {
@@ -211,7 +235,8 @@ export async function run(elmModulePath, options) {
       compilerFlag = `--compiler=${wrapperPath}`;
     }
 
-    console.log(`Running ${totalValues} test${totalValues > 1 ? "s" : ""}...\n`);
+    const totalTopLevelEntries = totalProgramValues + totalTuiValues;
+    console.log(`Running ${totalTopLevelEntries} discovered test entr${totalTopLevelEntries === 1 ? "y" : "ies"}...\n`);
 
     // Run elm-test from the test-run directory.
     // TestRunner.elm is in ../test-viewer/ which is in source-directories.
@@ -231,7 +256,7 @@ export async function run(elmModulePath, options) {
     // ── Coverage: print report ──
     if (coverage && coverageDataDir) {
       const { printCoverageReportSync } = await import("../coverage.js");
-      printCoverageReportSync(".", process.cwd(), {
+      printCoverageReportSync(".", projectDirectory, {
         include: options.coverageIncludeModule || [],
         exclude: options.coverageExcludeModule || [],
       });
@@ -301,40 +326,58 @@ if (outputFile) {
 
 /**
  * Generate the TestRunner.elm module that wraps ProgramTest values
- * with Test.test and PagesProgram.done for headless execution.
+ * and named TUI tests for headless execution.
  */
-function generateTestRunnerModule(allTests) {
-  const imports = allTests
-    .map((t) => `import ${t.moduleName}`)
+function generateTestRunnerModule(programTests, tuiTests) {
+  const testPagesProgramImport =
+    programTests.length > 0 ? "import Test.PagesProgram\n" : "";
+  const tuiTestImport =
+    tuiTests.length > 0 ? "import Tui.Test\n" : "";
+
+  const imports = Array.from(
+    new Set(
+      programTests
+        .concat(tuiTests)
+        .map((t) => t.moduleName)
+    )
+  )
+    .map((moduleName) => `import ${moduleName}`)
     .join("\n");
 
-  const testEntries = allTests
-    .flatMap((t) =>
-      t.values.map(
-        (name) =>
-          `        Test.test "${t.moduleName}.${name}" <|\n` +
-          `            \\() ->\n` +
-          `                ${t.moduleName}.${name}\n` +
-          `                    |> Test.PagesProgram.done`
-      )
+  const programEntries = programTests.flatMap((t) =>
+    t.values.map(
+      (name) =>
+        `        Test.test "${t.moduleName}.${name}" <|\n` +
+        `            \\() ->\n` +
+        `                ${t.moduleName}.${name}\n` +
+        `                    |> Test.PagesProgram.done`
     )
-    .join("\n        , ");
+  );
+
+  const tuiEntries = tuiTests.flatMap((t) =>
+    t.values.map(
+      (name) =>
+        `        Test.describe "${t.moduleName}.${name}"\n` +
+        `            [ Tui.Test.toTest ${t.moduleName}.${name} ]`
+    )
+  );
+
+  const testEntries = programEntries.concat(tuiEntries).join("\n        , ");
 
   return `module TestRunner exposing (suite)
 
 {-| Generated headless test runner. Do not edit manually.
-Wraps each ProgramTest value with done to produce Test values,
-so they can be run via elm-test.
+Wraps ProgramTest values and named TUI test trees so they can be run via elm-test.
 -}
 
 ${imports}
 import Test
-import Test.PagesProgram
+${testPagesProgramImport}${tuiTestImport}
 
 
 suite : Test.Test
 suite =
-    Test.describe "elm-pages ProgramTest"
+    Test.describe "elm-pages tests"
         [ ${testEntries}
         ]
 `;
