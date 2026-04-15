@@ -39,6 +39,11 @@ You can also fire off a `BackendTask` and get back a `Msg`:
 Similar to in `elm-pages` Route Modules, the `data` function
 resolves a `BackendTask` prior to `init`
 
+    -- script/src/Counter.elm
+
+
+    module Counter exposing (run)
+
     import Tui
     import Tui.Screen as Screen
     import Tui.Sub
@@ -55,6 +60,12 @@ resolves a `BackendTask` prior to `init`
             , subscriptions = \_ -> Tui.Sub.onKeyPress KeyPressed
             }
 
+You run a TUI like you run any other [`Pages.Script.Script`](Pages-Script#Script), [see the elm-pages scripts docs page](https://elm-pages.com/docs/elm-pages-scripts)
+
+```sh
+cd script && npx elm-pages run src/Counter.elm
+```
+
 The `data` field resolves before `init` runs, so you can cleanly initialize your `Model`
 with data from reading files, fetching HTTP data, or running shell commands.
 Resolving to a `FatalError` terminates the program with a non-zero exit code and prints
@@ -66,7 +77,7 @@ stars, see `examples/end-to-end/script/src/TuiStars.elm`.
 That behavior is covered by `examples/end-to-end/script/tests/TuiStarsTests.elm`.
 
 
-## Running a TUI
+## Building a `Tui.Program`
 
 @docs Program, program, programWithCliOptions
 
@@ -158,7 +169,10 @@ type alias Program data model msg =
     }
 
 
-{-| Run a TUI as a Script. No CLI options, no script fallback — just a TUI.
+{-| Build an interactive TUI.
+
+See also [`programWithCliOptions`](#programWithCliOptions) and [`programOrScript`](#programOrScript).
+
 -}
 program : Program data model msg -> Pages.Internal.Script.Script
 program app =
