@@ -5,8 +5,10 @@ module Tui.Effect exposing
     , fold
     )
 
-{-| Effects for TUI scripts. The bridge between `BackendTask` and the TUI
-update cycle.
+{-| The core Effects for [`Tui.Program`](Tui#Program)s.
+Most notably, your TUI can resolve a [`BackendTask`](BackendTask)
+within its `init` and `update` and get back the result
+as a `Msg`.
 
     update : Msg -> Model -> ( Model, Effect Msg )
     update msg model =
@@ -141,6 +143,7 @@ map =
 Mainly useful for framework authors (like `Tui.Layout.compileApp` in
 tui-widgets) and test tooling that need to interpret effects while keeping
 the end-user API clean. Regular TUI apps do not need this.
+
 -}
 fold :
     { none : a
