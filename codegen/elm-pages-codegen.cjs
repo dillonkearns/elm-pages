@@ -31763,24 +31763,6 @@ var $mdgriffith$elm_codegen$Elm$Let$toExpression = function (_v0) {
 			};
 		});
 };
-var $author$project$Gen$Debug$toString = function (toStringArg_) {
-	return $mdgriffith$elm_codegen$Elm$apply$(
-		$mdgriffith$elm_codegen$Elm$value(
-			{
-				annotation: $elm$core$Maybe$Just(
-					$mdgriffith$elm_codegen$Elm$Annotation$function$(
-						_List_fromArray(
-							[
-								$mdgriffith$elm_codegen$Elm$Annotation$var('a')
-							]),
-						$mdgriffith$elm_codegen$Elm$Annotation$string)),
-				importFrom: _List_fromArray(
-					['Debug']),
-				name: 'toString'
-			}),
-		_List_fromArray(
-			[toStringArg_]));
-};
 var $author$project$Gen$Debug$todo = function (todoArg_) {
 	return $mdgriffith$elm_codegen$Elm$apply$(
 		$mdgriffith$elm_codegen$Elm$value(
@@ -37321,37 +37303,9 @@ var $author$project$GenerateMain$otherFile$ = function (routes, phaseString, rou
 			pageDataFromJs: $author$project$GenerateMain$applyIdentityTo(
 				$mdgriffith$elm_codegen$Elm$val('pageDataFromJs')),
 			pageModelToString: $mdgriffith$elm_codegen$Elm$fn$(
-				$mdgriffith$elm_codegen$Elm$Arg$var('model'),
-				function (model) {
-					return $mdgriffith$elm_codegen$Elm$Case$custom$(
-						$mdgriffith$elm_codegen$Elm$get$('page', model),
-						$mdgriffith$elm_codegen$Elm$Annotation$unit,
-						_Utils_ap(
-							$elm$core$List$map$(
-								function (route) {
-									return $mdgriffith$elm_codegen$Elm$Case$branch$(
-										$author$project$GenerateMain$destructureRouteVariant$($author$project$GenerateMain$Model, 'pageModel', route),
-										function (pageModel) {
-											return $author$project$Gen$Debug$toString(pageModel);
-										});
-								},
-								routes),
-							_List_fromArray(
-								[
-									$mdgriffith$elm_codegen$Elm$Case$branch$(
-									A2(
-										$mdgriffith$elm_codegen$Elm$Arg$item,
-										$mdgriffith$elm_codegen$Elm$Arg$var('errorModel'),
-										A2($mdgriffith$elm_codegen$Elm$Arg$customType, 'ModelErrorPage____', $elm$core$Basics$identity)),
-									function (errorModel) {
-										return $author$project$Gen$Debug$toString(errorModel);
-									}),
-									$mdgriffith$elm_codegen$Elm$Case$branch$(
-									A2($mdgriffith$elm_codegen$Elm$Arg$customType, 'NotFound', _Utils_Tuple0),
-									function (_v5) {
-										return $mdgriffith$elm_codegen$Elm$string('(not found)');
-									})
-								])));
+				$mdgriffith$elm_codegen$Elm$Arg$ignore,
+				function (_v5) {
+					return $mdgriffith$elm_codegen$Elm$string('');
 				}),
 			pathPatterns: pathPatterns.value,
 			perform: $author$project$Gen$Effect$values_.perform,
