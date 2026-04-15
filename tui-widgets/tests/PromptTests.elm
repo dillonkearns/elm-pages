@@ -1,12 +1,10 @@
 module PromptTests exposing (suite)
 
 import Expect
-import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Prompt as Prompt
 import Tui.Screen
-import Tui.Screen.Internal.Encode as ScreenEncode
 import Tui.Sub
 
 
@@ -18,15 +16,15 @@ suite =
                 \() ->
                     Prompt.open { title = "Name", placeholder = "" }
                         |> typeString "hello"
-                        |> renderBodyJson
-                        |> expectContains "\"inverse\":true"
+                        |> renderedBodyHasInverseCursor
+                        |> Expect.equal True
             , test "masked prompt still shows an inverse cursor in the rendered body" <|
                 \() ->
                     Prompt.open { title = "Password", placeholder = "" }
                         |> Prompt.withMasking
                         |> typeString "secret"
-                        |> renderBodyJson
-                        |> expectContains "\"inverse\":true"
+                        |> renderedBodyHasInverseCursor
+                        |> Expect.equal True
             ]
         , describe "suggestion navigation"
             [ test "ArrowDown then Tab accepts the second suggestion" <|
@@ -66,26 +64,13 @@ typeString str state =
         str
 
 
-renderBodyJson : Prompt.State -> String
-renderBodyJson state =
+renderedBodyHasInverseCursor : Prompt.State -> Bool
+renderedBodyHasInverseCursor state =
     Prompt.viewBody { width = 40 } state
         |> Tui.Screen.lines
-        |> ScreenEncode.screen
-        |> Encode.encode 0
-
-
-expectContains : String -> String -> Expect.Expectation
-expectContains needle haystack =
-    if String.contains needle haystack then
-        Expect.pass
-
-    else
-        Expect.fail
-            ("Expected to find "
-                ++ needle
-                ++ " in:\n\n"
-                ++ haystack
-            )
+        |> Tui.Screen.toSpanLines
+        |> List.concat
+        |> List.any (\span -> List.member Tui.Screen.Inverse span.style.attributes)
 
 
 fruitSuggestions : String -> List String
