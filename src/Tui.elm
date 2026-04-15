@@ -73,8 +73,8 @@ an error message.
 
 For a full interactive example that uses `data` to seed the initial repo,
 [`Tui.Input`](Tui-Input) to edit it, and `BackendTask.Http.getJson` to refetch
-stars, see `examples/end-to-end/script/src/TuiStars.elm`.
-That behavior is covered by `examples/end-to-end/script/tests/TuiStarsTests.elm`.
+stars, see [examples/end-to-end/script/src/TuiStars.elm](https://github.com/dillonkearns/elm-pages2/blob/visual-test-runner/examples/end-to-end/script/src/TuiStars.elm).
+That behavior is covered by [examples/end-to-end/script/tests/TuiStarsTests.elm](https://github.com/dillonkearns/elm-pages2/blob/visual-test-runner/examples/end-to-end/script/tests/TuiStarsTests.elm).
 
 
 ## Building a `Tui.Program`
