@@ -13,9 +13,10 @@ q / Esc — quit
 
 import Ansi.Color
 import BackendTask exposing (BackendTask)
-import Pages.Script as Script exposing (Script)
+import Pages.Script exposing (Script)
 import Tui exposing (plain)
 import Tui.Effect as Effect
+import Tui.Program
 import Tui.Sub
 
 
@@ -30,7 +31,7 @@ type Msg
 
 run : Script
 run =
-    Script.tui
+    Tui.Program.program
         { data = BackendTask.succeed ()
         , init = init
         , update = update
@@ -77,11 +78,11 @@ view : Tui.Context -> Model -> Tui.Screen
 view ctx model =
     let
         dimStyle =
-            { plain | attributes = [ Tui.dim ] }
+            { plain | attributes = [ Tui.Dim ] }
     in
     Tui.lines
         [ Tui.text ""
-        , Tui.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.bold ] }
+        , Tui.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
             "  TUI Counter Demo"
         , Tui.text ""
         , Tui.concat
@@ -96,7 +97,7 @@ view ctx model =
                              else
                                 Ansi.Color.red
                             )
-                    , attributes = [ Tui.bold ]
+                    , attributes = [ Tui.Bold ]
                 }
                 (String.fromInt model.count)
             ]

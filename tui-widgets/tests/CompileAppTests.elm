@@ -1,6 +1,7 @@
 module CompileAppTests exposing (suite)
 
 import Ansi.Color
+import BackendTask
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
@@ -387,7 +388,8 @@ helpModal model =
 
 helpAppConfig =
     Layout.compileApp
-        { init = helpInit
+        { data = BackendTask.succeed ()
+        , init = helpInit
         , update = helpUpdate
         , view = helpView
         , bindings = helpBindings
@@ -492,7 +494,8 @@ pickerModal model =
 
 pickerAppConfig =
     Layout.compileApp
-        { init = pickerInit
+        { data = BackendTask.succeed ()
+        , init = pickerInit
         , update = pickerUpdate
         , view = pickerView
         , bindings = pickerBindings
@@ -596,7 +599,8 @@ menuModal model =
 
 menuAppConfig =
     Layout.compileApp
-        { init = menuInit
+        { data = BackendTask.succeed ()
+        , init = menuInit
         , update = menuUpdate
         , view = menuView
         , bindings = menuBindings
@@ -681,7 +685,8 @@ linkModal _ =
 
 linkAppConfig =
     Layout.compileApp
-        { init = linkInit
+        { data = BackendTask.succeed ()
+        , init = linkInit
         , update = linkUpdate
         , view = linkView
         , bindings = linkBindings
@@ -789,7 +794,8 @@ linkSelModal _ =
 
 linkSelAppConfig =
     Layout.compileApp
-        { init = linkSelInit
+        { data = BackendTask.succeed ()
+        , init = linkSelInit
         , update = linkSelUpdate
         , view = linkSelView
         , bindings = linkSelBindings
@@ -866,7 +872,8 @@ scrollModal _ =
 
 scrollAppConfig =
     Layout.compileApp
-        { init = scrollInit
+        { data = BackendTask.succeed ()
+        , init = scrollInit
         , update = scrollUpdate
         , view = scrollView
         , bindings = scrollBindings
@@ -963,7 +970,8 @@ setSelModal _ =
 
 setSelAppConfig =
     Layout.compileApp
-        { init = setSelInit
+        { data = BackendTask.succeed ()
+        , init = setSelInit
         , update = setSelUpdate
         , view = setSelView
         , bindings = setSelBindings

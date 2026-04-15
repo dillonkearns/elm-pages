@@ -97,19 +97,18 @@ management, scroll state, mouse events, status toasts, and modals:
 ```elm
 run : Script
 run =
-    Script.tuiApp
-        { data = loadCommits
-        , app =
-            Layout.compileApp
-                { init = init
-                , update = update
-                , view = view
-                , bindings = bindings
-                , status = \model -> { waiting = model.activeOp }
-                , modal = modal
-                , onRawEvent = Nothing
-                }
-        }
+    Tui.Program.program
+        (Layout.compileApp
+            { data = loadCommits
+            , init = init
+            , update = update
+            , view = view
+            , bindings = bindings
+            , status = \model -> { waiting = model.activeOp }
+            , modal = modal
+            , onRawEvent = Nothing
+            }
+        )
 ```
 
 See the full working example in
@@ -213,6 +212,6 @@ for the core `Tui` primitives (`Tui.Screen`, `Tui.Effect`, `Tui.Sub`, etc.).
 
 ## Learning Resources
 
-- [elm-pages TUI guide](https://elm-pages.com) — getting started with `Script.tuiApp`
+- [elm-pages TUI guide](https://elm-pages.com) — getting started with `Tui.Program`
 - [`examples/end-to-end/script/src/MiniGit.elm`](https://github.com/dillonkearns/elm-pages/blob/master/examples/end-to-end/script/src/MiniGit.elm) — full working example
 - [Elm package docs](https://package.elm-lang.org/packages/dillonkearns/elm-tui-widgets/latest/) — API reference with examples in every module

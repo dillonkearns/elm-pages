@@ -9,6 +9,7 @@
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
+            "BrianHicks/elm-string-graphemes": "1.0.4",
             "MaybeJustJames/yaml": "2.1.7",
             "avh4/elm-color": "1.0.0",
             "danyx23/elm-mimetype": "4.0.1",

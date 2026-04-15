@@ -157,10 +157,10 @@ options bar — so your app only needs `init`, `update`, `view`, `bindings`,
 
 import Ansi.Color
 import Array
-import BackendTask
+import BackendTask exposing (BackendTask)
 import Char
 import Dict exposing (Dict)
-import FatalError
+import FatalError exposing (FatalError)
 import Set exposing (Set)
 import Tui exposing (Attribute(..), MouseEvent, Screen, plain)
 import Tui.Effect as Effect exposing (Effect)
@@ -168,6 +168,7 @@ import Tui.Keybinding
 import Tui.Menu
 import Tui.Modal
 import Tui.OptionsBar
+import Tui.Program
 import Tui.Prompt
 import Tui.Screen as TuiScreen
 import Tui.Status
@@ -4924,26 +4925,36 @@ type alias PickerInteractionState =
     }
 
 
-{-| Transform a declarative TUI app configuration into a standard TEA
-`{ init, update, view, subscriptions }` that the TUI runtime can execute.
+{-| Transform a declarative TUI app configuration into a runnable
+[`Tui.Program.App`](Tui-Program#App).
 
 The user describes WHAT (panes, actions, status, modals) and `compileApp`
-handles HOW (rendering, key routing, subscriptions, state management).
+handles HOW (rendering, key routing, subscriptions, state management). The
+result is a [`Tui.Program.App`](Tui-Program#App), ready to pass to
+`Tui.Program.program`.
 
-    compiled =
-        Layout.compileApp
-            { init = init
-            , update = update
-            , view = view
-            , bindings = bindings
-            , status = status
-            , modal = modal
-            , onRawEvent = Nothing
-            }
+    run : Script
+    run =
+        Tui.Program.program
+            (Layout.compileApp
+                { data = loadCommits
+                , init = init
+                , update = update
+                , view = view
+                , bindings = bindings
+                , status = status
+                , modal = modal
+                , onRawEvent = Nothing
+                }
+            )
+
+The `data` BackendTask runs before `init` while the terminal is still in
+normal mode.
 
 -}
 compileApp :
-    { init : data -> ( model, Effect msg )
+    { data : BackendTask FatalError data
+    , init : data -> ( model, Effect msg )
     , update : UpdateContext -> msg -> model -> ( model, Effect msg )
     , view : Tui.Context -> model -> Layout msg
     , bindings : { focusedPane : Maybe String } -> model -> List (Group msg)
@@ -4951,14 +4962,10 @@ compileApp :
     , modal : model -> Maybe (Modal msg)
     , onRawEvent : Maybe (RawEvent -> msg)
     }
-    ->
-        { init : data -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
-        , update : FrameworkMsg msg -> FrameworkModel model msg -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
-        , view : Tui.Context -> FrameworkModel model msg -> Screen
-        , subscriptions : FrameworkModel model msg -> Tui.Sub.Sub (FrameworkMsg msg)
-        }
+    -> Tui.Program.App data (FrameworkModel model msg) (FrameworkMsg msg)
 compileApp config =
-    { init = compileInit config
+    { data = config.data
+    , init = compileInit config
     , update = compileUpdate config
     , view = compileView config
     , subscriptions = compileSubscriptions config

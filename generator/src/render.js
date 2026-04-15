@@ -53,6 +53,22 @@ function detectColorSupport() {
   return true;
 }
 
+/**
+ * Standard heuristic for "should this program run as an interactive TUI?"
+ * Mirrors the precedence used by tools like git, fzf, and bubbletea. Users
+ * can override by passing their own `BackendTask FatalError Bool` as the
+ * `when` field of `Tui.Program.programOrScript`.
+ */
+function isInteractiveTerminal() {
+  const env = process.env;
+  if ("NO_COLOR" in env) return false;
+  if (env.TERM === "dumb") return false;
+  if (env.CI) return false;
+  if (!process.stdout.isTTY) return false;
+  if (!process.stdin.isTTY) return false;
+  return true;
+}
+
 let verbosity = 2;
 const spinnies = new Spinnies();
 let configuredDbPath = "db.bin";
@@ -785,6 +801,8 @@ async function runInternalJob(
         return [requestHash, await runDbMigrateRead(requestToPerform)];
       case "elm-pages-internal://db-migrate-write":
         return [requestHash, await runDbMigrateWrite(requestToPerform)];
+      case "elm-pages-internal://tui-is-interactive":
+        return [requestHash, jsonResponse(requestToPerform, isInteractiveTerminal())];
       case "elm-pages-internal://tui-init":
         return [requestHash, await runTuiInit(requestToPerform)];
       case "elm-pages-internal://tui-render":

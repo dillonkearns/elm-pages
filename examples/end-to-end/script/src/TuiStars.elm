@@ -11,9 +11,10 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
-import Pages.Script as Script exposing (Script)
+import Pages.Script exposing (Script)
 import Tui exposing (plain)
 import Tui.Effect as Effect
+import Tui.Program
 import Tui.Sub
 
 
@@ -31,7 +32,7 @@ type Msg
 
 run : Script
 run =
-    Script.tui
+    Tui.Program.program
         { data = BackendTask.succeed ()
         , init = init
         , update = update
@@ -122,16 +123,16 @@ view : Tui.Context -> Model -> Tui.Screen
 view _ model =
     let
         dimStyle =
-            { plain | attributes = [ Tui.dim ] }
+            { plain | attributes = [ Tui.Dim ] }
     in
     Tui.lines
         [ Tui.text ""
-        , Tui.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.bold ] }
+        , Tui.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
             "  GitHub Stars Fetcher"
         , Tui.text ""
         , Tui.concat
             [ Tui.styled dimStyle "  Repo: "
-            , Tui.styled { plain | attributes = [ Tui.bold ] } model.input
+            , Tui.styled { plain | attributes = [ Tui.Bold ] } model.input
             , Tui.styled dimStyle "▌"
             ]
         , Tui.text ""
@@ -143,7 +144,7 @@ view _ model =
                 Tui.concat
                     [ Tui.text "  "
                     , Tui.styled { plain | fg = Just Ansi.Color.yellow } "★ "
-                    , Tui.styled { plain | fg = Just Ansi.Color.green, attributes = [ Tui.bold ] }
+                    , Tui.styled { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
                         (String.fromInt stars)
                     , Tui.styled dimStyle
                         (" stars on " ++ model.input)

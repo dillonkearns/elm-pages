@@ -181,6 +181,7 @@ import Pages.Internal.Platform.GeneratorApplication
 import Pages.Script as Script exposing (Script)
 import Tui exposing (plain)
 import Tui.Effect as Effect
+import Tui.Program
 import Tui.Sub
 import Tui.Test
 import ${moduleName}
@@ -211,7 +212,7 @@ runNamed namedTests =
             namedTests
                 |> List.map (\\( name, snapshots ) -> { name = name, snapshots = snapshots })
     in
-    Script.tui
+    Tui.Program.program
         { data = BackendTask.succeed allTests
         , init = namedStepperInit
         , update = stepperUpdate

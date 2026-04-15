@@ -1,6 +1,7 @@
 module LayoutTestHelperTests exposing (suite)
 
 import Ansi.Color
+import BackendTask
 import Expect
 import Test exposing (Test, describe, test)
 import Test.Runner
@@ -192,7 +193,8 @@ type Msg
 
 appConfig =
     Layout.compileApp
-        { init = \() -> ( (), Effect.none )
+        { data = BackendTask.succeed ()
+        , init = \() -> ( (), Effect.none )
         , update = \_ _ model -> ( model, Effect.none )
         , view = appView
         , bindings = \_ _ -> []

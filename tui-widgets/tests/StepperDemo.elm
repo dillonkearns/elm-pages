@@ -1,6 +1,7 @@
 module StepperDemo exposing (tuiTests)
 
 import Ansi.Color
+import BackendTask
 import Tui
 import Tui.Effect as Effect
 import Tui.Layout as Layout
@@ -34,7 +35,8 @@ type Msg
 
 appConfig =
     Layout.compileApp
-        { init = \() -> ( (), Effect.none )
+        { data = BackendTask.succeed ()
+        , init = \() -> ( (), Effect.none )
         , update = \_ _ model -> ( model, Effect.none )
         , view = appView
         , bindings = \_ _ -> []

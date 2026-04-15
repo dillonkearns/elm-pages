@@ -79,10 +79,9 @@ suite =
 
 ## Starting a Test
 
-Pass the same config you'd give to [`Script.tui`](Pages-Script#tui), but with
-`data` already resolved (not a `BackendTask`). If your app uses
-`Tui.Sub.onContext`, the initial context is fired
-automatically.
+Pass the same config you'd give to [`Tui.Program.program`](Tui-Program#program),
+but with `data` already resolved (not a `BackendTask`). If your app uses
+`Tui.Sub.onContext`, the initial context is fired automatically.
 
 @docs start, startWithContext, startApp, startAppWithContext
 
@@ -168,6 +167,7 @@ import Time
 import Tui exposing (Context, KeyEvent, Screen)
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Effect.Internal as EffectInternal
+import Tui.Program
 import Tui.Screen.Internal as ScreenInternal
 import Tui.Sub exposing (Sub)
 import Tui.Sub.Internal as SubInternal
@@ -270,7 +270,7 @@ type Outcome
 
 
 {-| Start a TUI test with a default 80×24 terminal and `TrueColor` profile.
-Provide the same config record you pass to `Script.tui`, but with `data`
+Provide the same config record you pass to `Tui.Program.program`, but with `data`
 already resolved (not a `BackendTask`).
 
 If your app subscribes to `Tui.Sub.onContext`, the initial context is fired
@@ -370,12 +370,14 @@ startWithContext context config =
         }
 
 
-{-| Start a test from a compiled `Layout.compileApp` output. Eliminates the
-boilerplate of extracting `init`/`update`/`view`/`subscriptions` fields.
+{-| Start a test from a [`Tui.Program.App`](Tui-Program#App), supplying an
+already-resolved `data` value rather than letting the real BackendTask run.
+Use this with `Tui.Layout.compileApp` output:
 
     TuiTest.startApp ()
         (Layout.compileApp
-            { init = init
+            { data = BackendTask.succeed ()
+            , init = init
             , update = update
             , view = view
             , bindings = bindings
@@ -385,23 +387,21 @@ boilerplate of extracting `init`/`update`/`view`/`subscriptions` fields.
             }
         )
 
+The `app.data` BackendTask is ignored — tests supply resolved data directly
+so they stay pure.
+
 -}
 startApp :
     data
-    ->
-        { init : data -> ( model, Effect msg )
-        , update : msg -> model -> ( model, Effect msg )
-        , view : Context -> model -> Screen
-        , subscriptions : model -> Sub msg
-        }
+    -> Tui.Program.App data model msg
     -> TuiTest model msg
-startApp data compiled =
+startApp data app =
     start
         { data = data
-        , init = compiled.init
-        , update = compiled.update
-        , view = compiled.view
-        , subscriptions = compiled.subscriptions
+        , init = app.init
+        , update = app.update
+        , view = app.view
+        , subscriptions = app.subscriptions
         }
 
 
@@ -416,20 +416,15 @@ startApp data compiled =
 startAppWithContext :
     Context
     -> data
-    ->
-        { init : data -> ( model, Effect msg )
-        , update : msg -> model -> ( model, Effect msg )
-        , view : Context -> model -> Screen
-        , subscriptions : model -> Sub msg
-        }
+    -> Tui.Program.App data model msg
     -> TuiTest model msg
-startAppWithContext context data compiled =
+startAppWithContext context data app =
     startWithContext context
         { data = data
-        , init = compiled.init
-        , update = compiled.update
-        , view = compiled.view
-        , subscriptions = compiled.subscriptions
+        , init = app.init
+        , update = app.update
+        , view = app.view
+        , subscriptions = app.subscriptions
         }
 
 

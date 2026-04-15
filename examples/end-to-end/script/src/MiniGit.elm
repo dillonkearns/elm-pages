@@ -16,6 +16,7 @@ import Pages.Script as Script exposing (Script)
 import Tui
 import Tui.Effect as Effect
 import Tui.Layout as Layout
+import Tui.Program
 
 
 type alias Commit =
@@ -49,19 +50,18 @@ type Msg
 
 run : Script
 run =
-    Script.tuiApp
-        { data = loadCommits
-        , app =
-            Layout.compileApp
-                { init = init
-                , update = update
-                , view = view
-                , bindings = bindings
-                , status = status
-                , modal = modal
-                , onRawEvent = Nothing
-                }
-        }
+    Tui.Program.program
+        (Layout.compileApp
+            { data = loadCommits
+            , init = init
+            , update = update
+            , view = view
+            , bindings = bindings
+            , status = status
+            , modal = modal
+            , onRawEvent = Nothing
+            }
+        )
 
 
 loadCommits : BackendTask FatalError (List Commit)

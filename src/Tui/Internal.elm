@@ -41,8 +41,8 @@ decodeColorProfile =
             )
 
 
-{-| Run the TUI loop. Called by `Script.tui` after the `data` BackendTask
-completes.
+{-| Run the TUI loop. Called by `Tui.Program.program` after the `data`
+BackendTask completes.
 -}
 run :
     { init : data -> ( model, Effect msg )

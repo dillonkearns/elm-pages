@@ -50,6 +50,7 @@
         "Tui",
         "Tui.Effect",
         "Tui.Input",
+        "Tui.Program",
         "Tui.Screen",
         "Tui.Sub",
         "Tui.Test",

@@ -13,10 +13,10 @@ module Tui exposing
 {-| Build terminal user interfaces with styled text, keyboard/mouse events,
 and composable screens.
 
-Use [`Pages.Script.tui`](Pages-Script#tui) to wire up a TUI as an elm-pages
-script with `init`, `update`, `view`, and `subscriptions`. This module provides
-the types you'll use in `view` (returning a `Screen`) and `subscriptions`
-(receiving `KeyEvent`, `MouseEvent`).
+Use [`Tui.Program.program`](Tui-Program#program) to wire up a TUI as an
+elm-pages script with `init`, `update`, `view`, and `subscriptions`. This
+module provides the types you'll use in `view` (returning a `Screen`) and
+`subscriptions` (receiving `KeyEvent`, `MouseEvent`).
 
 A minimal TUI view:
 
