@@ -1,8 +1,7 @@
 module Tui.Screen exposing
     ( Screen, text, styled, lines, concat, empty, blank
     , fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
-    , Style, plain, extractStyle
-    , Attribute(..)
+    , Style, plain, extractStyle, Attribute(..)
     , truncateWidth, wrapWidth
     , toString, encodeScreen
     , Span
@@ -10,17 +9,12 @@ module Tui.Screen exposing
     , truncateSpans, wrapSpans
     )
 
-{-| Styled terminal output — the thing a TUI's `view` returns.
+{-| Styled terminal output for a [`Tui.Program`](Tui#Program)'s `view` function.
 
-A `Screen` is an opaque tree of styled text primitives. Build one from
-[`text`](#text), style it with pipeline builders, compose with
-[`lines`](#lines) and [`concat`](#concat), and return it from your `view`
-function. The framework handles rendering and cell-level diffing.
-
-    import Tui.Screen as Screen exposing (plain)
+    import Tui.Screen as Screen
 
     view : Tui.Context -> Model -> Screen.Screen
-    view ctx model =
+    view _ model =
         Screen.lines
             [ Screen.text "Hello, TUI!" |> Screen.bold
             , Screen.blank
@@ -43,7 +37,8 @@ the `tui-widgets` package.
 Pipeline-style builders that compose on any `Screen` — text, concat, lines:
 
     Screen.text "warning" |> Screen.fg Ansi.Color.yellow |> Screen.bold
-    Screen.concat [ a, b ] |> Screen.dim  -- dims both a and b
+
+    Screen.concat [ a, b ] |> Screen.dim -- dims both a and b
 
 @docs fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
 
@@ -185,8 +180,11 @@ concat =
 a "null" value, for example with `Maybe.withDefault`:
 
     case maybeError of
-        Just err -> Screen.text err |> Screen.fg Ansi.Color.red
-        Nothing -> Screen.empty
+        Just err ->
+            Screen.text err |> Screen.fg Ansi.Color.red
+
+        Nothing ->
+            Screen.empty
 
 Note: this is different from [`blank`](#blank) which renders one empty line.
 `empty` produces no output at all.
@@ -222,6 +220,7 @@ blank =
 {-| Set foreground color on a Screen. Composes with pipeline syntax:
 
     Screen.text "error" |> Screen.fg Ansi.Color.red
+
     Screen.text "warning" |> Screen.fg Ansi.Color.yellow |> Screen.bold
 
 -}
@@ -434,8 +433,11 @@ toString screen =
 text. Useful for extending a row's style to fill remaining width (e.g.,
 making a selection highlight span the full pane width).
 
-    style = Screen.extractStyle selectedLine
-    padding = Screen.styled style (String.repeat n " ")
+    style =
+        Screen.extractStyle selectedLine
+
+    padding =
+        Screen.styled style (String.repeat n " ")
 
 -}
 extractStyle : Screen -> Style
@@ -444,7 +446,7 @@ extractStyle =
 
 
 {-| Truncate a Screen to a maximum width in columns, preserving styles.
-Adds "\u{2026}" if truncated. Works on the first line only. Returns `empty`
+Adds "\\u{2026}" if truncated. Works on the first line only. Returns `empty`
 for non-positive widths.
 -}
 truncateWidth : Int -> Screen -> Screen
