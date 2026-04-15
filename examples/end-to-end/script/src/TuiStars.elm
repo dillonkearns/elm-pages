@@ -2,7 +2,10 @@ module TuiStars exposing (app, run)
 
 {-| TUI demo: edit a GitHub repo name, press Enter to fetch star count.
 
-    elm - pages run script / src / TuiStars.elm
+```sh
+cd examples/end-to-end/script
+npx --prefix .. elm-pages run src/TuiStars.elm
+```
 
 Set `GITHUB_REPO` to choose the initial repo shown in the input.
 
