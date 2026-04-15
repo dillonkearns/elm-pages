@@ -3,7 +3,9 @@ module FilterTests exposing (suite)
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
+import Tui.Event
 import Tui.Layout as Layout
+import Tui.Screen
 
 
 items : List String
@@ -18,8 +20,8 @@ filterableList =
             { title = "Fruits", width = Layout.fill }
             (Layout.selectableList
                 { onSelect = identity
-                , selected = \item -> Tui.text ("▸ " ++ item)
-                , default = \item -> Tui.text ("  " ++ item)
+                , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                , default = \item -> Tui.Screen.text ("  " ++ item)
                 }
                 items
                 |> Layout.withFilterable identity items
@@ -42,7 +44,7 @@ suite =
 
                         ( newState, _, handled ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 filterableList
                                 state
                     in
@@ -61,8 +63,8 @@ suite =
                                     { title = "Plain", width = Layout.fill }
                                     (Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \item -> Tui.text ("▸ " ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         items
                                     )
@@ -76,7 +78,7 @@ suite =
 
                         ( _, _, handled ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 nonFilterableLayout
                                 state
                     in
@@ -95,7 +97,7 @@ suite =
                         -- Start filter
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 filterableList
                                 s1Init
 
@@ -106,7 +108,7 @@ suite =
                         -- Type 'b' — should match "banana", "blueberry"
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character 'b', modifiers = [] }
+                                { key = Tui.Event.Character 'b', modifiers = [] }
                                 filterableList
                                 s1
 
@@ -114,7 +116,7 @@ suite =
                         rendered =
                             filterableList
                                 |> Layout.toScreen s2
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     Expect.all
                         [ -- "banana" and "blueberry" should be visible
@@ -145,13 +147,13 @@ suite =
                         -- Start filter and type
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 filterableList
                                 navState
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character 'a', modifiers = [] }
+                                { key = Tui.Event.Character 'a', modifiers = [] }
                                 filterableList
                                 s1
                     in
@@ -170,7 +172,7 @@ suite =
                         -- Start filter, type "berry"
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 filterableList
                                 state
 
@@ -180,7 +182,7 @@ suite =
                                 |> List.foldl
                                     (\c ( s, _, _ ) ->
                                         Layout.handleKeyEvent
-                                            { key = Tui.Character c, modifiers = [] }
+                                            { key = Tui.Event.Character c, modifiers = [] }
                                             filterableList
                                             s
                                     )
@@ -189,7 +191,7 @@ suite =
                         -- Press Enter
                         ( s3, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 filterableList
                                 s2
 
@@ -197,7 +199,7 @@ suite =
                         rendered =
                             filterableList
                                 |> Layout.toScreen s3
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     Expect.all
                         [ -- Filter should still be active
@@ -221,13 +223,13 @@ suite =
                         -- Start filter then immediately Enter (empty query)
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 filterableList
                                 state
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 filterableList
                                 s1
                     in
@@ -246,20 +248,20 @@ suite =
                         -- Start filter, type something
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 filterableList
                                 state
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character 'b', modifiers = [] }
+                                { key = Tui.Event.Character 'b', modifiers = [] }
                                 filterableList
                                 s1
 
                         -- Press Escape
                         ( s3, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Escape, modifiers = [] }
+                                { key = Tui.Event.Escape, modifiers = [] }
                                 filterableList
                                 s2
 
@@ -267,7 +269,7 @@ suite =
                         rendered =
                             filterableList
                                 |> Layout.toScreen s3
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     Expect.all
                         [ -- Filter should be cleared
@@ -289,25 +291,25 @@ suite =
                         -- Start, type, Enter, then Escape
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 filterableList
                                 state
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character 'b', modifiers = [] }
+                                { key = Tui.Event.Character 'b', modifiers = [] }
                                 filterableList
                                 s1
 
                         ( s3, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 filterableList
                                 s2
 
                         ( s4, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Escape, modifiers = [] }
+                                { key = Tui.Event.Escape, modifiers = [] }
                                 filterableList
                                 s3
                     in
@@ -324,15 +326,15 @@ suite =
                                     { title = "Left", width = Layout.fill }
                                     (Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \item -> Tui.text ("▸ " ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         [ "apple", "banana", "cherry" ]
                                         |> Layout.withFilterable identity [ "apple", "banana", "cherry" ]
                                     )
                                 , Layout.pane "right"
                                     { title = "Right", width = Layout.fill }
-                                    (Layout.content [ Tui.text "details" ])
+                                    (Layout.content [ Tui.Screen.text "details" ])
                                 ]
 
                         state : Layout.State
@@ -348,7 +350,7 @@ suite =
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 twoPanes
                                 s1
 
@@ -360,7 +362,7 @@ suite =
                         -- Escape should clear the filter on left pane, NOT fall through
                         ( s4, _, handled ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Escape, modifiers = [] }
+                                { key = Tui.Event.Escape, modifiers = [] }
                                 twoPanes
                                 s3
                     in
@@ -383,7 +385,7 @@ suite =
                         -- Start filter
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 filterableList
                                 state
 
@@ -392,19 +394,19 @@ suite =
                         -- with the original index of the first filtered item
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character 'f', modifiers = [] }
+                                { key = Tui.Event.Character 'f', modifiers = [] }
                                 filterableList
                                 s1
 
                         ( s3, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character 'i', modifiers = [] }
+                                { key = Tui.Event.Character 'i', modifiers = [] }
                                 filterableList
                                 s2
 
                         ( _, msg3, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character 'g', modifiers = [] }
+                                { key = Tui.Event.Character 'g', modifiers = [] }
                                 filterableList
                                 s3
                     in
@@ -423,7 +425,7 @@ suite =
                         -- Start filter
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 filterableList
                                 state
 
@@ -431,7 +433,7 @@ suite =
                         -- Selection resets to 0, first filtered item is banana (original index 2)
                         ( _, msg, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character 'b', modifiers = [] }
+                                { key = Tui.Event.Character 'b', modifiers = [] }
                                 filterableList
                                 s1
                     in
@@ -450,19 +452,19 @@ suite =
                         -- Start filter, type "b", Enter
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 filterableList
                                 state
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character 'b', modifiers = [] }
+                                { key = Tui.Event.Character 'b', modifiers = [] }
                                 filterableList
                                 s1
 
                         ( s3, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 filterableList
                                 s2
 
@@ -491,7 +493,7 @@ suite =
                         -- Enter to apply filter
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 filterableList
                                 s1
 
@@ -502,7 +504,7 @@ suite =
                         -- Escape clears filter
                         ( s4, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Escape, modifiers = [] }
+                                { key = Tui.Event.Escape, modifiers = [] }
                                 filterableList
                                 s3
 
@@ -511,7 +513,7 @@ suite =
                         rendered =
                             filterableList
                                 |> Layout.toScreen s4
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     Expect.all
                         [ -- Filter should be cleared
@@ -556,7 +558,7 @@ suite =
                         -- Escape
                         ( s4, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Escape, modifiers = [] }
+                                { key = Tui.Event.Escape, modifiers = [] }
                                 filterableList
                                 s3
                     in
@@ -578,8 +580,8 @@ suite =
                                     { title = "Modules", width = Layout.fill }
                                     (Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \item -> Tui.text ("▸ " ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         [ "Api", "Core", "Utils", "Main" ]
                                         |> Layout.withFilterable identity [ "Api", "Core", "Utils", "Main" ]
@@ -588,8 +590,8 @@ suite =
                                     { title = "Items", width = Layout.fill }
                                     (Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \item -> Tui.text ("▸ " ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         [ "foo", "bar", "baz", "qux" ]
                                         |> Layout.withFilterable identity [ "foo", "bar", "baz", "qux" ]
@@ -605,7 +607,7 @@ suite =
                         -- Start filter on items pane, type "ba"
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 twoFilterablePanes
                                 state
 
@@ -615,7 +617,7 @@ suite =
                                 |> List.foldl
                                     (\c ( s, _, _ ) ->
                                         Layout.handleKeyEvent
-                                            { key = Tui.Character c, modifiers = [] }
+                                            { key = Tui.Event.Character c, modifiers = [] }
                                             twoFilterablePanes
                                             s
                                     )
@@ -625,7 +627,7 @@ suite =
                         rendered =
                             twoFilterablePanes
                                 |> Layout.toScreen s2
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     Expect.all
                         [ -- Items pane should be filtered: "bar" and "baz" visible, "foo" and "qux" hidden
@@ -658,14 +660,14 @@ suite =
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 filterableList
                                 s1
 
                         -- Click on row 2 (second filtered item = elderberry, original index 6)
                         ( _, maybeMsg ) =
                             Layout.handleMouse
-                                (Tui.Click { row = 2, col = 5, button = Tui.LeftButton })
+                                (Tui.Event.Click { row = 2, col = 5, button = Tui.Event.LeftButton })
                                 { width = 30, height = 12 }
                                 filterableList
                                 s2
@@ -690,14 +692,14 @@ suite =
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 filterableList
                                 s1
 
                         -- Scroll down a lot — should clamp to filtered count (2), not full count (9)
                         ( s3, _ ) =
                             Layout.handleMouse
-                                (Tui.ScrollDown { row = 3, col = 5, amount = 5 })
+                                (Tui.Event.ScrollDown { row = 3, col = 5, amount = 5 })
                                 { width = 30, height = 12 }
                                 filterableList
                                 s2
@@ -722,7 +724,7 @@ suite =
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 filterableList
                                 s1
 
@@ -771,7 +773,7 @@ suite =
 
                         rendered : String
                         rendered =
-                            filterableList |> Layout.toScreen s |> Tui.toString
+                            filterableList |> Layout.toScreen s |> Tui.Screen.toString
                     in
                     rendered |> String.contains "apple" |> Expect.equal True
             ]
@@ -792,7 +794,7 @@ suite =
                         status : Maybe String
                         status =
                             Layout.filterStatusBar "fruits" s
-                                |> Maybe.map Tui.toString
+                                |> Maybe.map Tui.Screen.toString
                     in
                     status |> Expect.equal (Just "Filter: ber")
             , test "filterStatusBar shows applied text after Enter" <|
@@ -810,14 +812,14 @@ suite =
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 filterableList
                                 s1
 
                         status : Maybe String
                         status =
                             Layout.filterStatusBar "fruits" s2
-                                |> Maybe.map Tui.toString
+                                |> Maybe.map Tui.Screen.toString
                     in
                     status |> Expect.equal (Just "Filter: matches for 'ber' <esc>: Exit filter mode")
             , test "filterStatusBar returns Nothing when not filtering" <|
@@ -846,7 +848,7 @@ suite =
                         status : Maybe String
                         status =
                             Layout.activeFilterStatusBar s
-                                |> Maybe.map Tui.toString
+                                |> Maybe.map Tui.Screen.toString
                     in
                     status |> Expect.equal (Just "Filter: ber")
             , test "activeFilterStatusBar returns Nothing when not filtering" <|
@@ -870,7 +872,7 @@ suite =
 
                         rendered : String
                         rendered =
-                            filterableList |> Layout.toScreen s |> Tui.toString
+                            filterableList |> Layout.toScreen s |> Tui.Screen.toString
                     in
                     Expect.all
                         [ \r -> r |> String.contains "blueberry" |> Expect.equal True
@@ -893,7 +895,7 @@ suite =
 
                         rendered : String
                         rendered =
-                            filterableList |> Layout.toScreen s |> Tui.toString
+                            filterableList |> Layout.toScreen s |> Tui.Screen.toString
                     in
                     Expect.all
                         [ \r -> r |> String.contains "blueberry" |> Expect.equal True
@@ -917,7 +919,7 @@ suite =
 
                         rendered : String
                         rendered =
-                            filterableList |> Layout.toScreen s |> Tui.toString
+                            filterableList |> Layout.toScreen s |> Tui.Screen.toString
                     in
                     -- "apple" should NOT match "Apple" (case-sensitive)
                     rendered |> String.contains "apple" |> Expect.equal False
@@ -932,7 +934,7 @@ startFilterWithLayout query layout state =
     let
         ( s1, _, _ ) =
             Layout.handleKeyEvent
-                { key = Tui.Character '/', modifiers = [] }
+                { key = Tui.Event.Character '/', modifiers = [] }
                 layout
                 state
     in
@@ -941,7 +943,7 @@ startFilterWithLayout query layout state =
         |> List.foldl
             (\c ( s, _, _ ) ->
                 Layout.handleKeyEvent
-                    { key = Tui.Character c, modifiers = [] }
+                    { key = Tui.Event.Character c, modifiers = [] }
                     layout
                     s
             )
@@ -956,7 +958,7 @@ startFilterWith query state =
     let
         ( s1, _, _ ) =
             Layout.handleKeyEvent
-                { key = Tui.Character '/', modifiers = [] }
+                { key = Tui.Event.Character '/', modifiers = [] }
                 filterableList
                 state
     in
@@ -965,7 +967,7 @@ startFilterWith query state =
         |> List.foldl
             (\c ( s, _, _ ) ->
                 Layout.handleKeyEvent
-                    { key = Tui.Character c, modifiers = [] }
+                    { key = Tui.Event.Character c, modifiers = [] }
                     filterableList
                     s
             )

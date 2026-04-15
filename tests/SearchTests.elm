@@ -3,21 +3,22 @@ module SearchTests exposing (suite)
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
+import Tui.Screen
 import Tui.Search as Search
 
 
-sampleContent : List Tui.Screen
+sampleContent : List Tui.Screen.Screen
 sampleContent =
-    [ Tui.text "First line of content"
-    , Tui.text "Second line has a keyword here"
-    , Tui.text "Third line is plain"
-    , Tui.text "Fourth line has keyword again"
-    , Tui.text "Fifth line"
-    , Tui.text "Sixth keyword line"
-    , Tui.text "Seventh line"
-    , Tui.text "Eighth line"
-    , Tui.text "Ninth line"
-    , Tui.text "Tenth line at the end"
+    [ Tui.Screen.text "First line of content"
+    , Tui.Screen.text "Second line has a keyword here"
+    , Tui.Screen.text "Third line is plain"
+    , Tui.Screen.text "Fourth line has keyword again"
+    , Tui.Screen.text "Fifth line"
+    , Tui.Screen.text "Sixth keyword line"
+    , Tui.Screen.text "Seventh line"
+    , Tui.Screen.text "Eighth line"
+    , Tui.Screen.text "Ninth line"
+    , Tui.Screen.text "Tenth line at the end"
     ]
 
 

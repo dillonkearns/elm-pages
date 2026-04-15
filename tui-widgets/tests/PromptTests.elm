@@ -4,8 +4,9 @@ import Expect
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Tui
-import Tui.Internal
+import Tui.Event
 import Tui.Prompt as Prompt
+import Tui.Screen
 
 
 suite : Test
@@ -37,12 +38,12 @@ suite =
 
                         ( afterDown, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Arrow Tui.Down, modifiers = [] }
+                                { key = Tui.Event.Arrow Tui.Event.Down, modifiers = [] }
                                 state
 
                         ( afterTab, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Tab, modifiers = [] }
+                                { key = Tui.Event.Tab, modifiers = [] }
                                 afterDown
                     in
                     Prompt.text afterTab
@@ -56,7 +57,7 @@ typeString str state =
     String.foldl
         (\c currentState ->
             Prompt.handleKeyEvent
-                { key = Tui.Character c, modifiers = [] }
+                { key = Tui.Event.Character c, modifiers = [] }
                 currentState
                 |> Tuple.first
         )
@@ -67,8 +68,8 @@ typeString str state =
 renderBodyJson : Prompt.State -> String
 renderBodyJson state =
     Prompt.viewBody { width = 40 } state
-        |> Tui.lines
-        |> Tui.Internal.encodeScreen
+        |> Tui.Screen.lines
+        |> Tui.Screen.encodeScreen
         |> Encode.encode 0
 
 

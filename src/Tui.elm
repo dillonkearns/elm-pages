@@ -1,54 +1,45 @@
 module Tui exposing
-    ( Screen, text, styled, lines, concat, empty, blank
-    , fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
-    , Style, plain, extractStyle
-    , Attribute(..)
+    ( Program, program, programWithCliOptions
+    , Mode(..), programOrScript, isInteractive
     , Context, ColorProfile(..)
-    , KeyEvent, Key(..), Direction(..), Modifier(..)
-    , MouseEvent(..), MouseButton(..)
-    , truncateWidth, wrapWidth
-    , toString
     )
 
-{-| Build terminal user interfaces with styled text, keyboard/mouse events,
-and composable screens.
+{-| Run a TUI (Terminal User Interface) as an elm-pages script.
 
-Use [`Tui.Program.program`](Tui-Program#program) to wire up a TUI as an
-elm-pages script with `init`, `update`, `view`, and `subscriptions`. This
-module provides the types you'll use in `view` (returning a `Screen`) and
-`subscriptions` (receiving `KeyEvent`, `MouseEvent`).
+A TUI application is a flat record: a `data` BackendTask that resolves before
+`init`, followed by the four standard TEA fields. Both hand-written apps and
+[`Tui.Layout.compileApp`](Tui-Layout#compileApp) from the `tui-widgets` package
+produce this shape.
 
-A minimal TUI view:
+    import Tui
+    import Tui.Screen as Screen
+    import Tui.Sub
 
-    view : Tui.Context -> Model -> Tui.Screen
-    view ctx model =
-        Tui.lines
-            [ Tui.text "Hello, TUI!" |> Tui.bold
-            , Tui.blank
-            , Tui.text ("Count: " ++ String.fromInt model.count)
-                |> Tui.fg Ansi.Color.cyan
-            ]
-
-
-## Building Screens
-
-Screens compose vertically with [`lines`](#lines) and horizontally with
-[`concat`](#concat). For split-pane layouts, see the `Tui.Layout` module in
-the `tui-widgets` package.
-
-@docs Screen, text, styled, lines, concat, empty, blank
+    run : Script
+    run =
+        Tui.program
+            { data = BackendTask.succeed ()
+            , init = \() -> ( { count = 0 }, Effect.none )
+            , update = update
+            , view = view
+            , subscriptions = \_ -> Tui.Sub.onKeyPress KeyPressed
+            }
 
 
-## Styling
+## Running a TUI
 
-Pipeline-style builders that compose on any `Screen` — text, concat, lines:
+@docs Program, program, programWithCliOptions
 
-    Tui.text "warning" |> Tui.fg Ansi.Color.yellow |> Tui.bold
-    Tui.concat [ a, b ] |> Tui.dim  -- dims both a and b
 
-@docs fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
+## TUI or CLI
 
-@docs Style, plain, extractStyle, Attribute
+For programs that make sense both interactively and non-interactively (an
+agent piping output, a CI run), use [`programOrScript`](#programOrScript) to
+provide a `script` branch alongside the `tui`. At runtime, `mode` decides
+which path to take — [`isInteractive`](#isInteractive) is the standard
+heuristic (isatty + CI + NO_COLOR) for common use.
+
+@docs Mode, programOrScript, isInteractive
 
 
 ## Terminal Context
@@ -58,362 +49,22 @@ different terminal capabilities.
 
 @docs Context, ColorProfile
 
-
-## Events
-
-Subscribe to events via `Tui.Sub`. Your `subscriptions` function
-declares which events to listen for, and they arrive as these types in your
-`update`:
-
-    subscriptions model =
-        Tui.Sub.batch
-            [ Tui.Sub.onKeyPress KeyPressed
-            , Tui.Sub.onMouse MouseEvent
-            ]
-
-@docs KeyEvent, Key, Direction, Modifier
-
-@docs MouseEvent, MouseButton
-
-
-## Text Manipulation
-
-@docs truncateWidth, wrapWidth
-
-
-## Inspecting
-
-@docs toString
-
 -}
 
-import Ansi.Color
-import Tui.Screen.Internal as Internal
-
-
-{-| Opaque type representing terminal output. Built from primitives, rendered by
-the framework.
--}
-type alias Screen =
-    Internal.Screen Style
-
-
-{-| Terminal cell style — foreground color, background color, text
-attributes, and optional hyperlink. Matches the terminal cell model
-(one fg, one bg, set of decoration flags, optional OSC 8 link).
-
-    { fg = Just Ansi.Color.red
-    , bg = Nothing
-    , attributes = [ Tui.Bold, Tui.Underline ]
-    , hyperlink = Nothing
-    }
-
--}
-type alias Style =
-    { fg : Maybe Ansi.Color.Color
-    , bg : Maybe Ansi.Color.Color
-    , attributes : List Attribute
-    , hyperlink : Maybe String
-    }
-
-
-{-| Default style — no colors, no decorations. Use record update to customize:
-
-    { Tui.plain | fg = Just Ansi.Color.cyan }
-    { Tui.plain | attributes = [ Tui.Bold ] }
-
--}
-plain : Style
-plain =
-    { fg = Nothing
-    , bg = Nothing
-    , attributes = []
-    , hyperlink = Nothing
-    }
-
-
-{-| A text decoration attribute.
--}
-type Attribute
-    = Bold
-    | Dim
-    | Italic
-    | Underline
-    | Strikethrough
-    | Inverse
-
-
-{-| Unstyled text.
--}
-text : String -> Screen
-text =
-    Internal.ScreenText
-
-
-{-| Styled text. Takes a [`Style`](#Style) record specifying foreground color,
-background color, and text attributes.
-
-    import Ansi.Color
-
-    -- Bold red text
-    Tui.styled { Tui.plain | fg = Just Ansi.Color.red, attributes = [ Tui.Bold ] } "error"
-
-    -- Just bold, default colors
-    Tui.styled { Tui.plain | attributes = [ Tui.Bold ] } "important"
-
-    -- Foreground color only
-    Tui.styled { Tui.plain | fg = Just Ansi.Color.cyan } "info"
-
--}
-styled : Style -> String -> Screen
-styled =
-    Internal.ScreenStyled
-
-
-{-| Stack screens vertically. Each item starts on a new line.
--}
-lines : List Screen -> Screen
-lines =
-    Internal.ScreenLines
-
-
-{-| Concatenate screens horizontally, row by row. If one child has more lines
-than another, the extra trailing lines are preserved.
--}
-concat : List Screen -> Screen
-concat =
-    Internal.ScreenConcat
-
-
-{-| Empty screen — renders nothing, takes up zero lines. Use this as
-a "null" value, for example with `Maybe.withDefault`:
-
-    case maybeError of
-        Just err -> Tui.text err |> Tui.fg Ansi.Color.red
-        Nothing -> Tui.empty
-
-Note: this is different from [`blank`](#blank) which renders one empty line.
-`empty` produces no output at all.
-
--}
-empty : Screen
-empty =
-    Internal.ScreenEmpty
-
-
-{-| A blank line — renders one empty line. Useful as a vertical spacer
-in [`lines`](#lines):
-
-    Tui.lines
-        [ Tui.text "Title"
-        , Tui.blank
-        , Tui.text "Content"
-        ]
-
-Note: this is different from [`empty`](#empty) which renders nothing.
-`blank` produces a visible gap (one empty row).
-
--}
-blank : Screen
-blank =
-    Internal.ScreenText ""
-
-
-
--- STYLE BUILDERS
-
-
-{-| Set foreground color on a Screen. Composes with pipeline syntax:
-
-    Tui.text "error" |> Tui.fg Ansi.Color.red
-    Tui.text "warning" |> Tui.fg Ansi.Color.yellow |> Tui.bold
-
--}
-fg : Ansi.Color.Color -> Screen -> Screen
-fg color screen =
-    Internal.applyStyle plain (\s -> { s | fg = Just color }) screen
-
-
-{-| Set background color on a Screen.
-
-    Tui.text "selected" |> Tui.bg Ansi.Color.blue
-
--}
-bg : Ansi.Color.Color -> Screen -> Screen
-bg color screen =
-    Internal.applyStyle plain (\s -> { s | bg = Just color }) screen
-
-
-{-| Apply bold attribute.
-
-    Tui.text "important" |> Tui.bold
-
--}
-bold : Screen -> Screen
-bold =
-    addAttr Bold
-
-
-{-| Apply dim attribute.
-
-    Tui.text "muted" |> Tui.dim
-
--}
-dim : Screen -> Screen
-dim =
-    addAttr Dim
-
-
-{-| Apply italic attribute.
--}
-italic : Screen -> Screen
-italic =
-    addAttr Italic
-
-
-{-| Apply underline attribute.
--}
-underline : Screen -> Screen
-underline =
-    addAttr Underline
-
-
-{-| Apply strikethrough attribute.
--}
-strikethrough : Screen -> Screen
-strikethrough =
-    addAttr Strikethrough
-
-
-{-| Apply inverse (reverse video) attribute.
--}
-inverse : Screen -> Screen
-inverse =
-    addAttr Inverse
-
-
-{-| Wrap a Screen in a clickable hyperlink (OSC 8). In terminals that support it,
-the text becomes a clickable link. In unsupported terminals, the escape sequence
-is silently ignored and the text renders normally.
-
-    Tui.text "elm/core"
-        |> Tui.underline
-        |> Tui.fg Ansi.Color.blue
-        |> Tui.link { url = "https://package.elm-lang.org/packages/elm/core/latest" }
-
--}
-link : { url : String } -> Screen -> Screen
-link { url } =
-    Internal.applyStyle plain (\s -> { s | hyperlink = Just url })
-
-
-addAttr : Attribute -> Screen -> Screen
-addAttr attr =
-    Internal.applyStyle plain (\s -> { s | attributes = attr :: s.attributes })
-
-
-
--- STYLE CONVERSION
-
-
-styleToFlatStyle : Style -> Internal.FlatStyle
-styleToFlatStyle s =
-    let
-        def : Internal.FlatStyle
-        def =
-            Internal.defaultFlatStyle
-
-        base : Internal.FlatStyle
-        base =
-            { def
-                | foreground = s.fg
-                , background = s.bg
-                , hyperlink = s.hyperlink
-            }
-    in
-    List.foldl applyAttr base s.attributes
-
-
-applyAttr : Attribute -> Internal.FlatStyle -> Internal.FlatStyle
-applyAttr attr flatStyle =
-    case attr of
-        Bold ->
-            { flatStyle | bold = True }
-
-        Dim ->
-            { flatStyle | dim = True }
-
-        Italic ->
-            { flatStyle | italic = True }
-
-        Underline ->
-            { flatStyle | underline = True }
-
-        Strikethrough ->
-            { flatStyle | strikethrough = True }
-
-        Inverse ->
-            { flatStyle | inverse = True }
-
-
-flatStyleToAttrs : Internal.FlatStyle -> List Attribute
-flatStyleToAttrs s =
-    List.filterMap identity
-        [ if s.bold then
-            Just Bold
-
-          else
-            Nothing
-        , if s.dim then
-            Just Dim
-
-          else
-            Nothing
-        , if s.italic then
-            Just Italic
-
-          else
-            Nothing
-        , if s.underline then
-            Just Underline
-
-          else
-            Nothing
-        , if s.strikethrough then
-            Just Strikethrough
-
-          else
-            Nothing
-        , if s.inverse then
-            Just Inverse
-
-          else
-            Nothing
-        ]
-
-
-flatStyleToStyle : Internal.FlatStyle -> Style
-flatStyleToStyle fs =
-    { fg = fs.foreground
-    , bg = fs.background
-    , attributes = flatStyleToAttrs fs
-    , hyperlink = fs.hyperlink
-    }
-
-
-flattenToSpanLines : Screen -> List (List Internal.Span)
-flattenToSpanLines =
-    Internal.flattenToSpanLines styleToFlatStyle
-
-
-spanToScreen : Internal.Span -> Screen
-spanToScreen =
-    Internal.spanToScreen flatStyleToStyle
-
-
-spansToScreen : List Internal.Span -> Screen
-spansToScreen =
-    Internal.spansToScreen flatStyleToStyle
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import BackendTask.Internal.Request
+import Cli.OptionsParser as OptionsParser
+import Cli.Program as CliProgram
+import FatalError exposing (FatalError)
+import Json.Decode as Decode
+import Json.Encode as Encode
+import Pages.Internal.Script
+import Tui.Effect as Effect
+import Tui.Effect.Internal as EffectInternal
+import Tui.Screen exposing (Screen)
+import Tui.Sub
+import Tui.Sub.Internal as SubInternal
 
 
 
@@ -451,166 +102,507 @@ type ColorProfile
 
 
 
--- EVENTS
+-- PROGRAM
 
 
-{-| A keyboard event from the terminal.
+{-| A runnable TUI application.
+
+The `data` field resolves before `init` runs (while the terminal is still in
+normal mode), so you can read files, fetch data, or run shell commands without
+fighting the TUI render loop. The remaining fields are a standard TEA quartet,
+except `update` returns a [`Tui.Effect`](Tui-Effect#Effect) instead of `Cmd` so
+you can run `BackendTask`s from the update cycle.
+
+Build one directly, or use [`Tui.Layout.compileApp`](Tui-Layout#compileApp)
+from the `tui-widgets` package to compile a declarative layout description
+into the same shape.
+
 -}
-type alias KeyEvent =
-    { key : Key
-    , modifiers : List Modifier
+type alias Program data model msg =
+    { data : BackendTask FatalError data
+    , init : data -> ( model, Effect.Effect msg )
+    , update : msg -> model -> ( model, Effect.Effect msg )
+    , view : Context -> model -> Screen
+    , subscriptions : model -> Tui.Sub.Sub msg
     }
 
 
-{-| Key values.
+{-| Run a TUI as a Script. No CLI options, no script fallback — just a TUI.
 -}
-type Key
-    = Character Char
-    | Enter
-    | Escape
-    | Tab
-    | Backspace
-    | Delete
-    | Arrow Direction
-    | FunctionKey Int
-    | Home
-    | End
-    | PageUp
-    | PageDown
+program : Program data model msg -> Pages.Internal.Script.Script
+program app =
+    scriptFromBackendTask (runProgram app)
 
 
-{-| Arrow key direction.
--}
-type Direction
-    = Up
-    | Down
-    | Left
-    | Right
+{-| Run a TUI as a Script, with CLI option parsing.
 
-
-{-| Key modifier.
--}
-type Modifier
-    = Ctrl
-    | Alt
-    | Shift
-
-
-{-| Mouse event from the terminal. Uses SGR extended mouse mode for accurate
-coordinates on any terminal size.
-
-Coordinates are 0-based: `{ row = 0, col = 0 }` is the top-left corner.
-
-`amount` on scroll events is the number of coalesced scroll steps. Rapid
-scrolling batches events on the JS side (like gocui's event drain) so you
-get one event with `amount = 5` instead of 5 separate events. Multiply your
-scroll distance by `amount` for responsive feel.
+    run : Script
+    run =
+        Tui.programWithCliOptions
+            (Program.config
+                |> Program.add
+                    (OptionsParser.build identity
+                        |> OptionsParser.with
+                            (Option.optionalKeywordArg "dir"
+                                |> Option.withDefault "."
+                            )
+                    )
+            )
+            (\dir ->
+                { data = loadFiles dir
+                , init = init
+                , update = update
+                , view = view
+                , subscriptions = subscriptions
+                }
+            )
 
 -}
-type MouseEvent
-    = Click { row : Int, col : Int, button : MouseButton }
-    | ScrollUp { row : Int, col : Int, amount : Int }
-    | ScrollDown { row : Int, col : Int, amount : Int }
+programWithCliOptions :
+    CliProgram.Config cliOptions
+    -> (cliOptions -> Program data model msg)
+    -> Pages.Internal.Script.Script
+programWithCliOptions config toApp =
+    Pages.Internal.Script.Script
+        { toConfig =
+            \_ ->
+                config
+                    |> CliProgram.mapConfig
+                        (\cliOptions -> runProgram (toApp cliOptions))
+        , metadata = Nothing
+        }
 
 
-{-| Mouse button for click events.
--}
-type MouseButton
-    = LeftButton
-    | MiddleButton
-    | RightButton
+{-| Which path should a [`programOrScript`](#programOrScript) take — the
+interactive TUI, or the plain `BackendTask` fallback?
 
+    type Mode
+        = Tui
+        | Cli
 
-
--- INSPECTING
-
-
-{-| Convert a Screen to a plain text string (no ANSI codes). Useful for testing,
-layout measurement, and debugging.
--}
-toString : Screen -> String
-toString screen =
-    flattenToSpanLines screen
-        |> List.map (\spans -> spans |> List.map .text |> String.concat)
-        |> String.join "\n"
-
-
-{-| Extract the outermost style from a Screen. Returns `plain` for unstyled
-text. Useful for extending a row's style to fill remaining width (e.g.,
-making a selection highlight span the full pane width).
-
-    style = Tui.extractStyle selectedLine
-    padding = Tui.styled style (String.repeat n " ")
+Returned from `mode : BackendTask FatalError Mode` in `programOrScript`.
+Use [`isInteractive`](#isInteractive) for the standard heuristic, or build
+your own `BackendTask` to decide.
 
 -}
-extractStyle : Screen -> Style
-extractStyle =
-    Internal.extractStyle plain
+type Mode
+    = Tui
+    | Cli
 
 
-{-| Truncate a Screen to a maximum width in columns, preserving styles.
-Adds "\u{2026}" if truncated. Works on the first line only. Returns `empty`
-for non-positive widths.
--}
-truncateWidth : Int -> Screen -> Screen
-truncateWidth maxWidth screen =
-    if maxWidth <= 0 then
-        empty
+{-| Run a TUI when the terminal is interactive, fall back to a non-interactive
+script otherwise. The `mode` BackendTask decides which path to take — pass
+[`isInteractive`](#isInteractive) for the standard isatty + CI + NO_COLOR
+heuristic, or your own `BackendTask FatalError Mode` for custom detection.
 
-    else
-        case flattenToSpanLines screen of
-            [] ->
-                empty
+    run : Script
+    run =
+        Tui.programOrScript
+            (Program.config |> Program.add ...)
+            (\flags ->
+                { tui =
+                    { data = loadCommits
+                    , init = init
+                    , update = update
+                    , view = view
+                    , subscriptions = subscriptions
+                    }
+                , script =
+                    loadCommits
+                        |> BackendTask.andThen
+                            (\commits -> Script.log (summarize commits))
+                , mode = Tui.isInteractive
+                }
+            )
 
-            first :: _ ->
-                if List.isEmpty first then
-                    blank
-
-                else
-                    let
-                        truncated : List Internal.Span
-                        truncated =
-                            Internal.truncateSpans maxWidth first
-                    in
-                    case truncated of
-                        [] ->
-                            empty
-
-                        _ ->
-                            truncated
-                                |> List.map spanToScreen
-                                |> Internal.ScreenConcat
-
-
-{-| Wrap a Screen to a maximum width, preserving styles across line breaks.
-Returns a list of Screens, one per wrapped line.
-
-    Tui.concat
-        [ Tui.text "This is a "
-        , Tui.text "very important" |> Tui.bold
-        , Tui.text " paragraph about decoding JSON values."
-        ]
-        |> Tui.wrapWidth 30
-    -- Returns 3 Screens with "very important" still bold
-
-Wraps at word boundaries (spaces). Words longer than `maxWidth` are broken
-mid-word. Existing line breaks are preserved. Returns `[]` for empty screens
-or non-positive widths.
+The `tui`'s `data` only runs on the TUI path; the `script` path runs
+independently so it can do its own loading or be a trivial no-op.
 
 -}
-wrapWidth : Int -> Screen -> List Screen
-wrapWidth maxWidth screen =
-    if maxWidth <= 0 then
-        []
+programOrScript :
+    CliProgram.Config cliOptions
+    ->
+        (cliOptions
+         ->
+            { tui : Program data model msg
+            , script : BackendTask FatalError ()
+            , mode : BackendTask FatalError Mode
+            }
+        )
+    -> Pages.Internal.Script.Script
+programOrScript config toBranches =
+    Pages.Internal.Script.Script
+        { toConfig =
+            \_ ->
+                config
+                    |> CliProgram.mapConfig
+                        (\cliOptions ->
+                            let
+                                branches :
+                                    { tui : Program data model msg
+                                    , script : BackendTask FatalError ()
+                                    , mode : BackendTask FatalError Mode
+                                    }
+                                branches =
+                                    toBranches cliOptions
+                            in
+                            chooseBranch branches.mode
+                                (runProgram branches.tui)
+                                branches.script
+                        )
+        , metadata = Nothing
+        }
 
-    else
-        flattenToSpanLines screen
-            |> List.concatMap
-                (\spanLine ->
-                    if List.isEmpty spanLine then
-                        [ blank ]
 
-                    else
-                        Internal.wrapSpans maxWidth spanLine
-                            |> List.map spansToScreen
+{-| The standard interactive-terminal heuristic: returns `Tui` if stdout and
+stdin are both TTYs and `CI`, `NO_COLOR`, and `TERM=dumb` are all unset.
+Otherwise returns `Cli`.
+
+Use this as the `mode` field of [`programOrScript`](#programOrScript). If
+you need different rules (for example, always TUI regardless of pipes),
+supply your own `BackendTask FatalError Mode` instead.
+
+    -- Default:
+    mode = Tui.isInteractive
+
+    -- Force TUI:
+    mode = BackendTask.succeed Tui.Tui
+
+    -- Opt out of TUI when a flag is set, otherwise use the default:
+    mode =
+        if cliOptions.plain then
+            BackendTask.succeed Tui.Cli
+
+        else
+            Tui.isInteractive
+
+-}
+isInteractive : BackendTask FatalError Mode
+isInteractive =
+    BackendTask.Internal.Request.request
+        { name = "tui-is-interactive"
+        , body = BackendTask.Http.emptyBody
+        , expect =
+            Decode.bool
+                |> Decode.map
+                    (\b ->
+                        if b then
+                            Tui
+
+                        else
+                            Cli
+                    )
+        }
+
+
+
+-- INTERNAL: Script construction + run loop
+
+
+scriptFromBackendTask : BackendTask FatalError () -> Pages.Internal.Script.Script
+scriptFromBackendTask task =
+    Pages.Internal.Script.Script
+        { toConfig =
+            \_ ->
+                CliProgram.config
+                    |> CliProgram.add (OptionsParser.build ())
+                    |> CliProgram.mapConfig (\() -> task)
+        , metadata = Nothing
+        }
+
+
+runProgram : Program data model msg -> BackendTask FatalError ()
+runProgram app =
+    app.data
+        |> BackendTask.quiet
+        |> BackendTask.andThen
+            (\loadedData ->
+                tuiInit
+                    |> BackendTask.andThen
+                        (\context ->
+                            let
+                                ( initialModel, initialEffect ) =
+                                    app.init loadedData
+
+                                ( modelWithContext, contextEffect ) =
+                                    applyContextUpdate app.update
+                                        (app.subscriptions initialModel)
+                                        context
+                                        initialModel
+                            in
+                            processEffectsThenRenderAndWait app
+                                context
+                                modelWithContext
+                                (Effect.batch [ initialEffect, contextEffect ])
+                        )
+            )
+
+
+tuiInit : BackendTask FatalError Context
+tuiInit =
+    BackendTask.Internal.Request.request
+        { name = "tui-init"
+        , body = BackendTask.Http.emptyBody
+        , expect =
+            Decode.map3 (\w h cp -> { width = w, height = h, colorProfile = cp })
+                (Decode.field "width" Decode.int)
+                (Decode.field "height" Decode.int)
+                (Decode.field "colorProfile" decodeColorProfile)
+        }
+
+
+tuiRenderAndWait :
+    Screen
+    -> Tui.Sub.Sub msg
+    -> BackendTask FatalError { events : List Decode.Value, width : Int, height : Int }
+tuiRenderAndWait screen sub =
+    BackendTask.Internal.Request.request
+        { name = "tui-render-and-wait"
+        , body =
+            BackendTask.Http.jsonBody
+                (Encode.object
+                    [ ( "screen", Tui.Screen.encodeScreen screen )
+                    , ( "interests", SubInternal.getInterests sub )
+                    , ( "tickIntervals", Encode.list Encode.int (SubInternal.getTickIntervals sub) )
+                    ]
                 )
+        , expect =
+            Decode.map2 (\evts wh -> { events = evts, width = wh.width, height = wh.height })
+                (Decode.oneOf
+                    [ Decode.field "events" (Decode.list Decode.value)
+                    , Decode.field "event" Decode.value |> Decode.map List.singleton
+                    ]
+                )
+                (Decode.map2 (\w h -> { width = w, height = h })
+                    (Decode.field "width" Decode.int)
+                    (Decode.field "height" Decode.int)
+                )
+        }
+
+
+tuiExit : Int -> BackendTask FatalError ()
+tuiExit code =
+    BackendTask.Internal.Request.request
+        { name = "tui-exit"
+        , body = BackendTask.Http.jsonBody (Encode.int code)
+        , expect = Decode.succeed ()
+        }
+
+
+decodeColorProfile : Decode.Decoder ColorProfile
+decodeColorProfile =
+    Decode.string
+        |> Decode.andThen
+            (\s ->
+                case s of
+                    "truecolor" ->
+                        Decode.succeed TrueColor
+
+                    "256" ->
+                        Decode.succeed Color256
+
+                    "16" ->
+                        Decode.succeed Color16
+
+                    "mono" ->
+                        Decode.succeed Mono
+
+                    _ ->
+                        Decode.succeed Color16
+            )
+
+
+processEffectsThenRenderAndWait :
+    Program data model msg
+    -> Context
+    -> model
+    -> Effect.Effect msg
+    -> BackendTask FatalError ()
+processEffectsThenRenderAndWait app context model effect =
+    -- elm-review: known-unoptimized-recursion
+    EffectInternal.toBackendTask effect
+        |> BackendTask.quiet
+        |> BackendTask.andThen
+            (\result ->
+                case result of
+                    EffectInternal.EffectDone ->
+                        renderAndWait app context model
+
+                    EffectInternal.EffectMsg msg ->
+                        let
+                            ( newModel, newEffect ) =
+                                app.update msg model
+                        in
+                        processEffectsThenRenderAndWait app context newModel newEffect
+
+                    EffectInternal.EffectExit code ->
+                        tuiExit code
+                            |> BackendTask.andThen
+                                (\() ->
+                                    if code /= 0 then
+                                        BackendTask.fail
+                                            (FatalError.build
+                                                { title = "TUI exited with code " ++ String.fromInt code
+                                                , body = ""
+                                                }
+                                            )
+
+                                    else
+                                        BackendTask.succeed ()
+                                )
+            )
+
+
+renderAndWait :
+    Program data model msg
+    -> Context
+    -> model
+    -> BackendTask FatalError ()
+renderAndWait app context model =
+    -- elm-review: known-unoptimized-recursion
+    let
+        screen : Screen
+        screen =
+            app.view context model
+
+        sub : Tui.Sub.Sub msg
+        sub =
+            app.subscriptions model
+    in
+    tuiRenderAndWait screen sub
+        |> BackendTask.andThen
+            (\response ->
+                let
+                    newContext : Context
+                    newContext =
+                        { width = response.width
+                        , height = response.height
+                        , colorProfile = context.colorProfile
+                        }
+
+                    ( modelAfterContext, contextEffects ) =
+                        if newContext.width /= context.width || newContext.height /= context.height then
+                            applyContextUpdate app.update sub newContext model
+                                |> Tuple.mapSecond effectToList
+
+                        else
+                            ( model, [] )
+                in
+                processBatchedEventsHelp app sub newContext modelAfterContext contextEffects response.events
+            )
+
+
+processBatchedEventsHelp :
+    Program data model msg
+    -> Tui.Sub.Sub msg
+    -> Context
+    -> model
+    -> List (Effect.Effect msg)
+    -> List Decode.Value
+    -> BackendTask FatalError ()
+processBatchedEventsHelp app sub context model accEffects events =
+    -- elm-review: known-unoptimized-recursion
+    case events of
+        [] ->
+            case accEffects of
+                [] ->
+                    renderAndWait app context model
+
+                _ ->
+                    processEffectsThenRenderAndWait app
+                        context
+                        model
+                        (Effect.batch (List.reverse accEffects))
+
+        rawValue :: rest ->
+            let
+                rawEvent : SubInternal.RawEvent
+                rawEvent =
+                    decodeRawEvent rawValue
+            in
+            case rawEvent of
+                SubInternal.RawResize ->
+                    processBatchedEventsHelp app sub context model accEffects rest
+
+                _ ->
+                    let
+                        ( newModel, newAccEffects ) =
+                            List.foldl
+                                (\msg ( m, effs ) ->
+                                    let
+                                        ( m2, newEffect ) =
+                                            app.update msg m
+                                    in
+                                    ( m2, newEffect :: effs )
+                                )
+                                ( model, accEffects )
+                                (SubInternal.routeEvents sub rawEvent)
+                    in
+                    processBatchedEventsHelp app sub context newModel newAccEffects rest
+
+
+decodeRawEvent : Decode.Value -> SubInternal.RawEvent
+decodeRawEvent value =
+    case Decode.decodeValue SubInternal.decodeRawEvent value of
+        Ok event ->
+            event
+
+        Err _ ->
+            SubInternal.RawResize
+
+
+applyContextUpdate :
+    (msg -> model -> ( model, Effect.Effect msg ))
+    -> Tui.Sub.Sub msg
+    -> Context
+    -> model
+    -> ( model, Effect.Effect msg )
+applyContextUpdate update sub context model =
+    SubInternal.routeEvents sub (SubInternal.RawContext { width = context.width, height = context.height })
+        |> List.foldl
+            (\msg ( m, accEffect ) ->
+                let
+                    ( newModel, newEffect ) =
+                        update msg m
+                in
+                ( newModel, Effect.batch [ accEffect, newEffect ] )
+            )
+            ( model, Effect.none )
+
+
+effectToList : Effect.Effect msg -> List (Effect.Effect msg)
+effectToList effect =
+    Effect.fold
+        { none = []
+        , batch = \_ -> [ effect ]
+        , backendTask = \_ -> [ effect ]
+        , exit = \_ -> [ effect ]
+        , toast = \_ -> [ effect ]
+        , errorToast = \_ -> [ effect ]
+        , resetScroll = \_ -> [ effect ]
+        , scrollTo = \_ _ -> [ effect ]
+        , scrollDown = \_ _ -> [ effect ]
+        , scrollUp = \_ _ -> [ effect ]
+        , setSelectedIndex = \_ _ -> [ effect ]
+        , selectFirst = \_ -> [ effect ]
+        , focusPane = \_ -> [ effect ]
+        }
+        effect
+
+
+chooseBranch :
+    BackendTask FatalError Mode
+    -> BackendTask FatalError ()
+    -> BackendTask FatalError ()
+    -> BackendTask FatalError ()
+chooseBranch mode tuiBranch scriptBranch =
+    mode
+        |> BackendTask.andThen
+            (\m ->
+                case m of
+                    Tui ->
+                        tuiBranch
+
+                    Cli ->
+                        scriptBranch
+            )

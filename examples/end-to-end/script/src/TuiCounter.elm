@@ -14,9 +14,10 @@ q / Esc — quit
 import Ansi.Color
 import BackendTask exposing (BackendTask)
 import Pages.Script exposing (Script)
-import Tui exposing (plain)
+import Tui
 import Tui.Effect as Effect
-import Tui.Program
+import Tui.Event
+import Tui.Screen exposing (plain)
 import Tui.Sub
 
 
@@ -26,12 +27,12 @@ type alias Model =
 
 
 type Msg
-    = KeyPressed Tui.KeyEvent
+    = KeyPressed Tui.Event.KeyEvent
 
 
 run : Script
 run =
-    Tui.Program.program
+    Tui.program
         { data = BackendTask.succeed ()
         , init = init
         , update = update
@@ -52,44 +53,43 @@ update msg model =
     case msg of
         KeyPressed event ->
             case event.key of
-                Tui.Character 'k' ->
+                Tui.Event.Character 'k' ->
                     ( { model | count = model.count + 1 }, Effect.none )
 
-                Tui.Arrow Tui.Up ->
+                Tui.Event.Arrow Tui.Event.Up ->
                     ( { model | count = model.count + 1 }, Effect.none )
 
-                Tui.Character 'j' ->
+                Tui.Event.Character 'j' ->
                     ( { model | count = model.count - 1 }, Effect.none )
 
-                Tui.Arrow Tui.Down ->
+                Tui.Event.Arrow Tui.Event.Down ->
                     ( { model | count = model.count - 1 }, Effect.none )
 
-                Tui.Character 'q' ->
+                Tui.Event.Character 'q' ->
                     ( model, Effect.exit )
 
-                Tui.Escape ->
+                Tui.Event.Escape ->
                     ( model, Effect.exit )
 
                 _ ->
                     ( model, Effect.none )
 
 
-view : Tui.Context -> Model -> Tui.Screen
+view : Tui.Context -> Model -> Tui.Screen.Screen
 view ctx model =
     let
         dimStyle =
-            { plain | attributes = [ Tui.Dim ] }
+            { plain | attributes = [ Tui.Screen.Dim ] }
     in
-    Tui.lines
-        [ Tui.text ""
-        , Tui.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
+    Tui.Screen.lines
+        [ Tui.Screen.text ""
+        , Tui.Screen.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Screen.Bold ] }
             "  TUI Counter Demo"
-        , Tui.text ""
-        , Tui.concat
-            [ Tui.text "  Count: "
-            , Tui.styled
-                { plain
-                    | fg =
+        , Tui.Screen.text ""
+        , Tui.Screen.concat
+            [ Tui.Screen.text "  Count: "
+            , Tui.Screen.styled
+                { plain | fg =
                         Just
                             (if model.count >= 0 then
                                 Ansi.Color.green
@@ -97,16 +97,16 @@ view ctx model =
                              else
                                 Ansi.Color.red
                             )
-                    , attributes = [ Tui.Bold ]
+                    , attributes = [ Tui.Screen.Bold ]
                 }
                 (String.fromInt model.count)
             ]
-        , Tui.text ""
-        , Tui.styled dimStyle "  k/↑  increment"
-        , Tui.styled dimStyle "  j/↓  decrement"
-        , Tui.styled dimStyle "  q    quit"
-        , Tui.text ""
-        , Tui.styled dimStyle
+        , Tui.Screen.text ""
+        , Tui.Screen.styled dimStyle "  k/↑  increment"
+        , Tui.Screen.styled dimStyle "  j/↓  decrement"
+        , Tui.Screen.styled dimStyle "  q    quit"
+        , Tui.Screen.text ""
+        , Tui.Screen.styled dimStyle
             ("  Terminal: "
                 ++ String.fromInt ctx.width
                 ++ "×"

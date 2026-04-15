@@ -25,7 +25,8 @@ popup system. Modal height is capped at 75% of terminal height.
 -}
 
 import Ansi.Color
-import Tui exposing (plain)
+import Tui
+import Tui.Screen exposing (plain)
 
 
 {-| Calculate a good default modal width for the given terminal width.
@@ -81,7 +82,7 @@ maxBodyRows terminalHeight =
 
 {-| Overlay a centered modal dialog on top of background rows.
 
-Returns a `List Screen` (one per terminal row) suitable for `Tui.lines`.
+Returns a `List Screen` (one per terminal row) suitable for `Tui.Screen.lines`.
 Background rows above and below the modal pass through unchanged.
 Modal-covered rows show: background left edge | modal | background right edge.
 
@@ -92,13 +93,13 @@ visible.
 -}
 overlay :
     { title : String
-    , body : List Tui.Screen
+    , body : List Tui.Screen.Screen
     , footer : String
     , width : Int
     }
     -> { width : Int, height : Int }
-    -> List Tui.Screen
-    -> List Tui.Screen
+    -> List Tui.Screen.Screen
+    -> List Tui.Screen.Screen
 overlay config term bgRows =
     let
         -- Clamp modal to 75% of terminal height (lazygit uses height * 3/4).
@@ -108,7 +109,7 @@ overlay config term bgRows =
         maxBodyRows_ =
             maxBodyRows term.height
 
-        clampedBody : List Tui.Screen
+        clampedBody : List Tui.Screen.Screen
         clampedBody =
             List.take maxBodyRows_ config.body
 
@@ -132,22 +133,22 @@ overlay config term bgRows =
         leftPad =
             (term.width - modalWidth) // 2
 
-        borderStyle : Tui.Style
+        borderStyle : Tui.Screen.Style
         borderStyle =
-            { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
+            { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Screen.Bold ] }
 
         -- Composite a modal strip onto a background row:
         -- [background left edge] [modal content] [right fill]
-        compositeRow : Tui.Screen -> Tui.Screen -> Tui.Screen
+        compositeRow : Tui.Screen.Screen -> Tui.Screen.Screen -> Tui.Screen.Screen
         compositeRow bgRow modalStrip =
-            Tui.concat
-                [ Tui.truncateWidth leftPad bgRow
+            Tui.Screen.concat
+                [ Tui.Screen.truncateWidth leftPad bgRow
                 , modalStrip
-                , Tui.styled plain
+                , Tui.Screen.styled Tui.Screen.plain
                     (String.repeat (term.width - leftPad - modalWidth) " ")
                 ]
 
-        topBorder : Tui.Screen
+        topBorder : Tui.Screen.Screen
         topBorder =
             let
                 titleText : String
@@ -158,14 +159,14 @@ overlay config term bgRows =
                 fillLen =
                     max 0 (innerWidth - String.length titleText)
             in
-            Tui.concat
-                [ Tui.styled borderStyle "╭"
-                , Tui.styled borderStyle titleText
-                , Tui.styled borderStyle (String.repeat fillLen "─")
-                , Tui.styled borderStyle "╮"
+            Tui.Screen.concat
+                [ Tui.Screen.styled borderStyle "╭"
+                , Tui.Screen.styled borderStyle titleText
+                , Tui.Screen.styled borderStyle (String.repeat fillLen "─")
+                , Tui.Screen.styled borderStyle "╮"
                 ]
 
-        bottomBorder : Tui.Screen
+        bottomBorder : Tui.Screen.Screen
         bottomBorder =
             let
                 footerText : String
@@ -176,19 +177,19 @@ overlay config term bgRows =
                 fillLen =
                     max 0 (innerWidth - String.length footerText)
             in
-            Tui.concat
-                [ Tui.styled borderStyle "╰"
-                , Tui.styled borderStyle (String.repeat fillLen "─")
-                , Tui.styled borderStyle footerText
-                , Tui.styled borderStyle "╯"
+            Tui.Screen.concat
+                [ Tui.Screen.styled borderStyle "╰"
+                , Tui.Screen.styled borderStyle (String.repeat fillLen "─")
+                , Tui.Screen.styled borderStyle footerText
+                , Tui.Screen.styled borderStyle "╯"
                 ]
 
-        bodyStrip : Tui.Screen -> Tui.Screen
+        bodyStrip : Tui.Screen.Screen -> Tui.Screen.Screen
         bodyStrip content =
             let
                 contentText : String
                 contentText =
-                    Tui.toString content
+                    Tui.Screen.toString content
 
                 contentWidth : Int
                 contentWidth =
@@ -198,15 +199,15 @@ overlay config term bgRows =
                 padding =
                     max 0 (innerWidth - contentWidth)
             in
-            Tui.concat
-                [ Tui.styled borderStyle "│"
-                , Tui.truncateWidth innerWidth content
-                , Tui.styled plain
+            Tui.Screen.concat
+                [ Tui.Screen.styled borderStyle "│"
+                , Tui.Screen.truncateWidth innerWidth content
+                , Tui.Screen.styled Tui.Screen.plain
                     (String.repeat padding " ")
-                , Tui.styled borderStyle "│"
+                , Tui.Screen.styled borderStyle "│"
                 ]
 
-        modalStrips : List Tui.Screen
+        modalStrips : List Tui.Screen.Screen
         modalStrips =
             [ topBorder ]
                 ++ List.map bodyStrip clampedBody

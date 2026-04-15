@@ -4,6 +4,8 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Event
+import Tui.Screen
 import Tui.Sub
 import Tui.Test as TuiTest
 
@@ -104,13 +106,13 @@ counterApp =
         }
 
 
-counterKeyHandler : Tui.KeyEvent -> Maybe CounterMsg
+counterKeyHandler : Tui.Event.KeyEvent -> Maybe CounterMsg
 counterKeyHandler event =
     case event.key of
-        Tui.Character 'j' ->
+        Tui.Event.Character 'j' ->
             Just Increment
 
-        Tui.Character 'k' ->
+        Tui.Event.Character 'k' ->
             Just Decrement
 
         _ ->
@@ -130,9 +132,9 @@ counterUpdate msg model =
             ( model, Effect.none )
 
 
-counterView : Tui.Context -> CounterModel -> Tui.Screen
+counterView : Tui.Context -> CounterModel -> Tui.Screen.Screen
 counterView _ model =
-    Tui.text ("count: " ++ String.fromInt model.count)
+    Tui.Screen.text ("count: " ++ String.fromInt model.count)
 
 
 
@@ -160,10 +162,10 @@ scrollApp =
                 Tui.Sub.onMouse
                     (\event ->
                         case event of
-                            Tui.ScrollDown _ ->
+                            Tui.Event.ScrollDown _ ->
                                 Just ScrolledDown
 
-                            Tui.ScrollUp _ ->
+                            Tui.Event.ScrollUp _ ->
                                 Just ScrolledUp
 
                             _ ->
@@ -185,6 +187,6 @@ scrollUpdate msg model =
             ( model, Effect.none )
 
 
-scrollView : Tui.Context -> ScrollModel -> Tui.Screen
+scrollView : Tui.Context -> ScrollModel -> Tui.Screen.Screen
 scrollView _ model =
-    Tui.text ("scrolled: " ++ String.fromInt model.scrolled)
+    Tui.Screen.text ("scrolled: " ++ String.fromInt model.scrolled)

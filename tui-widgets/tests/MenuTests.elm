@@ -4,8 +4,10 @@ import Ansi.Color
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
+import Tui.Event
 import Tui.Menu as Menu
 import Tui.Modal as Modal
+import Tui.Screen
 
 
 suite : Test
@@ -17,8 +19,8 @@ suite =
                     longMenu
                         |> navigateDownN 8
                         |> Menu.viewBodyWithMaxRows 7
-                        |> Tui.lines
-                        |> Tui.toString
+                        |> Tui.Screen.lines
+                        |> Tui.Screen.toString
                         |> expectContains "Item 09"
             , test "keeps the rendered row count stable when scrolled near the end" <|
                 \() ->
@@ -41,14 +43,14 @@ suite =
                             rows
                                 |> List.drop 1
                                 |> List.head
-                                |> Maybe.map Tui.extractStyle
+                                |> Maybe.map Tui.Screen.extractStyle
                                 |> Maybe.andThen .bg
 
                         secondDuplicateBg =
                             rows
                                 |> List.drop 2
                                 |> List.head
-                                |> Maybe.map Tui.extractStyle
+                                |> Maybe.map Tui.Screen.extractStyle
                                 |> Maybe.andThen .bg
                     in
                     Expect.all
@@ -83,7 +85,7 @@ longMenu =
                                 Char.fromCode (Char.toCode 'a' + i - 1)
                         in
                         Menu.item
-                            { key = Tui.Character keyChar
+                            { key = Tui.Event.Character keyChar
                             , label = label
                             , action = label
                             }
@@ -97,12 +99,12 @@ duplicateMenu =
     Menu.open
         [ Menu.section "Duplicates"
             [ Menu.item
-                { key = Tui.Character 'a'
+                { key = Tui.Event.Character 'a'
                 , label = "Same"
                 , action = "same"
                 }
             , Menu.item
-                { key = Tui.Character 'a'
+                { key = Tui.Event.Character 'a'
                 , label = "Same"
                 , action = "same"
                 }
@@ -119,7 +121,7 @@ navigateDownN count state =
         let
             ( nextState, _ ) =
                 Menu.handleKeyEvent
-                    { key = Tui.Character 'j', modifiers = [] }
+                    { key = Tui.Event.Character 'j', modifiers = [] }
                     state
         in
         navigateDownN (count - 1) nextState

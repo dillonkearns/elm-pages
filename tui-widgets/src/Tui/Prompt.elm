@@ -68,7 +68,9 @@ Handle keys while the prompt is open:
 
 import Ansi.Color
 import Tui
+import Tui.Event
 import Tui.Input as Input
+import Tui.Screen
 
 
 {-| Opaque prompt state.
@@ -163,16 +165,16 @@ type Result
         ( newState, Prompt.Continue ) -> keepEditing newState
 
 -}
-handleKeyEvent : Tui.KeyEvent -> State -> ( State, Result )
+handleKeyEvent : Tui.Event.KeyEvent -> State -> ( State, Result )
 handleKeyEvent event (State s) =
     case event.key of
-        Tui.Enter ->
+        Tui.Event.Enter ->
             ( State s, Submitted (Input.text s.input) )
 
-        Tui.Escape ->
+        Tui.Event.Escape ->
             ( State s, Cancelled )
 
-        Tui.Tab ->
+        Tui.Event.Tab ->
             case suggestionsFor s of
                 [] ->
                     ( State s, Continue )
@@ -197,7 +199,7 @@ handleKeyEvent event (State s) =
                     , Continue
                     )
 
-        Tui.Arrow Tui.Down ->
+        Tui.Event.Arrow Tui.Event.Down ->
             case suggestionsFor s of
                 [] ->
                     ( State s, Continue )
@@ -211,7 +213,7 @@ handleKeyEvent event (State s) =
                     , Continue
                     )
 
-        Tui.Arrow Tui.Up ->
+        Tui.Event.Arrow Tui.Event.Up ->
             case suggestionsFor s of
                 [] ->
                     ( State s, Continue )
@@ -224,13 +226,13 @@ handleKeyEvent event (State s) =
                 resetSelectedSuggestion : Int
                 resetSelectedSuggestion =
                     case event.key of
-                        Tui.Character _ ->
+                        Tui.Event.Character _ ->
                             0
 
-                        Tui.Backspace ->
+                        Tui.Event.Backspace ->
                             0
 
-                        Tui.Delete ->
+                        Tui.Event.Delete ->
                             0
 
                         _ ->
@@ -251,7 +253,7 @@ placeholder when empty, and suggestions if configured.
     Prompt.viewBody { width = 40 } promptState
 
 -}
-viewBody : { width : Int } -> State -> List Tui.Screen
+viewBody : { width : Int } -> State -> List Tui.Screen.Screen
 viewBody config (State s) =
     let
         currentText =
@@ -262,7 +264,7 @@ viewBody config (State s) =
                 Input.viewMasked config s.input
 
             else if String.isEmpty currentText && not (String.isEmpty s.placeholder) then
-                Tui.text s.placeholder |> Tui.dim
+                Tui.Screen.text s.placeholder |> Tui.Screen.dim
 
             else
                 Input.view config s.input
@@ -278,26 +280,26 @@ viewBody config (State s) =
                             suggestions =
                                 suggestionsFor s
                         in
-                        [ Tui.blank ]
+                        [ Tui.Screen.blank ]
                             ++ List.indexedMap
                                 (\i suggestion ->
                                     if i == s.selectedSuggestion then
-                                        Tui.text ("  " ++ suggestion)
-                                            |> Tui.fg Ansi.Color.cyan
-                                            |> Tui.bold
+                                        Tui.Screen.text ("  " ++ suggestion)
+                                            |> Tui.Screen.fg Ansi.Color.cyan
+                                            |> Tui.Screen.bold
 
                                     else
-                                        Tui.text ("  " ++ suggestion)
-                                            |> Tui.dim
+                                        Tui.Screen.text ("  " ++ suggestion)
+                                            |> Tui.Screen.dim
                                 )
                                 (List.take 5 suggestions)
 
                 Nothing ->
                     []
     in
-    [ Tui.blank
+    [ Tui.Screen.blank
     , inputView
-    , Tui.blank
+    , Tui.Screen.blank
     ]
         ++ suggestionRows
 

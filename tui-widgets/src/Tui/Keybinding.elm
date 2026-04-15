@@ -21,14 +21,14 @@ instead of importing this module directly.
     -- Declare bindings
     globalBindings =
         Keybinding.group "Global"
-            [ Keybinding.binding (Tui.Character 'q') "Quit" Quit
-            , Keybinding.binding (Tui.Character '?') "Help" ToggleHelp
+            [ Keybinding.binding (Tui.Event.Character 'q') "Quit" Quit
+            , Keybinding.binding (Tui.Event.Character '?') "Help" ToggleHelp
             ]
 
     commitBindings =
         Keybinding.group "Commits"
-            [ Keybinding.binding (Tui.Character 'j') "Next commit" (Navigate 1)
-                |> Keybinding.withAlternate (Tui.Arrow Tui.Down)
+            [ Keybinding.binding (Tui.Event.Character 'j') "Next commit" (Navigate 1)
+                |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Down)
             ]
 
     -- Dispatch: try focused-pane bindings first, fall through to global
@@ -49,13 +49,15 @@ instead of importing this module directly.
 -}
 
 import Ansi.Color
-import Tui exposing (plain)
+import Tui
+import Tui.Event
+import Tui.Screen exposing (plain)
 
 
 {-| A keybinding: one or more key combinations mapped to an action.
 -}
 type alias Binding msg =
-    { keys : List { key : Tui.Key, modifiers : List Tui.Modifier }
+    { keys : List { key : Tui.Event.Key, modifiers : List Tui.Event.Modifier }
     , description : String
     , action : msg
     }
@@ -72,10 +74,10 @@ type alias Group msg =
 
 {-| Create a binding with a single key, no modifiers.
 
-    Keybinding.binding (Tui.Character 'q') "Quit" Quit
+    Keybinding.binding (Tui.Event.Character 'q') "Quit" Quit
 
 -}
-binding : Tui.Key -> String -> msg -> Binding msg
+binding : Tui.Event.Key -> String -> msg -> Binding msg
 binding key desc action =
     { keys = [ { key = key, modifiers = [] } ]
     , description = desc
@@ -86,21 +88,21 @@ binding key desc action =
 {-| Add an alternate key to a binding. The help screen shows both keys
 separated by `/` (e.g., `j/↓`).
 
-    Keybinding.binding (Tui.Character 'j') "Next" NavigateDown
-        |> Keybinding.withAlternate (Tui.Arrow Tui.Down)
+    Keybinding.binding (Tui.Event.Character 'j') "Next" NavigateDown
+        |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Down)
 
 -}
-withAlternate : Tui.Key -> Binding msg -> Binding msg
+withAlternate : Tui.Event.Key -> Binding msg -> Binding msg
 withAlternate key b =
     { b | keys = b.keys ++ [ { key = key, modifiers = [] } ] }
 
 
 {-| Create a binding with modifier keys.
 
-    Keybinding.withModifiers [ Tui.Ctrl ] (Tui.Character 's') "Save" Save
+    Keybinding.withModifiers [ Tui.Event.Ctrl ] (Tui.Event.Character 's') "Save" Save
 
 -}
-withModifiers : List Tui.Modifier -> Tui.Key -> String -> msg -> Binding msg
+withModifiers : List Tui.Event.Modifier -> Tui.Event.Key -> String -> msg -> Binding msg
 withModifiers mods key desc action =
     { keys = [ { key = key, modifiers = mods } ]
     , description = desc
@@ -130,14 +132,14 @@ binding matches.
     Keybinding.dispatch [ paneBindings, globalBindings ] event
 
 -}
-dispatch : List (Group msg) -> Tui.KeyEvent -> Maybe msg
+dispatch : List (Group msg) -> Tui.Event.KeyEvent -> Maybe msg
 dispatch groups event =
     groups
         |> List.concatMap .bindings
         |> findMatch event
 
 
-findMatch : Tui.KeyEvent -> List (Binding msg) -> Maybe msg
+findMatch : Tui.Event.KeyEvent -> List (Binding msg) -> Maybe msg
 findMatch event bindings =
     -- elm-review: known-unoptimized-recursion
     case bindings of
@@ -152,22 +154,22 @@ findMatch event bindings =
                 findMatch event rest
 
 
-matchModifiers : List Tui.Modifier -> List Tui.Modifier -> Bool
+matchModifiers : List Tui.Event.Modifier -> List Tui.Event.Modifier -> Bool
 matchModifiers expected actual =
     List.sort (List.map modifierOrder expected)
         == List.sort (List.map modifierOrder actual)
 
 
-modifierOrder : Tui.Modifier -> Int
+modifierOrder : Tui.Event.Modifier -> Int
 modifierOrder mod =
     case mod of
-        Tui.Ctrl ->
+        Tui.Event.Ctrl ->
             0
 
-        Tui.Alt ->
+        Tui.Event.Alt ->
             1
 
-        Tui.Shift ->
+        Tui.Event.Shift ->
             2
 
 
@@ -177,12 +179,12 @@ modifierOrder mod =
 
 {-| Format a key and modifiers as a human-readable label.
 
-    formatKey (Tui.Character 'j') [] == "j"
-    formatKey (Tui.Arrow Tui.Up) [] == "↑"
-    formatKey (Tui.Character 'a') [ Tui.Ctrl ] == "ctrl+a"
+    formatKey (Tui.Event.Character 'j') [] == "j"
+    formatKey (Tui.Event.Arrow Tui.Event.Up) [] == "↑"
+    formatKey (Tui.Event.Character 'a') [ Tui.Event.Ctrl ] == "ctrl+a"
 
 -}
-formatKey : Tui.Key -> List Tui.Modifier -> String
+formatKey : Tui.Event.Key -> List Tui.Event.Modifier -> String
 formatKey key modifiers =
     let
         modPrefix : String
@@ -191,13 +193,13 @@ formatKey key modifiers =
                 |> List.map
                     (\m ->
                         case m of
-                            Tui.Ctrl ->
+                            Tui.Event.Ctrl ->
                                 "ctrl+"
 
-                            Tui.Alt ->
+                            Tui.Event.Alt ->
                                 "alt+"
 
-                            Tui.Shift ->
+                            Tui.Event.Shift ->
                                 "shift+"
                     )
                 |> String.concat
@@ -205,52 +207,52 @@ formatKey key modifiers =
         keyStr : String
         keyStr =
             case key of
-                Tui.Character ' ' ->
+                Tui.Event.Character ' ' ->
                     "space"
 
-                Tui.Character c ->
+                Tui.Event.Character c ->
                     String.fromChar c
 
-                Tui.Enter ->
+                Tui.Event.Enter ->
                     "enter"
 
-                Tui.Escape ->
+                Tui.Event.Escape ->
                     "esc"
 
-                Tui.Tab ->
+                Tui.Event.Tab ->
                     "tab"
 
-                Tui.Backspace ->
+                Tui.Event.Backspace ->
                     "backspace"
 
-                Tui.Delete ->
+                Tui.Event.Delete ->
                     "delete"
 
-                Tui.Arrow Tui.Up ->
+                Tui.Event.Arrow Tui.Event.Up ->
                     "↑"
 
-                Tui.Arrow Tui.Down ->
+                Tui.Event.Arrow Tui.Event.Down ->
                     "↓"
 
-                Tui.Arrow Tui.Left ->
+                Tui.Event.Arrow Tui.Event.Left ->
                     "←"
 
-                Tui.Arrow Tui.Right ->
+                Tui.Event.Arrow Tui.Event.Right ->
                     "→"
 
-                Tui.Home ->
+                Tui.Event.Home ->
                     "home"
 
-                Tui.End ->
+                Tui.Event.End ->
                     "end"
 
-                Tui.PageUp ->
+                Tui.Event.PageUp ->
                     "pgup"
 
-                Tui.PageDown ->
+                Tui.Event.PageDown ->
                     "pgdn"
 
-                Tui.FunctionKey n ->
+                Tui.Event.FunctionKey n ->
                     "F" ++ String.fromInt n
     in
     modPrefix ++ keyStr
@@ -292,7 +294,7 @@ different groups are mixed, so headers would be misleading).
 Returns `List Screen` suitable for use as a `Tui.Modal.overlay` body.
 
 -}
-helpRows : String -> List (Group msg) -> List Tui.Screen
+helpRows : String -> List (Group msg) -> List Tui.Screen.Screen
 helpRows filter groups =
     helpRowsWithSelection -1 filter groups
 
@@ -345,7 +347,7 @@ filteredBindings filter groups =
 {-| Like `helpRows` but highlights the binding at the given index.
 Pass -1 for no selection. Used by the help modal's browse mode.
 -}
-helpRowsWithSelection : Int -> String -> List (Group msg) -> List Tui.Screen
+helpRowsWithSelection : Int -> String -> List (Group msg) -> List Tui.Screen.Screen
 helpRowsWithSelection selectedIdx filter groups =
     let
         isFiltering : Bool
@@ -365,23 +367,23 @@ helpRowsWithSelection selectedIdx filter groups =
                 |> List.maximum
                 |> Maybe.withDefault 0
 
-        cyanStyle : Tui.Style
+        cyanStyle : Tui.Screen.Style
         cyanStyle =
             { plain | fg = Just Ansi.Color.cyan }
 
-        selectedStyle : Tui.Style
+        selectedStyle : Tui.Screen.Style
         selectedStyle =
-            { plain | fg = Just Ansi.Color.white, bg = Just Ansi.Color.blue, attributes = [ Tui.Bold ] }
+            { plain | fg = Just Ansi.Color.white, bg = Just Ansi.Color.blue, attributes = [ Tui.Screen.Bold ] }
 
-        selectedKeyStyle : Tui.Style
+        selectedKeyStyle : Tui.Screen.Style
         selectedKeyStyle =
-            { plain | fg = Just Ansi.Color.cyan, bg = Just Ansi.Color.blue, attributes = [ Tui.Bold ] }
+            { plain | fg = Just Ansi.Color.cyan, bg = Just Ansi.Color.blue, attributes = [ Tui.Screen.Bold ] }
 
-        sectionStyle : Tui.Style
+        sectionStyle : Tui.Screen.Style
         sectionStyle =
-            { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
+            { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Screen.Bold ] }
 
-        renderBinding : Int -> Binding msg -> Tui.Screen
+        renderBinding : Int -> Binding msg -> Tui.Screen.Screen
         renderBinding bindingIdx b =
             let
                 keyLabel : String
@@ -397,37 +399,37 @@ helpRowsWithSelection selectedIdx filter groups =
                     bindingIdx == selectedIdx
             in
             if isSelected then
-                Tui.concat
-                    [ Tui.styled selectedStyle "  "
-                    , Tui.styled selectedKeyStyle (padding ++ keyLabel)
-                    , Tui.styled selectedStyle "  "
-                    , Tui.styled selectedStyle b.description
+                Tui.Screen.concat
+                    [ Tui.Screen.styled selectedStyle "  "
+                    , Tui.Screen.styled selectedKeyStyle (padding ++ keyLabel)
+                    , Tui.Screen.styled selectedStyle "  "
+                    , Tui.Screen.styled selectedStyle b.description
                     ]
 
             else
-                Tui.concat
-                    [ Tui.text "  "
-                    , Tui.styled cyanStyle (padding ++ keyLabel)
-                    , Tui.text "  "
-                    , Tui.text b.description
+                Tui.Screen.concat
+                    [ Tui.Screen.text "  "
+                    , Tui.Screen.styled cyanStyle (padding ++ keyLabel)
+                    , Tui.Screen.text "  "
+                    , Tui.Screen.text b.description
                     ]
 
-        renderSectionHeader : String -> Tui.Screen
+        renderSectionHeader : String -> Tui.Screen.Screen
         renderSectionHeader name =
-            Tui.styled sectionStyle ("--- " ++ name ++ " ---")
+            Tui.Screen.styled sectionStyle ("--- " ++ name ++ " ---")
 
-        renderGroup : Bool -> Int -> Group msg -> ( List Tui.Screen, Int )
+        renderGroup : Bool -> Int -> Group msg -> ( List Tui.Screen.Screen, Int )
         renderGroup isFirst bindingOffset g =
             let
-                separator : List Tui.Screen
+                separator : List Tui.Screen.Screen
                 separator =
                     if isFirst then
                         []
 
                     else
-                        [ Tui.text "" ]
+                        [ Tui.Screen.text "" ]
 
-                header : List Tui.Screen
+                header : List Tui.Screen.Screen
                 header =
                     if isFiltering then
                         []
@@ -435,7 +437,7 @@ helpRowsWithSelection selectedIdx filter groups =
                     else
                         [ renderSectionHeader g.name ]
 
-                bindingRows : List Tui.Screen
+                bindingRows : List Tui.Screen.Screen
                 bindingRows =
                     g.bindings
                         |> List.indexedMap
@@ -466,13 +468,13 @@ entries in the help screen. These are not dispatchable — they're informational
     Keybinding.infoRow "click" "Select item"
 
 -}
-infoRow : String -> String -> Tui.Screen
+infoRow : String -> String -> Tui.Screen.Screen
 infoRow keyLabel description =
-    Tui.concat
-        [ Tui.text "  "
-        , Tui.styled { plain | fg = Just Ansi.Color.cyan } keyLabel
-        , Tui.text "  "
-        , Tui.text description
+    Tui.Screen.concat
+        [ Tui.Screen.text "  "
+        , Tui.Screen.styled { plain | fg = Just Ansi.Color.cyan } keyLabel
+        , Tui.Screen.text "  "
+        , Tui.Screen.text description
         ]
 
 
@@ -481,7 +483,7 @@ infoRow keyLabel description =
     Keybinding.sectionHeader "Navigation"
 
 -}
-sectionHeader : String -> Tui.Screen
+sectionHeader : String -> Tui.Screen.Screen
 sectionHeader name =
-    Tui.styled { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
+    Tui.Screen.styled { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Screen.Bold ] }
         ("--- " ++ name ++ " ---")

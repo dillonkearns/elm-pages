@@ -16,7 +16,7 @@ import Pages.Script as Script exposing (Script)
 import Tui
 import Tui.Effect as Effect
 import Tui.Layout as Layout
-import Tui.Program
+import Tui.Screen
 
 
 type alias Commit =
@@ -50,7 +50,7 @@ type Msg
 
 run : Script
 run =
-    Tui.Program.program
+    Tui.program
         (Layout.compileApp
             { data = loadCommits
             , init = init
@@ -166,24 +166,24 @@ view ctx model =
                         \{ selection } commit ->
                             case selection of
                                 Layout.Selected { focused } ->
-                                    Tui.concat
-                                        [ Tui.text "▸"
-                                            |> (if focused then Tui.fg Ansi.Color.yellow else identity)
-                                        , Tui.text " "
-                                        , Tui.text commit.sha
-                                            |> (if focused then Tui.fg Ansi.Color.yellow >> Tui.bold else Tui.bold)
-                                        , Tui.text " "
-                                        , Tui.text commit.message
+                                    Tui.Screen.concat
+                                        [ Tui.Screen.text "▸"
+                                            |> (if focused then Tui.Screen.fg Ansi.Color.yellow else identity)
+                                        , Tui.Screen.text " "
+                                        , Tui.Screen.text commit.sha
+                                            |> (if focused then Tui.Screen.fg Ansi.Color.yellow >> Tui.Screen.bold else Tui.Screen.bold)
+                                        , Tui.Screen.text " "
+                                        , Tui.Screen.text commit.message
                                         ]
-                                        |> (if focused then Tui.bg Ansi.Color.blue else identity)
+                                        |> (if focused then Tui.Screen.bg Ansi.Color.blue else identity)
 
                                 Layout.NotSelected ->
-                                    Tui.concat
-                                        [ Tui.text " "
-                                        , Tui.text " "
-                                        , Tui.text commit.sha |> Tui.dim
-                                        , Tui.text " "
-                                        , Tui.text commit.message
+                                    Tui.Screen.concat
+                                        [ Tui.Screen.text " "
+                                        , Tui.Screen.text " "
+                                        , Tui.Screen.text commit.sha |> Tui.Screen.dim
+                                        , Tui.Screen.text " "
+                                        , Tui.Screen.text commit.message
                                         ]
                     }
                     model.commits
@@ -209,22 +209,22 @@ view ctx model =
         Layout.horizontal panes
 
 
-styleDiffLine : String -> Tui.Screen
+styleDiffLine : String -> Tui.Screen.Screen
 styleDiffLine line =
     if String.startsWith "+" line && not (String.startsWith "+++" line) then
-        Tui.text line |> Tui.fg Ansi.Color.green
+        Tui.Screen.text line |> Tui.Screen.fg Ansi.Color.green
 
     else if String.startsWith "-" line && not (String.startsWith "---" line) then
-        Tui.text line |> Tui.fg Ansi.Color.red
+        Tui.Screen.text line |> Tui.Screen.fg Ansi.Color.red
 
     else if String.startsWith "@@" line then
-        Tui.text line |> Tui.fg Ansi.Color.cyan
+        Tui.Screen.text line |> Tui.Screen.fg Ansi.Color.cyan
 
     else if String.startsWith "commit " line || String.startsWith "Author:" line || String.startsWith "Date:" line then
-        Tui.text line |> Tui.fg Ansi.Color.yellow
+        Tui.Screen.text line |> Tui.Screen.fg Ansi.Color.yellow
 
     else
-        Tui.text line |> Tui.dim
+        Tui.Screen.text line |> Tui.Screen.dim
 
 
 

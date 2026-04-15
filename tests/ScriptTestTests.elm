@@ -30,7 +30,7 @@ import Test.Runner
 import Time
 import Tui
 import Tui.Effect as TuiEffect
-import Tui.Program
+import Tui.Screen
 import Tui.Sub as TuiSub
 
 
@@ -660,7 +660,7 @@ Missing required option: --name
 
 elm-pages-test --name <NAME>"""
                             )
-            , test "Tui.Program.programWithCliOptions runs data in quiet mode like other TUI entrypoints" <|
+            , test "Tui.programWithCliOptions runs data in quiet mode like other TUI entrypoints" <|
                 \() ->
                     let
                         cliConfig : Program.Config { dir : String }
@@ -676,14 +676,14 @@ elm-pages-test --name <NAME>"""
 
                         script : Script.Script
                         script =
-                            Tui.Program.programWithCliOptions cliConfig
+                            Tui.programWithCliOptions cliConfig
                                 (\_ ->
                                     { data =
                                         BackendTask.Custom.run "checkQuiet" Encode.null (Decode.succeed ())
                                             |> BackendTask.allowFatal
                                     , init = \() -> ( (), TuiEffect.none )
                                     , update = \_ model -> ( model, TuiEffect.none )
-                                    , view = \_ _ -> Tui.empty
+                                    , view = \_ _ -> Tui.Screen.empty
                                     , subscriptions = \_ -> TuiSub.none
                                     }
                                 )

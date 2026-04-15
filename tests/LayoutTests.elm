@@ -4,9 +4,10 @@ import Ansi.Color
 import Expect
 import Json.Encode
 import Test exposing (Test, describe, test)
-import Tui exposing (plain)
-import Tui.Internal
+import Tui
+import Tui.Event
 import Tui.Layout as Layout
+import Tui.Screen exposing (plain)
 
 
 suite : Test
@@ -18,7 +19,7 @@ suite =
                     Layout.horizontal
                         [ Layout.pane "main"
                             { title = "My Pane", width = Layout.fill }
-                            (Layout.content [ Tui.text "hello" ])
+                            (Layout.content [ Tui.Screen.text "hello" ])
                         ]
                         |> renderAt { width = 20, height = 5 }
                         |> String.contains "My Pane"
@@ -29,8 +30,8 @@ suite =
                         [ Layout.pane "main"
                             { title = "Test", width = Layout.fill }
                             (Layout.content
-                                [ Tui.text "line 1"
-                                , Tui.text "line 2"
+                                [ Tui.Screen.text "line 1"
+                                , Tui.Screen.text "line 2"
                                 ]
                             )
                         ]
@@ -42,7 +43,7 @@ suite =
                     Layout.horizontal
                         [ Layout.pane "box"
                             { title = "Box", width = Layout.fill }
-                            (Layout.content [ Tui.text "content" ])
+                            (Layout.content [ Tui.Screen.text "content" ])
                         ]
                         |> renderAt { width = 15, height = 5 }
                         |> (\s ->
@@ -59,7 +60,7 @@ suite =
             [ test "styled content in pane preserves styling in Screen" <|
                 \() ->
                     let
-                        screen : Tui.Screen
+                        screen : Tui.Screen.Screen
                         screen =
                             Layout.horizontal
                                 [ Layout.pane "main"
@@ -68,21 +69,21 @@ suite =
                                         { onSelect = identity
                                         , selected =
                                             \item ->
-                                                Tui.styled
-                                                    { plain | fg = Just Ansi.Color.yellow, attributes = [ Tui.Bold ] }
+                                                Tui.Screen.styled
+                                                    { plain | fg = Just Ansi.Color.yellow, attributes = [ Tui.Screen.Bold ] }
                                                     ("▸ " ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         [ "apple", "banana" ]
                                     )
                                 ]
                                 |> renderScreenAt { width = 25, height = 5 }
 
-                        -- The Screen should contain styled content, not just plain text.
+                        -- The Screen should contain styled content, not just Tui.Screen.plain text.
                         -- We verify by encoding to JSON and checking for style data.
                         encoded : String
                         encoded =
-                            Tui.Internal.encodeScreen screen
+                            Tui.Screen.encodeScreen screen
                                 |> Json.Encode.encode 0
                     in
                     -- The encoded JSON should contain bold and foreground color
@@ -98,10 +99,10 @@ suite =
                     Layout.horizontal
                         [ Layout.pane "left"
                             { title = "Left", width = Layout.fill }
-                            (Layout.content [ Tui.text "left" ])
+                            (Layout.content [ Tui.Screen.text "left" ])
                         , Layout.pane "right"
                             { title = "Right", width = Layout.fill }
-                            (Layout.content [ Tui.text "right" ])
+                            (Layout.content [ Tui.Screen.text "right" ])
                         ]
                         |> renderAt { width = 40, height = 5 }
                         |> (\s ->
@@ -116,10 +117,10 @@ suite =
                     Layout.horizontal
                         [ Layout.pane "big"
                             { title = "Big", width = Layout.fillPortion 2 }
-                            (Layout.content [ Tui.text "big content" ])
+                            (Layout.content [ Tui.Screen.text "big content" ])
                         , Layout.pane "small"
                             { title = "Small", width = Layout.fill }
-                            (Layout.content [ Tui.text "small" ])
+                            (Layout.content [ Tui.Screen.text "small" ])
                         ]
                         |> renderAt { width = 30, height = 5 }
                         |> (\s ->
@@ -134,10 +135,10 @@ suite =
                     Layout.horizontal
                         [ Layout.pane "fixed"
                             { title = "F", width = Layout.fixed 10 }
-                            (Layout.content [ Tui.text "fixed" ])
+                            (Layout.content [ Tui.Screen.text "fixed" ])
                         , Layout.pane "flex"
                             { title = "X", width = Layout.fill }
-                            (Layout.content [ Tui.text "flex" ])
+                            (Layout.content [ Tui.Screen.text "flex" ])
                         ]
                         |> renderAt { width = 30, height = 5 }
                         |> (\s ->
@@ -152,10 +153,10 @@ suite =
                     Layout.horizontal
                         [ Layout.pane "a"
                             { title = "A", width = Layout.fill }
-                            (Layout.content [ Tui.text "a" ])
+                            (Layout.content [ Tui.Screen.text "a" ])
                         , Layout.pane "b"
                             { title = "B", width = Layout.fill }
-                            (Layout.content [ Tui.text "b" ])
+                            (Layout.content [ Tui.Screen.text "b" ])
                         ]
                         |> renderAt { width = 30, height = 5 }
                         |> (\s ->
@@ -400,8 +401,8 @@ suite =
                             { title = "Items", width = Layout.fill }
                             (Layout.selectableList
                                 { onSelect = identity
-                                , selected = \item -> Tui.text ("▸ " ++ item)
-                                , default = \item -> Tui.text ("  " ++ item)
+                                , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                , default = \item -> Tui.Screen.text ("  " ++ item)
                                 }
                                 [ "apple", "banana", "cherry" ]
                             )
@@ -425,8 +426,8 @@ suite =
                                     { title = "Items", width = Layout.fill }
                                     (Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \item -> Tui.text ("▸ " ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         [ "apple", "banana", "cherry" ]
                                     )
@@ -441,8 +442,8 @@ suite =
                             { title = "Items", width = Layout.fill }
                             (Layout.selectableList
                                 { onSelect = identity
-                                , selected = \item -> Tui.text ("▸ " ++ item)
-                                , default = \item -> Tui.text ("  " ++ item)
+                                , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                , default = \item -> Tui.Screen.text ("  " ++ item)
                                 }
                                 [ "apple", "banana", "cherry" ]
                             )
@@ -491,8 +492,8 @@ suite =
                                     { title = "Items", width = Layout.fill }
                                     (Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \item -> Tui.text ("▸ " ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         items
                                     )
@@ -501,7 +502,7 @@ suite =
                         -- Click row 2 (0-indexed), which is the second content row
                         ( newState, maybeMsg ) =
                             Layout.handleMouse
-                                (Tui.Click { row = 2, col = 5, button = Tui.LeftButton })
+                                (Tui.Event.Click { row = 2, col = 5, button = Tui.Event.LeftButton })
                                 { width = 30, height = 8 }
                                 layout
                                 Layout.init
@@ -521,14 +522,14 @@ suite =
                                     { title = "Items", width = Layout.fill }
                                     (Layout.content
                                         (List.range 1 20
-                                            |> List.map (\i -> Tui.text ("item " ++ String.fromInt i))
+                                            |> List.map (\i -> Tui.Screen.text ("item " ++ String.fromInt i))
                                         )
                                     )
                                 ]
 
                         ( newState, _ ) =
                             Layout.handleMouse
-                                (Tui.ScrollDown { row = 2, col = 5, amount = 1 })
+                                (Tui.Event.ScrollDown { row = 2, col = 5, amount = 1 })
                                 { width = 30, height = 8 }
                                 layout
                                 Layout.init
@@ -545,14 +546,14 @@ suite =
                                     { title = "Left", width = Layout.fill }
                                     (Layout.content
                                         (List.range 1 20
-                                            |> List.map (\i -> Tui.text ("left " ++ String.fromInt i))
+                                            |> List.map (\i -> Tui.Screen.text ("left " ++ String.fromInt i))
                                         )
                                     )
                                 , Layout.pane "right"
                                     { title = "Right", width = Layout.fill }
                                     (Layout.content
                                         (List.range 1 20
-                                            |> List.map (\i -> Tui.text ("right " ++ String.fromInt i))
+                                            |> List.map (\i -> Tui.Screen.text ("right " ++ String.fromInt i))
                                         )
                                     )
                                 ]
@@ -565,7 +566,7 @@ suite =
                         -- Scroll in the RIGHT pane (col > half width)
                         ( stateAfterScroll, _ ) =
                             Layout.handleMouse
-                                (Tui.ScrollDown { row = 3, col = 25, amount = 1 })
+                                (Tui.Event.ScrollDown { row = 3, col = 25, amount = 1 })
                                 { width = 40, height = 10 }
                                 layout
                                 state
@@ -586,14 +587,14 @@ suite =
                                     { title = "Left", width = Layout.fill }
                                     (Layout.content
                                         (List.range 1 20
-                                            |> List.map (\i -> Tui.text ("left " ++ String.fromInt i))
+                                            |> List.map (\i -> Tui.Screen.text ("left " ++ String.fromInt i))
                                         )
                                     )
                                 , Layout.pane "right"
                                     { title = "Right", width = Layout.fill }
                                     (Layout.content
                                         (List.range 1 20
-                                            |> List.map (\i -> Tui.text ("right " ++ String.fromInt i))
+                                            |> List.map (\i -> Tui.Screen.text ("right " ++ String.fromInt i))
                                         )
                                     )
                                 ]
@@ -608,7 +609,7 @@ suite =
                         -- Now scroll UP in the right pane
                         ( stateAfterScroll, _ ) =
                             Layout.handleMouse
-                                (Tui.ScrollUp { row = 3, col = 25, amount = 1 })
+                                (Tui.Event.ScrollUp { row = 3, col = 25, amount = 1 })
                                 { width = 40, height = 10 }
                                 layout
                                 stateWithScroll
@@ -624,8 +625,8 @@ suite =
                                     { title = "Left", width = Layout.fill }
                                     (Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \item -> Tui.text ("▸ " ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         [ "a", "b", "c" ]
                                     )
@@ -633,8 +634,8 @@ suite =
                                     { title = "Right", width = Layout.fill }
                                     (Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \item -> Tui.text ("▸ " ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         [ "x", "y", "z" ]
                                     )
@@ -647,7 +648,7 @@ suite =
                         -- Click in the RIGHT pane
                         ( stateAfterClick, _ ) =
                             Layout.handleMouse
-                                (Tui.Click { row = 2, col = 25, button = Tui.LeftButton })
+                                (Tui.Event.Click { row = 2, col = 25, button = Tui.Event.LeftButton })
                                 { width = 40, height = 10 }
                                 layout
                                 state
@@ -672,14 +673,14 @@ suite =
                                     { title = "L", width = Layout.fill }
                                     (Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \item -> Tui.text ("▸ " ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         (List.range 0 20 |> List.map (\i -> "item " ++ String.fromInt i))
                                     )
                                 , Layout.pane "right"
                                     { title = "R", width = Layout.fill }
-                                    (Layout.content [ Tui.text "detail" ])
+                                    (Layout.content [ Tui.Screen.text "detail" ])
                                 ]
 
                         rendered : String
@@ -708,21 +709,21 @@ suite =
                         state =
                             Layout.init |> Layout.focusPane "left"
 
-                        screen : Tui.Screen
+                        screen : Tui.Screen.Screen
                         screen =
                             Layout.horizontal
                                 [ Layout.pane "left"
                                     { title = "Left", width = Layout.fill }
-                                    (Layout.content [ Tui.text "a" ])
+                                    (Layout.content [ Tui.Screen.text "a" ])
                                 , Layout.pane "right"
                                     { title = "Right", width = Layout.fill }
-                                    (Layout.content [ Tui.text "b" ])
+                                    (Layout.content [ Tui.Screen.text "b" ])
                                 ]
                                 |> Layout.toScreen (Layout.withContext { width = 40, height = 5 } state)
 
                         encoded : String
                         encoded =
-                            Tui.Internal.encodeScreen screen |> Json.Encode.encode 0
+                            Tui.Screen.encodeScreen screen |> Json.Encode.encode 0
                     in
                     -- Focused pane border should have green color
                     encoded
@@ -754,12 +755,12 @@ suite =
                                      in
                                      Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \item -> Tui.text ("FOCUSED:" ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , selected = \item -> Tui.Screen.text ("FOCUSED:" ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         items
                                         |> Layout.withUnfocusedStyle
-                                            (\item -> Tui.text ("dim:" ++ item))
+                                            (\item -> Tui.Screen.text ("dim:" ++ item))
                                             items
                                     )
                                 , Layout.pane "right"
@@ -771,12 +772,12 @@ suite =
                                      in
                                      Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \item -> Tui.text ("FOCUSED:" ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , selected = \item -> Tui.Screen.text ("FOCUSED:" ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         items
                                         |> Layout.withUnfocusedStyle
-                                            (\item -> Tui.text ("dim:" ++ item))
+                                            (\item -> Tui.Screen.text ("dim:" ++ item))
                                             items
                                     )
                                 ]
@@ -792,7 +793,7 @@ suite =
                         rendered =
                             layout
                                 |> Layout.toScreen state
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     Expect.all
                         [ -- Left pane is focused: selected item uses FOCUSED style
@@ -813,8 +814,8 @@ suite =
                                     { title = "Left", width = Layout.fill }
                                     (Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \item -> Tui.text ("SEL:" ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , selected = \item -> Tui.Screen.text ("SEL:" ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         [ "a", "b", "c" ]
                                     )
@@ -822,8 +823,8 @@ suite =
                                     { title = "Right", width = Layout.fill }
                                     (Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \item -> Tui.text ("SEL:" ++ item)
-                                        , default = \item -> Tui.text ("  " ++ item)
+                                        , selected = \item -> Tui.Screen.text ("SEL:" ++ item)
+                                        , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         [ "x", "y", "z" ]
                                     )
@@ -839,7 +840,7 @@ suite =
                         rendered =
                             layout
                                 |> Layout.toScreen state
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     -- Without withUnfocusedStyle, both panes use the same selected style
                     Expect.all
@@ -854,8 +855,8 @@ suite =
                     Layout.horizontal
                         [ Layout.paneGroup "left"
                             { tabs =
-                                [ { id = "files", label = "Files", content = Layout.content [ Tui.text "file-content" ] }
-                                , { id = "worktrees", label = "Worktrees", content = Layout.content [ Tui.text "worktree-content" ] }
+                                [ { id = "files", label = "Files", content = Layout.content [ Tui.Screen.text "file-content" ] }
+                                , { id = "worktrees", label = "Worktrees", content = Layout.content [ Tui.Screen.text "worktree-content" ] }
                                 ]
                             , activeTab = "files"
                             , width = Layout.fill
@@ -875,8 +876,8 @@ suite =
                     Layout.horizontal
                         [ Layout.paneGroup "left"
                             { tabs =
-                                [ { id = "files", label = "Files", content = Layout.content [ Tui.text "file-content" ] }
-                                , { id = "worktrees", label = "Worktrees", content = Layout.content [ Tui.text "worktree-content" ] }
+                                [ { id = "files", label = "Files", content = Layout.content [ Tui.Screen.text "file-content" ] }
+                                , { id = "worktrees", label = "Worktrees", content = Layout.content [ Tui.Screen.text "worktree-content" ] }
                                 ]
                             , activeTab = "worktrees"
                             , width = Layout.fill
@@ -925,14 +926,14 @@ suite =
                                           , content =
                                                 Layout.selectableList
                                                     { onSelect = identity
-                                                    , selected = \item -> Tui.text ("▸ " ++ item)
-                                                    , default = \item -> Tui.text ("  " ++ item)
+                                                    , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                                    , default = \item -> Tui.Screen.text ("  " ++ item)
                                                     }
                                                     [ "a.elm", "b.elm", "c.elm" ]
                                           }
                                         , { id = "worktrees"
                                           , label = "Worktrees"
-                                          , content = Layout.content [ Tui.text "wt" ]
+                                          , content = Layout.content [ Tui.Screen.text "wt" ]
                                           }
                                         ]
                                     , activeTab = "files"
@@ -959,7 +960,7 @@ suite =
                     Layout.horizontal
                         [ Layout.pane "commits"
                             { title = "Commits", width = Layout.fill }
-                            (Layout.content [ Tui.text "a" ])
+                            (Layout.content [ Tui.Screen.text "a" ])
                             |> Layout.withPrefix "[4]"
                         ]
                         |> renderAt { width = 30, height = 5 }
@@ -970,7 +971,7 @@ suite =
                     Layout.horizontal
                         [ Layout.pane "commits"
                             { title = "Commits", width = Layout.fill }
-                            (Layout.content [ Tui.text "a" ])
+                            (Layout.content [ Tui.Screen.text "a" ])
                             |> Layout.withFooter "3 of 300"
                         ]
                         |> renderAt { width = 30, height = 5 }
@@ -983,10 +984,10 @@ suite =
                     Layout.horizontal
                         [ Layout.pane "left"
                             { title = "Files", width = Layout.fill }
-                            (Layout.content [ Tui.text "a" ])
+                            (Layout.content [ Tui.Screen.text "a" ])
                         , Layout.pane "right"
                             { title = "Diff", width = Layout.fill }
-                            (Layout.content [ Tui.text "b" ])
+                            (Layout.content [ Tui.Screen.text "b" ])
                         ]
                         |> renderAt { width = 40, height = 5 }
                         |> (\s ->
@@ -1006,10 +1007,10 @@ suite =
                             Layout.horizontal
                                 [ Layout.pane "left"
                                     { title = "Left", width = Layout.fill }
-                                    (Layout.content [ Tui.text "a" ])
+                                    (Layout.content [ Tui.Screen.text "a" ])
                                 , Layout.pane "right"
                                     { title = "Right", width = Layout.fill }
-                                    (Layout.content [ Tui.text "b" ])
+                                    (Layout.content [ Tui.Screen.text "b" ])
                                 ]
 
                         state : Layout.State
@@ -1019,7 +1020,7 @@ suite =
                         -- Press '2' to focus the second pane
                         ( newState, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '2', modifiers = [] }
+                                { key = Tui.Event.Character '2', modifiers = [] }
                                 layout
                                 state
                     in
@@ -1032,10 +1033,10 @@ suite =
                             Layout.horizontal
                                 [ Layout.pane "left"
                                     { title = "Left", width = Layout.fill }
-                                    (Layout.content [ Tui.text "a" ])
+                                    (Layout.content [ Tui.Screen.text "a" ])
                                 , Layout.pane "right"
                                     { title = "Right", width = Layout.fill }
-                                    (Layout.content [ Tui.text "b" ])
+                                    (Layout.content [ Tui.Screen.text "b" ])
                                 ]
 
                         state : Layout.State
@@ -1045,7 +1046,7 @@ suite =
                         -- Press '1' — already focused on pane 1
                         ( newState, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '1', modifiers = [] }
+                                { key = Tui.Event.Character '1', modifiers = [] }
                                 layout
                                 state
                     in
@@ -1060,8 +1061,8 @@ suite =
                             Layout.horizontal
                                 [ Layout.paneGroup "nav"
                                     { tabs =
-                                        [ { id = "files", label = "Files", content = Layout.content [ Tui.text "f" ] }
-                                        , { id = "branches", label = "Branches", content = Layout.content [ Tui.text "b" ] }
+                                        [ { id = "files", label = "Files", content = Layout.content [ Tui.Screen.text "f" ] }
+                                        , { id = "branches", label = "Branches", content = Layout.content [ Tui.Screen.text "b" ] }
                                         ]
                                     , activeTab = "files"
                                     , width = Layout.fill
@@ -1079,7 +1080,7 @@ suite =
                         -- So "Branches" starts at border(1) + jumpLabel(3) + "Files"(5) + " - "(3) = 12
                         ( _, maybeMsg ) =
                             Layout.handleMouse
-                                (Tui.Click { row = 0, col = 12, button = Tui.LeftButton })
+                                (Tui.Event.Click { row = 0, col = 12, button = Tui.Event.LeftButton })
                                 { width = 40, height = 8 }
                                 layout
                                 state
@@ -1093,8 +1094,8 @@ suite =
                             Layout.horizontal
                                 [ Layout.paneGroup "nav"
                                     { tabs =
-                                        [ { id = "files", label = "Files", content = Layout.content [ Tui.text "f" ] }
-                                        , { id = "branches", label = "Branches", content = Layout.content [ Tui.text "b" ] }
+                                        [ { id = "files", label = "Files", content = Layout.content [ Tui.Screen.text "f" ] }
+                                        , { id = "branches", label = "Branches", content = Layout.content [ Tui.Screen.text "b" ] }
                                         ]
                                     , activeTab = "files"
                                     , width = Layout.fill
@@ -1109,7 +1110,7 @@ suite =
                         -- Click on "Files" at col 5 (border + jump label + start of "Files")
                         ( _, maybeMsg ) =
                             Layout.handleMouse
-                                (Tui.Click { row = 0, col = 5, button = Tui.LeftButton })
+                                (Tui.Event.Click { row = 0, col = 5, button = Tui.Event.LeftButton })
                                 { width = 40, height = 8 }
                                 layout
                                 state
@@ -1123,7 +1124,7 @@ suite =
                             Layout.horizontal
                                 [ Layout.paneGroup "nav"
                                     { tabs =
-                                        [ { id = "files", label = "Files", content = Layout.content [ Tui.text "f" ] }
+                                        [ { id = "files", label = "Files", content = Layout.content [ Tui.Screen.text "f" ] }
                                         ]
                                     , activeTab = "files"
                                     , width = Layout.fill
@@ -1137,7 +1138,7 @@ suite =
 
                         ( newState, maybeMsg ) =
                             Layout.handleMouse
-                                (Tui.Click { row = 0, col = 5, button = Tui.LeftButton })
+                                (Tui.Event.Click { row = 0, col = 5, button = Tui.Event.LeftButton })
                                 { width = 40, height = 8 }
                                 layout
                                 state
@@ -1158,21 +1159,21 @@ suite =
                                 |> Layout.focusPane "left"
                                 |> Layout.setSearching True
 
-                        screen : Tui.Screen
+                        screen : Tui.Screen.Screen
                         screen =
                             Layout.horizontal
                                 [ Layout.pane "left"
                                     { title = "Left", width = Layout.fill }
-                                    (Layout.content [ Tui.text "a" ])
+                                    (Layout.content [ Tui.Screen.text "a" ])
                                 , Layout.pane "right"
                                     { title = "Right", width = Layout.fill }
-                                    (Layout.content [ Tui.text "b" ])
+                                    (Layout.content [ Tui.Screen.text "b" ])
                                 ]
                                 |> Layout.toScreen (Layout.withContext { width = 40, height = 5 } state)
 
                         encoded : String
                         encoded =
-                            Tui.Internal.encodeScreen screen |> Json.Encode.encode 0
+                            Tui.Screen.encodeScreen screen |> Json.Encode.encode 0
                     in
                     -- Focused pane border should be cyan (not green) during search
                     Expect.all
@@ -1187,21 +1188,21 @@ suite =
                             Layout.init
                                 |> Layout.focusPane "left"
 
-                        screen : Tui.Screen
+                        screen : Tui.Screen.Screen
                         screen =
                             Layout.horizontal
                                 [ Layout.pane "left"
                                     { title = "Left", width = Layout.fill }
-                                    (Layout.content [ Tui.text "a" ])
+                                    (Layout.content [ Tui.Screen.text "a" ])
                                 , Layout.pane "right"
                                     { title = "Right", width = Layout.fill }
-                                    (Layout.content [ Tui.text "b" ])
+                                    (Layout.content [ Tui.Screen.text "b" ])
                                 ]
                                 |> Layout.toScreen (Layout.withContext { width = 40, height = 5 } state)
 
                         encoded : String
                         encoded =
-                            Tui.Internal.encodeScreen screen |> Json.Encode.encode 0
+                            Tui.Screen.encodeScreen screen |> Json.Encode.encode 0
                     in
                     encoded
                         |> String.contains "green"
@@ -1212,7 +1213,7 @@ suite =
 
 {-| Helper: render layout to Screen (preserving styles).
 -}
-renderScreenAt : { width : Int, height : Int } -> Layout.Layout msg -> Tui.Screen
+renderScreenAt : { width : Int, height : Int } -> Layout.Layout msg -> Tui.Screen.Screen
 renderScreenAt size layout =
     layout
         |> Layout.toScreen (Layout.withContext size Layout.init)
@@ -1231,7 +1232,7 @@ renderWithState : Layout.State -> { width : Int, height : Int } -> Layout.Layout
 renderWithState state size layout =
     layout
         |> Layout.toScreen (Layout.withContext size state)
-        |> Tui.toString
+        |> Tui.Screen.toString
 
 
 {-| A 10-item selectable list for testing scroll behavior.
@@ -1243,8 +1244,8 @@ tallList =
             { title = "Items", width = Layout.fill }
             (Layout.selectableList
                 { onSelect = identity
-                , selected = \item -> Tui.text ("▸ " ++ item)
-                , default = \item -> Tui.text ("  " ++ item)
+                , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                , default = \item -> Tui.Screen.text ("  " ++ item)
                 }
                 (List.range 0 9 |> List.map (\i -> "item " ++ String.fromInt i))
             )

@@ -4,6 +4,7 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Layout as Layout
+import Tui.Screen
 
 
 suite : Test
@@ -14,7 +15,7 @@ suite =
                 Layout.horizontal
                     [ Layout.pane "box"
                         { title = "Box", width = Layout.fill }
-                        (Layout.content [ Tui.text "content" ])
+                        (Layout.content [ Tui.Screen.text "content" ])
                     ]
                     |> renderLastRow { width = 20, height = 5 }
                     |> (\lastRow ->
@@ -29,10 +30,10 @@ suite =
                 Layout.horizontal
                     [ Layout.pane "left"
                         { title = "Left", width = Layout.fill }
-                        (Layout.content [ Tui.text "left" ])
+                        (Layout.content [ Tui.Screen.text "left" ])
                     , Layout.pane "right"
                         { title = "Right", width = Layout.fill }
-                        (Layout.content [ Tui.text "right" ])
+                        (Layout.content [ Tui.Screen.text "right" ])
                     ]
                     |> renderLastRow { width = 40, height = 5 }
                     |> (\lastRow ->
@@ -52,18 +53,18 @@ suite =
                                 \{ selection } item ->
                                     case selection of
                                         Layout.Selected _ ->
-                                            Tui.text ("▸ " ++ item)
+                                            Tui.Screen.text ("▸ " ++ item)
 
                                         Layout.NotSelected ->
-                                            Tui.text ("  " ++ item)
+                                            Tui.Screen.text ("  " ++ item)
                             }
                             (List.range 1 50 |> List.map (\i -> "Item " ++ String.fromInt i))
                         )
-                        |> Layout.withInlineFooter (Tui.text "1 of 50")
+                        |> Layout.withInlineFooter (Tui.Screen.text "1 of 50")
                     , Layout.pane "right"
                         { title = "Detail", width = Layout.fill }
-                        (Layout.content [ Tui.text "detail" ])
-                        |> Layout.withInlineFooter (Tui.text "1 of 2")
+                        (Layout.content [ Tui.Screen.text "detail" ])
+                        |> Layout.withInlineFooter (Tui.Screen.text "1 of 2")
                     ]
                     |> renderLastRow { width = 60, height = 20 }
                     |> (\lastRow ->
@@ -84,17 +85,17 @@ suite =
                                 \{ selection } item ->
                                     case selection of
                                         Layout.Selected _ ->
-                                            Tui.text ("▸ " ++ item)
+                                            Tui.Screen.text ("▸ " ++ item)
 
                                         Layout.NotSelected ->
-                                            Tui.text ("  " ++ item)
+                                            Tui.Screen.text ("  " ++ item)
                             }
                             (List.range 1 50 |> List.map (\i -> "Item " ++ String.fromInt i))
                         )
                         |> Layout.withFooter "1 of 50"
                     , Layout.pane "right"
                         { title = "Detail", width = Layout.fill }
-                        (Layout.content [ Tui.text "detail" ])
+                        (Layout.content [ Tui.Screen.text "detail" ])
                         |> Layout.withFooter "1 of 2"
                     ]
                     |> renderLastRow { width = 60, height = 20 }
@@ -117,24 +118,24 @@ suite =
                         { title = "Modules", width = Layout.fill }
                         (Layout.selectableList
                             { onSelect = identity
-                            , view = \_ item -> Tui.text item
+                            , view = \_ item -> Tui.Screen.text item
                             }
                             (items 51)
                         )
-                        |> Layout.withInlineFooter (Tui.text "1 of 51")
+                        |> Layout.withInlineFooter (Tui.Screen.text "1 of 51")
                     , Layout.pane "items"
                         { title = "Items", width = Layout.fill }
                         (Layout.selectableList
                             { onSelect = identity
-                            , view = \_ item -> Tui.text item
+                            , view = \_ item -> Tui.Screen.text item
                             }
                             (items 2)
                         )
-                        |> Layout.withInlineFooter (Tui.text "1 of 2")
+                        |> Layout.withInlineFooter (Tui.Screen.text "1 of 2")
                     , Layout.pane "detail"
                         { title = "README", width = Layout.fill }
                         (Layout.content
-                            (List.range 1 100 |> List.map (\i -> Tui.text ("Line " ++ String.fromInt i)))
+                            (List.range 1 100 |> List.map (\i -> Tui.Screen.text ("Line " ++ String.fromInt i)))
                         )
                     ]
                     |> renderLastRow { width = 90, height = 25 }
@@ -153,18 +154,18 @@ suite =
                         Layout.horizontal
                             [ Layout.pane "left"
                                 { title = "Left", width = Layout.fill }
-                                (Layout.content [ Tui.text "content" ])
-                                |> Layout.withInlineFooter (Tui.text "footer L")
+                                (Layout.content [ Tui.Screen.text "content" ])
+                                |> Layout.withInlineFooter (Tui.Screen.text "footer L")
                             , Layout.pane "right"
                                 { title = "Right", width = Layout.fill }
-                                (Layout.content [ Tui.text "content" ])
-                                |> Layout.withInlineFooter (Tui.text "footer R")
+                                (Layout.content [ Tui.Screen.text "content" ])
+                                |> Layout.withInlineFooter (Tui.Screen.text "footer R")
                             ]
 
                     rows =
                         layout
                             |> Layout.toRows (Layout.withContext { width = 40, height = 6 } Layout.init)
-                            |> List.map Tui.toString
+                            |> List.map Tui.Screen.toString
 
                     -- Row 0: top border, Row 1-3: content, Row 4: inline footer, Row 5: bottom border
                     -- All rows should have the same total width
@@ -219,5 +220,5 @@ renderLastRow size layout =
         |> Layout.toRows (Layout.withContext size Layout.init)
         |> List.reverse
         |> List.head
-        |> Maybe.map Tui.toString
+        |> Maybe.map Tui.Screen.toString
         |> Maybe.withDefault ""

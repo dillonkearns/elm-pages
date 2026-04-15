@@ -3,6 +3,7 @@ module StatusTests exposing (suite)
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
+import Tui.Screen
 import Tui.Status as Status
 
 
@@ -15,7 +16,7 @@ suite =
                     Status.init
                         |> Status.toast "Saved!"
                         |> Status.view { waiting = Nothing, tick = 0 }
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> String.contains "Saved!"
                         |> Expect.equal True
             , test "errorToast adds an error message" <|
@@ -23,7 +24,7 @@ suite =
                     Status.init
                         |> Status.errorToast "Failed!"
                         |> Status.view { waiting = Nothing, tick = 0 }
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> String.contains "Failed!"
                         |> Expect.equal True
             , test "toast auto-dismisses after enough ticks" <|
@@ -41,7 +42,7 @@ suite =
                                 |> List.foldl (\_ s -> Status.tick s) state
                     in
                     Status.view { waiting = Nothing, tick = 0 } ticked
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> String.contains "Gone soon"
                         |> Expect.equal False
             , test "errorToast lasts longer than normal toast" <|
@@ -59,7 +60,7 @@ suite =
                                 |> List.foldl (\_ s -> Status.tick s) state
                     in
                     Status.view { waiting = Nothing, tick = 0 } ticked
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> String.contains "Error!"
                         |> Expect.equal True
             , test "newest toast wins (stack-based)" <|
@@ -68,7 +69,7 @@ suite =
                         |> Status.toast "First"
                         |> Status.toast "Second"
                         |> Status.view { waiting = Nothing, tick = 0 }
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> (\s ->
                                 Expect.all
                                     [ \str -> str |> String.contains "Second" |> Expect.equal True
@@ -93,7 +94,7 @@ suite =
                 \() ->
                     Status.init
                         |> Status.view { waiting = Just "Pushing...", tick = 0 }
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> (\s ->
                                 Expect.all
                                     [ \str -> str |> String.contains "Pushing..." |> Expect.equal True
@@ -109,13 +110,13 @@ suite =
                         view0 =
                             Status.init
                                 |> Status.view { waiting = Just "Loading", tick = 0 }
-                                |> Tui.toString
+                                |> Tui.Screen.toString
 
                         view1 : String
                         view1 =
                             Status.init
                                 |> Status.view { waiting = Just "Loading", tick = 1 }
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     -- Different ticks should produce different spinner frames
                     (view0 /= view1) |> Expect.equal True
@@ -124,7 +125,7 @@ suite =
                     Status.init
                         |> Status.toast "Background message"
                         |> Status.view { waiting = Just "Working...", tick = 0 }
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> (\s ->
                                 Expect.all
                                     [ \str -> str |> String.contains "Working..." |> Expect.equal True
@@ -143,7 +144,7 @@ suite =
                 \() ->
                     Status.init
                         |> Status.view { waiting = Nothing, tick = 0 }
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> Expect.equal ""
             ]
         ]

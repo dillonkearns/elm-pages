@@ -3,7 +3,9 @@ module TreeViewTests exposing (suite)
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
+import Tui.Event
 import Tui.Layout as Layout
+import Tui.Screen
 
 
 files : List String
@@ -24,8 +26,8 @@ treeLayout =
             { title = "Files", width = Layout.fill }
             (Layout.selectableList
                 { onSelect = identity
-                , selected = \item -> Tui.text ("▸ " ++ item)
-                , default = \item -> Tui.text ("  " ++ item)
+                , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                , default = \item -> Tui.Screen.text ("  " ++ item)
                 }
                 files
                 |> Layout.withTreeView
@@ -50,7 +52,7 @@ suite =
                         rendered =
                             treeLayout
                                 |> Layout.toScreen state
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     Expect.all
                         [ -- Should show directory nodes
@@ -70,7 +72,7 @@ suite =
                         -- Toggle to flat view
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '`', modifiers = [] }
+                                { key = Tui.Event.Character '`', modifiers = [] }
                                 treeLayout
                                 state
 
@@ -78,7 +80,7 @@ suite =
                         rendered =
                             treeLayout
                                 |> Layout.toScreen s1
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     -- In flat view, full paths should be visible
                     Expect.all
@@ -99,12 +101,12 @@ suite =
                         rendered1 =
                             treeLayout
                                 |> Layout.toScreen state
-                                |> Tui.toString
+                                |> Tui.Screen.toString
 
                         -- Navigate to "src" directory and press Enter to collapse
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 treeLayout
                                 state
 
@@ -112,7 +114,7 @@ suite =
                         rendered2 =
                             treeLayout
                                 |> Layout.toScreen s1
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     Expect.all
                         [ -- Before collapse, children should be visible
@@ -132,7 +134,7 @@ suite =
 
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '-', modifiers = [] }
+                                { key = Tui.Event.Character '-', modifiers = [] }
                                 treeLayout
                                 state
 
@@ -140,7 +142,7 @@ suite =
                         rendered =
                             treeLayout
                                 |> Layout.toScreen s1
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     Expect.all
                         [ -- Directories should be visible
@@ -163,14 +165,14 @@ suite =
                         -- Collapse all first
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '-', modifiers = [] }
+                                { key = Tui.Event.Character '-', modifiers = [] }
                                 treeLayout
                                 state
 
                         -- Then expand all
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '=', modifiers = [] }
+                                { key = Tui.Event.Character '=', modifiers = [] }
                                 treeLayout
                                 s1
 
@@ -178,7 +180,7 @@ suite =
                         rendered =
                             treeLayout
                                 |> Layout.toScreen s2
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     Expect.all
                         [ \r -> r |> String.contains "Main.elm" |> Expect.equal True
@@ -215,7 +217,7 @@ suite =
                         -- Collapse all, then navigate to README.md (should be near the top)
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '-', modifiers = [] }
+                                { key = Tui.Event.Character '-', modifiers = [] }
                                 treeLayout
                                 state
 
@@ -275,8 +277,8 @@ suite =
                                     { title = "Files", width = Layout.fill }
                                     (Layout.selectableList
                                         { onSelect = identity
-                                        , selected = \f -> Tui.text ("▸ " ++ f)
-                                        , default = \f -> Tui.text ("  " ++ f)
+                                        , selected = \f -> Tui.Screen.text ("▸ " ++ f)
+                                        , default = \f -> Tui.Screen.text ("  " ++ f)
                                         }
                                         files
                                         |> Layout.withFilterable identity files
@@ -311,7 +313,7 @@ suite =
                         rendered =
                             treeLayout
                                 |> Layout.toScreen state
-                                |> Tui.toString
+                                |> Tui.Screen.toString
                     in
                     -- "tests" directory with single child should be compressed
                     -- The exact rendering depends on implementation

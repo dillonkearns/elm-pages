@@ -11,10 +11,11 @@ import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
 import Test.Runner
 import Time
-import Tui exposing (plain)
+import Tui
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Event
 import Tui.Input as Input
-import Tui.Internal
+import Tui.Screen exposing (plain)
 import Tui.Sub
 import Tui.Test as TuiTest
 
@@ -23,73 +24,73 @@ suite : Test
 suite =
     describe "Tui"
         [ describe "Screen"
-            [ test "text produces plain text" <|
+            [ test "text produces Tui.Screen.plain text" <|
                 \() ->
-                    Tui.text "hello"
-                        |> Tui.toString
+                    Tui.Screen.text "hello"
+                        |> Tui.Screen.toString
                         |> Expect.equal "hello"
             , test "lines joins with newlines" <|
                 \() ->
-                    Tui.lines
-                        [ Tui.text "line 1"
-                        , Tui.text "line 2"
+                    Tui.Screen.lines
+                        [ Tui.Screen.text "line 1"
+                        , Tui.Screen.text "line 2"
                         ]
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> Expect.equal "line 1\nline 2"
             , test "concat joins on same line" <|
                 \() ->
-                    Tui.concat
-                        [ Tui.text "hello "
-                        , Tui.text "world"
+                    Tui.Screen.concat
+                        [ Tui.Screen.text "hello "
+                        , Tui.Screen.text "world"
                         ]
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> Expect.equal "hello world"
-            , test "styled text has plain text content" <|
+            , test "styled text has Tui.Screen.plain text content" <|
                 \() ->
-                    Tui.styled { plain | fg = Just Ansi.Color.red, attributes = [ Tui.Bold ] } "warning"
-                        |> Tui.toString
+                    Tui.Screen.styled { plain | fg = Just Ansi.Color.red, attributes = [ Tui.Screen.Bold ] } "warning"
+                        |> Tui.Screen.toString
                         |> Expect.equal "warning"
             , test "empty produces nothing" <|
                 \() ->
-                    Tui.empty
-                        |> Tui.toString
+                    Tui.Screen.empty
+                        |> Tui.Screen.toString
                         |> Expect.equal ""
             , test "nested lines flatten correctly" <|
                 \() ->
-                    Tui.lines
-                        [ Tui.text "a"
-                        , Tui.lines
-                            [ Tui.text "b"
-                            , Tui.text "c"
+                    Tui.Screen.lines
+                        [ Tui.Screen.text "a"
+                        , Tui.Screen.lines
+                            [ Tui.Screen.text "b"
+                            , Tui.Screen.text "c"
                             ]
-                        , Tui.text "d"
+                        , Tui.Screen.text "d"
                         ]
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> Expect.equal "a\nb\nc\nd"
             ]
         , describe "Style builders"
             [ test "fg on text produces styled output" <|
                 \() ->
-                    Tui.text "hello"
-                        |> Tui.fg Ansi.Color.red
-                        |> Tui.Internal.encodeScreen
+                    Tui.Screen.text "hello"
+                        |> Tui.Screen.fg Ansi.Color.red
+                        |> Tui.Screen.encodeScreen
                         |> Encode.encode 0
                         |> String.contains "red"
                         |> Expect.equal True
             , test "bold on text produces bold output" <|
                 \() ->
-                    Tui.text "hello"
-                        |> Tui.bold
-                        |> Tui.Internal.encodeScreen
+                    Tui.Screen.text "hello"
+                        |> Tui.Screen.bold
+                        |> Tui.Screen.encodeScreen
                         |> Encode.encode 0
                         |> String.contains "bold"
                         |> Expect.equal True
             , test "chaining fg + bold works" <|
                 \() ->
-                    Tui.text "hello"
-                        |> Tui.fg Ansi.Color.green
-                        |> Tui.bold
-                        |> Tui.Internal.encodeScreen
+                    Tui.Screen.text "hello"
+                        |> Tui.Screen.fg Ansi.Color.green
+                        |> Tui.Screen.bold
+                        |> Tui.Screen.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 Expect.all
@@ -100,9 +101,9 @@ suite =
                            )
             , test "fg on concat applies to all children" <|
                 \() ->
-                    Tui.concat [ Tui.text "a", Tui.text "b" ]
-                        |> Tui.fg Ansi.Color.red
-                        |> Tui.Internal.encodeScreen
+                    Tui.Screen.concat [ Tui.Screen.text "a", Tui.Screen.text "b" ]
+                        |> Tui.Screen.fg Ansi.Color.red
+                        |> Tui.Screen.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 -- Both spans should have red
@@ -115,9 +116,9 @@ suite =
                            )
             , test "bold on concat applies to all children" <|
                 \() ->
-                    Tui.concat [ Tui.text "a", Tui.text "b" ]
-                        |> Tui.bold
-                        |> Tui.Internal.encodeScreen
+                    Tui.Screen.concat [ Tui.Screen.text "a", Tui.Screen.text "b" ]
+                        |> Tui.Screen.bold
+                        |> Tui.Screen.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 let
@@ -129,9 +130,9 @@ suite =
                            )
             , test "fg on lines applies to all rows" <|
                 \() ->
-                    Tui.lines [ Tui.text "row1", Tui.text "row2" ]
-                        |> Tui.fg Ansi.Color.cyan
-                        |> Tui.Internal.encodeScreen
+                    Tui.Screen.lines [ Tui.Screen.text "row1", Tui.Screen.text "row2" ]
+                        |> Tui.Screen.fg Ansi.Color.cyan
+                        |> Tui.Screen.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 let
@@ -143,12 +144,12 @@ suite =
                            )
             , test "outer style overwrites inner style" <|
                 \() ->
-                    Tui.concat
-                        [ Tui.text "inner" |> Tui.fg Ansi.Color.red
-                        , Tui.text "also"
+                    Tui.Screen.concat
+                        [ Tui.Screen.text "inner" |> Tui.Screen.fg Ansi.Color.red
+                        , Tui.Screen.text "also"
                         ]
-                        |> Tui.fg Ansi.Color.green
-                        |> Tui.Internal.encodeScreen
+                        |> Tui.Screen.fg Ansi.Color.green
+                        |> Tui.Screen.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 Expect.all
@@ -161,32 +162,32 @@ suite =
                            )
             , test "style on empty returns empty" <|
                 \() ->
-                    Tui.empty
-                        |> Tui.fg Ansi.Color.red
-                        |> Tui.toString
+                    Tui.Screen.empty
+                        |> Tui.Screen.fg Ansi.Color.red
+                        |> Tui.Screen.toString
                         |> Expect.equal ""
             , test "text content preserved through style builders" <|
                 \() ->
-                    Tui.concat [ Tui.text "hello ", Tui.text "world" ]
-                        |> Tui.fg Ansi.Color.green
-                        |> Tui.bold
-                        |> Tui.toString
+                    Tui.Screen.concat [ Tui.Screen.text "hello ", Tui.Screen.text "world" ]
+                        |> Tui.Screen.fg Ansi.Color.green
+                        |> Tui.Screen.bold
+                        |> Tui.Screen.toString
                         |> Expect.equal "hello world"
             , test "link encodes hyperlink in JSON" <|
                 \() ->
-                    Tui.text "elm/core"
-                        |> Tui.link { url = "https://package.elm-lang.org" }
-                        |> Tui.Internal.encodeScreen
+                    Tui.Screen.text "elm/core"
+                        |> Tui.Screen.link { url = "https://package.elm-lang.org" }
+                        |> Tui.Screen.encodeScreen
                         |> Encode.encode 0
                         |> String.contains "https://package.elm-lang.org"
                         |> Expect.equal True
             , test "link composes with fg and bold" <|
                 \() ->
-                    Tui.text "elm/core"
-                        |> Tui.fg Ansi.Color.blue
-                        |> Tui.underline
-                        |> Tui.link { url = "https://example.com" }
-                        |> Tui.Internal.encodeScreen
+                    Tui.Screen.text "elm/core"
+                        |> Tui.Screen.fg Ansi.Color.blue
+                        |> Tui.Screen.underline
+                        |> Tui.Screen.link { url = "https://example.com" }
+                        |> Tui.Screen.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 Expect.all
@@ -198,9 +199,9 @@ suite =
                            )
             , test "link on concat applies to all children" <|
                 \() ->
-                    Tui.concat [ Tui.text "hello ", Tui.text "world" ]
-                        |> Tui.link { url = "https://example.com" }
-                        |> Tui.Internal.encodeScreen
+                    Tui.Screen.concat [ Tui.Screen.text "hello ", Tui.Screen.text "world" ]
+                        |> Tui.Screen.link { url = "https://example.com" }
+                        |> Tui.Screen.encodeScreen
                         |> Encode.encode 0
                         |> (\s ->
                                 let
@@ -212,25 +213,25 @@ suite =
                            )
             , test "link stripped by toString" <|
                 \() ->
-                    Tui.text "elm/core"
-                        |> Tui.link { url = "https://example.com" }
-                        |> Tui.toString
+                    Tui.Screen.text "elm/core"
+                        |> Tui.Screen.link { url = "https://example.com" }
+                        |> Tui.Screen.toString
                         |> Expect.equal "elm/core"
             , test "link preserved by truncateWidth" <|
                 \() ->
-                    Tui.text "long link text"
-                        |> Tui.link { url = "https://example.com" }
-                        |> Tui.truncateWidth 10
-                        |> Tui.Internal.encodeScreen
+                    Tui.Screen.text "long link text"
+                        |> Tui.Screen.link { url = "https://example.com" }
+                        |> Tui.Screen.truncateWidth 10
+                        |> Tui.Screen.encodeScreen
                         |> Encode.encode 0
                         |> String.contains "https://example.com"
                         |> Expect.equal True
             , test "link preserved by wrapWidth" <|
                 \() ->
-                    Tui.text "hello world"
-                        |> Tui.link { url = "https://example.com" }
-                        |> Tui.wrapWidth 6
-                        |> List.map (\s -> Tui.extractStyle s |> .hyperlink)
+                    Tui.Screen.text "hello world"
+                        |> Tui.Screen.link { url = "https://example.com" }
+                        |> Tui.Screen.wrapWidth 6
+                        |> List.map (\s -> Tui.Screen.extractStyle s |> .hyperlink)
                         |> Expect.equal [ Just "https://example.com", Just "https://example.com" ]
             ]
         , describe "Input"
@@ -241,7 +242,7 @@ suite =
                         encoded =
                             Input.init "secret"
                                 |> Input.viewMasked { width = 40 }
-                                |> Tui.Internal.encodeScreen
+                                |> Tui.Screen.encodeScreen
                                 |> Encode.encode 0
                     in
                     Expect.all
@@ -254,170 +255,170 @@ suite =
                 \() ->
                     Input.init "abcdef"
                         |> Input.view { width = 3 }
-                        |> Tui.Internal.encodeScreen
+                        |> Tui.Screen.encodeScreen
                         |> Encode.encode 0
                         |> String.contains "\"inverse\":true"
                         |> Expect.equal True
             , test "editing around emoji uses grapheme boundaries" <|
                 \() ->
                     Input.init "🙂"
-                        |> Input.update { key = Tui.Arrow Tui.Left, modifiers = [] }
-                        |> Input.update { key = Tui.Character 'a', modifiers = [] }
+                        |> Input.update { key = Tui.Event.Arrow Tui.Event.Left, modifiers = [] }
+                        |> Input.update { key = Tui.Event.Character 'a', modifiers = [] }
                         |> Input.text
                         |> Expect.equal "a🙂"
             , test "moving through emoji does not render replacement characters" <|
                 \() ->
                     Input.init "🙂"
-                        |> Input.update { key = Tui.Arrow Tui.Left, modifiers = [] }
+                        |> Input.update { key = Tui.Event.Arrow Tui.Event.Left, modifiers = [] }
                         |> Input.view { width = 10 }
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> String.contains "�"
                         |> Expect.equal False
             ]
         , describe "wrapWidth"
             [ test "short text returns single line unchanged" <|
                 \() ->
-                    Tui.text "hello"
-                        |> Tui.wrapWidth 20
-                        |> List.map Tui.toString
+                    Tui.Screen.text "hello"
+                        |> Tui.Screen.wrapWidth 20
+                        |> List.map Tui.Screen.toString
                         |> Expect.equal [ "hello" ]
             , test "wraps at word boundary" <|
                 \() ->
-                    Tui.text "hello world foo"
-                        |> Tui.wrapWidth 11
-                        |> List.map Tui.toString
+                    Tui.Screen.text "hello world foo"
+                        |> Tui.Screen.wrapWidth 11
+                        |> List.map Tui.Screen.toString
                         |> Expect.equal [ "hello world", "foo" ]
             , test "wraps long text into multiple lines" <|
                 \() ->
-                    Tui.text "one two three four five"
-                        |> Tui.wrapWidth 10
-                        |> List.map Tui.toString
+                    Tui.Screen.text "one two three four five"
+                        |> Tui.Screen.wrapWidth 10
+                        |> List.map Tui.Screen.toString
                         |> Expect.equal [ "one two", "three four", "five" ]
             , test "preserves style across wrap" <|
                 \() ->
-                    Tui.text "hello world"
-                        |> Tui.bold
-                        |> Tui.wrapWidth 6
-                        |> List.map (\s -> ( Tui.toString s, Tui.extractStyle s ))
+                    Tui.Screen.text "hello world"
+                        |> Tui.Screen.bold
+                        |> Tui.Screen.wrapWidth 6
+                        |> List.map (\s -> ( Tui.Screen.toString s, Tui.Screen.extractStyle s ))
                         |> Expect.equal
-                            [ ( "hello", { plain | attributes = [ Tui.Bold ] } )
-                            , ( "world", { plain | attributes = [ Tui.Bold ] } )
+                            [ ( "hello", { plain | attributes = [ Tui.Screen.Bold ] } )
+                            , ( "world", { plain | attributes = [ Tui.Screen.Bold ] } )
                             ]
             , test "preserves styles in concat across wrap boundary" <|
                 \() ->
-                    Tui.concat
-                        [ Tui.text "This is a "
-                        , Tui.text "very important" |> Tui.bold
-                        , Tui.text " paragraph."
+                    Tui.Screen.concat
+                        [ Tui.Screen.text "This is a "
+                        , Tui.Screen.text "very important" |> Tui.Screen.bold
+                        , Tui.Screen.text " paragraph."
                         ]
-                        |> Tui.wrapWidth 24
-                        |> List.map Tui.toString
+                        |> Tui.Screen.wrapWidth 24
+                        |> List.map Tui.Screen.toString
                         |> Expect.equal [ "This is a very important", "paragraph." ]
             , test "word longer than maxWidth is broken mid-word" <|
                 \() ->
-                    Tui.text "abcdefghij rest"
-                        |> Tui.wrapWidth 5
-                        |> List.map Tui.toString
+                    Tui.Screen.text "abcdefghij rest"
+                        |> Tui.Screen.wrapWidth 5
+                        |> List.map Tui.Screen.toString
                         |> Expect.equal [ "abcde", "fghij", "rest" ]
             , test "empty screen returns empty list" <|
                 \() ->
-                    Tui.empty
-                        |> Tui.wrapWidth 10
+                    Tui.Screen.empty
+                        |> Tui.Screen.wrapWidth 10
                         |> Expect.equal []
             , test "non-positive width returns empty list" <|
                 \() ->
-                    Tui.text "hello"
-                        |> Tui.wrapWidth 0
+                    Tui.Screen.text "hello"
+                        |> Tui.Screen.wrapWidth 0
                         |> Expect.equal []
             , test "single word exactly at width" <|
                 \() ->
-                    Tui.text "hello"
-                        |> Tui.wrapWidth 5
-                        |> List.map Tui.toString
+                    Tui.Screen.text "hello"
+                        |> Tui.Screen.wrapWidth 5
+                        |> List.map Tui.Screen.toString
                         |> Expect.equal [ "hello" ]
             , test "multiple spaces treated as break points" <|
                 \() ->
-                    Tui.text "a b c d e"
-                        |> Tui.wrapWidth 5
-                        |> List.map Tui.toString
+                    Tui.Screen.text "a b c d e"
+                        |> Tui.Screen.wrapWidth 5
+                        |> List.map Tui.Screen.toString
                         |> Expect.equal [ "a b c", "d e" ]
             , test "styled span split preserves style on both halves" <|
                 \() ->
                     -- "very important" is bold, gets split across lines
-                    Tui.concat
-                        [ Tui.text "xx "
-                        , Tui.text "aaa bbb" |> Tui.fg Ansi.Color.red
-                        , Tui.text " end"
+                    Tui.Screen.concat
+                        [ Tui.Screen.text "xx "
+                        , Tui.Screen.text "aaa bbb" |> Tui.Screen.fg Ansi.Color.red
+                        , Tui.Screen.text " end"
                         ]
-                        |> Tui.wrapWidth 7
-                        |> List.map Tui.toString
+                        |> Tui.Screen.wrapWidth 7
+                        |> List.map Tui.Screen.toString
                         |> Expect.equal [ "xx aaa", "bbb end" ]
             , test "preserves existing line breaks instead of dropping later lines" <|
                 \() ->
-                    Tui.lines
-                        [ Tui.text "top"
-                        , Tui.text "bottom"
+                    Tui.Screen.lines
+                        [ Tui.Screen.text "top"
+                        , Tui.Screen.text "bottom"
                         ]
-                        |> Tui.wrapWidth 10
-                        |> List.map Tui.toString
+                        |> Tui.Screen.wrapWidth 10
+                        |> List.map Tui.Screen.toString
                         |> Expect.equal [ "top", "bottom" ]
             , test "preserves blank lines when wrapping multiline screens" <|
                 \() ->
-                    Tui.lines
-                        [ Tui.text "top"
-                        , Tui.blank
-                        , Tui.text "bottom"
+                    Tui.Screen.lines
+                        [ Tui.Screen.text "top"
+                        , Tui.Screen.blank
+                        , Tui.Screen.text "bottom"
                         ]
-                        |> Tui.wrapWidth 10
-                        |> List.map Tui.toString
+                        |> Tui.Screen.wrapWidth 10
+                        |> List.map Tui.Screen.toString
                         |> Expect.equal [ "top", "", "bottom" ]
             , test "wraps by grapheme instead of splitting combining marks" <|
                 \() ->
-                    Tui.text "áb"
-                        |> Tui.wrapWidth 1
-                        |> List.map Tui.toString
+                    Tui.Screen.text "áb"
+                        |> Tui.Screen.wrapWidth 1
+                        |> List.map Tui.Screen.toString
                         |> Expect.equal [ "á", "b" ]
             ]
         , describe "truncateWidth"
             [ test "non-positive width returns empty screen" <|
                 \() ->
-                    Tui.text "hello"
-                        |> Tui.truncateWidth 0
-                        |> Tui.toString
+                    Tui.Screen.text "hello"
+                        |> Tui.Screen.truncateWidth 0
+                        |> Tui.Screen.toString
                         |> Expect.equal ""
             , test "truncates by grapheme instead of corrupting emoji" <|
                 \() ->
-                    Tui.text "🙂x"
-                        |> Tui.truncateWidth 2
-                        |> Tui.toString
+                    Tui.Screen.text "🙂x"
+                        |> Tui.Screen.truncateWidth 2
+                        |> Tui.Screen.toString
                         |> Expect.equal "🙂x"
             ]
         , describe "concat"
             [ test "concatenates multiline screens row by row" <|
                 \() ->
-                    Tui.concat
-                        [ Tui.text "a"
-                        , Tui.lines
-                            [ Tui.text "b"
-                            , Tui.text "c"
+                    Tui.Screen.concat
+                        [ Tui.Screen.text "a"
+                        , Tui.Screen.lines
+                            [ Tui.Screen.text "b"
+                            , Tui.Screen.text "c"
                             ]
                         ]
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> Expect.equal "ab\nc"
             , test "keeps trailing rows from longer children" <|
                 \() ->
-                    Tui.concat
-                        [ Tui.lines
-                            [ Tui.text "a"
-                            , Tui.text "b"
+                    Tui.Screen.concat
+                        [ Tui.Screen.lines
+                            [ Tui.Screen.text "a"
+                            , Tui.Screen.text "b"
                             ]
-                        , Tui.lines
-                            [ Tui.text "x"
-                            , Tui.text "y"
-                            , Tui.text "z"
+                        , Tui.Screen.lines
+                            [ Tui.Screen.text "x"
+                            , Tui.Screen.text "y"
+                            , Tui.Screen.text "z"
                             ]
                         ]
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> Expect.equal "ax\nby\nz"
             ]
         , describe "TuiTest - Counter"
@@ -463,17 +464,17 @@ suite =
                 \() ->
                     counterTest
                         |> TuiTest.pressKeyWith
-                            { key = Tui.Escape, modifiers = [] }
+                            { key = Tui.Event.Escape, modifiers = [] }
                         |> TuiTest.expectExit
                         |> TuiTest.done
             , test "arrow keys work" <|
                 \() ->
                     counterTest
                         |> TuiTest.pressKeyWith
-                            { key = Tui.Arrow Tui.Up, modifiers = [] }
+                            { key = Tui.Event.Arrow Tui.Event.Up, modifiers = [] }
                         |> TuiTest.ensureViewHas "Count: 1"
                         |> TuiTest.pressKeyWith
-                            { key = Tui.Arrow Tui.Down, modifiers = [] }
+                            { key = Tui.Event.Arrow Tui.Event.Down, modifiers = [] }
                         |> TuiTest.ensureViewHas "Count: 0"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
@@ -513,7 +514,7 @@ suite =
             , test "sendMsg works for simulating BackendTask results" <|
                 \() ->
                     counterTest
-                        |> TuiTest.sendMsg (CounterKeyPressed { key = Tui.Character 'k', modifiers = [] })
+                        |> TuiTest.sendMsg (CounterKeyPressed { key = Tui.Event.Character 'k', modifiers = [] })
                         |> TuiTest.ensureViewHas "Count: 1"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
@@ -561,7 +562,7 @@ suite =
                 \() ->
                     starsTest
                         -- clear default input
-                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] })
+                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Event.Backspace, modifiers = [] })
                         |> TuiTest.pressKey 'f'
                         |> TuiTest.pressKey 'o'
                         |> TuiTest.pressKey 'o'
@@ -572,7 +573,7 @@ suite =
             , test "Enter triggers loading state" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
                         |> TuiTest.sendMsg (GotStars (Ok 0))
                         |> TuiTest.expectRunning
@@ -580,7 +581,7 @@ suite =
             , test "simulating BackendTask result shows stars" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
                         -- Simulate the BackendTask completing with 1234 stars
                         |> TuiTest.sendMsg (GotStars (Ok 1234))
@@ -591,7 +592,7 @@ suite =
             , test "simulating BackendTask error shows error" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                         |> TuiTest.sendMsg (GotStars (Err (FatalError.fromString "Not Found")))
                         |> TuiTest.ensureViewHas "Request failed"
                         |> TuiTest.ensureViewDoesNotHave "Loading"
@@ -600,7 +601,7 @@ suite =
             , test "typing after results clears them" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                         |> TuiTest.sendMsg (GotStars (Ok 999))
                         |> TuiTest.ensureViewHas "Stars: 999"
                         -- Now type something — results should clear
@@ -612,18 +613,18 @@ suite =
             , test "full flow: type, fetch, see result, edit, fetch again" <|
                 \() ->
                     starsTest
-                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] })
+                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Event.Backspace, modifiers = [] })
                         |> typeString "elm/core"
                         |> TuiTest.ensureViewHas "Repo: elm/core"
-                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
                         |> TuiTest.sendMsg (GotStars (Ok 7500))
                         |> TuiTest.ensureViewHas "Stars: 7500"
                         -- Edit: remove "core" (4 chars) and type "compiler"
-                        |> repeatN 4 (TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] })
+                        |> repeatN 4 (TuiTest.pressKeyWith { key = Tui.Event.Backspace, modifiers = [] })
                         |> typeString "compiler"
                         |> TuiTest.ensureViewHas "Repo: elm/compiler"
-                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                         |> TuiTest.sendMsg (GotStars (Ok 7800))
                         |> TuiTest.ensureViewHas "Stars: 7800"
                         |> TuiTest.expectRunning
@@ -633,7 +634,7 @@ suite =
             [ test "resolveEffect with simulateHttpGet resolves the pending BackendTask" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
                         |> TuiTest.resolveEffect
                             (BackendTaskTest.simulateHttpGet
@@ -647,9 +648,9 @@ suite =
             , test "resolveEffect with different repo after editing" <|
                 \() ->
                     starsTest
-                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Backspace, modifiers = [] })
+                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Event.Backspace, modifiers = [] })
                         |> typeString "elm/core"
-                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                         |> TuiTest.resolveEffect
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/elm/core"
@@ -678,7 +679,7 @@ suite =
             [ test "expectRunning fails with helpful message when effects are pending" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                         -- Don't resolve the HTTP effect
                         |> TuiTest.expectRunning
                         |> TuiTest.done
@@ -686,7 +687,7 @@ suite =
             , test "expectExit fails with helpful message when effects are pending" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                         |> TuiTest.expectExit
                         |> TuiTest.done
                         |> expectFailureContaining "pending BackendTask"
@@ -713,7 +714,7 @@ suite =
             , test "resolveEffect with wrong URL surfaces Test.BackendTask error" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                         |> TuiTest.resolveEffect
                             (BackendTaskTest.simulateHttpGet
                                 "https://WRONG-URL.com"
@@ -737,12 +738,12 @@ suite =
                         |> TuiTest.toSnapshots
                         |> List.length
                         |> Expect.equal 1
-            , test "initial snapshot screen is a Screen (use Tui.toString to query)" <|
+            , test "initial snapshot screen is a Screen (use Tui.Screen.toString to query)" <|
                 \() ->
                     counterTest
                         |> TuiTest.toSnapshots
                         |> List.head
-                        |> Maybe.map (.screen >> Tui.toString)
+                        |> Maybe.map (.screen >> Tui.Screen.toString)
                         |> Maybe.withDefault ""
                         |> String.contains "Count: 0"
                         |> Expect.equal True
@@ -773,28 +774,28 @@ suite =
                                 |> TuiTest.toSnapshots
                     in
                     snapshots
-                        |> List.map (.screen >> Tui.toString)
+                        |> List.map (.screen >> Tui.Screen.toString)
                         |> List.map (String.contains "Count: 0")
                         |> Expect.equal [ True, False, False ]
             , test "snapshots have descriptive labels" <|
                 \() ->
                     counterTest
                         |> TuiTest.pressKey 'k'
-                        |> TuiTest.pressKeyWith { key = Tui.Arrow Tui.Down, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Arrow Tui.Event.Down, modifiers = [] }
                         |> TuiTest.toSnapshots
                         |> List.map .label
                         |> Expect.equal [ "init", "pressKey 'k'", "pressKey Arrow Down" ]
             , test "snapshots track pending effects" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                         |> TuiTest.toSnapshots
                         |> List.map .hasPendingEffects
                         |> Expect.equal [ False, True ]
             , test "resolveEffect adds a snapshot" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                         |> TuiTest.resolveEffect
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -966,7 +967,7 @@ tuiTests =
             )
         , TuiTest.test "stars flow resolves effect"
             (starsTest
-                |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+                |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
                 |> TuiTest.ensureViewHas "Loading..."
                 |> TuiTest.resolveEffect
                     (BackendTaskTest.simulateHttpGet
@@ -1033,7 +1034,7 @@ type alias CounterModel =
 
 
 type CounterMsg
-    = CounterKeyPressed Tui.KeyEvent
+    = CounterKeyPressed Tui.Event.KeyEvent
 
 
 counterInit : () -> ( CounterModel, Effect CounterMsg )
@@ -1046,37 +1047,37 @@ counterUpdate msg model =
     case msg of
         CounterKeyPressed event ->
             case event.key of
-                Tui.Character 'k' ->
+                Tui.Event.Character 'k' ->
                     ( { model | count = model.count + 1 }, Effect.none )
 
-                Tui.Arrow Tui.Up ->
+                Tui.Event.Arrow Tui.Event.Up ->
                     ( { model | count = model.count + 1 }, Effect.none )
 
-                Tui.Character 'j' ->
+                Tui.Event.Character 'j' ->
                     ( { model | count = model.count - 1 }, Effect.none )
 
-                Tui.Arrow Tui.Down ->
+                Tui.Event.Arrow Tui.Event.Down ->
                     ( { model | count = model.count - 1 }, Effect.none )
 
-                Tui.Character 'q' ->
+                Tui.Event.Character 'q' ->
                     ( model, Effect.exit )
 
-                Tui.Escape ->
+                Tui.Event.Escape ->
                     ( model, Effect.exit )
 
                 _ ->
                     ( model, Effect.none )
 
 
-counterView : Tui.Context -> CounterModel -> Tui.Screen
+counterView : Tui.Context -> CounterModel -> Tui.Screen.Screen
 counterView ctx model =
-    Tui.lines
-        [ Tui.styled { plain | attributes = [ Tui.Bold ] } "Counter"
-        , Tui.concat
-            [ Tui.text "Count: "
-            , Tui.text (String.fromInt model.count)
+    Tui.Screen.lines
+        [ Tui.Screen.styled { plain | attributes = [ Tui.Screen.Bold ] } "Counter"
+        , Tui.Screen.concat
+            [ Tui.Screen.text "Count: "
+            , Tui.Screen.text (String.fromInt model.count)
             ]
-        , Tui.text
+        , Tui.Screen.text
             ("Terminal: "
                 ++ String.fromInt ctx.width
                 ++ "×"
@@ -1149,11 +1150,11 @@ contextUpdate msg model =
             ( { model | effectStatus = "Effect: " ++ sizeLabel }, Effect.none )
 
 
-contextView : Tui.Context -> ContextModel -> Tui.Screen
+contextView : Tui.Context -> ContextModel -> Tui.Screen.Screen
 contextView _ model =
-    Tui.lines
-        [ Tui.text ("Stored: " ++ model.stored)
-        , Tui.text model.effectStatus
+    Tui.Screen.lines
+        [ Tui.Screen.text ("Stored: " ++ model.stored)
+        , Tui.Screen.text model.effectStatus
         ]
 
 
@@ -1190,7 +1191,7 @@ type alias StarsModel =
 
 
 type StarsMsg
-    = StarsKeyPressed Tui.KeyEvent
+    = StarsKeyPressed Tui.Event.KeyEvent
     | GotStars (Result FatalError Int)
 
 
@@ -1209,15 +1210,15 @@ starsUpdate msg model =
     case msg of
         StarsKeyPressed event ->
             case event.key of
-                Tui.Escape ->
+                Tui.Event.Escape ->
                     ( model, Effect.exit )
 
-                Tui.Enter ->
+                Tui.Event.Enter ->
                     ( { model | loading = True, result = Err "Loading..." }
                     , starsFetch model.input
                     )
 
-                Tui.Backspace ->
+                Tui.Event.Backspace ->
                     ( { model
                         | input = String.dropRight 1 model.input
                         , result = Err ""
@@ -1225,7 +1226,7 @@ starsUpdate msg model =
                     , Effect.none
                     )
 
-                Tui.Character c ->
+                Tui.Event.Character c ->
                     ( { model
                         | input = model.input ++ String.fromChar c
                         , result = Err ""
@@ -1260,26 +1261,26 @@ starsFetch repo =
         |> Effect.attempt GotStars
 
 
-starsView : Tui.Context -> StarsModel -> Tui.Screen
+starsView : Tui.Context -> StarsModel -> Tui.Screen.Screen
 starsView _ model =
-    Tui.lines
-        [ Tui.styled { plain | attributes = [ Tui.Bold ] } "GitHub Stars"
-        , Tui.concat
-            [ Tui.text "Repo: "
-            , Tui.text model.input
+    Tui.Screen.lines
+        [ Tui.Screen.styled { plain | attributes = [ Tui.Screen.Bold ] } "GitHub Stars"
+        , Tui.Screen.concat
+            [ Tui.Screen.text "Repo: "
+            , Tui.Screen.text model.input
             ]
         , case ( model.loading, model.result ) of
             ( True, _ ) ->
-                Tui.text "Loading..."
+                Tui.Screen.text "Loading..."
 
             ( _, Ok stars ) ->
-                Tui.text ("Stars: " ++ String.fromInt stars)
+                Tui.Screen.text ("Stars: " ++ String.fromInt stars)
 
             ( _, Err "" ) ->
-                Tui.text "Press Enter to fetch"
+                Tui.Screen.text "Press Enter to fetch"
 
             ( _, Err errMsg ) ->
-                Tui.text errMsg
+                Tui.Screen.text errMsg
         ]
 
 
@@ -1330,9 +1331,9 @@ tickerUpdate msg model =
             )
 
 
-tickerView : Tui.Context -> TickerModel -> Tui.Screen
+tickerView : Tui.Context -> TickerModel -> Tui.Screen.Screen
 tickerView _ model =
-    Tui.text ("Ticks: " ++ String.fromInt (List.length model.ticks))
+    Tui.Screen.text ("Ticks: " ++ String.fromInt (List.length model.ticks))
 
 
 tickerSubscriptions : TickerModel -> Tui.Sub.Sub TickerMsg
@@ -1401,7 +1402,7 @@ sameIntervalDualSubTest interval =
                 , Effect.none
                 )
         , update = dualSubUpdate
-        , view = \_ _ -> Tui.text "dual"
+        , view = \_ _ -> Tui.Screen.text "dual"
         , subscriptions =
             \model ->
                 Tui.Sub.batch

@@ -12,9 +12,10 @@ import BackendTask.Http
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Pages.Script exposing (Script)
-import Tui exposing (plain)
+import Tui
 import Tui.Effect as Effect
-import Tui.Program
+import Tui.Event
+import Tui.Screen exposing (plain)
 import Tui.Sub
 
 
@@ -26,13 +27,13 @@ type alias Model =
 
 
 type Msg
-    = KeyPressed Tui.KeyEvent
+    = KeyPressed Tui.Event.KeyEvent
     | GotStars (Result FatalError Int)
 
 
 run : Script
 run =
-    Tui.Program.program
+    Tui.program
         { data = BackendTask.succeed ()
         , init = init
         , update = update
@@ -56,11 +57,11 @@ update msg model =
     case msg of
         KeyPressed event ->
             case event.key of
-                Tui.Escape ->
+                Tui.Event.Escape ->
                     ( model, Effect.exit )
 
-                Tui.Character 'q' ->
-                    if List.member Tui.Ctrl event.modifiers then
+                Tui.Event.Character 'q' ->
+                    if List.member Tui.Event.Ctrl event.modifiers then
                         ( model, Effect.exit )
 
                     else
@@ -71,12 +72,12 @@ update msg model =
                         , Effect.none
                         )
 
-                Tui.Enter ->
+                Tui.Event.Enter ->
                     ( { model | loading = True, result = Err "Loading..." }
                     , fetchStars model.input
                     )
 
-                Tui.Backspace ->
+                Tui.Event.Backspace ->
                     ( { model
                         | input = String.dropRight 1 model.input
                         , result = Err ""
@@ -84,7 +85,7 @@ update msg model =
                     , Effect.none
                     )
 
-                Tui.Character c ->
+                Tui.Event.Character c ->
                     ( { model
                         | input = model.input ++ String.fromChar c
                         , result = Err ""
@@ -119,46 +120,46 @@ fetchStars repo =
         |> Effect.attempt GotStars
 
 
-view : Tui.Context -> Model -> Tui.Screen
+view : Tui.Context -> Model -> Tui.Screen.Screen
 view _ model =
     let
         dimStyle =
-            { plain | attributes = [ Tui.Dim ] }
+            { plain | attributes = [ Tui.Screen.Dim ] }
     in
-    Tui.lines
-        [ Tui.text ""
-        , Tui.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
+    Tui.Screen.lines
+        [ Tui.Screen.text ""
+        , Tui.Screen.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Screen.Bold ] }
             "  GitHub Stars Fetcher"
-        , Tui.text ""
-        , Tui.concat
-            [ Tui.styled dimStyle "  Repo: "
-            , Tui.styled { plain | attributes = [ Tui.Bold ] } model.input
-            , Tui.styled dimStyle "▌"
+        , Tui.Screen.text ""
+        , Tui.Screen.concat
+            [ Tui.Screen.styled dimStyle "  Repo: "
+            , Tui.Screen.styled { plain | attributes = [ Tui.Screen.Bold ] } model.input
+            , Tui.Screen.styled dimStyle "▌"
             ]
-        , Tui.text ""
+        , Tui.Screen.text ""
         , case ( model.loading, model.result ) of
             ( True, _ ) ->
-                Tui.styled { plain | fg = Just Ansi.Color.yellow } "  ⟳ Fetching..."
+                Tui.Screen.styled { plain | fg = Just Ansi.Color.yellow } "  ⟳ Fetching..."
 
             ( _, Ok stars ) ->
-                Tui.concat
-                    [ Tui.text "  "
-                    , Tui.styled { plain | fg = Just Ansi.Color.yellow } "★ "
-                    , Tui.styled { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
+                Tui.Screen.concat
+                    [ Tui.Screen.text "  "
+                    , Tui.Screen.styled { plain | fg = Just Ansi.Color.yellow } "★ "
+                    , Tui.Screen.styled { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Screen.Bold ] }
                         (String.fromInt stars)
-                    , Tui.styled dimStyle
+                    , Tui.Screen.styled dimStyle
                         (" stars on " ++ model.input)
                     ]
 
             ( _, Err "" ) ->
-                Tui.styled dimStyle "  Press Enter to fetch"
+                Tui.Screen.styled dimStyle "  Press Enter to fetch"
 
             ( _, Err errMsg ) ->
-                Tui.styled { plain | fg = Just Ansi.Color.red }
+                Tui.Screen.styled { plain | fg = Just Ansi.Color.red }
                     ("  " ++ errMsg)
-        , Tui.text ""
-        , Tui.styled dimStyle "  Enter    fetch stars"
-        , Tui.styled dimStyle "  Esc      quit"
+        , Tui.Screen.text ""
+        , Tui.Screen.styled dimStyle "  Enter    fetch stars"
+        , Tui.Screen.styled dimStyle "  Esc      quit"
         ]
 
 

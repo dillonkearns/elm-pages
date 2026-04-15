@@ -12,16 +12,16 @@ import Tui.Screen as Screen
 suite : Test
 suite =
     describe "public TUI API"
-        [ describe "Tui.Screen"
+        [ describe "Screen.Screen"
             [ test "toSpanLines preserves styled text in public spans" <|
                 \() ->
                     let
                         spanLines : List (List Screen.Span)
                         spanLines =
-                            Tui.concat
-                                [ Tui.text "Hello" |> Tui.fg Ansi.Color.red |> Tui.bold
-                                , Tui.text " "
-                                , Tui.text "elm-pages" |> Tui.link { url = "https://elm-pages.com" }
+                            Screen.concat
+                                [ Screen.text "Hello" |> Screen.fg Ansi.Color.red |> Screen.bold
+                                , Screen.text " "
+                                , Screen.text "elm-pages" |> Screen.link { url = "https://elm-pages.com" }
                                 ]
                                 |> Screen.toSpanLines
                     in
@@ -30,7 +30,7 @@ suite =
                             Expect.all
                                 [ \_ -> Expect.equal "Hello" first.text
                                 , \_ -> Expect.equal (Just Ansi.Color.red) first.style.fg
-                                , \_ -> Expect.equal [ Tui.Bold ] first.style.attributes
+                                , \_ -> Expect.equal [ Screen.Bold ] first.style.attributes
                                 , \_ -> Expect.equal "elm-pages" third.text
                                 , \_ -> Expect.equal (Just "https://elm-pages.com") third.style.hyperlink
                                 ]
@@ -41,28 +41,28 @@ suite =
             , test "fromSpans rebuilds a screen from public spans" <|
                 \() ->
                     let
-                        plainStyle : Tui.Style
+                        plainStyle : Screen.Style
                         plainStyle =
-                            Tui.plain
+                            Screen.plain
 
-                        greenBoldStyle : Tui.Style
+                        greenBoldStyle : Screen.Style
                         greenBoldStyle =
-                            { plainStyle | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
+                            { plainStyle | fg = Just Ansi.Color.green, attributes = [ Screen.Bold ] }
                     in
                     [ { text = "Status", style = greenBoldStyle }
                     , { text = ": ready", style = plainStyle }
                     ]
                         |> Screen.fromSpans
-                        |> Tui.toString
+                        |> Screen.toString
                         |> Expect.equal "Status: ready"
             , test "truncateSpans keeps style information on the truncated span" <|
                 \() ->
                     let
-                        plainStyle : Tui.Style
+                        plainStyle : Screen.Style
                         plainStyle =
-                            Tui.plain
+                            Screen.plain
 
-                        linkStyle : Tui.Style
+                        linkStyle : Screen.Style
                         linkStyle =
                             { plainStyle | hyperlink = Just "https://elm-pages.com" }
                     in
@@ -73,11 +73,11 @@ suite =
             , test "wrapSpans preserves style information across wrapped lines" <|
                 \() ->
                     let
-                        plainStyle : Tui.Style
+                        plainStyle : Screen.Style
                         plainStyle =
-                            Tui.plain
+                            Screen.plain
 
-                        cyanStyle : Tui.Style
+                        cyanStyle : Screen.Style
                         cyanStyle =
                             { plainStyle | fg = Just Ansi.Color.cyan }
                     in
@@ -126,29 +126,29 @@ suite =
                             , "exit:2"
                             ]
             ]
-        , describe "Tui.Screen width helpers"
+        , describe "Screen.Screen width helpers"
             [ test "truncateSpans with non-positive width returns no spans" <|
                 \() ->
-                    [ { text = "hello", style = Tui.plain } ]
+                    [ { text = "hello", style = Screen.plain } ]
                         |> Screen.truncateSpans 0
                         |> Expect.equal []
             , test "wrapSpans with non-positive width returns no lines" <|
                 \() ->
-                    [ { text = "hello", style = Tui.plain } ]
+                    [ { text = "hello", style = Screen.plain } ]
                         |> Screen.wrapSpans 0
                         |> Expect.equal []
             , test "truncateSpans respects grapheme boundaries" <|
                 \() ->
-                    [ { text = "🙂x", style = Tui.plain } ]
+                    [ { text = "🙂x", style = Screen.plain } ]
                         |> Screen.truncateSpans 2
-                        |> Expect.equal [ { text = "🙂x", style = Tui.plain } ]
+                        |> Expect.equal [ { text = "🙂x", style = Screen.plain } ]
             , test "wrapSpans respects grapheme boundaries" <|
                 \() ->
-                    [ { text = "áb", style = Tui.plain } ]
+                    [ { text = "áb", style = Screen.plain } ]
                         |> Screen.wrapSpans 1
                         |> Expect.equal
-                            [ [ { text = "á", style = Tui.plain } ]
-                            , [ { text = "b", style = Tui.plain } ]
+                            [ [ { text = "á", style = Screen.plain } ]
+                            , [ { text = "b", style = Screen.plain } ]
                             ]
             ]
         ]

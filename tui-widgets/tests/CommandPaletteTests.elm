@@ -4,7 +4,9 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.CommandPalette as CommandPalette
+import Tui.Event
 import Tui.Keybinding as Keybinding
+import Tui.Screen
 
 
 suite : Test
@@ -16,8 +18,8 @@ suite =
                     longPalette
                         |> navigateDownN 8
                         |> CommandPalette.viewBodyWithMaxRows 7
-                        |> Tui.lines
-                        |> Tui.toString
+                        |> Tui.Screen.lines
+                        |> Tui.Screen.toString
                         |> expectContains "Action 09"
             , test "keeps the rendered row count stable when scrolled near the end" <|
                 \() ->
@@ -44,7 +46,7 @@ longPalette =
                             keyChar =
                                 Char.fromCode (Char.toCode 'a' + i - 1)
                         in
-                        Keybinding.binding (Tui.Character keyChar) label label
+                        Keybinding.binding (Tui.Event.Character keyChar) label label
                     )
             )
         ]

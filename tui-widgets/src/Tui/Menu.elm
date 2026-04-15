@@ -41,7 +41,7 @@ Handle keys while the menu is open:
                     handleAction action { model | menu = Nothing }
 
                 ( newMenu, Nothing ) ->
-                    if event.key == Tui.Escape then
+                    if event.key == Tui.Event.Escape then
                         ( { model | menu = Nothing }, Effect.none )
                     else
                         ( { model | menu = Just newMenu }, Effect.none )
@@ -75,6 +75,8 @@ Handle keys while the menu is open:
 
 import Ansi.Color
 import Tui
+import Tui.Event
+import Tui.Screen
 
 
 {-| Opaque menu state. Tracks the items and the current highlight position.
@@ -93,7 +95,7 @@ type alias SectionData msg =
 
 
 type alias ItemData msg =
-    { key : Tui.Key
+    { key : Tui.Event.Key
     , label : String
     , result : ItemResult msg
     }
@@ -120,11 +122,11 @@ type Item msg
 
     Menu.open
         [ Menu.section "Files"
-            [ Menu.item { key = Tui.Character 's', label = "Stage", action = "stage" }
-            , Menu.disabledItem { key = Tui.Character 'u', label = "Unstage", reason = "Nothing staged" }
+            [ Menu.item { key = Tui.Event.Character 's', label = "Stage", action = "stage" }
+            , Menu.disabledItem { key = Tui.Event.Character 'u', label = "Unstage", reason = "Nothing staged" }
             ]
         , Menu.section "Commit"
-            [ Menu.item { key = Tui.Character 'c', label = "Commit", action = "commit" }
+            [ Menu.item { key = Tui.Event.Character 'c', label = "Commit", action = "commit" }
             ]
         ]
 
@@ -149,10 +151,10 @@ section name items =
 
 {-| Create an enabled menu item with a key shortcut.
 
-    Menu.item { key = Tui.Character 'c', label = "Commit", action = DoCommit }
+    Menu.item { key = Tui.Event.Character 'c', label = "Commit", action = DoCommit }
 
 -}
-item : { key : Tui.Key, label : String, action : msg } -> Item msg
+item : { key : Tui.Event.Key, label : String, action : msg } -> Item msg
 item config =
     Item
         { key = config.key
@@ -163,10 +165,10 @@ item config =
 
 {-| Create a disabled menu item. Shows the reason why it's unavailable.
 
-    Menu.disabledItem { key = Tui.Character 'u', label = "Unstage", reason = "Nothing staged" }
+    Menu.disabledItem { key = Tui.Event.Character 'u', label = "Unstage", reason = "Nothing staged" }
 
 -}
-disabledItem : { key : Tui.Key, label : String, reason : String } -> Item msg
+disabledItem : { key : Tui.Event.Key, label : String, reason : String } -> Item msg
 disabledItem config =
     Item
         { key = config.key
@@ -183,7 +185,7 @@ j/k navigate the highlight, Enter confirms the highlighted item.
 Disabled items cannot be activated.
 
 -}
-handleKeyEvent : Tui.KeyEvent -> State msg -> ( State msg, Maybe msg )
+handleKeyEvent : Tui.Event.KeyEvent -> State msg -> ( State msg, Maybe msg )
 handleKeyEvent event (State s) =
     let
         allItems : List (ItemData msg)
@@ -209,27 +211,27 @@ handleKeyEvent event (State s) =
             List.length enabledItems
     in
     case event.key of
-        Tui.Character 'j' ->
+        Tui.Event.Character 'j' ->
             ( State { s | highlightIndex = min (enabledCount - 1) (s.highlightIndex + 1) }
             , Nothing
             )
 
-        Tui.Character 'k' ->
+        Tui.Event.Character 'k' ->
             ( State { s | highlightIndex = max 0 (s.highlightIndex - 1) }
             , Nothing
             )
 
-        Tui.Arrow Tui.Down ->
+        Tui.Event.Arrow Tui.Event.Down ->
             ( State { s | highlightIndex = min (enabledCount - 1) (s.highlightIndex + 1) }
             , Nothing
             )
 
-        Tui.Arrow Tui.Up ->
+        Tui.Event.Arrow Tui.Event.Up ->
             ( State { s | highlightIndex = max 0 (s.highlightIndex - 1) }
             , Nothing
             )
 
-        Tui.Enter ->
+        Tui.Event.Enter ->
             let
                 selectedAction =
                     enabledItems
@@ -278,7 +280,7 @@ and the label right of it. The highlighted item has a blue background.
 Disabled items are dimmed with the reason shown.
 
 -}
-viewBody : State msg -> List Tui.Screen
+viewBody : State msg -> List Tui.Screen.Screen
 viewBody state =
     renderBodyRows state
         |> List.map .screen
@@ -303,14 +305,14 @@ overflows, the returned list is padded so the modal height stays stable near the
 end of the list.
 
 -}
-viewBodyWithMaxRows : Int -> State msg -> List Tui.Screen
+viewBodyWithMaxRows : Int -> State msg -> List Tui.Screen.Screen
 viewBodyWithMaxRows maxRows state =
     let
         renderedRows : List RenderedRow
         renderedRows =
             renderBodyRows state
 
-        allRows : List Tui.Screen
+        allRows : List Tui.Screen.Screen
         allRows =
             renderedRows
                 |> List.map .screen
@@ -350,7 +352,7 @@ viewBodyWithMaxRows maxRows state =
                 Nothing ->
                     0
 
-        windowedRows : List Tui.Screen
+        windowedRows : List Tui.Screen.Screen
         windowedRows =
             if visibleRows <= 0 then
                 []
@@ -368,14 +370,14 @@ viewBodyWithMaxRows maxRows state =
 
     else if List.length windowedRows < visibleRows then
         windowedRows
-            ++ List.repeat (visibleRows - List.length windowedRows) Tui.empty
+            ++ List.repeat (visibleRows - List.length windowedRows) Tui.Screen.empty
 
     else
         windowedRows
 
 
 type alias RenderedRow =
-    { screen : Tui.Screen
+    { screen : Tui.Screen.Screen
     , isHighlighted : Bool
     }
 
@@ -413,7 +415,7 @@ renderBodyRows (State s) =
             (\indexedSection ->
                 let
                     header =
-                        { screen = Tui.text ("--- " ++ indexedSection.name ++ " ---") |> Tui.bold
+                        { screen = Tui.Screen.text ("--- " ++ indexedSection.name ++ " ---") |> Tui.Screen.bold
                         , isHighlighted = False
                         }
 
@@ -433,27 +435,27 @@ renderBodyRows (State s) =
                                                 Enabled _ ->
                                                     let
                                                         row =
-                                                            Tui.concat
-                                                                [ Tui.text ("  " ++ keyLabel)
-                                                                    |> Tui.fg Ansi.Color.cyan
-                                                                    |> Tui.bold
-                                                                , Tui.text (" " ++ i.label)
+                                                            Tui.Screen.concat
+                                                                [ Tui.Screen.text ("  " ++ keyLabel)
+                                                                    |> Tui.Screen.fg Ansi.Color.cyan
+                                                                    |> Tui.Screen.bold
+                                                                , Tui.Screen.text (" " ++ i.label)
                                                                 ]
                                                     in
                                                     if isHighlighted then
-                                                        row |> Tui.bg Ansi.Color.blue
+                                                        row |> Tui.Screen.bg Ansi.Color.blue
 
                                                     else
                                                         row
 
                                                 Disabled reason ->
-                                                    Tui.concat
-                                                        [ Tui.text ("  " ++ keyLabel)
-                                                            |> Tui.dim
-                                                        , Tui.text (" " ++ i.label)
-                                                            |> Tui.dim
-                                                        , Tui.text (" (" ++ reason ++ ")")
-                                                            |> Tui.dim
+                                                    Tui.Screen.concat
+                                                        [ Tui.Screen.text ("  " ++ keyLabel)
+                                                            |> Tui.Screen.dim
+                                                        , Tui.Screen.text (" " ++ i.label)
+                                                            |> Tui.Screen.dim
+                                                        , Tui.Screen.text (" (" ++ reason ++ ")")
+                                                            |> Tui.Screen.dim
                                                         ]
                                     in
                                     { screen = screen, isHighlighted = isHighlighted }
@@ -511,50 +513,50 @@ title =
 -- HELPERS
 
 
-keyToString : Tui.Key -> String
+keyToString : Tui.Event.Key -> String
 keyToString key =
     case key of
-        Tui.Character c ->
+        Tui.Event.Character c ->
             String.fromChar c
 
-        Tui.Enter ->
+        Tui.Event.Enter ->
             "Enter"
 
-        Tui.Escape ->
+        Tui.Event.Escape ->
             "Esc"
 
-        Tui.Tab ->
+        Tui.Event.Tab ->
             "Tab"
 
-        Tui.Backspace ->
+        Tui.Event.Backspace ->
             "Bksp"
 
-        Tui.Delete ->
+        Tui.Event.Delete ->
             "Del"
 
-        Tui.Arrow Tui.Up ->
+        Tui.Event.Arrow Tui.Event.Up ->
             "↑"
 
-        Tui.Arrow Tui.Down ->
+        Tui.Event.Arrow Tui.Event.Down ->
             "↓"
 
-        Tui.Arrow Tui.Left ->
+        Tui.Event.Arrow Tui.Event.Left ->
             "←"
 
-        Tui.Arrow Tui.Right ->
+        Tui.Event.Arrow Tui.Event.Right ->
             "→"
 
-        Tui.Home ->
+        Tui.Event.Home ->
             "Home"
 
-        Tui.End ->
+        Tui.Event.End ->
             "End"
 
-        Tui.PageUp ->
+        Tui.Event.PageUp ->
             "PgUp"
 
-        Tui.PageDown ->
+        Tui.Event.PageDown ->
             "PgDn"
 
-        Tui.FunctionKey n ->
+        Tui.Event.FunctionKey n ->
             "F" ++ String.fromInt n

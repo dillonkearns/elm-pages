@@ -61,6 +61,7 @@ just renders it.
 
 import Ansi.Color
 import Tui
+import Tui.Screen
 
 
 {-| Opaque status state. Manages the toast queue and tick counts.
@@ -122,12 +123,12 @@ tick (State items) =
         |> State
 
 
-{-| Render the current status. Always returns a `Tui.Screen` — renders
-`Tui.empty` when nothing is active (no need to wrap in `Maybe`).
+{-| Render the current status. Always returns a `Tui.Screen.Screen` — renders
+`Tui.Screen.empty` when nothing is active (no need to wrap in `Maybe`).
 
   - **Waiting** takes priority: shows the message with an animated spinner
   - **Toast** shows the most recent toast (cyan for normal, red for error)
-  - **Nothing active**: returns `Tui.empty` (renders nothing)
+  - **Nothing active**: returns `Tui.Screen.empty` (renders nothing)
 
 The waiting message comes from YOUR model — Status doesn't track it.
 This keeps the "am I doing something?" state explicit in your model,
@@ -137,7 +138,7 @@ where it belongs.
     Status.view { waiting = model.activeOperation, tick = model.spinnerTick } model.status
 
 -}
-view : { waiting : Maybe String, tick : Int } -> State -> Tui.Screen
+view : { waiting : Maybe String, tick : Int } -> State -> Tui.Screen.Screen
 view config (State items) =
     case config.waiting of
         Just message ->
@@ -152,18 +153,18 @@ view config (State items) =
                         |> List.head
                         |> Maybe.withDefault "|"
             in
-            Tui.concat
-                [ Tui.text (" " ++ message ++ " ")
-                    |> Tui.fg Ansi.Color.cyan
-                , Tui.text frame
-                    |> Tui.fg Ansi.Color.cyan
+            Tui.Screen.concat
+                [ Tui.Screen.text (" " ++ message ++ " ")
+                    |> Tui.Screen.fg Ansi.Color.cyan
+                , Tui.Screen.text frame
+                    |> Tui.Screen.fg Ansi.Color.cyan
                 ]
 
         Nothing ->
             -- Show most recent toast
             case items of
                 [] ->
-                    Tui.empty
+                    Tui.Screen.empty
 
                 item :: _ ->
                     let
@@ -175,7 +176,7 @@ view config (State items) =
                                 Error ->
                                     Ansi.Color.red
                     in
-                    Tui.text (" " ++ item.message ++ " ") |> Tui.fg color
+                    Tui.Screen.text (" " ++ item.message ++ " ") |> Tui.Screen.fg color
 
 
 {-| Is there any active status (toasts or waiting)? Use this to

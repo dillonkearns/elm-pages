@@ -31,25 +31,26 @@ in your model.
 
     -- In view:
     if model.loading then
-        Tui.concat
-            [ Tui.text "Loading... "
+        Tui.Screen.concat
+            [ Tui.Screen.text "Loading... "
             , Tui.Spinner.view model.spinnerTick
             ]
     else
-        Tui.text "Done!"
+        Tui.Screen.text "Done!"
 
 @docs view, subscriptions
 
 -}
 
 import Tui
+import Tui.Screen
 import Tui.Sub
 
 
 {-| Render the spinner character for the current tick.
 Uses lazygit's character set: `|`, `/`, `-`, `\`.
 -}
-view : Int -> Tui.Screen
+view : Int -> Tui.Screen.Screen
 view tick =
     let
         frames : List String
@@ -64,7 +65,7 @@ view tick =
         |> List.drop index
         |> List.head
         |> Maybe.withDefault "|"
-        |> Tui.text
+        |> Tui.Screen.text
 
 
 {-| Subscribe to spinner ticks (50ms interval). Only include this in

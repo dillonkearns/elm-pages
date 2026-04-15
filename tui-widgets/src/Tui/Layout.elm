@@ -46,9 +46,9 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
                     , view = \{ selection } c ->
                         case selection of
                             Layout.Selected { focused } ->
-                                Tui.text ("▸ " ++ c.sha)
-                                    |> (if focused then Tui.bold else identity)
-                            Layout.NotSelected -> Tui.text ("  " ++ c.sha)
+                                TuiScreen.text ("▸ " ++ c.sha)
+                                    |> (if focused then TuiScreen.bold else identity)
+                            Layout.NotSelected -> TuiScreen.text ("  " ++ c.sha)
                     }
                     model.commits
                 )
@@ -162,15 +162,15 @@ import Char
 import Dict exposing (Dict)
 import FatalError exposing (FatalError)
 import Set exposing (Set)
-import Tui exposing (Attribute(..), MouseEvent, Screen, plain)
+import Tui
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Event exposing (MouseEvent)
 import Tui.Keybinding
 import Tui.Menu
 import Tui.Modal
 import Tui.OptionsBar
-import Tui.Program
 import Tui.Prompt
-import Tui.Screen as TuiScreen
+import Tui.Screen as TuiScreen exposing (Screen, plain)
 import Tui.Status
 import Tui.Sub
 
@@ -367,13 +367,13 @@ paneGroup groupId config =
                 |> List.map
                     (\tab ->
                         if tab.id == config.activeTab then
-                            Tui.text tab.label |> Tui.bold
+                            TuiScreen.text tab.label |> TuiScreen.bold
 
                         else
-                            Tui.text tab.label |> Tui.dim
+                            TuiScreen.text tab.label |> TuiScreen.dim
                     )
-                |> List.intersperse (Tui.text " - " |> Tui.dim)
-                |> Tui.concat
+                |> List.intersperse (TuiScreen.text " - " |> TuiScreen.dim)
+                |> TuiScreen.concat
     in
     PaneConstructor
         { id = groupId
@@ -437,8 +437,8 @@ new code — the item-based `onSelect` eliminates index-mapping bugs.
 
     Layout.indexSelectableList
         { onSelect = SelectCommitIndex
-        , selected = \commit -> Tui.styled selectedStyle commit.sha
-        , default = \commit -> Tui.text commit.sha
+        , selected = \commit -> TuiScreen.styled selectedStyle commit.sha
+        , default = \commit -> TuiScreen.text commit.sha
         }
         model.commits
 
@@ -462,7 +462,7 @@ indexSelectableList config items =
             \i ->
                 Array.get i itemArray
                     |> Maybe.map config.selected
-                    |> Maybe.withDefault Tui.empty
+                    |> Maybe.withDefault TuiScreen.empty
     in
     SelectableContent
         { itemCount = Array.length itemArray
@@ -470,7 +470,7 @@ indexSelectableList config items =
             \i ->
                 Array.get i itemArray
                     |> Maybe.map config.default
-                    |> Maybe.withDefault Tui.empty
+                    |> Maybe.withDefault TuiScreen.empty
         , renderSelected = renderSel
         , renderSelectedUnfocused = renderSel
         , onSelect = config.onSelect
@@ -487,12 +487,12 @@ Without this, unfocused panes use the same `selected` style as focused ones.
 
     Layout.selectableList
         { onSelect = SelectItem
-        , selected = \item -> Tui.text ("▸ " ++ item) |> Tui.bg Ansi.Color.blue
-        , default = \item -> Tui.text ("  " ++ item)
+        , selected = \item -> TuiScreen.text ("▸ " ++ item) |> TuiScreen.bg Ansi.Color.blue
+        , default = \item -> TuiScreen.text ("  " ++ item)
         }
         items
         |> Layout.withUnfocusedStyle
-            (\item -> Tui.text ("▸ " ++ item) |> Tui.bold)
+            (\item -> TuiScreen.text ("▸ " ++ item) |> TuiScreen.bold)
             items
 
 -}
@@ -511,7 +511,7 @@ withUnfocusedStyle renderUnfocused items paneContent =
                         \i ->
                             Array.get i itemArray
                                 |> Maybe.map renderUnfocused
-                                |> Maybe.withDefault Tui.empty
+                                |> Maybe.withDefault TuiScreen.empty
                 }
 
         StaticContent _ ->
@@ -531,11 +531,11 @@ Use `Selected _` to match any selected item regardless of focus.
         , view = \{ selection } commit ->
             case selection of
                 Layout.Selected { focused } ->
-                    Tui.text commit.sha
-                        |> (if focused then Tui.bg Ansi.Color.blue else Tui.bold)
+                    TuiScreen.text commit.sha
+                        |> (if focused then TuiScreen.bg Ansi.Color.blue else TuiScreen.bold)
 
                 Layout.NotSelected ->
-                    Tui.text commit.sha
+                    TuiScreen.text commit.sha
         }
         model.commits
 
@@ -553,9 +553,9 @@ that receives `SelectionState`.
         , view = \{ selection } item ->
             case selection of
                 Layout.Selected { focused } ->
-                    Tui.text item
-                        |> (if focused then Tui.bg Ansi.Color.blue else Tui.bold)
-                Layout.NotSelected -> Tui.text item
+                    TuiScreen.text item
+                        |> (if focused then TuiScreen.bg Ansi.Color.blue else TuiScreen.bold)
+                Layout.NotSelected -> TuiScreen.text item
         }
         items
 
@@ -584,7 +584,7 @@ selectableList config items =
                 renderWith selState i =
                     Array.get i itemArray
                         |> Maybe.map (config.view { selection = selState })
-                        |> Maybe.withDefault Tui.empty
+                        |> Maybe.withDefault TuiScreen.empty
             in
             SelectableContent
                 { itemCount = Array.length itemArray
@@ -716,7 +716,7 @@ context menu). The framework manages j/k highlight and Enter confirm.
 
     Layout.menuModal
         [ Menu.section "Files"
-            [ Menu.item { key = Tui.Character 's', label = "Stage", action = StageFile }
+            [ Menu.item { key = Tui.Event.Character 's', label = "Stage", action = StageFile }
             ]
         ]
 
@@ -761,7 +761,7 @@ type alias Binding msg =
 
     Layout.group "Actions"
         [ Layout.charBinding 'c' "Commit" OpenCommitDialog
-        , Layout.binding Tui.Enter "Confirm" Confirm
+        , Layout.binding Tui.Event.Enter "Confirm" Confirm
         ]
 
 -}
@@ -770,22 +770,22 @@ group =
     Tui.Keybinding.group
 
 
-{-| Create a binding with any [`Tui.Key`](Tui#Key).
+{-| Create a binding with any [`Tui.Event.Key`](Tui#Key).
 
-    Layout.binding (Tui.Character 'c') "Commit" OpenCommitDialog
-    Layout.binding Tui.Enter "Confirm" Confirm
-    Layout.binding (Tui.FunctionKey 5) "Refresh" Refresh
+    Layout.binding (Tui.Event.Character 'c') "Commit" OpenCommitDialog
+    Layout.binding Tui.Event.Enter "Confirm" Confirm
+    Layout.binding (Tui.Event.FunctionKey 5) "Refresh" Refresh
 
 For a shorthand that takes a `Char`, see [`charBinding`](#charBinding).
 
 -}
-binding : Tui.Key -> String -> msg -> Binding msg
+binding : Tui.Event.Key -> String -> msg -> Binding msg
 binding =
     Tui.Keybinding.binding
 
 
 {-| Create a binding with a single character key (no modifiers).
-Shorthand for `binding (Tui.Character c) desc action`.
+Shorthand for `binding (Tui.Event.Character c) desc action`.
 
     Layout.charBinding 'c' "Commit" OpenCommitDialog
     Layout.charBinding 'q' "Quit" Quit
@@ -793,7 +793,7 @@ Shorthand for `binding (Tui.Character c) desc action`.
 -}
 charBinding : Char -> String -> msg -> Binding msg
 charBinding char desc action =
-    Tui.Keybinding.binding (Tui.Character char) desc action
+    Tui.Keybinding.binding (Tui.Event.Character char) desc action
 
 
 {-| Make static content searchable. When the pane is focused, pressing `/`
@@ -820,8 +820,8 @@ substring matching.
 
     Layout.selectableList
         { onSelect = SelectItem
-        , selected = \item -> Tui.text ("▸ " ++ item)
-        , default = \item -> Tui.text ("  " ++ item)
+        , selected = \item -> TuiScreen.text ("▸ " ++ item)
+        , default = \item -> TuiScreen.text ("  " ++ item)
         }
         items
         |> Layout.withFilterable identity
@@ -860,8 +860,8 @@ by path segments and displayed as a collapsible directory tree.
 
     Layout.selectableList
         { onSelect = SelectFile
-        , selected = \f -> Tui.text ("▸ " ++ f)
-        , default = \f -> Tui.text ("  " ++ f)
+        , selected = \f -> TuiScreen.text ("▸ " ++ f)
+        , default = \f -> TuiScreen.text ("  " ++ f)
         }
         files
         |> Layout.withTreeView
@@ -1858,7 +1858,7 @@ case Layout.handleKeyEvent event layout model.layout of
 ```
 
 -}
-handleKeyEvent : Tui.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
+handleKeyEvent : Tui.Event.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
 handleKeyEvent event layout (State s) =
     let
         focusedId : Maybe String
@@ -1895,7 +1895,7 @@ handleKeyEvent event layout (State s) =
                     -- No filter or search active on the focused pane.
                     -- But if Escape is pressed and ANY pane has an active filter/search,
                     -- clear it (handles the case where user switched panes after filtering).
-                    if event.key == Tui.Escape && (not (Dict.isEmpty s.filterStates) || not (Dict.isEmpty s.searchStates)) then
+                    if event.key == Tui.Event.Escape && (not (Dict.isEmpty s.filterStates) || not (Dict.isEmpty s.searchStates)) then
                         -- Map selections back to original indices for any active filters
                         let
                             restoredPaneStates : Dict String PaneState
@@ -1929,7 +1929,7 @@ handleKeyEvent event layout (State s) =
                         handleNormalKeyEvent event layout (State s)
 
 
-handleFilterKeyEvent : Tui.KeyEvent -> Layout msg -> FilterState -> State -> ( State, Maybe msg, Bool )
+handleFilterKeyEvent : Tui.Event.KeyEvent -> Layout msg -> FilterState -> State -> ( State, Maybe msg, Bool )
 handleFilterKeyEvent event layout fs (State s) =
     let
         focusedId : String
@@ -1943,7 +1943,7 @@ handleFilterKeyEvent event layout fs (State s) =
     case fs.mode of
         FilterTyping ->
             case event.key of
-                Tui.Character c ->
+                Tui.Event.Character c ->
                     let
                         newQuery : String
                         newQuery =
@@ -1986,7 +1986,7 @@ handleFilterKeyEvent event layout fs (State s) =
                     , True
                     )
 
-                Tui.Backspace ->
+                Tui.Event.Backspace ->
                     let
                         newQuery : String
                         newQuery =
@@ -2029,7 +2029,7 @@ handleFilterKeyEvent event layout fs (State s) =
                     , True
                     )
 
-                Tui.Enter ->
+                Tui.Event.Enter ->
                     if String.isEmpty fs.query then
                         -- Empty query: clear filter entirely
                         ( State
@@ -2055,7 +2055,7 @@ handleFilterKeyEvent event layout fs (State s) =
                         , True
                         )
 
-                Tui.Escape ->
+                Tui.Event.Escape ->
                     -- Clear filter, map selection back to original index (lazygit behavior)
                     let
                         ps : PaneState
@@ -2085,7 +2085,7 @@ handleFilterKeyEvent event layout fs (State s) =
 
         FilterApplied ->
             case event.key of
-                Tui.Escape ->
+                Tui.Event.Escape ->
                     -- Clear filter, map selection back to original index (lazygit behavior)
                     let
                         ps : PaneState
@@ -2110,7 +2110,7 @@ handleFilterKeyEvent event layout fs (State s) =
                     , True
                     )
 
-                Tui.Character '/' ->
+                Tui.Event.Character '/' ->
                     -- Re-enter typing mode with current query
                     ( State
                         { s
@@ -2129,7 +2129,7 @@ handleFilterKeyEvent event layout fs (State s) =
                     ( State s, Nothing, False )
 
 
-handleNormalKeyEvent : Tui.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
+handleNormalKeyEvent : Tui.Event.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
 handleNormalKeyEvent event layout (State s) =
     let
         -- Try tree key handling first
@@ -2166,7 +2166,7 @@ handleNormalKeyEvent event layout (State s) =
 
 
 handleTreeKeyEvent :
-    Tui.KeyEvent
+    Tui.Event.KeyEvent
     -> { toPath : Int -> List String }
     -> String
     -> TreeState
@@ -2174,7 +2174,7 @@ handleTreeKeyEvent :
     -> Maybe ( State, Maybe msg, Bool )
 handleTreeKeyEvent event tc stateKey ts (State s) =
     case event.key of
-        Tui.Character c ->
+        Tui.Event.Character c ->
             if c == '`' then
                 -- Toggle tree/flat view
                 Just
@@ -2249,7 +2249,7 @@ handleTreeKeyEvent event tc stateKey ts (State s) =
             else
                 Nothing
 
-        Tui.Enter ->
+        Tui.Event.Enter ->
             if ts.showTree then
                 -- Check if current row is a directory
                 let
@@ -2327,10 +2327,10 @@ countTreeItems toPath idx =
             countTreeItems toPath (idx + 1)
 
 
-handleNormalKeyEventFallback : Tui.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
+handleNormalKeyEventFallback : Tui.Event.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
 handleNormalKeyEventFallback event layout (State s) =
     case event.key of
-        Tui.Character c ->
+        Tui.Event.Character c ->
             if c == '/' then
                 -- Check if the focused pane is filterable or searchable
                 case s.focusedPaneId of
@@ -2480,11 +2480,11 @@ from the `pane` constructor. Useful for tab indicators or styled badges:
         { title = "Modules", width = Layout.fill }
         myContent
         |> Layout.withTitleScreen
-            (Tui.concat
-                [ Tui.text "[1]" |> Tui.bold |> Tui.fg Ansi.Color.cyan
-                , Tui.text "Modules" |> Tui.bold
-                , Tui.text " [2]" |> Tui.dim
-                , Tui.text "Changes" |> Tui.dim
+            (TuiScreen.concat
+                [ TuiScreen.text "[1]" |> TuiScreen.bold |> TuiScreen.fg Ansi.Color.cyan
+                , TuiScreen.text "Modules" |> TuiScreen.bold
+                , TuiScreen.text " [2]" |> TuiScreen.dim
+                , TuiScreen.text "Changes" |> TuiScreen.dim
                 ]
             )
 
@@ -2499,10 +2499,10 @@ and `withFooterScreen` are used on the same pane, this one wins.
 Renders right-aligned on the bottom border.
 
     |> Layout.withFooterScreen
-        (Tui.concat
-            [ Tui.text (String.fromInt idx) |> Tui.bold
-            , Tui.text " of " |> Tui.dim
-            , Tui.text (String.fromInt total) |> Tui.bold
+        (TuiScreen.concat
+            [ TuiScreen.text (String.fromInt idx) |> TuiScreen.bold
+            , TuiScreen.text " of " |> TuiScreen.dim
+            , TuiScreen.text (String.fromInt total) |> TuiScreen.bold
             ]
         )
 
@@ -2519,8 +2519,8 @@ Renders above the bottom border — like lazygit's filter bar.
         { title = "Modules", width = Layout.fill }
         (Layout.selectableList { ... } items)
         |> Layout.withInlineFooter
-            (Tui.concat
-                [ Tui.text "Filter: " |> Tui.dim
+            (TuiScreen.concat
+                [ TuiScreen.text "Filter: " |> TuiScreen.dim
                 , Input.view { width = 20 } filterState
                 ]
             )
@@ -2553,7 +2553,7 @@ withOnScroll callback (PaneConstructor config) =
 
 
 {-| Receive a message when the user clicks on a hyperlink within this pane.
-The callback receives the URL string from the `Tui.link { url }` that wraps the
+The callback receives the URL string from the `TuiScreen.link { url }` that wraps the
 clicked text. When a pane has both `withOnLinkClick` and `selectableList`,
 link clicks take priority — clicking a hyperlink fires `onLinkClick`, clicking
 non-link text fires `onSelect`.
@@ -2677,8 +2677,8 @@ isFilterActive paneId (State s) =
 
 {-| Get the filter status bar for a pane, if a filter is active.
 
-Returns `Just (Tui.text "Filter: {query}")` while typing,
-`Just (Tui.text "Filter: matches for '{query}' <esc>: Exit filter mode")` after Enter,
+Returns `Just (TuiScreen.text "Filter: {query}")` while typing,
+`Just (TuiScreen.text "Filter: matches for '{query}' <esc>: Exit filter mode")` after Enter,
 or `Nothing` when not filtering.
 
 -}
@@ -2695,10 +2695,10 @@ filterStatusBar paneId (State s) =
             (\fs ->
                 case fs.mode of
                     FilterTyping ->
-                        Tui.text ("Filter: " ++ fs.query)
+                        TuiScreen.text ("Filter: " ++ fs.query)
 
                     FilterApplied ->
-                        Tui.text ("Filter: matches for '" ++ fs.query ++ "' <esc>: Exit filter mode")
+                        TuiScreen.text ("Filter: matches for '" ++ fs.query ++ "' <esc>: Exit filter mode")
             )
 
 
@@ -2721,10 +2721,10 @@ activeFilterStatusBar (State s) =
                     (\( _, fs ) ->
                         case fs.mode of
                             FilterTyping ->
-                                Just (Tui.text ("Filter: " ++ fs.query))
+                                Just (TuiScreen.text ("Filter: " ++ fs.query))
 
                             FilterApplied ->
-                                Just (Tui.text ("Filter: matches for '" ++ fs.query ++ "' <esc>: Exit filter mode"))
+                                Just (TuiScreen.text ("Filter: matches for '" ++ fs.query ++ "' <esc>: Exit filter mode"))
                     )
                 |> List.head
 
@@ -2855,14 +2855,14 @@ searchStatusBarFromState : SearchState -> Screen
 searchStatusBarFromState ss =
     case ss.mode of
         SearchTyping ->
-            Tui.text ("Search: " ++ ss.query)
+            TuiScreen.text ("Search: " ++ ss.query)
 
         SearchCommitted ->
             if List.isEmpty ss.matchPositions then
-                Tui.text ("Search: no matches for '" ++ ss.query ++ "' Esc: exit")
+                TuiScreen.text ("Search: no matches for '" ++ ss.query ++ "' Esc: exit")
 
             else
-                Tui.text
+                TuiScreen.text
                     ("Search: matches for '"
                         ++ ss.query
                         ++ "' ("
@@ -2873,7 +2873,7 @@ searchStatusBarFromState ss =
                     )
 
 
-handleSearchKeyEvent : Tui.KeyEvent -> Layout msg -> SearchState -> State -> ( State, Maybe msg, Bool )
+handleSearchKeyEvent : Tui.Event.KeyEvent -> Layout msg -> SearchState -> State -> ( State, Maybe msg, Bool )
 handleSearchKeyEvent event layout ss (State s) =
     let
         focusedId : String
@@ -2887,7 +2887,7 @@ handleSearchKeyEvent event layout ss (State s) =
     case ss.mode of
         SearchTyping ->
             case event.key of
-                Tui.Character c ->
+                Tui.Event.Character c ->
                     let
                         newQuery : String
                         newQuery =
@@ -2904,7 +2904,7 @@ handleSearchKeyEvent event layout ss (State s) =
                     , True
                     )
 
-                Tui.Backspace ->
+                Tui.Event.Backspace ->
                     let
                         newQuery : String
                         newQuery =
@@ -2921,7 +2921,7 @@ handleSearchKeyEvent event layout ss (State s) =
                     , True
                     )
 
-                Tui.Enter ->
+                Tui.Event.Enter ->
                     if String.isEmpty ss.query then
                         -- Empty query: cancel search
                         ( State
@@ -2983,7 +2983,7 @@ handleSearchKeyEvent event layout ss (State s) =
                         , True
                         )
 
-                Tui.Escape ->
+                Tui.Event.Escape ->
                     ( State
                         { s
                             | searchStates = Dict.remove stateKey s.searchStates
@@ -2998,7 +2998,7 @@ handleSearchKeyEvent event layout ss (State s) =
 
         SearchCommitted ->
             case event.key of
-                Tui.Character c ->
+                Tui.Event.Character c ->
                     if c == 'n' then
                         -- Next match
                         let
@@ -3113,7 +3113,7 @@ handleSearchKeyEvent event layout ss (State s) =
                         -- Not consumed — let normal bindings work
                         ( State s, Nothing, False )
 
-                Tui.Escape ->
+                Tui.Event.Escape ->
                     -- Clear search
                     ( State
                         { s
@@ -3160,7 +3160,7 @@ computeSearchPositions query lines =
                 let
                     lineText : String
                     lineText =
-                        normalize (Tui.toString screen)
+                        normalize (TuiScreen.toString screen)
                 in
                 findAllSubstring normalizedQuery queryLen lineText 0
                     |> List.map (\col -> { line = lineIdx, col = col, len = queryLen })
@@ -3268,7 +3268,7 @@ buildHighlightedLine spans matches currentMatch col =
                             )
                         |> spansToScreen
             in
-            Tui.concat
+            TuiScreen.concat
                 [ spansToScreen beforeSpans
                 , highlightedMatchScreen
                 , buildHighlightedLine afterMatch rest currentMatch (match.col + match.len)
@@ -3644,7 +3644,7 @@ collectDirPathsFromNodes nodes parentPath =
         nodes
 
 
-scrollbarBorder : Tui.Style -> PaneContent msg -> PaneState -> Maybe FilterState -> Int -> Int -> Screen
+scrollbarBorder : TuiScreen.Style -> PaneContent msg -> PaneState -> Maybe FilterState -> Int -> Int -> Screen
 scrollbarBorder borderStyle paneContents ps maybeFs contentRow totalHeight =
     let
         contentLen : Int
@@ -3671,13 +3671,13 @@ scrollbarBorder borderStyle paneContents ps maybeFs contentRow totalHeight =
                 ps.scrollOffset * (visibleHeight - thumbSize) // max 1 (contentLen - visibleHeight)
         in
         if contentRow >= thumbPos && contentRow < thumbPos + thumbSize then
-            Tui.styled borderStyle "█"
+            TuiScreen.styled borderStyle "█"
 
         else
-            Tui.styled borderStyle "│"
+            TuiScreen.styled borderStyle "│"
 
     else
-        Tui.styled borderStyle "│"
+        TuiScreen.styled borderStyle "│"
 
 
 
@@ -3738,7 +3738,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                 |> Tuple.first
     in
     case mouseEvent of
-        Tui.ScrollDown { col, amount } ->
+        Tui.Event.ScrollDown { col, amount } ->
             case findPaneAt col panesWithBounds of
                 Just { config } ->
                     let
@@ -3797,7 +3797,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                 Nothing ->
                     ( State sWithCtx, Nothing )
 
-        Tui.ScrollUp { col, amount } ->
+        Tui.Event.ScrollUp { col, amount } ->
             case findPaneAt col panesWithBounds of
                 Just { config } ->
                     let
@@ -3838,7 +3838,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                 Nothing ->
                     ( State sWithCtx, Nothing )
 
-        Tui.Click { row, col } ->
+        Tui.Event.Click { row, col } ->
             case findPaneAt col panesWithBounds of
                 Just { config, startCol } ->
                     if row == 0 then
@@ -3988,13 +3988,13 @@ findTabAtColHelp col offset tabs =
 -}
 toScreen : State -> Layout msg -> Screen
 toScreen state layout =
-    Tui.lines (toRows state layout)
+    TuiScreen.lines (toRows state layout)
 
 
 {-| Render the layout to a list of row Screens (one per terminal row).
 
 This is useful for compositing modals or overlays on top of the layout —
-you can replace specific rows with modal content, then wrap with `Tui.lines`.
+you can replace specific rows with modal content, then wrap with `TuiScreen.lines`.
 
 -}
 toRows : State -> Layout msg -> List Screen
@@ -4050,7 +4050,7 @@ toRowsHorizontal s panes =
 
         renderRow : Int -> Screen
         renderRow row =
-            Tui.concat
+            TuiScreen.concat
                 (panesWithWidths
                     |> List.indexedMap
                         (\paneIdx ( paneConfig, w ) ->
@@ -4071,16 +4071,16 @@ toRowsHorizontal s panes =
                                 isFocused =
                                     s.focusedPaneId == Just paneConfig.id
 
-                                borderStyle : Tui.Style
+                                borderStyle : TuiScreen.Style
                                 borderStyle =
                                     if isFocused && s.searching then
-                                        { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
+                                        { plain | fg = Just Ansi.Color.cyan, attributes = [ TuiScreen.Bold ] }
 
                                     else if isFocused then
-                                        { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
+                                        { plain | fg = Just Ansi.Color.green, attributes = [ TuiScreen.Bold ] }
 
                                     else
-                                        { plain | attributes = [ Tui.Dim ] }
+                                        { plain | attributes = [ TuiScreen.Dim ] }
                             in
                             if row == 0 then
                                 let
@@ -4096,19 +4096,19 @@ toRowsHorizontal s panes =
                                     titleContent =
                                         case paneConfig.titleScreen of
                                             Just screen ->
-                                                Tui.concat
-                                                    [ Tui.styled borderStyle jumpLabel
-                                                    , Tui.truncateWidth (innerW - 1 - String.length jumpLabel) screen
+                                                TuiScreen.concat
+                                                    [ TuiScreen.styled borderStyle jumpLabel
+                                                    , TuiScreen.truncateWidth (innerW - 1 - String.length jumpLabel) screen
                                                     ]
 
                                             Nothing ->
-                                                Tui.styled borderStyle titleText
+                                                TuiScreen.styled borderStyle titleText
 
                                     titleWidth : Int
                                     titleWidth =
                                         case paneConfig.titleScreen of
                                             Just screen ->
-                                                String.length jumpLabel + String.length (Tui.toString (Tui.truncateWidth (innerW - 1 - String.length jumpLabel) screen))
+                                                String.length jumpLabel + String.length (TuiScreen.toString (TuiScreen.truncateWidth (innerW - 1 - String.length jumpLabel) screen))
 
                                             Nothing ->
                                                 String.length titleText
@@ -4129,17 +4129,17 @@ toRowsHorizontal s panes =
                                     gap : Screen
                                     gap =
                                         if isFirstPane then
-                                            Tui.empty
+                                            TuiScreen.empty
 
                                         else
-                                            Tui.text " "
+                                            TuiScreen.text " "
                                 in
-                                Tui.concat
+                                TuiScreen.concat
                                     [ gap
-                                    , Tui.styled borderStyle "╭─"
+                                    , TuiScreen.styled borderStyle "╭─"
                                     , titleContent
-                                    , Tui.styled borderStyle (String.repeat fillLen "─")
-                                    , Tui.styled borderStyle "╮"
+                                    , TuiScreen.styled borderStyle (String.repeat fillLen "─")
+                                    , TuiScreen.styled borderStyle "╮"
                                     ]
 
                             else if row == totalHeight - 1 then
@@ -4153,14 +4153,14 @@ toRowsHorizontal s panes =
                                             Nothing ->
                                                 case paneConfig.footer of
                                                     Just ft ->
-                                                        Tui.styled borderStyle ft
+                                                        TuiScreen.styled borderStyle ft
 
                                                     Nothing ->
-                                                        Tui.empty
+                                                        TuiScreen.empty
 
                                     footerLen : Int
                                     footerLen =
-                                        String.length (Tui.toString footerContent)
+                                        String.length (TuiScreen.toString footerContent)
 
                                     dashLen : Int
                                     dashLen =
@@ -4170,21 +4170,21 @@ toRowsHorizontal s panes =
                                     gap : Screen
                                     gap =
                                         if isFirstPane then
-                                            Tui.empty
+                                            TuiScreen.empty
 
                                         else
-                                            Tui.text " "
+                                            TuiScreen.text " "
                                 in
-                                Tui.concat
+                                TuiScreen.concat
                                     [ gap
-                                    , Tui.styled borderStyle "╰"
-                                    , Tui.styled borderStyle (String.repeat dashLen "─")
+                                    , TuiScreen.styled borderStyle "╰"
+                                    , TuiScreen.styled borderStyle (String.repeat dashLen "─")
                                     , if footerLen > 0 then
                                         footerContent
 
                                       else
-                                        Tui.empty
-                                    , Tui.styled borderStyle "╯"
+                                        TuiScreen.empty
+                                    , TuiScreen.styled borderStyle "╯"
                                     ]
 
                             else if paneConfig.inlineFooter /= Nothing && row == totalHeight - 2 then
@@ -4192,11 +4192,11 @@ toRowsHorizontal s panes =
                                 let
                                     footerScreen : Screen
                                     footerScreen =
-                                        paneConfig.inlineFooter |> Maybe.withDefault Tui.empty
+                                        paneConfig.inlineFooter |> Maybe.withDefault TuiScreen.empty
 
                                     footerText : String
                                     footerText =
-                                        Tui.toString footerScreen
+                                        TuiScreen.toString footerScreen
 
                                     footerWidth : Int
                                     footerWidth =
@@ -4209,17 +4209,17 @@ toRowsHorizontal s panes =
                                     gap : Screen
                                     gap =
                                         if isFirstPane then
-                                            Tui.empty
+                                            TuiScreen.empty
 
                                         else
-                                            Tui.text " "
+                                            TuiScreen.text " "
                                 in
-                                Tui.concat
+                                TuiScreen.concat
                                     [ gap
-                                    , Tui.styled borderStyle "│"
-                                    , Tui.truncateWidth innerW footerScreen
-                                    , Tui.text (String.repeat padding " ")
-                                    , Tui.styled borderStyle "│"
+                                    , TuiScreen.styled borderStyle "│"
+                                    , TuiScreen.truncateWidth innerW footerScreen
+                                    , TuiScreen.text (String.repeat padding " ")
+                                    , TuiScreen.styled borderStyle "│"
                                     ]
 
                             else
@@ -4267,7 +4267,7 @@ toRowsHorizontal s panes =
 
                                     lineText : String
                                     lineText =
-                                        Tui.toString lineScreen
+                                        TuiScreen.toString lineScreen
 
                                     lineWidth : Int
                                     lineWidth =
@@ -4275,7 +4275,7 @@ toRowsHorizontal s panes =
 
                                     truncatedLine : Screen
                                     truncatedLine =
-                                        Tui.truncateWidth innerW lineScreen
+                                        TuiScreen.truncateWidth innerW lineScreen
 
                                     actualWidth : Int
                                     actualWidth =
@@ -4301,23 +4301,23 @@ toRowsHorizontal s panes =
                                     paddingScreen =
                                         if isSelectedRow && padding > 0 then
                                             -- Extend the selection highlight across full pane width
-                                            Tui.styled (Tui.extractStyle lineScreen) (String.repeat padding " ")
+                                            TuiScreen.styled (TuiScreen.extractStyle lineScreen) (String.repeat padding " ")
 
                                         else
-                                            Tui.text (String.repeat padding " ")
+                                            TuiScreen.text (String.repeat padding " ")
                                 in
                                 let
                                     gap : Screen
                                     gap =
                                         if isFirstPane then
-                                            Tui.empty
+                                            TuiScreen.empty
 
                                         else
-                                            Tui.text " "
+                                            TuiScreen.text " "
                                 in
-                                Tui.concat
+                                TuiScreen.concat
                                     [ gap
-                                    , Tui.styled borderStyle "│"
+                                    , TuiScreen.styled borderStyle "│"
                                     , truncatedLine
                                     , paddingScreen
                                     , scrollbarBorder borderStyle paneConfig.paneContent ps renderFilterState contentRow totalHeight
@@ -4370,16 +4370,16 @@ toRowsVertical s panes =
                 isFocused =
                     s.focusedPaneId == Just paneConfig.id
 
-                borderStyle : Tui.Style
+                borderStyle : TuiScreen.Style
                 borderStyle =
                     if isFocused && s.searching then
-                        { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] }
+                        { plain | fg = Just Ansi.Color.cyan, attributes = [ TuiScreen.Bold ] }
 
                     else if isFocused then
-                        { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Bold ] }
+                        { plain | fg = Just Ansi.Color.green, attributes = [ TuiScreen.Bold ] }
 
                     else
-                        { plain | attributes = [ Tui.Dim ] }
+                        { plain | attributes = [ TuiScreen.Dim ] }
 
                 vertStateKey : String
                 vertStateKey =
@@ -4412,17 +4412,17 @@ toRowsVertical s panes =
                 titleContent =
                     case paneConfig.titleScreen of
                         Just screen ->
-                            Tui.concat
-                                [ Tui.styled borderStyle jumpLabel
-                                , Tui.truncateWidth (innerW - String.length jumpLabel) screen
+                            TuiScreen.concat
+                                [ TuiScreen.styled borderStyle jumpLabel
+                                , TuiScreen.truncateWidth (innerW - String.length jumpLabel) screen
                                 ]
 
                         Nothing ->
-                            Tui.styled borderStyle titleText
+                            TuiScreen.styled borderStyle titleText
 
                 titleWidth : Int
                 titleWidth =
-                    String.length (Tui.toString titleContent)
+                    String.length (TuiScreen.toString titleContent)
 
                 fillLen : Int
                 fillLen =
@@ -4430,8 +4430,8 @@ toRowsVertical s panes =
 
                 topBorder : Screen
                 topBorder =
-                    Tui.concat
-                        [ Tui.styled borderStyle
+                    TuiScreen.concat
+                        [ TuiScreen.styled borderStyle
                             (if isFirstPane then
                                 "╭"
 
@@ -4439,8 +4439,8 @@ toRowsVertical s panes =
                                 "├"
                             )
                         , titleContent
-                        , Tui.styled borderStyle (String.repeat fillLen "─")
-                        , Tui.styled borderStyle
+                        , TuiScreen.styled borderStyle (String.repeat fillLen "─")
+                        , TuiScreen.styled borderStyle
                             (if isFirstPane then
                                 "╮"
 
@@ -4461,28 +4461,28 @@ toRowsVertical s panes =
                                 Nothing ->
                                     case paneConfig.footer of
                                         Just ft ->
-                                            Tui.styled borderStyle ft
+                                            TuiScreen.styled borderStyle ft
 
                                         Nothing ->
-                                            Tui.empty
+                                            TuiScreen.empty
 
                         footerLen : Int
                         footerLen =
-                            String.length (Tui.toString footerContent)
+                            String.length (TuiScreen.toString footerContent)
 
                         dashLen : Int
                         dashLen =
                             max 0 (innerW - footerLen)
                     in
-                    Tui.concat
-                        [ Tui.styled borderStyle "╰"
-                        , Tui.styled borderStyle (String.repeat dashLen "─")
+                    TuiScreen.concat
+                        [ TuiScreen.styled borderStyle "╰"
+                        , TuiScreen.styled borderStyle (String.repeat dashLen "─")
                         , if footerLen > 0 then
                             footerContent
 
                           else
-                            Tui.empty
-                        , Tui.styled borderStyle "╯"
+                            TuiScreen.empty
+                        , TuiScreen.styled borderStyle "╯"
                         ]
 
                 -- Content rows: top border + content, last pane also gets bottom border
@@ -4520,7 +4520,7 @@ toRowsVertical s panes =
 
                                     lineText : String
                                     lineText =
-                                        Tui.toString lineScreen
+                                        TuiScreen.toString lineScreen
 
                                     lineWidth : Int
                                     lineWidth =
@@ -4528,7 +4528,7 @@ toRowsVertical s panes =
 
                                     truncatedLine : Screen
                                     truncatedLine =
-                                        Tui.truncateWidth innerW lineScreen
+                                        TuiScreen.truncateWidth innerW lineScreen
 
                                     actualWidth : Int
                                     actualWidth =
@@ -4550,16 +4550,16 @@ toRowsVertical s panes =
                                     paddingScreen : Screen
                                     paddingScreen =
                                         if isSelectedRow && padding > 0 then
-                                            Tui.styled (Tui.extractStyle lineScreen) (String.repeat padding " ")
+                                            TuiScreen.styled (TuiScreen.extractStyle lineScreen) (String.repeat padding " ")
 
                                         else
-                                            Tui.text (String.repeat padding " ")
+                                            TuiScreen.text (String.repeat padding " ")
                                 in
-                                Tui.concat
-                                    [ Tui.styled borderStyle "│"
+                                TuiScreen.concat
+                                    [ TuiScreen.styled borderStyle "│"
                                     , truncatedLine
                                     , paddingScreen
-                                    , Tui.styled borderStyle "│"
+                                    , TuiScreen.styled borderStyle "│"
                                     ]
                             )
             in
@@ -4589,7 +4589,7 @@ getContentLine isFocused paneConfig ps maybeFilterState maybeSearchState maybeTr
                 baseLine : Screen
                 baseLine =
                     Array.get scrolledRow lines
-                        |> Maybe.withDefault Tui.empty
+                        |> Maybe.withDefault TuiScreen.empty
             in
             case maybeSearchState of
                 Just ss ->
@@ -4619,7 +4619,7 @@ getContentLine isFocused paneConfig ps maybeFilterState maybeSearchState maybeTr
                         in
                         case maybeRow of
                             Nothing ->
-                                Tui.empty
+                                TuiScreen.empty
 
                             Just treeRow ->
                                 renderTreeRow isFocused selConfig treeRow scrolledRow ps.selectedIndex
@@ -4666,10 +4666,10 @@ renderTreeRow isFocused selConfig treeRow scrolledRow selIdx =
 
             dirLabel : Screen
             dirLabel =
-                Tui.text (indent ++ icon ++ treeRow.label) |> Tui.bold
+                TuiScreen.text (indent ++ icon ++ treeRow.label) |> TuiScreen.bold
         in
         if isSelected then
-            dirLabel |> Tui.bg Ansi.Color.blue
+            dirLabel |> TuiScreen.bg Ansi.Color.blue
 
         else
             dirLabel
@@ -4691,13 +4691,13 @@ renderTreeRow isFocused selConfig treeRow scrolledRow selIdx =
                             selConfig.renderItem origIdx
                 in
                 if treeRow.depth > 0 then
-                    Tui.concat [ Tui.text indent, baseScreen ]
+                    TuiScreen.concat [ TuiScreen.text indent, baseScreen ]
 
                 else
                     baseScreen
 
             Nothing ->
-                Tui.empty
+                TuiScreen.empty
 
 
 renderSelectableRow :
@@ -4716,7 +4716,7 @@ renderSelectableRow isFocused selConfig ps maybeFilterState scrolledRow =
     case maybeFilterState of
         Just fs ->
             if scrolledRow >= List.length fs.filteredIndices then
-                Tui.empty
+                TuiScreen.empty
 
             else
                 let
@@ -4812,8 +4812,8 @@ handling. Use `onRawEvent` in `compileApp` to receive these.
 
 -}
 type RawEvent
-    = UnhandledKey Tui.KeyEvent
-    | Click { row : Int, col : Int, button : Tui.MouseButton }
+    = UnhandledKey Tui.Event.KeyEvent
+    | Click { row : Int, col : Int, button : Tui.Event.MouseButton }
     | Scroll { row : Int, col : Int, direction : ScrollDirection }
 
 
@@ -4895,8 +4895,8 @@ frameworkUserModel (FrameworkModel fw) =
 -}
 type FrameworkMsg msg
     = UserMsg msg
-    | KeyPressed Tui.KeyEvent
-    | Mouse Tui.MouseEvent
+    | KeyPressed Tui.Event.KeyEvent
+    | Mouse Tui.Event.MouseEvent
     | GotPaste String
     | GotContext { width : Int, height : Int }
     | StatusTick
@@ -4926,16 +4926,16 @@ type alias PickerInteractionState =
 
 
 {-| Transform a declarative TUI app configuration into a runnable
-[`Tui.Program.App`](Tui-Program#App).
+[`Tui.Program`](Tui#Program).
 
 The user describes WHAT (panes, actions, status, modals) and `compileApp`
 handles HOW (rendering, key routing, subscriptions, state management). The
-result is a [`Tui.Program.App`](Tui-Program#App), ready to pass to
-`Tui.Program.program`.
+result is a [`Tui.Program`](Tui#Program), ready to pass to
+`Tui.program`.
 
     run : Script
     run =
-        Tui.Program.program
+        Tui.program
             (Layout.compileApp
                 { data = loadCommits
                 , init = init
@@ -4962,7 +4962,7 @@ compileApp :
     , modal : model -> Maybe (Modal msg)
     , onRawEvent : Maybe (RawEvent -> msg)
     }
-    -> Tui.Program.App data (FrameworkModel model msg) (FrameworkMsg msg)
+    -> Tui.Program data (FrameworkModel model msg) (FrameworkMsg msg)
 compileApp config =
     { data = config.data
     , init = compileInit config
@@ -5197,7 +5197,7 @@ compileUpdate config fwMsg (FrameworkModel fw) =
                                     let
                                         ( updatedState, _ ) =
                                             Tui.Prompt.handleKeyEvent
-                                                { key = Tui.Character c, modifiers = [] }
+                                                { key = Tui.Event.Character c, modifiers = [] }
                                                 state
                                     in
                                     updatedState
@@ -5239,13 +5239,13 @@ compileUpdate config fwMsg (FrameworkModel fw) =
                                         rawEvent : Maybe RawEvent
                                         rawEvent =
                                             case mouseEvent of
-                                                Tui.Click { row, col, button } ->
+                                                Tui.Event.Click { row, col, button } ->
                                                     Just (Click { row = row, col = col, button = button })
 
-                                                Tui.ScrollUp pos ->
+                                                Tui.Event.ScrollUp pos ->
                                                     Just (Scroll { row = pos.row, col = pos.col, direction = ScrollingUp })
 
-                                                Tui.ScrollDown pos ->
+                                                Tui.Event.ScrollDown pos ->
                                                     Just (Scroll { row = pos.row, col = pos.col, direction = ScrollingDown })
                                     in
                                     case rawEvent of
@@ -5280,7 +5280,7 @@ handleKeyPressed :
         , modal : model -> Maybe (Modal msg)
         , onRawEvent : Maybe (RawEvent -> msg)
     }
-    -> Tui.KeyEvent
+    -> Tui.Event.KeyEvent
     -> FrameworkModel model msg
     -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
 handleKeyPressed config keyEvent (FrameworkModel fw) =
@@ -5318,16 +5318,16 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
             case config.modal fw.userModel of
                 Just (ConfirmModal modalConfig) ->
                     case keyEvent.key of
-                        Tui.Enter ->
+                        Tui.Event.Enter ->
                             applyUserMsg config modalConfig.onConfirm (FrameworkModel { fw | modalState = NoModal })
 
-                        Tui.Escape ->
+                        Tui.Event.Escape ->
                             applyUserMsg config modalConfig.onCancel (FrameworkModel { fw | modalState = NoModal })
 
-                        Tui.Character 'y' ->
+                        Tui.Event.Character 'y' ->
                             applyUserMsg config modalConfig.onConfirm (FrameworkModel { fw | modalState = NoModal })
 
-                        Tui.Character 'n' ->
+                        Tui.Event.Character 'n' ->
                             applyUserMsg config modalConfig.onCancel (FrameworkModel { fw | modalState = NoModal })
 
                         _ ->
@@ -5350,7 +5350,7 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
 
                 Nothing ->
                     case keyEvent.key of
-                        Tui.Escape ->
+                        Tui.Event.Escape ->
                             -- Find the cancel message from the modal config
                             ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
 
@@ -5359,7 +5359,7 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
 
         HelpInteraction helpState ->
             case keyEvent.key of
-                Tui.Escape ->
+                Tui.Event.Escape ->
                     -- Fire the user's onClose message to keep their model in sync
                     case config.modal fw.userModel of
                         Just (HelpModal onClose) ->
@@ -5368,7 +5368,7 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
                         _ ->
                             ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
 
-                Tui.Character 'j' ->
+                Tui.Event.Character 'j' ->
                     let
                         totalRows =
                             helpBodyRowCount helpState.filterText (config.bindings { focusedPane = focusedPane fw.layoutState } fw.userModel)
@@ -5382,7 +5382,7 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
                     , Effect.none
                     )
 
-                Tui.Arrow Tui.Down ->
+                Tui.Event.Arrow Tui.Event.Down ->
                     let
                         totalRows =
                             helpBodyRowCount helpState.filterText (config.bindings { focusedPane = focusedPane fw.layoutState } fw.userModel)
@@ -5396,7 +5396,7 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
                     , Effect.none
                     )
 
-                Tui.Character 'k' ->
+                Tui.Event.Character 'k' ->
                     ( FrameworkModel
                         { fw
                             | modalState =
@@ -5406,7 +5406,7 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
                     , Effect.none
                     )
 
-                Tui.Arrow Tui.Up ->
+                Tui.Event.Arrow Tui.Event.Up ->
                     ( FrameworkModel
                         { fw
                             | modalState =
@@ -5426,7 +5426,7 @@ handlePickerKey :
         , view : Tui.Context -> model -> Layout msg
         , modal : model -> Maybe (Modal msg)
     }
-    -> Tui.KeyEvent
+    -> Tui.Event.KeyEvent
     -> PickerInteractionState
     -> FrameworkModel model msg
     -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
@@ -5437,7 +5437,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
             updatePickerSelection fw.context.height (picker.selectedIndex + delta) picker
     in
     case keyEvent.key of
-        Tui.Escape ->
+        Tui.Event.Escape ->
             case config.modal fw.userModel of
                 Just (PickerModal modalConfig) ->
                     applyUserMsg config modalConfig.onCancel (FrameworkModel { fw | modalState = NoModal })
@@ -5445,7 +5445,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
                 _ ->
                     ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
 
-        Tui.Enter ->
+        Tui.Event.Enter ->
             case config.modal fw.userModel of
                 Just (PickerModal modalConfig) ->
                     let
@@ -5461,7 +5461,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
                 _ ->
                     ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
 
-        Tui.Character 'j' ->
+        Tui.Event.Character 'j' ->
             ( FrameworkModel
                 { fw
                     | modalState = PickerInteraction (moveSelection 1)
@@ -5469,7 +5469,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
             , Effect.none
             )
 
-        Tui.Arrow Tui.Down ->
+        Tui.Event.Arrow Tui.Event.Down ->
             ( FrameworkModel
                 { fw
                     | modalState = PickerInteraction (moveSelection 1)
@@ -5477,7 +5477,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
             , Effect.none
             )
 
-        Tui.Character 'k' ->
+        Tui.Event.Character 'k' ->
             ( FrameworkModel
                 { fw
                     | modalState = PickerInteraction (moveSelection -1)
@@ -5485,7 +5485,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
             , Effect.none
             )
 
-        Tui.Arrow Tui.Up ->
+        Tui.Event.Arrow Tui.Event.Up ->
             ( FrameworkModel
                 { fw
                     | modalState = PickerInteraction (moveSelection -1)
@@ -5493,7 +5493,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
             , Effect.none
             )
 
-        Tui.Backspace ->
+        Tui.Event.Backspace ->
             let
                 newFilter : String
                 newFilter =
@@ -5517,7 +5517,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
             , Effect.none
             )
 
-        Tui.Character c ->
+        Tui.Event.Character c ->
             let
                 newFilter : String
                 newFilter =
@@ -5622,7 +5622,7 @@ handleKeyPressedNoModal :
         , modal : model -> Maybe (Modal msg)
         , onRawEvent : Maybe (RawEvent -> msg)
     }
-    -> Tui.KeyEvent
+    -> Tui.Event.KeyEvent
     -> FrameworkModel model msg
     -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
 handleKeyPressedNoModal config keyEvent (FrameworkModel fw) =
@@ -5726,7 +5726,7 @@ navigateOrScroll navigate scroll delta layout fw =
 
 
 tryBuiltInNav :
-    Tui.KeyEvent
+    Tui.Event.KeyEvent
     -> Layout msg
     ->
         { a
@@ -5736,19 +5736,19 @@ tryBuiltInNav :
     -> Maybe ( { a | layoutState : State, context : Tui.Context }, Maybe msg )
 tryBuiltInNav keyEvent layout fw =
     case keyEvent.key of
-        Tui.Character 'j' ->
+        Tui.Event.Character 'j' ->
             navigateOrScroll navigateDown scrollDown 1 layout fw
 
-        Tui.Arrow Tui.Down ->
+        Tui.Event.Arrow Tui.Event.Down ->
             navigateOrScroll navigateDown scrollDown 1 layout fw
 
-        Tui.Character 'k' ->
+        Tui.Event.Character 'k' ->
             navigateOrScroll navigateUp scrollUp 1 layout fw
 
-        Tui.Arrow Tui.Up ->
+        Tui.Event.Arrow Tui.Event.Up ->
             navigateOrScroll navigateUp scrollUp 1 layout fw
 
-        Tui.Tab ->
+        Tui.Event.Tab ->
             let
                 paneIds : List String
                 paneIds =
@@ -5780,22 +5780,22 @@ tryBuiltInNav keyEvent layout fw =
                 Nothing ->
                     Nothing
 
-        Tui.PageDown ->
+        Tui.Event.PageDown ->
             navigateOrScroll pageDown scrollDown (fw.context.height - 2) layout fw
 
-        Tui.PageUp ->
+        Tui.Event.PageUp ->
             navigateOrScroll pageUp scrollUp (fw.context.height - 2) layout fw
 
-        Tui.Character '>' ->
+        Tui.Event.Character '>' ->
             navigateOrScroll pageDown scrollDown (fw.context.height - 2) layout fw
 
-        Tui.Character '<' ->
+        Tui.Event.Character '<' ->
             navigateOrScroll pageUp scrollUp (fw.context.height - 2) layout fw
 
         _ ->
             -- Check for number keys 1-9 (jump to pane)
             case keyEvent.key of
-                Tui.Character c ->
+                Tui.Event.Character c ->
                     let
                         digit : Maybe Int
                         digit =
@@ -6253,7 +6253,7 @@ compileView config ctx (FrameworkModel fw) =
                     fb
 
                 Nothing ->
-                    if statusView /= Tui.empty then
+                    if statusView /= TuiScreen.empty then
                         statusView
 
                     else
@@ -6278,7 +6278,7 @@ compileView config ctx (FrameworkModel fw) =
                     paddedRows : List Screen
                     paddedRows =
                         if List.length trimmedRows < availableForLayout then
-                            trimmedRows ++ List.repeat (availableForLayout - List.length trimmedRows) Tui.empty
+                            trimmedRows ++ List.repeat (availableForLayout - List.length trimmedRows) TuiScreen.empty
 
                         else
                             trimmedRows
@@ -6307,7 +6307,7 @@ compileView config ctx (FrameworkModel fw) =
                         Just (ConfirmModal modalConfig) ->
                             Tui.Modal.overlay
                                 { title = modalConfig.title
-                                , body = [ Tui.text modalConfig.message ]
+                                , body = [ TuiScreen.text modalConfig.message ]
                                 , footer = "y/Enter: confirm │ n/Esc: cancel"
                                 , width = Tui.Modal.defaultWidth context.width
                                 }
@@ -6335,10 +6335,10 @@ compileView config ctx (FrameworkModel fw) =
                                                             |> Maybe.withDefault ""
                                                 in
                                                 if displayIdx == picker.selectedIndex then
-                                                    Tui.text ("▸ " ++ label) |> Tui.bg Ansi.Color.blue
+                                                    TuiScreen.text ("▸ " ++ label) |> TuiScreen.bg Ansi.Color.blue
 
                                                 else
-                                                    Tui.text ("  " ++ label)
+                                                    TuiScreen.text ("  " ++ label)
                                             )
 
                                 visibleLabelRows : Int
@@ -6363,7 +6363,7 @@ compileView config ctx (FrameworkModel fw) =
                                 paddedLabelRows =
                                     if hasOverflow && List.length windowedLabelRows < visibleLabelRows then
                                         windowedLabelRows
-                                            ++ List.repeat (visibleLabelRows - List.length windowedLabelRows) Tui.empty
+                                            ++ List.repeat (visibleLabelRows - List.length windowedLabelRows) TuiScreen.empty
 
                                     else
                                         windowedLabelRows
@@ -6371,12 +6371,12 @@ compileView config ctx (FrameworkModel fw) =
                                 filterLine : Screen
                                 filterLine =
                                     if String.isEmpty picker.filterText then
-                                        Tui.text "Type to filter..." |> Tui.dim
+                                        TuiScreen.text "Type to filter..." |> TuiScreen.dim
 
                                     else
-                                        Tui.concat
-                                            [ Tui.text "/ " |> Tui.fg Ansi.Color.cyan
-                                            , Tui.text picker.filterText
+                                        TuiScreen.concat
+                                            [ TuiScreen.text "/ " |> TuiScreen.fg Ansi.Color.cyan
+                                            , TuiScreen.text picker.filterText
                                             ]
                             in
                             Tui.Modal.overlay
@@ -6406,11 +6406,11 @@ compileView config ctx (FrameworkModel fw) =
                         allHelpRows : List Screen
                         allHelpRows =
                             builtInHelpRows
-                                ++ [ Tui.text "" ]
+                                ++ [ TuiScreen.text "" ]
                                 ++ Tui.Keybinding.helpRows
                                     helpState.filterText
                                     (config.bindings { focusedPane = focusedPane fw.layoutState } fw.userModel)
-                                ++ [ Tui.text "" ]
+                                ++ [ TuiScreen.text "" ]
                                 ++ navigationHelpRows
 
                         totalRows : Int
@@ -6431,7 +6431,7 @@ compileView config ctx (FrameworkModel fw) =
                                     totalRows - List.length droppedBody
                             in
                             if dropped > 0 then
-                                droppedBody ++ List.repeat dropped Tui.empty
+                                droppedBody ++ List.repeat dropped TuiScreen.empty
 
                             else
                                 droppedBody
@@ -6445,7 +6445,7 @@ compileView config ctx (FrameworkModel fw) =
                         { width = context.width, height = context.height }
                         allRows
     in
-    Tui.lines finalRows
+    TuiScreen.lines finalRows
 
 
 
@@ -6486,7 +6486,7 @@ Include these in your help screen so users know about scroll and click.
 
     helpBody =
         Keybinding.helpRows filterText myBindings
-            ++ [ Tui.text "" ]
+            ++ [ TuiScreen.text "" ]
             ++ Layout.navigationHelpRows
 
 -}

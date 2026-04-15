@@ -5,6 +5,7 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Screen
 import Tui.Sub
 import Tui.Test as TuiTest
 
@@ -137,15 +138,15 @@ styledApp =
         }
 
 
-styledView : Tui.Context -> StyledModel -> Tui.Screen
+styledView : Tui.Context -> StyledModel -> Tui.Screen.Screen
 styledView _ _ =
-    Tui.lines
-        [ Tui.text "Normal text"
-        , Tui.text "Bold text" |> Tui.bold
-        , Tui.text "Error: failed" |> Tui.fg Ansi.Color.red
-        , Tui.text "Selected" |> Tui.bg Ansi.Color.blue
-        , Tui.text "dimmed" |> Tui.dim
-        , Tui.text "Warning" |> Tui.bold |> Tui.fg Ansi.Color.yellow
+    Tui.Screen.lines
+        [ Tui.Screen.text "Normal text"
+        , Tui.Screen.text "Bold text" |> Tui.Screen.bold
+        , Tui.Screen.text "Error: failed" |> Tui.Screen.fg Ansi.Color.red
+        , Tui.Screen.text "Selected" |> Tui.Screen.bg Ansi.Color.blue
+        , Tui.Screen.text "dimmed" |> Tui.Screen.dim
+        , Tui.Screen.text "Warning" |> Tui.Screen.bold |> Tui.Screen.fg Ansi.Color.yellow
         ]
 
 
@@ -164,25 +165,25 @@ fragmentedApp =
         }
 
 
-fragmentedView : Tui.Context -> StyledModel -> Tui.Screen
+fragmentedView : Tui.Context -> StyledModel -> Tui.Screen.Screen
 fragmentedView _ _ =
-    Tui.lines
+    Tui.Screen.lines
         [ -- Two adjacent red spans — should merge for assertion purposes
-          Tui.concat
-            [ Tui.text "ERROR" |> Tui.fg Ansi.Color.red
-            , Tui.text " Error message" |> Tui.fg Ansi.Color.red
+          Tui.Screen.concat
+            [ Tui.Screen.text "ERROR" |> Tui.Screen.fg Ansi.Color.red
+            , Tui.Screen.text " Error message" |> Tui.Screen.fg Ansi.Color.red
             ]
 
         -- Style boundary: unstyled then bold, should NOT merge
-        , Tui.concat
-            [ Tui.text "Normal "
-            , Tui.text "Bold" |> Tui.bold
+        , Tui.Screen.concat
+            [ Tui.Screen.text "Normal "
+            , Tui.Screen.text "Bold" |> Tui.Screen.bold
             ]
 
         -- Three adjacent bold spans
-        , Tui.concat
-            [ Tui.text "one " |> Tui.bold
-            , Tui.text "two " |> Tui.bold
-            , Tui.text "three" |> Tui.bold
+        , Tui.Screen.concat
+            [ Tui.Screen.text "one " |> Tui.Screen.bold
+            , Tui.Screen.text "two " |> Tui.Screen.bold
+            , Tui.Screen.text "three" |> Tui.Screen.bold
             ]
         ]

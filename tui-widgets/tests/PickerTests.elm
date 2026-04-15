@@ -4,6 +4,7 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Picker as Picker
+import Tui.Screen
 
 
 suite : Test
@@ -15,8 +16,8 @@ suite =
                     longPicker
                         |> navigateDownN 8
                         |> Picker.viewBodyWithMaxRows 7
-                        |> Tui.lines
-                        |> Tui.toString
+                        |> Tui.Screen.lines
+                        |> Tui.Screen.toString
                         |> expectContains "Item 09"
             , test "keeps the rendered row count stable when scrolled near the end" <|
                 \() ->

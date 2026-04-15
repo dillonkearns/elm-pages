@@ -4,6 +4,7 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Confirm as Confirm
+import Tui.Screen
 
 
 suite : Test
@@ -25,7 +26,7 @@ suite =
                         , message = "Are you sure?"
                         }
                         |> Confirm.viewBody
-                        |> List.map Tui.toString
+                        |> List.map Tui.Screen.toString
                         |> String.concat
                         |> String.contains "Are you sure?"
                         |> Expect.equal True
@@ -60,7 +61,7 @@ suite =
                         , initialValue = "main"
                         }
                         |> Confirm.viewBody
-                        |> List.map Tui.toString
+                        |> List.map Tui.Screen.toString
                         |> String.concat
                         |> String.contains "main"
                         |> Expect.equal True

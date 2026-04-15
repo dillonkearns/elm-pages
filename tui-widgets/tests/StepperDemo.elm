@@ -4,8 +4,10 @@ import Ansi.Color
 import BackendTask
 import Tui
 import Tui.Effect as Effect
+import Tui.Event
 import Tui.Layout as Layout
 import Tui.Layout.Test as LayoutTest
+import Tui.Screen
 import Tui.Test as TuiTest
 
 
@@ -18,11 +20,11 @@ tuiTests =
             |> TuiTest.pressKeyN 3 'j'
             |> LayoutTest.ensureSelectedIndex "left" 3
             |> LayoutTest.ensurePaneHas "Left" "delta"
-            |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
+            |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
             |> LayoutTest.ensureFocusedPane "right"
             |> LayoutTest.ensurePaneHas "Right" "details"
             |> LayoutTest.ensurePaneDoesNotHave "Right" "alpha"
-            |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
+            |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
             |> LayoutTest.ensureFocusedPane "left"
             |> TuiTest.ensureViewHasStyled [ TuiTest.bold ] "delta"
             |> TuiTest.expectRunning
@@ -62,21 +64,21 @@ appView _ _ =
                     \{ selection } item ->
                         case selection of
                             Layout.Selected { focused } ->
-                                Tui.text ("▸ " ++ item)
-                                    |> Tui.bold
+                                Tui.Screen.text ("▸ " ++ item)
+                                    |> Tui.Screen.bold
                                     |> (if focused then
-                                            Tui.bg Ansi.Color.blue
+                                            Tui.Screen.bg Ansi.Color.blue
 
                                         else
                                             identity
                                        )
 
                             Layout.NotSelected ->
-                                Tui.text ("  " ++ item)
+                                Tui.Screen.text ("  " ++ item)
                 }
                 items
             )
         , Layout.pane "right"
             { title = "Right", width = Layout.fill }
-            (Layout.content [ Tui.text "details here" ])
+            (Layout.content [ Tui.Screen.text "details here" ])
         ]

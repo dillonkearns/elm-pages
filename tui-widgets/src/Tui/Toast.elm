@@ -43,6 +43,7 @@ in red. Stack-based: newest toast wins. Uses `Tui.Sub.everyMillis` for auto-dism
 
 import Ansi.Color
 import Tui
+import Tui.Screen
 
 
 {-| Opaque toast state. Stores a stack of active toasts with their
@@ -118,14 +119,14 @@ hasToasts (State items) =
     not (List.isEmpty items)
 
 
-{-| Render the most recent toast. Returns `Tui.empty` when no toasts
+{-| Render the most recent toast. Returns `Tui.Screen.empty` when no toasts
 are active. Normal toasts render in cyan, error toasts in red.
 -}
-view : State -> Tui.Screen
+view : State -> Tui.Screen.Screen
 view (State items) =
     case items of
         [] ->
-            Tui.empty
+            Tui.Screen.empty
 
         item :: _ ->
             let
@@ -137,4 +138,4 @@ view (State items) =
                         Error ->
                             Ansi.Color.red
             in
-            Tui.text (" " ++ item.message ++ " ") |> Tui.fg color
+            Tui.Screen.text (" " ++ item.message ++ " ") |> Tui.Screen.fg color

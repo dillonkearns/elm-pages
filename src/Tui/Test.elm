@@ -51,7 +51,7 @@ wrapping those outcomes in a `Test` tree. That same `Test` value can be:
 
                                 Quit ->
                                     ( count, Effect.exit )
-                    , view = \_ count -> Tui.text ("Count: " ++ String.fromInt count)
+                    , view = \_ count -> Tui.Screen.text ("Count: " ++ String.fromInt count)
                     , subscriptions = \_ -> Tui.Sub.onKeyPress keyToMsg
                     }
                     |> TuiTest.pressKey 'j'
@@ -60,10 +60,10 @@ wrapping those outcomes in a `Test` tree. That same `Test` value can be:
             ]
 
 ```
-keyToMsg : Tui.KeyEvent -> Msg
+keyToMsg : Tui.Event.KeyEvent -> Msg
 keyToMsg event =
     case event.key of
-        Tui.Character 'j' ->
+        Tui.Event.Character 'j' ->
             Increment
 
         _ ->
@@ -79,7 +79,7 @@ suite =
 
 ## Starting a Test
 
-Pass the same config you'd give to [`Tui.Program.program`](Tui-Program#program),
+Pass the same config you'd give to [`Tui.program`](Tui#program),
 but with `data` already resolved (not a `BackendTask`). If your app uses
 `Tui.Sub.onContext`, the initial context is fired automatically.
 
@@ -164,10 +164,11 @@ import Test as ElmTest
 import Test.BackendTask.Internal as BackendTaskTest
 import Test.Runner
 import Time
-import Tui exposing (Context, KeyEvent, Screen)
+import Tui exposing (Context)
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Effect.Internal as EffectInternal
-import Tui.Program
+import Tui.Event exposing (KeyEvent)
+import Tui.Screen exposing (Screen)
 import Tui.Screen.Internal as ScreenInternal
 import Tui.Sub exposing (Sub)
 import Tui.Sub.Internal as SubInternal
@@ -199,8 +200,8 @@ type alias State model msg =
 {-| A snapshot of the TUI state at a point in the test pipeline. Used by
 [`toSnapshots`](#toSnapshots) for the interactive test stepper.
 
-`screen` is the `Tui.Screen` value (preserving styling), not a plain string.
-Use `Tui.toString` to get plain text, or render it through the TUI pipeline
+`screen` is the `Tui.Screen.Screen` value (preserving styling), not a plain string.
+Use `Tui.Screen.toString` to get plain text, or render it through the TUI pipeline
 for styled output.
 
 -}
@@ -270,7 +271,7 @@ type Outcome
 
 
 {-| Start a TUI test with a default 80×24 terminal and `TrueColor` profile.
-Provide the same config record you pass to `Tui.Program.program`, but with `data`
+Provide the same config record you pass to `Tui.program`, but with `data`
 already resolved (not a `BackendTask`).
 
 If your app subscribes to `Tui.Sub.onContext`, the initial context is fired
@@ -370,7 +371,7 @@ startWithContext context config =
         }
 
 
-{-| Start a test from a [`Tui.Program.App`](Tui-Program#App), supplying an
+{-| Start a test from a [`Tui.Program`](Tui#Program), supplying an
 already-resolved `data` value rather than letting the real BackendTask run.
 Use this with `Tui.Layout.compileApp` output:
 
@@ -393,7 +394,7 @@ so they stay pure.
 -}
 startApp :
     data
-    -> Tui.Program.App data model msg
+    -> Tui.Program data model msg
     -> TuiTest model msg
 startApp data app =
     start
@@ -416,7 +417,7 @@ startApp data app =
 startAppWithContext :
     Context
     -> data
-    -> Tui.Program.App data model msg
+    -> Tui.Program data model msg
     -> TuiTest model msg
 startAppWithContext context data app =
     startWithContext context
@@ -439,7 +440,7 @@ startAppWithContext context data app =
 -}
 pressKey : Char -> TuiTest model msg -> TuiTest model msg
 pressKey char =
-    pressKeyWith { key = Tui.Character char, modifiers = [] }
+    pressKeyWith { key = Tui.Event.Character char, modifiers = [] }
 
 
 {-| Simulate pressing a character key N times.
@@ -455,9 +456,9 @@ pressKeyN n char tuiTest =
 
 {-| Simulate pressing any key, including special keys and modifiers.
 
-    test |> TuiTest.pressKeyWith { key = Tui.Arrow Tui.Down, modifiers = [] }
+    test |> TuiTest.pressKeyWith { key = Tui.Event.Arrow Tui.Event.Down, modifiers = [] }
 
-    test |> TuiTest.pressKeyWith { key = Tui.Character 's', modifiers = [ Tui.Ctrl ] }
+    test |> TuiTest.pressKeyWith { key = Tui.Event.Character 's', modifiers = [ Tui.Event.Ctrl ] }
 
 -}
 pressKeyWith : KeyEvent -> TuiTest model msg -> TuiTest model msg
@@ -586,7 +587,7 @@ click : { row : Int, col : Int } -> TuiTest model msg -> TuiTest model msg
 click pos =
     simulateMouseEvent
         ("click (" ++ String.fromInt pos.row ++ "," ++ String.fromInt pos.col ++ ")")
-        (Tui.Click { row = pos.row, col = pos.col, button = Tui.LeftButton })
+        (Tui.Event.Click { row = pos.row, col = pos.col, button = Tui.Event.LeftButton })
 
 
 {-| Find a line containing the given text and simulate a click on it.
@@ -611,7 +612,7 @@ clickText needle (TuiTest state) =
             let
                 screenLines : List String
                 screenLines =
-                    Tui.toString (state.view state.context state.model)
+                    Tui.Screen.toString (state.view state.context state.model)
                         |> String.split "\n"
 
                 maybeMatch : Maybe { row : Int, col : Int }
@@ -633,7 +634,7 @@ clickText needle (TuiTest state) =
                 Just match ->
                     simulateMouseEvent
                         ("clickText \"" ++ needle ++ "\"")
-                        (Tui.Click { row = match.row, col = match.col, button = Tui.LeftButton })
+                        (Tui.Event.Click { row = match.row, col = match.col, button = Tui.Event.LeftButton })
                         (TuiTest state)
 
                 Nothing ->
@@ -644,7 +645,7 @@ clickText needle (TuiTest state) =
                                     ("clickText: could not find \""
                                         ++ needle
                                         ++ "\" on screen.\n\nThe screen contains:\n\n"
-                                        ++ indentScreenText (Tui.toString (state.view state.context state.model))
+                                        ++ indentScreenText (Tui.Screen.toString (state.view state.context state.model))
                                     )
                         }
 
@@ -655,7 +656,7 @@ scrollDown : { row : Int, col : Int } -> TuiTest model msg -> TuiTest model msg
 scrollDown pos =
     simulateMouseEvent
         ("scrollDown (" ++ String.fromInt pos.row ++ "," ++ String.fromInt pos.col ++ ")")
-        (Tui.ScrollDown { row = pos.row, col = pos.col, amount = 1 })
+        (Tui.Event.ScrollDown { row = pos.row, col = pos.col, amount = 1 })
 
 
 {-| Simulate a scroll-up event at the given position.
@@ -664,7 +665,7 @@ scrollUp : { row : Int, col : Int } -> TuiTest model msg -> TuiTest model msg
 scrollUp pos =
     simulateMouseEvent
         ("scrollUp (" ++ String.fromInt pos.row ++ "," ++ String.fromInt pos.col ++ ")")
-        (Tui.ScrollUp { row = pos.row, col = pos.col, amount = 1 })
+        (Tui.Event.ScrollUp { row = pos.row, col = pos.col, amount = 1 })
 
 
 {-| Simulate N scroll-down events at the given position.
@@ -687,7 +688,7 @@ scrollUpN n pos tuiTest =
     List.foldl (\_ acc -> scrollUp pos acc) tuiTest (List.range 1 n)
 
 
-simulateMouseEvent : String -> Tui.MouseEvent -> TuiTest model msg -> TuiTest model msg
+simulateMouseEvent : String -> Tui.Event.MouseEvent -> TuiTest model msg -> TuiTest model msg
 simulateMouseEvent label mouseEvent (TuiTest state) =
     case ( state.error, state.exited ) of
         ( Just _, _ ) ->
@@ -849,7 +850,7 @@ simulation function is applied, and the resolved result is fed through `update`.
 
     TuiTest.test "fetches stars on Enter" <|
         starsTest
-            |> TuiTest.pressKeyWith { key = Tui.Enter, modifiers = [] }
+            |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
             |> TuiTest.resolveEffect
                 (BackendTaskTest.simulateHttpGet
                     "https://api.github.com/repos/elm/core"
@@ -908,7 +909,7 @@ ensureView assertion (TuiTest state) =
             let
                 screenText : String
                 screenText =
-                    Tui.toString (state.view state.context state.model)
+                    Tui.Screen.toString (state.view state.context state.model)
 
                 result : Expectation
                 result =
@@ -937,7 +938,7 @@ ensureViewHas needle (TuiTest state) =
             let
                 screenText : String
                 screenText =
-                    Tui.toString (state.view state.context state.model)
+                    Tui.Screen.toString (state.view state.context state.model)
             in
             if String.contains needle screenText then
                 TuiTest (recordAssertion ("ensureViewHas \"" ++ needle ++ "\" ✓") state)
@@ -967,7 +968,7 @@ ensureViewDoesNotHave needle (TuiTest state) =
             let
                 screenText : String
                 screenText =
-                    Tui.toString (state.view state.context state.model)
+                    Tui.Screen.toString (state.view state.context state.model)
             in
             if String.contains needle screenText then
                 TuiTest
@@ -1124,7 +1125,7 @@ ensureViewHasStyled checks needle (TuiTest state) =
                 let
                     screenText : String
                     screenText =
-                        Tui.toString screen
+                        Tui.Screen.toString screen
                 in
                 TuiTest
                     { state
@@ -1165,7 +1166,7 @@ ensureViewDoesNotHaveStyled checks needle (TuiTest state) =
                 let
                     screenText : String
                     screenText =
-                        Tui.toString screen
+                        Tui.Screen.toString screen
                 in
                 TuiTest
                     { state
@@ -1269,7 +1270,7 @@ describeCheck (StyleCheck check) =
         Nothing
 
 
-tuiStyleToFlatStyle : Tui.Style -> ScreenInternal.FlatStyle
+tuiStyleToFlatStyle : Tui.Screen.Style -> ScreenInternal.FlatStyle
 tuiStyleToFlatStyle s =
     let
         def : ScreenInternal.FlatStyle
@@ -1287,25 +1288,25 @@ tuiStyleToFlatStyle s =
     List.foldl applyAttr base s.attributes
 
 
-applyAttr : Tui.Attribute -> ScreenInternal.FlatStyle -> ScreenInternal.FlatStyle
+applyAttr : Tui.Screen.Attribute -> ScreenInternal.FlatStyle -> ScreenInternal.FlatStyle
 applyAttr attr flatStyle =
     case attr of
-        Tui.Bold ->
+        Tui.Screen.Bold ->
             { flatStyle | bold = True }
 
-        Tui.Dim ->
+        Tui.Screen.Dim ->
             { flatStyle | dim = True }
 
-        Tui.Italic ->
+        Tui.Screen.Italic ->
             { flatStyle | italic = True }
 
-        Tui.Underline ->
+        Tui.Screen.Underline ->
             { flatStyle | underline = True }
 
-        Tui.Strikethrough ->
+        Tui.Screen.Strikethrough ->
             { flatStyle | strikethrough = True }
 
-        Tui.Inverse ->
+        Tui.Screen.Inverse ->
             { flatStyle | inverse = True }
 
 
@@ -1848,7 +1849,7 @@ toSnapshots (TuiTest state) =
             let
                 errorScreen : Screen
                 errorScreen =
-                    Tui.text errorMsg
+                    Tui.Screen.text errorMsg
             in
             state.snapshots
                 ++ [ { label = "ERROR"
@@ -1869,53 +1870,53 @@ keyEventLabel event =
         keyName : String
         keyName =
             case event.key of
-                Tui.Character c ->
+                Tui.Event.Character c ->
                     "'" ++ String.fromChar c ++ "'"
 
-                Tui.Enter ->
+                Tui.Event.Enter ->
                     "Enter"
 
-                Tui.Escape ->
+                Tui.Event.Escape ->
                     "Escape"
 
-                Tui.Tab ->
+                Tui.Event.Tab ->
                     "Tab"
 
-                Tui.Backspace ->
+                Tui.Event.Backspace ->
                     "Backspace"
 
-                Tui.Delete ->
+                Tui.Event.Delete ->
                     "Delete"
 
-                Tui.Arrow dir ->
+                Tui.Event.Arrow dir ->
                     "Arrow "
                         ++ (case dir of
-                                Tui.Up ->
+                                Tui.Event.Up ->
                                     "Up"
 
-                                Tui.Down ->
+                                Tui.Event.Down ->
                                     "Down"
 
-                                Tui.Left ->
+                                Tui.Event.Left ->
                                     "Left"
 
-                                Tui.Right ->
+                                Tui.Event.Right ->
                                     "Right"
                            )
 
-                Tui.FunctionKey n ->
+                Tui.Event.FunctionKey n ->
                     "F" ++ String.fromInt n
 
-                Tui.Home ->
+                Tui.Event.Home ->
                     "Home"
 
-                Tui.End ->
+                Tui.Event.End ->
                     "End"
 
-                Tui.PageUp ->
+                Tui.Event.PageUp ->
                     "PageUp"
 
-                Tui.PageDown ->
+                Tui.Event.PageDown ->
                     "PageDown"
 
         modPrefix : String
@@ -1924,13 +1925,13 @@ keyEventLabel event =
                 |> List.map
                     (\m ->
                         case m of
-                            Tui.Ctrl ->
+                            Tui.Event.Ctrl ->
                                 "Ctrl+"
 
-                            Tui.Alt ->
+                            Tui.Event.Alt ->
                                 "Alt+"
 
-                            Tui.Shift ->
+                            Tui.Event.Shift ->
                                 "Shift+"
                     )
                 |> String.concat

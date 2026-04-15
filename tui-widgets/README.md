@@ -97,7 +97,7 @@ management, scroll state, mouse events, status toasts, and modals:
 ```elm
 run : Script
 run =
-    Tui.Program.program
+    Tui.program
         (Layout.compileApp
             { data = loadCommits
             , init = init

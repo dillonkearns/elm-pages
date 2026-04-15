@@ -25,7 +25,7 @@ to subscribe to resize events.
 -}
 
 import Time exposing (Posix)
-import Tui exposing (KeyEvent, MouseEvent)
+import Tui.Event exposing (KeyEvent, MouseEvent)
 import Tui.Sub.Internal as Internal
 
 

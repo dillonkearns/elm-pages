@@ -19,7 +19,7 @@ into user messages without leaking these internals through `Tui.Sub`.
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Time exposing (Posix)
-import Tui exposing (KeyEvent, MouseEvent)
+import Tui.Event as Event exposing (KeyEvent, MouseEvent)
 
 
 type Sub msg
@@ -200,12 +200,12 @@ decodeRawEvent =
 
 decodeKeyEvent : Decode.Decoder KeyEvent
 decodeKeyEvent =
-    Decode.map2 Tui.KeyEvent
+    Decode.map2 Event.KeyEvent
         (Decode.field "key" decodeKey)
         (Decode.field "modifiers" (Decode.list decodeModifier))
 
 
-decodeKey : Decode.Decoder Tui.Key
+decodeKey : Decode.Decoder Event.Key
 decodeKey =
     Decode.field "tag" Decode.string
         |> Decode.andThen
@@ -217,38 +217,38 @@ decodeKey =
                                 (\s ->
                                     case String.uncons s of
                                         Just ( c, _ ) ->
-                                            Decode.succeed (Tui.Character c)
+                                            Decode.succeed (Event.Character c)
 
                                         Nothing ->
                                             Decode.fail "Empty character"
                                 )
 
                     "Enter" ->
-                        Decode.succeed Tui.Enter
+                        Decode.succeed Event.Enter
 
                     "Escape" ->
-                        Decode.succeed Tui.Escape
+                        Decode.succeed Event.Escape
 
                     "Tab" ->
-                        Decode.succeed Tui.Tab
+                        Decode.succeed Event.Tab
 
                     "Backspace" ->
-                        Decode.succeed Tui.Backspace
+                        Decode.succeed Event.Backspace
 
                     "Delete" ->
-                        Decode.succeed Tui.Delete
+                        Decode.succeed Event.Delete
 
                     "Home" ->
-                        Decode.succeed Tui.Home
+                        Decode.succeed Event.Home
 
                     "End" ->
-                        Decode.succeed Tui.End
+                        Decode.succeed Event.End
 
                     "PageUp" ->
-                        Decode.succeed Tui.PageUp
+                        Decode.succeed Event.PageUp
 
                     "PageDown" ->
-                        Decode.succeed Tui.PageDown
+                        Decode.succeed Event.PageDown
 
                     "Arrow" ->
                         Decode.field "direction" Decode.string
@@ -256,16 +256,16 @@ decodeKey =
                                 (\dir ->
                                     case dir of
                                         "Up" ->
-                                            Decode.succeed (Tui.Arrow Tui.Up)
+                                            Decode.succeed (Event.Arrow Event.Up)
 
                                         "Down" ->
-                                            Decode.succeed (Tui.Arrow Tui.Down)
+                                            Decode.succeed (Event.Arrow Event.Down)
 
                                         "Left" ->
-                                            Decode.succeed (Tui.Arrow Tui.Left)
+                                            Decode.succeed (Event.Arrow Event.Left)
 
                                         "Right" ->
-                                            Decode.succeed (Tui.Arrow Tui.Right)
+                                            Decode.succeed (Event.Arrow Event.Right)
 
                                         _ ->
                                             Decode.fail ("Unknown direction: " ++ dir)
@@ -273,27 +273,27 @@ decodeKey =
 
                     "FunctionKey" ->
                         Decode.field "number" Decode.int
-                            |> Decode.map Tui.FunctionKey
+                            |> Decode.map Event.FunctionKey
 
                     _ ->
                         Decode.fail ("Unknown key tag: " ++ tag)
             )
 
 
-decodeModifier : Decode.Decoder Tui.Modifier
+decodeModifier : Decode.Decoder Event.Modifier
 decodeModifier =
     Decode.string
         |> Decode.andThen
             (\s ->
                 case s of
                     "Ctrl" ->
-                        Decode.succeed Tui.Ctrl
+                        Decode.succeed Event.Ctrl
 
                     "Alt" ->
-                        Decode.succeed Tui.Alt
+                        Decode.succeed Event.Alt
 
                     "Shift" ->
-                        Decode.succeed Tui.Shift
+                        Decode.succeed Event.Shift
 
                     _ ->
                         Decode.fail ("Unknown modifier: " ++ s)
@@ -316,14 +316,14 @@ decodeMouseEvent =
                     "click" ->
                         Decode.map2
                             (\pos button ->
-                                Tui.Click { row = pos.row, col = pos.col, button = button }
+                                Event.Click { row = pos.row, col = pos.col, button = button }
                             )
                             coords
                             (Decode.field "button" decodeMouseButton)
 
                     "scrollUp" ->
                         Decode.map2
-                            (\pos amt -> Tui.ScrollUp { row = pos.row, col = pos.col, amount = amt })
+                            (\pos amt -> Event.ScrollUp { row = pos.row, col = pos.col, amount = amt })
                             coords
                             (Decode.field "amount" Decode.int
                                 |> Decode.maybe
@@ -332,7 +332,7 @@ decodeMouseEvent =
 
                     "scrollDown" ->
                         Decode.map2
-                            (\pos amt -> Tui.ScrollDown { row = pos.row, col = pos.col, amount = amt })
+                            (\pos amt -> Event.ScrollDown { row = pos.row, col = pos.col, amount = amt })
                             coords
                             (Decode.field "amount" Decode.int
                                 |> Decode.maybe
@@ -344,20 +344,20 @@ decodeMouseEvent =
             )
 
 
-decodeMouseButton : Decode.Decoder Tui.MouseButton
+decodeMouseButton : Decode.Decoder Event.MouseButton
 decodeMouseButton =
     Decode.string
         |> Decode.andThen
             (\s ->
                 case s of
                     "left" ->
-                        Decode.succeed Tui.LeftButton
+                        Decode.succeed Event.LeftButton
 
                     "middle" ->
-                        Decode.succeed Tui.MiddleButton
+                        Decode.succeed Event.MiddleButton
 
                     "right" ->
-                        Decode.succeed Tui.RightButton
+                        Decode.succeed Event.RightButton
 
                     _ ->
                         Decode.fail ("Unknown mouse button: " ++ s)

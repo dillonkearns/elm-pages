@@ -19,11 +19,11 @@ contains uppercase characters (like vim/lazygit).
     { model | search = Just Search.start }
 
     -- While searching, handle keys:
-    Tui.Character c -> { model | search = Maybe.map (Search.typeChar c) model.search }
-    Tui.Backspace -> { model | search = Maybe.map Search.backspace model.search }
-    Tui.Character 'n' -> { model | search = Maybe.map (Search.nextMatch content) model.search }
-    Tui.Character 'N' -> { model | search = Maybe.map (Search.prevMatch content) model.search }
-    Tui.Escape -> { model | search = Nothing }
+    Tui.Event.Character c -> { model | search = Maybe.map (Search.typeChar c) model.search }
+    Tui.Event.Backspace -> { model | search = Maybe.map Search.backspace model.search }
+    Tui.Event.Character 'n' -> { model | search = Maybe.map (Search.nextMatch content) model.search }
+    Tui.Event.Character 'N' -> { model | search = Maybe.map (Search.prevMatch content) model.search }
+    Tui.Event.Escape -> { model | search = Nothing }
 
     -- Get the scroll offset to center on current match:
     Search.matchLineIndex content searchState
@@ -37,6 +37,8 @@ contains uppercase characters (like vim/lazygit).
 -}
 
 import Tui
+import Tui.Event
+import Tui.Screen
 
 
 {-| Opaque search state.
@@ -71,7 +73,7 @@ backspace (State s) =
 
 {-| Move to the next match (wraps around).
 -}
-nextMatch : List Tui.Screen -> State -> State
+nextMatch : List Tui.Screen.Screen -> State -> State
 nextMatch content (State s) =
     let
         count =
@@ -86,7 +88,7 @@ nextMatch content (State s) =
 
 {-| Move to the previous match (wraps around).
 -}
-prevMatch : List Tui.Screen -> State -> State
+prevMatch : List Tui.Screen.Screen -> State -> State
 prevMatch content (State s) =
     let
         count =
@@ -109,7 +111,7 @@ query (State s) =
 
 {-| How many lines match the current query?
 -}
-matchCount : List Tui.Screen -> State -> Int
+matchCount : List Tui.Screen.Screen -> State -> Int
 matchCount content (State s) =
     if String.isEmpty s.queryText then
         0
@@ -128,7 +130,7 @@ currentMatch (State s) =
 {-| Get the line index of the current match. Use this to scroll the
 pane to the match position. Returns `Nothing` when there are no matches.
 -}
-matchLineIndex : List Tui.Screen -> State -> Maybe Int
+matchLineIndex : List Tui.Screen.Screen -> State -> Maybe Int
 matchLineIndex content (State s) =
     let
         matchLines =
@@ -141,7 +143,7 @@ matchLineIndex content (State s) =
 
 {-| Status text like "1/3" or "no matches for 'foo'".
 -}
-statusText : List Tui.Screen -> State -> String
+statusText : List Tui.Screen.Screen -> State -> String
 statusText content (State s) =
     if String.isEmpty s.queryText then
         ""
@@ -167,7 +169,7 @@ statusText content (State s) =
 {-| Find line indices that contain the query. Smart-case: case-insensitive
 unless query contains uppercase characters.
 -}
-findMatchLines : String -> List Tui.Screen -> List Int
+findMatchLines : String -> List Tui.Screen.Screen -> List Int
 findMatchLines queryText content =
     if String.isEmpty queryText then
         []
@@ -192,7 +194,7 @@ findMatchLines queryText content =
                     let
                         lineText : String
                         lineText =
-                            Tui.toString screen
+                            Tui.Screen.toString screen
 
                         normalizedLine : String
                         normalizedLine =

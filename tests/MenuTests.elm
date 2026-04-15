@@ -3,20 +3,22 @@ module MenuTests exposing (suite)
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
+import Tui.Event
 import Tui.Menu as Menu
+import Tui.Screen
 
 
 sampleMenu : Menu.State String
 sampleMenu =
     Menu.open
         [ Menu.section "Files"
-            [ Menu.item { key = Tui.Character 's', label = "Stage", action = "stage" }
-            , Menu.item { key = Tui.Character 'd', label = "Discard", action = "discard" }
-            , Menu.disabledItem { key = Tui.Character 'u', label = "Unstage", reason = "Nothing staged" }
+            [ Menu.item { key = Tui.Event.Character 's', label = "Stage", action = "stage" }
+            , Menu.item { key = Tui.Event.Character 'd', label = "Discard", action = "discard" }
+            , Menu.disabledItem { key = Tui.Event.Character 'u', label = "Unstage", reason = "Nothing staged" }
             ]
         , Menu.section "Commit"
-            [ Menu.item { key = Tui.Character 'c', label = "Commit", action = "commit" }
-            , Menu.item { key = Tui.Character 'a', label = "Amend", action = "amend" }
+            [ Menu.item { key = Tui.Event.Character 'c', label = "Commit", action = "commit" }
+            , Menu.item { key = Tui.Event.Character 'a', label = "Amend", action = "amend" }
             ]
         ]
 
@@ -30,7 +32,7 @@ suite =
                     let
                         ( _, maybeAction ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Character 'c', modifiers = [] }
+                                { key = Tui.Event.Character 'c', modifiers = [] }
                                 sampleMenu
                     in
                     maybeAction |> Expect.equal (Just "commit")
@@ -39,7 +41,7 @@ suite =
                     let
                         ( _, maybeAction ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Character 's', modifiers = [] }
+                                { key = Tui.Event.Character 's', modifiers = [] }
                                 sampleMenu
                     in
                     maybeAction |> Expect.equal (Just "stage")
@@ -48,7 +50,7 @@ suite =
                     let
                         ( _, maybeAction ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Character 'u', modifiers = [] }
+                                { key = Tui.Event.Character 'u', modifiers = [] }
                                 sampleMenu
                     in
                     maybeAction |> Expect.equal Nothing
@@ -57,7 +59,7 @@ suite =
                     let
                         ( _, maybeAction ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Character 'z', modifiers = [] }
+                                { key = Tui.Event.Character 'z', modifiers = [] }
                                 sampleMenu
                     in
                     maybeAction |> Expect.equal Nothing
@@ -68,13 +70,13 @@ suite =
                     let
                         ( state, _ ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Character 'j', modifiers = [] }
+                                { key = Tui.Event.Character 'j', modifiers = [] }
                                 sampleMenu
 
                         -- Enter selects the highlighted item
                         ( _, maybeAction ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 state
                     in
                     -- First item is "Stage", j moves to "Discard"
@@ -85,22 +87,22 @@ suite =
                         -- Move down twice, then up once
                         ( s1, _ ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Character 'j', modifiers = [] }
+                                { key = Tui.Event.Character 'j', modifiers = [] }
                                 sampleMenu
 
                         ( s2, _ ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Character 'j', modifiers = [] }
+                                { key = Tui.Event.Character 'j', modifiers = [] }
                                 s1
 
                         ( s3, _ ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Character 'k', modifiers = [] }
+                                { key = Tui.Event.Character 'k', modifiers = [] }
                                 s2
 
                         ( _, maybeAction ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 s3
                     in
                     maybeAction |> Expect.equal (Just "discard")
@@ -110,17 +112,17 @@ suite =
                         -- Move down twice: Stage → Discard → (skip Unstage) → Commit
                         ( s1, _ ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Character 'j', modifiers = [] }
+                                { key = Tui.Event.Character 'j', modifiers = [] }
                                 sampleMenu
 
                         ( s2, _ ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Character 'j', modifiers = [] }
+                                { key = Tui.Event.Character 'j', modifiers = [] }
                                 s1
 
                         ( _, maybeAction ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 s2
                     in
                     maybeAction |> Expect.equal (Just "commit")
@@ -129,7 +131,7 @@ suite =
                     let
                         ( _, maybeAction ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 sampleMenu
                     in
                     -- First enabled item is "Stage"
@@ -142,7 +144,7 @@ suite =
                         rendered : String
                         rendered =
                             Menu.viewBody sampleMenu
-                                |> List.map Tui.toString
+                                |> List.map Tui.Screen.toString
                                 |> String.join "\n"
                     in
                     Expect.all
@@ -156,7 +158,7 @@ suite =
                         rendered : String
                         rendered =
                             Menu.viewBody sampleMenu
-                                |> List.map Tui.toString
+                                |> List.map Tui.Screen.toString
                                 |> String.join "\n"
                     in
                     Expect.all
@@ -172,7 +174,7 @@ suite =
                         rendered : String
                         rendered =
                             Menu.viewBody sampleMenu
-                                |> List.map Tui.toString
+                                |> List.map Tui.Screen.toString
                                 |> String.join "\n"
                     in
                     Expect.all
@@ -190,7 +192,7 @@ suite =
                     let
                         ( _, maybeAction ) =
                             Menu.handleKeyEvent
-                                { key = Tui.Escape, modifiers = [] }
+                                { key = Tui.Event.Escape, modifiers = [] }
                                 sampleMenu
                     in
                     maybeAction |> Expect.equal Nothing

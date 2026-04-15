@@ -7,8 +7,10 @@ import Test exposing (Test, describe, test)
 import Test.Runner
 import Tui
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Event
 import Tui.Layout as Layout
 import Tui.Layout.Test as LayoutTest
+import Tui.Screen
 import Tui.Test as TuiTest
 
 
@@ -25,15 +27,15 @@ suite =
             , test "Tab moves focus to second pane" <|
                 \() ->
                     twoPane
-                        |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
                         |> LayoutTest.ensureFocusedPane "right"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
             , test "Tab Tab moves focus back to first pane" <|
                 \() ->
                     twoPane
-                        |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
-                        |> TuiTest.pressKeyWith { key = Tui.Tab, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
                         |> LayoutTest.ensureFocusedPane "left"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
@@ -220,14 +222,14 @@ appView _ _ =
                     \{ selection } item ->
                         case selection of
                             Layout.Selected _ ->
-                                Tui.text ("▸ " ++ item)
+                                Tui.Screen.text ("▸ " ++ item)
 
                             Layout.NotSelected ->
-                                Tui.text ("  " ++ item)
+                                Tui.Screen.text ("  " ++ item)
                 }
                 items
             )
         , Layout.pane "right"
             { title = "Right", width = Layout.fill }
-            (Layout.content [ Tui.text "details here" ])
+            (Layout.content [ Tui.Screen.text "details here" ])
         ]

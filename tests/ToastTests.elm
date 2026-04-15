@@ -3,6 +3,7 @@ module ToastTests exposing (suite)
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
+import Tui.Screen
 import Tui.Toast as Toast
 
 
@@ -19,7 +20,7 @@ suite =
                 \() ->
                     Toast.init
                         |> Toast.view
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> Expect.equal ""
             ]
         , describe "toast"
@@ -34,7 +35,7 @@ suite =
                     Toast.init
                         |> Toast.toast "Committed!"
                         |> Toast.view
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> String.contains "Committed!"
                         |> Expect.equal True
             , test "newest toast wins (shown on top)" <|
@@ -43,7 +44,7 @@ suite =
                         |> Toast.toast "First"
                         |> Toast.toast "Second"
                         |> Toast.view
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> (\s ->
                                 Expect.all
                                     [ \str -> str |> String.contains "Second" |> Expect.equal True
@@ -58,7 +59,7 @@ suite =
                     Toast.init
                         |> Toast.errorToast "Failed!"
                         |> Toast.view
-                        |> Tui.toString
+                        |> Tui.Screen.toString
                         |> String.contains "Failed!"
                         |> Expect.equal True
             ]
@@ -95,7 +96,7 @@ suite =
                     in
                     Expect.all
                         [ \s -> Toast.hasToasts s |> Expect.equal True
-                        , \s -> Toast.view s |> Tui.toString |> String.contains "Still here" |> Expect.equal True
+                        , \s -> Toast.view s |> Tui.Screen.toString |> String.contains "Still here" |> Expect.equal True
                         ]
                         partway
             , test "error toast takes longer to dismiss (40 ticks)" <|
@@ -140,7 +141,7 @@ suite =
                     in
                     Expect.all
                         [ \s -> Toast.hasToasts s |> Expect.equal True
-                        , \s -> Toast.view s |> Tui.toString |> String.contains "Long error" |> Expect.equal True
+                        , \s -> Toast.view s |> Tui.Screen.toString |> String.contains "Long error" |> Expect.equal True
                         ]
                         afterShortDismissed
             ]

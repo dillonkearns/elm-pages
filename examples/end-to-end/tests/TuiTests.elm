@@ -3,6 +3,8 @@ module TuiTests exposing (suite, tuiTests)
 import Test
 import Tui
 import Tui.Effect as Effect
+import Tui.Event
+import Tui.Screen
 import Tui.Sub
 import Tui.Test as TuiTest
 
@@ -51,18 +53,18 @@ update msg count =
             ( count, Effect.exit )
 
 
-view : Tui.Context -> Int -> Tui.Screen
+view : Tui.Context -> Int -> Tui.Screen.Screen
 view _ count =
-    Tui.text ("Count: " ++ String.fromInt count)
+    Tui.Screen.text ("Count: " ++ String.fromInt count)
 
 
-keyToMsg : Tui.KeyEvent -> Msg
+keyToMsg : Tui.Event.KeyEvent -> Msg
 keyToMsg event =
     case event.key of
-        Tui.Character 'j' ->
+        Tui.Event.Character 'j' ->
             Increment
 
-        Tui.Character 'q' ->
+        Tui.Event.Character 'q' ->
             Quit
 
         _ ->

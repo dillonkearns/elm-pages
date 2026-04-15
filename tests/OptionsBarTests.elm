@@ -3,21 +3,23 @@ module OptionsBarTests exposing (suite)
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
+import Tui.Event
 import Tui.Keybinding as Keybinding
 import Tui.OptionsBar as OptionsBar
+import Tui.Screen
 
 
 sampleBindings : List (Keybinding.Group action)
 sampleBindings =
     [ Keybinding.group "Local"
-        [ Keybinding.binding (Tui.Character 'j') "Next" ()
-            |> Keybinding.withAlternate (Tui.Arrow Tui.Down)
-        , Keybinding.binding (Tui.Character 'k') "Previous" ()
+        [ Keybinding.binding (Tui.Event.Character 'j') "Next" ()
+            |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Down)
+        , Keybinding.binding (Tui.Event.Character 'k') "Previous" ()
         ]
     , Keybinding.group "Global"
-        [ Keybinding.binding (Tui.Character 'q') "Quit" ()
-        , Keybinding.binding (Tui.Character '?') "Help" ()
-        , Keybinding.binding (Tui.Character 'c') "Commit" ()
+        [ Keybinding.binding (Tui.Event.Character 'q') "Quit" ()
+        , Keybinding.binding (Tui.Event.Character '?') "Help" ()
+        , Keybinding.binding (Tui.Event.Character 'c') "Commit" ()
         ]
     ]
 
@@ -28,7 +30,7 @@ suite =
         [ test "shows binding descriptions and keys" <|
             \() ->
                 OptionsBar.view 80 sampleBindings
-                    |> Tui.toString
+                    |> Tui.Screen.toString
                     |> (\s ->
                             Expect.all
                                 [ \str -> str |> String.contains "Next" |> Expect.equal True
@@ -41,24 +43,24 @@ suite =
         , test "separates items with |" <|
             \() ->
                 OptionsBar.view 80 sampleBindings
-                    |> Tui.toString
+                    |> Tui.Screen.toString
                     |> String.contains "|"
                     |> Expect.equal True
         , test "truncates with ... when too narrow" <|
             \() ->
                 OptionsBar.view 30 sampleBindings
-                    |> Tui.toString
+                    |> Tui.Screen.toString
                     |> String.contains "…"
                     |> Expect.equal True
         , test "empty bindings returns empty" <|
             \() ->
                 OptionsBar.view 80 []
-                    |> Tui.toString
+                    |> Tui.Screen.toString
                     |> Expect.equal ""
         , test "uses short format: description: key" <|
             \() ->
                 OptionsBar.view 80 sampleBindings
-                    |> Tui.toString
+                    |> Tui.Screen.toString
                     |> String.contains "Next: j"
                     |> Expect.equal True
         ]

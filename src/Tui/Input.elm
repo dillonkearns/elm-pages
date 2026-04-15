@@ -12,8 +12,8 @@ with an inverse-video cursor indicator (the standard TUI convention).
 
     -- In update:
     case event.key of
-        Tui.Escape -> dismissModal
-        Tui.Enter -> submit (Input.text model.input)
+        Tui.Event.Escape -> dismissModal
+        Tui.Event.Enter -> submit (Input.text model.input)
         _ -> { model | input = Input.update event model.input }
 
     -- In view:
@@ -24,6 +24,8 @@ with an inverse-video cursor indicator (the standard TUI convention).
 -}
 
 import Tui
+import Tui.Event
+import Tui.Screen
 import String.Graphemes as Graphemes
 
 
@@ -87,16 +89,16 @@ Keys the input doesn't handle (Escape, Enter, Tab, etc.) return
 the state unchanged. Match those keys before calling this:
 
     case event.key of
-        Tui.Escape -> ( closeInput model, Effect.none )
-        Tui.Enter -> ( submit model, Effect.none )
+        Tui.Event.Escape -> ( closeInput model, Effect.none )
+        Tui.Event.Enter -> ( submit model, Effect.none )
         _ -> ( { model | input = Input.update event model.input }, Effect.none )
 
 -}
-update : Tui.KeyEvent -> State -> State
+update : Tui.Event.KeyEvent -> State -> State
 update event (State s) =
     case event.key of
-        Tui.Character char ->
-            if List.member Tui.Ctrl event.modifiers then
+        Tui.Event.Character char ->
+            if List.member Tui.Event.Ctrl event.modifiers then
                 -- Ctrl+key shortcuts
                 case char of
                     'a' ->
@@ -131,7 +133,7 @@ update event (State s) =
                     , cursorPos = s.cursorPos + 1
                     }
 
-        Tui.Backspace ->
+        Tui.Event.Backspace ->
             if s.cursorPos > 0 then
                 State
                     { content =
@@ -143,7 +145,7 @@ update event (State s) =
             else
                 State s
 
-        Tui.Delete ->
+        Tui.Event.Delete ->
             if s.cursorPos < Graphemes.length s.content then
                 State
                     { s
@@ -155,16 +157,16 @@ update event (State s) =
             else
                 State s
 
-        Tui.Arrow Tui.Left ->
+        Tui.Event.Arrow Tui.Event.Left ->
             State { s | cursorPos = max 0 (s.cursorPos - 1) }
 
-        Tui.Arrow Tui.Right ->
+        Tui.Event.Arrow Tui.Event.Right ->
             State { s | cursorPos = min (Graphemes.length s.content) (s.cursorPos + 1) }
 
-        Tui.Home ->
+        Tui.Event.Home ->
             State { s | cursorPos = 0 }
 
-        Tui.End ->
+        Tui.Event.End ->
             State { s | cursorPos = Graphemes.length s.content }
 
         _ ->
@@ -176,7 +178,7 @@ update event (State s) =
 The `width` constrains how wide the input renders.
 
 -}
-view : { width : Int } -> State -> Tui.Screen
+view : { width : Int } -> State -> Tui.Screen.Screen
 view { width } (State s) =
     let
         beforeCursor : String
@@ -210,7 +212,7 @@ Useful for password-style prompts where you still want users to see the cursor
 position while hiding the actual text.
 
 -}
-viewMasked : { width : Int } -> State -> Tui.Screen
+viewMasked : { width : Int } -> State -> Tui.Screen.Screen
 viewMasked { width } (State s) =
     let
         contentLength : Int
@@ -243,10 +245,10 @@ viewMasked { width } (State s) =
 renderWithCursor :
     { width : Int }
     -> { beforeCursor : String, cursorChar : String, afterCursor : String }
-    -> Tui.Screen
+    -> Tui.Screen.Screen
 renderWithCursor { width } parts =
     if width <= 0 then
-        Tui.empty
+        Tui.Screen.empty
 
     else
         let
@@ -272,7 +274,7 @@ renderWithCursor { width } parts =
         in
         visibleTokens
             |> tokensToScreens
-            |> Tui.concat
+            |> Tui.Screen.concat
 
 
 type Token
@@ -280,19 +282,19 @@ type Token
     | CursorToken String
 
 
-tokenToScreen : Token -> Tui.Screen
+tokenToScreen : Token -> Tui.Screen.Screen
 tokenToScreen token =
     case token of
         PlainToken textPart ->
-            Tui.text textPart
+            Tui.Screen.text textPart
 
         CursorToken textPart ->
-            Tui.styled
-                { fg = Nothing, bg = Nothing, attributes = [ Tui.Inverse ], hyperlink = Nothing }
+            Tui.Screen.styled
+                { fg = Nothing, bg = Nothing, attributes = [ Tui.Screen.Inverse ], hyperlink = Nothing }
                 textPart
 
 
-tokensToScreens : List Token -> List Tui.Screen
+tokensToScreens : List Token -> List Tui.Screen.Screen
 tokensToScreens tokens =
     -- elm-review: known-unoptimized-recursion
     case tokens of
@@ -309,7 +311,7 @@ tokensToScreens tokens =
                 remainingTokens =
                     dropPlainTokens rest
             in
-            Tui.text (String.concat (textPart :: collectedText))
+            Tui.Screen.text (String.concat (textPart :: collectedText))
                 :: tokensToScreens remainingTokens
 
         CursorToken textPart :: rest ->

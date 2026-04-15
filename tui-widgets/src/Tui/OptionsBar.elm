@@ -8,7 +8,7 @@ hints at the bottom of the screen. Like lazygit's bottom bar:
 Automatically truncates with `…` when the bar is too wide.
 
     -- In view, render as the last row:
-    Tui.lines
+    Tui.Screen.lines
         (layoutRows
             ++ [ OptionsBar.view ctx.width (activeBindings model) ]
         )
@@ -20,6 +20,7 @@ Automatically truncates with `…` when the bar is too wide.
 import Ansi.Color
 import Tui
 import Tui.Keybinding as Keybinding
+import Tui.Screen
 
 
 {-| Render the options bar for the given terminal width and keybinding groups.
@@ -30,7 +31,7 @@ Uses the full binding label for each keybinding, including alternates and
 modifiers (for example `j/↓` or `ctrl+s`).
 
 -}
-view : Int -> List (Keybinding.Group action) -> Tui.Screen
+view : Int -> List (Keybinding.Group action) -> Tui.Screen.Screen
 view maxWidth groups =
     let
         entries : List { description : String, key : String }
@@ -53,13 +54,13 @@ view maxWidth groups =
             truncateEntries maxWidth separator entries
     in
     if List.isEmpty truncated then
-        Tui.empty
+        Tui.Screen.empty
 
     else
         truncated
             |> List.map renderEntry
-            |> List.intersperse (Tui.text separator |> Tui.dim)
-            |> Tui.concat
+            |> List.intersperse (Tui.Screen.text separator |> Tui.Screen.dim)
+            |> Tui.Screen.concat
 
 
 {-| Truncate entries to fit within maxWidth, appending "…" if needed.
@@ -129,18 +130,18 @@ truncateEntries maxWidth separator entries =
         |> .acc
 
 
-renderEntry : Maybe { description : String, key : String } -> Tui.Screen
+renderEntry : Maybe { description : String, key : String } -> Tui.Screen.Screen
 renderEntry entry =
     case entry of
         Just fullEntry ->
-            Tui.concat
-                [ Tui.text fullEntry.description
-                    |> Tui.dim
-                , Tui.text ": "
-                    |> Tui.dim
-                , Tui.text fullEntry.key
-                    |> Tui.fg Ansi.Color.cyan
+            Tui.Screen.concat
+                [ Tui.Screen.text fullEntry.description
+                    |> Tui.Screen.dim
+                , Tui.Screen.text ": "
+                    |> Tui.Screen.dim
+                , Tui.Screen.text fullEntry.key
+                    |> Tui.Screen.fg Ansi.Color.cyan
                 ]
 
         Nothing ->
-            Tui.text "…" |> Tui.dim
+            Tui.Screen.text "…" |> Tui.Screen.dim

@@ -4,6 +4,7 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Layout as Layout
+import Tui.Screen
 
 
 suite : Test
@@ -22,14 +23,14 @@ suite =
                                       , content =
                                             Layout.selectableList
                                                 { onSelect = identity
-                                                , selected = \item -> Tui.text ("▸ " ++ item)
-                                                , default = \item -> Tui.text ("  " ++ item)
+                                                , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                                , default = \item -> Tui.Screen.text ("  " ++ item)
                                                 }
                                                 [ "a.elm", "b.elm", "c.elm" ]
                                       }
                                     , { id = "worktrees"
                                       , label = "Worktrees"
-                                      , content = Layout.content [ Tui.text "wt" ]
+                                      , content = Layout.content [ Tui.Screen.text "wt" ]
                                       }
                                     ]
                                 , activeTab = "files"
@@ -63,8 +64,8 @@ suite =
                                       , content =
                                             Layout.selectableList
                                                 { onSelect = identity
-                                                , selected = \item -> Tui.text ("▸ " ++ item)
-                                                , default = \item -> Tui.text ("  " ++ item)
+                                                , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                                , default = \item -> Tui.Screen.text ("  " ++ item)
                                                 }
                                                 [ "a.elm", "b.elm" ]
                                       }
@@ -95,8 +96,8 @@ suite =
                                       , content =
                                             Layout.selectableList
                                                 { onSelect = identity
-                                                , selected = \item -> Tui.text ("▸ " ++ item)
-                                                , default = \item -> Tui.text ("  " ++ item)
+                                                , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                                , default = \item -> Tui.Screen.text ("  " ++ item)
                                                 }
                                                 [ "a.elm", "b.elm", "c.elm" ]
                                       }
@@ -105,8 +106,8 @@ suite =
                                       , content =
                                             Layout.selectableList
                                                 { onSelect = identity
-                                                , selected = \item -> Tui.text ("▸ " ++ item)
-                                                , default = \item -> Tui.text ("  " ++ item)
+                                                , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                                                , default = \item -> Tui.Screen.text ("  " ++ item)
                                                 }
                                                 [ "wt1", "wt2" ]
                                       }
@@ -170,8 +171,8 @@ suite =
                         Layout.horizontal
                             [ Layout.paneGroup "left"
                                 { tabs =
-                                    [ { id = "files", label = "Files", content = Layout.content [ Tui.text "files-content" ] }
-                                    , { id = "worktrees", label = "Worktrees", content = Layout.content [ Tui.text "worktrees-content" ] }
+                                    [ { id = "files", label = "Files", content = Layout.content [ Tui.Screen.text "files-content" ] }
+                                    , { id = "worktrees", label = "Worktrees", content = Layout.content [ Tui.Screen.text "worktrees-content" ] }
                                     ]
                                 , activeTab = tab
                                 , width = Layout.fill
@@ -186,7 +187,7 @@ suite =
                     rendered =
                         makeLayout "worktrees"
                             |> Layout.toScreen state
-                            |> Tui.toString
+                            |> Tui.Screen.toString
                 in
                 Expect.all
                     [ \s -> s |> String.contains "worktrees-content" |> Expect.equal True

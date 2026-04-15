@@ -4,8 +4,10 @@ module TuiTestStepper exposing (tuiTests)
 -}
 
 import Ansi.Color
-import Tui exposing (plain)
+import Tui
 import Tui.Effect as Effect
+import Tui.Event
+import Tui.Screen exposing (plain)
 import Tui.Sub
 import Tui.Test as TuiTest
 
@@ -56,8 +58,8 @@ type alias Model =
 
 
 type Msg
-    = KeyPressed Tui.KeyEvent
-    | Mouse Tui.MouseEvent
+    = KeyPressed Tui.Event.KeyEvent
+    | Mouse Tui.Event.MouseEvent
 
 
 sampleCommits : List Commit
@@ -92,13 +94,13 @@ miniGitUpdate msg model =
     case msg of
         KeyPressed event ->
             case event.key of
-                Tui.Character 'j' ->
+                Tui.Event.Character 'j' ->
                     ( adjustScroll { model | selected = min maxIndex (model.selected + 1) }, Effect.none )
 
-                Tui.Character 'k' ->
+                Tui.Event.Character 'k' ->
                     ( adjustScroll { model | selected = max 0 (model.selected - 1) }, Effect.none )
 
-                Tui.Character 'q' ->
+                Tui.Event.Character 'q' ->
                     ( model, Effect.exit )
 
                 _ ->
@@ -106,7 +108,7 @@ miniGitUpdate msg model =
 
         Mouse event ->
             case event of
-                Tui.Click { row } ->
+                Tui.Event.Click { row } ->
                     let
                         clickedIndex : Int
                         clickedIndex =
@@ -118,10 +120,10 @@ miniGitUpdate msg model =
                     else
                         ( model, Effect.none )
 
-                Tui.ScrollUp _ ->
+                Tui.Event.ScrollUp _ ->
                     ( adjustScroll { model | selected = max 0 (model.selected - 1) }, Effect.none )
 
-                Tui.ScrollDown _ ->
+                Tui.Event.ScrollDown _ ->
                     ( adjustScroll { model | selected = min maxIndex (model.selected + 1) }, Effect.none )
 
 
@@ -137,12 +139,12 @@ adjustScroll model =
         model
 
 
-miniGitView : Tui.Context -> Model -> Tui.Screen
+miniGitView : Tui.Context -> Model -> Tui.Screen.Screen
 miniGitView ctx model =
     let
-        dimStyle : Tui.Style
+        dimStyle : Tui.Screen.Style
         dimStyle =
-            { plain | attributes = [ Tui.Dim ] }
+            { plain | attributes = [ Tui.Screen.Dim ] }
 
         visibleRows : Int
         visibleRows =
@@ -155,43 +157,43 @@ miniGitView ctx model =
                 |> List.drop model.scrollOffset
                 |> List.take visibleRows
     in
-    Tui.lines
-        ([ Tui.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Bold ] } "Mini Git Log"
-         , Tui.text ""
+    Tui.Screen.lines
+        ([ Tui.Screen.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Screen.Bold ] } "Mini Git Log"
+         , Tui.Screen.text ""
          ]
             ++ List.map
                 (\( i, commit ) ->
-                    Tui.concat
-                        [ Tui.text
+                    Tui.Screen.concat
+                        [ Tui.Screen.text
                             (if i == model.selected then
                                 "▸ "
 
                              else
                                 "  "
                             )
-                        , Tui.styled
+                        , Tui.Screen.styled
                             (if i == model.selected then
-                                { plain | fg = Just Ansi.Color.yellow, attributes = [ Tui.Bold ] }
+                                { plain | fg = Just Ansi.Color.yellow, attributes = [ Tui.Screen.Bold ] }
 
                              else
                                 dimStyle
                             )
                             commit.sha
-                        , Tui.text (" " ++ commit.message)
+                        , Tui.Screen.text (" " ++ commit.message)
                         ]
                 )
                 visibleCommits
-            ++ [ Tui.text ""
+            ++ [ Tui.Screen.text ""
                , case model.commits |> List.drop model.selected |> List.head of
                     Just commit ->
-                        Tui.lines
-                            [ Tui.styled dimStyle "───────────"
-                            , Tui.concat [ Tui.styled dimStyle "SHA: ", Tui.text commit.sha ]
-                            , Tui.text commit.message
+                        Tui.Screen.lines
+                            [ Tui.Screen.styled dimStyle "───────────"
+                            , Tui.Screen.concat [ Tui.Screen.styled dimStyle "SHA: ", Tui.Screen.text commit.sha ]
+                            , Tui.Screen.text commit.message
                             ]
 
                     Nothing ->
-                        Tui.empty
+                        Tui.Screen.empty
                ]
         )
 

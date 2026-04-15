@@ -24,7 +24,7 @@ When using [`Layout.compileApp`](Tui-Layout#compileApp), prefer
     model.dialog = Just (Confirm.prompt { title = "Branch name", initialValue = "feature/" })
 
     -- In update while dialog is active:
-    Tui.Enter ->
+    Tui.Event.Enter ->
         case model.dialog of
             Just state ->
                 if Confirm.isPrompt state then
@@ -32,7 +32,7 @@ When using [`Layout.compileApp`](Tui-Layout#compileApp), prefer
                 else
                     handleConfirm
             Nothing -> ...
-    Tui.Escape -> { model | dialog = Nothing }
+    Tui.Event.Escape -> { model | dialog = Nothing }
 
     -- Render with Modal.overlay:
     Modal.overlay
@@ -51,7 +51,9 @@ When using [`Layout.compileApp`](Tui-Layout#compileApp), prefer
 -}
 
 import Tui
+import Tui.Event
 import Tui.Input as Input
+import Tui.Screen
 
 
 {-| Opaque dialog state — either a confirmation or a prompt.
@@ -93,7 +95,7 @@ typeChar : Char -> State -> State
 typeChar c state =
     case state of
         PromptState s ->
-            PromptState { s | input = Input.update { key = Tui.Character c, modifiers = [] } s.input }
+            PromptState { s | input = Input.update { key = Tui.Event.Character c, modifiers = [] } s.input }
 
         ConfirmState _ ->
             state
@@ -105,7 +107,7 @@ backspace : State -> State
 backspace state =
     case state of
         PromptState s ->
-            PromptState { s | input = Input.update { key = Tui.Backspace, modifiers = [] } s.input }
+            PromptState { s | input = Input.update { key = Tui.Event.Backspace, modifiers = [] } s.input }
 
         ConfirmState _ ->
             state
@@ -113,7 +115,7 @@ backspace state =
 
 {-| Pass a full key event to the dialog (routes to Input.update for prompts).
 -}
-handleKeyEvent : Tui.KeyEvent -> State -> State
+handleKeyEvent : Tui.Event.KeyEvent -> State -> State
 handleKeyEvent event state =
     case state of
         PromptState s ->
@@ -137,19 +139,19 @@ title state =
 
 {-| Render the dialog body.
 -}
-viewBody : State -> List Tui.Screen
+viewBody : State -> List Tui.Screen.Screen
 viewBody state =
     case state of
         ConfirmState s ->
-            [ Tui.blank
-            , Tui.text ("  " ++ s.message)
-            , Tui.blank
+            [ Tui.Screen.blank
+            , Tui.Screen.text ("  " ++ s.message)
+            , Tui.Screen.blank
             ]
 
         PromptState s ->
-            [ Tui.blank
+            [ Tui.Screen.blank
             , Input.view { width = 40 } s.input
-            , Tui.blank
+            , Tui.Screen.blank
             ]
 
 

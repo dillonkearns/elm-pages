@@ -12,15 +12,15 @@ Built on [`Tui.Picker`](Tui-Picker) and [`Tui.Keybinding`](Tui-Keybinding).
 
     -- In update:
     case event.key of
-        Tui.Escape -> closeCommandPalette
-        Tui.Enter ->
+        Tui.Event.Escape -> closeCommandPalette
+        Tui.Event.Enter ->
             case CommandPalette.selected model.palette of
                 Just action -> handleAction action model
                 Nothing -> ( model, Effect.none )
-        Tui.Backspace -> { model | palette = CommandPalette.backspace model.palette }
-        Tui.Character c -> { model | palette = CommandPalette.typeChar c model.palette }
-        Tui.Arrow Tui.Down -> { model | palette = CommandPalette.navigateDown model.palette }
-        Tui.Arrow Tui.Up -> { model | palette = CommandPalette.navigateUp model.palette }
+        Tui.Event.Backspace -> { model | palette = CommandPalette.backspace model.palette }
+        Tui.Event.Character c -> { model | palette = CommandPalette.typeChar c model.palette }
+        Tui.Event.Arrow Tui.Event.Down -> { model | palette = CommandPalette.navigateDown model.palette }
+        Tui.Event.Arrow Tui.Event.Up -> { model | palette = CommandPalette.navigateUp model.palette }
 
     -- Render with Modal.overlay:
     Modal.overlay
@@ -39,8 +39,10 @@ Built on [`Tui.Picker`](Tui-Picker) and [`Tui.Keybinding`](Tui-Keybinding).
 
 import Ansi.Color
 import Tui
+import Tui.Event
 import Tui.FuzzyMatch as FuzzyMatch
 import Tui.Keybinding as Keybinding
+import Tui.Screen
 
 
 {-| Opaque command palette state.
@@ -134,7 +136,7 @@ title =
 
 {-| Render the palette body.
 -}
-viewBody : State action -> List Tui.Screen
+viewBody : State action -> List Tui.Screen.Screen
 viewBody (State s) =
     let
         ( headerRows, entryRows ) =
@@ -162,7 +164,7 @@ overflows, the returned list is padded so the modal height stays stable near the
 end of the list.
 
 -}
-viewBodyWithMaxRows : Int -> State action -> List Tui.Screen
+viewBodyWithMaxRows : Int -> State action -> List Tui.Screen.Screen
 viewBodyWithMaxRows maxRows (State s) =
     let
         ( headerRows, entryRows ) =
@@ -184,7 +186,7 @@ viewBodyWithMaxRows maxRows (State s) =
         scrollOffset =
             scrollOffsetForSelectedRow s.selectedIndex visibleEntryRows (List.length entryRows) scrollPadding
 
-        windowedEntryRows : List Tui.Screen
+        windowedEntryRows : List Tui.Screen.Screen
         windowedEntryRows =
             if visibleEntryRows <= 0 then
                 []
@@ -194,11 +196,11 @@ viewBodyWithMaxRows maxRows (State s) =
                     |> List.drop scrollOffset
                     |> List.take visibleEntryRows
 
-        paddedEntryRows : List Tui.Screen
+        paddedEntryRows : List Tui.Screen.Screen
         paddedEntryRows =
             if List.length entryRows > visibleEntryRows && List.length windowedEntryRows < visibleEntryRows then
                 windowedEntryRows
-                    ++ List.repeat (visibleEntryRows - List.length windowedEntryRows) Tui.empty
+                    ++ List.repeat (visibleEntryRows - List.length windowedEntryRows) Tui.Screen.empty
 
             else
                 windowedEntryRows
@@ -259,22 +261,22 @@ paletteBodyRows :
         , filterText : String
         , selectedIndex : Int
     }
-    -> ( List Tui.Screen, List Tui.Screen )
+    -> ( List Tui.Screen.Screen, List Tui.Screen.Screen )
 paletteBodyRows s =
     let
         entries =
             getVisible s
 
         filterRow =
-            Tui.concat
-                [ Tui.text "/ " |> Tui.dim
+            Tui.Screen.concat
+                [ Tui.Screen.text "/ " |> Tui.Screen.dim
                 , if String.isEmpty s.filterText then
-                    Tui.text " " |> Tui.inverse
+                    Tui.Screen.text " " |> Tui.Screen.inverse
 
                   else
-                    Tui.concat
-                        [ Tui.text s.filterText
-                        , Tui.text " " |> Tui.inverse
+                    Tui.Screen.concat
+                        [ Tui.Screen.text s.filterText
+                        , Tui.Screen.text " " |> Tui.Screen.inverse
                         ]
                 ]
 
@@ -287,22 +289,22 @@ paletteBodyRows s =
                                 i == s.selectedIndex
                         in
                         if isSelected then
-                            Tui.concat
-                                [ Tui.text entry.keyLabel |> Tui.fg Ansi.Color.cyan |> Tui.bold
-                                , Tui.text " "
-                                , Tui.text entry.description
+                            Tui.Screen.concat
+                                [ Tui.Screen.text entry.keyLabel |> Tui.Screen.fg Ansi.Color.cyan |> Tui.Screen.bold
+                                , Tui.Screen.text " "
+                                , Tui.Screen.text entry.description
                                 ]
-                                |> Tui.bg Ansi.Color.blue
+                                |> Tui.Screen.bg Ansi.Color.blue
 
                         else
-                            Tui.concat
-                                [ Tui.text entry.keyLabel |> Tui.fg Ansi.Color.cyan
-                                , Tui.text " "
-                                , Tui.text entry.description
+                            Tui.Screen.concat
+                                [ Tui.Screen.text entry.keyLabel |> Tui.Screen.fg Ansi.Color.cyan
+                                , Tui.Screen.text " "
+                                , Tui.Screen.text entry.description
                                 ]
                     )
     in
-    ( [ filterRow, Tui.blank ], entryRows )
+    ( [ filterRow, Tui.Screen.blank ], entryRows )
 
 
 scrollOffsetForSelectedRow : Int -> Int -> Int -> Int -> Int

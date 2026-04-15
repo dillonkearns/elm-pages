@@ -22,12 +22,12 @@ prefer [`Layout.pickerModal`](Tui-Layout#pickerModal) which handles key routing 
 
     -- In update (handle key events while picker is open):
     case event.key of
-        Tui.Escape -> closePicker
-        Tui.Enter -> selectItem (Picker.selected pickerState)
-        Tui.Arrow Tui.Down -> { model | picker = Picker.navigateDown model.picker }
-        Tui.Arrow Tui.Up -> { model | picker = Picker.navigateUp model.picker }
-        Tui.Backspace -> { model | picker = Picker.backspace model.picker }
-        Tui.Character c -> { model | picker = Picker.typeChar c model.picker }
+        Tui.Event.Escape -> closePicker
+        Tui.Event.Enter -> selectItem (Picker.selected pickerState)
+        Tui.Event.Arrow Tui.Event.Down -> { model | picker = Picker.navigateDown model.picker }
+        Tui.Event.Arrow Tui.Event.Up -> { model | picker = Picker.navigateUp model.picker }
+        Tui.Event.Backspace -> { model | picker = Picker.backspace model.picker }
+        Tui.Event.Character c -> { model | picker = Picker.typeChar c model.picker }
 
     -- Render with Modal.overlay:
     Modal.overlay
@@ -47,7 +47,9 @@ prefer [`Layout.pickerModal`](Tui-Layout#pickerModal) which handles key routing 
 
 import Ansi.Color
 import Tui
+import Tui.Event
 import Tui.FuzzyMatch as FuzzyMatch
+import Tui.Screen
 
 
 {-| Configuration for opening a picker.
@@ -164,7 +166,7 @@ title (State s) =
 {-| Render the picker body (filter input + item list). Use as the `body`
 of a `Tui.Modal.overlay`.
 -}
-viewBody : State item -> List Tui.Screen
+viewBody : State item -> List Tui.Screen.Screen
 viewBody (State s) =
     let
         ( headerRows, itemRows ) =
@@ -192,7 +194,7 @@ overflows, the returned list is padded so the modal height stays stable near the
 end of the list.
 
 -}
-viewBodyWithMaxRows : Int -> State item -> List Tui.Screen
+viewBodyWithMaxRows : Int -> State item -> List Tui.Screen.Screen
 viewBodyWithMaxRows maxRows (State s) =
     let
         ( headerRows, itemRows ) =
@@ -214,7 +216,7 @@ viewBodyWithMaxRows maxRows (State s) =
         scrollOffset =
             scrollOffsetForSelectedRow s.selectedIndex visibleItemRows (List.length itemRows) scrollPadding
 
-        windowedItemRows : List Tui.Screen
+        windowedItemRows : List Tui.Screen.Screen
         windowedItemRows =
             if visibleItemRows <= 0 then
                 []
@@ -224,11 +226,11 @@ viewBodyWithMaxRows maxRows (State s) =
                     |> List.drop scrollOffset
                     |> List.take visibleItemRows
 
-        paddedItemRows : List Tui.Screen
+        paddedItemRows : List Tui.Screen.Screen
         paddedItemRows =
             if List.length itemRows > visibleItemRows && List.length windowedItemRows < visibleItemRows then
                 windowedItemRows
-                    ++ List.repeat (visibleItemRows - List.length windowedItemRows) Tui.empty
+                    ++ List.repeat (visibleItemRows - List.length windowedItemRows) Tui.Screen.empty
 
             else
                 windowedItemRows
@@ -296,22 +298,22 @@ pickerBodyRows :
         , toString : item -> String
         , allItems : List item
     }
-    -> ( List Tui.Screen, List Tui.Screen )
+    -> ( List Tui.Screen.Screen, List Tui.Screen.Screen )
 pickerBodyRows s =
     let
         items =
             getVisibleItems s
 
         filterRow =
-            Tui.concat
-                [ Tui.text "/ " |> Tui.dim
+            Tui.Screen.concat
+                [ Tui.Screen.text "/ " |> Tui.Screen.dim
                 , if String.isEmpty s.filterText then
-                    Tui.text " " |> Tui.inverse
+                    Tui.Screen.text " " |> Tui.Screen.inverse
 
                   else
-                    Tui.concat
-                        [ Tui.text s.filterText
-                        , Tui.text " " |> Tui.inverse
+                    Tui.Screen.concat
+                        [ Tui.Screen.text s.filterText
+                        , Tui.Screen.text " " |> Tui.Screen.inverse
                         ]
                 ]
 
@@ -327,32 +329,32 @@ pickerBodyRows s =
                                 i == s.selectedIndex
                         in
                         if isSelected then
-                            Tui.text (" " ++ label ++ " ")
-                                |> Tui.fg Ansi.Color.white
-                                |> Tui.bg Ansi.Color.blue
-                                |> Tui.bold
+                            Tui.Screen.text (" " ++ label ++ " ")
+                                |> Tui.Screen.fg Ansi.Color.white
+                                |> Tui.Screen.bg Ansi.Color.blue
+                                |> Tui.Screen.bold
 
                         else
                             case FuzzyMatch.highlight s.filterText label of
                                 Just segments ->
-                                    Tui.concat
-                                        (Tui.text " "
+                                    Tui.Screen.concat
+                                        (Tui.Screen.text " "
                                             :: List.map
                                                 (\seg ->
                                                     if seg.matched then
-                                                        Tui.text seg.text |> Tui.fg Ansi.Color.cyan |> Tui.bold
+                                                        Tui.Screen.text seg.text |> Tui.Screen.fg Ansi.Color.cyan |> Tui.Screen.bold
 
                                                     else
-                                                        Tui.text seg.text
+                                                        Tui.Screen.text seg.text
                                                 )
                                                 segments
                                         )
 
                                 Nothing ->
-                                    Tui.text (" " ++ label)
+                                    Tui.Screen.text (" " ++ label)
                     )
     in
-    ( [ filterRow, Tui.blank ], itemRows )
+    ( [ filterRow, Tui.Screen.blank ], itemRows )
 
 
 scrollOffsetForSelectedRow : Int -> Int -> Int -> Int -> Int

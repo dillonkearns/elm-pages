@@ -3,7 +3,9 @@ module PromptTests exposing (suite)
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
+import Tui.Event
 import Tui.Prompt as Prompt
+import Tui.Screen
 
 
 suite : Test
@@ -19,12 +21,12 @@ suite =
 
                         ( s1, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Character 'h', modifiers = [] }
+                                { key = Tui.Event.Character 'h', modifiers = [] }
                                 state
 
                         ( s2, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Character 'i', modifiers = [] }
+                                { key = Tui.Event.Character 'i', modifiers = [] }
                                 s1
                     in
                     Prompt.text s2 |> Expect.equal "hi"
@@ -37,7 +39,7 @@ suite =
 
                         ( _, result ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 state
                     in
                     result |> Expect.equal (Prompt.Submitted "hello")
@@ -50,7 +52,7 @@ suite =
 
                         ( _, result ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Escape, modifiers = [] }
+                                { key = Tui.Event.Escape, modifiers = [] }
                                 state
                     in
                     result |> Expect.equal Prompt.Cancelled
@@ -63,7 +65,7 @@ suite =
 
                         ( _, result ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Character 'a', modifiers = [] }
+                                { key = Tui.Event.Character 'a', modifiers = [] }
                                 state
                     in
                     result |> Expect.equal Prompt.Continue
@@ -76,7 +78,7 @@ suite =
 
                         ( s1, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Backspace, modifiers = [] }
+                                { key = Tui.Event.Backspace, modifiers = [] }
                                 state
                     in
                     Prompt.text s1 |> Expect.equal "hell"
@@ -101,7 +103,7 @@ suite =
                         rendered : String
                         rendered =
                             Prompt.viewBody { width = 40 } state
-                                |> List.map Tui.toString
+                                |> List.map Tui.Screen.toString
                                 |> String.join "\n"
                     in
                     Expect.all
@@ -122,7 +124,7 @@ suite =
 
                         ( _, result ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 state
                     in
                     result |> Expect.equal (Prompt.Submitted "secret")
@@ -145,7 +147,7 @@ suite =
                         rendered : String
                         rendered =
                             Prompt.viewBody { width = 40 } state
-                                |> List.map Tui.toString
+                                |> List.map Tui.Screen.toString
                                 |> String.join "\n"
                     in
                     Expect.all
@@ -170,7 +172,7 @@ suite =
 
                         ( s1, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Tab, modifiers = [] }
+                                { key = Tui.Event.Tab, modifiers = [] }
                                 state
                     in
                     Prompt.text s1 |> Expect.equal "apple"
@@ -190,12 +192,12 @@ suite =
 
                         ( s1, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Tab, modifiers = [] }
+                                { key = Tui.Event.Tab, modifiers = [] }
                                 state
 
                         ( _, result ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 s1
                     in
                     result |> Expect.equal (Prompt.Submitted "apple")
@@ -215,7 +217,7 @@ suite =
                         rendered : String
                         rendered =
                             Prompt.viewBody { width = 40 } state
-                                |> List.map Tui.toString
+                                |> List.map Tui.Screen.toString
                                 |> String.join "\n"
                     in
                     rendered |> String.contains "apple" |> Expect.equal False
@@ -232,7 +234,7 @@ suite =
                         rendered : String
                         rendered =
                             Prompt.viewBody { width = 40 } state
-                                |> List.map Tui.toString
+                                |> List.map Tui.Screen.toString
                                 |> String.join "\n"
                     in
                     rendered |> String.contains "hello" |> Expect.equal True
@@ -246,7 +248,7 @@ suite =
                         rendered : String
                         rendered =
                             Prompt.viewBody { width = 40 } state
-                                |> List.map Tui.toString
+                                |> List.map Tui.Screen.toString
                                 |> String.join "\n"
                     in
                     rendered |> String.contains "Type a name..." |> Expect.equal True
@@ -259,7 +261,7 @@ typeString str state =
     String.foldl
         (\c s ->
             Prompt.handleKeyEvent
-                { key = Tui.Character c, modifiers = [] }
+                { key = Tui.Event.Character c, modifiers = [] }
                 s
                 |> Tuple.first
         )

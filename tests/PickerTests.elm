@@ -4,6 +4,7 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Picker as Picker
+import Tui.Screen
 
 
 suite : Test
@@ -138,7 +139,7 @@ suite =
                         , title = "My Picker"
                         }
                         |> Picker.viewBody
-                        |> List.map Tui.toString
+                        |> List.map Tui.Screen.toString
                         |> String.concat
                         |> String.contains "A"
                         |> Expect.equal True

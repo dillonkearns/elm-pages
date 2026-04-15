@@ -6,8 +6,10 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Effect as Effect exposing (Effect)
+import Tui.Event
 import Tui.Layout as Layout
 import Tui.Menu as Menu
+import Tui.Screen
 import Tui.Test as TuiTest
 
 
@@ -165,7 +167,7 @@ suite =
                         |> TuiTest.pressKey '?'
                         |> TuiTest.ensureViewHas "Keybindings"
                         -- Esc should close it
-                        |> TuiTest.pressKeyWith { key = Tui.Escape, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Event.Escape, modifiers = [] }
                         |> TuiTest.ensureViewDoesNotHave "Keybindings"
                         -- j should NOT re-open the help modal
                         |> TuiTest.pressKey 'j'
@@ -206,7 +208,7 @@ suite =
                         -- Get modal heights, skipping snapshots before the modal is open
                         snapshotHeights =
                             snapshots
-                                |> List.map (\s -> modalHeight (Tui.toString s.screen))
+                                |> List.map (\s -> modalHeight (Tui.Screen.toString s.screen))
                                 |> List.filter (\h -> h > 0)
 
                         allSame =
@@ -346,16 +348,16 @@ helpView _ model =
                     \{ selection } item ->
                         case selection of
                             Layout.Selected { focused } ->
-                                Tui.text ("▸ " ++ item)
+                                Tui.Screen.text ("▸ " ++ item)
                                     |> (if focused then
-                                            Tui.bg Ansi.Color.blue
+                                            Tui.Screen.bg Ansi.Color.blue
 
                                         else
-                                            Tui.bold
+                                            Tui.Screen.bold
                                        )
 
                             Layout.NotSelected ->
-                                Tui.text ("  " ++ item)
+                                Tui.Screen.text ("  " ++ item)
                 }
                 model.items
             )
@@ -455,8 +457,8 @@ pickerView _ model =
         [ Layout.pane "status"
             { title = "Status", width = Layout.fill }
             (Layout.content
-                [ Tui.text ("selected: " ++ Maybe.withDefault "none" model.selected)
-                , Tui.text "press p to open picker"
+                [ Tui.Screen.text ("selected: " ++ Maybe.withDefault "none" model.selected)
+                , Tui.Screen.text "press p to open picker"
                 ]
             )
         ]
@@ -537,7 +539,7 @@ menuItems =
                         Char.fromCode (Char.toCode 'a' + i - 1)
                 in
                 Menu.item
-                    { key = Tui.Character keyChar
+                    { key = Tui.Event.Character keyChar
                     , label = label
                     , action = ChooseMenuItem label
                     }
@@ -565,7 +567,7 @@ menuView _ _ =
         [ Layout.pane "status"
             { title = "Status", width = Layout.fill }
             (Layout.content
-                [ Tui.text "press m to open menu"
+                [ Tui.Screen.text "press m to open menu"
                 ]
             )
         ]
@@ -650,18 +652,18 @@ linkView _ model =
         [ Layout.pane "left"
             { title = "Left", width = Layout.fill }
             (Layout.content
-                [ Tui.text "left pane content"
+                [ Tui.Screen.text "left pane content"
                 ]
             )
         , Layout.pane "right"
             { title = "Right", width = Layout.fill }
             (Layout.content
-                [ Tui.concat
-                    [ Tui.text "Click me" |> Tui.link { url = "https://example.com" }
-                    , Tui.text " and "
-                    , Tui.text "plain text"
+                [ Tui.Screen.concat
+                    [ Tui.Screen.text "Click me" |> Tui.Screen.link { url = "https://example.com" }
+                    , Tui.Screen.text " and "
+                    , Tui.Screen.text "plain text"
                     ]
-                , Tui.text ("clicked: " ++ Maybe.withDefault "none" model.clickedUrl)
+                , Tui.Screen.text ("clicked: " ++ Maybe.withDefault "none" model.clickedUrl)
                 ]
             )
             |> Layout.withOnLinkClick LinkClicked
@@ -756,13 +758,13 @@ linkSelView _ model =
                                         "  "
                         in
                         if item == "linked-item" then
-                            Tui.concat
-                                [ Tui.text prefix
-                                , Tui.text item |> Tui.link { url = "https://item.example" }
+                            Tui.Screen.concat
+                                [ Tui.Screen.text prefix
+                                , Tui.Screen.text item |> Tui.Screen.link { url = "https://item.example" }
                                 ]
 
                         else
-                            Tui.text (prefix ++ item)
+                            Tui.Screen.text (prefix ++ item)
                 }
                 model.items
             )
@@ -770,8 +772,8 @@ linkSelView _ model =
         , Layout.pane "status"
             { title = "Status", width = Layout.fill }
             (Layout.content
-                [ Tui.text ("link: " ++ Maybe.withDefault "none" model.clickedUrl)
-                , Tui.text ("selected: " ++ Maybe.withDefault "none" model.selectedItem)
+                [ Tui.Screen.text ("link: " ++ Maybe.withDefault "none" model.clickedUrl)
+                , Tui.Screen.text ("selected: " ++ Maybe.withDefault "none" model.selectedItem)
                 ]
             )
         ]
@@ -842,14 +844,14 @@ scrollView _ model =
             { title = "Docs", width = Layout.fill }
             (Layout.content
                 (List.range 1 50
-                    |> List.map (\i -> Tui.text ("Line " ++ String.fromInt i))
+                    |> List.map (\i -> Tui.Screen.text ("Line " ++ String.fromInt i))
                 )
             )
             |> Layout.withOnScroll Scrolled
         , Layout.pane "status"
             { title = "Status", width = Layout.fill }
             (Layout.content
-                [ Tui.text ("scroll: " ++ String.fromInt model.scrollPos)
+                [ Tui.Screen.text ("scroll: " ++ String.fromInt model.scrollPos)
                 ]
             )
         ]
@@ -939,10 +941,10 @@ setSelView _ model =
                     \{ selection } item ->
                         case selection of
                             Layout.Selected _ ->
-                                Tui.text ("▸ " ++ item)
+                                Tui.Screen.text ("▸ " ++ item)
 
                             Layout.NotSelected ->
-                                Tui.text ("  " ++ item)
+                                Tui.Screen.text ("  " ++ item)
                 }
                 setSelItems
             )

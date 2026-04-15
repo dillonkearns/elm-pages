@@ -5,23 +5,24 @@ import Expect
 import Json.Encode
 import Test exposing (Test, describe, test)
 import Tui
-import Tui.Internal
+import Tui.Event
 import Tui.Layout as Layout
+import Tui.Screen
 
 
-diffLines : List Tui.Screen
+diffLines : List Tui.Screen.Screen
 diffLines =
-    [ Tui.text "commit abc1234"
-    , Tui.text "Author: Test User"
-    , Tui.text "Date: 2026-03-21"
-    , Tui.text ""
-    , Tui.text "    Fix parser bug"
-    , Tui.text "---"
-    , Tui.text "+ added new function"
-    , Tui.text "- removed old function"
-    , Tui.text "+ added another function"
-    , Tui.text "  unchanged line"
-    , Tui.text "+ added final function"
+    [ Tui.Screen.text "commit abc1234"
+    , Tui.Screen.text "Author: Test User"
+    , Tui.Screen.text "Date: 2026-03-21"
+    , Tui.Screen.text ""
+    , Tui.Screen.text "    Fix parser bug"
+    , Tui.Screen.text "---"
+    , Tui.Screen.text "+ added new function"
+    , Tui.Screen.text "- removed old function"
+    , Tui.Screen.text "+ added another function"
+    , Tui.Screen.text "  unchanged line"
+    , Tui.Screen.text "+ added final function"
     ]
 
 
@@ -32,8 +33,8 @@ searchableLayout =
             { title = "Items", width = Layout.fill }
             (Layout.selectableList
                 { onSelect = identity
-                , selected = \item -> Tui.text ("▸ " ++ item)
-                , default = \item -> Tui.text ("  " ++ item)
+                , selected = \item -> Tui.Screen.text ("▸ " ++ item)
+                , default = \item -> Tui.Screen.text ("  " ++ item)
                 }
                 [ "one", "two", "three" ]
             )
@@ -58,7 +59,7 @@ suite =
 
                         ( newState, _, handled ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 searchableLayout
                                 state
                     in
@@ -75,7 +76,7 @@ suite =
                             Layout.horizontal
                                 [ Layout.pane "plain"
                                     { title = "Plain", width = Layout.fill }
-                                    (Layout.content [ Tui.text "hello" ])
+                                    (Layout.content [ Tui.Screen.text "hello" ])
                                 ]
 
                         state : Layout.State
@@ -84,7 +85,7 @@ suite =
 
                         ( _, _, handled ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 nonSearchable
                                 state
                     in
@@ -106,7 +107,7 @@ suite =
                         status : Maybe String
                         status =
                             Layout.searchStatusBar "diff" s
-                                |> Maybe.map Tui.toString
+                                |> Maybe.map Tui.Screen.toString
                     in
                     -- Should show "Search: added" (prompt still active)
                     status |> Expect.equal (Just "Search: added")
@@ -125,14 +126,14 @@ suite =
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 searchableLayout
                                 s1
 
                         status : Maybe String
                         status =
                             Layout.searchStatusBar "diff" s2
-                                |> Maybe.map Tui.toString
+                                |> Maybe.map Tui.Screen.toString
                     in
                     -- "added" appears on lines 6, 8, 10 (3 matches)
                     Expect.all
@@ -149,13 +150,13 @@ suite =
 
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character '/', modifiers = [] }
+                                { key = Tui.Event.Character '/', modifiers = [] }
                                 searchableLayout
                                 state
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Enter, modifiers = [] }
+                                { key = Tui.Event.Enter, modifiers = [] }
                                 searchableLayout
                                 s1
                     in
@@ -175,14 +176,14 @@ suite =
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character 'n', modifiers = [] }
+                                { key = Tui.Event.Character 'n', modifiers = [] }
                                 searchableLayout
                                 s
 
                         status : Maybe String
                         status =
                             Layout.searchStatusBar "diff" s2
-                                |> Maybe.map Tui.toString
+                                |> Maybe.map Tui.Screen.toString
                     in
                     status |> Maybe.withDefault "" |> String.contains "2 of 3" |> Expect.equal True
             , test "N moves to previous match" <|
@@ -199,14 +200,14 @@ suite =
                         -- N from first match wraps to last
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character 'N', modifiers = [] }
+                                { key = Tui.Event.Character 'N', modifiers = [] }
                                 searchableLayout
                                 s
 
                         status : Maybe String
                         status =
                             Layout.searchStatusBar "diff" s2
-                                |> Maybe.map Tui.toString
+                                |> Maybe.map Tui.Screen.toString
                     in
                     status |> Maybe.withDefault "" |> String.contains "3 of 3" |> Expect.equal True
             , test "n wraps around from last to first" <|
@@ -228,7 +229,7 @@ suite =
                         status : Maybe String
                         status =
                             Layout.searchStatusBar "diff" s2
-                                |> Maybe.map Tui.toString
+                                |> Maybe.map Tui.Screen.toString
                     in
                     status |> Maybe.withDefault "" |> String.contains "1 of 3" |> Expect.equal True
             , test "n is intercepted (returns True) during active search" <|
@@ -244,7 +245,7 @@ suite =
 
                         ( _, _, handled ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Character 'n', modifiers = [] }
+                                { key = Tui.Event.Character 'n', modifiers = [] }
                                 searchableLayout
                                 s
                     in
@@ -264,7 +265,7 @@ suite =
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Escape, modifiers = [] }
+                                { key = Tui.Event.Escape, modifiers = [] }
                                 searchableLayout
                                 s
                     in
@@ -282,7 +283,7 @@ suite =
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Escape, modifiers = [] }
+                                { key = Tui.Event.Escape, modifiers = [] }
                                 searchableLayout
                                 s
                     in
@@ -304,7 +305,7 @@ suite =
                         encoded =
                             searchableLayout
                                 |> Layout.toScreen s
-                                |> Tui.Internal.encodeScreen
+                                |> Tui.Screen.encodeScreen
                                 |> Json.Encode.encode 0
                     in
                     -- Current match should have cyan background
@@ -319,8 +320,8 @@ suite =
                                 [ Layout.pane "styled"
                                     { title = "Diff", width = Layout.fill }
                                     (Layout.content
-                                        [ Tui.text "+ added new function" |> Tui.fg Ansi.Color.magenta
-                                        , Tui.text "  unchanged line"
+                                        [ Tui.Screen.text "+ added new function" |> Tui.Screen.fg Ansi.Color.magenta
+                                        , Tui.Screen.text "  unchanged line"
                                         ]
                                         |> Layout.withSearchable
                                     )
@@ -342,7 +343,7 @@ suite =
                         encoded =
                             styledLayout
                                 |> Layout.toScreen s
-                                |> Tui.Internal.encodeScreen
+                                |> Tui.Screen.encodeScreen
                                 |> Json.Encode.encode 0
                     in
                     Expect.all
@@ -367,7 +368,7 @@ suite =
                         encoded =
                             searchableLayout
                                 |> Layout.toScreen s
-                                |> Tui.Internal.encodeScreen
+                                |> Tui.Screen.encodeScreen
                                 |> Json.Encode.encode 0
                     in
                     encoded |> String.contains "yellow" |> Expect.equal True
@@ -390,7 +391,7 @@ suite =
                         status : Maybe String
                         status =
                             Layout.activeFilterStatusBar s
-                                |> Maybe.map Tui.toString
+                                |> Maybe.map Tui.Screen.toString
                     in
                     status |> Maybe.withDefault "" |> String.contains "added" |> Expect.equal True
             ]
@@ -407,7 +408,7 @@ startSearchWith query state =
     let
         ( s1, _, _ ) =
             Layout.handleKeyEvent
-                { key = Tui.Character '/', modifiers = [] }
+                { key = Tui.Event.Character '/', modifiers = [] }
                 searchableLayout
                 state
     in
@@ -416,7 +417,7 @@ startSearchWith query state =
         |> List.foldl
             (\c ( s, _, _ ) ->
                 Layout.handleKeyEvent
-                    { key = Tui.Character c, modifiers = [] }
+                    { key = Tui.Event.Character c, modifiers = [] }
                     searchableLayout
                     s
             )
@@ -434,7 +435,7 @@ commitSearchWith query layout state =
     let
         ( s1, _, _ ) =
             Layout.handleKeyEvent
-                { key = Tui.Character '/', modifiers = [] }
+                { key = Tui.Event.Character '/', modifiers = [] }
                 layout
                 state
 
@@ -445,7 +446,7 @@ commitSearchWith query layout state =
                 |> List.foldl
                     (\c ( s, _, _ ) ->
                         Layout.handleKeyEvent
-                            { key = Tui.Character c, modifiers = [] }
+                            { key = Tui.Event.Character c, modifiers = [] }
                             layout
                             s
                     )
@@ -454,7 +455,7 @@ commitSearchWith query layout state =
 
         ( s3, _, _ ) =
             Layout.handleKeyEvent
-                { key = Tui.Enter, modifiers = [] }
+                { key = Tui.Event.Enter, modifiers = [] }
                 layout
                 s2
     in
@@ -467,7 +468,7 @@ pressN count state =
         |> List.foldl
             (\_ s ->
                 Layout.handleKeyEvent
-                    { key = Tui.Character 'n', modifiers = [] }
+                    { key = Tui.Event.Character 'n', modifiers = [] }
                     searchableLayout
                     s
                     |> (\( st, _, _ ) -> st)
