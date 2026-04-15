@@ -2,7 +2,6 @@ module PickerTests exposing (suite)
 
 import Expect
 import Test exposing (Test, describe, test)
-import Tui
 import Tui.Picker as Picker
 import Tui.Screen
 

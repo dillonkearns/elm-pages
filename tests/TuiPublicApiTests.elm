@@ -4,7 +4,6 @@ import Ansi.Color
 import BackendTask
 import Expect
 import Test exposing (Test, describe, test)
-import Tui
 import Tui.Effect as Effect
 import Tui.Screen as Screen
 

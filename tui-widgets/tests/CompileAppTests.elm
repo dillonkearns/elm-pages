@@ -4,6 +4,7 @@ import Ansi.Color
 import BackendTask
 import Expect
 import Test exposing (Test, describe, test)
+import Test.BackendTask as BackendTaskTest
 import Tui
 import Tui.Layout.Effect as Effect exposing (Effect)
 import Tui.Layout as Layout
@@ -403,12 +404,12 @@ helpAppConfig =
 
 helpAppTestWithContext : Tui.Context -> TuiTest.TuiTest (Layout.FrameworkModel HelpModel HelpMsg) (Layout.FrameworkMsg HelpMsg)
 helpAppTestWithContext ctx =
-    TuiTest.startAppWithContext ctx () helpAppConfig
+    TuiTest.startAppWithContext ctx BackendTaskTest.init helpAppConfig
 
 
 helpAppTest : TuiTest.TuiTest (Layout.FrameworkModel HelpModel HelpMsg) (Layout.FrameworkMsg HelpMsg)
 helpAppTest =
-    TuiTest.startApp () helpAppConfig
+    TuiTest.startApp BackendTaskTest.init helpAppConfig
 
 
 
@@ -509,7 +510,7 @@ pickerAppConfig =
 
 pickerAppTest : TuiTest.TuiTest (Layout.FrameworkModel PickerModel PickerMsg) (Layout.FrameworkMsg PickerMsg)
 pickerAppTest =
-    TuiTest.startAppWithContext { width = 40, height = 12, colorProfile = Tui.TrueColor } () pickerAppConfig
+    TuiTest.startAppWithContext { width = 40, height = 12, colorProfile = Tui.TrueColor } BackendTaskTest.init pickerAppConfig
 
 
 
@@ -614,7 +615,7 @@ menuAppConfig =
 
 menuAppTest : TuiTest.TuiTest (Layout.FrameworkModel MenuModel MenuMsg) (Layout.FrameworkMsg MenuMsg)
 menuAppTest =
-    TuiTest.startAppWithContext { width = 40, height = 12, colorProfile = Tui.TrueColor } () menuAppConfig
+    TuiTest.startAppWithContext { width = 40, height = 12, colorProfile = Tui.TrueColor } BackendTaskTest.init menuAppConfig
 
 
 
@@ -700,7 +701,7 @@ linkAppConfig =
 
 linkAppTest : TuiTest.TuiTest (Layout.FrameworkModel LinkModel LinkMsg) (Layout.FrameworkMsg LinkMsg)
 linkAppTest =
-    TuiTest.startApp () linkAppConfig
+    TuiTest.startApp BackendTaskTest.init linkAppConfig
 
 
 
@@ -809,7 +810,7 @@ linkSelAppConfig =
 
 linkSelectableAppTest : TuiTest.TuiTest (Layout.FrameworkModel LinkSelModel LinkSelMsg) (Layout.FrameworkMsg LinkSelMsg)
 linkSelectableAppTest =
-    TuiTest.startApp () linkSelAppConfig
+    TuiTest.startApp BackendTaskTest.init linkSelAppConfig
 
 
 
@@ -887,7 +888,7 @@ scrollAppConfig =
 
 scrollAppTest : TuiTest.TuiTest (Layout.FrameworkModel ScrollModel ScrollMsg) (Layout.FrameworkMsg ScrollMsg)
 scrollAppTest =
-    TuiTest.startApp () scrollAppConfig
+    TuiTest.startApp BackendTaskTest.init scrollAppConfig
 
 
 
@@ -985,4 +986,4 @@ setSelAppConfig =
 
 setSelAppTest : TuiTest.TuiTest (Layout.FrameworkModel SetSelModel SetSelMsg) (Layout.FrameworkMsg SetSelMsg)
 setSelAppTest =
-    TuiTest.startAppWithContext { width = 40, height = 8, colorProfile = Tui.TrueColor } () setSelAppConfig
+    TuiTest.startAppWithContext { width = 40, height = 8, colorProfile = Tui.TrueColor } BackendTaskTest.init setSelAppConfig

@@ -2,7 +2,6 @@ module KeybindingTests exposing (suite)
 
 import Expect
 import Test exposing (Test, describe, test)
-import Tui
 import Tui.Keybinding as Keybinding
 import Tui.Screen
 import Tui.Sub

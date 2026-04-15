@@ -25,9 +25,8 @@ update cycle.
 `Effect` is opaque — use the smart constructors below. This module covers
 the runtime primitives (running `BackendTask`s, batching, exit). For
 framework-specific operations like scrolling, focus, or toasts, see
-[`Tui.Layout.Effect`](Tui-Layout-Effect) in the `tui-widgets` package,
-which wraps this type with additional constructors for apps built with
-[`Layout.compileApp`](Tui-Layout#compileApp).
+`Tui.Layout.Effect` in the `tui-widgets` package, which wraps this type
+with additional constructors for apps built with `Layout.compileApp`.
 
 @docs Effect
 

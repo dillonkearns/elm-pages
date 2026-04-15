@@ -4,30 +4,29 @@ module Tui exposing
     , Context, ColorProfile(..)
     )
 
-{-| Build a TUI (Text-Based User Interface) as an elm-pages script.
-An `elm-pages` [Script](Pages-Script) lets you parse CLI options and then
-execute a single [`BackendTask`](BackendTask)
-(no TEA `init`/`update`). A [`Tui.Program`](Tui#Program) lets you build
+{-| Build a TUI (Text-Based User Interface) as an elm-pages script. An
+`elm-pages` CLI, defined by [`Pages.Script`](Pages-Script), lets you parse CLI
+options and then execute a single [`BackendTask`](BackendTask) (no TEA
+`init`/`update`). For our purposes, we'll use the term TUI to mean interactive
+(like `vim`), and CLI to mean a more static command (like `grep` or `ls`).
+
+A [`Tui.Program`](Tui#Program) lets you build
 an interactive Elm app that renders its view as text in the terminal
 and lets you `init` and `update` your `Model` in response to events:
 
-  - [Keypresses](Tui-Event#Key)
-  - [Mouse Events](Tui-Event#MouseEvent)
+  - [Keypresses](Tui-Sub#Key)
+  - [Mouse Events](Tui-Sub#MouseEvent)
   - [Paste events](Tui-Sub#onPaste)
   - [Resize events](Tui-Sub#onResize)
   - [Time passing](Tui-Sub#everyMillis)
 
-You can also fire off a `BackendTask`
+You can also fire off a `BackendTask` and get back a `Msg`:
 
   - [`perform`](Tui-Effect#perform)
   - [`attempt`](Tui-Effect#attempt)
 
-to events like key presses
-
-A TUI application is a flat record: a `data` BackendTask that resolves before
-`init`, followed by the four standard TEA fields. Both hand-written apps and
-[`Tui.Layout.compileApp`](Tui-Layout#compileApp) from the `tui-widgets` package
-produce this shape.
+Similar to in `elm-pages` Route Modules, the `data` function
+resolves a `BackendTask` prior to `init`
 
     import Tui
     import Tui.Screen as Screen
@@ -39,7 +38,9 @@ produce this shape.
             { data = BackendTask.succeed ()
             , init = \() -> ( { count = 0 }, Effect.none )
             , update = update
-            , view = view
+            , view =
+                \_ model ->
+                    Screen.text ("Count: " ++ String.fromInt model.count)
             , subscriptions = \_ -> Tui.Sub.onKeyPress KeyPressed
             }
 
@@ -132,10 +133,6 @@ normal mode), so you can read files, fetch data, or run shell commands without
 fighting the TUI render loop. The remaining fields are a standard TEA quartet,
 except `update` returns a [`Tui.Effect`](Tui-Effect#Effect) instead of `Cmd` so
 you can run `BackendTask`s from the update cycle.
-
-Build one directly, or use [`Tui.Layout.compileApp`](Tui-Layout#compileApp)
-from the `tui-widgets` package to compile a declarative layout description
-into the same shape.
 
 -}
 type alias Program data model msg =

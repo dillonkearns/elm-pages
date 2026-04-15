@@ -2,7 +2,6 @@ module SearchTests exposing (suite)
 
 import Expect
 import Test exposing (Test, describe, test)
-import Tui
 import Tui.Screen
 import Tui.Search as Search
 

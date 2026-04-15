@@ -2,7 +2,6 @@ module MenuTests exposing (suite)
 
 import Expect
 import Test exposing (Test, describe, test)
-import Tui
 import Tui.Menu as Menu
 import Tui.Screen
 import Tui.Sub

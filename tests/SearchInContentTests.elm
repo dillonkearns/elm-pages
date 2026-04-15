@@ -4,7 +4,6 @@ import Ansi.Color
 import Expect
 import Json.Encode
 import Test exposing (Test, describe, test)
-import Tui
 import Tui.Layout as Layout
 import Tui.Screen
 import Tui.Sub

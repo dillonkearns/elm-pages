@@ -177,6 +177,7 @@ events and assert on screen output.
 -}
 type TuiTest model msg
     = TuiTest (State model msg)
+    | SetupError String
 
 
 type alias State model msg =
@@ -369,13 +370,25 @@ startWithContext context config =
         }
 
 
-{-| Start a test from a [`Tui.Program`](Tui#Program), supplying an
-already-resolved `data` value rather than letting the real BackendTask run.
-Use this with `Tui.Layout.compileApp` output:
+{-| Start a test from a [`Tui.Program`](Tui#Program). Unlike production, where
+the `data` BackendTask runs against the real filesystem and network, tests
+resolve it against a [`Test.BackendTask.TestSetup`](Test-BackendTask#init) —
+a virtual environment you seed with [`withFile`](Test-BackendTask#withFile),
+[`withEnv`](Test-BackendTask#withEnv), and friends.
 
-    TuiTest.startApp ()
+Pure data tasks (`BackendTask.succeed`, maps, file reads, env reads) resolve
+automatically. If your `data` task makes HTTP requests or runs shell commands,
+use [`start`](#start) instead and supply a pre-computed value — `startApp`
+does not currently interleave HTTP simulation into the data-loading step.
+
+    import Test.BackendTask as BackendTaskTest
+
+    TuiTest.startApp
+        (BackendTaskTest.init
+            |> BackendTaskTest.withFile "commits.txt" sampleCommitsLog
+        )
         (Layout.compileApp
-            { data = BackendTask.succeed ()
+            { data = readCommits
             , init = init
             , update = update
             , view = view
@@ -386,45 +399,49 @@ Use this with `Tui.Layout.compileApp` output:
             }
         )
 
-The `app.data` BackendTask is ignored — tests supply resolved data directly
-so they stay pure.
+If `data` fails to resolve (pending HTTP, missing file, etc.), the returned
+`TuiTest` is in an error state and subsequent assertions report the failure.
 
 -}
 startApp :
-    data
+    BackendTaskTest.TestSetup
     -> Tui.Program data model msg
     -> TuiTest model msg
-startApp data app =
-    start
-        { data = data
-        , init = app.init
-        , update = app.update
-        , view = app.view
-        , subscriptions = app.subscriptions
-        }
+startApp setup app =
+    startAppWithContext { width = 80, height = 24, colorProfile = Tui.TrueColor } setup app
 
 
 {-| Like [`startApp`](#startApp) but with a custom terminal context.
 
+    import Test.BackendTask as BackendTaskTest
+
     TuiTest.startAppWithContext
         { width = 120, height = 40, colorProfile = Tui.TrueColor }
-        ()
+        BackendTaskTest.init
         compiledApp
 
 -}
 startAppWithContext :
     Context
-    -> data
+    -> BackendTaskTest.TestSetup
     -> Tui.Program data model msg
     -> TuiTest model msg
-startAppWithContext context data app =
-    startWithContext context
-        { data = data
-        , init = app.init
-        , update = app.update
-        , view = app.view
-        , subscriptions = app.subscriptions
-        }
+startAppWithContext context setup app =
+    case
+        BackendTaskTest.fromBackendTaskWith setup app.data
+            |> BackendTaskTest.toResult
+    of
+        Ok resolvedData ->
+            startWithContext context
+                { data = resolvedData
+                , init = app.init
+                , update = app.update
+                , view = app.view
+                , subscriptions = app.subscriptions
+                }
+
+        Err errorMessage ->
+            SetupError ("Failed to resolve app.data: " ++ errorMessage)
 
 
 
@@ -460,23 +477,27 @@ pressKeyN n char tuiTest =
 
 -}
 pressKeyWith : KeyEvent -> TuiTest model msg -> TuiTest model msg
-pressKeyWith keyEvent (TuiTest state) =
-    case ( state.error, state.exited ) of
-        ( Just _, _ ) ->
-            TuiTest state
+pressKeyWith keyEvent tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case ( state.error, state.exited ) of
+                ( Just _, _ ) ->
+                    TuiTest state
 
-        ( _, Just _ ) ->
-            TuiTest { state | error = Just "pressKey called after TUI exited" }
+                ( _, Just _ ) ->
+                    TuiTest { state | error = Just "pressKey called after TUI exited" }
 
-        ( Nothing, Nothing ) ->
-            let
-                sub : Sub msg
-                sub =
-                    state.subscriptions state.model
-            in
-            Tui.Sub.routeEvents sub (Tui.Sub.RawKeyPress keyEvent)
-                |> List.foldl (applyMsg (keyEventLabel keyEvent)) (TuiTest state)
+                ( Nothing, Nothing ) ->
+                    let
+                        sub : Sub msg
+                        sub =
+                            state.subscriptions state.model
+                    in
+                    Tui.Sub.routeEvents sub (Tui.Sub.RawKeyPress keyEvent)
+                        |> List.foldl (applyMsg (keyEventLabel keyEvent)) (TuiTest state)
 
+        SetupError _ ->
+            tuiTest
 
 {-| Simulate a bracketed paste event. Delivers the text as a single `OnPaste`
 event, just like a real terminal with bracketed paste mode enabled. Use this
@@ -491,25 +512,29 @@ instead of typing character-by-character when testing paste behavior.
 
 -}
 paste : String -> TuiTest model msg -> TuiTest model msg
-paste pastedText (TuiTest state) =
-    case ( state.error, state.exited ) of
-        ( Just _, _ ) ->
-            TuiTest state
+paste pastedText tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case ( state.error, state.exited ) of
+                ( Just _, _ ) ->
+                    TuiTest state
 
-        ( _, Just _ ) ->
-            TuiTest { state | error = Just "paste called after TUI exited" }
+                ( _, Just _ ) ->
+                    TuiTest { state | error = Just "paste called after TUI exited" }
 
-        ( Nothing, Nothing ) ->
-            let
-                sub : Sub msg
-                sub =
-                    state.subscriptions state.model
-            in
-            Tui.Sub.routeEvents sub (Tui.Sub.RawPaste pastedText)
-                |> List.foldl
-                    (applyMsg ("paste \"" ++ truncateLabel pastedText ++ "\""))
-                    (TuiTest state)
+                ( Nothing, Nothing ) ->
+                    let
+                        sub : Sub msg
+                        sub =
+                            state.subscriptions state.model
+                    in
+                    Tui.Sub.routeEvents sub (Tui.Sub.RawPaste pastedText)
+                        |> List.foldl
+                            (applyMsg ("paste \"" ++ truncateLabel pastedText ++ "\""))
+                            (TuiTest state)
 
+        SetupError _ ->
+            tuiTest
 
 truncateLabel : String -> String
 truncateLabel s =
@@ -525,56 +550,60 @@ this updates the `Context` that `view` receives and routes the new size through
 any `Tui.Sub.onResize` subscriptions.
 -}
 resize : { width : Int, height : Int } -> TuiTest model msg -> TuiTest model msg
-resize size (TuiTest state) =
-    case ( state.error, state.exited ) of
-        ( Just _, _ ) ->
-            TuiTest state
+resize size tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case ( state.error, state.exited ) of
+                ( Just _, _ ) ->
+                    TuiTest state
 
-        ( _, Just _ ) ->
-            TuiTest { state | error = Just "resize called after TUI exited" }
+                ( _, Just _ ) ->
+                    TuiTest { state | error = Just "resize called after TUI exited" }
 
-        ( Nothing, Nothing ) ->
-            let
-                newContext : Context
-                newContext =
-                    { width = size.width, height = size.height, colorProfile = state.context.colorProfile }
+                ( Nothing, Nothing ) ->
+                    let
+                        newContext : Context
+                        newContext =
+                            { width = size.width, height = size.height, colorProfile = state.context.colorProfile }
 
-                ( newModel, effect ) =
-                    Tui.Sub.routeEvents
-                        (state.subscriptions state.model)
-                        (Tui.Sub.RawContext { width = newContext.width, height = newContext.height })
-                        |> List.foldl
-                            (\msg ( m, accEffect ) ->
-                                let
-                                    ( m2, newEffect ) =
-                                        state.update msg m
-                                in
-                                ( m2, Effect.batch [ accEffect, newEffect ] )
-                            )
-                            ( state.model, Effect.none )
+                        ( newModel, effect ) =
+                            Tui.Sub.routeEvents
+                                (state.subscriptions state.model)
+                                (Tui.Sub.RawContext { width = newContext.width, height = newContext.height })
+                                |> List.foldl
+                                    (\msg ( m, accEffect ) ->
+                                        let
+                                            ( m2, newEffect ) =
+                                                state.update msg m
+                                        in
+                                        ( m2, Effect.batch [ accEffect, newEffect ] )
+                                    )
+                                    ( state.model, Effect.none )
 
-                newPendingEffects : List (BackendTask FatalError msg)
-                newPendingEffects =
-                    state.pendingEffects ++ extractBackendTasks effect
+                        newPendingEffects : List (BackendTask FatalError msg)
+                        newPendingEffects =
+                            state.pendingEffects ++ extractBackendTasks effect
 
-                snapshot : Snapshot
-                snapshot =
-                    { label = "resize " ++ String.fromInt size.width ++ "×" ++ String.fromInt size.height
-                    , screen = state.view newContext newModel
-                    , hasPendingEffects = not (List.isEmpty newPendingEffects)
-                    , modelState = Maybe.map (\f -> f newModel) state.modelToString
-                    , assertions = []
-                    }
-            in
-            TuiTest
-                { state
-                    | model = newModel
-                    , context = newContext
-                    , pendingEffects = newPendingEffects
-                    , exited = checkForExit effect
-                    , snapshots = state.snapshots ++ [ snapshot ]
-                }
+                        snapshot : Snapshot
+                        snapshot =
+                            { label = "resize " ++ String.fromInt size.width ++ "×" ++ String.fromInt size.height
+                            , screen = state.view newContext newModel
+                            , hasPendingEffects = not (List.isEmpty newPendingEffects)
+                            , modelState = Maybe.map (\f -> f newModel) state.modelToString
+                            , assertions = []
+                            }
+                    in
+                    TuiTest
+                        { state
+                            | model = newModel
+                            , context = newContext
+                            , pendingEffects = newPendingEffects
+                            , exited = checkForExit effect
+                            , snapshots = state.snapshots ++ [ snapshot ]
+                        }
 
+        SetupError _ ->
+            tuiTest
 
 {-| Simulate a left mouse click at the given row and column (0-based).
 
@@ -598,55 +627,59 @@ Fails with a helpful message if the text is not found on screen.
 
 -}
 clickText : String -> TuiTest model msg -> TuiTest model msg
-clickText needle (TuiTest state) =
-    case ( state.error, state.exited ) of
-        ( Just _, _ ) ->
-            TuiTest state
+clickText needle tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case ( state.error, state.exited ) of
+                ( Just _, _ ) ->
+                    TuiTest state
 
-        ( _, Just _ ) ->
-            TuiTest { state | error = Just "clickText called after TUI exited" }
+                ( _, Just _ ) ->
+                    TuiTest { state | error = Just "clickText called after TUI exited" }
 
-        ( Nothing, Nothing ) ->
-            let
-                screenLines : List String
-                screenLines =
-                    Tui.Screen.toString (state.view state.context state.model)
-                        |> String.split "\n"
+                ( Nothing, Nothing ) ->
+                    let
+                        screenLines : List String
+                        screenLines =
+                            Tui.Screen.toString (state.view state.context state.model)
+                                |> String.split "\n"
 
-                maybeMatch : Maybe { row : Int, col : Int }
-                maybeMatch =
-                    screenLines
-                        |> List.indexedMap Tuple.pair
-                        |> List.filterMap
-                            (\( idx, line ) ->
-                                case String.indexes needle line of
-                                    first :: _ ->
-                                        Just { row = idx, col = first }
+                        maybeMatch : Maybe { row : Int, col : Int }
+                        maybeMatch =
+                            screenLines
+                                |> List.indexedMap Tuple.pair
+                                |> List.filterMap
+                                    (\( idx, line ) ->
+                                        case String.indexes needle line of
+                                            first :: _ ->
+                                                Just { row = idx, col = first }
 
-                                    [] ->
-                                        Nothing
-                            )
-                        |> List.head
-            in
-            case maybeMatch of
-                Just match ->
-                    simulateMouseEvent
-                        ("clickText \"" ++ needle ++ "\"")
-                        (Tui.Sub.Click { row = match.row, col = match.col, button = Tui.Sub.LeftButton })
-                        (TuiTest state)
-
-                Nothing ->
-                    TuiTest
-                        { state
-                            | error =
-                                Just
-                                    ("clickText: could not find \""
-                                        ++ needle
-                                        ++ "\" on screen.\n\nThe screen contains:\n\n"
-                                        ++ indentScreenText (Tui.Screen.toString (state.view state.context state.model))
+                                            [] ->
+                                                Nothing
                                     )
-                        }
+                                |> List.head
+                    in
+                    case maybeMatch of
+                        Just match ->
+                            simulateMouseEvent
+                                ("clickText \"" ++ needle ++ "\"")
+                                (Tui.Sub.Click { row = match.row, col = match.col, button = Tui.Sub.LeftButton })
+                                (TuiTest state)
 
+                        Nothing ->
+                            TuiTest
+                                { state
+                                    | error =
+                                        Just
+                                            ("clickText: could not find \""
+                                                ++ needle
+                                                ++ "\" on screen.\n\nThe screen contains:\n\n"
+                                                ++ indentScreenText (Tui.Screen.toString (state.view state.context state.model))
+                                            )
+                                }
+
+        SetupError _ ->
+            tuiTest
 
 {-| Simulate a scroll-down event at the given position.
 -}
@@ -687,23 +720,27 @@ scrollUpN n pos tuiTest =
 
 
 simulateMouseEvent : String -> Tui.Sub.MouseEvent -> TuiTest model msg -> TuiTest model msg
-simulateMouseEvent label mouseEvent (TuiTest state) =
-    case ( state.error, state.exited ) of
-        ( Just _, _ ) ->
-            TuiTest state
+simulateMouseEvent label mouseEvent tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case ( state.error, state.exited ) of
+                ( Just _, _ ) ->
+                    TuiTest state
 
-        ( _, Just _ ) ->
-            TuiTest { state | error = Just "mouse event after TUI exited" }
+                ( _, Just _ ) ->
+                    TuiTest { state | error = Just "mouse event after TUI exited" }
 
-        ( Nothing, Nothing ) ->
-            let
-                sub : Sub msg
-                sub =
-                    state.subscriptions state.model
-            in
-            Tui.Sub.routeEvents sub (Tui.Sub.RawMouse mouseEvent)
-                |> List.foldl (applyMsg label) (TuiTest state)
+                ( Nothing, Nothing ) ->
+                    let
+                        sub : Sub msg
+                        sub =
+                            state.subscriptions state.model
+                    in
+                    Tui.Sub.routeEvents sub (Tui.Sub.RawMouse mouseEvent)
+                        |> List.foldl (applyMsg label) (TuiTest state)
 
+        SetupError _ ->
+            tuiTest
 
 {-| Send a message directly through `update`. Useful for simulating
 `BackendTask` results without needing the full simulation infrastructure.
@@ -746,90 +783,98 @@ fire of `everyMillis n _` is at simulated posix `n`.
 
 -}
 advanceTime : Int -> TuiTest model msg -> TuiTest model msg
-advanceTime deltaMs (TuiTest state) =
-    case ( state.error, state.exited ) of
-        ( Just _, _ ) ->
-            TuiTest state
+advanceTime deltaMs tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case ( state.error, state.exited ) of
+                ( Just _, _ ) ->
+                    TuiTest state
 
-        ( _, Just _ ) ->
-            TuiTest { state | error = Just "advanceTime called after TUI exited" }
+                ( _, Just _ ) ->
+                    TuiTest { state | error = Just "advanceTime called after TUI exited" }
 
-        ( Nothing, Nothing ) ->
-            advanceTimeHelp (state.currentTime + deltaMs) (TuiTest state)
+                ( Nothing, Nothing ) ->
+                    advanceTimeHelp (state.currentTime + deltaMs) (TuiTest state)
 
+        SetupError _ ->
+            tuiTest
 
 advanceTimeHelp : Int -> TuiTest model msg -> TuiTest model msg
-advanceTimeHelp targetTime (TuiTest state) =
-    -- elm-review: known-unoptimized-recursion
-    case ( state.error, state.exited ) of
-        ( Just _, _ ) ->
-            TuiTest { state | currentTime = targetTime }
-
-        ( _, Just _ ) ->
-            TuiTest { state | currentTime = targetTime }
-
-        ( Nothing, Nothing ) ->
-            let
-                sub : Sub msg
-                sub =
-                    state.subscriptions state.model
-
-                intervals : List Int
-                intervals =
-                    Tui.Sub.getTickIntervals sub
-
-                nextFires : List ( Int, Int )
-                nextFires =
-                    intervals
-                        |> List.map
-                            (\interval ->
-                                let
-                                    lastFire : Int
-                                    lastFire =
-                                        Dict.get interval state.tickFireTimes
-                                            |> Maybe.withDefault 0
-                                in
-                                ( interval, lastFire + interval )
-                            )
-                        |> List.filter (\( _, t ) -> t <= targetTime)
-                        |> List.sortBy Tuple.second
-            in
-            case nextFires of
-                [] ->
+advanceTimeHelp targetTime tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            -- elm-review: known-unoptimized-recursion
+            case ( state.error, state.exited ) of
+                ( Just _, _ ) ->
                     TuiTest { state | currentTime = targetTime }
 
-                ( interval, fireTime ) :: _ ->
+                ( _, Just _ ) ->
+                    TuiTest { state | currentTime = targetTime }
+
+                ( Nothing, Nothing ) ->
                     let
-                        rawEvent : Tui.Sub.RawEvent
-                        rawEvent =
-                            Tui.Sub.RawTick
-                                { interval = interval
-                                , time = Time.millisToPosix fireTime
-                                }
+                        sub : Sub msg
+                        sub =
+                            state.subscriptions state.model
 
-                        stateWithClock : State model msg
-                        stateWithClock =
-                            { state
-                                | currentTime = fireTime
-                                , tickFireTimes =
-                                    Dict.insert interval fireTime state.tickFireTimes
-                            }
+                        intervals : List Int
+                        intervals =
+                            Tui.Sub.getTickIntervals sub
 
-                        msgs : List msg
-                        msgs =
-                            Tui.Sub.routeEvents sub rawEvent
-
-                        label : String
-                        label =
-                            "advance " ++ String.fromInt fireTime ++ "ms"
+                        nextFires : List ( Int, Int )
+                        nextFires =
+                            intervals
+                                |> List.map
+                                    (\interval ->
+                                        let
+                                            lastFire : Int
+                                            lastFire =
+                                                Dict.get interval state.tickFireTimes
+                                                    |> Maybe.withDefault 0
+                                        in
+                                        ( interval, lastFire + interval )
+                                    )
+                                |> List.filter (\( _, t ) -> t <= targetTime)
+                                |> List.sortBy Tuple.second
                     in
-                    List.foldl (applyMsg label) (TuiTest stateWithClock) msgs
-                        |> advanceTimeHelp targetTime
+                    case nextFires of
+                        [] ->
+                            TuiTest { state | currentTime = targetTime }
+
+                        ( interval, fireTime ) :: _ ->
+                            let
+                                rawEvent : Tui.Sub.RawEvent
+                                rawEvent =
+                                    Tui.Sub.RawTick
+                                        { interval = interval
+                                        , time = Time.millisToPosix fireTime
+                                        }
+
+                                stateWithClock : State model msg
+                                stateWithClock =
+                                    { state
+                                        | currentTime = fireTime
+                                        , tickFireTimes =
+                                            Dict.insert interval fireTime state.tickFireTimes
+                                    }
+
+                                msgs : List msg
+                                msgs =
+                                    Tui.Sub.routeEvents sub rawEvent
+
+                                label : String
+                                label =
+                                    "advance " ++ String.fromInt fireTime ++ "ms"
+                            in
+                            List.foldl (applyMsg label) (TuiTest stateWithClock) msgs
+                                |> advanceTimeHelp targetTime
 
 
 
--- BACKENDTASK SIMULATION
+        -- BACKENDTASK SIMULATION
 
+        SetupError _ ->
+            tuiTest
 
 {-| The type of the `Test.BackendTask` pipeline used with
 [`resolveEffect`](#resolveEffect). This is `Test.BackendTask.Internal.BackendTaskTest`
@@ -898,28 +943,32 @@ screen.
 
 -}
 ensureView : (String -> Expectation) -> TuiTest model msg -> TuiTest model msg
-ensureView assertion (TuiTest state) =
-    case state.error of
-        Just _ ->
-            TuiTest state
-
-        Nothing ->
-            let
-                screenText : String
-                screenText =
-                    Tui.Screen.toString (state.view state.context state.model)
-
-                result : Expectation
-                result =
-                    assertion screenText
-            in
-            case getFailureMessage result of
-                Just msg ->
-                    TuiTest { state | error = Just ("ensureView failed:\n" ++ msg) }
+ensureView assertion tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case state.error of
+                Just _ ->
+                    TuiTest state
 
                 Nothing ->
-                    TuiTest (recordAssertion "ensureView ✓" state)
+                    let
+                        screenText : String
+                        screenText =
+                            Tui.Screen.toString (state.view state.context state.model)
 
+                        result : Expectation
+                        result =
+                            assertion screenText
+                    in
+                    case getFailureMessage result of
+                        Just msg ->
+                            TuiTest { state | error = Just ("ensureView failed:\n" ++ msg) }
+
+                        Nothing ->
+                            TuiTest (recordAssertion "ensureView ✓" state)
+
+        SetupError _ ->
+            tuiTest
 
 {-| Assert that the current screen contains the given text.
 
@@ -927,62 +976,70 @@ ensureView assertion (TuiTest state) =
 
 -}
 ensureViewHas : String -> TuiTest model msg -> TuiTest model msg
-ensureViewHas needle (TuiTest state) =
-    case state.error of
-        Just _ ->
-            TuiTest state
+ensureViewHas needle tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case state.error of
+                Just _ ->
+                    TuiTest state
 
-        Nothing ->
-            let
-                screenText : String
-                screenText =
-                    Tui.Screen.toString (state.view state.context state.model)
-            in
-            if String.contains needle screenText then
-                TuiTest (recordAssertion ("ensureViewHas \"" ++ needle ++ "\" ✓") state)
+                Nothing ->
+                    let
+                        screenText : String
+                        screenText =
+                            Tui.Screen.toString (state.view state.context state.model)
+                    in
+                    if String.contains needle screenText then
+                        TuiTest (recordAssertion ("ensureViewHas \"" ++ needle ++ "\" ✓") state)
 
-            else
-                TuiTest
-                    { state
-                        | error =
-                            Just
-                                ("ensureViewHas: expected screen to contain:\n\n    \""
-                                    ++ needle
-                                    ++ "\"\n\nbut the screen was:\n\n"
-                                    ++ indentScreenText screenText
-                                )
-                    }
+                    else
+                        TuiTest
+                            { state
+                                | error =
+                                    Just
+                                        ("ensureViewHas: expected screen to contain:\n\n    \""
+                                            ++ needle
+                                            ++ "\"\n\nbut the screen was:\n\n"
+                                            ++ indentScreenText screenText
+                                        )
+                            }
 
+        SetupError _ ->
+            tuiTest
 
 {-| Assert that the current screen does NOT contain the given text.
 -}
 ensureViewDoesNotHave : String -> TuiTest model msg -> TuiTest model msg
-ensureViewDoesNotHave needle (TuiTest state) =
-    case state.error of
-        Just _ ->
-            TuiTest state
+ensureViewDoesNotHave needle tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case state.error of
+                Just _ ->
+                    TuiTest state
 
-        Nothing ->
-            let
-                screenText : String
-                screenText =
-                    Tui.Screen.toString (state.view state.context state.model)
-            in
-            if String.contains needle screenText then
-                TuiTest
-                    { state
-                        | error =
-                            Just
-                                ("ensureViewDoesNotHave: expected screen NOT to contain:\n\n    \""
-                                    ++ needle
-                                    ++ "\"\n\nbut the screen was:\n\n"
-                                    ++ indentScreenText screenText
-                                )
-                    }
+                Nothing ->
+                    let
+                        screenText : String
+                        screenText =
+                            Tui.Screen.toString (state.view state.context state.model)
+                    in
+                    if String.contains needle screenText then
+                        TuiTest
+                            { state
+                                | error =
+                                    Just
+                                        ("ensureViewDoesNotHave: expected screen NOT to contain:\n\n    \""
+                                            ++ needle
+                                            ++ "\"\n\nbut the screen was:\n\n"
+                                            ++ indentScreenText screenText
+                                        )
+                            }
 
-            else
-                TuiTest (recordAssertion ("ensureViewDoesNotHave \"" ++ needle ++ "\" ✓") state)
+                    else
+                        TuiTest (recordAssertion ("ensureViewDoesNotHave \"" ++ needle ++ "\" ✓") state)
 
+        SetupError _ ->
+            tuiTest
 
 {-| Assert on the model directly. Useful for verifying internal state that
 isn't visible in the rendered output, or for building higher-level test
@@ -997,19 +1054,23 @@ helpers that query opaque framework state (like `Layout.FrameworkModel`).
 
 -}
 ensureModel : (model -> Expectation) -> TuiTest model msg -> TuiTest model msg
-ensureModel assertion (TuiTest state) =
-    case state.error of
-        Just _ ->
-            TuiTest state
-
-        Nothing ->
-            case getFailureMessage (assertion state.model) of
-                Just msg ->
-                    TuiTest { state | error = Just ("ensureModel failed:\n" ++ msg) }
-
-                Nothing ->
+ensureModel assertion tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case state.error of
+                Just _ ->
                     TuiTest state
 
+                Nothing ->
+                    case getFailureMessage (assertion state.model) of
+                        Just msg ->
+                            TuiTest { state | error = Just ("ensureModel failed:\n" ++ msg) }
+
+                        Nothing ->
+                            TuiTest state
+
+        SetupError _ ->
+            tuiTest
 
 {-| Add an assertion label to the most recent snapshot. The stepper displays
 these in green beneath the action label so you can see which checks happened
@@ -1023,18 +1084,22 @@ Use this when building custom assertion helpers on top of `ensureModel`:
 
 -}
 annotateAssertion : String -> TuiTest model msg -> TuiTest model msg
-annotateAssertion description (TuiTest state) =
-    case state.error of
-        Just _ ->
-            TuiTest state
+annotateAssertion description tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case state.error of
+                Just _ ->
+                    TuiTest state
 
-        Nothing ->
-            TuiTest (recordAssertion description state)
+                Nothing ->
+                    TuiTest (recordAssertion description state)
 
 
 
--- STYLED TEXT ASSERTIONS
+        -- STYLED TEXT ASSERTIONS
 
+        SetupError _ ->
+            tuiTest
 
 {-| A check on a single style attribute. Combine multiple checks in a list
 to require all of them — `[ bold, fg Ansi.Color.red ]` means "bold AND red."
@@ -1105,39 +1170,43 @@ before matching, so fragmented rendering is handled correctly.
 
 -}
 ensureViewHasStyled : List StyleCheck -> String -> TuiTest model msg -> TuiTest model msg
-ensureViewHasStyled checks needle (TuiTest state) =
-    case state.error of
-        Just _ ->
-            TuiTest state
+ensureViewHasStyled checks needle tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case state.error of
+                Just _ ->
+                    TuiTest state
 
-        Nothing ->
-            let
-                screen : Screen
-                screen =
-                    state.view state.context state.model
-            in
-            if containsStyledText checks needle screen then
-                TuiTest (recordAssertion ("ensureViewHasStyled " ++ describeChecks checks ++ " \"" ++ needle ++ "\" ✓") state)
+                Nothing ->
+                    let
+                        screen : Screen
+                        screen =
+                            state.view state.context state.model
+                    in
+                    if containsStyledText checks needle screen then
+                        TuiTest (recordAssertion ("ensureViewHasStyled " ++ describeChecks checks ++ " \"" ++ needle ++ "\" ✓") state)
 
-            else
-                let
-                    screenText : String
-                    screenText =
-                        Tui.Screen.toString screen
-                in
-                TuiTest
-                    { state
-                        | error =
-                            Just
-                                ("ensureViewHasStyled: expected screen to contain:\n\n    \""
-                                    ++ needle
-                                    ++ "\"\n\nwith style "
-                                    ++ describeChecks checks
-                                    ++ "\n\nbut the screen was:\n\n"
-                                    ++ indentScreenText screenText
-                                )
-                    }
+                    else
+                        let
+                            screenText : String
+                            screenText =
+                                Tui.Screen.toString screen
+                        in
+                        TuiTest
+                            { state
+                                | error =
+                                    Just
+                                        ("ensureViewHasStyled: expected screen to contain:\n\n    \""
+                                            ++ needle
+                                            ++ "\"\n\nwith style "
+                                            ++ describeChecks checks
+                                            ++ "\n\nbut the screen was:\n\n"
+                                            ++ indentScreenText screenText
+                                        )
+                            }
 
+        SetupError _ ->
+            tuiTest
 
 {-| Assert that the screen does NOT contain the given text with ALL of the
 specified style checks.
@@ -1149,39 +1218,43 @@ specified style checks.
 
 -}
 ensureViewDoesNotHaveStyled : List StyleCheck -> String -> TuiTest model msg -> TuiTest model msg
-ensureViewDoesNotHaveStyled checks needle (TuiTest state) =
-    case state.error of
-        Just _ ->
-            TuiTest state
+ensureViewDoesNotHaveStyled checks needle tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case state.error of
+                Just _ ->
+                    TuiTest state
 
-        Nothing ->
-            let
-                screen : Screen
-                screen =
-                    state.view state.context state.model
-            in
-            if containsStyledText checks needle screen then
-                let
-                    screenText : String
-                    screenText =
-                        Tui.Screen.toString screen
-                in
-                TuiTest
-                    { state
-                        | error =
-                            Just
-                                ("ensureViewDoesNotHaveStyled: expected screen NOT to contain:\n\n    \""
-                                    ++ needle
-                                    ++ "\"\n\nwith style "
-                                    ++ describeChecks checks
-                                    ++ "\n\nbut the screen was:\n\n"
-                                    ++ indentScreenText screenText
-                                )
-                    }
+                Nothing ->
+                    let
+                        screen : Screen
+                        screen =
+                            state.view state.context state.model
+                    in
+                    if containsStyledText checks needle screen then
+                        let
+                            screenText : String
+                            screenText =
+                                Tui.Screen.toString screen
+                        in
+                        TuiTest
+                            { state
+                                | error =
+                                    Just
+                                        ("ensureViewDoesNotHaveStyled: expected screen NOT to contain:\n\n    \""
+                                            ++ needle
+                                            ++ "\"\n\nwith style "
+                                            ++ describeChecks checks
+                                            ++ "\n\nbut the screen was:\n\n"
+                                            ++ indentScreenText screenText
+                                        )
+                            }
 
-            else
-                TuiTest (recordAssertion ("ensureViewDoesNotHaveStyled " ++ describeChecks checks ++ " \"" ++ needle ++ "\" ✓") state)
+                    else
+                        TuiTest (recordAssertion ("ensureViewDoesNotHaveStyled " ++ describeChecks checks ++ " \"" ++ needle ++ "\" ✓") state)
 
+        SetupError _ ->
+            tuiTest
 
 {-| Check if any line contains the needle as a substring within a contiguous
 region where all spans satisfy the style checks. Adjacent matching spans are
@@ -1319,23 +1392,27 @@ before calling this. Returns an [`Outcome`](#Outcome) so the same scenario can
 be wrapped in a named [`test`](#test) or inspected directly with [`done`](#done).
 -}
 expectRunning : TuiTest model msg -> Outcome
-expectRunning (TuiTest state) =
-    outcomeFromState state <|
-        case state.error of
-            Just msg ->
-                Expect.fail msg
+expectRunning tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            outcomeFromState state <|
+                case state.error of
+                    Just msg ->
+                        Expect.fail msg
 
-            Nothing ->
-                case ( state.exited, state.pendingEffects ) of
-                    ( Nothing, [] ) ->
-                        Expect.pass
+                    Nothing ->
+                        case ( state.exited, state.pendingEffects ) of
+                            ( Nothing, [] ) ->
+                                Expect.pass
 
-                    ( Nothing, pending ) ->
-                        Expect.fail (pendingEffectsError (List.length pending))
+                            ( Nothing, pending ) ->
+                                Expect.fail (pendingEffectsError (List.length pending))
 
-                    ( Just code, _ ) ->
-                        Expect.fail ("Expected TUI to be running, but it exited with code " ++ String.fromInt code)
+                            ( Just code, _ ) ->
+                                Expect.fail ("Expected TUI to be running, but it exited with code " ++ String.fromInt code)
 
+        SetupError setupMsg ->
+            Outcome { expectation = Expect.fail ("Setup failed: " ++ setupMsg), snapshots = [] }
 
 {-| Assert that the TUI exited with code 0.
 Fails if there are unresolved pending `BackendTask` effects. Returns an
@@ -1343,30 +1420,34 @@ Fails if there are unresolved pending `BackendTask` effects. Returns an
 [`test`](#test) or inspected directly with [`done`](#done).
 -}
 expectExit : TuiTest model msg -> Outcome
-expectExit (TuiTest state) =
-    outcomeFromState state <|
-        case state.error of
-            Just msg ->
-                Expect.fail msg
+expectExit tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            outcomeFromState state <|
+                case state.error of
+                    Just msg ->
+                        Expect.fail msg
 
-            Nothing ->
-                case ( state.exited, state.pendingEffects ) of
-                    ( Just 0, [] ) ->
-                        Expect.pass
+                    Nothing ->
+                        case ( state.exited, state.pendingEffects ) of
+                            ( Just 0, [] ) ->
+                                Expect.pass
 
-                    ( Just 0, pending ) ->
-                        Expect.fail (pendingEffectsError (List.length pending))
+                            ( Just 0, pending ) ->
+                                Expect.fail (pendingEffectsError (List.length pending))
 
-                    ( Just code, _ ) ->
-                        Expect.fail ("Expected exit code 0, but got " ++ String.fromInt code)
+                            ( Just code, _ ) ->
+                                Expect.fail ("Expected exit code 0, but got " ++ String.fromInt code)
 
-                    ( Nothing, pending ) ->
-                        if List.isEmpty pending then
-                            Expect.fail "Expected TUI to exit, but it is still running"
+                            ( Nothing, pending ) ->
+                                if List.isEmpty pending then
+                                    Expect.fail "Expected TUI to exit, but it is still running"
 
-                        else
-                            Expect.fail (pendingEffectsError (List.length pending))
+                                else
+                                    Expect.fail (pendingEffectsError (List.length pending))
 
+        SetupError setupMsg ->
+            Outcome { expectation = Expect.fail ("Setup failed: " ++ setupMsg), snapshots = [] }
 
 {-| Assert that the TUI exited with a specific exit code.
 Fails if there are unresolved pending `BackendTask` effects. Returns an
@@ -1374,31 +1455,35 @@ Fails if there are unresolved pending `BackendTask` effects. Returns an
 [`test`](#test) or inspected directly with [`done`](#done).
 -}
 expectExitWith : Int -> TuiTest model msg -> Outcome
-expectExitWith expectedCode (TuiTest state) =
-    outcomeFromState state <|
-        case state.error of
-            Just msg ->
-                Expect.fail msg
+expectExitWith expectedCode tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            outcomeFromState state <|
+                case state.error of
+                    Just msg ->
+                        Expect.fail msg
 
-            Nothing ->
-                case ( state.exited, state.pendingEffects ) of
-                    ( Just code, [] ) ->
-                        if code == expectedCode then
-                            Expect.pass
+                    Nothing ->
+                        case ( state.exited, state.pendingEffects ) of
+                            ( Just code, [] ) ->
+                                if code == expectedCode then
+                                    Expect.pass
 
-                        else
-                            Expect.fail ("Expected exit code " ++ String.fromInt expectedCode ++ ", but got " ++ String.fromInt code)
+                                else
+                                    Expect.fail ("Expected exit code " ++ String.fromInt expectedCode ++ ", but got " ++ String.fromInt code)
 
-                    ( Just _, pending ) ->
-                        Expect.fail (pendingEffectsError (List.length pending))
+                            ( Just _, pending ) ->
+                                Expect.fail (pendingEffectsError (List.length pending))
 
-                    ( Nothing, pending ) ->
-                        if List.isEmpty pending then
-                            Expect.fail ("Expected TUI to exit with code " ++ String.fromInt expectedCode ++ ", but it is still running")
+                            ( Nothing, pending ) ->
+                                if List.isEmpty pending then
+                                    Expect.fail ("Expected TUI to exit with code " ++ String.fromInt expectedCode ++ ", but it is still running")
 
-                        else
-                            Expect.fail (pendingEffectsError (List.length pending))
+                                else
+                                    Expect.fail (pendingEffectsError (List.length pending))
 
+        SetupError setupMsg ->
+            Outcome { expectation = Expect.fail ("Setup failed: " ++ setupMsg), snapshots = [] }
 
 {-| Wrap a single named TUI test.
 
@@ -1546,40 +1631,44 @@ pendingEffectsError count =
 
 
 applyMsg : String -> msg -> TuiTest model msg -> TuiTest model msg
-applyMsg label msg (TuiTest state) =
-    case ( state.error, state.exited ) of
-        ( Just _, _ ) ->
-            TuiTest state
+applyMsg label msg tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case ( state.error, state.exited ) of
+                ( Just _, _ ) ->
+                    TuiTest state
 
-        ( _, Just _ ) ->
-            TuiTest state
+                ( _, Just _ ) ->
+                    TuiTest state
 
-        ( Nothing, Nothing ) ->
-            let
-                ( newModel, effect ) =
-                    state.update msg state.model
+                ( Nothing, Nothing ) ->
+                    let
+                        ( newModel, effect ) =
+                            state.update msg state.model
 
-                newPendingEffects : List (BackendTask FatalError msg)
-                newPendingEffects =
-                    extractBackendTasks effect
+                        newPendingEffects : List (BackendTask FatalError msg)
+                        newPendingEffects =
+                            extractBackendTasks effect
 
-                snapshot : Snapshot
-                snapshot =
-                    { label = label
-                    , screen = state.view state.context newModel
-                    , hasPendingEffects = not (List.isEmpty newPendingEffects)
-                    , modelState = Maybe.map (\f -> f newModel) state.modelToString
-                    , assertions = []
-                    }
-            in
-            TuiTest
-                { state
-                    | model = newModel
-                    , pendingEffects = newPendingEffects
-                    , exited = checkForExit effect
-                    , snapshots = state.snapshots ++ [ snapshot ]
-                }
+                        snapshot : Snapshot
+                        snapshot =
+                            { label = label
+                            , screen = state.view state.context newModel
+                            , hasPendingEffects = not (List.isEmpty newPendingEffects)
+                            , modelState = Maybe.map (\f -> f newModel) state.modelToString
+                            , assertions = []
+                            }
+                    in
+                    TuiTest
+                        { state
+                            | model = newModel
+                            , pendingEffects = newPendingEffects
+                            , exited = checkForExit effect
+                            , snapshots = state.snapshots ++ [ snapshot ]
+                        }
 
+        SetupError _ ->
+            tuiTest
 
 {-| Resolve the next pending BackendTask effect using a simulation function.
 The simulation function takes the raw BackendTask and returns a BackendTaskTest
@@ -1589,60 +1678,64 @@ resolveNextEffect :
     (BackendTask FatalError msg -> BackendTaskTest.BackendTaskTest msg)
     -> TuiTest model msg
     -> TuiTest model msg
-resolveNextEffect simulate (TuiTest state) =
-    case ( state.error, state.exited ) of
-        ( Just _, _ ) ->
-            TuiTest state
+resolveNextEffect simulate tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case ( state.error, state.exited ) of
+                ( Just _, _ ) ->
+                    TuiTest state
 
-        ( _, Just _ ) ->
-            TuiTest { state | error = Just "simulateEffect called after TUI exited" }
+                ( _, Just _ ) ->
+                    TuiTest { state | error = Just "simulateEffect called after TUI exited" }
 
-        ( Nothing, Nothing ) ->
-            case state.pendingEffects of
-                [] ->
-                    TuiTest
-                        { state
-                            | error =
-                                Just "No pending BackendTask effect to resolve. Did you forget to trigger an action (e.g., press Enter) before simulating?"
-                        }
-
-                bt :: rest ->
-                    let
-                        testResult : Result String msg
-                        testResult =
-                            simulate bt
-                                |> BackendTaskTest.toResult
-                    in
-                    case testResult of
-                        Ok msg ->
-                            let
-                                ( newModel, newEffect ) =
-                                    state.update msg state.model
-
-                                newPendingEffects : List (BackendTask FatalError msg)
-                                newPendingEffects =
-                                    rest ++ extractBackendTasks newEffect
-
-                                snapshot : Snapshot
-                                snapshot =
-                                    { label = "resolveEffect"
-                                    , screen = state.view state.context newModel
-                                    , hasPendingEffects = not (List.isEmpty newPendingEffects)
-                                    , modelState = Maybe.map (\f -> f newModel) state.modelToString
-                                    , assertions = []
-                                    }
-                            in
+                ( Nothing, Nothing ) ->
+                    case state.pendingEffects of
+                        [] ->
                             TuiTest
                                 { state
-                                    | model = newModel
-                                    , pendingEffects = newPendingEffects
-                                    , exited = checkForExit newEffect
-                                    , snapshots = state.snapshots ++ [ snapshot ]
+                                    | error =
+                                        Just "No pending BackendTask effect to resolve. Did you forget to trigger an action (e.g., press Enter) before simulating?"
                                 }
 
-                        Err errMsg ->
-                            TuiTest { state | error = Just ("Effect resolution failed: " ++ errMsg) }
+                        bt :: rest ->
+                            let
+                                testResult : Result String msg
+                                testResult =
+                                    simulate bt
+                                        |> BackendTaskTest.toResult
+                            in
+                            case testResult of
+                                Ok msg ->
+                                    let
+                                        ( newModel, newEffect ) =
+                                            state.update msg state.model
 
+                                        newPendingEffects : List (BackendTask FatalError msg)
+                                        newPendingEffects =
+                                            rest ++ extractBackendTasks newEffect
+
+                                        snapshot : Snapshot
+                                        snapshot =
+                                            { label = "resolveEffect"
+                                            , screen = state.view state.context newModel
+                                            , hasPendingEffects = not (List.isEmpty newPendingEffects)
+                                            , modelState = Maybe.map (\f -> f newModel) state.modelToString
+                                            , assertions = []
+                                            }
+                                    in
+                                    TuiTest
+                                        { state
+                                            | model = newModel
+                                            , pendingEffects = newPendingEffects
+                                            , exited = checkForExit newEffect
+                                            , snapshots = state.snapshots ++ [ snapshot ]
+                                        }
+
+                                Err errMsg ->
+                                    TuiTest { state | error = Just ("Effect resolution failed: " ++ errMsg) }
+
+        SetupError _ ->
+            tuiTest
 
 extractBackendTasks : Effect msg -> List (BackendTask FatalError msg)
 extractBackendTasks effect =
@@ -1756,25 +1849,29 @@ For nicer formatting, use `prettifyValue Debug.toString` from
 
 -}
 withModelToString : (model -> String) -> TuiTest model msg -> TuiTest model msg
-withModelToString modelToString (TuiTest state) =
-    let
-        updatedSnapshots : List Snapshot
-        updatedSnapshots =
-            state.snapshots
-                |> List.map
-                    (\snapshot ->
-                        { snapshot
-                            | modelState =
-                                Just (modelToString state.model)
-                        }
-                    )
-    in
-    TuiTest
-        { state
-            | modelToString = Just modelToString
-            , snapshots = updatedSnapshots
-        }
+withModelToString modelToString tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            let
+                updatedSnapshots : List Snapshot
+                updatedSnapshots =
+                    state.snapshots
+                        |> List.map
+                            (\snapshot ->
+                                { snapshot
+                                    | modelState =
+                                        Just (modelToString state.model)
+                                }
+                            )
+            in
+            TuiTest
+                { state
+                    | modelToString = Just modelToString
+                    , snapshots = updatedSnapshots
+                }
 
+        SetupError _ ->
+            tuiTest
 
 {-| Extract the recorded snapshots from a test pipeline. Each step in the
 pipeline (start, resize, pressKey, resolveEffect, sendMsg) records a snapshot
@@ -1787,26 +1884,30 @@ Use this with the interactive test stepper to visualize a test run step by step.
 
 -}
 toSnapshots : TuiTest model msg -> List Snapshot
-toSnapshots (TuiTest state) =
-    case state.error of
-        Just errorMsg ->
-            let
-                errorScreen : Screen
-                errorScreen =
-                    Tui.Screen.text errorMsg
-            in
-            state.snapshots
-                ++ [ { label = "ERROR"
-                     , screen = errorScreen
-                     , hasPendingEffects = False
-                     , modelState = Nothing
-                     , assertions = []
-                     }
-                   ]
+toSnapshots tuiTest =
+    case tuiTest of
+        TuiTest state ->
+            case state.error of
+                Just errorMsg ->
+                    let
+                        errorScreen : Screen
+                        errorScreen =
+                            Tui.Screen.text errorMsg
+                    in
+                    state.snapshots
+                        ++ [ { label = "ERROR"
+                             , screen = errorScreen
+                             , hasPendingEffects = False
+                             , modelState = Nothing
+                             , assertions = []
+                             }
+                           ]
 
-        Nothing ->
-            state.snapshots
+                Nothing ->
+                    state.snapshots
 
+        SetupError _ ->
+            []
 
 keyEventLabel : KeyEvent -> String
 keyEventLabel event =

@@ -4,6 +4,7 @@ import Ansi.Color
 import BackendTask
 import Expect
 import Test exposing (Test, describe, test)
+import Test.BackendTask as BackendTaskTest
 import Test.Runner
 import Tui
 import Tui.Layout.Effect as Effect exposing (Effect)
@@ -208,7 +209,7 @@ appConfig =
 
 twoPane : TuiTest.TuiTest (Layout.FrameworkModel () Msg) (Layout.FrameworkMsg Msg)
 twoPane =
-    TuiTest.startApp () appConfig
+    TuiTest.startApp BackendTaskTest.init appConfig
 
 
 appView : Tui.Context -> () -> Layout.Layout Msg

@@ -2,7 +2,6 @@ module PaneGroupTests exposing (suite)
 
 import Expect
 import Test exposing (Test, describe, test)
-import Tui
 import Tui.Layout as Layout
 import Tui.Screen
 

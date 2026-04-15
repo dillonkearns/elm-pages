@@ -4,7 +4,6 @@ import Ansi.Color
 import Expect
 import Json.Encode
 import Test exposing (Test, describe, test)
-import Tui
 import Tui.Layout as Layout
 import Tui.Screen exposing (plain)
 import Tui.Sub
@@ -172,7 +171,8 @@ suite =
                 \() ->
                     let
                         ( _, maybeMsg ) =
-                            Layout.navigateDown "list" tallList
+                            Layout.navigateDown "list"
+                                tallList
                                 (Layout.init |> Layout.withContext { width = 30, height = 12 })
                     in
                     maybeMsg |> Expect.equal (Just 1)
@@ -210,7 +210,8 @@ suite =
                 \() ->
                     let
                         ( _, maybeMsg ) =
-                            Layout.navigateUp "list" tallList
+                            Layout.navigateUp "list"
+                                tallList
                                 (Layout.init |> Layout.withContext { width = 30, height = 12 })
                     in
                     maybeMsg |> Expect.equal Nothing
@@ -434,7 +435,8 @@ suite =
                                 ]
 
                         ( state, _ ) =
-                            Layout.navigateDown "list" list
+                            Layout.navigateDown "list"
+                                list
                                 (Layout.init |> Layout.withContext { width = 25, height = 7 })
                     in
                     Layout.horizontal
@@ -460,7 +462,8 @@ suite =
                 \() ->
                     let
                         ( state, _ ) =
-                            Layout.navigateDown "list" tallList
+                            Layout.navigateDown "list"
+                                tallList
                                 (Layout.init |> Layout.withContext { width = 25, height = 7 })
                                 |> (\( s, _ ) -> Layout.navigateDown "list" tallList s)
                     in
@@ -470,7 +473,8 @@ suite =
                 \() ->
                     let
                         ( state, _ ) =
-                            Layout.navigateUp "list" tallList
+                            Layout.navigateUp "list"
+                                tallList
                                 (Layout.init |> Layout.withContext { width = 25, height = 7 })
                                 |> (\( s, _ ) -> Layout.navigateUp "list" tallList s)
                     in

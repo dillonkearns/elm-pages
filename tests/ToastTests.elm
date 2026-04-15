@@ -2,7 +2,6 @@ module ToastTests exposing (suite)
 
 import Expect
 import Test exposing (Test, describe, test)
-import Tui
 import Tui.Screen
 import Tui.Toast as Toast
 

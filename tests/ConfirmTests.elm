@@ -2,7 +2,6 @@ module ConfirmTests exposing (suite)
 
 import Expect
 import Test exposing (Test, describe, test)
-import Tui
 import Tui.Confirm as Confirm
 import Tui.Screen
 

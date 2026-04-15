@@ -2,7 +2,6 @@ module OptionsBarTests exposing (suite)
 
 import Expect
 import Test exposing (Test, describe, test)
-import Tui
 import Tui.Keybinding as Keybinding
 import Tui.OptionsBar as OptionsBar
 import Tui.Screen

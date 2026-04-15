@@ -2,7 +2,6 @@ module ModalTests exposing (suite)
 
 import Expect
 import Test exposing (Test, describe, test)
-import Tui
 import Tui.Modal as Modal
 import Tui.Screen
 

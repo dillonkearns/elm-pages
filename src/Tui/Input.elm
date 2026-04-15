@@ -23,10 +23,9 @@ with an inverse-video cursor indicator (the standard TUI convention).
 
 -}
 
-import Tui
+import String.Graphemes as Graphemes
 import Tui.Screen
 import Tui.Sub
-import String.Graphemes as Graphemes
 
 
 {-| Opaque state for a text input. Tracks content and cursor position.
@@ -68,7 +67,7 @@ insertText str (State s) =
         cleaned =
             str
                 |> String.replace "\n" " "
-                |> String.replace "\r" ""
+                |> String.replace "\u{000D}" ""
     in
     State
         { content =
@@ -89,9 +88,14 @@ Keys the input doesn't handle (Escape, Enter, Tab, etc.) return
 the state unchanged. Match those keys before calling this:
 
     case event.key of
-        Tui.Sub.Escape -> ( closeInput model, Effect.none )
-        Tui.Sub.Enter -> ( submit model, Effect.none )
-        _ -> ( { model | input = Input.update event model.input }, Effect.none )
+        Tui.Sub.Escape ->
+            ( closeInput model, Effect.none )
+
+        Tui.Sub.Enter ->
+            ( submit model, Effect.none )
+
+        _ ->
+            ( { model | input = Input.update event model.input }, Effect.none )
 
 -}
 update : Tui.Sub.KeyEvent -> State -> State
@@ -301,7 +305,7 @@ tokensToScreens tokens =
         [] ->
             []
 
-        PlainToken textPart :: rest ->
+        (PlainToken textPart) :: rest ->
             let
                 collectedText : List String
                 collectedText =
@@ -314,7 +318,7 @@ tokensToScreens tokens =
             Tui.Screen.text (String.concat (textPart :: collectedText))
                 :: tokensToScreens remainingTokens
 
-        CursorToken textPart :: rest ->
+        (CursorToken textPart) :: rest ->
             tokenToScreen (CursorToken textPart)
                 :: tokensToScreens rest
 
@@ -323,7 +327,7 @@ collectPlainText : List Token -> List String
 collectPlainText tokens =
     -- elm-review: known-unoptimized-recursion
     case tokens of
-        PlainToken textPart :: rest ->
+        (PlainToken textPart) :: rest ->
             textPart :: collectPlainText rest
 
         _ ->
@@ -333,7 +337,7 @@ collectPlainText tokens =
 dropPlainTokens : List Token -> List Token
 dropPlainTokens tokens =
     case tokens of
-        PlainToken _ :: rest ->
+        (PlainToken _) :: rest ->
             dropPlainTokens rest
 
         _ ->
