@@ -1,43 +1,31 @@
-#!/bin/bash
-# Build docs for tui-widgets using the application elm.json
-# (which can resolve Tui modules from ../src)
+#!/usr/bin/env bash
+# Build docs.json for the tui-widgets package.
 #
-# The package elm.json is the canonical reference for publication.
-# This script uses the application config to generate a docs.json
-# that can be previewed with elm-doc-preview.
-set -e
+# Runs `elm make --docs=docs.json` against the package `elm.json`. The
+# main elm-pages package is resolved through the usual Elm package cache;
+# for local development it's convenient to symlink
+# ~/.elm/0.19.1/packages/dillonkearns/elm-pages/<version> to the root of
+# this repo so changes in ../src are picked up without publishing.
+#
+# The Elm compiler aggressively caches build artifacts in `artifacts.dat`
+# and `artifacts.x.dat` files, both inside this package and inside the
+# symlinked elm-pages source tree. Stale caches will show up here as
+# "module not found" errors for symbols that obviously exist. Clearing
+# them (the `rm -f` calls below) is cheap and avoids that class of ghost
+# failure entirely.
+
+set -euo pipefail
 
 cd "$(dirname "$0")"
 
-# Swap to application config
-cp elm.json elm-package.json.bak
-cp elm-application.json elm.json
+# Wipe stale caches: both the tui-widgets elm-stuff and any artifacts.dat
+# in a sibling elm-pages checkout that may be acting as the resolved
+# package source.
+rm -rf elm-stuff
+rm -f ../artifacts.dat ../artifacts.x.dat
 
-# Build all modules to verify
-elm make \
-  src/Tui/Layout.elm \
-  src/Tui/Modal.elm \
-  src/Tui/Keybinding.elm \
-  src/Tui/Spinner.elm \
-  src/Tui/Toast.elm \
-  src/Tui/FuzzyMatch.elm \
-  src/Tui/Picker.elm \
-  src/Tui/CommandPalette.elm \
-  src/Tui/Search.elm \
-  src/Tui/Confirm.elm \
-  src/Tui/OptionsBar.elm \
-  src/Tui/Status.elm \
-  src/Tui/Menu.elm \
-  src/Tui/Prompt.elm \
-  --output=/dev/null
+# Build docs against the package elm.json.
+npx elm make --docs=docs.json
 
-# Restore package config
-mv elm-package.json.bak elm.json
-
-echo "tui-widgets modules compile successfully."
 echo ""
-echo "Package elm.json is ready for publication."
-echo "Exposed modules: Tui.Layout, Tui.Modal, Tui.Keybinding, Tui.Spinner,"
-echo "  Tui.Toast, Tui.FuzzyMatch, Tui.Picker, Tui.CommandPalette,"
-echo "  Tui.Search, Tui.Confirm, Tui.OptionsBar, Tui.Status,"
-echo "  Tui.Menu"
+echo "Wrote tui-widgets/docs.json"

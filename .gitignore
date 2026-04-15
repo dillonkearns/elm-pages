@@ -27,4 +27,5 @@ tests/viewer-app/elm-stuff/
 .tmp-tui-widgets-tests*/
 
 # elm-wrap artifacts
+artifacts.dat
 artifacts.x.dat
