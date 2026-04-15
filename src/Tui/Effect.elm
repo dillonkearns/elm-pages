@@ -1,7 +1,8 @@
 module Tui.Effect exposing
     ( Effect
-    , none, batch, perform, attempt, exit, exitWithCode
-    , map
+    , perform, attempt
+    , none, batch, map
+    , exit, exitWithCode
     , fold
     )
 
@@ -24,26 +25,27 @@ as a `Msg`.
                 , Effect.none
                 )
 
-`Effect` is opaque — use the smart constructors below. This module covers
-the runtime primitives (running `BackendTask`s, batching, exit). For
-framework-specific operations like scrolling, focus, or toasts, see
-`Tui.Layout.Effect` in the `tui-widgets` package, which wraps this type
-with additional constructors for apps built with `Layout.compileApp`.
-
 @docs Effect
 
-@docs none, batch, perform, attempt, exit, exitWithCode
 
-@docs map
+## Performing `BackendTask`s
+
+@docs perform, attempt
+
+
+## Combining and Transforming
+
+@docs none, batch, map
+
+
+## Exiting Program
+
+@docs exit, exitWithCode
 
 
 ## Internal
 
-Low-level framework hook for companion packages (like `tui-widgets`'
-`Tui.Layout.compileApp`) and test tooling that need to inspect an opaque
-`Effect` without pattern-matching on its constructors. **Not stable.** This
-surface may change as the Effect type evolves — if you are writing a
-regular TUI app you do not need it.
+Low-level framework hook for companion packages (like `tui-widgets`
 
 @docs fold
 
@@ -68,9 +70,7 @@ none =
     Internal.none
 
 
-{-| Combine multiple effects. Effects run sequentially — if an effect produces
-a message (via `perform`/`attempt`), remaining effects are skipped and the
-message is fed back into `update`.
+{-| Combine multiple effects sequentially.
 -}
 batch : List (Effect msg) -> Effect msg
 batch =
@@ -138,12 +138,7 @@ map =
     Internal.map
 
 
-{-| Inspect an opaque `Effect` without exposing its constructors.
-
-Mainly useful for framework authors (like `Tui.Layout.compileApp` in
-tui-widgets) and test tooling that need to interpret effects while keeping
-the end-user API clean. Regular TUI apps do not need this.
-
+{-| Inspect an opaque `Effect` without exposing its constructors. Mainly useful for framework authors.
 -}
 fold :
     { none : a
