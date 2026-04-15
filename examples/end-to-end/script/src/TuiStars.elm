@@ -7,13 +7,13 @@ cd examples/end-to-end/script
 npx --prefix .. elm-pages run src/TuiStars.elm
 ```
 
-Set `GITHUB_REPO` to choose the initial repo shown in the input.
+Starts with `dillonkearns/elm-pages` loaded into the input.
 
 -}
 
 import Ansi.Color
 import BackendTask
-import BackendTask.Env
+import BackendTask.File
 import BackendTask.Http
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
@@ -41,8 +41,9 @@ type Msg
 app : Tui.Program String Model Msg
 app =
     { data =
-        BackendTask.Env.get "GITHUB_REPO"
-            |> BackendTask.map (Maybe.withDefault "dillonkearns/elm-pages")
+        BackendTask.File.rawFile "elm.json"
+            |> BackendTask.allowFatal
+            |> BackendTask.map (\_ -> "dillonkearns/elm-pages")
     , init = init
     , update = update
     , view = view

@@ -15,28 +15,32 @@ suite =
 
 tuiTests : TuiTest.Test
 tuiTests =
+    let
+        setup : BackendTaskTest.TestSetup
+        setup =
+            BackendTaskTest.init
+                |> BackendTaskTest.withFile "elm.json" """{ "type": "application" }"""
+    in
     TuiTest.describe "TuiStars"
-        [ TuiTest.test "seeds repo from data and fetches stars"
+        [ TuiTest.test "seeds the default repo from data and fetches stars"
             (TuiTest.startApp
-                (BackendTaskTest.init
-                    |> BackendTaskTest.withEnv "GITHUB_REPO" "elm/core"
-                )
+                setup
                 TuiStars.app
-                |> TuiTest.ensureViewHas "elm/core"
+                |> TuiTest.ensureViewHas "dillonkearns/elm-pages"
                 |> TuiTest.ensureViewHas "Press Enter to fetch"
                 |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                 |> TuiTest.ensureViewHas "Fetching..."
                 |> TuiTest.resolveEffect
                     (BackendTaskTest.simulateHttpGet
-                        "https://api.github.com/repos/elm/core"
+                        "https://api.github.com/repos/dillonkearns/elm-pages"
                         (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
                     )
                 |> TuiTest.ensureViewHas "7500"
-                |> TuiTest.ensureViewHas "stars on elm/core"
+                |> TuiTest.ensureViewHas "stars on dillonkearns/elm-pages"
                 |> TuiTest.expectRunning
             )
         , TuiTest.test "input can paste a new repo and refetch"
-            (TuiTest.startApp BackendTaskTest.init TuiStars.app
+            (TuiTest.startApp setup TuiStars.app
                 |> TuiTest.pressKeyWith
                     { key = Tui.Sub.Character 'u'
                     , modifiers = [ Tui.Sub.Ctrl ]
