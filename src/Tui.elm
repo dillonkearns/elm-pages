@@ -55,6 +55,16 @@ resolves a `BackendTask` prior to `init`
             , subscriptions = \_ -> Tui.Sub.onKeyPress KeyPressed
             }
 
+The `data` field resolves before `init` runs, so you can cleanly initialize your `Model`
+with data from reading files, fetching HTTP data, or running shell commands.
+Resolving to a `FatalError` terminates the program with a non-zero exit code and prints
+an error message.
+
+For a full interactive example that uses `data` to seed the initial repo,
+[`Tui.Input`](Tui-Input) to edit it, and `BackendTask.Http.getJson` to refetch
+stars, see `examples/end-to-end/script/src/TuiStars.elm`.
+That behavior is covered by `examples/end-to-end/script/tests/TuiStarsTests.elm`.
+
 
 ## Running a TUI
 

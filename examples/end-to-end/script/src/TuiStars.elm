@@ -1,25 +1,29 @@
-module TuiStars exposing (run)
+module TuiStars exposing (app, run)
 
-{-| TUI demo: type a GitHub repo name, press Enter to fetch star count.
+{-| TUI demo: edit a GitHub repo name, press Enter to fetch star count.
 
     elm - pages run script / src / TuiStars.elm
+
+Set `GITHUB_REPO` to choose the initial repo shown in the input.
 
 -}
 
 import Ansi.Color
-import BackendTask exposing (BackendTask)
+import BackendTask
+import BackendTask.Env
 import BackendTask.Http
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Pages.Script exposing (Script)
 import Tui
 import Tui.Effect as Effect
+import Tui.Input as Input
 import Tui.Screen exposing (plain)
 import Tui.Sub
 
 
 type alias Model =
-    { input : String
+    { repo : Input.State
     , result : Result String Int
     , loading : Bool
     }
@@ -27,23 +31,30 @@ type alias Model =
 
 type Msg
     = KeyPressed Tui.Sub.KeyEvent
+    | RepoPasted String
     | GotStars (Result FatalError Int)
+
+
+app : Tui.Program String Model Msg
+app =
+    { data =
+        BackendTask.Env.get "GITHUB_REPO"
+            |> BackendTask.map (Maybe.withDefault "dillonkearns/elm-pages")
+    , init = init
+    , update = update
+    , view = view
+    , subscriptions = subscriptions
+    }
 
 
 run : Script
 run =
-    Tui.program
-        { data = BackendTask.succeed ()
-        , init = init
-        , update = update
-        , view = view
-        , subscriptions = subscriptions
-        }
+    Tui.program app
 
 
-init : () -> ( Model, Effect.Effect Msg )
-init () =
-    ( { input = "dillonkearns/elm-pages"
+init : String -> ( Model, Effect.Effect Msg )
+init initialRepo =
+    ( { repo = Input.init initialRepo
       , result = Err "Press Enter to fetch"
       , loading = False
       }
@@ -59,41 +70,36 @@ update msg model =
                 Tui.Sub.Escape ->
                     ( model, Effect.exit )
 
-                Tui.Sub.Character 'q' ->
-                    if List.member Tui.Sub.Ctrl event.modifiers then
-                        ( model, Effect.exit )
-
-                    else
-                        ( { model
-                            | input = model.input ++ "q"
-                            , result = Err ""
-                          }
-                        , Effect.none
-                        )
-
                 Tui.Sub.Enter ->
                     ( { model | loading = True, result = Err "Loading..." }
-                    , fetchStars model.input
-                    )
-
-                Tui.Sub.Backspace ->
-                    ( { model
-                        | input = String.dropRight 1 model.input
-                        , result = Err ""
-                      }
-                    , Effect.none
-                    )
-
-                Tui.Sub.Character c ->
-                    ( { model
-                        | input = model.input ++ String.fromChar c
-                        , result = Err ""
-                      }
-                    , Effect.none
+                    , fetchStars (Input.text model.repo)
                     )
 
                 _ ->
-                    ( model, Effect.none )
+                    let
+                        updatedRepo : Input.State
+                        updatedRepo =
+                            Input.update event model.repo
+                    in
+                    ( { model
+                        | repo = updatedRepo
+                        , result =
+                            if Input.text updatedRepo /= Input.text model.repo then
+                                Err ""
+
+                            else
+                                model.result
+                      }
+                    , Effect.none
+                    )
+
+        RepoPasted pastedRepo ->
+            ( { model
+                | repo = Input.insertText pastedRepo model.repo
+                , result = Err ""
+              }
+            , Effect.none
+            )
 
         GotStars result ->
             ( { model
@@ -120,10 +126,15 @@ fetchStars repo =
 
 
 view : Tui.Context -> Model -> Tui.Screen.Screen
-view _ model =
+view ctx model =
     let
+        dimStyle : Tui.Screen.Style
         dimStyle =
             { plain | attributes = [ Tui.Screen.Dim ] }
+
+        repoText : String
+        repoText =
+            Input.text model.repo
     in
     Tui.Screen.lines
         [ Tui.Screen.text ""
@@ -132,8 +143,7 @@ view _ model =
         , Tui.Screen.text ""
         , Tui.Screen.concat
             [ Tui.Screen.styled dimStyle "  Repo: "
-            , Tui.Screen.styled { plain | attributes = [ Tui.Screen.Bold ] } model.input
-            , Tui.Screen.styled dimStyle "▌"
+            , Input.view { width = max 12 (ctx.width - 8) } model.repo
             ]
         , Tui.Screen.text ""
         , case ( model.loading, model.result ) of
@@ -147,7 +157,7 @@ view _ model =
                     , Tui.Screen.styled { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Screen.Bold ] }
                         (String.fromInt stars)
                     , Tui.Screen.styled dimStyle
-                        (" stars on " ++ model.input)
+                        (" stars on " ++ repoText)
                     ]
 
             ( _, Err "" ) ->
@@ -158,10 +168,14 @@ view _ model =
                     ("  " ++ errMsg)
         , Tui.Screen.text ""
         , Tui.Screen.styled dimStyle "  Enter    fetch stars"
+        , Tui.Screen.styled dimStyle "  Paste    insert repo"
         , Tui.Screen.styled dimStyle "  Esc      quit"
         ]
 
 
 subscriptions : Model -> Tui.Sub.Sub Msg
 subscriptions _ =
-    Tui.Sub.onKeyPress KeyPressed
+    Tui.Sub.batch
+        [ Tui.Sub.onKeyPress KeyPressed
+        , Tui.Sub.onPaste RepoPasted
+        ]
