@@ -17,7 +17,7 @@ A `Screen` is an opaque tree of styled text primitives. Build one from
 [`lines`](#lines) and [`concat`](#concat), and return it from your `view`
 function. The framework handles rendering and cell-level diffing.
 
-    import Tui.Screen exposing (plain) as Screen
+    import Tui.Screen as Screen exposing (plain)
 
     view : Tui.Context -> Model -> Screen.Screen
     view ctx model =

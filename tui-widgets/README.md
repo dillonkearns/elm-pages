@@ -27,8 +27,9 @@ A mini git log viewer with two panes, keybindings, and a commit dialog:
 
 ```elm
 import Tui
-import Tui.Effect as Effect
 import Tui.Layout as Layout
+import Tui.Layout.Effect as Effect
+import Tui.Screen as Screen
 
 
 type Msg
@@ -50,17 +51,17 @@ view ctx model =
                     \{ selection } commit ->
                         case selection of
                             Layout.Selected { focused } ->
-                                Tui.text ("▸ " ++ commit.sha)
-                                    |> (if focused then Tui.bg Ansi.Color.blue else Tui.bold)
+                                Screen.text ("▸ " ++ commit.sha)
+                                    |> (if focused then Screen.bg Ansi.Color.blue else Screen.bold)
 
                             Layout.NotSelected ->
-                                Tui.text ("  " ++ commit.sha)
+                                Screen.text ("  " ++ commit.sha)
                 }
                 model.commits
             )
         , Layout.pane "diff"
             { title = "Diff", width = Layout.fillPortion 2 }
-            (Layout.content (List.map Tui.text model.diffLines)
+            (Layout.content (List.map Screen.text model.diffLines)
                 |> Layout.withSearchable
             )
         ]
@@ -144,7 +145,7 @@ suite =
                 TuiTest.startApp () appConfig
                     |> TuiTest.pressKey '?'
                     |> TuiTest.ensureViewHas "Keybindings"
-                    |> TuiTest.pressKeyWith { key = Tui.Escape, modifiers = [] }
+                    |> TuiTest.pressKeyWith { key = Tui.Sub.Escape, modifiers = [] }
                     |> TuiTest.ensureViewDoesNotHave "Keybindings"
                     |> TuiTest.expectRunning
         , test "clicking a link fires the link callback" <|
@@ -212,6 +213,6 @@ for the core `Tui` primitives (`Tui.Screen`, `Tui.Effect`, `Tui.Sub`, etc.).
 
 ## Learning Resources
 
-- [elm-pages TUI guide](https://elm-pages.com) — getting started with `Tui.Program`
+- [elm-pages TUI guide](https://elm-pages.com) — getting started with `Tui.program`
 - [`examples/end-to-end/script/src/MiniGit.elm`](https://github.com/dillonkearns/elm-pages/blob/master/examples/end-to-end/script/src/MiniGit.elm) — full working example
 - [Elm package docs](https://package.elm-lang.org/packages/dillonkearns/elm-tui-widgets/latest/) — API reference with examples in every module

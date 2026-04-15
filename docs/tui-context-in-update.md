@@ -1,4 +1,13 @@
-# TODO: Pass Context to update
+# [RESOLVED] Pass Context to update
+
+> **Resolution**: superseded by the current API. `Tui.Layout.compileApp` now
+> passes a `Tui.Layout.UpdateContext` record (`context`, `focusedPane`,
+> `scrollPosition`, `selectedIndex`) to the user's update function.
+> For apps built with plain `Tui.program` (not `Layout.compileApp`),
+> subscribe to `Tui.Sub.onResize` and store dimensions in your model.
+> This design note is preserved for historical context. The references to
+> `Tui.Internal` / `Tui.Internal.run` below are obsolete — the run loop now
+> lives in `src/Tui.elm` directly.
 
 ## Problem
 
