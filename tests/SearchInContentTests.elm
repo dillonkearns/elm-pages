@@ -6,6 +6,7 @@ import Json.Encode
 import Test exposing (Test, describe, test)
 import Tui.Layout as Layout
 import Tui.Screen
+import Tui.Screen.Internal.Encode as ScreenEncode
 import Tui.Sub
 
 
@@ -304,7 +305,7 @@ suite =
                         encoded =
                             searchableLayout
                                 |> Layout.toScreen s
-                                |> Tui.Screen.encodeScreen
+                                |> ScreenEncode.screen
                                 |> Json.Encode.encode 0
                     in
                     -- Current match should have cyan background
@@ -342,7 +343,7 @@ suite =
                         encoded =
                             styledLayout
                                 |> Layout.toScreen s
-                                |> Tui.Screen.encodeScreen
+                                |> ScreenEncode.screen
                                 |> Json.Encode.encode 0
                     in
                     Expect.all
@@ -367,7 +368,7 @@ suite =
                         encoded =
                             searchableLayout
                                 |> Layout.toScreen s
-                                |> Tui.Screen.encodeScreen
+                                |> ScreenEncode.screen
                                 |> Json.Encode.encode 0
                     in
                     encoded |> String.contains "yellow" |> Expect.equal True

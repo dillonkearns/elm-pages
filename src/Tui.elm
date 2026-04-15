@@ -114,6 +114,7 @@ import Pages.Internal.Script
 import Tui.Effect as Effect
 import Tui.Effect.Internal as EffectInternal
 import Tui.Screen exposing (Screen)
+import Tui.Screen.Internal.Encode as ScreenEncode
 import Tui.Sub
 
 
@@ -408,7 +409,7 @@ tuiRenderAndWait screen sub =
         , body =
             BackendTask.Http.jsonBody
                 (Encode.object
-                    [ ( "screen", Tui.Screen.encodeScreen screen )
+                    [ ( "screen", ScreenEncode.screen screen )
                     , ( "interests", Tui.Sub.getInterests sub )
                     , ( "tickIntervals", Encode.list Encode.int (Tui.Sub.getTickIntervals sub) )
                     ]

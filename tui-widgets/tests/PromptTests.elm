@@ -6,6 +6,7 @@ import Test exposing (Test, describe, test)
 import Tui
 import Tui.Prompt as Prompt
 import Tui.Screen
+import Tui.Screen.Internal.Encode as ScreenEncode
 import Tui.Sub
 
 
@@ -69,7 +70,7 @@ renderBodyJson : Prompt.State -> String
 renderBodyJson state =
     Prompt.viewBody { width = 40 } state
         |> Tui.Screen.lines
-        |> Tui.Screen.encodeScreen
+        |> ScreenEncode.screen
         |> Encode.encode 0
 
 
