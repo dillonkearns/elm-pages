@@ -56,6 +56,26 @@ function ensureDbGitignoreEntries(cwd) {
   return { path: gitignorePath, added: missing };
 }
 
+function chainStepLabel(validation, fromVersion, toVersion) {
+  const missingFiles = validation.missingFiles || [];
+  const unimplemented = validation.unimplemented || [];
+  const snapshotFile = fromVersion === 0 ? null : `Db/V${fromVersion}.elm`;
+  const migrationFile = `Db/Migrate/V${toVersion}.elm`;
+
+  if (
+    missingFiles.includes(migrationFile) ||
+    (snapshotFile !== null && missingFiles.includes(snapshotFile))
+  ) {
+    return "missing";
+  }
+
+  if (unimplemented.includes(migrationFile)) {
+    return "pending          (unimplemented stub)";
+  }
+
+  return "ready";
+}
+
 /**
  * elm-pages db init
  * Generates a boilerplate script/Db.elm if it doesn't exist.
@@ -171,6 +191,7 @@ export async function status() {
   const { validateMigrationChain } = await import("../db-migrate.js");
 
   let dbBinVersion = 0;
+  let seedValidation = null;
 
   // Find Db.elm
   let dbElmPath = null;
@@ -207,6 +228,31 @@ export async function status() {
   // Schema version (derived from db/Db/Migrate/V*.elm files)
   const schemaVersion = await readSchemaVersion(cwd);
   console.log(`  Schema version:  ${schemaVersion}`);
+
+  if (dbElmPath) {
+    seedValidation = await validateMigrationChain(cwd, 0, schemaVersion);
+
+    if (seedValidation.valid) {
+      console.log("  Initial seed:    ready");
+    } else {
+      console.log("  Initial seed:    INCOMPLETE");
+      console.log("  Seed chain:");
+      for (let v = 0; v < schemaVersion; v++) {
+        console.log(
+          `    V${v} → V${v + 1}    ${chainStepLabel(seedValidation, v, v + 1)}`
+        );
+      }
+      if (seedValidation.unimplemented && seedValidation.unimplemented.length > 0) {
+        console.log(
+          "\n  Implement the seed stubs in db/Db/Migrate/ so a fresh install can initialize safely."
+        );
+      } else {
+        console.log(
+          "\n  Complete the seed chain in db/Db and db/Db/Migrate/ so a fresh install can initialize safely."
+        );
+      }
+    }
+  }
 
   // db.bin
   const dbBinPath = path.resolve(cwd, "db.bin");
@@ -275,12 +321,8 @@ export async function status() {
         let label;
         if (dbBinVersion >= v + 1) {
           label = "applied";
-        } else if (validation.missingFiles && validation.missingFiles.includes(`Db/Migrate/V${v + 1}.elm`)) {
-          label = "missing";
-        } else if (validation.unimplemented && validation.unimplemented.includes(`Db/Migrate/V${v + 1}.elm`)) {
-          label = "pending          (unimplemented stub)";
         } else {
-          label = "ready";
+          label = chainStepLabel(validation, v, v + 1);
         }
         console.log(`    V${v} → V${v + 1}    ${label}`);
       }
@@ -294,8 +336,11 @@ export async function status() {
     }
   }
 
-  // Exit code 1 when migrations are pending
-  if (schemaVersion > 1 && dbBinVersion > 0 && dbBinVersion < schemaVersion) {
+  // Exit code 1 when fresh installs are blocked or migrations are pending.
+  if (
+    (seedValidation && !seedValidation.valid) ||
+    (schemaVersion > 1 && dbBinVersion > 0 && dbBinVersion < schemaVersion)
+  ) {
     process.exitCode = 1;
   }
 

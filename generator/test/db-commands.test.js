@@ -35,6 +35,20 @@ function setupSchemaVersion(dir, version) {
   }
 }
 
+function setupSnapshots(dir, version) {
+  const snapshotDir = path.join(dir, "db", "Db");
+  fs.mkdirSync(snapshotDir, { recursive: true });
+  for (let v = 1; v < version; v++) {
+    const p = path.join(snapshotDir, `V${v}.elm`);
+    if (!fs.existsSync(p)) {
+      fs.writeFileSync(
+        p,
+        `module Db.V${v} exposing (Db)\n\ntype alias Db =\n    { counter : Int\n    }\n`
+      );
+    }
+  }
+}
+
 describe("elm-pages db init", () => {
   it("creates Db.elm and V1 migration in first source-directory from script/elm.json", async () => {
     // Set up a script/elm.json pointing to script/src
@@ -321,6 +335,7 @@ type alias Db =
       buildDbBin(testHash, 2, Buffer.from([1, 2, 3]))
     );
     setupSchemaVersion(tmpDir, 2);
+    setupSnapshots(tmpDir, 2);
 
     const logSpy = vi.spyOn(console, "log");
     await status();
@@ -365,7 +380,23 @@ type alias Db =
     logSpy.mockRestore();
   });
 
-  it("does not show migration chain when schema version is 1", async () => {
+  it("reports a missing initial seed when schema version is 1 and V1 is missing", async () => {
+    setupProject();
+
+    const logSpy = vi.spyOn(console, "log");
+    await status();
+
+    const logOutput = logSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(logOutput).toContain("Initial seed:    INCOMPLETE");
+    expect(logOutput).toContain("Seed chain:");
+    expect(logOutput).toMatch(/V0 → V1/);
+    expect(logOutput).toContain("missing");
+    expect(logOutput).toContain("fresh install can initialize safely");
+    expect(process.exitCode).toBe(1);
+    logSpy.mockRestore();
+  });
+
+  it("shows initial seed ready when schema version is 1", async () => {
     setupProject();
     setupSchemaVersion(tmpDir, 1);
 
@@ -373,7 +404,9 @@ type alias Db =
     await status();
 
     const logOutput = logSpy.mock.calls.map((c) => c[0]).join("\n");
+    expect(logOutput).toContain("Initial seed:    ready");
     expect(logOutput).not.toContain("Migration chain");
+    expect(process.exitCode).not.toBe(1);
     logSpy.mockRestore();
   });
 });
@@ -420,6 +453,7 @@ type alias Db =
       buildDbBin(testHash, 2, Buffer.from([1, 2, 3]))
     );
     setupSchemaVersion(tmpDir, 2);
+    setupSnapshots(tmpDir, 2);
 
     const logSpy = vi.spyOn(console, "log");
     await status();
