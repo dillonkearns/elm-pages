@@ -99,30 +99,17 @@ suite =
                                 , batch = List.concatMap describeEffect
                                 , backendTask = \_ -> [ "backend-task" ]
                                 , exit = \code -> [ "exit:" ++ String.fromInt code ]
-                                , toast = \message -> [ "toast:" ++ message ]
-                                , errorToast = \message -> [ "error:" ++ message ]
-                                , resetScroll = \paneId -> [ "reset:" ++ paneId ]
-                                , scrollTo = \paneId offset -> [ "scrollTo:" ++ paneId ++ ":" ++ String.fromInt offset ]
-                                , scrollDown = \paneId amount -> [ "scrollDown:" ++ paneId ++ ":" ++ String.fromInt amount ]
-                                , scrollUp = \paneId amount -> [ "scrollUp:" ++ paneId ++ ":" ++ String.fromInt amount ]
-                                , setSelectedIndex = \paneId index -> [ "setSelectedIndex:" ++ paneId ++ ":" ++ String.fromInt index ]
-                                , selectFirst = \paneId -> [ "selectFirst:" ++ paneId ]
-                                , focusPane = \paneId -> [ "focus:" ++ paneId ]
                                 }
                                 currentEffect
                     in
                     Effect.batch
-                        [ Effect.toast "Saved"
-                        , Effect.scrollDown "files" 3
-                        , BackendTask.succeed "done"
+                        [ BackendTask.succeed "done"
                             |> Effect.perform identity
                         , Effect.exitWithCode 2
                         ]
                         |> describeEffect
                         |> Expect.equal
-                            [ "toast:Saved"
-                            , "scrollDown:files:3"
-                            , "backend-task"
+                            [ "backend-task"
                             , "exit:2"
                             ]
             ]

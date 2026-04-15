@@ -5,7 +5,7 @@ import Expect exposing (Expectation)
 import Test exposing (Test, describe, test)
 import Test.Runner
 import Tui
-import Tui.Effect as Effect exposing (Effect)
+import Tui.Layout.Effect as Effect exposing (Effect)
 import Tui.Event
 import Tui.Input as Input
 import Tui.Keybinding as Keybinding

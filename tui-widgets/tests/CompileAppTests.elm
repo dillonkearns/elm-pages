@@ -5,7 +5,7 @@ import BackendTask
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
-import Tui.Effect as Effect exposing (Effect)
+import Tui.Layout.Effect as Effect exposing (Effect)
 import Tui.Event
 import Tui.Layout as Layout
 import Tui.Menu as Menu

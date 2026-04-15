@@ -14,7 +14,7 @@ import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
 import Pages.Script as Script exposing (Script)
 import Tui
-import Tui.Effect as Effect
+import Tui.Layout.Effect as Effect
 import Tui.Layout as Layout
 import Tui.Screen
 

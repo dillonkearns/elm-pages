@@ -1,9 +1,8 @@
 module Tui.Effect exposing
     ( Effect
     , none, batch, perform, attempt, exit, exitWithCode
-    , toast, errorToast
-    , resetScroll, scrollTo, scrollDown, scrollUp, setSelectedIndex, selectFirst, focusPane
-    , map, fold
+    , map
+    , fold
     )
 
 {-| Effects for TUI scripts. The bridge between `BackendTask` and the TUI
@@ -23,18 +22,29 @@ update cycle.
                 , Effect.none
                 )
 
-`Effect` is opaque. Most apps only need the smart constructors like
-[`perform`](#perform), [`batch`](#batch), and [`toast`](#toast).
+`Effect` is opaque — use the smart constructors below. This module covers
+the runtime primitives (running `BackendTask`s, batching, exit). For
+framework-specific operations like scrolling, focus, or toasts, see
+[`Tui.Layout.Effect`](Tui-Layout-Effect) in the `tui-widgets` package,
+which wraps this type with additional constructors for apps built with
+[`Layout.compileApp`](Tui-Layout#compileApp).
 
 @docs Effect
 
 @docs none, batch, perform, attempt, exit, exitWithCode
 
-@docs toast, errorToast
+@docs map
 
-@docs resetScroll, scrollTo, scrollDown, scrollUp, setSelectedIndex, selectFirst, focusPane
 
-@docs map, fold
+## Internal
+
+Low-level framework hook for companion packages (like `tui-widgets`'
+`Tui.Layout.compileApp`) and test tooling that need to inspect an opaque
+`Effect` without pattern-matching on its constructors. **Not stable.** This
+surface may change as the Effect type evolves — if you are writing a
+regular TUI app you do not need it.
+
+@docs fold
 
 -}
 
@@ -80,21 +90,28 @@ perform =
     Internal.perform
 
 
-{-| Like `perform`, but the user handles errors via `Result`.
+{-| Like `perform`, but surfaces errors as `Result` values for you to handle.
 
     Script.command "git" [ "diff", file ]
+        |> BackendTask.mapError (\_ -> "git diff failed")
         |> Effect.attempt
             (\result ->
                 case result of
                     Ok text ->
                         GotDiff text
 
-                    Err err ->
-                        DiffFailed err
+                    Err reason ->
+                        DiffFailed reason
             )
 
+Polymorphic in the error type. When you want to rescue failures into your
+own `Msg`, the error you care about is almost never an opaque `FatalError`
+— it's whatever shape is meaningful to your code. Use
+[`BackendTask.mapError`](BackendTask#mapError) (or a custom recoverable
+error) to shape it before passing to `attempt`.
+
 -}
-attempt : (Result FatalError a -> msg) -> BackendTask FatalError a -> Effect msg
+attempt : (Result error a -> msg) -> BackendTask error a -> Effect msg
 attempt =
     Internal.attempt
 
@@ -113,96 +130,6 @@ exitWithCode =
     Internal.exitWithCode
 
 
-{-| Show a normal toast (auto-dismisses after ~2 seconds). Fire and forget.
-
-    Effect.toast "Saved!"
-
--}
-toast : String -> Effect msg
-toast =
-    Internal.toast
-
-
-{-| Show an error toast (auto-dismisses after ~4 seconds). Fire and forget.
-
-    Effect.errorToast "Failed to save"
-
--}
-errorToast : String -> Effect msg
-errorToast =
-    Internal.errorToast
-
-
-{-| Reset the scroll position of a pane to the top.
-
-    Effect.resetScroll "diff"
-
--}
-resetScroll : String -> Effect msg
-resetScroll =
-    Internal.resetScroll
-
-
-{-| Scroll a pane to a specific line offset.
-
-    Effect.scrollTo "diff" 100
-
--}
-scrollTo : String -> Int -> Effect msg
-scrollTo =
-    Internal.scrollTo
-
-
-{-| Scroll a pane down by N lines (relative).
-
-    Effect.scrollDown "diff" 10
-
--}
-scrollDown : String -> Int -> Effect msg
-scrollDown =
-    Internal.scrollDown
-
-
-{-| Scroll a pane up by N lines (relative).
-
-    Effect.scrollUp "diff" 10
-
--}
-scrollUp : String -> Int -> Effect msg
-scrollUp =
-    Internal.scrollUp
-
-
-{-| Set the selected index of a selectable pane.
-
-    Effect.setSelectedIndex "commits" 5
-
--}
-setSelectedIndex : String -> Int -> Effect msg
-setSelectedIndex =
-    Internal.setSelectedIndex
-
-
-{-| Reset selection to the first item in a pane.
-
-    Effect.selectFirst "items"
-
--}
-selectFirst : String -> Effect msg
-selectFirst =
-    Internal.selectFirst
-
-
-{-| Move keyboard focus to a specific pane.
-
-    Effect.focusPane "commits"
-
--}
-focusPane : String -> Effect msg
-focusPane =
-    Internal.focusPane
-
-
 {-| Transform the message type of an effect.
 -}
 map : (a -> b) -> Effect a -> Effect b
@@ -212,24 +139,15 @@ map =
 
 {-| Inspect an opaque `Effect` without exposing its constructors.
 
-This is mainly useful for advanced integrations like companion packages and
-test tooling that need to interpret effects while keeping the end-user API
-clean.
+Mainly useful for framework authors (like `Tui.Layout.compileApp` in
+tui-widgets) and test tooling that need to interpret effects while keeping
+the end-user API clean. Regular TUI apps do not need this.
 -}
 fold :
     { none : a
     , batch : List (Effect msg) -> a
     , backendTask : BackendTask FatalError msg -> a
     , exit : Int -> a
-    , toast : String -> a
-    , errorToast : String -> a
-    , resetScroll : String -> a
-    , scrollTo : String -> Int -> a
-    , scrollDown : String -> Int -> a
-    , scrollUp : String -> Int -> a
-    , setSelectedIndex : String -> Int -> a
-    , selectFirst : String -> a
-    , focusPane : String -> a
     }
     -> Effect msg
     -> a

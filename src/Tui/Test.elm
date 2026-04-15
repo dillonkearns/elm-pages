@@ -1674,33 +1674,6 @@ extractBackendTasksHelp remaining collected =
                 EffectInternal.ExitWithCode _ ->
                     extractBackendTasksHelp rest collected
 
-                EffectInternal.Toast _ ->
-                    extractBackendTasksHelp rest collected
-
-                EffectInternal.ErrorToast _ ->
-                    extractBackendTasksHelp rest collected
-
-                EffectInternal.ResetScroll _ ->
-                    extractBackendTasksHelp rest collected
-
-                EffectInternal.ScrollTo _ _ ->
-                    extractBackendTasksHelp rest collected
-
-                EffectInternal.ScrollDown _ _ ->
-                    extractBackendTasksHelp rest collected
-
-                EffectInternal.ScrollUp _ _ ->
-                    extractBackendTasksHelp rest collected
-
-                EffectInternal.SetSelectedIndex _ _ ->
-                    extractBackendTasksHelp rest collected
-
-                EffectInternal.SelectFirst _ ->
-                    extractBackendTasksHelp rest collected
-
-                EffectInternal.FocusPane _ ->
-                    extractBackendTasksHelp rest collected
-
 
 checkForExit : Effect msg -> Maybe Int
 checkForExit effect =
@@ -1729,33 +1702,6 @@ checkForExitHelp remaining =
 
                 EffectInternal.ExitWithCode code ->
                     Just code
-
-                EffectInternal.Toast _ ->
-                    checkForExitHelp rest
-
-                EffectInternal.ErrorToast _ ->
-                    checkForExitHelp rest
-
-                EffectInternal.ResetScroll _ ->
-                    checkForExitHelp rest
-
-                EffectInternal.ScrollTo _ _ ->
-                    checkForExitHelp rest
-
-                EffectInternal.ScrollDown _ _ ->
-                    checkForExitHelp rest
-
-                EffectInternal.ScrollUp _ _ ->
-                    checkForExitHelp rest
-
-                EffectInternal.SetSelectedIndex _ _ ->
-                    checkForExitHelp rest
-
-                EffectInternal.SelectFirst _ ->
-                    checkForExitHelp rest
-
-                EffectInternal.FocusPane _ ->
-                    checkForExitHelp rest
 
 
 indentScreenText : String -> String

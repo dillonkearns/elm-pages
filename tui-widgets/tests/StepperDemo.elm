@@ -3,7 +3,7 @@ module StepperDemo exposing (tuiTests)
 import Ansi.Color
 import BackendTask
 import Tui
-import Tui.Effect as Effect
+import Tui.Layout.Effect as Effect
 import Tui.Event
 import Tui.Layout as Layout
 import Tui.Layout.Test as LayoutTest
