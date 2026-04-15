@@ -164,7 +164,6 @@ import FatalError exposing (FatalError)
 import Set exposing (Set)
 import Tui
 import Tui.Effect as Effect exposing (Effect)
-import Tui.Event exposing (MouseEvent)
 import Tui.Keybinding
 import Tui.Layout.Effect.Internal as LayoutEffect
 import Tui.Menu
@@ -173,7 +172,7 @@ import Tui.OptionsBar
 import Tui.Prompt
 import Tui.Screen as TuiScreen exposing (Screen, plain)
 import Tui.Status
-import Tui.Sub
+import Tui.Sub exposing (MouseEvent)
 
 
 {-| A layout of panes.
@@ -717,7 +716,7 @@ context menu). The framework manages j/k highlight and Enter confirm.
 
     Layout.menuModal
         [ Menu.section "Files"
-            [ Menu.item { key = Tui.Event.Character 's', label = "Stage", action = StageFile }
+            [ Menu.item { key = Tui.Sub.Character 's', label = "Stage", action = StageFile }
             ]
         ]
 
@@ -762,7 +761,7 @@ type alias Binding msg =
 
     Layout.group "Actions"
         [ Layout.charBinding 'c' "Commit" OpenCommitDialog
-        , Layout.binding Tui.Event.Enter "Confirm" Confirm
+        , Layout.binding Tui.Sub.Enter "Confirm" Confirm
         ]
 
 -}
@@ -771,22 +770,22 @@ group =
     Tui.Keybinding.group
 
 
-{-| Create a binding with any [`Tui.Event.Key`](Tui#Key).
+{-| Create a binding with any [`Tui.Sub.Key`](Tui#Key).
 
-    Layout.binding (Tui.Event.Character 'c') "Commit" OpenCommitDialog
-    Layout.binding Tui.Event.Enter "Confirm" Confirm
-    Layout.binding (Tui.Event.FunctionKey 5) "Refresh" Refresh
+    Layout.binding (Tui.Sub.Character 'c') "Commit" OpenCommitDialog
+    Layout.binding Tui.Sub.Enter "Confirm" Confirm
+    Layout.binding (Tui.Sub.FunctionKey 5) "Refresh" Refresh
 
 For a shorthand that takes a `Char`, see [`charBinding`](#charBinding).
 
 -}
-binding : Tui.Event.Key -> String -> msg -> Binding msg
+binding : Tui.Sub.Key -> String -> msg -> Binding msg
 binding =
     Tui.Keybinding.binding
 
 
 {-| Create a binding with a single character key (no modifiers).
-Shorthand for `binding (Tui.Event.Character c) desc action`.
+Shorthand for `binding (Tui.Sub.Character c) desc action`.
 
     Layout.charBinding 'c' "Commit" OpenCommitDialog
     Layout.charBinding 'q' "Quit" Quit
@@ -794,7 +793,7 @@ Shorthand for `binding (Tui.Event.Character c) desc action`.
 -}
 charBinding : Char -> String -> msg -> Binding msg
 charBinding char desc action =
-    Tui.Keybinding.binding (Tui.Event.Character char) desc action
+    Tui.Keybinding.binding (Tui.Sub.Character char) desc action
 
 
 {-| Make static content searchable. When the pane is focused, pressing `/`
@@ -1859,7 +1858,7 @@ case Layout.handleKeyEvent event layout model.layout of
 ```
 
 -}
-handleKeyEvent : Tui.Event.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
+handleKeyEvent : Tui.Sub.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
 handleKeyEvent event layout (State s) =
     let
         focusedId : Maybe String
@@ -1896,7 +1895,7 @@ handleKeyEvent event layout (State s) =
                     -- No filter or search active on the focused pane.
                     -- But if Escape is pressed and ANY pane has an active filter/search,
                     -- clear it (handles the case where user switched panes after filtering).
-                    if event.key == Tui.Event.Escape && (not (Dict.isEmpty s.filterStates) || not (Dict.isEmpty s.searchStates)) then
+                    if event.key == Tui.Sub.Escape && (not (Dict.isEmpty s.filterStates) || not (Dict.isEmpty s.searchStates)) then
                         -- Map selections back to original indices for any active filters
                         let
                             restoredPaneStates : Dict String PaneState
@@ -1930,7 +1929,7 @@ handleKeyEvent event layout (State s) =
                         handleNormalKeyEvent event layout (State s)
 
 
-handleFilterKeyEvent : Tui.Event.KeyEvent -> Layout msg -> FilterState -> State -> ( State, Maybe msg, Bool )
+handleFilterKeyEvent : Tui.Sub.KeyEvent -> Layout msg -> FilterState -> State -> ( State, Maybe msg, Bool )
 handleFilterKeyEvent event layout fs (State s) =
     let
         focusedId : String
@@ -1944,7 +1943,7 @@ handleFilterKeyEvent event layout fs (State s) =
     case fs.mode of
         FilterTyping ->
             case event.key of
-                Tui.Event.Character c ->
+                Tui.Sub.Character c ->
                     let
                         newQuery : String
                         newQuery =
@@ -1987,7 +1986,7 @@ handleFilterKeyEvent event layout fs (State s) =
                     , True
                     )
 
-                Tui.Event.Backspace ->
+                Tui.Sub.Backspace ->
                     let
                         newQuery : String
                         newQuery =
@@ -2030,7 +2029,7 @@ handleFilterKeyEvent event layout fs (State s) =
                     , True
                     )
 
-                Tui.Event.Enter ->
+                Tui.Sub.Enter ->
                     if String.isEmpty fs.query then
                         -- Empty query: clear filter entirely
                         ( State
@@ -2056,7 +2055,7 @@ handleFilterKeyEvent event layout fs (State s) =
                         , True
                         )
 
-                Tui.Event.Escape ->
+                Tui.Sub.Escape ->
                     -- Clear filter, map selection back to original index (lazygit behavior)
                     let
                         ps : PaneState
@@ -2086,7 +2085,7 @@ handleFilterKeyEvent event layout fs (State s) =
 
         FilterApplied ->
             case event.key of
-                Tui.Event.Escape ->
+                Tui.Sub.Escape ->
                     -- Clear filter, map selection back to original index (lazygit behavior)
                     let
                         ps : PaneState
@@ -2111,7 +2110,7 @@ handleFilterKeyEvent event layout fs (State s) =
                     , True
                     )
 
-                Tui.Event.Character '/' ->
+                Tui.Sub.Character '/' ->
                     -- Re-enter typing mode with current query
                     ( State
                         { s
@@ -2130,7 +2129,7 @@ handleFilterKeyEvent event layout fs (State s) =
                     ( State s, Nothing, False )
 
 
-handleNormalKeyEvent : Tui.Event.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
+handleNormalKeyEvent : Tui.Sub.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
 handleNormalKeyEvent event layout (State s) =
     let
         -- Try tree key handling first
@@ -2167,7 +2166,7 @@ handleNormalKeyEvent event layout (State s) =
 
 
 handleTreeKeyEvent :
-    Tui.Event.KeyEvent
+    Tui.Sub.KeyEvent
     -> { toPath : Int -> List String }
     -> String
     -> TreeState
@@ -2175,7 +2174,7 @@ handleTreeKeyEvent :
     -> Maybe ( State, Maybe msg, Bool )
 handleTreeKeyEvent event tc stateKey ts (State s) =
     case event.key of
-        Tui.Event.Character c ->
+        Tui.Sub.Character c ->
             if c == '`' then
                 -- Toggle tree/flat view
                 Just
@@ -2250,7 +2249,7 @@ handleTreeKeyEvent event tc stateKey ts (State s) =
             else
                 Nothing
 
-        Tui.Event.Enter ->
+        Tui.Sub.Enter ->
             if ts.showTree then
                 -- Check if current row is a directory
                 let
@@ -2328,10 +2327,10 @@ countTreeItems toPath idx =
             countTreeItems toPath (idx + 1)
 
 
-handleNormalKeyEventFallback : Tui.Event.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
+handleNormalKeyEventFallback : Tui.Sub.KeyEvent -> Layout msg -> State -> ( State, Maybe msg, Bool )
 handleNormalKeyEventFallback event layout (State s) =
     case event.key of
-        Tui.Event.Character c ->
+        Tui.Sub.Character c ->
             if c == '/' then
                 -- Check if the focused pane is filterable or searchable
                 case s.focusedPaneId of
@@ -2874,7 +2873,7 @@ searchStatusBarFromState ss =
                     )
 
 
-handleSearchKeyEvent : Tui.Event.KeyEvent -> Layout msg -> SearchState -> State -> ( State, Maybe msg, Bool )
+handleSearchKeyEvent : Tui.Sub.KeyEvent -> Layout msg -> SearchState -> State -> ( State, Maybe msg, Bool )
 handleSearchKeyEvent event layout ss (State s) =
     let
         focusedId : String
@@ -2888,7 +2887,7 @@ handleSearchKeyEvent event layout ss (State s) =
     case ss.mode of
         SearchTyping ->
             case event.key of
-                Tui.Event.Character c ->
+                Tui.Sub.Character c ->
                     let
                         newQuery : String
                         newQuery =
@@ -2905,7 +2904,7 @@ handleSearchKeyEvent event layout ss (State s) =
                     , True
                     )
 
-                Tui.Event.Backspace ->
+                Tui.Sub.Backspace ->
                     let
                         newQuery : String
                         newQuery =
@@ -2922,7 +2921,7 @@ handleSearchKeyEvent event layout ss (State s) =
                     , True
                     )
 
-                Tui.Event.Enter ->
+                Tui.Sub.Enter ->
                     if String.isEmpty ss.query then
                         -- Empty query: cancel search
                         ( State
@@ -2984,7 +2983,7 @@ handleSearchKeyEvent event layout ss (State s) =
                         , True
                         )
 
-                Tui.Event.Escape ->
+                Tui.Sub.Escape ->
                     ( State
                         { s
                             | searchStates = Dict.remove stateKey s.searchStates
@@ -2999,7 +2998,7 @@ handleSearchKeyEvent event layout ss (State s) =
 
         SearchCommitted ->
             case event.key of
-                Tui.Event.Character c ->
+                Tui.Sub.Character c ->
                     if c == 'n' then
                         -- Next match
                         let
@@ -3114,7 +3113,7 @@ handleSearchKeyEvent event layout ss (State s) =
                         -- Not consumed — let normal bindings work
                         ( State s, Nothing, False )
 
-                Tui.Event.Escape ->
+                Tui.Sub.Escape ->
                     -- Clear search
                     ( State
                         { s
@@ -3739,7 +3738,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                 |> Tuple.first
     in
     case mouseEvent of
-        Tui.Event.ScrollDown { col, amount } ->
+        Tui.Sub.ScrollDown { col, amount } ->
             case findPaneAt col panesWithBounds of
                 Just { config } ->
                     let
@@ -3798,7 +3797,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                 Nothing ->
                     ( State sWithCtx, Nothing )
 
-        Tui.Event.ScrollUp { col, amount } ->
+        Tui.Sub.ScrollUp { col, amount } ->
             case findPaneAt col panesWithBounds of
                 Just { config } ->
                     let
@@ -3839,7 +3838,7 @@ handleMouseInternal mouseEvent ctx panes (State s) =
                 Nothing ->
                     ( State sWithCtx, Nothing )
 
-        Tui.Event.Click { row, col } ->
+        Tui.Sub.Click { row, col } ->
             case findPaneAt col panesWithBounds of
                 Just { config, startCol } ->
                     if row == 0 then
@@ -4813,8 +4812,8 @@ handling. Use `onRawEvent` in `compileApp` to receive these.
 
 -}
 type RawEvent
-    = UnhandledKey Tui.Event.KeyEvent
-    | Click { row : Int, col : Int, button : Tui.Event.MouseButton }
+    = UnhandledKey Tui.Sub.KeyEvent
+    | Click { row : Int, col : Int, button : Tui.Sub.MouseButton }
     | Scroll { row : Int, col : Int, direction : ScrollDirection }
 
 
@@ -4896,8 +4895,8 @@ frameworkUserModel (FrameworkModel fw) =
 -}
 type FrameworkMsg msg
     = UserMsg msg
-    | KeyPressed Tui.Event.KeyEvent
-    | Mouse Tui.Event.MouseEvent
+    | KeyPressed Tui.Sub.KeyEvent
+    | Mouse Tui.Sub.MouseEvent
     | GotPaste String
     | GotContext { width : Int, height : Int }
     | StatusTick
@@ -5201,7 +5200,7 @@ compileUpdate config fwMsg (FrameworkModel fw) =
                                     let
                                         ( updatedState, _ ) =
                                             Tui.Prompt.handleKeyEvent
-                                                { key = Tui.Event.Character c, modifiers = [] }
+                                                { key = Tui.Sub.Character c, modifiers = [] }
                                                 state
                                     in
                                     updatedState
@@ -5243,13 +5242,13 @@ compileUpdate config fwMsg (FrameworkModel fw) =
                                         rawEvent : Maybe RawEvent
                                         rawEvent =
                                             case mouseEvent of
-                                                Tui.Event.Click { row, col, button } ->
+                                                Tui.Sub.Click { row, col, button } ->
                                                     Just (Click { row = row, col = col, button = button })
 
-                                                Tui.Event.ScrollUp pos ->
+                                                Tui.Sub.ScrollUp pos ->
                                                     Just (Scroll { row = pos.row, col = pos.col, direction = ScrollingUp })
 
-                                                Tui.Event.ScrollDown pos ->
+                                                Tui.Sub.ScrollDown pos ->
                                                     Just (Scroll { row = pos.row, col = pos.col, direction = ScrollingDown })
                                     in
                                     case rawEvent of
@@ -5284,7 +5283,7 @@ handleKeyPressed :
         , modal : model -> Maybe (Modal msg)
         , onRawEvent : Maybe (RawEvent -> msg)
     }
-    -> Tui.Event.KeyEvent
+    -> Tui.Sub.KeyEvent
     -> FrameworkModel model msg
     -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
 handleKeyPressed config keyEvent (FrameworkModel fw) =
@@ -5322,16 +5321,16 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
             case config.modal fw.userModel of
                 Just (ConfirmModal modalConfig) ->
                     case keyEvent.key of
-                        Tui.Event.Enter ->
+                        Tui.Sub.Enter ->
                             applyUserMsg config modalConfig.onConfirm (FrameworkModel { fw | modalState = NoModal })
 
-                        Tui.Event.Escape ->
+                        Tui.Sub.Escape ->
                             applyUserMsg config modalConfig.onCancel (FrameworkModel { fw | modalState = NoModal })
 
-                        Tui.Event.Character 'y' ->
+                        Tui.Sub.Character 'y' ->
                             applyUserMsg config modalConfig.onConfirm (FrameworkModel { fw | modalState = NoModal })
 
-                        Tui.Event.Character 'n' ->
+                        Tui.Sub.Character 'n' ->
                             applyUserMsg config modalConfig.onCancel (FrameworkModel { fw | modalState = NoModal })
 
                         _ ->
@@ -5354,7 +5353,7 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
 
                 Nothing ->
                     case keyEvent.key of
-                        Tui.Event.Escape ->
+                        Tui.Sub.Escape ->
                             -- Find the cancel message from the modal config
                             ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
 
@@ -5363,7 +5362,7 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
 
         HelpInteraction helpState ->
             case keyEvent.key of
-                Tui.Event.Escape ->
+                Tui.Sub.Escape ->
                     -- Fire the user's onClose message to keep their model in sync
                     case config.modal fw.userModel of
                         Just (HelpModal onClose) ->
@@ -5372,7 +5371,7 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
                         _ ->
                             ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
 
-                Tui.Event.Character 'j' ->
+                Tui.Sub.Character 'j' ->
                     let
                         totalRows =
                             helpBodyRowCount helpState.filterText (config.bindings { focusedPane = focusedPane fw.layoutState } fw.userModel)
@@ -5386,7 +5385,7 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
                     , Effect.none
                     )
 
-                Tui.Event.Arrow Tui.Event.Down ->
+                Tui.Sub.Arrow Tui.Sub.Down ->
                     let
                         totalRows =
                             helpBodyRowCount helpState.filterText (config.bindings { focusedPane = focusedPane fw.layoutState } fw.userModel)
@@ -5400,7 +5399,7 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
                     , Effect.none
                     )
 
-                Tui.Event.Character 'k' ->
+                Tui.Sub.Character 'k' ->
                     ( FrameworkModel
                         { fw
                             | modalState =
@@ -5410,7 +5409,7 @@ handleKeyPressed config keyEvent (FrameworkModel fw) =
                     , Effect.none
                     )
 
-                Tui.Event.Arrow Tui.Event.Up ->
+                Tui.Sub.Arrow Tui.Sub.Up ->
                     ( FrameworkModel
                         { fw
                             | modalState =
@@ -5430,7 +5429,7 @@ handlePickerKey :
         , view : Tui.Context -> model -> Layout msg
         , modal : model -> Maybe (Modal msg)
     }
-    -> Tui.Event.KeyEvent
+    -> Tui.Sub.KeyEvent
     -> PickerInteractionState
     -> FrameworkModel model msg
     -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
@@ -5441,7 +5440,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
             updatePickerSelection fw.context.height (picker.selectedIndex + delta) picker
     in
     case keyEvent.key of
-        Tui.Event.Escape ->
+        Tui.Sub.Escape ->
             case config.modal fw.userModel of
                 Just (PickerModal modalConfig) ->
                     applyUserMsg config modalConfig.onCancel (FrameworkModel { fw | modalState = NoModal })
@@ -5449,7 +5448,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
                 _ ->
                     ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
 
-        Tui.Event.Enter ->
+        Tui.Sub.Enter ->
             case config.modal fw.userModel of
                 Just (PickerModal modalConfig) ->
                     let
@@ -5465,7 +5464,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
                 _ ->
                     ( FrameworkModel { fw | modalState = NoModal }, Effect.none )
 
-        Tui.Event.Character 'j' ->
+        Tui.Sub.Character 'j' ->
             ( FrameworkModel
                 { fw
                     | modalState = PickerInteraction (moveSelection 1)
@@ -5473,7 +5472,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
             , Effect.none
             )
 
-        Tui.Event.Arrow Tui.Event.Down ->
+        Tui.Sub.Arrow Tui.Sub.Down ->
             ( FrameworkModel
                 { fw
                     | modalState = PickerInteraction (moveSelection 1)
@@ -5481,7 +5480,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
             , Effect.none
             )
 
-        Tui.Event.Character 'k' ->
+        Tui.Sub.Character 'k' ->
             ( FrameworkModel
                 { fw
                     | modalState = PickerInteraction (moveSelection -1)
@@ -5489,7 +5488,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
             , Effect.none
             )
 
-        Tui.Event.Arrow Tui.Event.Up ->
+        Tui.Sub.Arrow Tui.Sub.Up ->
             ( FrameworkModel
                 { fw
                     | modalState = PickerInteraction (moveSelection -1)
@@ -5497,7 +5496,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
             , Effect.none
             )
 
-        Tui.Event.Backspace ->
+        Tui.Sub.Backspace ->
             let
                 newFilter : String
                 newFilter =
@@ -5521,7 +5520,7 @@ handlePickerKey config keyEvent picker (FrameworkModel fw) =
             , Effect.none
             )
 
-        Tui.Event.Character c ->
+        Tui.Sub.Character c ->
             let
                 newFilter : String
                 newFilter =
@@ -5626,7 +5625,7 @@ handleKeyPressedNoModal :
         , modal : model -> Maybe (Modal msg)
         , onRawEvent : Maybe (RawEvent -> msg)
     }
-    -> Tui.Event.KeyEvent
+    -> Tui.Sub.KeyEvent
     -> FrameworkModel model msg
     -> ( FrameworkModel model msg, Effect (FrameworkMsg msg) )
 handleKeyPressedNoModal config keyEvent (FrameworkModel fw) =
@@ -5730,7 +5729,7 @@ navigateOrScroll navigate scroll delta layout fw =
 
 
 tryBuiltInNav :
-    Tui.Event.KeyEvent
+    Tui.Sub.KeyEvent
     -> Layout msg
     ->
         { a
@@ -5740,19 +5739,19 @@ tryBuiltInNav :
     -> Maybe ( { a | layoutState : State, context : Tui.Context }, Maybe msg )
 tryBuiltInNav keyEvent layout fw =
     case keyEvent.key of
-        Tui.Event.Character 'j' ->
+        Tui.Sub.Character 'j' ->
             navigateOrScroll navigateDown scrollDown 1 layout fw
 
-        Tui.Event.Arrow Tui.Event.Down ->
+        Tui.Sub.Arrow Tui.Sub.Down ->
             navigateOrScroll navigateDown scrollDown 1 layout fw
 
-        Tui.Event.Character 'k' ->
+        Tui.Sub.Character 'k' ->
             navigateOrScroll navigateUp scrollUp 1 layout fw
 
-        Tui.Event.Arrow Tui.Event.Up ->
+        Tui.Sub.Arrow Tui.Sub.Up ->
             navigateOrScroll navigateUp scrollUp 1 layout fw
 
-        Tui.Event.Tab ->
+        Tui.Sub.Tab ->
             let
                 paneIds : List String
                 paneIds =
@@ -5784,22 +5783,22 @@ tryBuiltInNav keyEvent layout fw =
                 Nothing ->
                     Nothing
 
-        Tui.Event.PageDown ->
+        Tui.Sub.PageDown ->
             navigateOrScroll pageDown scrollDown (fw.context.height - 2) layout fw
 
-        Tui.Event.PageUp ->
+        Tui.Sub.PageUp ->
             navigateOrScroll pageUp scrollUp (fw.context.height - 2) layout fw
 
-        Tui.Event.Character '>' ->
+        Tui.Sub.Character '>' ->
             navigateOrScroll pageDown scrollDown (fw.context.height - 2) layout fw
 
-        Tui.Event.Character '<' ->
+        Tui.Sub.Character '<' ->
             navigateOrScroll pageUp scrollUp (fw.context.height - 2) layout fw
 
         _ ->
             -- Check for number keys 1-9 (jump to pane)
             case keyEvent.key of
-                Tui.Event.Character c ->
+                Tui.Sub.Character c ->
                     let
                         digit : Maybe Int
                         digit =
@@ -6492,7 +6491,7 @@ compileSubscriptions config (FrameworkModel fw) =
         [ Tui.Sub.onKeyPress KeyPressed
         , Tui.Sub.onMouse Mouse
         , Tui.Sub.onPaste GotPaste
-        , Tui.Sub.onContext GotContext
+        , Tui.Sub.onResize GotContext
         , tickSub
         ]
 

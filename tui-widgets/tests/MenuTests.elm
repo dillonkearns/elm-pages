@@ -4,10 +4,10 @@ import Ansi.Color
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
-import Tui.Event
 import Tui.Menu as Menu
 import Tui.Modal as Modal
 import Tui.Screen
+import Tui.Sub
 
 
 suite : Test
@@ -85,7 +85,7 @@ longMenu =
                                 Char.fromCode (Char.toCode 'a' + i - 1)
                         in
                         Menu.item
-                            { key = Tui.Event.Character keyChar
+                            { key = Tui.Sub.Character keyChar
                             , label = label
                             , action = label
                             }
@@ -99,12 +99,12 @@ duplicateMenu =
     Menu.open
         [ Menu.section "Duplicates"
             [ Menu.item
-                { key = Tui.Event.Character 'a'
+                { key = Tui.Sub.Character 'a'
                 , label = "Same"
                 , action = "same"
                 }
             , Menu.item
-                { key = Tui.Event.Character 'a'
+                { key = Tui.Sub.Character 'a'
                 , label = "Same"
                 , action = "same"
                 }
@@ -121,7 +121,7 @@ navigateDownN count state =
         let
             ( nextState, _ ) =
                 Menu.handleKeyEvent
-                    { key = Tui.Event.Character 'j', modifiers = [] }
+                    { key = Tui.Sub.Character 'j', modifiers = [] }
                     state
         in
         navigateDownN (count - 1) nextState

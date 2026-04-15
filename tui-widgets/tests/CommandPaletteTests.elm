@@ -4,9 +4,9 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.CommandPalette as CommandPalette
-import Tui.Event
 import Tui.Keybinding as Keybinding
 import Tui.Screen
+import Tui.Sub
 
 
 suite : Test
@@ -46,7 +46,7 @@ longPalette =
                             keyChar =
                                 Char.fromCode (Char.toCode 'a' + i - 1)
                         in
-                        Keybinding.binding (Tui.Event.Character keyChar) label label
+                        Keybinding.binding (Tui.Sub.Character keyChar) label label
                     )
             )
         ]

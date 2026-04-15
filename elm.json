@@ -49,7 +49,6 @@
         "Pages.Internal.NotFoundReason",
         "Tui",
         "Tui.Effect",
-        "Tui.Event",
         "Tui.Input",
         "Tui.Screen",
         "Tui.Sub",

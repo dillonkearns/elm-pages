@@ -16,7 +16,6 @@ import BackendTask exposing (BackendTask)
 import Pages.Script exposing (Script)
 import Tui
 import Tui.Effect as Effect
-import Tui.Event
 import Tui.Screen exposing (plain)
 import Tui.Sub
 
@@ -27,7 +26,7 @@ type alias Model =
 
 
 type Msg
-    = KeyPressed Tui.Event.KeyEvent
+    = KeyPressed Tui.Sub.KeyEvent
 
 
 run : Script
@@ -53,22 +52,22 @@ update msg model =
     case msg of
         KeyPressed event ->
             case event.key of
-                Tui.Event.Character 'k' ->
+                Tui.Sub.Character 'k' ->
                     ( { model | count = model.count + 1 }, Effect.none )
 
-                Tui.Event.Arrow Tui.Event.Up ->
+                Tui.Sub.Arrow Tui.Sub.Up ->
                     ( { model | count = model.count + 1 }, Effect.none )
 
-                Tui.Event.Character 'j' ->
+                Tui.Sub.Character 'j' ->
                     ( { model | count = model.count - 1 }, Effect.none )
 
-                Tui.Event.Arrow Tui.Event.Down ->
+                Tui.Sub.Arrow Tui.Sub.Down ->
                     ( { model | count = model.count - 1 }, Effect.none )
 
-                Tui.Event.Character 'q' ->
+                Tui.Sub.Character 'q' ->
                     ( model, Effect.exit )
 
-                Tui.Event.Escape ->
+                Tui.Sub.Escape ->
                     ( model, Effect.exit )
 
                 _ ->

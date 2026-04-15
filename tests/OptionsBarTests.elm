@@ -3,23 +3,23 @@ module OptionsBarTests exposing (suite)
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
-import Tui.Event
 import Tui.Keybinding as Keybinding
 import Tui.OptionsBar as OptionsBar
 import Tui.Screen
+import Tui.Sub
 
 
 sampleBindings : List (Keybinding.Group action)
 sampleBindings =
     [ Keybinding.group "Local"
-        [ Keybinding.binding (Tui.Event.Character 'j') "Next" ()
-            |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Down)
-        , Keybinding.binding (Tui.Event.Character 'k') "Previous" ()
+        [ Keybinding.binding (Tui.Sub.Character 'j') "Next" ()
+            |> Keybinding.withAlternate (Tui.Sub.Arrow Tui.Sub.Down)
+        , Keybinding.binding (Tui.Sub.Character 'k') "Previous" ()
         ]
     , Keybinding.group "Global"
-        [ Keybinding.binding (Tui.Event.Character 'q') "Quit" ()
-        , Keybinding.binding (Tui.Event.Character '?') "Help" ()
-        , Keybinding.binding (Tui.Event.Character 'c') "Commit" ()
+        [ Keybinding.binding (Tui.Sub.Character 'q') "Quit" ()
+        , Keybinding.binding (Tui.Sub.Character '?') "Help" ()
+        , Keybinding.binding (Tui.Sub.Character 'c') "Commit" ()
         ]
     ]
 

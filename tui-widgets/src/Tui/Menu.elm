@@ -41,7 +41,7 @@ Handle keys while the menu is open:
                     handleAction action { model | menu = Nothing }
 
                 ( newMenu, Nothing ) ->
-                    if event.key == Tui.Event.Escape then
+                    if event.key == Tui.Sub.Escape then
                         ( { model | menu = Nothing }, Effect.none )
                     else
                         ( { model | menu = Just newMenu }, Effect.none )
@@ -75,8 +75,8 @@ Handle keys while the menu is open:
 
 import Ansi.Color
 import Tui
-import Tui.Event
 import Tui.Screen
+import Tui.Sub
 
 
 {-| Opaque menu state. Tracks the items and the current highlight position.
@@ -95,7 +95,7 @@ type alias SectionData msg =
 
 
 type alias ItemData msg =
-    { key : Tui.Event.Key
+    { key : Tui.Sub.Key
     , label : String
     , result : ItemResult msg
     }
@@ -122,11 +122,11 @@ type Item msg
 
     Menu.open
         [ Menu.section "Files"
-            [ Menu.item { key = Tui.Event.Character 's', label = "Stage", action = "stage" }
-            , Menu.disabledItem { key = Tui.Event.Character 'u', label = "Unstage", reason = "Nothing staged" }
+            [ Menu.item { key = Tui.Sub.Character 's', label = "Stage", action = "stage" }
+            , Menu.disabledItem { key = Tui.Sub.Character 'u', label = "Unstage", reason = "Nothing staged" }
             ]
         , Menu.section "Commit"
-            [ Menu.item { key = Tui.Event.Character 'c', label = "Commit", action = "commit" }
+            [ Menu.item { key = Tui.Sub.Character 'c', label = "Commit", action = "commit" }
             ]
         ]
 
@@ -151,10 +151,10 @@ section name items =
 
 {-| Create an enabled menu item with a key shortcut.
 
-    Menu.item { key = Tui.Event.Character 'c', label = "Commit", action = DoCommit }
+    Menu.item { key = Tui.Sub.Character 'c', label = "Commit", action = DoCommit }
 
 -}
-item : { key : Tui.Event.Key, label : String, action : msg } -> Item msg
+item : { key : Tui.Sub.Key, label : String, action : msg } -> Item msg
 item config =
     Item
         { key = config.key
@@ -165,10 +165,10 @@ item config =
 
 {-| Create a disabled menu item. Shows the reason why it's unavailable.
 
-    Menu.disabledItem { key = Tui.Event.Character 'u', label = "Unstage", reason = "Nothing staged" }
+    Menu.disabledItem { key = Tui.Sub.Character 'u', label = "Unstage", reason = "Nothing staged" }
 
 -}
-disabledItem : { key : Tui.Event.Key, label : String, reason : String } -> Item msg
+disabledItem : { key : Tui.Sub.Key, label : String, reason : String } -> Item msg
 disabledItem config =
     Item
         { key = config.key
@@ -185,7 +185,7 @@ j/k navigate the highlight, Enter confirms the highlighted item.
 Disabled items cannot be activated.
 
 -}
-handleKeyEvent : Tui.Event.KeyEvent -> State msg -> ( State msg, Maybe msg )
+handleKeyEvent : Tui.Sub.KeyEvent -> State msg -> ( State msg, Maybe msg )
 handleKeyEvent event (State s) =
     let
         allItems : List (ItemData msg)
@@ -211,27 +211,27 @@ handleKeyEvent event (State s) =
             List.length enabledItems
     in
     case event.key of
-        Tui.Event.Character 'j' ->
+        Tui.Sub.Character 'j' ->
             ( State { s | highlightIndex = min (enabledCount - 1) (s.highlightIndex + 1) }
             , Nothing
             )
 
-        Tui.Event.Character 'k' ->
+        Tui.Sub.Character 'k' ->
             ( State { s | highlightIndex = max 0 (s.highlightIndex - 1) }
             , Nothing
             )
 
-        Tui.Event.Arrow Tui.Event.Down ->
+        Tui.Sub.Arrow Tui.Sub.Down ->
             ( State { s | highlightIndex = min (enabledCount - 1) (s.highlightIndex + 1) }
             , Nothing
             )
 
-        Tui.Event.Arrow Tui.Event.Up ->
+        Tui.Sub.Arrow Tui.Sub.Up ->
             ( State { s | highlightIndex = max 0 (s.highlightIndex - 1) }
             , Nothing
             )
 
-        Tui.Event.Enter ->
+        Tui.Sub.Enter ->
             let
                 selectedAction =
                     enabledItems
@@ -513,50 +513,50 @@ title =
 -- HELPERS
 
 
-keyToString : Tui.Event.Key -> String
+keyToString : Tui.Sub.Key -> String
 keyToString key =
     case key of
-        Tui.Event.Character c ->
+        Tui.Sub.Character c ->
             String.fromChar c
 
-        Tui.Event.Enter ->
+        Tui.Sub.Enter ->
             "Enter"
 
-        Tui.Event.Escape ->
+        Tui.Sub.Escape ->
             "Esc"
 
-        Tui.Event.Tab ->
+        Tui.Sub.Tab ->
             "Tab"
 
-        Tui.Event.Backspace ->
+        Tui.Sub.Backspace ->
             "Bksp"
 
-        Tui.Event.Delete ->
+        Tui.Sub.Delete ->
             "Del"
 
-        Tui.Event.Arrow Tui.Event.Up ->
+        Tui.Sub.Arrow Tui.Sub.Up ->
             "↑"
 
-        Tui.Event.Arrow Tui.Event.Down ->
+        Tui.Sub.Arrow Tui.Sub.Down ->
             "↓"
 
-        Tui.Event.Arrow Tui.Event.Left ->
+        Tui.Sub.Arrow Tui.Sub.Left ->
             "←"
 
-        Tui.Event.Arrow Tui.Event.Right ->
+        Tui.Sub.Arrow Tui.Sub.Right ->
             "→"
 
-        Tui.Event.Home ->
+        Tui.Sub.Home ->
             "Home"
 
-        Tui.Event.End ->
+        Tui.Sub.End ->
             "End"
 
-        Tui.Event.PageUp ->
+        Tui.Sub.PageUp ->
             "PgUp"
 
-        Tui.Event.PageDown ->
+        Tui.Sub.PageDown ->
             "PgDn"
 
-        Tui.Event.FunctionKey n ->
+        Tui.Sub.FunctionKey n ->
             "F" ++ String.fromInt n

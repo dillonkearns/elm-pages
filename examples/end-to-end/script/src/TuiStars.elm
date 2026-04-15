@@ -14,7 +14,6 @@ import Json.Decode as Decode
 import Pages.Script exposing (Script)
 import Tui
 import Tui.Effect as Effect
-import Tui.Event
 import Tui.Screen exposing (plain)
 import Tui.Sub
 
@@ -27,7 +26,7 @@ type alias Model =
 
 
 type Msg
-    = KeyPressed Tui.Event.KeyEvent
+    = KeyPressed Tui.Sub.KeyEvent
     | GotStars (Result FatalError Int)
 
 
@@ -57,11 +56,11 @@ update msg model =
     case msg of
         KeyPressed event ->
             case event.key of
-                Tui.Event.Escape ->
+                Tui.Sub.Escape ->
                     ( model, Effect.exit )
 
-                Tui.Event.Character 'q' ->
-                    if List.member Tui.Event.Ctrl event.modifiers then
+                Tui.Sub.Character 'q' ->
+                    if List.member Tui.Sub.Ctrl event.modifiers then
                         ( model, Effect.exit )
 
                     else
@@ -72,12 +71,12 @@ update msg model =
                         , Effect.none
                         )
 
-                Tui.Event.Enter ->
+                Tui.Sub.Enter ->
                     ( { model | loading = True, result = Err "Loading..." }
                     , fetchStars model.input
                     )
 
-                Tui.Event.Backspace ->
+                Tui.Sub.Backspace ->
                     ( { model
                         | input = String.dropRight 1 model.input
                         , result = Err ""
@@ -85,7 +84,7 @@ update msg model =
                     , Effect.none
                     )
 
-                Tui.Event.Character c ->
+                Tui.Sub.Character c ->
                     ( { model
                         | input = model.input ++ String.fromChar c
                         , result = Err ""

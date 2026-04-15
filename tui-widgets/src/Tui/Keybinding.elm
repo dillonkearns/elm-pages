@@ -21,14 +21,14 @@ instead of importing this module directly.
     -- Declare bindings
     globalBindings =
         Keybinding.group "Global"
-            [ Keybinding.binding (Tui.Event.Character 'q') "Quit" Quit
-            , Keybinding.binding (Tui.Event.Character '?') "Help" ToggleHelp
+            [ Keybinding.binding (Tui.Sub.Character 'q') "Quit" Quit
+            , Keybinding.binding (Tui.Sub.Character '?') "Help" ToggleHelp
             ]
 
     commitBindings =
         Keybinding.group "Commits"
-            [ Keybinding.binding (Tui.Event.Character 'j') "Next commit" (Navigate 1)
-                |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Down)
+            [ Keybinding.binding (Tui.Sub.Character 'j') "Next commit" (Navigate 1)
+                |> Keybinding.withAlternate (Tui.Sub.Arrow Tui.Sub.Down)
             ]
 
     -- Dispatch: try focused-pane bindings first, fall through to global
@@ -50,14 +50,14 @@ instead of importing this module directly.
 
 import Ansi.Color
 import Tui
-import Tui.Event
 import Tui.Screen exposing (plain)
+import Tui.Sub
 
 
 {-| A keybinding: one or more key combinations mapped to an action.
 -}
 type alias Binding msg =
-    { keys : List { key : Tui.Event.Key, modifiers : List Tui.Event.Modifier }
+    { keys : List { key : Tui.Sub.Key, modifiers : List Tui.Sub.Modifier }
     , description : String
     , action : msg
     }
@@ -74,10 +74,10 @@ type alias Group msg =
 
 {-| Create a binding with a single key, no modifiers.
 
-    Keybinding.binding (Tui.Event.Character 'q') "Quit" Quit
+    Keybinding.binding (Tui.Sub.Character 'q') "Quit" Quit
 
 -}
-binding : Tui.Event.Key -> String -> msg -> Binding msg
+binding : Tui.Sub.Key -> String -> msg -> Binding msg
 binding key desc action =
     { keys = [ { key = key, modifiers = [] } ]
     , description = desc
@@ -88,21 +88,21 @@ binding key desc action =
 {-| Add an alternate key to a binding. The help screen shows both keys
 separated by `/` (e.g., `j/↓`).
 
-    Keybinding.binding (Tui.Event.Character 'j') "Next" NavigateDown
-        |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Down)
+    Keybinding.binding (Tui.Sub.Character 'j') "Next" NavigateDown
+        |> Keybinding.withAlternate (Tui.Sub.Arrow Tui.Sub.Down)
 
 -}
-withAlternate : Tui.Event.Key -> Binding msg -> Binding msg
+withAlternate : Tui.Sub.Key -> Binding msg -> Binding msg
 withAlternate key b =
     { b | keys = b.keys ++ [ { key = key, modifiers = [] } ] }
 
 
 {-| Create a binding with modifier keys.
 
-    Keybinding.withModifiers [ Tui.Event.Ctrl ] (Tui.Event.Character 's') "Save" Save
+    Keybinding.withModifiers [ Tui.Sub.Ctrl ] (Tui.Sub.Character 's') "Save" Save
 
 -}
-withModifiers : List Tui.Event.Modifier -> Tui.Event.Key -> String -> msg -> Binding msg
+withModifiers : List Tui.Sub.Modifier -> Tui.Sub.Key -> String -> msg -> Binding msg
 withModifiers mods key desc action =
     { keys = [ { key = key, modifiers = mods } ]
     , description = desc
@@ -132,14 +132,14 @@ binding matches.
     Keybinding.dispatch [ paneBindings, globalBindings ] event
 
 -}
-dispatch : List (Group msg) -> Tui.Event.KeyEvent -> Maybe msg
+dispatch : List (Group msg) -> Tui.Sub.KeyEvent -> Maybe msg
 dispatch groups event =
     groups
         |> List.concatMap .bindings
         |> findMatch event
 
 
-findMatch : Tui.Event.KeyEvent -> List (Binding msg) -> Maybe msg
+findMatch : Tui.Sub.KeyEvent -> List (Binding msg) -> Maybe msg
 findMatch event bindings =
     -- elm-review: known-unoptimized-recursion
     case bindings of
@@ -154,22 +154,22 @@ findMatch event bindings =
                 findMatch event rest
 
 
-matchModifiers : List Tui.Event.Modifier -> List Tui.Event.Modifier -> Bool
+matchModifiers : List Tui.Sub.Modifier -> List Tui.Sub.Modifier -> Bool
 matchModifiers expected actual =
     List.sort (List.map modifierOrder expected)
         == List.sort (List.map modifierOrder actual)
 
 
-modifierOrder : Tui.Event.Modifier -> Int
+modifierOrder : Tui.Sub.Modifier -> Int
 modifierOrder mod =
     case mod of
-        Tui.Event.Ctrl ->
+        Tui.Sub.Ctrl ->
             0
 
-        Tui.Event.Alt ->
+        Tui.Sub.Alt ->
             1
 
-        Tui.Event.Shift ->
+        Tui.Sub.Shift ->
             2
 
 
@@ -179,12 +179,12 @@ modifierOrder mod =
 
 {-| Format a key and modifiers as a human-readable label.
 
-    formatKey (Tui.Event.Character 'j') [] == "j"
-    formatKey (Tui.Event.Arrow Tui.Event.Up) [] == "↑"
-    formatKey (Tui.Event.Character 'a') [ Tui.Event.Ctrl ] == "ctrl+a"
+    formatKey (Tui.Sub.Character 'j') [] == "j"
+    formatKey (Tui.Sub.Arrow Tui.Sub.Up) [] == "↑"
+    formatKey (Tui.Sub.Character 'a') [ Tui.Sub.Ctrl ] == "ctrl+a"
 
 -}
-formatKey : Tui.Event.Key -> List Tui.Event.Modifier -> String
+formatKey : Tui.Sub.Key -> List Tui.Sub.Modifier -> String
 formatKey key modifiers =
     let
         modPrefix : String
@@ -193,13 +193,13 @@ formatKey key modifiers =
                 |> List.map
                     (\m ->
                         case m of
-                            Tui.Event.Ctrl ->
+                            Tui.Sub.Ctrl ->
                                 "ctrl+"
 
-                            Tui.Event.Alt ->
+                            Tui.Sub.Alt ->
                                 "alt+"
 
-                            Tui.Event.Shift ->
+                            Tui.Sub.Shift ->
                                 "shift+"
                     )
                 |> String.concat
@@ -207,52 +207,52 @@ formatKey key modifiers =
         keyStr : String
         keyStr =
             case key of
-                Tui.Event.Character ' ' ->
+                Tui.Sub.Character ' ' ->
                     "space"
 
-                Tui.Event.Character c ->
+                Tui.Sub.Character c ->
                     String.fromChar c
 
-                Tui.Event.Enter ->
+                Tui.Sub.Enter ->
                     "enter"
 
-                Tui.Event.Escape ->
+                Tui.Sub.Escape ->
                     "esc"
 
-                Tui.Event.Tab ->
+                Tui.Sub.Tab ->
                     "tab"
 
-                Tui.Event.Backspace ->
+                Tui.Sub.Backspace ->
                     "backspace"
 
-                Tui.Event.Delete ->
+                Tui.Sub.Delete ->
                     "delete"
 
-                Tui.Event.Arrow Tui.Event.Up ->
+                Tui.Sub.Arrow Tui.Sub.Up ->
                     "↑"
 
-                Tui.Event.Arrow Tui.Event.Down ->
+                Tui.Sub.Arrow Tui.Sub.Down ->
                     "↓"
 
-                Tui.Event.Arrow Tui.Event.Left ->
+                Tui.Sub.Arrow Tui.Sub.Left ->
                     "←"
 
-                Tui.Event.Arrow Tui.Event.Right ->
+                Tui.Sub.Arrow Tui.Sub.Right ->
                     "→"
 
-                Tui.Event.Home ->
+                Tui.Sub.Home ->
                     "home"
 
-                Tui.Event.End ->
+                Tui.Sub.End ->
                     "end"
 
-                Tui.Event.PageUp ->
+                Tui.Sub.PageUp ->
                     "pgup"
 
-                Tui.Event.PageDown ->
+                Tui.Sub.PageDown ->
                     "pgdn"
 
-                Tui.Event.FunctionKey n ->
+                Tui.Sub.FunctionKey n ->
                     "F" ++ String.fromInt n
     in
     modPrefix ++ keyStr

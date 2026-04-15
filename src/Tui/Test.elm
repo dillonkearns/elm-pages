@@ -60,10 +60,10 @@ wrapping those outcomes in a `Test` tree. That same `Test` value can be:
             ]
 
 ```
-keyToMsg : Tui.Event.KeyEvent -> Msg
+keyToMsg : Tui.Sub.KeyEvent -> Msg
 keyToMsg event =
     case event.key of
-        Tui.Event.Character 'j' ->
+        Tui.Sub.Character 'j' ->
             Increment
 
         _ ->
@@ -81,7 +81,7 @@ suite =
 
 Pass the same config you'd give to [`Tui.program`](Tui#program),
 but with `data` already resolved (not a `BackendTask`). If your app uses
-`Tui.Sub.onContext`, the initial context is fired automatically.
+`Tui.Sub.onResize`, the initial context is fired automatically.
 
 @docs start, startWithContext, startApp, startAppWithContext
 
@@ -167,11 +167,9 @@ import Time
 import Tui exposing (Context)
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Effect.Internal as EffectInternal
-import Tui.Event exposing (KeyEvent)
 import Tui.Screen exposing (Screen)
 import Tui.Screen.Internal as ScreenInternal
-import Tui.Sub exposing (Sub)
-import Tui.Sub.Internal as SubInternal
+import Tui.Sub exposing (KeyEvent, Sub)
 
 
 {-| An in-progress TUI test. Thread this through the pipeline to simulate
@@ -274,7 +272,7 @@ type Outcome
 Provide the same config record you pass to `Tui.program`, but with `data`
 already resolved (not a `BackendTask`).
 
-If your app subscribes to `Tui.Sub.onContext`, the initial context is fired
+If your app subscribes to `Tui.Sub.onResize`, the initial context is fired
 automatically (matching runtime behavior).
 
     TuiTest.start
@@ -307,7 +305,7 @@ profile). Useful for testing responsive layouts or color profile adaptation.
         { width = 120, height = 40, colorProfile = Tui.TrueColor }
         { data = (), ... }
 
-If your app subscribes to `Tui.Sub.onContext`, the initial context is fired
+If your app subscribes to `Tui.Sub.onResize`, the initial context is fired
 automatically (matching runtime behavior).
 
 -}
@@ -327,9 +325,9 @@ startWithContext context config =
             config.init config.data
 
         ( modelWithContext, contextEffect ) =
-            SubInternal.routeEvents
+            Tui.Sub.routeEvents
                 (config.subscriptions initialModel)
-                (SubInternal.RawContext { width = context.width, height = context.height })
+                (Tui.Sub.RawContext { width = context.width, height = context.height })
                 |> List.foldl
                     (\msg ( m, accEffect ) ->
                         let
@@ -440,7 +438,7 @@ startAppWithContext context data app =
 -}
 pressKey : Char -> TuiTest model msg -> TuiTest model msg
 pressKey char =
-    pressKeyWith { key = Tui.Event.Character char, modifiers = [] }
+    pressKeyWith { key = Tui.Sub.Character char, modifiers = [] }
 
 
 {-| Simulate pressing a character key N times.
@@ -456,9 +454,9 @@ pressKeyN n char tuiTest =
 
 {-| Simulate pressing any key, including special keys and modifiers.
 
-    test |> TuiTest.pressKeyWith { key = Tui.Event.Arrow Tui.Event.Down, modifiers = [] }
+    test |> TuiTest.pressKeyWith { key = Tui.Sub.Arrow Tui.Sub.Down, modifiers = [] }
 
-    test |> TuiTest.pressKeyWith { key = Tui.Event.Character 's', modifiers = [ Tui.Event.Ctrl ] }
+    test |> TuiTest.pressKeyWith { key = Tui.Sub.Character 's', modifiers = [ Tui.Sub.Ctrl ] }
 
 -}
 pressKeyWith : KeyEvent -> TuiTest model msg -> TuiTest model msg
@@ -476,7 +474,7 @@ pressKeyWith keyEvent (TuiTest state) =
                 sub =
                     state.subscriptions state.model
             in
-            SubInternal.routeEvents sub (SubInternal.RawKeyPress keyEvent)
+            Tui.Sub.routeEvents sub (Tui.Sub.RawKeyPress keyEvent)
                 |> List.foldl (applyMsg (keyEventLabel keyEvent)) (TuiTest state)
 
 
@@ -507,7 +505,7 @@ paste pastedText (TuiTest state) =
                 sub =
                     state.subscriptions state.model
             in
-            SubInternal.routeEvents sub (SubInternal.RawPaste pastedText)
+            Tui.Sub.routeEvents sub (Tui.Sub.RawPaste pastedText)
                 |> List.foldl
                     (applyMsg ("paste \"" ++ truncateLabel pastedText ++ "\""))
                     (TuiTest state)
@@ -524,7 +522,7 @@ truncateLabel s =
 
 {-| Simulate a terminal resize. The framework handles resize automatically —
 this updates the `Context` that `view` receives and routes the new size through
-any `Tui.Sub.onContext` subscriptions.
+any `Tui.Sub.onResize` subscriptions.
 -}
 resize : { width : Int, height : Int } -> TuiTest model msg -> TuiTest model msg
 resize size (TuiTest state) =
@@ -542,9 +540,9 @@ resize size (TuiTest state) =
                     { width = size.width, height = size.height, colorProfile = state.context.colorProfile }
 
                 ( newModel, effect ) =
-                    SubInternal.routeEvents
+                    Tui.Sub.routeEvents
                         (state.subscriptions state.model)
-                        (SubInternal.RawContext { width = newContext.width, height = newContext.height })
+                        (Tui.Sub.RawContext { width = newContext.width, height = newContext.height })
                         |> List.foldl
                             (\msg ( m, accEffect ) ->
                                 let
@@ -587,7 +585,7 @@ click : { row : Int, col : Int } -> TuiTest model msg -> TuiTest model msg
 click pos =
     simulateMouseEvent
         ("click (" ++ String.fromInt pos.row ++ "," ++ String.fromInt pos.col ++ ")")
-        (Tui.Event.Click { row = pos.row, col = pos.col, button = Tui.Event.LeftButton })
+        (Tui.Sub.Click { row = pos.row, col = pos.col, button = Tui.Sub.LeftButton })
 
 
 {-| Find a line containing the given text and simulate a click on it.
@@ -634,7 +632,7 @@ clickText needle (TuiTest state) =
                 Just match ->
                     simulateMouseEvent
                         ("clickText \"" ++ needle ++ "\"")
-                        (Tui.Event.Click { row = match.row, col = match.col, button = Tui.Event.LeftButton })
+                        (Tui.Sub.Click { row = match.row, col = match.col, button = Tui.Sub.LeftButton })
                         (TuiTest state)
 
                 Nothing ->
@@ -656,7 +654,7 @@ scrollDown : { row : Int, col : Int } -> TuiTest model msg -> TuiTest model msg
 scrollDown pos =
     simulateMouseEvent
         ("scrollDown (" ++ String.fromInt pos.row ++ "," ++ String.fromInt pos.col ++ ")")
-        (Tui.Event.ScrollDown { row = pos.row, col = pos.col, amount = 1 })
+        (Tui.Sub.ScrollDown { row = pos.row, col = pos.col, amount = 1 })
 
 
 {-| Simulate a scroll-up event at the given position.
@@ -665,7 +663,7 @@ scrollUp : { row : Int, col : Int } -> TuiTest model msg -> TuiTest model msg
 scrollUp pos =
     simulateMouseEvent
         ("scrollUp (" ++ String.fromInt pos.row ++ "," ++ String.fromInt pos.col ++ ")")
-        (Tui.Event.ScrollUp { row = pos.row, col = pos.col, amount = 1 })
+        (Tui.Sub.ScrollUp { row = pos.row, col = pos.col, amount = 1 })
 
 
 {-| Simulate N scroll-down events at the given position.
@@ -688,7 +686,7 @@ scrollUpN n pos tuiTest =
     List.foldl (\_ acc -> scrollUp pos acc) tuiTest (List.range 1 n)
 
 
-simulateMouseEvent : String -> Tui.Event.MouseEvent -> TuiTest model msg -> TuiTest model msg
+simulateMouseEvent : String -> Tui.Sub.MouseEvent -> TuiTest model msg -> TuiTest model msg
 simulateMouseEvent label mouseEvent (TuiTest state) =
     case ( state.error, state.exited ) of
         ( Just _, _ ) ->
@@ -703,7 +701,7 @@ simulateMouseEvent label mouseEvent (TuiTest state) =
                 sub =
                     state.subscriptions state.model
             in
-            SubInternal.routeEvents sub (SubInternal.RawMouse mouseEvent)
+            Tui.Sub.routeEvents sub (Tui.Sub.RawMouse mouseEvent)
                 |> List.foldl (applyMsg label) (TuiTest state)
 
 
@@ -778,7 +776,7 @@ advanceTimeHelp targetTime (TuiTest state) =
 
                 intervals : List Int
                 intervals =
-                    SubInternal.getTickIntervals sub
+                    Tui.Sub.getTickIntervals sub
 
                 nextFires : List ( Int, Int )
                 nextFires =
@@ -802,9 +800,9 @@ advanceTimeHelp targetTime (TuiTest state) =
 
                 ( interval, fireTime ) :: _ ->
                     let
-                        rawEvent : SubInternal.RawEvent
+                        rawEvent : Tui.Sub.RawEvent
                         rawEvent =
-                            SubInternal.RawTick
+                            Tui.Sub.RawTick
                                 { interval = interval
                                 , time = Time.millisToPosix fireTime
                                 }
@@ -819,7 +817,7 @@ advanceTimeHelp targetTime (TuiTest state) =
 
                         msgs : List msg
                         msgs =
-                            SubInternal.routeEvents sub rawEvent
+                            Tui.Sub.routeEvents sub rawEvent
 
                         label : String
                         label =
@@ -850,7 +848,7 @@ simulation function is applied, and the resolved result is fed through `update`.
 
     TuiTest.test "fetches stars on Enter" <|
         starsTest
-            |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+            |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
             |> TuiTest.resolveEffect
                 (BackendTaskTest.simulateHttpGet
                     "https://api.github.com/repos/elm/core"
@@ -1816,53 +1814,53 @@ keyEventLabel event =
         keyName : String
         keyName =
             case event.key of
-                Tui.Event.Character c ->
+                Tui.Sub.Character c ->
                     "'" ++ String.fromChar c ++ "'"
 
-                Tui.Event.Enter ->
+                Tui.Sub.Enter ->
                     "Enter"
 
-                Tui.Event.Escape ->
+                Tui.Sub.Escape ->
                     "Escape"
 
-                Tui.Event.Tab ->
+                Tui.Sub.Tab ->
                     "Tab"
 
-                Tui.Event.Backspace ->
+                Tui.Sub.Backspace ->
                     "Backspace"
 
-                Tui.Event.Delete ->
+                Tui.Sub.Delete ->
                     "Delete"
 
-                Tui.Event.Arrow dir ->
+                Tui.Sub.Arrow dir ->
                     "Arrow "
                         ++ (case dir of
-                                Tui.Event.Up ->
+                                Tui.Sub.Up ->
                                     "Up"
 
-                                Tui.Event.Down ->
+                                Tui.Sub.Down ->
                                     "Down"
 
-                                Tui.Event.Left ->
+                                Tui.Sub.Left ->
                                     "Left"
 
-                                Tui.Event.Right ->
+                                Tui.Sub.Right ->
                                     "Right"
                            )
 
-                Tui.Event.FunctionKey n ->
+                Tui.Sub.FunctionKey n ->
                     "F" ++ String.fromInt n
 
-                Tui.Event.Home ->
+                Tui.Sub.Home ->
                     "Home"
 
-                Tui.Event.End ->
+                Tui.Sub.End ->
                     "End"
 
-                Tui.Event.PageUp ->
+                Tui.Sub.PageUp ->
                     "PageUp"
 
-                Tui.Event.PageDown ->
+                Tui.Sub.PageDown ->
                     "PageDown"
 
         modPrefix : String
@@ -1871,13 +1869,13 @@ keyEventLabel event =
                 |> List.map
                     (\m ->
                         case m of
-                            Tui.Event.Ctrl ->
+                            Tui.Sub.Ctrl ->
                                 "Ctrl+"
 
-                            Tui.Event.Alt ->
+                            Tui.Sub.Alt ->
                                 "Alt+"
 
-                            Tui.Event.Shift ->
+                            Tui.Sub.Shift ->
                                 "Shift+"
                     )
                 |> String.concat

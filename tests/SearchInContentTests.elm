@@ -5,9 +5,9 @@ import Expect
 import Json.Encode
 import Test exposing (Test, describe, test)
 import Tui
-import Tui.Event
 import Tui.Layout as Layout
 import Tui.Screen
+import Tui.Sub
 
 
 diffLines : List Tui.Screen.Screen
@@ -59,7 +59,7 @@ suite =
 
                         ( newState, _, handled ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Character '/', modifiers = [] }
+                                { key = Tui.Sub.Character '/', modifiers = [] }
                                 searchableLayout
                                 state
                     in
@@ -85,7 +85,7 @@ suite =
 
                         ( _, _, handled ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Character '/', modifiers = [] }
+                                { key = Tui.Sub.Character '/', modifiers = [] }
                                 nonSearchable
                                 state
                     in
@@ -126,7 +126,7 @@ suite =
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Enter, modifiers = [] }
+                                { key = Tui.Sub.Enter, modifiers = [] }
                                 searchableLayout
                                 s1
 
@@ -150,13 +150,13 @@ suite =
 
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Character '/', modifiers = [] }
+                                { key = Tui.Sub.Character '/', modifiers = [] }
                                 searchableLayout
                                 state
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Enter, modifiers = [] }
+                                { key = Tui.Sub.Enter, modifiers = [] }
                                 searchableLayout
                                 s1
                     in
@@ -176,7 +176,7 @@ suite =
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Character 'n', modifiers = [] }
+                                { key = Tui.Sub.Character 'n', modifiers = [] }
                                 searchableLayout
                                 s
 
@@ -200,7 +200,7 @@ suite =
                         -- N from first match wraps to last
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Character 'N', modifiers = [] }
+                                { key = Tui.Sub.Character 'N', modifiers = [] }
                                 searchableLayout
                                 s
 
@@ -245,7 +245,7 @@ suite =
 
                         ( _, _, handled ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Character 'n', modifiers = [] }
+                                { key = Tui.Sub.Character 'n', modifiers = [] }
                                 searchableLayout
                                 s
                     in
@@ -265,7 +265,7 @@ suite =
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Escape, modifiers = [] }
+                                { key = Tui.Sub.Escape, modifiers = [] }
                                 searchableLayout
                                 s
                     in
@@ -283,7 +283,7 @@ suite =
 
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Escape, modifiers = [] }
+                                { key = Tui.Sub.Escape, modifiers = [] }
                                 searchableLayout
                                 s
                     in
@@ -408,7 +408,7 @@ startSearchWith query state =
     let
         ( s1, _, _ ) =
             Layout.handleKeyEvent
-                { key = Tui.Event.Character '/', modifiers = [] }
+                { key = Tui.Sub.Character '/', modifiers = [] }
                 searchableLayout
                 state
     in
@@ -417,7 +417,7 @@ startSearchWith query state =
         |> List.foldl
             (\c ( s, _, _ ) ->
                 Layout.handleKeyEvent
-                    { key = Tui.Event.Character c, modifiers = [] }
+                    { key = Tui.Sub.Character c, modifiers = [] }
                     searchableLayout
                     s
             )
@@ -435,7 +435,7 @@ commitSearchWith query layout state =
     let
         ( s1, _, _ ) =
             Layout.handleKeyEvent
-                { key = Tui.Event.Character '/', modifiers = [] }
+                { key = Tui.Sub.Character '/', modifiers = [] }
                 layout
                 state
 
@@ -446,7 +446,7 @@ commitSearchWith query layout state =
                 |> List.foldl
                     (\c ( s, _, _ ) ->
                         Layout.handleKeyEvent
-                            { key = Tui.Event.Character c, modifiers = [] }
+                            { key = Tui.Sub.Character c, modifiers = [] }
                             layout
                             s
                     )
@@ -455,7 +455,7 @@ commitSearchWith query layout state =
 
         ( s3, _, _ ) =
             Layout.handleKeyEvent
-                { key = Tui.Event.Enter, modifiers = [] }
+                { key = Tui.Sub.Enter, modifiers = [] }
                 layout
                 s2
     in
@@ -468,7 +468,7 @@ pressN count state =
         |> List.foldl
             (\_ s ->
                 Layout.handleKeyEvent
-                    { key = Tui.Event.Character 'n', modifiers = [] }
+                    { key = Tui.Sub.Character 'n', modifiers = [] }
                     searchableLayout
                     s
                     |> (\( st, _, _ ) -> st)

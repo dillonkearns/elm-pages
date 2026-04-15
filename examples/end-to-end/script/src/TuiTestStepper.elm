@@ -6,7 +6,6 @@ module TuiTestStepper exposing (tuiTests)
 import Ansi.Color
 import Tui
 import Tui.Effect as Effect
-import Tui.Event
 import Tui.Screen exposing (plain)
 import Tui.Sub
 import Tui.Test as TuiTest
@@ -58,8 +57,8 @@ type alias Model =
 
 
 type Msg
-    = KeyPressed Tui.Event.KeyEvent
-    | Mouse Tui.Event.MouseEvent
+    = KeyPressed Tui.Sub.KeyEvent
+    | Mouse Tui.Sub.MouseEvent
 
 
 sampleCommits : List Commit
@@ -94,13 +93,13 @@ miniGitUpdate msg model =
     case msg of
         KeyPressed event ->
             case event.key of
-                Tui.Event.Character 'j' ->
+                Tui.Sub.Character 'j' ->
                     ( adjustScroll { model | selected = min maxIndex (model.selected + 1) }, Effect.none )
 
-                Tui.Event.Character 'k' ->
+                Tui.Sub.Character 'k' ->
                     ( adjustScroll { model | selected = max 0 (model.selected - 1) }, Effect.none )
 
-                Tui.Event.Character 'q' ->
+                Tui.Sub.Character 'q' ->
                     ( model, Effect.exit )
 
                 _ ->
@@ -108,7 +107,7 @@ miniGitUpdate msg model =
 
         Mouse event ->
             case event of
-                Tui.Event.Click { row } ->
+                Tui.Sub.Click { row } ->
                     let
                         clickedIndex : Int
                         clickedIndex =
@@ -120,10 +119,10 @@ miniGitUpdate msg model =
                     else
                         ( model, Effect.none )
 
-                Tui.Event.ScrollUp _ ->
+                Tui.Sub.ScrollUp _ ->
                     ( adjustScroll { model | selected = max 0 (model.selected - 1) }, Effect.none )
 
-                Tui.Event.ScrollDown _ ->
+                Tui.Sub.ScrollDown _ ->
                     ( adjustScroll { model | selected = min maxIndex (model.selected + 1) }, Effect.none )
 
 

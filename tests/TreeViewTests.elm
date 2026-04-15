@@ -3,9 +3,9 @@ module TreeViewTests exposing (suite)
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
-import Tui.Event
 import Tui.Layout as Layout
 import Tui.Screen
+import Tui.Sub
 
 
 files : List String
@@ -72,7 +72,7 @@ suite =
                         -- Toggle to flat view
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Character '`', modifiers = [] }
+                                { key = Tui.Sub.Character '`', modifiers = [] }
                                 treeLayout
                                 state
 
@@ -106,7 +106,7 @@ suite =
                         -- Navigate to "src" directory and press Enter to collapse
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Enter, modifiers = [] }
+                                { key = Tui.Sub.Enter, modifiers = [] }
                                 treeLayout
                                 state
 
@@ -134,7 +134,7 @@ suite =
 
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Character '-', modifiers = [] }
+                                { key = Tui.Sub.Character '-', modifiers = [] }
                                 treeLayout
                                 state
 
@@ -165,14 +165,14 @@ suite =
                         -- Collapse all first
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Character '-', modifiers = [] }
+                                { key = Tui.Sub.Character '-', modifiers = [] }
                                 treeLayout
                                 state
 
                         -- Then expand all
                         ( s2, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Character '=', modifiers = [] }
+                                { key = Tui.Sub.Character '=', modifiers = [] }
                                 treeLayout
                                 s1
 
@@ -217,7 +217,7 @@ suite =
                         -- Collapse all, then navigate to README.md (should be near the top)
                         ( s1, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Character '-', modifiers = [] }
+                                { key = Tui.Sub.Character '-', modifiers = [] }
                                 treeLayout
                                 state
 

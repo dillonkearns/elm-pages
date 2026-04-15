@@ -4,7 +4,6 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Effect as Effect exposing (Effect)
-import Tui.Event
 import Tui.Screen
 import Tui.Sub
 import Tui.Test as TuiTest
@@ -106,13 +105,13 @@ counterApp =
         }
 
 
-counterKeyHandler : Tui.Event.KeyEvent -> Maybe CounterMsg
+counterKeyHandler : Tui.Sub.KeyEvent -> Maybe CounterMsg
 counterKeyHandler event =
     case event.key of
-        Tui.Event.Character 'j' ->
+        Tui.Sub.Character 'j' ->
             Just Increment
 
-        Tui.Event.Character 'k' ->
+        Tui.Sub.Character 'k' ->
             Just Decrement
 
         _ ->
@@ -162,10 +161,10 @@ scrollApp =
                 Tui.Sub.onMouse
                     (\event ->
                         case event of
-                            Tui.Event.ScrollDown _ ->
+                            Tui.Sub.ScrollDown _ ->
                                 Just ScrolledDown
 
-                            Tui.Event.ScrollUp _ ->
+                            Tui.Sub.ScrollUp _ ->
                                 Just ScrolledUp
 
                             _ ->

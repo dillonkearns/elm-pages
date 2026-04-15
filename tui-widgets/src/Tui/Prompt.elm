@@ -68,9 +68,9 @@ Handle keys while the prompt is open:
 
 import Ansi.Color
 import Tui
-import Tui.Event
 import Tui.Input as Input
 import Tui.Screen
+import Tui.Sub
 
 
 {-| Opaque prompt state.
@@ -165,16 +165,16 @@ type Result
         ( newState, Prompt.Continue ) -> keepEditing newState
 
 -}
-handleKeyEvent : Tui.Event.KeyEvent -> State -> ( State, Result )
+handleKeyEvent : Tui.Sub.KeyEvent -> State -> ( State, Result )
 handleKeyEvent event (State s) =
     case event.key of
-        Tui.Event.Enter ->
+        Tui.Sub.Enter ->
             ( State s, Submitted (Input.text s.input) )
 
-        Tui.Event.Escape ->
+        Tui.Sub.Escape ->
             ( State s, Cancelled )
 
-        Tui.Event.Tab ->
+        Tui.Sub.Tab ->
             case suggestionsFor s of
                 [] ->
                     ( State s, Continue )
@@ -199,7 +199,7 @@ handleKeyEvent event (State s) =
                     , Continue
                     )
 
-        Tui.Event.Arrow Tui.Event.Down ->
+        Tui.Sub.Arrow Tui.Sub.Down ->
             case suggestionsFor s of
                 [] ->
                     ( State s, Continue )
@@ -213,7 +213,7 @@ handleKeyEvent event (State s) =
                     , Continue
                     )
 
-        Tui.Event.Arrow Tui.Event.Up ->
+        Tui.Sub.Arrow Tui.Sub.Up ->
             case suggestionsFor s of
                 [] ->
                     ( State s, Continue )
@@ -226,13 +226,13 @@ handleKeyEvent event (State s) =
                 resetSelectedSuggestion : Int
                 resetSelectedSuggestion =
                     case event.key of
-                        Tui.Event.Character _ ->
+                        Tui.Sub.Character _ ->
                             0
 
-                        Tui.Event.Backspace ->
+                        Tui.Sub.Backspace ->
                             0
 
-                        Tui.Event.Delete ->
+                        Tui.Sub.Delete ->
                             0
 
                         _ ->

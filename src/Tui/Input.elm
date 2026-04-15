@@ -12,8 +12,8 @@ with an inverse-video cursor indicator (the standard TUI convention).
 
     -- In update:
     case event.key of
-        Tui.Event.Escape -> dismissModal
-        Tui.Event.Enter -> submit (Input.text model.input)
+        Tui.Sub.Escape -> dismissModal
+        Tui.Sub.Enter -> submit (Input.text model.input)
         _ -> { model | input = Input.update event model.input }
 
     -- In view:
@@ -24,8 +24,8 @@ with an inverse-video cursor indicator (the standard TUI convention).
 -}
 
 import Tui
-import Tui.Event
 import Tui.Screen
+import Tui.Sub
 import String.Graphemes as Graphemes
 
 
@@ -89,16 +89,16 @@ Keys the input doesn't handle (Escape, Enter, Tab, etc.) return
 the state unchanged. Match those keys before calling this:
 
     case event.key of
-        Tui.Event.Escape -> ( closeInput model, Effect.none )
-        Tui.Event.Enter -> ( submit model, Effect.none )
+        Tui.Sub.Escape -> ( closeInput model, Effect.none )
+        Tui.Sub.Enter -> ( submit model, Effect.none )
         _ -> ( { model | input = Input.update event model.input }, Effect.none )
 
 -}
-update : Tui.Event.KeyEvent -> State -> State
+update : Tui.Sub.KeyEvent -> State -> State
 update event (State s) =
     case event.key of
-        Tui.Event.Character char ->
-            if List.member Tui.Event.Ctrl event.modifiers then
+        Tui.Sub.Character char ->
+            if List.member Tui.Sub.Ctrl event.modifiers then
                 -- Ctrl+key shortcuts
                 case char of
                     'a' ->
@@ -133,7 +133,7 @@ update event (State s) =
                     , cursorPos = s.cursorPos + 1
                     }
 
-        Tui.Event.Backspace ->
+        Tui.Sub.Backspace ->
             if s.cursorPos > 0 then
                 State
                     { content =
@@ -145,7 +145,7 @@ update event (State s) =
             else
                 State s
 
-        Tui.Event.Delete ->
+        Tui.Sub.Delete ->
             if s.cursorPos < Graphemes.length s.content then
                 State
                     { s
@@ -157,16 +157,16 @@ update event (State s) =
             else
                 State s
 
-        Tui.Event.Arrow Tui.Event.Left ->
+        Tui.Sub.Arrow Tui.Sub.Left ->
             State { s | cursorPos = max 0 (s.cursorPos - 1) }
 
-        Tui.Event.Arrow Tui.Event.Right ->
+        Tui.Sub.Arrow Tui.Sub.Right ->
             State { s | cursorPos = min (Graphemes.length s.content) (s.cursorPos + 1) }
 
-        Tui.Event.Home ->
+        Tui.Sub.Home ->
             State { s | cursorPos = 0 }
 
-        Tui.Event.End ->
+        Tui.Sub.End ->
             State { s | cursorPos = Graphemes.length s.content }
 
         _ ->

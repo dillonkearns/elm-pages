@@ -19,11 +19,11 @@ contains uppercase characters (like vim/lazygit).
     { model | search = Just Search.start }
 
     -- While searching, handle keys:
-    Tui.Event.Character c -> { model | search = Maybe.map (Search.typeChar c) model.search }
-    Tui.Event.Backspace -> { model | search = Maybe.map Search.backspace model.search }
-    Tui.Event.Character 'n' -> { model | search = Maybe.map (Search.nextMatch content) model.search }
-    Tui.Event.Character 'N' -> { model | search = Maybe.map (Search.prevMatch content) model.search }
-    Tui.Event.Escape -> { model | search = Nothing }
+    Tui.Sub.Character c -> { model | search = Maybe.map (Search.typeChar c) model.search }
+    Tui.Sub.Backspace -> { model | search = Maybe.map Search.backspace model.search }
+    Tui.Sub.Character 'n' -> { model | search = Maybe.map (Search.nextMatch content) model.search }
+    Tui.Sub.Character 'N' -> { model | search = Maybe.map (Search.prevMatch content) model.search }
+    Tui.Sub.Escape -> { model | search = Nothing }
 
     -- Get the scroll offset to center on current match:
     Search.matchLineIndex content searchState
@@ -37,8 +37,8 @@ contains uppercase characters (like vim/lazygit).
 -}
 
 import Tui
-import Tui.Event
 import Tui.Screen
+import Tui.Sub
 
 
 {-| Opaque search state.

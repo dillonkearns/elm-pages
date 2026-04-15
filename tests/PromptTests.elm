@@ -3,9 +3,9 @@ module PromptTests exposing (suite)
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
-import Tui.Event
 import Tui.Prompt as Prompt
 import Tui.Screen
+import Tui.Sub
 
 
 suite : Test
@@ -21,12 +21,12 @@ suite =
 
                         ( s1, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Event.Character 'h', modifiers = [] }
+                                { key = Tui.Sub.Character 'h', modifiers = [] }
                                 state
 
                         ( s2, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Event.Character 'i', modifiers = [] }
+                                { key = Tui.Sub.Character 'i', modifiers = [] }
                                 s1
                     in
                     Prompt.text s2 |> Expect.equal "hi"
@@ -39,7 +39,7 @@ suite =
 
                         ( _, result ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Event.Enter, modifiers = [] }
+                                { key = Tui.Sub.Enter, modifiers = [] }
                                 state
                     in
                     result |> Expect.equal (Prompt.Submitted "hello")
@@ -52,7 +52,7 @@ suite =
 
                         ( _, result ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Event.Escape, modifiers = [] }
+                                { key = Tui.Sub.Escape, modifiers = [] }
                                 state
                     in
                     result |> Expect.equal Prompt.Cancelled
@@ -65,7 +65,7 @@ suite =
 
                         ( _, result ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Event.Character 'a', modifiers = [] }
+                                { key = Tui.Sub.Character 'a', modifiers = [] }
                                 state
                     in
                     result |> Expect.equal Prompt.Continue
@@ -78,7 +78,7 @@ suite =
 
                         ( s1, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Event.Backspace, modifiers = [] }
+                                { key = Tui.Sub.Backspace, modifiers = [] }
                                 state
                     in
                     Prompt.text s1 |> Expect.equal "hell"
@@ -124,7 +124,7 @@ suite =
 
                         ( _, result ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Event.Enter, modifiers = [] }
+                                { key = Tui.Sub.Enter, modifiers = [] }
                                 state
                     in
                     result |> Expect.equal (Prompt.Submitted "secret")
@@ -172,7 +172,7 @@ suite =
 
                         ( s1, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Event.Tab, modifiers = [] }
+                                { key = Tui.Sub.Tab, modifiers = [] }
                                 state
                     in
                     Prompt.text s1 |> Expect.equal "apple"
@@ -192,12 +192,12 @@ suite =
 
                         ( s1, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Event.Tab, modifiers = [] }
+                                { key = Tui.Sub.Tab, modifiers = [] }
                                 state
 
                         ( _, result ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Event.Enter, modifiers = [] }
+                                { key = Tui.Sub.Enter, modifiers = [] }
                                 s1
                     in
                     result |> Expect.equal (Prompt.Submitted "apple")
@@ -261,7 +261,7 @@ typeString str state =
     String.foldl
         (\c s ->
             Prompt.handleKeyEvent
-                { key = Tui.Event.Character c, modifiers = [] }
+                { key = Tui.Sub.Character c, modifiers = [] }
                 s
                 |> Tuple.first
         )

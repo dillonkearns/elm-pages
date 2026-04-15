@@ -4,10 +4,10 @@ import Ansi.Color
 import BackendTask
 import Tui
 import Tui.Layout.Effect as Effect
-import Tui.Event
 import Tui.Layout as Layout
 import Tui.Layout.Test as LayoutTest
 import Tui.Screen
+import Tui.Sub
 import Tui.Test as TuiTest
 
 
@@ -20,11 +20,11 @@ tuiTests =
             |> TuiTest.pressKeyN 3 'j'
             |> LayoutTest.ensureSelectedIndex "left" 3
             |> LayoutTest.ensurePaneHas "Left" "delta"
-            |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
+            |> TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] }
             |> LayoutTest.ensureFocusedPane "right"
             |> LayoutTest.ensurePaneHas "Right" "details"
             |> LayoutTest.ensurePaneDoesNotHave "Right" "alpha"
-            |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
+            |> TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] }
             |> LayoutTest.ensureFocusedPane "left"
             |> TuiTest.ensureViewHasStyled [ TuiTest.bold ] "delta"
             |> TuiTest.expectRunning

@@ -7,10 +7,10 @@ import Test exposing (Test, describe, test)
 import Test.Runner
 import Tui
 import Tui.Layout.Effect as Effect exposing (Effect)
-import Tui.Event
 import Tui.Layout as Layout
 import Tui.Layout.Test as LayoutTest
 import Tui.Screen
+import Tui.Sub
 import Tui.Test as TuiTest
 
 
@@ -27,15 +27,15 @@ suite =
             , test "Tab moves focus to second pane" <|
                 \() ->
                     twoPane
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] }
                         |> LayoutTest.ensureFocusedPane "right"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
             , test "Tab Tab moves focus back to first pane" <|
                 \() ->
                     twoPane
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] }
                         |> LayoutTest.ensureFocusedPane "left"
                         |> TuiTest.expectRunning
                         |> TuiTest.done

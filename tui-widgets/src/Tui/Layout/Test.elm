@@ -17,7 +17,7 @@ need to render debug info in your view or parse the screen output.
     test "Tab moves focus to diff pane" <|
         \() ->
             myApp
-                |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
+                |> TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] }
                 |> LayoutTest.ensureFocusedPane "diff"
                 |> TuiTest.expectRunning
 
@@ -49,8 +49,8 @@ need to render debug info in your view or parse the screen output.
 
 import Expect
 import Tui
-import Tui.Event
 import Tui.Layout as Layout
+import Tui.Sub
 import Tui.Test as TuiTest
 
 

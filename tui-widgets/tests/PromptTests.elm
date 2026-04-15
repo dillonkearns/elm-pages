@@ -4,9 +4,9 @@ import Expect
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Tui
-import Tui.Event
 import Tui.Prompt as Prompt
 import Tui.Screen
+import Tui.Sub
 
 
 suite : Test
@@ -38,12 +38,12 @@ suite =
 
                         ( afterDown, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Event.Arrow Tui.Event.Down, modifiers = [] }
+                                { key = Tui.Sub.Arrow Tui.Sub.Down, modifiers = [] }
                                 state
 
                         ( afterTab, _ ) =
                             Prompt.handleKeyEvent
-                                { key = Tui.Event.Tab, modifiers = [] }
+                                { key = Tui.Sub.Tab, modifiers = [] }
                                 afterDown
                     in
                     Prompt.text afterTab
@@ -57,7 +57,7 @@ typeString str state =
     String.foldl
         (\c currentState ->
             Prompt.handleKeyEvent
-                { key = Tui.Event.Character c, modifiers = [] }
+                { key = Tui.Sub.Character c, modifiers = [] }
                 currentState
                 |> Tuple.first
         )

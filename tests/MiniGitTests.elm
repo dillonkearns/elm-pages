@@ -6,7 +6,6 @@ import Test exposing (Test, describe, test)
 import Test.Runner
 import Tui
 import Tui.Layout.Effect as Effect exposing (Effect)
-import Tui.Event
 import Tui.Input as Input
 import Tui.Keybinding as Keybinding
 import Tui.Layout as Layout
@@ -139,7 +138,7 @@ suite =
                     miniGitTest
                         |> TuiTest.pressKey 'c'
                         |> TuiTest.ensureViewHas "Commit"
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Escape, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Escape, modifiers = [] }
                         |> TuiTest.ensureViewDoesNotHave "Enter: confirm"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
@@ -149,7 +148,7 @@ suite =
                         |> TuiTest.pressKey 'c'
                         |> TuiTest.pressKey 'h'
                         |> TuiTest.pressKey 'i'
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Committed: hi"
                         |> TuiTest.ensureViewDoesNotHave "Enter: confirm"
                         |> TuiTest.expectRunning
@@ -192,7 +191,7 @@ suite =
                     miniGitTest
                         |> TuiTest.pressKey 'c'
                         |> TuiTest.paste "docs: update README"
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Committed: docs: update README"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
@@ -235,7 +234,7 @@ suite =
                     miniGitTest
                         |> TuiTest.pressKey '?'
                         |> TuiTest.ensureViewHas "Keybindings"
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Escape, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Escape, modifiers = [] }
                         |> TuiTest.ensureViewDoesNotHave "Keybindings"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
@@ -258,7 +257,7 @@ suite =
                         |> TuiTest.pressKey '?'
                         |> TuiTest.pressKey '/'
                         |> TuiTest.pressKey 'q'
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Escape, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Escape, modifiers = [] }
                         -- Should still show help modal (back to browse mode)
                         |> TuiTest.ensureViewHas "Keybindings"
                         |> TuiTest.expectRunning
@@ -300,7 +299,7 @@ suite =
                 \() ->
                     miniGitTest
                         -- Tab to focus the diff pane and scroll down
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] }
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.pressKey 'j'
@@ -308,7 +307,7 @@ suite =
                         -- Scrolled down — top lines should be gone
                         |> TuiTest.ensureViewDoesNotHave "commit abc1234"
                         -- Tab back to commits, navigate to a new commit
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] }
                         |> TuiTest.pressKey 'j'
                         -- Should see the TOP of the new commit's diff
                         |> TuiTest.ensureViewHas "commit def5678"
@@ -319,7 +318,7 @@ suite =
                 \() ->
                     miniGitTest
                         -- Tab to diff pane and scroll down
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Tab, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] }
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.pressKey 'j'
@@ -344,7 +343,7 @@ suite =
             , test "down arrow navigates as alternate key" <|
                 \() ->
                     miniGitTest
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Arrow Tui.Event.Down, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Arrow Tui.Sub.Down, modifiers = [] }
                         |> TuiTest.ensureViewHas "▸ def5678"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
@@ -377,7 +376,7 @@ suite =
                         |> TuiTest.pressKey 'f'
                         |> TuiTest.pressKey 'i'
                         |> TuiTest.pressKey 'x'
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         -- Filter stays active
                         |> TuiTest.ensureViewHas "Fix bug"
                         |> TuiTest.ensureViewDoesNotHave "Initial commit"
@@ -392,8 +391,8 @@ suite =
                         |> TuiTest.pressKey 'f'
                         |> TuiTest.pressKey 'i'
                         |> TuiTest.pressKey 'x'
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Escape, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Escape, modifiers = [] }
                         -- All commits should be visible again
                         |> TuiTest.ensureViewHas "Initial commit"
                         |> TuiTest.ensureViewHas "Fix bug"
@@ -408,7 +407,7 @@ suite =
                         |> TuiTest.pressKey 'x'
                         |> TuiTest.pressKey 'y'
                         |> TuiTest.pressKey 'z'
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Escape, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Escape, modifiers = [] }
                         -- All commits visible
                         |> TuiTest.ensureViewHas "Initial commit"
                         |> TuiTest.ensureViewDoesNotHave "Filter:"
@@ -421,7 +420,7 @@ suite =
                         |> TuiTest.pressKey 'a'
                         |> TuiTest.pressKey 'd'
                         |> TuiTest.pressKey 'd'
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         -- Now navigate within filtered results
                         |> TuiTest.pressKey 'j'
                         |> TuiTest.expectRunning
@@ -536,8 +535,8 @@ type Action
 
 
 type Msg
-    = KeyPressed Tui.Event.KeyEvent
-    | Mouse Tui.Event.MouseEvent
+    = KeyPressed Tui.Sub.KeyEvent
+    | Mouse Tui.Sub.MouseEvent
     | GotPaste String
     | SelectCommit Int
 
@@ -545,30 +544,30 @@ type Msg
 testGlobalBindings : Keybinding.Group Action
 testGlobalBindings =
     Keybinding.group "Global"
-        [ Keybinding.binding (Tui.Event.Character 'q') "Quit" DoQuit
-        , Keybinding.binding Tui.Event.Tab "Switch pane" DoSwitchPane
-        , Keybinding.binding (Tui.Event.Character 'c') "Commit" DoOpenCommit
-        , Keybinding.binding (Tui.Event.Character '?') "Help" DoOpenHelp
+        [ Keybinding.binding (Tui.Sub.Character 'q') "Quit" DoQuit
+        , Keybinding.binding Tui.Sub.Tab "Switch pane" DoSwitchPane
+        , Keybinding.binding (Tui.Sub.Character 'c') "Commit" DoOpenCommit
+        , Keybinding.binding (Tui.Sub.Character '?') "Help" DoOpenHelp
         ]
 
 
 testCommitBindings : Keybinding.Group Action
 testCommitBindings =
     Keybinding.group "Commits"
-        [ Keybinding.binding (Tui.Event.Character 'j') "Next commit" (DoNavigate 1)
-            |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Down)
-        , Keybinding.binding (Tui.Event.Character 'k') "Previous commit" (DoNavigate -1)
-            |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Up)
+        [ Keybinding.binding (Tui.Sub.Character 'j') "Next commit" (DoNavigate 1)
+            |> Keybinding.withAlternate (Tui.Sub.Arrow Tui.Sub.Down)
+        , Keybinding.binding (Tui.Sub.Character 'k') "Previous commit" (DoNavigate -1)
+            |> Keybinding.withAlternate (Tui.Sub.Arrow Tui.Sub.Up)
         ]
 
 
 testDiffBindings : Keybinding.Group Action
 testDiffBindings =
     Keybinding.group "Diff"
-        [ Keybinding.binding (Tui.Event.Character 'j') "Scroll down" (DoScrollDiff 3)
-            |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Down)
-        , Keybinding.binding (Tui.Event.Character 'k') "Scroll up" (DoScrollDiff -3)
-            |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Up)
+        [ Keybinding.binding (Tui.Sub.Character 'j') "Scroll down" (DoScrollDiff 3)
+            |> Keybinding.withAlternate (Tui.Sub.Arrow Tui.Sub.Down)
+        , Keybinding.binding (Tui.Sub.Character 'k') "Scroll up" (DoScrollDiff -3)
+            |> Keybinding.withAlternate (Tui.Sub.Arrow Tui.Sub.Up)
         ]
 
 
@@ -657,10 +656,10 @@ miniGitUpdate msg model =
             case msg of
                 KeyPressed event ->
                     case event.key of
-                        Tui.Event.Escape ->
+                        Tui.Sub.Escape ->
                             ( { model | modal = Nothing }, Effect.none )
 
-                        Tui.Event.Enter ->
+                        Tui.Sub.Enter ->
                             let
                                 commitMsg : String
                                 commitMsg =
@@ -697,22 +696,22 @@ miniGitUpdate msg model =
                     case helpState.mode of
                         HelpBrowse ->
                             case event.key of
-                                Tui.Event.Escape ->
+                                Tui.Sub.Escape ->
                                     ( { model | modal = Nothing }, Effect.none )
 
-                                Tui.Event.Character '/' ->
+                                Tui.Sub.Character '/' ->
                                     ( { model | modal = Just (HelpModal { helpState | mode = HelpSearch }) }, Effect.none )
 
-                                Tui.Event.Character 'j' ->
+                                Tui.Sub.Character 'j' ->
                                     ( { model | modal = Just (HelpModal { helpState | selectedIndex = helpState.selectedIndex + 1 }) }, Effect.none )
 
-                                Tui.Event.Arrow Tui.Event.Down ->
+                                Tui.Sub.Arrow Tui.Sub.Down ->
                                     ( { model | modal = Just (HelpModal { helpState | selectedIndex = helpState.selectedIndex + 1 }) }, Effect.none )
 
-                                Tui.Event.Character 'k' ->
+                                Tui.Sub.Character 'k' ->
                                     ( { model | modal = Just (HelpModal { helpState | selectedIndex = max 0 (helpState.selectedIndex - 1) }) }, Effect.none )
 
-                                Tui.Event.Arrow Tui.Event.Up ->
+                                Tui.Sub.Arrow Tui.Sub.Up ->
                                     ( { model | modal = Just (HelpModal { helpState | selectedIndex = max 0 (helpState.selectedIndex - 1) }) }, Effect.none )
 
                                 _ ->
@@ -726,10 +725,10 @@ miniGitUpdate msg model =
 
                         HelpSearch ->
                             case event.key of
-                                Tui.Event.Escape ->
+                                Tui.Sub.Escape ->
                                     ( { model | modal = Just (HelpModal { helpState | mode = HelpBrowse }) }, Effect.none )
 
-                                Tui.Event.Enter ->
+                                Tui.Sub.Enter ->
                                     ( { model | modal = Just (HelpModal { helpState | mode = HelpBrowse, selectedIndex = 0 }) }, Effect.none )
 
                                 _ ->

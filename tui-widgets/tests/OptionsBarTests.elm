@@ -3,10 +3,10 @@ module OptionsBarTests exposing (suite)
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
-import Tui.Event
 import Tui.Keybinding as Keybinding
 import Tui.OptionsBar as OptionsBar
 import Tui.Screen
+import Tui.Sub
 
 
 suite : Test
@@ -36,8 +36,8 @@ suite =
 sampleBindings : List (Keybinding.Group ())
 sampleBindings =
     [ Keybinding.group "Actions"
-        [ Keybinding.binding (Tui.Event.Character 'j') "Next" ()
-            |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Down)
-        , Keybinding.withModifiers [ Tui.Event.Ctrl ] (Tui.Event.Character 's') "Save" ()
+        [ Keybinding.binding (Tui.Sub.Character 'j') "Next" ()
+            |> Keybinding.withAlternate (Tui.Sub.Arrow Tui.Sub.Down)
+        , Keybinding.withModifiers [ Tui.Sub.Ctrl ] (Tui.Sub.Character 's') "Save" ()
         ]
     ]

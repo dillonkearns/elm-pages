@@ -6,10 +6,10 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Layout.Effect as Effect exposing (Effect)
-import Tui.Event
 import Tui.Layout as Layout
 import Tui.Menu as Menu
 import Tui.Screen
+import Tui.Sub
 import Tui.Test as TuiTest
 
 
@@ -167,7 +167,7 @@ suite =
                         |> TuiTest.pressKey '?'
                         |> TuiTest.ensureViewHas "Keybindings"
                         -- Esc should close it
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Escape, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Escape, modifiers = [] }
                         |> TuiTest.ensureViewDoesNotHave "Keybindings"
                         -- j should NOT re-open the help modal
                         |> TuiTest.pressKey 'j'
@@ -539,7 +539,7 @@ menuItems =
                         Char.fromCode (Char.toCode 'a' + i - 1)
                 in
                 Menu.item
-                    { key = Tui.Event.Character keyChar
+                    { key = Tui.Sub.Character keyChar
                     , label = label
                     , action = ChooseMenuItem label
                     }

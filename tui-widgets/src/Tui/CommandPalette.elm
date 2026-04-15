@@ -12,15 +12,15 @@ Built on [`Tui.Picker`](Tui-Picker) and [`Tui.Keybinding`](Tui-Keybinding).
 
     -- In update:
     case event.key of
-        Tui.Event.Escape -> closeCommandPalette
-        Tui.Event.Enter ->
+        Tui.Sub.Escape -> closeCommandPalette
+        Tui.Sub.Enter ->
             case CommandPalette.selected model.palette of
                 Just action -> handleAction action model
                 Nothing -> ( model, Effect.none )
-        Tui.Event.Backspace -> { model | palette = CommandPalette.backspace model.palette }
-        Tui.Event.Character c -> { model | palette = CommandPalette.typeChar c model.palette }
-        Tui.Event.Arrow Tui.Event.Down -> { model | palette = CommandPalette.navigateDown model.palette }
-        Tui.Event.Arrow Tui.Event.Up -> { model | palette = CommandPalette.navigateUp model.palette }
+        Tui.Sub.Backspace -> { model | palette = CommandPalette.backspace model.palette }
+        Tui.Sub.Character c -> { model | palette = CommandPalette.typeChar c model.palette }
+        Tui.Sub.Arrow Tui.Sub.Down -> { model | palette = CommandPalette.navigateDown model.palette }
+        Tui.Sub.Arrow Tui.Sub.Up -> { model | palette = CommandPalette.navigateUp model.palette }
 
     -- Render with Modal.overlay:
     Modal.overlay
@@ -39,10 +39,10 @@ Built on [`Tui.Picker`](Tui-Picker) and [`Tui.Keybinding`](Tui-Keybinding).
 
 import Ansi.Color
 import Tui
-import Tui.Event
 import Tui.FuzzyMatch as FuzzyMatch
 import Tui.Keybinding as Keybinding
 import Tui.Screen
+import Tui.Sub
 
 
 {-| Opaque command palette state.

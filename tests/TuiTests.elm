@@ -13,7 +13,6 @@ import Test.Runner
 import Time
 import Tui
 import Tui.Effect as Effect exposing (Effect)
-import Tui.Event
 import Tui.Input as Input
 import Tui.Screen exposing (plain)
 import Tui.Sub
@@ -262,14 +261,14 @@ suite =
             , test "editing around emoji uses grapheme boundaries" <|
                 \() ->
                     Input.init "🙂"
-                        |> Input.update { key = Tui.Event.Arrow Tui.Event.Left, modifiers = [] }
-                        |> Input.update { key = Tui.Event.Character 'a', modifiers = [] }
+                        |> Input.update { key = Tui.Sub.Arrow Tui.Sub.Left, modifiers = [] }
+                        |> Input.update { key = Tui.Sub.Character 'a', modifiers = [] }
                         |> Input.text
                         |> Expect.equal "a🙂"
             , test "moving through emoji does not render replacement characters" <|
                 \() ->
                     Input.init "🙂"
-                        |> Input.update { key = Tui.Event.Arrow Tui.Event.Left, modifiers = [] }
+                        |> Input.update { key = Tui.Sub.Arrow Tui.Sub.Left, modifiers = [] }
                         |> Input.view { width = 10 }
                         |> Tui.Screen.toString
                         |> String.contains "�"
@@ -464,17 +463,17 @@ suite =
                 \() ->
                     counterTest
                         |> TuiTest.pressKeyWith
-                            { key = Tui.Event.Escape, modifiers = [] }
+                            { key = Tui.Sub.Escape, modifiers = [] }
                         |> TuiTest.expectExit
                         |> TuiTest.done
             , test "arrow keys work" <|
                 \() ->
                     counterTest
                         |> TuiTest.pressKeyWith
-                            { key = Tui.Event.Arrow Tui.Event.Up, modifiers = [] }
+                            { key = Tui.Sub.Arrow Tui.Sub.Up, modifiers = [] }
                         |> TuiTest.ensureViewHas "Count: 1"
                         |> TuiTest.pressKeyWith
-                            { key = Tui.Event.Arrow Tui.Event.Down, modifiers = [] }
+                            { key = Tui.Sub.Arrow Tui.Sub.Down, modifiers = [] }
                         |> TuiTest.ensureViewHas "Count: 0"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
@@ -514,12 +513,12 @@ suite =
             , test "sendMsg works for simulating BackendTask results" <|
                 \() ->
                     counterTest
-                        |> TuiTest.sendMsg (CounterKeyPressed { key = Tui.Event.Character 'k', modifiers = [] })
+                        |> TuiTest.sendMsg (CounterKeyPressed { key = Tui.Sub.Character 'k', modifiers = [] })
                         |> TuiTest.ensureViewHas "Count: 1"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
             ]
-        , describe "TuiTest - onContext"
+        , describe "TuiTest - onResize"
             [ test "startWithContext routes initial context through subscriptions" <|
                 \() ->
                     contextTest False { width = 120, height = 40, colorProfile = Tui.TrueColor }
@@ -562,7 +561,7 @@ suite =
                 \() ->
                     starsTest
                         -- clear default input
-                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Event.Backspace, modifiers = [] })
+                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
                         |> TuiTest.pressKey 'f'
                         |> TuiTest.pressKey 'o'
                         |> TuiTest.pressKey 'o'
@@ -573,7 +572,7 @@ suite =
             , test "Enter triggers loading state" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
                         |> TuiTest.sendMsg (GotStars (Ok 0))
                         |> TuiTest.expectRunning
@@ -581,7 +580,7 @@ suite =
             , test "simulating BackendTask result shows stars" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
                         -- Simulate the BackendTask completing with 1234 stars
                         |> TuiTest.sendMsg (GotStars (Ok 1234))
@@ -592,7 +591,7 @@ suite =
             , test "simulating BackendTask error shows error" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.sendMsg (GotStars (Err (FatalError.fromString "Not Found")))
                         |> TuiTest.ensureViewHas "Request failed"
                         |> TuiTest.ensureViewDoesNotHave "Loading"
@@ -601,7 +600,7 @@ suite =
             , test "typing after results clears them" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.sendMsg (GotStars (Ok 999))
                         |> TuiTest.ensureViewHas "Stars: 999"
                         -- Now type something — results should clear
@@ -613,18 +612,18 @@ suite =
             , test "full flow: type, fetch, see result, edit, fetch again" <|
                 \() ->
                     starsTest
-                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Event.Backspace, modifiers = [] })
+                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
                         |> typeString "elm/core"
                         |> TuiTest.ensureViewHas "Repo: elm/core"
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
                         |> TuiTest.sendMsg (GotStars (Ok 7500))
                         |> TuiTest.ensureViewHas "Stars: 7500"
                         -- Edit: remove "core" (4 chars) and type "compiler"
-                        |> repeatN 4 (TuiTest.pressKeyWith { key = Tui.Event.Backspace, modifiers = [] })
+                        |> repeatN 4 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
                         |> typeString "compiler"
                         |> TuiTest.ensureViewHas "Repo: elm/compiler"
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.sendMsg (GotStars (Ok 7800))
                         |> TuiTest.ensureViewHas "Stars: 7800"
                         |> TuiTest.expectRunning
@@ -634,7 +633,7 @@ suite =
             [ test "resolveEffect with simulateHttpGet resolves the pending BackendTask" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
                         |> TuiTest.resolveEffect
                             (BackendTaskTest.simulateHttpGet
@@ -648,9 +647,9 @@ suite =
             , test "resolveEffect with different repo after editing" <|
                 \() ->
                     starsTest
-                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Event.Backspace, modifiers = [] })
+                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
                         |> typeString "elm/core"
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.resolveEffect
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/elm/core"
@@ -679,7 +678,7 @@ suite =
             [ test "expectRunning fails with helpful message when effects are pending" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         -- Don't resolve the HTTP effect
                         |> TuiTest.expectRunning
                         |> TuiTest.done
@@ -687,7 +686,7 @@ suite =
             , test "expectExit fails with helpful message when effects are pending" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.expectExit
                         |> TuiTest.done
                         |> expectFailureContaining "pending BackendTask"
@@ -714,7 +713,7 @@ suite =
             , test "resolveEffect with wrong URL surfaces Test.BackendTask error" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.resolveEffect
                             (BackendTaskTest.simulateHttpGet
                                 "https://WRONG-URL.com"
@@ -781,21 +780,21 @@ suite =
                 \() ->
                     counterTest
                         |> TuiTest.pressKey 'k'
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Arrow Tui.Event.Down, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Arrow Tui.Sub.Down, modifiers = [] }
                         |> TuiTest.toSnapshots
                         |> List.map .label
                         |> Expect.equal [ "init", "pressKey 'k'", "pressKey Arrow Down" ]
             , test "snapshots track pending effects" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.toSnapshots
                         |> List.map .hasPendingEffects
                         |> Expect.equal [ False, True ]
             , test "resolveEffect adds a snapshot" <|
                 \() ->
                     starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.resolveEffect
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -967,7 +966,7 @@ tuiTests =
             )
         , TuiTest.test "stars flow resolves effect"
             (starsTest
-                |> TuiTest.pressKeyWith { key = Tui.Event.Enter, modifiers = [] }
+                |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                 |> TuiTest.ensureViewHas "Loading..."
                 |> TuiTest.resolveEffect
                     (BackendTaskTest.simulateHttpGet
@@ -1034,7 +1033,7 @@ type alias CounterModel =
 
 
 type CounterMsg
-    = CounterKeyPressed Tui.Event.KeyEvent
+    = CounterKeyPressed Tui.Sub.KeyEvent
 
 
 counterInit : () -> ( CounterModel, Effect CounterMsg )
@@ -1047,22 +1046,22 @@ counterUpdate msg model =
     case msg of
         CounterKeyPressed event ->
             case event.key of
-                Tui.Event.Character 'k' ->
+                Tui.Sub.Character 'k' ->
                     ( { model | count = model.count + 1 }, Effect.none )
 
-                Tui.Event.Arrow Tui.Event.Up ->
+                Tui.Sub.Arrow Tui.Sub.Up ->
                     ( { model | count = model.count + 1 }, Effect.none )
 
-                Tui.Event.Character 'j' ->
+                Tui.Sub.Character 'j' ->
                     ( { model | count = model.count - 1 }, Effect.none )
 
-                Tui.Event.Arrow Tui.Event.Down ->
+                Tui.Sub.Arrow Tui.Sub.Down ->
                     ( { model | count = model.count - 1 }, Effect.none )
 
-                Tui.Event.Character 'q' ->
+                Tui.Sub.Character 'q' ->
                     ( model, Effect.exit )
 
-                Tui.Event.Escape ->
+                Tui.Sub.Escape ->
                     ( model, Effect.exit )
 
                 _ ->
@@ -1103,7 +1102,7 @@ counterTest =
 
 
 
--- Context TUI for testing framework-managed onContext behavior
+-- Context TUI for testing framework-managed onResize behavior
 
 
 type alias ContextModel =
@@ -1160,7 +1159,7 @@ contextView _ model =
 
 contextSubscriptions : ContextModel -> Tui.Sub.Sub ContextMsg
 contextSubscriptions _ =
-    Tui.Sub.onContext ContextChanged
+    Tui.Sub.onResize ContextChanged
 
 
 contextTest : Bool -> Tui.Context -> TuiTest.TuiTest ContextModel ContextMsg
@@ -1191,7 +1190,7 @@ type alias StarsModel =
 
 
 type StarsMsg
-    = StarsKeyPressed Tui.Event.KeyEvent
+    = StarsKeyPressed Tui.Sub.KeyEvent
     | GotStars (Result FatalError Int)
 
 
@@ -1210,15 +1209,15 @@ starsUpdate msg model =
     case msg of
         StarsKeyPressed event ->
             case event.key of
-                Tui.Event.Escape ->
+                Tui.Sub.Escape ->
                     ( model, Effect.exit )
 
-                Tui.Event.Enter ->
+                Tui.Sub.Enter ->
                     ( { model | loading = True, result = Err "Loading..." }
                     , starsFetch model.input
                     )
 
-                Tui.Event.Backspace ->
+                Tui.Sub.Backspace ->
                     ( { model
                         | input = String.dropRight 1 model.input
                         , result = Err ""
@@ -1226,7 +1225,7 @@ starsUpdate msg model =
                     , Effect.none
                     )
 
-                Tui.Event.Character c ->
+                Tui.Sub.Character c ->
                     ( { model
                         | input = model.input ++ String.fromChar c
                         , result = Err ""

@@ -4,7 +4,25 @@ module Tui exposing
     , Context, ColorProfile(..)
     )
 
-{-| Run a TUI (Terminal User Interface) as an elm-pages script.
+{-| Build a TUI (Text-Based User Interface) as an elm-pages script.
+An `elm-pages` [Script](Pages-Script) lets you parse CLI options and then
+execute a single [`BackendTask`](BackendTask)
+(no TEA `init`/`update`). A [`Tui.Program`](Tui#Program) lets you build
+an interactive Elm app that renders its view as text in the terminal
+and lets you `init` and `update` your `Model` in response to events:
+
+  - [Keypresses](Tui-Event#Key)
+  - [Mouse Events](Tui-Event#MouseEvent)
+  - [Paste events](Tui-Sub#onPaste)
+  - [Resize events](Tui-Sub#onResize)
+  - [Time passing](Tui-Sub#everyMillis)
+
+You can also fire off a `BackendTask`
+
+  - [`perform`](Tui-Effect#perform)
+  - [`attempt`](Tui-Effect#attempt)
+
+to events like key presses
 
 A TUI application is a flat record: a `data` BackendTask that resolves before
 `init`, followed by the four standard TEA fields. Both hand-written apps and
@@ -37,7 +55,7 @@ For programs that make sense both interactively and non-interactively (an
 agent piping output, a CI run), use [`programOrScript`](#programOrScript) to
 provide a `script` branch alongside the `tui`. At runtime, `mode` decides
 which path to take — [`isInteractive`](#isInteractive) is the standard
-heuristic (isatty + CI + NO_COLOR) for common use.
+heuristic (isatty + CI + NO\_COLOR) for common use.
 
 @docs Mode, programOrScript, isInteractive
 
@@ -64,7 +82,6 @@ import Tui.Effect as Effect
 import Tui.Effect.Internal as EffectInternal
 import Tui.Screen exposing (Screen)
 import Tui.Sub
-import Tui.Sub.Internal as SubInternal
 
 
 
@@ -90,8 +107,11 @@ field lets apps adapt themes (e.g., use different palettes for 16-color).
 
     view ctx model =
         case ctx.colorProfile of
-            Tui.TrueColor -> richColorView model
-            _ -> basicColorView model
+            Tui.TrueColor ->
+                richColorView model
+
+            _ ->
+                basicColorView model
 
 -}
 type ColorProfile
@@ -192,7 +212,7 @@ type Mode
 
 {-| Run a TUI when the terminal is interactive, fall back to a non-interactive
 script otherwise. The `mode` BackendTask decides which path to take — pass
-[`isInteractive`](#isInteractive) for the standard isatty + CI + NO_COLOR
+[`isInteractive`](#isInteractive) for the standard isatty + CI + NO\_COLOR
 heuristic, or your own `BackendTask FatalError Mode` for custom detection.
 
     run : Script
@@ -263,10 +283,12 @@ you need different rules (for example, always TUI regardless of pipes),
 supply your own `BackendTask FatalError Mode` instead.
 
     -- Default:
-    mode = Tui.isInteractive
+    mode =
+        Tui.isInteractive
 
     -- Force TUI:
-    mode = BackendTask.succeed Tui.Tui
+    mode =
+        BackendTask.succeed Tui.Tui
 
     -- Opt out of TUI when a flag is set, otherwise use the default:
     mode =
@@ -362,8 +384,8 @@ tuiRenderAndWait screen sub =
             BackendTask.Http.jsonBody
                 (Encode.object
                     [ ( "screen", Tui.Screen.encodeScreen screen )
-                    , ( "interests", SubInternal.getInterests sub )
-                    , ( "tickIntervals", Encode.list Encode.int (SubInternal.getTickIntervals sub) )
+                    , ( "interests", Tui.Sub.getInterests sub )
+                    , ( "tickIntervals", Encode.list Encode.int (Tui.Sub.getTickIntervals sub) )
                     ]
                 )
         , expect =
@@ -516,12 +538,12 @@ processBatchedEventsHelp app sub context model accEffects events =
 
         rawValue :: rest ->
             let
-                rawEvent : SubInternal.RawEvent
+                rawEvent : Tui.Sub.RawEvent
                 rawEvent =
                     decodeRawEvent rawValue
             in
             case rawEvent of
-                SubInternal.RawResize ->
+                Tui.Sub.RawResize ->
                     processBatchedEventsHelp app sub context model accEffects rest
 
                 _ ->
@@ -536,19 +558,19 @@ processBatchedEventsHelp app sub context model accEffects events =
                                     ( m2, newEffect :: effs )
                                 )
                                 ( model, accEffects )
-                                (SubInternal.routeEvents sub rawEvent)
+                                (Tui.Sub.routeEvents sub rawEvent)
                     in
                     processBatchedEventsHelp app sub context newModel newAccEffects rest
 
 
-decodeRawEvent : Decode.Value -> SubInternal.RawEvent
+decodeRawEvent : Decode.Value -> Tui.Sub.RawEvent
 decodeRawEvent value =
-    case Decode.decodeValue SubInternal.decodeRawEvent value of
+    case Decode.decodeValue Tui.Sub.decodeRawEvent value of
         Ok event ->
             event
 
         Err _ ->
-            SubInternal.RawResize
+            Tui.Sub.RawResize
 
 
 applyContextUpdate :
@@ -558,7 +580,7 @@ applyContextUpdate :
     -> model
     -> ( model, Effect.Effect msg )
 applyContextUpdate update sub context model =
-    SubInternal.routeEvents sub (SubInternal.RawContext { width = context.width, height = context.height })
+    Tui.Sub.routeEvents sub (Tui.Sub.RawContext { width = context.width, height = context.height })
         |> List.foldl
             (\msg ( m, accEffect ) ->
                 let

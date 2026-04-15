@@ -3,9 +3,9 @@ module KeybindingTests exposing (suite)
 import Expect
 import Test exposing (Test, describe, test)
 import Tui
-import Tui.Event
 import Tui.Keybinding as Keybinding
 import Tui.Screen
+import Tui.Sub
 
 
 {-| Test action type — simple enum for keybinding dispatch tests.
@@ -24,30 +24,30 @@ type Action
 sampleGlobal : Keybinding.Group Action
 sampleGlobal =
     Keybinding.group "Global"
-        [ Keybinding.binding (Tui.Event.Character 'q') "Quit" Quit
-        , Keybinding.binding (Tui.Event.Character '?') "Help" Help
-        , Keybinding.binding Tui.Event.Tab "Switch pane" SwitchPane
-        , Keybinding.binding (Tui.Event.Character 'c') "Commit" Commit
+        [ Keybinding.binding (Tui.Sub.Character 'q') "Quit" Quit
+        , Keybinding.binding (Tui.Sub.Character '?') "Help" Help
+        , Keybinding.binding Tui.Sub.Tab "Switch pane" SwitchPane
+        , Keybinding.binding (Tui.Sub.Character 'c') "Commit" Commit
         ]
 
 
 sampleCommits : Keybinding.Group Action
 sampleCommits =
     Keybinding.group "Commits"
-        [ Keybinding.binding (Tui.Event.Character 'j') "Next commit" NavigateDown
-            |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Down)
-        , Keybinding.binding (Tui.Event.Character 'k') "Previous commit" NavigateUp
-            |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Up)
+        [ Keybinding.binding (Tui.Sub.Character 'j') "Next commit" NavigateDown
+            |> Keybinding.withAlternate (Tui.Sub.Arrow Tui.Sub.Down)
+        , Keybinding.binding (Tui.Sub.Character 'k') "Previous commit" NavigateUp
+            |> Keybinding.withAlternate (Tui.Sub.Arrow Tui.Sub.Up)
         ]
 
 
 sampleDiff : Keybinding.Group Action
 sampleDiff =
     Keybinding.group "Diff"
-        [ Keybinding.binding (Tui.Event.Character 'j') "Scroll down" ScrollDown
-            |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Down)
-        , Keybinding.binding (Tui.Event.Character 'k') "Scroll up" ScrollUp
-            |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Up)
+        [ Keybinding.binding (Tui.Sub.Character 'j') "Scroll down" ScrollDown
+            |> Keybinding.withAlternate (Tui.Sub.Arrow Tui.Sub.Down)
+        , Keybinding.binding (Tui.Sub.Character 'k') "Scroll up" ScrollUp
+            |> Keybinding.withAlternate (Tui.Sub.Arrow Tui.Sub.Up)
         ]
 
 
@@ -58,30 +58,30 @@ suite =
             [ test "matches a simple binding" <|
                 \() ->
                     Keybinding.dispatch [ sampleGlobal ]
-                        { key = Tui.Event.Character 'q', modifiers = [] }
+                        { key = Tui.Sub.Character 'q', modifiers = [] }
                         |> Expect.equal (Just Quit)
             , test "matches alternate key" <|
                 \() ->
                     Keybinding.dispatch [ sampleCommits ]
-                        { key = Tui.Event.Arrow Tui.Event.Down, modifiers = [] }
+                        { key = Tui.Sub.Arrow Tui.Sub.Down, modifiers = [] }
                         |> Expect.equal (Just NavigateDown)
             , test "returns Nothing when no match" <|
                 \() ->
                     Keybinding.dispatch [ sampleGlobal ]
-                        { key = Tui.Event.Character 'z', modifiers = [] }
+                        { key = Tui.Sub.Character 'z', modifiers = [] }
                         |> Expect.equal Nothing
             , test "tries groups in order — first match wins" <|
                 \() ->
                     -- 'j' means NavigateDown in commits but ScrollDown in diff
                     -- commits group listed first, so NavigateDown wins
                     Keybinding.dispatch [ sampleCommits, sampleDiff ]
-                        { key = Tui.Event.Character 'j', modifiers = [] }
+                        { key = Tui.Sub.Character 'j', modifiers = [] }
                         |> Expect.equal (Just NavigateDown)
             , test "falls through to later group" <|
                 \() ->
                     -- 'q' not in commits, falls through to global
                     Keybinding.dispatch [ sampleCommits, sampleGlobal ]
-                        { key = Tui.Event.Character 'q', modifiers = [] }
+                        { key = Tui.Sub.Character 'q', modifiers = [] }
                         |> Expect.equal (Just Quit)
             , test "matches binding with modifiers" <|
                 \() ->
@@ -89,15 +89,15 @@ suite =
                         groups : List (Keybinding.Group Action)
                         groups =
                             [ Keybinding.group "Test"
-                                [ Keybinding.withModifiers [ Tui.Event.Ctrl ]
-                                    (Tui.Event.Character 's')
+                                [ Keybinding.withModifiers [ Tui.Sub.Ctrl ]
+                                    (Tui.Sub.Character 's')
                                     "Save"
                                     Commit
                                 ]
                             ]
                     in
                     Keybinding.dispatch groups
-                        { key = Tui.Event.Character 's', modifiers = [ Tui.Event.Ctrl ] }
+                        { key = Tui.Sub.Character 's', modifiers = [ Tui.Sub.Ctrl ] }
                         |> Expect.equal (Just Commit)
             , test "modifier mismatch does not match" <|
                 \() ->
@@ -105,82 +105,82 @@ suite =
                         groups : List (Keybinding.Group Action)
                         groups =
                             [ Keybinding.group "Test"
-                                [ Keybinding.withModifiers [ Tui.Event.Ctrl ]
-                                    (Tui.Event.Character 's')
+                                [ Keybinding.withModifiers [ Tui.Sub.Ctrl ]
+                                    (Tui.Sub.Character 's')
                                     "Save"
                                     Commit
                                 ]
                             ]
                     in
                     Keybinding.dispatch groups
-                        { key = Tui.Event.Character 's', modifiers = [] }
+                        { key = Tui.Sub.Character 's', modifiers = [] }
                         |> Expect.equal Nothing
             ]
         , describe "formatKey"
             [ test "formats character key" <|
                 \() ->
-                    Keybinding.formatKey (Tui.Event.Character 'j') []
+                    Keybinding.formatKey (Tui.Sub.Character 'j') []
                         |> Expect.equal "j"
             , test "formats uppercase character" <|
                 \() ->
-                    Keybinding.formatKey (Tui.Event.Character 'J') []
+                    Keybinding.formatKey (Tui.Sub.Character 'J') []
                         |> Expect.equal "J"
             , test "formats space as 'space'" <|
                 \() ->
-                    Keybinding.formatKey (Tui.Event.Character ' ') []
+                    Keybinding.formatKey (Tui.Sub.Character ' ') []
                         |> Expect.equal "space"
             , test "formats arrow up as ↑" <|
                 \() ->
-                    Keybinding.formatKey (Tui.Event.Arrow Tui.Event.Up) []
+                    Keybinding.formatKey (Tui.Sub.Arrow Tui.Sub.Up) []
                         |> Expect.equal "↑"
             , test "formats arrow down as ↓" <|
                 \() ->
-                    Keybinding.formatKey (Tui.Event.Arrow Tui.Event.Down) []
+                    Keybinding.formatKey (Tui.Sub.Arrow Tui.Sub.Down) []
                         |> Expect.equal "↓"
             , test "formats enter" <|
                 \() ->
-                    Keybinding.formatKey Tui.Event.Enter []
+                    Keybinding.formatKey Tui.Sub.Enter []
                         |> Expect.equal "enter"
             , test "formats escape" <|
                 \() ->
-                    Keybinding.formatKey Tui.Event.Escape []
+                    Keybinding.formatKey Tui.Sub.Escape []
                         |> Expect.equal "esc"
             , test "formats tab" <|
                 \() ->
-                    Keybinding.formatKey Tui.Event.Tab []
+                    Keybinding.formatKey Tui.Sub.Tab []
                         |> Expect.equal "tab"
             , test "formats function key" <|
                 \() ->
-                    Keybinding.formatKey (Tui.Event.FunctionKey 1) []
+                    Keybinding.formatKey (Tui.Sub.FunctionKey 1) []
                         |> Expect.equal "F1"
             , test "formats ctrl modifier" <|
                 \() ->
-                    Keybinding.formatKey (Tui.Event.Character 'a') [ Tui.Event.Ctrl ]
+                    Keybinding.formatKey (Tui.Sub.Character 'a') [ Tui.Sub.Ctrl ]
                         |> Expect.equal "ctrl+a"
             , test "formats alt modifier" <|
                 \() ->
-                    Keybinding.formatKey (Tui.Event.Character 'x') [ Tui.Event.Alt ]
+                    Keybinding.formatKey (Tui.Sub.Character 'x') [ Tui.Sub.Alt ]
                         |> Expect.equal "alt+x"
             , test "formats multiple modifiers" <|
                 \() ->
-                    Keybinding.formatKey (Tui.Event.Character 's') [ Tui.Event.Ctrl, Tui.Event.Shift ]
+                    Keybinding.formatKey (Tui.Sub.Character 's') [ Tui.Sub.Ctrl, Tui.Sub.Shift ]
                         |> Expect.equal "ctrl+shift+s"
             ]
         , describe "formatBinding"
             [ test "formats single key binding" <|
                 \() ->
-                    Keybinding.binding (Tui.Event.Character 'q') "Quit" Quit
+                    Keybinding.binding (Tui.Sub.Character 'q') "Quit" Quit
                         |> Keybinding.formatBinding
                         |> Expect.equal "q"
             , test "formats binding with alternate key" <|
                 \() ->
-                    Keybinding.binding (Tui.Event.Character 'j') "Next" NavigateDown
-                        |> Keybinding.withAlternate (Tui.Event.Arrow Tui.Event.Down)
+                    Keybinding.binding (Tui.Sub.Character 'j') "Next" NavigateDown
+                        |> Keybinding.withAlternate (Tui.Sub.Arrow Tui.Sub.Down)
                         |> Keybinding.formatBinding
                         |> Expect.equal "j/↓"
             , test "formats binding with modifier" <|
                 \() ->
-                    Keybinding.withModifiers [ Tui.Event.Ctrl ] (Tui.Event.Character 'c') "Copy" Commit
+                    Keybinding.withModifiers [ Tui.Sub.Ctrl ] (Tui.Sub.Character 'c') "Copy" Commit
                         |> Keybinding.formatBinding
                         |> Expect.equal "ctrl+c"
             ]

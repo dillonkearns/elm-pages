@@ -5,9 +5,9 @@ import Expect
 import Json.Encode
 import Test exposing (Test, describe, test)
 import Tui
-import Tui.Event
 import Tui.Layout as Layout
 import Tui.Screen exposing (plain)
+import Tui.Sub
 
 
 suite : Test
@@ -502,7 +502,7 @@ suite =
                         -- Click row 2 (0-indexed), which is the second content row
                         ( newState, maybeMsg ) =
                             Layout.handleMouse
-                                (Tui.Event.Click { row = 2, col = 5, button = Tui.Event.LeftButton })
+                                (Tui.Sub.Click { row = 2, col = 5, button = Tui.Sub.LeftButton })
                                 { width = 30, height = 8 }
                                 layout
                                 Layout.init
@@ -529,7 +529,7 @@ suite =
 
                         ( newState, _ ) =
                             Layout.handleMouse
-                                (Tui.Event.ScrollDown { row = 2, col = 5, amount = 1 })
+                                (Tui.Sub.ScrollDown { row = 2, col = 5, amount = 1 })
                                 { width = 30, height = 8 }
                                 layout
                                 Layout.init
@@ -566,7 +566,7 @@ suite =
                         -- Scroll in the RIGHT pane (col > half width)
                         ( stateAfterScroll, _ ) =
                             Layout.handleMouse
-                                (Tui.Event.ScrollDown { row = 3, col = 25, amount = 1 })
+                                (Tui.Sub.ScrollDown { row = 3, col = 25, amount = 1 })
                                 { width = 40, height = 10 }
                                 layout
                                 state
@@ -609,7 +609,7 @@ suite =
                         -- Now scroll UP in the right pane
                         ( stateAfterScroll, _ ) =
                             Layout.handleMouse
-                                (Tui.Event.ScrollUp { row = 3, col = 25, amount = 1 })
+                                (Tui.Sub.ScrollUp { row = 3, col = 25, amount = 1 })
                                 { width = 40, height = 10 }
                                 layout
                                 stateWithScroll
@@ -648,7 +648,7 @@ suite =
                         -- Click in the RIGHT pane
                         ( stateAfterClick, _ ) =
                             Layout.handleMouse
-                                (Tui.Event.Click { row = 2, col = 25, button = Tui.Event.LeftButton })
+                                (Tui.Sub.Click { row = 2, col = 25, button = Tui.Sub.LeftButton })
                                 { width = 40, height = 10 }
                                 layout
                                 state
@@ -1020,7 +1020,7 @@ suite =
                         -- Press '2' to focus the second pane
                         ( newState, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Character '2', modifiers = [] }
+                                { key = Tui.Sub.Character '2', modifiers = [] }
                                 layout
                                 state
                     in
@@ -1046,7 +1046,7 @@ suite =
                         -- Press '1' — already focused on pane 1
                         ( newState, _, _ ) =
                             Layout.handleKeyEvent
-                                { key = Tui.Event.Character '1', modifiers = [] }
+                                { key = Tui.Sub.Character '1', modifiers = [] }
                                 layout
                                 state
                     in
@@ -1080,7 +1080,7 @@ suite =
                         -- So "Branches" starts at border(1) + jumpLabel(3) + "Files"(5) + " - "(3) = 12
                         ( _, maybeMsg ) =
                             Layout.handleMouse
-                                (Tui.Event.Click { row = 0, col = 12, button = Tui.Event.LeftButton })
+                                (Tui.Sub.Click { row = 0, col = 12, button = Tui.Sub.LeftButton })
                                 { width = 40, height = 8 }
                                 layout
                                 state
@@ -1110,7 +1110,7 @@ suite =
                         -- Click on "Files" at col 5 (border + jump label + start of "Files")
                         ( _, maybeMsg ) =
                             Layout.handleMouse
-                                (Tui.Event.Click { row = 0, col = 5, button = Tui.Event.LeftButton })
+                                (Tui.Sub.Click { row = 0, col = 5, button = Tui.Sub.LeftButton })
                                 { width = 40, height = 8 }
                                 layout
                                 state
@@ -1138,7 +1138,7 @@ suite =
 
                         ( newState, maybeMsg ) =
                             Layout.handleMouse
-                                (Tui.Event.Click { row = 0, col = 5, button = Tui.Event.LeftButton })
+                                (Tui.Sub.Click { row = 0, col = 5, button = Tui.Sub.LeftButton })
                                 { width = 40, height = 8 }
                                 layout
                                 state
