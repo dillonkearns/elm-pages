@@ -56,8 +56,8 @@ import FatalError exposing (FatalError)
 import Tui.Effect.Internal as Internal
 
 
-{-| An effect produced by `update` or `init`. Wraps `BackendTask` execution,
-exit, and batching.
+{-| An `Effect` can be passed to `update` or `init`. Like the `Cmd` part of a standard
+Elm TEA application.
 -}
 type alias Effect msg =
     Internal.Effect msg
@@ -77,9 +77,9 @@ batch =
     Internal.batch
 
 
-{-| Run a `BackendTask` and produce a message with the result. If the
-`BackendTask` fails with a `FatalError`, the TUI exits with an error message
-(terminal state is restored first).
+{-| Run a `BackendTask` and get the resolved data back in a `Msg`. If the
+`BackendTask` fails, the `FatalError` propogates and the TUI exits and prints
+the `FatalError`'s message.
 
     Script.command "git" [ "status", "--porcelain" ]
         |> BackendTask.map parseFiles
@@ -91,7 +91,7 @@ perform =
     Internal.perform
 
 
-{-| Like `perform`, but surfaces errors as `Result` values for you to handle.
+{-| Like `perform`, but surfaces errors as `Result` values for you to handle `BackendTask` errors gracefully.
 
     Script.command "git" [ "diff", file ]
         |> BackendTask.mapError (\_ -> "git diff failed")
@@ -105,11 +105,7 @@ perform =
                         DiffFailed reason
             )
 
-Polymorphic in the error type. When you want to rescue failures into your
-own `Msg`, the error you care about is almost never an opaque `FatalError`
-— it's whatever shape is meaningful to your code. Use
-[`BackendTask.mapError`](BackendTask#mapError) (or a custom recoverable
-error) to shape it before passing to `attempt`.
+Useful in combination with [`BackendTask.mapError`](BackendTask#mapError).
 
 -}
 attempt : (Result error a -> msg) -> BackendTask error a -> Effect msg
