@@ -126,4 +126,29 @@ suite =
                             , "exit:2"
                             ]
             ]
+        , describe "Tui.Screen width helpers"
+            [ test "truncateSpans with non-positive width returns no spans" <|
+                \() ->
+                    [ { text = "hello", style = Tui.plain } ]
+                        |> Screen.truncateSpans 0
+                        |> Expect.equal []
+            , test "wrapSpans with non-positive width returns no lines" <|
+                \() ->
+                    [ { text = "hello", style = Tui.plain } ]
+                        |> Screen.wrapSpans 0
+                        |> Expect.equal []
+            , test "truncateSpans respects grapheme boundaries" <|
+                \() ->
+                    [ { text = "🙂x", style = Tui.plain } ]
+                        |> Screen.truncateSpans 2
+                        |> Expect.equal [ { text = "🙂x", style = Tui.plain } ]
+            , test "wrapSpans respects grapheme boundaries" <|
+                \() ->
+                    [ { text = "áb", style = Tui.plain } ]
+                        |> Screen.wrapSpans 1
+                        |> Expect.equal
+                            [ [ { text = "á", style = Tui.plain } ]
+                            , [ { text = "b", style = Tui.plain } ]
+                            ]
+            ]
         ]

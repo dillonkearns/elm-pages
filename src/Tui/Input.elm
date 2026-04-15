@@ -24,6 +24,7 @@ with an inverse-video cursor indicator (the standard TUI convention).
 -}
 
 import Tui
+import String.Graphemes as Graphemes
 
 
 {-| Opaque state for a text input. Tracks content and cursor position.
@@ -39,7 +40,7 @@ type State
 -}
 init : String -> State
 init str =
-    State { content = str, cursorPos = String.length str }
+    State { content = str, cursorPos = Graphemes.length str }
 
 
 {-| Extract the current text value.
@@ -69,10 +70,10 @@ insertText str (State s) =
     in
     State
         { content =
-            String.left s.cursorPos s.content
+            Graphemes.left s.cursorPos s.content
                 ++ cleaned
-                ++ String.dropLeft s.cursorPos s.content
-        , cursorPos = s.cursorPos + String.length cleaned
+                ++ Graphemes.dropLeft s.cursorPos s.content
+        , cursorPos = s.cursorPos + Graphemes.length cleaned
         }
 
 
@@ -104,16 +105,16 @@ update event (State s) =
 
                     'e' ->
                         -- Ctrl+E: move to end
-                        State { s | cursorPos = String.length s.content }
+                        State { s | cursorPos = Graphemes.length s.content }
 
                     'k' ->
                         -- Ctrl+K: kill from cursor to end
-                        State { s | content = String.left s.cursorPos s.content }
+                        State { s | content = Graphemes.left s.cursorPos s.content }
 
                     'u' ->
                         -- Ctrl+U: kill from start to cursor
                         State
-                            { content = String.dropLeft s.cursorPos s.content
+                            { content = Graphemes.dropLeft s.cursorPos s.content
                             , cursorPos = 0
                             }
 
@@ -124,9 +125,9 @@ update event (State s) =
                 -- Regular character: insert at cursor
                 State
                     { content =
-                        String.left s.cursorPos s.content
+                        Graphemes.left s.cursorPos s.content
                             ++ String.fromChar char
-                            ++ String.dropLeft s.cursorPos s.content
+                            ++ Graphemes.dropLeft s.cursorPos s.content
                     , cursorPos = s.cursorPos + 1
                     }
 
@@ -134,8 +135,8 @@ update event (State s) =
             if s.cursorPos > 0 then
                 State
                     { content =
-                        String.left (s.cursorPos - 1) s.content
-                            ++ String.dropLeft s.cursorPos s.content
+                        Graphemes.left (s.cursorPos - 1) s.content
+                            ++ Graphemes.dropLeft s.cursorPos s.content
                     , cursorPos = s.cursorPos - 1
                     }
 
@@ -143,12 +144,12 @@ update event (State s) =
                 State s
 
         Tui.Delete ->
-            if s.cursorPos < String.length s.content then
+            if s.cursorPos < Graphemes.length s.content then
                 State
                     { s
                         | content =
-                            String.left s.cursorPos s.content
-                                ++ String.dropLeft (s.cursorPos + 1) s.content
+                            Graphemes.left s.cursorPos s.content
+                                ++ Graphemes.dropLeft (s.cursorPos + 1) s.content
                     }
 
             else
@@ -158,13 +159,13 @@ update event (State s) =
             State { s | cursorPos = max 0 (s.cursorPos - 1) }
 
         Tui.Arrow Tui.Right ->
-            State { s | cursorPos = min (String.length s.content) (s.cursorPos + 1) }
+            State { s | cursorPos = min (Graphemes.length s.content) (s.cursorPos + 1) }
 
         Tui.Home ->
             State { s | cursorPos = 0 }
 
         Tui.End ->
-            State { s | cursorPos = String.length s.content }
+            State { s | cursorPos = Graphemes.length s.content }
 
         _ ->
             State s
@@ -180,11 +181,11 @@ view { width } (State s) =
     let
         beforeCursor : String
         beforeCursor =
-            String.left s.cursorPos s.content
+            Graphemes.left s.cursorPos s.content
 
         cursorChar : String
         cursorChar =
-            case String.slice s.cursorPos (s.cursorPos + 1) s.content of
+            case Graphemes.slice s.cursorPos (s.cursorPos + 1) s.content of
                 "" ->
                     " "
 
@@ -193,7 +194,7 @@ view { width } (State s) =
 
         afterCursor : String
         afterCursor =
-            String.dropLeft (s.cursorPos + 1) s.content
+            Graphemes.dropLeft (s.cursorPos + 1) s.content
     in
     renderWithCursor { width = width }
         { beforeCursor = beforeCursor
@@ -212,13 +213,17 @@ position while hiding the actual text.
 viewMasked : { width : Int } -> State -> Tui.Screen
 viewMasked { width } (State s) =
     let
+        contentLength : Int
+        contentLength =
+            Graphemes.length s.content
+
         beforeCursor : String
         beforeCursor =
             String.repeat s.cursorPos "*"
 
         cursorChar : String
         cursorChar =
-            if s.cursorPos < String.length s.content then
+            if s.cursorPos < contentLength then
                 "*"
 
             else
@@ -226,7 +231,7 @@ viewMasked { width } (State s) =
 
         afterCursor : String
         afterCursor =
-            String.repeat (max 0 (String.length s.content - s.cursorPos - 1)) "*"
+            String.repeat (max 0 (contentLength - s.cursorPos - 1)) "*"
     in
     renderWithCursor { width = width }
         { beforeCursor = beforeCursor
@@ -240,11 +245,94 @@ renderWithCursor :
     -> { beforeCursor : String, cursorChar : String, afterCursor : String }
     -> Tui.Screen
 renderWithCursor { width } parts =
-    Tui.concat
-        [ Tui.text parts.beforeCursor
-        , Tui.styled
-            { fg = Nothing, bg = Nothing, attributes = [ Tui.Inverse ], hyperlink = Nothing }
-            parts.cursorChar
-        , Tui.text parts.afterCursor
-        ]
-        |> Tui.truncateWidth width
+    if width <= 0 then
+        Tui.empty
+
+    else
+        let
+            tokens : List Token
+            tokens =
+                List.map PlainToken (Graphemes.toList parts.beforeCursor)
+                    ++ [ CursorToken parts.cursorChar ]
+                    ++ List.map PlainToken (Graphemes.toList parts.afterCursor)
+
+            cursorIndex : Int
+            cursorIndex =
+                Graphemes.length parts.beforeCursor
+
+            windowStart : Int
+            windowStart =
+                max 0 (cursorIndex - width + 1)
+
+            visibleTokens : List Token
+            visibleTokens =
+                tokens
+                    |> List.drop windowStart
+                    |> List.take width
+        in
+        visibleTokens
+            |> tokensToScreens
+            |> Tui.concat
+
+
+type Token
+    = PlainToken String
+    | CursorToken String
+
+
+tokenToScreen : Token -> Tui.Screen
+tokenToScreen token =
+    case token of
+        PlainToken textPart ->
+            Tui.text textPart
+
+        CursorToken textPart ->
+            Tui.styled
+                { fg = Nothing, bg = Nothing, attributes = [ Tui.Inverse ], hyperlink = Nothing }
+                textPart
+
+
+tokensToScreens : List Token -> List Tui.Screen
+tokensToScreens tokens =
+    -- elm-review: known-unoptimized-recursion
+    case tokens of
+        [] ->
+            []
+
+        PlainToken textPart :: rest ->
+            let
+                collectedText : List String
+                collectedText =
+                    collectPlainText rest
+
+                remainingTokens : List Token
+                remainingTokens =
+                    dropPlainTokens rest
+            in
+            Tui.text (String.concat (textPart :: collectedText))
+                :: tokensToScreens remainingTokens
+
+        CursorToken textPart :: rest ->
+            tokenToScreen (CursorToken textPart)
+                :: tokensToScreens rest
+
+
+collectPlainText : List Token -> List String
+collectPlainText tokens =
+    -- elm-review: known-unoptimized-recursion
+    case tokens of
+        PlainToken textPart :: rest ->
+            textPart :: collectPlainText rest
+
+        _ ->
+            []
+
+
+dropPlainTokens : List Token -> List Token
+dropPlainTokens tokens =
+    case tokens of
+        PlainToken _ :: rest ->
+            dropPlainTokens rest
+
+        _ ->
+            tokens

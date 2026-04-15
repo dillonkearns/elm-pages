@@ -177,7 +177,8 @@ lines =
     Internal.ScreenLines
 
 
-{-| Concatenate screens horizontally on the same line.
+{-| Concatenate screens horizontally, row by row. If one child has more lines
+than another, the extra trailing lines are preserved.
 -}
 concat : List Screen -> Screen
 concat =
@@ -548,32 +549,37 @@ extractStyle =
 
 
 {-| Truncate a Screen to a maximum width in columns, preserving styles.
-Adds "\u{2026}" if truncated. Works on the first line only (for single-line content).
+Adds "\u{2026}" if truncated. Works on the first line only. Returns `empty`
+for non-positive widths.
 -}
 truncateWidth : Int -> Screen -> Screen
 truncateWidth maxWidth screen =
-    let
-        spans : List Internal.Span
-        spans =
-            case flattenToSpanLines screen of
-                first :: _ ->
-                    first
+    if maxWidth <= 0 then
+        empty
 
-                [] ->
-                    []
+    else
+        case flattenToSpanLines screen of
+            [] ->
+                empty
 
-        truncated : List Internal.Span
-        truncated =
-            Internal.truncateSpans maxWidth spans
-    in
-    case truncated of
-        [] ->
-            empty
+            first :: _ ->
+                if List.isEmpty first then
+                    blank
 
-        _ ->
-            truncated
-                |> List.map spanToScreen
-                |> Internal.ScreenConcat
+                else
+                    let
+                        truncated : List Internal.Span
+                        truncated =
+                            Internal.truncateSpans maxWidth first
+                    in
+                    case truncated of
+                        [] ->
+                            empty
+
+                        _ ->
+                            truncated
+                                |> List.map spanToScreen
+                                |> Internal.ScreenConcat
 
 
 {-| Wrap a Screen to a maximum width, preserving styles across line breaks.
@@ -588,24 +594,23 @@ Returns a list of Screens, one per wrapped line.
     -- Returns 3 Screens with "very important" still bold
 
 Wraps at word boundaries (spaces). Words longer than `maxWidth` are broken
-mid-word. Returns `[]` for empty screens.
+mid-word. Existing line breaks are preserved. Returns `[]` for empty screens
+or non-positive widths.
 
 -}
 wrapWidth : Int -> Screen -> List Screen
 wrapWidth maxWidth screen =
-    let
-        spans : List Internal.Span
-        spans =
-            case flattenToSpanLines screen of
-                first :: _ ->
-                    first
-
-                [] ->
-                    []
-    in
-    if List.isEmpty spans then
+    if maxWidth <= 0 then
         []
 
     else
-        Internal.wrapSpans maxWidth spans
-            |> List.map spansToScreen
+        flattenToSpanLines screen
+            |> List.concatMap
+                (\spanLine ->
+                    if List.isEmpty spanLine then
+                        [ blank ]
+
+                    else
+                        Internal.wrapSpans maxWidth spanLine
+                            |> List.map spansToScreen
+                )

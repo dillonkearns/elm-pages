@@ -22,6 +22,7 @@ module Tui.Screen.Internal exposing
 -}
 
 import Ansi.Color
+import String.Graphemes as Graphemes
 
 
 {-| Type representing terminal output, parameterized over the style type.
@@ -133,21 +134,9 @@ flattenToSpanLines toFlatStyle screen =
             List.concatMap (flattenToSpanLines toFlatStyle) items
 
         ScreenConcat items ->
-            let
-                allFirstLineSpans : List Span
-                allFirstLineSpans =
-                    items
-                        |> List.concatMap
-                            (\item ->
-                                case flattenToSpanLines toFlatStyle item of
-                                    [] ->
-                                        []
-
-                                    first :: _ ->
-                                        first
-                            )
-            in
-            [ allFirstLineSpans ]
+            items
+                |> List.map (flattenToSpanLines toFlatStyle)
+                |> concatSpanLines
 
 
 {-| Convert a Span to a Screen.
@@ -188,7 +177,7 @@ truncateSpans remaining spans =
                 let
                     spanLen : Int
                     spanLen =
-                        String.length span.text
+                        Graphemes.length span.text
                 in
                 if spanLen <= remaining then
                     span :: truncateSpans (remaining - spanLen) rest
@@ -197,76 +186,73 @@ truncateSpans remaining spans =
                     [ { span | text = "\u{2026}" } ]
 
                 else
-                    [ { span | text = String.left (remaining - 1) span.text ++ "\u{2026}" } ]
+                    [ { span | text = Graphemes.left (remaining - 1) span.text ++ "\u{2026}" } ]
 
 
 {-| Wrap a flat list of spans into lines, each fitting within maxWidth.
 -}
 wrapSpans : Int -> List Span -> List (List Span)
 wrapSpans maxWidth spans =
-    let
-        chars : List { ch : Char, style : FlatStyle }
-        chars =
-            spans
-                |> List.concatMap
-                    (\span ->
-                        String.toList span.text
-                            |> List.map (\ch -> { ch = ch, style = span.style })
-                    )
-    in
-    wrapChars maxWidth chars
-
-
-{-| Greedy word-wrap on a flat character list.
--}
-wrapChars : Int -> List { ch : Char, style : FlatStyle } -> List (List Span)
-wrapChars maxWidth chars =
-    -- elm-review: known-unoptimized-recursion
-    if List.isEmpty chars then
+    if maxWidth <= 0 then
         []
-
-    else if List.length chars <= maxWidth then
-        -- Everything fits on one line
-        [ charsToSpans chars ]
 
     else
         let
-            -- Take up to maxWidth characters as the candidate line
-            lineChars : List { ch : Char, style : FlatStyle }
-            lineChars =
-                List.take maxWidth chars
-
-            -- Check if the character right after maxWidth is a space
-            nextChar : Maybe Char
-            nextChar =
-                List.drop maxWidth chars |> List.head |> Maybe.map .ch
-
-            -- Check if the last char in lineChars is a space
-            lastCharIsSpace : Bool
-            lastCharIsSpace =
-                List.drop (maxWidth - 1) lineChars |> List.head |> Maybe.map .ch |> (==) (Just ' ')
+            graphemes : List { text : String, style : FlatStyle }
+            graphemes =
+                spans
+                    |> List.concatMap spanToGraphemes
         in
-        if nextChar == Just ' ' || lastCharIsSpace then
-            let
-                trimmedLine : List { ch : Char, style : FlatStyle }
-                trimmedLine =
-                    trimTrailingSpaces lineChars
+        wrapGraphemes maxWidth graphemes
 
-                restChars : List { ch : Char, style : FlatStyle }
-                restChars =
-                    List.drop maxWidth chars |> dropWhile (\c -> c.ch == ' ')
+
+{-| Greedy word-wrap on a flat grapheme list.
+-}
+wrapGraphemes : Int -> List { text : String, style : FlatStyle } -> List (List Span)
+wrapGraphemes maxWidth graphemes =
+    -- elm-review: known-unoptimized-recursion
+    if List.isEmpty graphemes then
+        []
+
+    else if List.length graphemes <= maxWidth then
+        -- Everything fits on one line
+        [ graphemesToSpans graphemes ]
+
+    else
+        let
+            lineGraphemes : List { text : String, style : FlatStyle }
+            lineGraphemes =
+                List.take maxWidth graphemes
+
+            nextGrapheme : Maybe String
+            nextGrapheme =
+                List.drop maxWidth graphemes |> List.head |> Maybe.map .text
+
+            lastGraphemeIsSpace : Bool
+            lastGraphemeIsSpace =
+                List.drop (maxWidth - 1) lineGraphemes |> List.head |> Maybe.map .text |> (==) (Just " ")
+        in
+        if nextGrapheme == Just " " || lastGraphemeIsSpace then
+            let
+                trimmedLine : List { text : String, style : FlatStyle }
+                trimmedLine =
+                    trimTrailingSpaces lineGraphemes
+
+                restGraphemes : List { text : String, style : FlatStyle }
+                restGraphemes =
+                    List.drop maxWidth graphemes |> dropWhile (\grapheme -> grapheme.text == " ")
             in
-            charsToSpans trimmedLine :: wrapChars maxWidth restChars
+            graphemesToSpans trimmedLine :: wrapGraphemes maxWidth restGraphemes
 
         else
             let
                 lastSpaceIdx : Maybe Int
                 lastSpaceIdx =
-                    lineChars
+                    lineGraphemes
                         |> List.indexedMap Tuple.pair
                         |> List.filterMap
-                            (\( i, c ) ->
-                                if c.ch == ' ' then
+                            (\( i, grapheme ) ->
+                                if grapheme.text == " " then
                                     Just i
 
                                 else
@@ -278,25 +264,25 @@ wrapChars maxWidth chars =
             case lastSpaceIdx of
                 Just spaceIdx ->
                     let
-                        linePart : List { ch : Char, style : FlatStyle }
+                        linePart : List { text : String, style : FlatStyle }
                         linePart =
-                            List.take spaceIdx lineChars
+                            List.take spaceIdx lineGraphemes
 
-                        restPart : List { ch : Char, style : FlatStyle }
+                        restPart : List { text : String, style : FlatStyle }
                         restPart =
-                            List.drop (spaceIdx + 1) chars
+                            List.drop (spaceIdx + 1) graphemes
                     in
-                    charsToSpans linePart :: wrapChars maxWidth restPart
+                    graphemesToSpans linePart :: wrapGraphemes maxWidth restPart
 
                 Nothing ->
-                    charsToSpans lineChars
-                        :: wrapChars maxWidth (List.drop maxWidth chars)
+                    graphemesToSpans lineGraphemes
+                        :: wrapGraphemes maxWidth (List.drop maxWidth graphemes)
 
 
-trimTrailingSpaces : List { ch : Char, style : FlatStyle } -> List { ch : Char, style : FlatStyle }
-trimTrailingSpaces chars =
-    List.reverse chars
-        |> dropWhile (\c -> c.ch == ' ')
+trimTrailingSpaces : List { text : String, style : FlatStyle } -> List { text : String, style : FlatStyle }
+trimTrailingSpaces graphemes =
+    List.reverse graphemes
+        |> dropWhile (\grapheme -> grapheme.text == " ")
         |> List.reverse
 
 
@@ -330,29 +316,72 @@ takeWhile pred list =
                 []
 
 
-charsToSpans : List { ch : Char, style : FlatStyle } -> List Span
-charsToSpans chars =
+graphemesToSpans : List { text : String, style : FlatStyle } -> List Span
+graphemesToSpans graphemes =
     -- elm-review: known-unoptimized-recursion
-    case chars of
+    case graphemes of
         [] ->
             []
 
         first :: rest ->
             let
-                sameStyle : List { ch : Char, style : FlatStyle }
+                sameStyle : List { text : String, style : FlatStyle }
                 sameStyle =
                     takeWhile (\c -> c.style == first.style) rest
 
                 spanText : String
                 spanText =
-                    String.fromList
-                        (first.ch :: List.map .ch sameStyle)
+                    first.text :: List.map .text sameStyle
+                        |> String.concat
 
-                remaining : List { ch : Char, style : FlatStyle }
+                remaining : List { text : String, style : FlatStyle }
                 remaining =
                     List.drop (List.length sameStyle) rest
             in
-            { text = spanText, style = first.style } :: charsToSpans remaining
+            { text = spanText, style = first.style } :: graphemesToSpans remaining
+
+
+spanToGraphemes : Span -> List { text : String, style : FlatStyle }
+spanToGraphemes span =
+    Graphemes.toList span.text
+        |> List.map (\grapheme -> { text = grapheme, style = span.style })
+
+
+concatSpanLines : List (List (List Span)) -> List (List Span)
+concatSpanLines lineGroups =
+    -- elm-review: known-unoptimized-recursion
+    if List.all List.isEmpty lineGroups then
+        []
+
+    else
+        let
+            currentLine : List Span
+            currentLine =
+                lineGroups
+                    |> List.concatMap
+                        (\group ->
+                            case group of
+                                first :: _ ->
+                                    first
+
+                                [] ->
+                                    []
+                        )
+
+            remainingGroups : List (List (List Span))
+            remainingGroups =
+                lineGroups
+                    |> List.map
+                        (\group ->
+                            case group of
+                                _ :: rest ->
+                                    rest
+
+                                [] ->
+                                    []
+                        )
+        in
+        currentLine :: concatSpanLines remainingGroups
 
 
 {-| Extract the outermost style from a Screen.

@@ -24,9 +24,13 @@ import Pages.Script as Script
 import Random
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest exposing (Output(..))
+import Test.BackendTask.Internal as BackendTaskInternal
 import Test.BackendTask.Time as BackendTaskTime
 import Test.Runner
 import Time
+import Tui
+import Tui.Effect as TuiEffect
+import Tui.Sub as TuiSub
 
 
 all : Test
@@ -655,6 +659,51 @@ Missing required option: --name
 
 elm-pages-test --name <NAME>"""
                             )
+            , test "tuiWithCliOptions runs data in quiet mode like other TUI entrypoints" <|
+                \() ->
+                    let
+                        cliConfig : Program.Config { dir : String }
+                        cliConfig =
+                            Program.config
+                                |> Program.add
+                                    (OptionsParser.build (\dir -> { dir = dir })
+                                        |> OptionsParser.with
+                                            (Option.optionalKeywordArg "dir"
+                                                |> Option.withDefault "."
+                                            )
+                                    )
+
+                        script : Script.Script
+                        script =
+                            Script.tuiWithCliOptions cliConfig
+                                (\_ ->
+                                    { data =
+                                        BackendTask.Custom.run "checkQuiet" Encode.null (Decode.succeed ())
+                                            |> BackendTask.allowFatal
+                                    , init = \() -> ( (), TuiEffect.none )
+                                    , update = \_ model -> ( model, TuiEffect.none )
+                                    , view = \_ _ -> Tui.empty
+                                    , subscriptions = \_ -> TuiSub.none
+                                    }
+                                )
+                    in
+                    case BackendTaskInternal.fromScript [] script of
+                        BackendTaskInternal.Running state ->
+                            case state.pendingRequests of
+                                [ request ] ->
+                                    Expect.equal True request.quiet
+
+                                requests ->
+                                    Expect.fail
+                                        ("Expected exactly one pending request, got "
+                                            ++ String.fromInt (List.length requests)
+                                        )
+
+                        BackendTaskInternal.TestError message ->
+                            Expect.fail message
+
+                        BackendTaskInternal.Done _ ->
+                            Expect.fail "Expected the script to stop before entering TUI mode"
             ]
         , describe "fromBackendTask + expectFailure"
             [ test "fails for BackendTask.fail" <|

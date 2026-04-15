@@ -250,6 +250,29 @@ suite =
                         , \json -> json |> String.contains "\"inverse\":true" |> Expect.equal True
                         ]
                         encoded
+            , test "long input keeps the cursor visible when constrained" <|
+                \() ->
+                    Input.init "abcdef"
+                        |> Input.view { width = 3 }
+                        |> Tui.Internal.encodeScreen
+                        |> Encode.encode 0
+                        |> String.contains "\"inverse\":true"
+                        |> Expect.equal True
+            , test "editing around emoji uses grapheme boundaries" <|
+                \() ->
+                    Input.init "🙂"
+                        |> Input.update { key = Tui.Arrow Tui.Left, modifiers = [] }
+                        |> Input.update { key = Tui.Character 'a', modifiers = [] }
+                        |> Input.text
+                        |> Expect.equal "a🙂"
+            , test "moving through emoji does not render replacement characters" <|
+                \() ->
+                    Input.init "🙂"
+                        |> Input.update { key = Tui.Arrow Tui.Left, modifiers = [] }
+                        |> Input.view { width = 10 }
+                        |> Tui.toString
+                        |> String.contains "�"
+                        |> Expect.equal False
             ]
         , describe "wrapWidth"
             [ test "short text returns single line unchanged" <|
@@ -301,6 +324,11 @@ suite =
                     Tui.empty
                         |> Tui.wrapWidth 10
                         |> Expect.equal []
+            , test "non-positive width returns empty list" <|
+                \() ->
+                    Tui.text "hello"
+                        |> Tui.wrapWidth 0
+                        |> Expect.equal []
             , test "single word exactly at width" <|
                 \() ->
                     Tui.text "hello"
@@ -324,6 +352,73 @@ suite =
                         |> Tui.wrapWidth 7
                         |> List.map Tui.toString
                         |> Expect.equal [ "xx aaa", "bbb end" ]
+            , test "preserves existing line breaks instead of dropping later lines" <|
+                \() ->
+                    Tui.lines
+                        [ Tui.text "top"
+                        , Tui.text "bottom"
+                        ]
+                        |> Tui.wrapWidth 10
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "top", "bottom" ]
+            , test "preserves blank lines when wrapping multiline screens" <|
+                \() ->
+                    Tui.lines
+                        [ Tui.text "top"
+                        , Tui.blank
+                        , Tui.text "bottom"
+                        ]
+                        |> Tui.wrapWidth 10
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "top", "", "bottom" ]
+            , test "wraps by grapheme instead of splitting combining marks" <|
+                \() ->
+                    Tui.text "áb"
+                        |> Tui.wrapWidth 1
+                        |> List.map Tui.toString
+                        |> Expect.equal [ "á", "b" ]
+            ]
+        , describe "truncateWidth"
+            [ test "non-positive width returns empty screen" <|
+                \() ->
+                    Tui.text "hello"
+                        |> Tui.truncateWidth 0
+                        |> Tui.toString
+                        |> Expect.equal ""
+            , test "truncates by grapheme instead of corrupting emoji" <|
+                \() ->
+                    Tui.text "🙂x"
+                        |> Tui.truncateWidth 2
+                        |> Tui.toString
+                        |> Expect.equal "🙂x"
+            ]
+        , describe "concat"
+            [ test "concatenates multiline screens row by row" <|
+                \() ->
+                    Tui.concat
+                        [ Tui.text "a"
+                        , Tui.lines
+                            [ Tui.text "b"
+                            , Tui.text "c"
+                            ]
+                        ]
+                        |> Tui.toString
+                        |> Expect.equal "ab\nc"
+            , test "keeps trailing rows from longer children" <|
+                \() ->
+                    Tui.concat
+                        [ Tui.lines
+                            [ Tui.text "a"
+                            , Tui.text "b"
+                            ]
+                        , Tui.lines
+                            [ Tui.text "x"
+                            , Tui.text "y"
+                            , Tui.text "z"
+                            ]
+                        ]
+                        |> Tui.toString
+                        |> Expect.equal "ax\nby\nz"
             ]
         , describe "TuiTest - Counter"
             [ test "initial view shows count 0" <|

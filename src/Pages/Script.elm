@@ -488,6 +488,7 @@ tuiFromConfig :
     -> BackendTask FatalError ()
 tuiFromConfig config =
     config.data
+        |> BackendTask.quiet
         |> BackendTask.andThen
             (\loadedData ->
                 Tui.Internal.run
