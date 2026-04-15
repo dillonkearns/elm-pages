@@ -4,11 +4,19 @@ module Tui exposing
     , Context, ColorProfile(..)
     )
 
-{-| Build a TUI (Text-Based User Interface) as an elm-pages script. An
+{-|
+
+
+## What It Is
+
+Build a TUI (Text-Based User Interface) as an elm-pages script. An
 `elm-pages` CLI, defined by [`Pages.Script`](Pages-Script), lets you parse CLI
 options and then execute a single [`BackendTask`](BackendTask) (no TEA
 `init`/`update`). For our purposes, we'll use the term TUI to mean interactive
 (like `vim`), and CLI to mean a more static command (like `grep` or `ls`).
+
+
+## What You Can Do
 
 A [`Tui.Program`](Tui#Program) lets you build
 an interactive Elm app that renders its view as text in the terminal
@@ -24,6 +32,9 @@ You can also fire off a `BackendTask` and get back a `Msg`:
 
   - [`perform`](Tui-Effect#perform)
   - [`attempt`](Tui-Effect#attempt)
+
+
+## Example
 
 Similar to in `elm-pages` Route Modules, the `data` function
 resolves a `BackendTask` prior to `init`
@@ -126,14 +137,7 @@ type ColorProfile
 -- PROGRAM
 
 
-{-| A runnable TUI application.
-
-The `data` field resolves before `init` runs (while the terminal is still in
-normal mode), so you can read files, fetch data, or run shell commands without
-fighting the TUI render loop. The remaining fields are a standard TEA quartet,
-except `update` returns a [`Tui.Effect`](Tui-Effect#Effect) instead of `Cmd` so
-you can run `BackendTask`s from the update cycle.
-
+{-| The core configuration of your TUI program.
 -}
 type alias Program data model msg =
     { data : BackendTask FatalError data
