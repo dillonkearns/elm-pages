@@ -1,7 +1,6 @@
 module Pages.Internal.Platform exposing
     ( Flags, Model, Msg(..), Program, ProgramConfig, application, init, update
-    , Effect(..), RequestInfo, view
-    , ActionDataOrRedirect(..)
+    , Effect(..), RequestInfo, view, ActionDataOrRedirect(..)
     )
 
 {-| Exposed for internal use only (used in generated code).
@@ -426,11 +425,12 @@ update config appMsg model =
                         let
                             payload : { fields : List ( String, String ), method : Form.Method, action : String, id : Maybe String }
                             payload =
-                                { fields = fields.fields
-                                , method = fields.method
-                                , action = fields.action
-                                , id = Just fields.id
-                                }
+                                normalizeFormData model.url
+                                    { fields = fields.fields
+                                    , method = fields.method
+                                    , action = fields.action
+                                    , id = Just fields.id
+                                    }
                         in
                         if fields.useFetcher then
                             ( { model | nextTransitionKey = model.nextTransitionKey + 1 }
@@ -448,9 +448,7 @@ update config appMsg model =
                             let
                                 urlToSubmitTo : Url
                                 urlToSubmitTo =
-                                    fields.action
-                                        |> Url.fromString
-                                        |> Maybe.withDefault model.url
+                                    submittedUrl model.url payload
                             in
                             ( { model
                                 -- TODO should I setSubmitAttempted here, too?
@@ -462,11 +460,7 @@ update config appMsg model =
                                         )
                                 , pendingFrozenViewsUrl = Just urlToSubmitTo
                               }
-                            , FetchFrozenViews
-                                { path = urlToSubmitTo.path
-                                , query = urlToSubmitTo.query
-                                , body = Just (encodeFormData fields.fields)
-                                }
+                            , Submit payload
                             )
                                 |> (case fields.msg of
                                         Just justUserMsg ->
@@ -1212,19 +1206,23 @@ perform config model effect =
                 |> Maybe.withDefault Cmd.none
 
         Submit fields ->
-            if fields.method == Form.Get then
+            let
+                normalizedFields : FormData
+                normalizedFields =
+                    normalizeFormData model.url fields
+            in
+            if normalizedFields.method == Form.Get then
                 model.key
-                    |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams fields))
+                    |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams normalizedFields))
                     |> Maybe.withDefault Cmd.none
 
             else
                 let
                     urlToSubmitTo : Url
                     urlToSubmitTo =
-                        -- TODO add optional path parameter to Submit variant to allow submitting to other routes
-                        model.url
+                        urlFromAction model.url (Just normalizedFields)
                 in
-                fetchRouteData -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
+                fetchRouteData -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just normalizedFields)
 
         SubmitFetcher fetcherKey transitionId formData ->
             startFetcher2 config False fetcherKey transitionId formData model
@@ -1472,6 +1470,32 @@ appendFormQueryParams fields =
                 Form.Post ->
                     ""
            )
+
+
+normalizeFormData : Url -> FormData -> FormData
+normalizeFormData currentUrl formData =
+    if String.trim formData.action == "" then
+        { formData | action = Url.toString currentUrl }
+
+    else
+        formData
+
+
+submittedUrl : Url -> FormData -> Url
+submittedUrl currentUrl formData =
+    let
+        normalizedFormData : FormData
+        normalizedFormData =
+            normalizeFormData currentUrl formData
+    in
+    case normalizedFormData.method of
+        Form.Get ->
+            appendFormQueryParams normalizedFormData
+                |> Url.fromString
+                |> Maybe.withDefault currentUrl
+
+        Form.Post ->
+            urlFromAction currentUrl (Just normalizedFormData)
 
 
 urlFromAction : Url -> Maybe FormData -> Url

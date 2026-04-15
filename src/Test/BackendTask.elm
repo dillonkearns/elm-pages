@@ -1,7 +1,7 @@
 module Test.BackendTask exposing
     ( fromBackendTask, fromBackendTaskWith
     , fromScript, fromScriptWith
-    , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRandomSeed, withWhich
+    , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
     , withDb, withDbSetTo
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateHttpStream
     , HttpError(..)
@@ -142,7 +142,7 @@ simulate it.
 
 Seed initial state before the test starts running.
 
-@docs init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRandomSeed, withWhich
+@docs init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
 
 @docs withDb, withDbSetTo
 
@@ -212,7 +212,7 @@ import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Json.Encode as Encode
 import Pages.Script exposing (Script)
-import Test.BackendTask.Internal as Internal exposing (BackendTaskTest, TestSetup)
+import Test.BackendTask.Internal as Internal exposing (BackendTaskTest, SessionSeed, TestSetup)
 import Time
 
 
@@ -393,6 +393,114 @@ withEnv =
 withTime : Time.Posix -> TestSetup -> TestSetup
 withTime =
     Internal.withTime
+
+
+{-| Set a fixed request time for server-rendered route requests in
+[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+
+    import Time
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withRequestTime (Time.millisToPosix 1709827200000)
+
+-}
+withRequestTime : Time.Posix -> TestSetup -> TestSetup
+withRequestTime =
+    Internal.withRequestTime
+
+
+{-| Seed a request header for server-rendered route requests in
+[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+
+Header names are normalized to lowercase.
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withRequestHeader "accept-language" "en-US"
+
+-}
+withRequestHeader : String -> String -> TestSetup -> TestSetup
+withRequestHeader =
+    Internal.withRequestHeader
+
+
+{-| Seed a cookie on the initial server-rendered request in
+[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withRequestCookie "mysession" "signed-cookie"
+
+-}
+withRequestCookie : String -> String -> TestSetup -> TestSetup
+withRequestCookie =
+    Internal.withRequestCookie
+
+
+{-| Start building a seeded session for [`withSessionCookie`](#withSessionCookie).
+
+    import Test.BackendTask as BackendTaskTest
+
+    signedInSession =
+        BackendTaskTest.session
+            |> BackendTaskTest.withSessionValue "sessionId" "abc123"
+
+-}
+session : SessionSeed
+session =
+    Internal.session
+
+
+{-| Add a persistent session value to a [`session`](#session) seed.
+
+    import Test.BackendTask as BackendTaskTest
+
+    signedInSession =
+        BackendTaskTest.session
+            |> BackendTaskTest.withSessionValue "sessionId" "abc123"
+
+-}
+withSessionValue : String -> String -> SessionSeed -> SessionSeed
+withSessionValue =
+    Internal.withSessionValue
+
+
+{-| Add a flash session value to a [`session`](#session) seed.
+
+Flash values are available on the next request only, matching
+[`Server.Session.withFlash`](Server-Session#withFlash).
+
+    import Test.BackendTask as BackendTaskTest
+
+    sessionWithFlash =
+        BackendTaskTest.session
+            |> BackendTaskTest.withFlashValue "message" "Welcome back!"
+
+-}
+withFlashValue : String -> String -> SessionSeed -> SessionSeed
+withFlashValue =
+    Internal.withFlashValue
+
+
+{-| Seed a signed session cookie for the initial request in
+[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+
+This keeps the cookie format internal to the test framework, so your tests
+work with session values instead of raw signed cookie strings.
+
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withSessionCookie
+            { name = "mysession"
+            , session =
+                BackendTaskTest.session
+                    |> BackendTaskTest.withSessionValue "sessionId" "abc123"
+                    |> BackendTaskTest.withFlashValue "message" "Welcome back!"
+            }
+
+-}
+withSessionCookie : { name : String, session : SessionSeed } -> TestSetup -> TestSetup
+withSessionCookie =
+    Internal.withSessionCookie
 
 
 {-| Set a fixed random seed for `BackendTask.Random.int32` and `BackendTask.Random.generate`.

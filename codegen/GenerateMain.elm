@@ -191,35 +191,8 @@ otherFile routes phaseString routesWithEphemeral =
             , errorPageToData = Elm.val "DataErrorPage____"
             , notFoundRoute = Elm.nothing
             , pageModelToString =
-                Elm.fn (Elm.Arg.var "model")
-                    (\model ->
-                        Elm.Case.custom (model |> Elm.get "page")
-                            Type.unit
-                            ((routes
-                                |> List.map
-                                    (\route ->
-                                        Elm.Case.branch
-                                            (destructureRouteVariant Model "pageModel" route)
-                                            (\pageModel ->
-                                                Gen.Debug.toString pageModel
-                                            )
-                                    )
-                             )
-                                ++ [ Elm.Case.branch
-                                        (Elm.Arg.customType "ModelErrorPage____" identity
-                                            |> Elm.Arg.item (Elm.Arg.var "errorModel")
-                                        )
-                                        (\errorModel ->
-                                            Gen.Debug.toString errorModel
-                                        )
-                                   , Elm.Case.branch
-                                        (Elm.Arg.customType "NotFound" ())
-                                        (\() ->
-                                            Elm.string "(not found)"
-                                        )
-                                   ]
-                            )
-                    )
+                Elm.fn (Elm.Arg.ignore)
+                    (\_ -> Elm.string "")
             }
                 |> make_
 

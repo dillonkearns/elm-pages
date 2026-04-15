@@ -7,12 +7,16 @@ module FrameworkTests exposing
     , errorPageTest
     , concurrentSubmissionTest
     , loginSessionTest
+    , seededSessionFlashTest
     , greetWithQueryParamTest
     , darkModeToggleTest
     , logoutFlowTest
     , httpDataNavigationTest
     , httpDataDoubleNavigationTest
     , httpDataAfterLoginTest
+    , getFormSubmissionTest
+    , fetcherBackgroundReloadTest
+    , fetcherStaleReloadCancellationTest
     )
 
 {-| Framework-driven route tests using the real elm-pages Platform.
@@ -167,6 +171,31 @@ loginSessionTest =
         |> PagesProgram.ensureViewHas [ PSelector.text "Welcome Alice!" ]
 
 
+{-| Start with a seeded session and flash value, then verify the flash is
+consumed after the first request while the persistent session data remains.
+-}
+seededSessionFlashTest : TestApp.ProgramTest
+seededSessionFlashTest =
+    TestApp.start "/greet"
+        (BackendTaskTest.init
+            |> BackendTaskTest.withEnv "SESSION_SECRET" "test-secret"
+            |> BackendTaskTest.withSessionCookie
+                { name = "mysession"
+                , session =
+                    BackendTaskTest.session
+                        |> BackendTaskTest.withSessionValue "name" "Alice"
+                        |> BackendTaskTest.withFlashValue "message" "Welcome Alice!"
+                }
+        )
+        |> PagesProgram.ensureViewHas [ PSelector.text "Welcome Alice!" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Hello Alice!" ]
+        |> PagesProgram.navigateTo "/login"
+        |> PagesProgram.ensureBrowserUrl
+            (\url -> url |> Expect.equal "https://localhost:1234/login")
+        |> PagesProgram.ensureViewHas [ PSelector.text "No flash" ]
+        |> PagesProgram.ensureViewHas [ PSelector.text "Hello Alice!" ]
+
+
 {-| Test that the Greet route works with query param bypass (no session needed).
 This verifies the route itself works, independent of session/cookie issues.
 -}
@@ -211,10 +240,10 @@ logoutFlowTest =
         |> PagesProgram.ensureBrowserUrl
             (\url -> url |> Expect.equal "https://localhost:1234/greet")
         |> PagesProgram.ensureViewHas [ PSelector.text "Hello Alice!" ]
-        -- TODO: Logout flow needs a way to submit the logout form that
-        -- posts to a different route (/logout). This should be done through
-        -- a user-centric interaction (clicking the logout button), not a
-        -- programmatic form submission bypass.
+        |> PagesProgram.clickButton "Logout"
+        |> PagesProgram.ensureBrowserUrl
+            (\url -> url |> Expect.equal "https://localhost:1234/login")
+        |> PagesProgram.ensureViewHas [ PSelector.text "You have been successfully logged out." ]
 
 
 {-| Test navigating to a route whose data BackendTask does an HTTP request.
@@ -275,3 +304,65 @@ httpDataAfterLoginTest =
         |> PagesProgram.simulateHttpGet "https://api.example.com/posts"
             (Encode.object [ ( "title", Encode.string "After Login" ) ])
         |> PagesProgram.ensureViewHas [ PSelector.text "Post: After Login" ]
+
+
+{-| GET forms should use browser-style query-param submissions and update the URL.
+-}
+getFormSubmissionTest : TestApp.ProgramTest
+getFormSubmissionTest =
+    TestApp.start "/get-form" BackendTaskTest.init
+        |> PagesProgram.ensureViewHas [ PSelector.text "Current page: 1" ]
+        |> PagesProgram.clickButton "Page 2"
+        |> PagesProgram.ensureBrowserUrl
+            (\url -> url |> Expect.equal "https://localhost:1234/get-form?page=2")
+        |> PagesProgram.ensureViewHas [ PSelector.text "Current page: 2" ]
+
+
+{-| Fetcher-driven background reloads should leave the view/assertion API live
+while the reload request is still pending.
+-}
+fetcherBackgroundReloadTest : TestApp.ProgramTest
+fetcherBackgroundReloadTest =
+    TestApp.start "/fetcher-http" BackendTaskTest.init
+        |> PagesProgram.simulateHttpGet
+            "https://api.example.com/count"
+            (Encode.object [ ( "count", Encode.int 0 ) ])
+        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
+        |> PagesProgram.clickButton "Increment"
+        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
+        |> PagesProgram.simulateHttpGetTo
+            "https://api.example.com/increment"
+            (Encode.object [])
+        |> PagesProgram.ensurePendingHttpGet "https://api.example.com/count"
+        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
+        |> PagesProgram.simulateHttpGetTo
+            "https://api.example.com/count"
+            (Encode.object [ ( "count", Encode.int 1 ) ])
+        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
+
+
+{-| When a second fetcher submission supersedes a stale reload, the stale response
+should be canceled so a single final reload response settles the page.
+-}
+fetcherStaleReloadCancellationTest : TestApp.ProgramTest
+fetcherStaleReloadCancellationTest =
+    TestApp.start "/fetcher-http" BackendTaskTest.init
+        |> PagesProgram.simulateHttpGet
+            "https://api.example.com/count"
+            (Encode.object [ ( "count", Encode.int 0 ) ])
+        |> PagesProgram.clickButton "Increment"
+        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
+        |> PagesProgram.simulateHttpGet
+            "https://api.example.com/increment"
+            (Encode.object [])
+        |> PagesProgram.ensurePendingHttpGet "https://api.example.com/count"
+        |> PagesProgram.clickButton "Increment"
+        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
+        |> PagesProgram.simulateHttpGet
+            "https://api.example.com/increment"
+            (Encode.object [])
+        |> PagesProgram.ensurePendingHttpGetCount "https://api.example.com/count" 1
+        |> PagesProgram.simulateHttpGet
+            "https://api.example.com/count"
+            (Encode.object [ ( "count", Encode.int 2 ) ])
+        |> PagesProgram.ensureViewHas [ PSelector.text "Count: 2" ]

@@ -569,6 +569,7 @@ config apiRoutes pages =
     , errorPageToData = \_ -> ()
     , action = \_ _ -> BackendTask.fail (FatalError.fromString "No action.")
     , encodeAction = \_ -> Bytes.Encode.signedInt8 0
+    , pageModelToString = \_ -> ""
     }
 
 

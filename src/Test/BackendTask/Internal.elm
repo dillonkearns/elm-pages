@@ -1,7 +1,7 @@
 module Test.BackendTask.Internal exposing
-    ( BackendTaskTest(..), TestSetup(..), Output(..), SimulatedEffect(..), TimeZoneData
+    ( BackendTaskTest(..), TestSetup(..), SessionSeed(..), Output(..), SimulatedEffect(..), TimeZoneData
     , fromBackendTask, fromBackendTaskWith, fromScript, fromScriptWith
-    , init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
+    , init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, session, withSessionValue, withFlashValue, withSessionCookie, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , simulateQuestion, simulateReadKey
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureCommand, ensureFileWritten
@@ -22,7 +22,7 @@ only when you need type annotations or pattern matching on internal types.
 
 ## Types
 
-@docs BackendTaskTest, TestSetup, Output, SimulatedEffect, TimeZoneData
+@docs BackendTaskTest, TestSetup, SessionSeed, Output, SimulatedEffect, TimeZoneData
 
 
 ## Building
@@ -32,7 +32,7 @@ only when you need type annotations or pattern matching on internal types.
 
 ## Test Setup
 
-@docs init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
+@docs init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, session, withSessionValue, withFlashValue, withSessionCookie, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
 
 
 ## Simulating Effects
@@ -188,6 +188,30 @@ type TestSetup
     = TestSetup
         { virtualFS : VirtualFS
         , virtualDB : VirtualDB
+        , requestTime : Maybe Time.Posix
+        , requestHeaders : Dict String String
+        , requestCookies : Dict String String
+        }
+
+
+{-| Seed data for [`withSessionCookie`](#withSessionCookie).
+
+Use [`session`](#session) to create one, then add persistent values with
+[`withSessionValue`](#withSessionValue) and flash values with
+[`withFlashValue`](#withFlashValue).
+
+    import Test.BackendTask as BackendTaskTest
+
+    seededSession =
+        BackendTaskTest.session
+            |> BackendTaskTest.withSessionValue "sessionId" "abc123"
+            |> BackendTaskTest.withFlashValue "message" "Welcome back!"
+
+-}
+type SessionSeed
+    = SessionSeed
+        { persistentValues : Dict String String
+        , flashValues : Dict String String
         }
 
 
@@ -198,6 +222,9 @@ init =
     TestSetup
         { virtualFS = emptyVirtualFS
         , virtualDB = emptyVirtualDB
+        , requestTime = Nothing
+        , requestHeaders = Dict.empty
+        , requestCookies = Dict.empty
         }
 
 
@@ -415,6 +442,184 @@ withTime time (TestSetup setup) =
             setup.virtualFS
     in
     TestSetup { setup | virtualFS = { vfs | time = Just time } }
+
+
+{-| Set a fixed request time for server-rendered route requests in
+[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+
+    import Time
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withRequestTime (Time.millisToPosix 1709827200000)
+
+-}
+withRequestTime : Time.Posix -> TestSetup -> TestSetup
+withRequestTime time (TestSetup setup) =
+    TestSetup { setup | requestTime = Just time }
+
+
+{-| Seed a request header for server-rendered route requests in
+[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+
+Header names are normalized to lowercase.
+
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withRequestHeader "accept-language" "en-US"
+
+-}
+withRequestHeader : String -> String -> TestSetup -> TestSetup
+withRequestHeader name value (TestSetup setup) =
+    TestSetup
+        { setup
+            | requestHeaders =
+                Dict.insert (String.toLower name) value setup.requestHeaders
+        }
+
+
+{-| Seed a cookie on the initial server-rendered request in
+[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withRequestCookie "mysession" "signed-cookie"
+
+-}
+withRequestCookie : String -> String -> TestSetup -> TestSetup
+withRequestCookie name value (TestSetup setup) =
+    TestSetup
+        { setup
+            | requestCookies =
+                Dict.insert name value setup.requestCookies
+        }
+
+
+{-| Start building a seeded session for [`withSessionCookie`](#withSessionCookie).
+
+    import Test.BackendTask as BackendTaskTest
+
+    signedInSession =
+        BackendTaskTest.session
+            |> BackendTaskTest.withSessionValue "sessionId" "abc123"
+
+-}
+session : SessionSeed
+session =
+    SessionSeed
+        { persistentValues = Dict.empty
+        , flashValues = Dict.empty
+        }
+
+
+{-| Seed a persistent session value.
+
+    import Test.BackendTask as BackendTaskTest
+
+    signedInSession =
+        BackendTaskTest.session
+            |> BackendTaskTest.withSessionValue "sessionId" "abc123"
+
+-}
+withSessionValue : String -> String -> SessionSeed -> SessionSeed
+withSessionValue key value (SessionSeed seed) =
+    SessionSeed
+        { seed
+            | persistentValues =
+                Dict.insert key value seed.persistentValues
+        }
+
+
+{-| Seed a flash session value that is available on the next request only.
+
+    import Test.BackendTask as BackendTaskTest
+
+    sessionWithFlash =
+        BackendTaskTest.session
+            |> BackendTaskTest.withFlashValue "message" "Welcome back!"
+
+-}
+withFlashValue : String -> String -> SessionSeed -> SessionSeed
+withFlashValue key value (SessionSeed seed) =
+    SessionSeed
+        { seed
+            | flashValues =
+                Dict.insert key value seed.flashValues
+        }
+
+
+{-| Seed a signed session cookie for the initial request.
+
+This mirrors the [`Server.Session`](Server-Session) test behavior, including
+flash values that are consumed after the first request.
+
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withSessionCookie
+            { name = "mysession"
+            , session =
+                BackendTaskTest.session
+                    |> BackendTaskTest.withSessionValue "sessionId" "abc123"
+                    |> BackendTaskTest.withFlashValue "message" "Welcome back!"
+            }
+
+-}
+withSessionCookie : { name : String, session : SessionSeed } -> TestSetup -> TestSetup
+withSessionCookie config =
+    withRequestCookie config.name (mockSignValue (encodeSessionSeed config.session))
+
+
+encodeSessionSeed : SessionSeed -> Encode.Value
+encodeSessionSeed (SessionSeed seed) =
+    let
+        persistentEntries : List ( String, String )
+        persistentEntries =
+            seed.persistentValues
+                |> Dict.toList
+
+        flashEntries : List ( String, String )
+        flashEntries =
+            seed.flashValues
+                |> Dict.toList
+                |> List.map (\( key, value ) -> ( sessionFlashPrefix ++ key, value ))
+    in
+    persistentEntries
+        ++ flashEntries
+        |> List.map (Tuple.mapSecond Encode.string)
+        |> Encode.object
+
+
+sessionFlashPrefix : String
+sessionFlashPrefix =
+    "__flash__"
+
+
+mockSignedPrefix : String
+mockSignedPrefix =
+    "****SIGNED****"
+
+
+mockSignValue : Encode.Value -> String
+mockSignValue value =
+    mockSignedPrefix ++ Encode.encode 0 value
+
+
+mockUnsignValue : String -> Maybe Encode.Value
+mockUnsignValue input =
+    if String.startsWith mockSignedPrefix input then
+        let
+            jsonString : String
+            jsonString =
+                String.dropLeft (String.length mockSignedPrefix) input
+        in
+        Decode.decodeString Decode.value jsonString
+            |> Result.toMaybe
+
+    else
+        Nothing
 
 
 {-| Internal representation of a time zone. Use [`Test.BackendTask.Time.TimeZone`](Test-BackendTask-Time#TimeZone)
@@ -1221,35 +1426,20 @@ autoResponseBody vfs req =
                     Ok Encode.null
 
         "elm-pages-internal://encrypt" ->
-            -- Simulate cookie signing with a simple marker prefix.
-            -- In production this uses real HMAC signing; in tests we
-            -- just prepend a marker so unsign can verify it.
             case decodeJsonBody (Decode.field "values" Decode.value) req of
                 Just values ->
-                    Ok (Encode.string ("****SIGNED****" ++ Encode.encode 0 values))
+                    Ok (Encode.string (mockSignValue values))
 
                 Nothing ->
                     Err "encrypt: missing 'values' field in request body"
 
         "elm-pages-internal://decrypt" ->
-            -- Simulate cookie unsigning by checking for the marker prefix.
             case decodeJsonBody (Decode.field "input" Decode.string) req of
                 Just input ->
-                    if String.startsWith "****SIGNED****" input then
-                        let
-                            jsonStr =
-                                String.dropLeft (String.length "****SIGNED****") input
-                        in
-                        case Decode.decodeString Decode.value jsonStr of
-                            Ok value ->
-                                Ok value
-
-                            Err _ ->
-                                Ok Encode.null
-
-                    else
-                        -- Not signed with our marker -- treat as invalid
-                        Ok Encode.null
+                    input
+                        |> mockUnsignValue
+                        |> Maybe.withDefault Encode.null
+                        |> Ok
 
                 Nothing ->
                     Err "decrypt: missing 'input' field in request body"

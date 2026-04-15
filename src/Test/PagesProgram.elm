@@ -11,7 +11,7 @@ module Test.PagesProgram exposing
     , ensureBrowserHistory, expectBrowserHistory
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
     , simulateCustom
-    , ensurePendingHttpGet, ensurePendingHttpPost, ensurePendingCustom
+    , ensurePendingHttpGet, ensurePendingHttpGetCount, ensurePendingHttpPost, ensurePendingCustom
     , withSimulatedSubscriptions, simulateIncomingPort
     , Snapshot, toSnapshots, withModelInspector
     , start, startWithEffects, startPlatform
@@ -165,7 +165,7 @@ form actions, or BackendTask effects returned from `update`.
 
 ## Asserting on pending requests
 
-@docs ensurePendingHttpGet, ensurePendingHttpPost, ensurePendingCustom
+@docs ensurePendingHttpGet, ensurePendingHttpGetCount, ensurePendingHttpPost, ensurePendingCustom
 
 
 ## Subscriptions and incoming ports
@@ -224,6 +224,7 @@ import Pages.Internal.Platform as Platform
 import Pages.Internal.ResponseSketch as ResponseSketch
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.StaticHttp.Request as StaticHttpRequest
+import Regex
 import Test.BackendTask exposing (HttpError(..))
 import Test.BackendTask.Internal as BackendTaskTest
 import Test.Html.Event as Event
@@ -310,12 +311,19 @@ type Phase model msg
     | Ready (ReadyState model msg)
 
 
+type ResolverKind
+    = BackendResolver
+    | FetcherResolver
+    | BackgroundReloadResolver
+
+
 {-| Hides the `data` type parameter behind closures so `ProgramTest` only
 needs `model` and `msg` type parameters.
 -}
 type Resolver model msg
     = Resolver
-        { advance : Maybe model -> Simulation -> AdvanceResult model msg
+        { kind : ResolverKind
+        , advance : Maybe model -> Simulation -> AdvanceResult model msg
         , pendingDescription : String
         , pendingUrls : List String
         , pendingRequestDetails : List { url : String, method : String, headers : List ( String, String ), body : Maybe String }
@@ -330,7 +338,7 @@ type Simulation
 
 
 type AdvanceResult model msg
-    = Advanced (Phase model msg) (Maybe model)
+    = Advanced (Phase model msg) (Maybe model) (List (Resolver model msg))
     | AdvanceError String
 
 
@@ -341,7 +349,7 @@ type alias ReadyState model msg =
     , pendingEffects : List (BackendTask FatalError msg)
     , onNavigate : Maybe (String -> msg)
     , getBrowserUrl : Maybe (model -> String)
-    , onFormSubmit : Maybe ({ formId : String, action : String, fields : List ( String, String ), useFetcher : Bool } -> msg)
+    , onFormSubmit : Maybe ({ formId : String, action : String, fields : List ( String, String ), method : Form.Method, useFetcher : Bool } -> msg)
     , getFormFields : Maybe (model -> List ( String, String ))
     , viewScope : Query.Single msg -> Query.Single msg
     , scopeLabels : List String
@@ -358,6 +366,35 @@ type alias PlatformTestModel userModel pageData actionData sharedData =
     , pendingDataPath : Maybe String
     , pendingActionBody : Maybe { body : String, path : String }
     }
+
+
+type alias RequestDefaults =
+    { requestTime : Time.Posix
+    , headers : Dict.Dict String String
+    }
+
+
+type alias PlatformProgramMsg userMsg pageData actionData sharedData errorPage =
+    Platform.Msg userMsg pageData actionData sharedData errorPage
+
+
+type alias PlatformTestConfig userMsg userModel route pageData actionData sharedData effect errorPage =
+    Platform.ProgramConfig
+        userMsg
+        userModel
+        route
+        pageData
+        actionData
+        sharedData
+        effect
+        (PlatformProgramMsg userMsg pageData actionData sharedData errorPage)
+        errorPage
+
+
+type alias PlatformTestResult userMsg userModel pageData actionData sharedData errorPage =
+    ProgramTest
+        (PlatformTestModel userModel pageData actionData sharedData)
+        (PlatformProgramMsg userMsg pageData actionData sharedData errorPage)
 
 
 
@@ -523,6 +560,11 @@ directly. The generated `TestApp` module provides the `config` (which is
 
 Where `TestApp.start = PagesProgram.startPlatform Main.config`.
 
+You can seed the initial incoming request through [`Test.BackendTask`](Test-BackendTask)
+using [`withRequestCookie`](Test-BackendTask#withRequestCookie),
+[`withRequestHeader`](Test-BackendTask#withRequestHeader), and
+[`withRequestTime`](Test-BackendTask#withRequestTime).
+
 BackendTask resolution uses the `Test.BackendTask` virtual filesystem, so
 file reads, env vars, time, and other auto-resolvable BackendTasks work
 out of the box. File writes in actions automatically update the virtual FS,
@@ -531,43 +573,47 @@ and subsequent data resolution sees the updated files.
 -}
 startPlatform :
     (effect -> SimulatedEffect.SimulatedEffect userMsg)
-    ->
-        Platform.ProgramConfig
-            userMsg
-            userModel
-            route
-            pageData
-            actionData
-            sharedData
-            effect
-            (Platform.Msg userMsg pageData actionData sharedData errorPage)
-            errorPage
+    -> PlatformTestConfig userMsg userModel route pageData actionData sharedData effect errorPage
     -> String
     -> BackendTaskTest.TestSetup
-    ->
-        ProgramTest
-            (PlatformTestModel userModel pageData actionData sharedData)
-            (Platform.Msg userMsg pageData actionData sharedData errorPage)
+    -> PlatformTestResult userMsg userModel pageData actionData sharedData errorPage
 startPlatform simulateEffect config initialPath testSetup =
     let
         baseUrl =
             "https://localhost:1234"
 
+        setup =
+            case testSetup of
+                BackendTaskTest.TestSetup wrappedSetup ->
+                    wrappedSetup
+
         initialUrl =
             makeTestUrl baseUrl initialPath
 
+        requestDefaults : RequestDefaults
+        requestDefaults =
+            { requestTime =
+                setup.requestTime
+                    |> Maybe.withDefault (Time.millisToPosix 0)
+            , headers = setup.requestHeaders
+            }
+
+        initialCookieJar : CookieJar
+        initialCookieJar =
+            setup.requestCookies
+                |> Dict.foldl CookieJar.set CookieJar.empty
+
         initialVirtualFs =
-            case testSetup of
-                BackendTaskTest.TestSetup setup ->
-                    setup.virtualFS
+            setup.virtualFS
     in
-    case resolveInitialData config initialUrl initialPath initialVirtualFs of
+    case resolveInitialData config requestDefaults initialUrl initialPath initialCookieJar initialVirtualFs of
         InitialDataError errMsg ->
             ProgramTest
                 { phase =
                     Resolving
                         (Resolver
-                            { advance = \_ _ -> AdvanceError errMsg
+                            { kind = BackendResolver
+                            , advance = \_ _ -> AdvanceError errMsg
                             , pendingDescription = errMsg
                             , pendingUrls = []
                             , pendingRequestDetails = []
@@ -587,7 +633,7 @@ startPlatform simulateEffect config initialPath testSetup =
             let
                 ( vfsAfterInit, initialPhase ) =
                     case resolvedOrPending of
-                        InitialDataResolved vfs pageDataBytes ->
+                        InitialDataResolved vfs updatedCookieJar pageDataBytes ->
                             let
                                 ( readyModel, readyEffect ) =
                                     platformUpdateClean config (Platform.FrozenViewsReady (Just pageDataBytes)) initModel
@@ -595,10 +641,11 @@ startPlatform simulateEffect config initialPath testSetup =
                                 ( wrapped, _, _ ) =
                                     processEffectsWrapped config
                                         baseUrl
+                                        requestDefaults
                                         makeReady
                                         makePlatformResolver
                                         handleUserCmd
-                                        { platformModel = readyModel, virtualFs = vfs, cookieJar = CookieJar.empty, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
+                                        { platformModel = readyModel, virtualFs = vfs, cookieJar = updatedCookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
                                         readyEffect
                                         100
                             in
@@ -613,6 +660,11 @@ startPlatform simulateEffect config initialPath testSetup =
                                 continueInitialData bt =
                                     case bt of
                                         BackendTaskTest.Done doneState ->
+                                            let
+                                                updatedCookieJar : CookieJar
+                                                updatedCookieJar =
+                                                    cookieJarAfterPageResponse initialCookieJar doneState.result
+                                            in
                                             case extractPageData config doneState.result of
                                                 Just pageData ->
                                                     let
@@ -630,14 +682,15 @@ startPlatform simulateEffect config initialPath testSetup =
                                                         ( processedWrapped, _, _ ) =
                                                             processEffectsWrapped config
                                                                 baseUrl
+                                                                requestDefaults
                                                                 makeReady
                                                                 makePlatformResolver
                                                                 handleUserCmd
-                                                                { platformModel = readyModel, virtualFs = doneState.virtualFS, cookieJar = CookieJar.empty, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
+                                                                { platformModel = readyModel, virtualFs = doneState.virtualFS, cookieJar = updatedCookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
                                                                 readyEffect
                                                                 100
                                                     in
-                                                    Advanced (Ready (makeReady processedWrapped)) Nothing
+                                                    Advanced (Ready (makeReady processedWrapped)) Nothing []
 
                                                 Nothing ->
                                                     case doneState.result of
@@ -646,9 +699,7 @@ startPlatform simulateEffect config initialPath testSetup =
                                                                 Just { location } ->
                                                                     let
                                                                         updatedJar =
-                                                                            CookieJar.empty
-                                                                                |> CookieJar.applySetCookieHeaders
-                                                                                    (extractSetCookieHeaders (ServerResponse serverResponse))
+                                                                            updatedCookieJar
 
                                                                         redirectUrl =
                                                                             makeTestUrl baseUrl (normalizePath location)
@@ -659,7 +710,7 @@ startPlatform simulateEffect config initialPath testSetup =
                                                                         ( vfsAfterRedirect, redirectDataBt ) =
                                                                             BackendTaskTest.resolveWithVirtualFsPartial
                                                                                 doneState.virtualFS
-                                                                                (config.data (platformTestRequest (Url.toString redirectUrl) updatedJar) redirectRoute)
+                                                                                (config.data (platformTestRequest requestDefaults (Url.toString redirectUrl) updatedJar) redirectRoute)
 
                                                                         continueRedirectTargetData rdBt =
                                                                             case rdBt of
@@ -684,6 +735,7 @@ startPlatform simulateEffect config initialPath testSetup =
                                                                                                 ( processedWrapped, _, _ ) =
                                                                                                     processEffectsWrapped config
                                                                                                         baseUrl
+                                                                                                        requestDefaults
                                                                                                         makeReady
                                                                                                         makePlatformResolver
                                                                                                         handleUserCmd
@@ -691,7 +743,7 @@ startPlatform simulateEffect config initialPath testSetup =
                                                                                                         readyEffect
                                                                                                         100
                                                                                             in
-                                                                                            Advanced (Ready (makeReady processedWrapped)) Nothing
+                                                                                            Advanced (Ready (makeReady processedWrapped)) Nothing []
 
                                                                                         Nothing ->
                                                                                             AdvanceError "Failed to extract page data for redirect target"
@@ -700,7 +752,8 @@ startPlatform simulateEffect config initialPath testSetup =
                                                                                     Advanced
                                                                                         (Resolving
                                                                                             (Resolver
-                                                                                                { advance =
+                                                                                                { kind = BackendResolver
+                                                                                                , advance =
                                                                                                     \_ sim ->
                                                                                                         continueRedirectTargetData (applySimToBt sim rdBt)
                                                                                                 , pendingDescription =
@@ -713,6 +766,7 @@ startPlatform simulateEffect config initialPath testSetup =
                                                                                             )
                                                                                         )
                                                                                         Nothing
+                                                                                        []
 
                                                                                 BackendTaskTest.TestError rdErrMsg ->
                                                                                     AdvanceError rdErrMsg
@@ -740,16 +794,17 @@ startPlatform simulateEffect config initialPath testSetup =
                                                                         initModel
 
                                                                 ( processedWrapped, _, _ ) =
-                                                                    processEffectsWrapped config
-                                                                        baseUrl
-                                                                        makeReady
-                                                                        makePlatformResolver
-                                                                        handleUserCmd
-                                                                        { platformModel = readyModel, virtualFs = doneState.virtualFS, cookieJar = CookieJar.empty, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
-                                                                        readyEffect
-                                                                        100
+                                                                        processEffectsWrapped config
+                                                                            baseUrl
+                                                                            requestDefaults
+                                                                            makeReady
+                                                                            makePlatformResolver
+                                                                            handleUserCmd
+                                                                            { platformModel = readyModel, virtualFs = doneState.virtualFS, cookieJar = initialCookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
+                                                                            readyEffect
+                                                                            100
                                                             in
-                                                            Advanced (Ready (makeReady processedWrapped)) Nothing
+                                                            Advanced (Ready (makeReady processedWrapped)) Nothing []
 
                                                         _ ->
                                                             AdvanceError "Failed to extract page data after initial HTTP simulation"
@@ -758,7 +813,8 @@ startPlatform simulateEffect config initialPath testSetup =
                                             Advanced
                                                 (Resolving
                                                     (Resolver
-                                                        { advance =
+                                                        { kind = BackendResolver
+                                                        , advance =
                                                             \_ sim ->
                                                                 continueInitialData (applySimToBt sim bt)
                                                         , pendingDescription =
@@ -771,6 +827,7 @@ startPlatform simulateEffect config initialPath testSetup =
                                                     )
                                                 )
                                                 Nothing
+                                                []
 
                                         BackendTaskTest.TestError errMsg ->
                                             AdvanceError errMsg
@@ -778,7 +835,8 @@ startPlatform simulateEffect config initialPath testSetup =
                             ( vfs
                             , Resolving
                                 (Resolver
-                                    { advance =
+                                    { kind = BackendResolver
+                                    , advance =
                                         \_ sim ->
                                             continueInitialData (applySimToBt sim dataBt)
                                     , pendingDescription =
@@ -793,7 +851,7 @@ startPlatform simulateEffect config initialPath testSetup =
 
                         -- Can't happen (InitialDataError handled above)
                         InitialDataError _ ->
-                            ( initialVirtualFs, Ready (makeReady { platformModel = initModel, virtualFs = initialVirtualFs, cookieJar = CookieJar.empty, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }) )
+                            ( initialVirtualFs, Ready (makeReady { platformModel = initModel, virtualFs = initialVirtualFs, cookieJar = initialCookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }) )
 
                 flags =
                     Encode.object []
@@ -809,6 +867,7 @@ startPlatform simulateEffect config initialPath testSetup =
                         ( processedWrapped, _, fetcherResolvers ) =
                             processEffectsWrapped config
                                 baseUrl
+                                requestDefaults
                                 makeReady
                                 makePlatformResolver
                                 handleUserCmd
@@ -846,12 +905,12 @@ startPlatform simulateEffect config initialPath testSetup =
                         Just (\m_ -> Url.toString m_.platformModel.url)
                     , onFormSubmit =
                         Just
-                            (\{ formId, action, fields, useFetcher } ->
+                            (\{ formId, action, fields, method, useFetcher } ->
                                 Platform.UserMsg
                                     (Pages.Internal.Msg.Submit
                                         { useFetcher = useFetcher
                                         , action = action
-                                        , method = Form.Post
+                                        , method = method
                                         , fields = fields
                                         , msg = Nothing
                                         , id = formId
@@ -885,7 +944,7 @@ startPlatform simulateEffect config initialPath testSetup =
                     { title = doc.title, body = doc.body }
 
                 handleUserCmd wm userEffect md =
-                    processSimulatedEffect config baseUrl makeReady makePlatformResolver handleUserCmd wm (simulateEffect userEffect) md
+                    processSimulatedEffect config baseUrl requestDefaults makeReady makePlatformResolver handleUserCmd wm (simulateEffect userEffect) md
 
                 -- Create a Resolving phase for a platform model that paused on HTTP.
                 -- Re-resolves the pending BackendTask to get the BackendTaskTest,
@@ -907,27 +966,28 @@ startPlatform simulateEffect config initialPath testSetup =
                                     config_.urlToRoute fetchUrl
 
                                 actionRequest =
-                                    Internal.Request.Request
-                                        { time = Time.millisToPosix 0
+                                            Internal.Request.Request
+                                        { time = requestDefaults.requestTime
                                         , method = "POST"
                                         , body = Just body
                                         , rawUrl = baseUrl_ ++ path
                                         , rawHeaders =
-                                            Dict.singleton "content-type"
-                                                "application/x-www-form-urlencoded"
+                                            requestHeaders requestDefaults
+                                                [ ( "content-type", "application/x-www-form-urlencoded" ) ]
                                         , cookies = CookieJar.toDict wrappedModel.cookieJar
                                         }
 
                                 ( _, bt ) =
-                                    BackendTaskTest.resolveWithVirtualFsPartial
-                                        wrappedModel.virtualFs
-                                        (config_.action actionRequest route)
+                                            BackendTaskTest.resolveWithVirtualFsPartial
+                                                wrappedModel.virtualFs
+                                                (config_.action actionRequest route)
                             in
                             Resolving
                                 (Resolver
-                                    { advance =
+                                    { kind = BackendResolver
+                                    , advance =
                                         \_ sim ->
-                                            continueActionWithBt config_ baseUrl_ makeReady_ makePlatformResolver handleUserCmd continueDataWithBt wrappedModel fetchUrl makePhase (applySimToBt sim bt)
+                                            continueActionWithBt config_ baseUrl_ requestDefaults makeReady_ makePlatformResolver handleUserCmd continueDataWithBt wrappedModel fetchUrl makePhase (applySimToBt sim bt)
                                     , pendingDescription =
                                         wrappedModel.pendingDataError |> Maybe.withDefault "Pending action HTTP"
                                     , pendingUrls = btPendingUrls bt
@@ -949,11 +1009,12 @@ startPlatform simulateEffect config initialPath testSetup =
                                         ( _, bt ) =
                                             BackendTaskTest.resolveWithVirtualFsPartial
                                                 wrappedModel.virtualFs
-                                                (config_.data (platformTestRequest (Url.toString fetchUrl) wrappedModel.cookieJar) route)
+                                                (config_.data (platformTestRequest requestDefaults (Url.toString fetchUrl) wrappedModel.cookieJar) route)
                                     in
                                     Resolving
                                         (Resolver
-                                            { advance =
+                                            { kind = BackendResolver
+                                            , advance =
                                                 \_ sim ->
                                                     continueDataWithBt wrappedModel makePhase (applySimToBt sim bt)
                                             , pendingDescription =
@@ -1008,14 +1069,58 @@ startPlatform simulateEffect config initialPath testSetup =
                                         ( processedWrapped, _, _ ) =
                                             processEffectsWrapped config
                                                 baseUrl
+                                                requestDefaults
                                                 makeReady
                                                 makePlatformResolver
                                                 handleUserCmd
                                                 { platformModel = cleanedModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
                                                 newEffect
                                                 100
-                                    in
-                                    Advanced (makePhase processedWrapped) Nothing
+                                                in
+                                                    case processedWrapped.pendingDataPath of
+                                                        Just dataPath ->
+                                                            let
+                                                                dataFetchUrl =
+                                                                    makeTestUrl baseUrl dataPath
+
+                                                                dataRoute =
+                                                                    config.urlToRoute dataFetchUrl
+
+                                                                ( _, dataBt ) =
+                                                                    BackendTaskTest.resolveWithVirtualFsPartial
+                                                                        processedWrapped.virtualFs
+                                                                        (config.data (platformTestRequest requestDefaults (Url.toString dataFetchUrl) processedWrapped.cookieJar) dataRoute)
+
+                                                                dataMakePhase m =
+                                                                    makePhase m
+                                                            in
+                                                            case dataBt of
+                                                                BackendTaskTest.Running _ ->
+                                                                    Advanced
+                                                                        (Resolving
+                                                                            (Resolver
+                                                                                { kind = BackendResolver
+                                                                                , advance =
+                                                                                    \_ sim ->
+                                                                                        continueDataWithBt processedWrapped dataMakePhase (applySimToBt sim dataBt)
+                                                                                , pendingDescription =
+                                                                                    processedWrapped.pendingDataError |> Maybe.withDefault "Pending data HTTP after navigation redirect"
+                                                                                , pendingUrls = btPendingUrls dataBt
+                                                                                , pendingRequestDetails = btPendingRequestDetails dataBt
+                                                                                }
+                                                                            )
+                                                                        )
+                                                                        Nothing
+                                                                        []
+
+                                                                BackendTaskTest.Done _ ->
+                                                                    continueDataWithBt processedWrapped dataMakePhase dataBt
+
+                                                                BackendTaskTest.TestError errMsg ->
+                                                                    AdvanceError errMsg
+
+                                                        Nothing ->
+                                                            Advanced (makePhase processedWrapped) Nothing []
 
                                 Nothing ->
                                     -- Redirect or non-renderable response
@@ -1024,26 +1129,92 @@ startPlatform simulateEffect config initialPath testSetup =
                                             case PageServerResponse.toRedirect serverResponse of
                                                 Just { location } ->
                                                     let
-                                                        encodedBytes =
-                                                            ResponseSketch.Redirect location
-                                                                |> encodeResponseWithPrefix config
+                                                        updatedJar =
+                                                            wrappedModel.cookieJar
+                                                                |> CookieJar.applySetCookieHeaders
+                                                                    (extractSetCookieHeaders (ServerResponse serverResponse))
 
-                                                        ( newPlatformModel, newEffect ) =
-                                                            platformUpdateClean config
-                                                                (Platform.FrozenViewsReady (Just encodedBytes))
-                                                                wrappedModel.platformModel
+                                                        redirectUrl =
+                                                            makeTestUrl baseUrl (normalizePath location)
 
-                                                        ( processedWrapped, _, _ ) =
-                                                            processEffectsWrapped config
-                                                                baseUrl
-                                                                makeReady
-                                                                makePlatformResolver
-                                                                handleUserCmd
-                                                                { platformModel = newPlatformModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
-                                                                newEffect
-                                                                100
+                                                        redirectRoute =
+                                                            config.urlToRoute redirectUrl
+
+                                                        continueRedirectTargetData redirectBt =
+                                                            case redirectBt of
+                                                                BackendTaskTest.Done redirectDoneState ->
+                                                                    case extractPageData config redirectDoneState.result of
+                                                                        Just pageData ->
+                                                                            let
+                                                                                encodedBytes =
+                                                                                    case wrappedModel.platformModel.pageData of
+                                                                                        Ok previousPageData ->
+                                                                                            ResponseSketch.HotUpdate pageData
+                                                                                                previousPageData.sharedData
+                                                                                                Nothing
+                                                                                                |> encodeResponseWithPrefix config
+
+                                                                                        Err _ ->
+                                                                                            ResponseSketch.RenderPage pageData Nothing
+                                                                                                |> encodeResponseWithPrefix config
+
+                                                                                redirectPlatformModel =
+                                                                                    let
+                                                                                        platformModel =
+                                                                                            wrappedModel.platformModel
+                                                                                    in
+                                                                                    { platformModel | pendingFrozenViewsUrl = Just redirectUrl }
+
+                                                                                ( newPlatformModel, newEffect ) =
+                                                                                    platformUpdateClean config
+                                                                                        (Platform.FrozenViewsReady (Just encodedBytes))
+                                                                                        redirectPlatformModel
+
+                                                                                ( processedWrapped, _, _ ) =
+                                                                                    processEffectsWrapped config
+                                                                                        baseUrl
+                                                                                        requestDefaults
+                                                                                        makeReady
+                                                                                        makePlatformResolver
+                                                                                        handleUserCmd
+                                                                                        { platformModel = newPlatformModel, virtualFs = redirectDoneState.virtualFS, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
+                                                                                        newEffect
+                                                                                        100
+                                                                            in
+                                                                            Advanced (makePhase processedWrapped) Nothing []
+
+                                                                        Nothing ->
+                                                                            AdvanceError "Failed to extract page data for redirect target"
+
+                                                                BackendTaskTest.Running redirectRunningState ->
+                                                                    Advanced
+                                                                        (Resolving
+                                                                            (Resolver
+                                                                                { kind = BackendResolver
+                                                                                , advance =
+                                                                                    \_ sim ->
+                                                                                        continueRedirectTargetData (applySimToBt sim redirectBt)
+                                                                                , pendingDescription =
+                                                                                    stillRunningDescription redirectRunningState.pendingRequests
+                                                                                , pendingUrls =
+                                                                                    List.map .url redirectRunningState.pendingRequests
+                                                                                , pendingRequestDetails =
+                                                                                    requestDetailsFromRequests redirectRunningState.pendingRequests
+                                                                                }
+                                                                            )
+                                                                        )
+                                                                        Nothing
+                                                                        []
+
+                                                                BackendTaskTest.TestError errMsg ->
+                                                                    AdvanceError errMsg
+
+                                                        ( _, redirectDataBt ) =
+                                                            BackendTaskTest.resolveWithVirtualFsPartial
+                                                                vfsAfterData
+                                                                (config.data (platformTestRequest requestDefaults (Url.toString redirectUrl) updatedJar) redirectRoute)
                                                     in
-                                                    Advanced (makePhase processedWrapped) Nothing
+                                                    continueRedirectTargetData redirectDataBt
 
                                                 Nothing ->
                                                     AdvanceError ("Unexpected server response: " ++ String.fromInt serverResponse.statusCode)
@@ -1074,6 +1245,7 @@ startPlatform simulateEffect config initialPath testSetup =
                                                 ( processedWrapped, _, _ ) =
                                                     processEffectsWrapped config
                                                         baseUrl
+                                                        requestDefaults
                                                         makeReady
                                                         makePlatformResolver
                                                         handleUserCmd
@@ -1081,7 +1253,7 @@ startPlatform simulateEffect config initialPath testSetup =
                                                         newEffect
                                                         100
                                             in
-                                            Advanced (makePhase processedWrapped) Nothing
+                                            Advanced (makePhase processedWrapped) Nothing []
 
                                         _ ->
                                             AdvanceError "Failed to resolve route data after HTTP simulation"
@@ -1090,7 +1262,8 @@ startPlatform simulateEffect config initialPath testSetup =
                             Advanced
                                 (Resolving
                                     (Resolver
-                                        { advance =
+                                        { kind = BackendResolver
+                                        , advance =
                                             \_ sim ->
                                                 continueDataWithBt wrappedModel makePhase (applySimToBt sim bt)
                                         , pendingDescription =
@@ -1103,6 +1276,7 @@ startPlatform simulateEffect config initialPath testSetup =
                                     )
                                 )
                                 Nothing
+                                []
 
                         BackendTaskTest.TestError errMsg ->
                             AdvanceError errMsg
@@ -1288,6 +1462,41 @@ Use this before `simulateHttpGet` to verify the right request was made.
 ensurePendingHttpGet : String -> ProgramTest model msg -> ProgramTest model msg
 ensurePendingHttpGet url (ProgramTest state) =
     ensurePendingRequest "ensurePendingHttpGet" (\r -> r.method == "GET" && r.url == url) url (ProgramTest state)
+
+
+{-| Assert how many pending GET requests currently target the given URL.
+This is useful for verifying that stale background reloads were canceled
+before you simulate the remaining response.
+
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.ensurePendingHttpGetCount "https://api.example.com/user" 1
+
+-}
+ensurePendingHttpGetCount : String -> Int -> ProgramTest model msg -> ProgramTest model msg
+ensurePendingHttpGetCount url expectedCount (ProgramTest state) =
+    let
+        actualCount =
+            gatherAllPendingRequestDetails state
+                |> List.filter (\request -> request.method == "GET" && request.url == url)
+                |> List.length
+    in
+    if actualCount == expectedCount then
+        ProgramTest state
+
+    else
+        ProgramTest
+            { state
+                | error =
+                    Just
+                        ("ensurePendingHttpGetCount \""
+                            ++ url
+                            ++ "\" expected "
+                            ++ String.fromInt expectedCount
+                            ++ " pending request(s), but found "
+                            ++ String.fromInt actualCount
+                            ++ "."
+                        )
+            }
 
 
 {-| Assert that a POST request to the given URL is currently pending.
@@ -1923,59 +2132,102 @@ clickButton buttonText (ProgramTest state) =
                                 buttonQuery =
                                     allButtons |> Query.first
 
+                                formQuery : Query.Single msg
+                                formQuery =
+                                    query
+                                        |> Query.find
+                                            [ Selector.tag "form"
+                                            , Selector.containing
+                                                [ Selector.tag "button"
+                                                , Selector.containing [ Selector.text buttonText ]
+                                                ]
+                                            ]
+
                                 eventResult : Result String msg
                                 eventResult =
                                     buttonQuery
                                         |> Event.simulate Event.click
                                         |> Event.toResult
 
-                                -- Try form submit first (goes through form library's
-                                -- onSubmit pipeline, correctly setting useFetcher).
-                                formSubmitResult : Result String msg
-                                formSubmitResult =
-                                    let
-                                        formQuery =
-                                            query
-                                                |> Query.find
-                                                    [ Selector.tag "form"
-                                                    , Selector.containing
-                                                        [ Selector.tag "button"
-                                                        , Selector.containing [ Selector.text buttonText ]
-                                                        ]
-                                                    ]
-                                    in
-                                    formQuery
-                                        |> Event.simulate
-                                            ( "submit"
-                                            , Encode.object
-                                                [ ( "currentTarget"
-                                                  , Encode.object
-                                                        [ ( "method", Encode.string "POST" )
-                                                        , ( "action", Encode.string "" )
-                                                        , ( "id", Encode.null )
-                                                        ]
-                                                  )
-                                                ]
-                                            )
-                                        |> Event.toResult
-                            in
-                            case formSubmitResult of
-                                Ok msg ->
-                                    applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") Interaction (Just (ByTagAndText "button" buttonText)) msg (ProgramTest state)
+                                label =
+                                    "clickButton \"" ++ buttonText ++ "\""
 
-                                Err _ ->
+                                targetSelector =
+                                    Just (ByTagAndText "button" buttonText)
+                            in
+                            case extractFormSubmission ready formQuery buttonQuery of
+                                Ok (Just submission) ->
+                                    case
+                                        formQuery
+                                            |> Event.simulate ( "submit", submitEventPayload submission )
+                                            |> Event.toResult
+                                    of
+                                        Ok msg ->
+                                            applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
+
+                                        Err _ ->
+                                            case ready.onFormSubmit of
+                                                Just onFormSubmit ->
+                                                    applyMsgWithLabel
+                                                        label
+                                                        Interaction
+                                                        targetSelector
+                                                        (onFormSubmit
+                                                            { formId = submission.formId
+                                                            , action = submission.action
+                                                            , fields = submission.fields
+                                                            , method = submission.method
+                                                            , useFetcher = False
+                                                            }
+                                                        )
+                                                        (ProgramTest state)
+
+                                                Nothing ->
+                                                    case eventResult of
+                                                        Ok msg ->
+                                                            applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
+
+                                                        Err clickErr ->
+                                                            ProgramTest
+                                                                { state
+                                                                    | error =
+                                                                        Just
+                                                                            (label
+                                                                                ++ " failed: no form submit handler or click handler found.\n"
+                                                                                ++ clickErr
+                                                                            )
+                                                                }
+
+                                Ok Nothing ->
                                     case eventResult of
                                         Ok msg ->
-                                            applyMsgWithLabel ("clickButton \"" ++ buttonText ++ "\"") Interaction (Just (ByTagAndText "button" buttonText)) msg (ProgramTest state)
+                                            applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
 
                                         Err clickErr ->
                                             ProgramTest
                                                 { state
                                                     | error =
                                                         Just
-                                                            ("clickButton \""
-                                                                ++ buttonText
-                                                                ++ "\" failed: no form submit handler or click handler found.\n"
+                                                            (label
+                                                                ++ " failed: no form submit handler or click handler found.\n"
+                                                                ++ clickErr
+                                                            )
+                                                }
+
+                                Err formErr ->
+                                    case eventResult of
+                                        Ok msg ->
+                                            applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
+
+                                        Err clickErr ->
+                                            ProgramTest
+                                                { state
+                                                    | error =
+                                                        Just
+                                                            (label
+                                                                ++ " failed: could not prepare form submission.\n"
+                                                                ++ formErr
+                                                                ++ "\n\n"
                                                                 ++ clickErr
                                                             )
                                                 }
@@ -2069,27 +2321,12 @@ clickButtonWith selectors (ProgramTest state) =
                                 buttonQuery =
                                     query |> Query.find buttonSelectors
 
-                                -- Try form submit first (goes through form library's
-                                -- onSubmit pipeline, correctly setting useFetcher).
-                                formSubmitResult =
+                                formQuery =
                                     query
                                         |> Query.find
                                             [ Selector.tag "form"
                                             , Selector.containing buttonSelectors
                                             ]
-                                        |> Event.simulate
-                                            ( "submit"
-                                            , Encode.object
-                                                [ ( "currentTarget"
-                                                  , Encode.object
-                                                        [ ( "method", Encode.string "POST" )
-                                                        , ( "action", Encode.string "" )
-                                                        , ( "id", Encode.null )
-                                                        ]
-                                                  )
-                                                ]
-                                            )
-                                        |> Event.toResult
 
                                 clickResult =
                                     buttonQuery
@@ -2102,11 +2339,49 @@ clickButtonWith selectors (ProgramTest state) =
                                 targetSelector =
                                     Just (BySelectors (PSelector.toAssertionSelectors selectors))
                             in
-                            case formSubmitResult of
-                                Ok msg ->
-                                    applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
+                            case extractFormSubmission ready formQuery buttonQuery of
+                                Ok (Just submission) ->
+                                    case
+                                        formQuery
+                                            |> Event.simulate ( "submit", submitEventPayload submission )
+                                            |> Event.toResult
+                                    of
+                                        Ok msg ->
+                                            applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
 
-                                Err _ ->
+                                        Err _ ->
+                                            case ready.onFormSubmit of
+                                                Just onFormSubmit ->
+                                                    applyMsgWithLabel
+                                                        label
+                                                        Interaction
+                                                        targetSelector
+                                                        (onFormSubmit
+                                                            { formId = submission.formId
+                                                            , action = submission.action
+                                                            , fields = submission.fields
+                                                            , method = submission.method
+                                                            , useFetcher = False
+                                                            }
+                                                        )
+                                                        (ProgramTest state)
+
+                                                Nothing ->
+                                                    case clickResult of
+                                                        Ok msg ->
+                                                            applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
+
+                                                        Err errMsg ->
+                                                            ProgramTest
+                                                                { state
+                                                                    | error =
+                                                                        Just
+                                                                            ("clickButtonWith failed: no form submit handler or click handler found.\n"
+                                                                                ++ errMsg
+                                                                            )
+                                                                }
+
+                                Ok Nothing ->
                                     case clickResult of
                                         Ok msg ->
                                             applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
@@ -2117,6 +2392,23 @@ clickButtonWith selectors (ProgramTest state) =
                                                     | error =
                                                         Just
                                                             ("clickButtonWith failed: no form submit handler or click handler found.\n"
+                                                                ++ errMsg
+                                                            )
+                                                }
+
+                                Err formErr ->
+                                    case clickResult of
+                                        Ok msg ->
+                                            applyMsgWithLabel label Interaction targetSelector msg (ProgramTest state)
+
+                                        Err errMsg ->
+                                            ProgramTest
+                                                { state
+                                                    | error =
+                                                        Just
+                                                            ("clickButtonWith failed: could not prepare form submission.\n"
+                                                                ++ formErr
+                                                                ++ "\n\n"
                                                                 ++ errMsg
                                                             )
                                                 }
@@ -2953,7 +3245,7 @@ resolveBackendTask simulate (ProgramTest state) =
                                             ProgramTest
                                                 { state
                                                     | phase = pendingPhase
-                                                    , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
+                                                    , pendingFetcherEffects = mergePendingResolvers state.pendingFetcherEffects updateResult.fetcherResolvers
                                                     , lastReadyModel = Just updateResult.model
                                                     , snapshots =
                                                         state.snapshots
@@ -2983,7 +3275,7 @@ resolveBackendTask simulate (ProgramTest state) =
                                             ProgramTest
                                                 { state
                                                     | phase = Ready newReady
-                                                    , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
+                                                    , pendingFetcherEffects = mergePendingResolvers state.pendingFetcherEffects updateResult.fetcherResolvers
                                                     , snapshots =
                                                         state.snapshots
                                                             ++ [ makeSnapshot "resolveBackendTask" EffectResolution Nothing [] newReady state.modelToString state.fetcherExtractor updatedLog ]
@@ -3529,11 +3821,59 @@ withModelInspector fn (ProgramTest state) =
 -- INTERNAL HELPERS
 
 
+mergePendingResolvers : List (Resolver model msg) -> List (Resolver model msg) -> List (Resolver model msg)
+mergePendingResolvers existing newResolvers =
+    let
+        shouldDropBackgroundResolvers : Bool
+        shouldDropBackgroundResolvers =
+            newResolvers
+                |> List.any
+                    (\resolver ->
+                        case resolverKind resolver of
+                            FetcherResolver ->
+                                True
+
+                            BackgroundReloadResolver ->
+                                True
+
+                            BackendResolver ->
+                                False
+                    )
+
+        filteredExisting =
+            if shouldDropBackgroundResolvers then
+                existing
+                    |> List.filter
+                        (\resolver ->
+                            resolverKind resolver /= BackgroundReloadResolver
+                        )
+
+            else
+                existing
+    in
+    filteredExisting ++ newResolvers
+
+
+resolverKind : Resolver model msg -> ResolverKind
+resolverKind (Resolver resolver) =
+    resolver.kind
+
+
+asBackgroundReloadResolver : Phase model msg -> Maybe (Resolver model msg)
+asBackgroundReloadResolver phase =
+    case phase of
+        Resolving (Resolver resolver) ->
+            Just (Resolver { resolver | kind = BackgroundReloadResolver })
+
+        Ready _ ->
+            Nothing
+
+
 {-| Try advancing a resolver with a simulation. Returns Ok ProgramTest
 on success, Err on AdvanceError.
 -}
-advanceResolver : NetworkSource -> Maybe model -> Simulation -> State model msg -> Resolver model msg -> Result String (ProgramTest model msg)
-advanceResolver source maybeModel sim state (Resolver resolver) =
+advanceResolver : NetworkSource -> Maybe model -> List (Resolver model msg) -> Simulation -> State model msg -> Resolver model msg -> Result String (ProgramTest model msg)
+advanceResolver source maybeModel remainingPendingResolvers sim state (Resolver resolver) =
     let
         simInfo =
             case sim of
@@ -3592,7 +3932,7 @@ advanceResolver source maybeModel sim state (Resolver resolver) =
                 state.networkLog ++ [ networkEntry ]
     in
     case resolver.advance maybeModel sim of
-        Advanced newPhase maybeIntermediateModel ->
+        Advanced newPhase maybeIntermediateModel additionalResolvers ->
             let
                 snapshot =
                     case newPhase of
@@ -3606,6 +3946,7 @@ advanceResolver source maybeModel sim state (Resolver resolver) =
                 (ProgramTest
                     { state
                         | phase = newPhase
+                        , pendingFetcherEffects = mergePendingResolvers remainingPendingResolvers additionalResolvers
                         , snapshots = state.snapshots ++ snapshot
                         , networkLog = updatedLog
                         , lastReadyModel =
@@ -3622,9 +3963,9 @@ advanceResolver source maybeModel sim state (Resolver resolver) =
             Err errMsg
 
 
-advanceResolverOrError : NetworkSource -> Maybe model -> Simulation -> State model msg -> Resolver model msg -> ProgramTest model msg
-advanceResolverOrError source maybeModel sim state resolver =
-    case advanceResolver source maybeModel sim state resolver of
+advanceResolverOrError : NetworkSource -> Maybe model -> List (Resolver model msg) -> Simulation -> State model msg -> Resolver model msg -> ProgramTest model msg
+advanceResolverOrError source maybeModel remainingPendingResolvers sim state resolver =
+    case advanceResolver source maybeModel remainingPendingResolvers sim state resolver of
         Ok programTest ->
             programTest
 
@@ -3648,28 +3989,24 @@ applySimulation sim (ProgramTest state) =
                     -- happen when mutation and data responses share the same JSON shape).
                     case ( state.pendingFetcherEffects, state.lastReadyModel ) of
                         ( ((Resolver _) as fetcherResolver) :: restFetchers, Just currentModel ) ->
-                            case advanceResolver Backend (Just currentModel) sim state fetcherResolver of
+                            case advanceResolver Backend (Just currentModel) restFetchers sim state fetcherResolver of
                                 Ok (ProgramTest newState) ->
-                                    -- Fetcher advanced. The stale data reload is superseded.
-                                    ProgramTest { newState | pendingFetcherEffects = restFetchers }
+                                    ProgramTest newState
 
                                 Err _ ->
                                     -- Fetcher didn't accept this sim. Try the main resolver.
-                                    advanceResolverOrError Backend Nothing sim state resolver
+                                    advanceResolverOrError Backend Nothing state.pendingFetcherEffects sim state resolver
 
                         _ ->
-                            advanceResolverOrError Backend Nothing sim state resolver
+                            advanceResolverOrError Backend Nothing state.pendingFetcherEffects sim state resolver
 
                 Ready ready ->
                     -- No navigation/action HTTP pending. Check for pending fetcher effects first.
                     case state.pendingFetcherEffects of
                         ((Resolver _) as fetcherResolver) :: restFetchers ->
-                            case advanceResolver Backend (Just ready.model) sim state fetcherResolver of
+                            case advanceResolver Backend (Just ready.model) restFetchers sim state fetcherResolver of
                                 Ok (ProgramTest newState) ->
-                                    ProgramTest
-                                        { newState
-                                            | pendingFetcherEffects = restFetchers
-                                        }
+                                    ProgramTest newState
 
                                 Err errMsg ->
                                     ProgramTest { state | error = Just ("Fetcher effect resolution failed:\n\n" ++ errMsg) }
@@ -3701,7 +4038,7 @@ applySimulation sim (ProgramTest state) =
                                                     ProgramTest
                                                         { state
                                                             | phase = pendingPhase
-                                                            , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
+                                                            , pendingFetcherEffects = mergePendingResolvers state.pendingFetcherEffects updateResult.fetcherResolvers
                                                             , lastReadyModel = Just updateResult.model
                                                             , snapshots =
                                                                 state.snapshots
@@ -3730,7 +4067,7 @@ applySimulation sim (ProgramTest state) =
                                                     ProgramTest
                                                         { state
                                                             | phase = Ready newReady
-                                                            , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
+                                                            , pendingFetcherEffects = mergePendingResolvers state.pendingFetcherEffects updateResult.fetcherResolvers
                                                             , snapshots =
                                                                 state.snapshots
                                                                     ++ [ makeSnapshot stepLabel EffectResolution Nothing [] newReady state.modelToString state.fetcherExtractor updatedLog ]
@@ -3809,7 +4146,7 @@ applySimulationToUrl targetUrl sim (ProgramTest state) =
                 Resolving ((Resolver resolverRecord) as resolver) ->
                     if List.member targetUrl resolverRecord.pendingUrls then
                         -- Phase resolver matches the URL
-                        advanceResolverOrError Backend Nothing sim state resolver
+                        advanceResolverOrError Backend Nothing state.pendingFetcherEffects sim state resolver
 
                     else
                         -- Phase resolver doesn't match. Search pendingFetcherEffects.
@@ -3817,9 +4154,9 @@ applySimulationToUrl targetUrl sim (ProgramTest state) =
                             Just ( matchedResolver, restFetchers ) ->
                                 case state.lastReadyModel of
                                     Just currentModel ->
-                                        case advanceResolver Backend (Just currentModel) sim state matchedResolver of
+                                        case advanceResolver Backend (Just currentModel) restFetchers sim state matchedResolver of
                                             Ok (ProgramTest newState) ->
-                                                ProgramTest { newState | pendingFetcherEffects = restFetchers }
+                                                ProgramTest newState
 
                                             Err errMsg ->
                                                 ProgramTest { state | error = Just errMsg }
@@ -3844,12 +4181,9 @@ applySimulationToUrl targetUrl sim (ProgramTest state) =
                 Ready ready ->
                     case findResolverByUrl targetUrl state.pendingFetcherEffects of
                         Just ( matchedResolver, restFetchers ) ->
-                            case advanceResolver Backend (Just ready.model) sim state matchedResolver of
+                            case advanceResolver Backend (Just ready.model) restFetchers sim state matchedResolver of
                                 Ok (ProgramTest newState) ->
-                                    ProgramTest
-                                        { newState
-                                            | pendingFetcherEffects = restFetchers
-                                        }
+                                    ProgramTest newState
 
                                 Err errMsg ->
                                     ProgramTest { state | error = Just ("Fetcher effect resolution failed:\n\n" ++ errMsg) }
@@ -3968,7 +4302,7 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                             ProgramTest
                                 { state
                                     | phase = pendingPhase
-                                    , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
+                                    , pendingFetcherEffects = mergePendingResolvers state.pendingFetcherEffects updateResult.fetcherResolvers
                                     , lastReadyModel = Just updateResult.model
                                     , snapshots =
                                         state.snapshots
@@ -4010,7 +4344,7 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                                     ProgramTest
                                         { state
                                             | phase = pendingPhase
-                                            , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
+                                            , pendingFetcherEffects = mergePendingResolvers state.pendingFetcherEffects updateResult.fetcherResolvers
                                             , lastReadyModel = Just autoResolved.model
                                             , snapshots =
                                                 state.snapshots
@@ -4022,7 +4356,7 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                                     ProgramTest
                                         { state
                                             | phase = Ready newReady
-                                            , pendingFetcherEffects = state.pendingFetcherEffects ++ updateResult.fetcherResolvers
+                                            , pendingFetcherEffects = mergePendingResolvers state.pendingFetcherEffects updateResult.fetcherResolvers
                                             , snapshots =
                                                 state.snapshots
                                                     ++ [ makeSnapshot label kind target [] newReady state.modelToString state.fetcherExtractor updatedLog ]
@@ -4305,7 +4639,8 @@ resolveDataPhase bt initFn viewFn updateFn =
                     in
                     Resolving
                         (Resolver
-                            { advance = \_ _ -> AdvanceError (errInfo.title ++ ": " ++ errInfo.body)
+                            { kind = BackendResolver
+                            , advance = \_ _ -> AdvanceError (errInfo.title ++ ": " ++ errInfo.body)
                             , pendingDescription =
                                 "Data BackendTask failed with FatalError:\n\n"
                                     ++ errInfo.title
@@ -4319,7 +4654,8 @@ resolveDataPhase bt initFn viewFn updateFn =
         BackendTaskTest.Running runningState ->
             Resolving
                 (Resolver
-                    { advance =
+                    { kind = BackendResolver
+                    , advance =
                         \_ sim ->
                             let
                                 newBt : BackendTaskTest.BackendTaskTest data
@@ -4337,7 +4673,7 @@ resolveDataPhase bt initFn viewFn updateFn =
                                         SimCustom portName resp ->
                                             BackendTaskTest.simulateCustom portName resp bt
                             in
-                            Advanced (resolveDataPhase newBt initFn viewFn updateFn) Nothing
+                            Advanced (resolveDataPhase newBt initFn viewFn updateFn) Nothing []
                     , pendingDescription =
                         stillRunningDescription runningState.pendingRequests
                     , pendingUrls =
@@ -4350,7 +4686,8 @@ resolveDataPhase bt initFn viewFn updateFn =
         BackendTaskTest.TestError msg ->
             Resolving
                 (Resolver
-                    { advance = \_ _ -> AdvanceError msg
+                    { kind = BackendResolver
+                    , advance = \_ _ -> AdvanceError msg
                     , pendingDescription = msg
                     , pendingUrls = []
                     , pendingRequestDetails = []
@@ -4425,6 +4762,37 @@ Forces a failure directly on the element to get its HTML.
 -}
 extractAttributeFromElement : String -> Query.Single msg -> Result String String
 extractAttributeFromElement attrName element =
+    extractHtmlFromElement element
+        |> Result.andThen
+            (\html ->
+                let
+                    jsName =
+                        case attrName of
+                            "for" ->
+                                "htmlFor"
+
+                            "class" ->
+                                "className"
+
+                            other ->
+                                other
+                in
+                case findSubstringBetween (attrName ++ "=\"") "\"" html of
+                    Just value ->
+                        Ok value
+
+                    Nothing ->
+                        case findSubstringBetween (jsName ++ "=\"") "\"" html of
+                            Just value ->
+                                Ok value
+
+                            Nothing ->
+                                Err ("Could not find " ++ attrName ++ " attribute")
+            )
+
+
+extractHtmlFromElement : Query.Single msg -> Result String String
+extractHtmlFromElement element =
     let
         marker =
             "elm-pages-internal-attr-extract-impossible-marker-7f3a9b2e"
@@ -4434,27 +4802,13 @@ extractAttributeFromElement attrName element =
             element
                 |> Query.has [ Selector.text marker ]
 
-        jsName =
-            case attrName of
-                "for" ->
-                    "htmlFor"
-
-                "class" ->
-                    "className"
-
-                other ->
-                    other
     in
     case Test.Runner.getFailureReason forcedFailure of
         Nothing ->
             Err "Internal error: forced failure did not fail"
 
         Just reason ->
-            -- For a Query.Single (already found element), the description
-            -- contains the element HTML after "Query.has". Parse from the
-            -- last Query.find section, or fall back to full description.
             let
-                -- Look for the innermost Query.find result
                 sections =
                     String.split "▼ Query.find" reason.description
 
@@ -4464,17 +4818,438 @@ extractAttributeFromElement attrName element =
                         |> List.head
                         |> Maybe.withDefault reason.description
             in
-            case findSubstringBetween (attrName ++ "=\"") "\"" lastSection of
-                Just value ->
-                    Ok value
+            findSubstringBetween "\n\n    1)  " "\n\n" lastSection
+                |> Maybe.map String.trim
+                |> Result.fromMaybe "Could not extract element HTML from query failure output"
 
-                Nothing ->
-                    case findSubstringBetween (jsName ++ "=\"") "\"" lastSection of
-                        Just value ->
-                            Ok value
 
-                        Nothing ->
-                            Err ("Could not find " ++ attrName ++ " attribute")
+type alias BrowserFormSubmission =
+    { action : String
+    , fields : List ( String, String )
+    , formId : String
+    , method : Form.Method
+    , submitterName : Maybe String
+    , submitterValue : Maybe String
+    }
+
+
+extractFormSubmission :
+    ReadyState model msg
+    -> Query.Single msg
+    -> Query.Single msg
+    -> Result String (Maybe BrowserFormSubmission)
+extractFormSubmission ready formQuery buttonQuery =
+    let
+        formExists : Bool
+        formExists =
+            formQuery
+                |> Query.has []
+                |> (\expectation -> getFailureMessage expectation == Nothing)
+    in
+    if not formExists then
+        Ok Nothing
+
+    else
+        Result.map2 Tuple.pair
+            (extractHtmlFromElement formQuery)
+            (extractHtmlFromElement buttonQuery)
+            |> Result.andThen
+                (\( formHtml, buttonHtml ) ->
+                    let
+                        formAttributes =
+                            parseTagAttributes "form" formHtml
+
+                        buttonAttributes =
+                            parseTagAttributes "button" buttonHtml
+
+                        buttonType =
+                            buttonAttributes
+                                |> Dict.get "type"
+                                |> Maybe.withDefault "submit"
+                                |> String.toLower
+
+                        currentBrowserUrl =
+                            ready.getBrowserUrl
+                                |> Maybe.map (\toUrl -> toUrl ready.model)
+                                |> Maybe.withDefault ""
+                    in
+                    if buttonType == "button" || buttonType == "reset" || attributeIsTruthy "disabled" buttonAttributes then
+                        Ok Nothing
+
+                    else
+                        let
+                            method =
+                                buttonAttributes
+                                    |> Dict.get "formmethod"
+                                    |> Maybe.withDefault
+                                        (formAttributes
+                                            |> Dict.get "method"
+                                            |> Maybe.withDefault "get"
+                                        )
+                                    |> formMethodFromString
+
+                            action =
+                                buttonAttributes
+                                    |> Dict.get "formaction"
+                                    |> Maybe.withDefault
+                                        (formAttributes
+                                            |> Dict.get "action"
+                                            |> Maybe.withDefault ""
+                                        )
+                                    |> resolveFormAction currentBrowserUrl
+
+                            baseFields =
+                                parseFormFields formHtml
+
+                            fields =
+                                case buttonSubmitField buttonAttributes of
+                                    Just field ->
+                                        baseFields ++ [ field ]
+
+                                    Nothing ->
+                                        baseFields
+                        in
+                        Ok
+                            (Just
+                                { action = action
+                                , fields = fields
+                                , formId = formAttributes |> Dict.get "id" |> Maybe.withDefault "form"
+                                , method = method
+                                , submitterName = Dict.get "name" buttonAttributes
+                                , submitterValue = Dict.get "value" buttonAttributes
+                                }
+                            )
+                )
+
+
+submitEventPayload : BrowserFormSubmission -> Encode.Value
+submitEventPayload submission =
+    let
+        formObject =
+            Encode.object
+                [ ( "method", Encode.string (Form.methodToString submission.method) )
+                , ( "action", Encode.string submission.action )
+                , ( "id", Encode.string submission.formId )
+                ]
+
+        submitterEntries =
+            [ Just ( "form", formObject )
+            , submission.submitterName |> Maybe.map (\name -> ( "name", Encode.string name ))
+            , submission.submitterValue |> Maybe.map (\value -> ( "value", Encode.string value ))
+            ]
+                |> List.filterMap identity
+    in
+    Encode.object
+        [ ( "fields", encodeFormFieldTuples submission.fields )
+        , ( "currentTarget", formObject )
+        , ( "submitter", Encode.object submitterEntries )
+        ]
+
+
+encodeFormFieldTuples : List ( String, String ) -> Encode.Value
+encodeFormFieldTuples fields =
+    fields
+        |> List.map
+            (\( name, value ) ->
+                Encode.list identity [ Encode.string name, Encode.string value ]
+            )
+        |> Encode.list identity
+
+
+parseFormFields : String -> List ( String, String )
+parseFormFields formHtml =
+    parseInputFields formHtml
+        ++ parseTextareaFields formHtml
+        ++ parseSelectFields formHtml
+
+
+parseInputFields : String -> List ( String, String )
+parseInputFields formHtml =
+    regexMatches inputTagPattern formHtml
+        |> List.filterMap
+            (\match ->
+                match.submatches
+                    |> List.head
+                    |> Maybe.andThen identity
+                    |> Maybe.map parseHtmlAttributes
+                    |> Maybe.andThen inputFieldFromAttributes
+            )
+
+
+parseTextareaFields : String -> List ( String, String )
+parseTextareaFields formHtml =
+    regexMatches textareaPattern formHtml
+        |> List.filterMap
+            (\match ->
+                case match.submatches of
+                    [ Just attributesChunk, Just value ] ->
+                        parseHtmlAttributes attributesChunk
+                            |> textareaFieldFromAttributes (String.trim value)
+
+                    _ ->
+                        Nothing
+            )
+
+
+parseSelectFields : String -> List ( String, String )
+parseSelectFields formHtml =
+    regexMatches selectPattern formHtml
+        |> List.filterMap
+            (\match ->
+                case match.submatches of
+                    [ Just attributesChunk, Just optionsHtml ] ->
+                        parseHtmlAttributes attributesChunk
+                            |> selectFieldFromAttributes optionsHtml
+
+                    _ ->
+                        Nothing
+            )
+
+
+parseTagAttributes : String -> String -> Dict.Dict String String
+parseTagAttributes tagName html =
+    findSubstringBetween ("<" ++ tagName) ">" html
+        |> Maybe.map parseHtmlAttributes
+        |> Maybe.withDefault Dict.empty
+
+
+parseHtmlAttributes : String -> Dict.Dict String String
+parseHtmlAttributes attributesChunk =
+    regexMatches attributePattern attributesChunk
+        |> List.foldl
+            (\match attrs ->
+                case match.submatches of
+                    Just name :: maybeValue :: [] ->
+                        Dict.insert name (Maybe.withDefault "true" maybeValue) attrs
+
+                    _ ->
+                        attrs
+            )
+            Dict.empty
+
+
+inputFieldFromAttributes : Dict.Dict String String -> Maybe ( String, String )
+inputFieldFromAttributes attributes =
+    let
+        inputType =
+            attributes
+                |> Dict.get "type"
+                |> Maybe.withDefault "text"
+                |> String.toLower
+    in
+    if attributeIsTruthy "disabled" attributes then
+        Nothing
+
+    else
+        case Dict.get "name" attributes of
+            Nothing ->
+                Nothing
+
+            Just name ->
+                case inputType of
+                    "submit" ->
+                        Nothing
+
+                    "button" ->
+                        Nothing
+
+                    "reset" ->
+                        Nothing
+
+                    "file" ->
+                        Nothing
+
+                    "checkbox" ->
+                        if attributeIsTruthy "checked" attributes then
+                            Just ( name, Dict.get "value" attributes |> Maybe.withDefault "on" )
+
+                        else
+                            Nothing
+
+                    "radio" ->
+                        if attributeIsTruthy "checked" attributes then
+                            Just ( name, Dict.get "value" attributes |> Maybe.withDefault "on" )
+
+                        else
+                            Nothing
+
+                    _ ->
+                        Just ( name, Dict.get "value" attributes |> Maybe.withDefault "" )
+
+
+textareaFieldFromAttributes : String -> Dict.Dict String String -> Maybe ( String, String )
+textareaFieldFromAttributes value attributes =
+    if attributeIsTruthy "disabled" attributes then
+        Nothing
+
+    else
+        Dict.get "name" attributes
+            |> Maybe.map (\name -> ( name, value ))
+
+
+selectFieldFromAttributes : String -> Dict.Dict String String -> Maybe ( String, String )
+selectFieldFromAttributes optionsHtml attributes =
+    if attributeIsTruthy "disabled" attributes then
+        Nothing
+
+    else
+        Dict.get "name" attributes
+            |> Maybe.andThen
+                (\name ->
+                    selectedOptionValue optionsHtml
+                        |> Maybe.map (\value -> ( name, value ))
+                )
+
+
+selectedOptionValue : String -> Maybe String
+selectedOptionValue optionsHtml =
+    let
+        options =
+            regexMatches optionPattern optionsHtml
+                |> List.filterMap
+                    (\match ->
+                        case match.submatches of
+                            [ Just attributesChunk, Just optionText ] ->
+                                Just
+                                    { attributes = parseHtmlAttributes attributesChunk
+                                    , text = String.trim optionText
+                                    }
+
+                            _ ->
+                                Nothing
+                    )
+
+        selectedOption =
+            options
+                |> List.filter (\option -> attributeIsTruthy "selected" option.attributes)
+                |> List.head
+                |> (\maybeSelected ->
+                        case maybeSelected of
+                            Just _ ->
+                                maybeSelected
+
+                            Nothing ->
+                                List.head options
+                   )
+    in
+    selectedOption
+        |> Maybe.map
+            (\option ->
+                option.attributes
+                    |> Dict.get "value"
+                    |> Maybe.withDefault option.text
+            )
+
+
+buttonSubmitField : Dict.Dict String String -> Maybe ( String, String )
+buttonSubmitField attributes =
+    if attributeIsTruthy "disabled" attributes then
+        Nothing
+
+    else
+        let
+            buttonType =
+                attributes
+                    |> Dict.get "type"
+                    |> Maybe.withDefault "submit"
+                    |> String.toLower
+        in
+        if buttonType == "submit" then
+            Dict.get "name" attributes
+                |> Maybe.map (\name -> ( name, Dict.get "value" attributes |> Maybe.withDefault "" ))
+
+        else
+            Nothing
+
+
+attributeIsTruthy : String -> Dict.Dict String String -> Bool
+attributeIsTruthy name attributes =
+    case Dict.get name attributes of
+        Just "false" ->
+            False
+
+        Just _ ->
+            True
+
+        Nothing ->
+            False
+
+
+resolveFormAction : String -> String -> String
+resolveFormAction currentBrowserUrl rawAction =
+    let
+        trimmedAction =
+            String.trim rawAction
+    in
+    if trimmedAction == "" then
+        currentBrowserUrl
+
+    else if String.startsWith "http://" trimmedAction || String.startsWith "https://" trimmedAction then
+        trimmedAction
+
+    else
+        case Url.fromString currentBrowserUrl of
+            Just currentUrl ->
+                if String.startsWith "/" trimmedAction then
+                    { currentUrl | path = trimmedAction, query = Nothing, fragment = Nothing }
+                        |> Url.toString
+
+                else
+                    currentBrowserUrl
+                        |> String.split "/"
+                        |> List.reverse
+                        |> List.drop 1
+                        |> List.reverse
+                        |> (::) trimmedAction
+                        |> String.join "/"
+
+            Nothing ->
+                trimmedAction
+
+
+formMethodFromString : String -> Form.Method
+formMethodFromString rawMethod =
+    case rawMethod |> String.toUpper of
+        "POST" ->
+            Form.Post
+
+        _ ->
+            Form.Get
+
+
+attributePattern : Regex.Regex
+attributePattern =
+    Regex.fromString "([A-Za-z_:][-A-Za-z0-9_:.]*)(?:=\"([^\"]*)\")?"
+        |> Maybe.withDefault Regex.never
+
+
+inputTagPattern : Regex.Regex
+inputTagPattern =
+    Regex.fromString "<input([^>]*)>"
+        |> Maybe.withDefault Regex.never
+
+
+textareaPattern : Regex.Regex
+textareaPattern =
+    Regex.fromString "<textarea([^>]*)>([\\s\\S]*?)</textarea>"
+        |> Maybe.withDefault Regex.never
+
+
+selectPattern : Regex.Regex
+selectPattern =
+    Regex.fromString "<select([^>]*)>([\\s\\S]*?)</select>"
+        |> Maybe.withDefault Regex.never
+
+
+optionPattern : Regex.Regex
+optionPattern =
+    Regex.fromString "<option([^>]*)>([\\s\\S]*?)</option>"
+        |> Maybe.withDefault Regex.never
+
+
+regexMatches : Regex.Regex -> String -> List Regex.Match
+regexMatches pattern input =
+    Regex.find pattern input
 
 
 extractHrefFromLink : Query.Single msg -> List Selector.Selector -> Result String String
@@ -4580,7 +5355,7 @@ for FrozenViewsReady), pending HTTP (data BackendTask needs simulation), or
 a fatal error.
 -}
 type InitialDataResult sharedData dataResponse
-    = InitialDataResolved BackendTaskTest.VirtualFS Bytes.Bytes
+    = InitialDataResolved BackendTaskTest.VirtualFS CookieJar Bytes.Bytes
     | InitialDataPending BackendTaskTest.VirtualFS sharedData (BackendTaskTest.BackendTaskTest dataResponse)
     | InitialDataError String
 
@@ -4589,7 +5364,7 @@ type InitialDataResult sharedData dataResponse
 Platform.FrozenViewsReady. Returns InitialDataPending when route data has
 pending HTTP that needs simulation.
 -}
-resolveInitialData config initialUrl initialPath virtualFs =
+resolveInitialData config requestDefaults initialUrl initialPath initialCookieJar virtualFs =
     let
         ( vfs1, sharedResult ) =
             BackendTaskTest.resolveWithVirtualFs virtualFs config.sharedData
@@ -4616,17 +5391,21 @@ resolveInitialData config initialUrl initialPath virtualFs =
                     }
                         |> ResponseSketch.NotFound
                         |> encodeResponseWithPrefix config
-                        |> (\bytes -> InitialDataResolved vfs2 bytes)
+                        |> (\bytes -> InitialDataResolved vfs2 initialCookieJar bytes)
 
                 Ok Nothing ->
                     let
                         ( vfs3, dataBt ) =
                             BackendTaskTest.resolveWithVirtualFsPartial vfs2
-                                (config.data (platformTestRequest (Url.toString initialUrl) CookieJar.empty) initialRoute)
+                                (config.data (platformTestRequest requestDefaults (Url.toString initialUrl) initialCookieJar) initialRoute)
                     in
                     case dataBt of
                         BackendTaskTest.Done doneState ->
                             let
+                                updatedCookieJar : CookieJar
+                                updatedCookieJar =
+                                    cookieJarAfterPageResponse initialCookieJar doneState.result
+
                                 pageData =
                                     extractPageData config doneState.result
                             in
@@ -4637,7 +5416,7 @@ resolveInitialData config initialUrl initialPath virtualFs =
                                         resolvedSharedData
                                         Nothing
                                         |> encodeResponseWithPrefix config
-                                        |> (\bytes -> InitialDataResolved vfs3 bytes)
+                                        |> (\bytes -> InitialDataResolved vfs3 updatedCookieJar bytes)
 
                                 Nothing ->
                                     case doneState.result of
@@ -4646,7 +5425,7 @@ resolveInitialData config initialUrl initialPath virtualFs =
                                                 Just { location } ->
                                                     ResponseSketch.Redirect location
                                                         |> encodeResponseWithPrefix config
-                                                        |> (\bytes -> InitialDataResolved vfs3 bytes)
+                                                        |> (\bytes -> InitialDataResolved vfs3 updatedCookieJar bytes)
 
                                                 Nothing ->
                                                     InitialDataError ("Unexpected server response with status " ++ String.fromInt serverResponse.statusCode)
@@ -4662,7 +5441,7 @@ resolveInitialData config initialUrl initialPath virtualFs =
                                                 resolvedSharedData
                                                 Nothing
                                                 |> encodeResponseWithPrefix config
-                                                |> (\bytes -> InitialDataResolved vfs3 bytes)
+                                                |> (\bytes -> InitialDataResolved vfs3 updatedCookieJar bytes)
 
                                         _ ->
                                             InitialDataError "Failed to resolve route data"
@@ -4682,7 +5461,7 @@ virtual FS and subsequent data resolution sees the updated files.
 Returns (wrappedModel, trackedEffects) where wrappedModel contains both
 the Platform model and the updated virtual FS.
 -}
-processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd wrappedModel effect maxDepth =
+processEffectsWrapped config baseUrl requestDefaults makeReady makePlatformResolver handleUserCmd wrappedModel effect maxDepth =
     if maxDepth <= 0 then
         ( wrappedModel, [], [] )
 
@@ -4694,11 +5473,36 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
             Platform.ScrollToTop ->
                 ( wrappedModel, [], [] )
 
-            Platform.CancelRequest _ ->
-                -- No-op: in the real Platform, this calls Http.cancel to abort
-                -- in-flight data reloads. In tests, stale data reloads are handled
-                -- by applySimulation's fetcher-first priority in the Resolving branch.
-                ( wrappedModel, [], [] )
+            Platform.CancelRequest transitionKey ->
+                let
+                    currentPlatformModel =
+                        wrappedModel.platformModel
+
+                    isCurrentTransition : Bool
+                    isCurrentTransition =
+                        case currentPlatformModel.transition of
+                            Just ( currentTransitionKey, _ ) ->
+                                currentTransitionKey == transitionKey
+
+                            Nothing ->
+                                False
+
+                    updatedWrappedModel =
+                        if isCurrentTransition then
+                            { wrappedModel
+                                | platformModel =
+                                    { currentPlatformModel
+                                        | transition = Nothing
+                                        , pendingFrozenViewsUrl = Nothing
+                                    }
+                                , pendingDataError = Nothing
+                                , pendingDataPath = Nothing
+                            }
+
+                        else
+                            wrappedModel
+                in
+                ( updatedWrappedModel, [], [] )
 
             Platform.RunCmd _ ->
                 ( wrappedModel, [], [] )
@@ -4719,6 +5523,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                 in
                 processEffectsWrapped config
                     baseUrl
+                    requestDefaults
                     makeReady
                     makePlatformResolver
                     handleUserCmd
@@ -4736,6 +5541,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                 in
                 processEffectsWrapped config
                     baseUrl
+                    requestDefaults
                     makeReady
                     makePlatformResolver
                     handleUserCmd
@@ -4770,13 +5576,13 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                         let
                             actionRequest =
                                 Internal.Request.Request
-                                    { time = Time.millisToPosix 0
+                                    { time = requestDefaults.requestTime
                                     , method = "POST"
                                     , body = Just formBody
                                     , rawUrl = baseUrl ++ path
                                     , rawHeaders =
-                                        Dict.singleton "content-type"
-                                            "application/x-www-form-urlencoded"
+                                        requestHeaders requestDefaults
+                                            [ ( "content-type", "application/x-www-form-urlencoded" ) ]
                                     , cookies = CookieJar.toDict wrappedModel.cookieJar
                                     }
 
@@ -4836,6 +5642,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                                                 in
                                                 processEffectsWrapped config
                                                     baseUrl
+                                                    requestDefaults
                                                     makeReady
                                                     makePlatformResolver
                                                     handleUserCmd
@@ -4856,7 +5663,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                                             ( vfsAfterData, dataResult ) =
                                                 BackendTaskTest.resolveWithVirtualFs
                                                     vfsAfterAction
-                                                    (config.data (platformTestRequest (Url.toString fetchUrl) updatedJar) route)
+                                                    (config.data (platformTestRequest requestDefaults (Url.toString fetchUrl) updatedJar) route)
                                         in
                                         case extractPageData config dataResult of
                                             Just pageData ->
@@ -4872,6 +5679,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                                                 in
                                                 processEffectsWrapped config
                                                     baseUrl
+                                                    requestDefaults
                                                     makeReady
                                                     makePlatformResolver
                                                     handleUserCmd
@@ -4916,7 +5724,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                             ( vfsAfterData, dataResult ) =
                                 BackendTaskTest.resolveWithVirtualFs
                                     wrappedModel.virtualFs
-                                    (config.data (platformTestRequest (Url.toString fetchUrl) wrappedModel.cookieJar) route)
+                                    (config.data (platformTestRequest requestDefaults (Url.toString fetchUrl) wrappedModel.cookieJar) route)
                         in
                         case dataResult of
                             Ok (ServerResponse serverResponse) ->
@@ -4941,6 +5749,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                                         in
                                         processEffectsWrapped config
                                             baseUrl
+                                            requestDefaults
                                             makeReady
                                             makePlatformResolver
                                             handleUserCmd
@@ -4992,6 +5801,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                                         in
                                         processEffectsWrapped config
                                             baseUrl
+                                            requestDefaults
                                             makeReady
                                             makePlatformResolver
                                             handleUserCmd
@@ -5017,6 +5827,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                     in
                     processEffectsWrapped config
                         baseUrl
+                        requestDefaults
                         makeReady
                         makePlatformResolver
                         handleUserCmd
@@ -5042,13 +5853,13 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
 
                         actionRequest =
                             Internal.Request.Request
-                                { time = Time.millisToPosix 0
+                                { time = requestDefaults.requestTime
                                 , method = "POST"
                                 , body = Just submitBody
                                 , rawUrl = baseUrl ++ submitPath
                                 , rawHeaders =
-                                    Dict.singleton "content-type"
-                                        "application/x-www-form-urlencoded"
+                                    requestHeaders requestDefaults
+                                        [ ( "content-type", "application/x-www-form-urlencoded" ) ]
                                 , cookies = CookieJar.toDict wrappedModel.cookieJar
                                 }
 
@@ -5111,6 +5922,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                                             in
                                             processEffectsWrapped config
                                                 baseUrl
+                                                requestDefaults
                                                 makeReady
                                                 makePlatformResolver
                                                 handleUserCmd
@@ -5131,7 +5943,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                                         ( vfsAfterData, dataResult ) =
                                             BackendTaskTest.resolveWithVirtualFs
                                                 vfsAfterAction
-                                                (config.data (platformTestRequest (Url.toString submitUrl) updatedJar) submitRoute)
+                                                (config.data (platformTestRequest requestDefaults (Url.toString submitUrl) updatedJar) submitRoute)
                                     in
                                     case extractPageData config dataResult of
                                         Just pageData ->
@@ -5147,6 +5959,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                                             in
                                             processEffectsWrapped config
                                                 baseUrl
+                                                requestDefaults
                                                 makeReady
                                                 makePlatformResolver
                                                 handleUserCmd
@@ -5196,13 +6009,13 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
 
                     actionRequest =
                         Internal.Request.Request
-                            { time = Time.millisToPosix 0
+                            { time = requestDefaults.requestTime
                             , method = "POST"
                             , body = Just (encodeFormFields formData.fields)
                             , rawUrl = baseUrl ++ (formData.action |> nonEmpty wrappedModel.platformModel.url.path)
                             , rawHeaders =
-                                Dict.singleton "content-type"
-                                    "application/x-www-form-urlencoded"
+                                requestHeaders requestDefaults
+                                    [ ( "content-type", "application/x-www-form-urlencoded" ) ]
                             , cookies = CookieJar.toDict wrappedModel.cookieJar
                             }
 
@@ -5227,7 +6040,8 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
 
                             fetcherResolver =
                                 Resolver
-                                    { advance =
+                                    { kind = FetcherResolver
+                                    , advance =
                                         \maybeCurrentModel sim ->
                                             let
                                                 advancedBt =
@@ -5281,22 +6095,67 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                                                         ( processedWrapped2, _, _ ) =
                                                             processEffectsWrapped config
                                                                 baseUrl
+                                                                requestDefaults
                                                                 makeReady
                                                                 makePlatformResolver
                                                                 handleUserCmd
                                                                 { platformModel = modelAfterComplete, virtualFs = effectiveModel.virtualFs, cookieJar = updatedJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
                                                                 completeEffect
                                                                 100
-                                                    in
-                                                    case processedWrapped2.pendingDataError of
-                                                        Just _ ->
-                                                            -- Data reload needs HTTP. Delegate to makePlatformResolver.
-                                                            -- Pass intermediate model so lastReadyModel stays current
-                                                            -- when stale data reloads are superseded by later fetchers.
-                                                            Advanced (makePlatformResolver config baseUrl processedWrapped2 makeReady) (Just processedWrapped2)
 
-                                                        Nothing ->
-                                                            Advanced (Ready (makeReady processedWrapped2)) Nothing
+                                                        backgroundReloadResolvers =
+                                                            let
+                                                                fetchUrl =
+                                                                    processedWrapped2.platformModel.url
+
+                                                                routeForReload =
+                                                                    config.urlToRoute fetchUrl
+
+                                                                platformModelToReload =
+                                                                    processedWrapped2.platformModel
+
+                                                                reloadingPlatformModel =
+                                                                    { platformModelToReload | pendingFrozenViewsUrl = Just fetchUrl }
+
+                                                                reloadingWrappedModel =
+                                                                    { processedWrapped2
+                                                                        | platformModel = reloadingPlatformModel
+                                                                        , pendingDataError =
+                                                                            Just "Route data has a pending BackendTask that needs a simulated response:"
+                                                                        , pendingDataPath =
+                                                                            Just (normalizePath (Url.toString fetchUrl))
+                                                                    }
+
+                                                                ( _, pendingDataBt ) =
+                                                                    BackendTaskTest.resolveWithVirtualFsPartial
+                                                                        processedWrapped2.virtualFs
+                                                                        (config.data (platformTestRequest requestDefaults (Url.toString fetchUrl) processedWrapped2.cookieJar) routeForReload)
+                                                            in
+                                                            case pendingDataBt of
+                                                                BackendTaskTest.Running _ ->
+                                                                    makePlatformResolver config baseUrl reloadingWrappedModel makeReady
+                                                                        |> asBackgroundReloadResolver
+                                                                        |> Maybe.map List.singleton
+                                                                        |> Maybe.withDefault []
+
+                                                                _ ->
+                                                                    []
+                                                    in
+                                                    if List.isEmpty backgroundReloadResolvers then
+                                                        Advanced (Ready (makeReady processedWrapped2)) Nothing []
+
+                                                    else
+                                                            let
+                                                                readyWhileReloading =
+                                                                    { processedWrapped2
+                                                                        | pendingDataError = Nothing
+                                                                        , pendingDataPath = Nothing
+                                                                    }
+                                                            in
+                                                            Advanced
+                                                                (Ready (makeReady readyWhileReloading))
+                                                                (Just readyWhileReloading)
+                                                                backgroundReloadResolvers
 
                                                 Err errMsg ->
                                                     AdvanceError ("Fetcher action resolution failed:\n\n" ++ errMsg)
@@ -5369,6 +6228,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                         in
                         processEffectsWrapped config
                             baseUrl
+                            requestDefaults
                             makeReady
                             makePlatformResolver
                             handleUserCmd
@@ -5381,7 +6241,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
                     (\eff ( wm, effs, resolvers ) ->
                         let
                             ( newWm, newEffs, newResolvers ) =
-                                processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCmd wm eff (maxDepth - 1)
+                                processEffectsWrapped config baseUrl requestDefaults makeReady makePlatformResolver handleUserCmd wm eff (maxDepth - 1)
                         in
                         ( newWm, effs ++ newEffs, resolvers ++ newResolvers )
                     )
@@ -5392,7 +6252,7 @@ processEffectsWrapped config baseUrl makeReady makePlatformResolver handleUserCm
 {-| Process a `SimulatedEffect` produced by the user's `testPerform` function.
 Called when `processEffectsWrapped` encounters a `Platform.UserCmd`.
 -}
-processSimulatedEffect config baseUrl makeReady makePlatformResolver handleUserCmd wrappedModel simEffect maxDepth =
+processSimulatedEffect config baseUrl requestDefaults makeReady makePlatformResolver handleUserCmd wrappedModel simEffect maxDepth =
     if maxDepth <= 0 then
         ( wrappedModel, [], [] )
 
@@ -5406,7 +6266,7 @@ processSimulatedEffect config baseUrl makeReady makePlatformResolver handleUserC
                     (\eff ( wm, effs, resolvers ) ->
                         let
                             ( newWm, newEffs, newResolvers ) =
-                                processSimulatedEffect config baseUrl makeReady makePlatformResolver handleUserCmd wm eff (maxDepth - 1)
+                                processSimulatedEffect config baseUrl requestDefaults makeReady makePlatformResolver handleUserCmd wm eff (maxDepth - 1)
                         in
                         ( newWm, effs ++ newEffs, resolvers ++ newResolvers )
                     )
@@ -5423,6 +6283,7 @@ processSimulatedEffect config baseUrl makeReady makePlatformResolver handleUserC
                 in
                 processEffectsWrapped config
                     baseUrl
+                    requestDefaults
                     makeReady
                     makePlatformResolver
                     handleUserCmd
@@ -5463,6 +6324,7 @@ processSimulatedEffect config baseUrl makeReady makePlatformResolver handleUserC
                 in
                 processEffectsWrapped config
                     baseUrl
+                    requestDefaults
                     makeReady
                     makePlatformResolver
                     handleUserCmd
@@ -5573,16 +6435,37 @@ extractSetCookieHeaders response =
             []
 
 
-platformTestRequest : String -> CookieJar -> Internal.Request.Request
-platformTestRequest url cookieJar =
+cookieJarAfterPageResponse : CookieJar -> Result error (PageServerResponse data errorPage) -> CookieJar
+cookieJarAfterPageResponse cookieJar result =
+    case result of
+        Ok response ->
+            cookieJar
+                |> CookieJar.applySetCookieHeaders (extractSetCookieHeaders response)
+
+        Err _ ->
+            cookieJar
+
+
+platformTestRequest : RequestDefaults -> String -> CookieJar -> Internal.Request.Request
+platformTestRequest requestDefaults url cookieJar =
     Internal.Request.Request
-        { time = Time.millisToPosix 0
+        { time = requestDefaults.requestTime
         , method = "GET"
         , body = Nothing
         , rawUrl = url
-        , rawHeaders = Dict.empty
+        , rawHeaders = requestDefaults.headers
         , cookies = CookieJar.toDict cookieJar
         }
+
+
+requestHeaders : RequestDefaults -> List ( String, String ) -> Dict.Dict String String
+requestHeaders requestDefaults extraHeaders =
+    extraHeaders
+        |> List.foldl
+            (\( name, value ) headers ->
+                Dict.insert (String.toLower name) value headers
+            )
+            requestDefaults.headers
 
 
 {-| Encode a ResponseSketch with the frozen views prefix that decodeResponse
@@ -5760,7 +6643,7 @@ requestDetailsFromRequests =
 When Done, processes the action result (redirect, render, etc).
 When Running, creates a Resolver capturing the BackendTaskTest for subsequent sims.
 -}
-continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd continueDataWithBt wrappedModel fetchUrl makePhase bt =
+continueActionWithBt config baseUrl requestDefaults makeReady makePlatformResolver handleUserCmd continueDataWithBt wrappedModel fetchUrl makePhase bt =
     let
         vfsAfterAction =
             BackendTaskTest.extractVirtualFs bt
@@ -5796,6 +6679,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                                 ( processedWrapped, _, _ ) =
                                     processEffectsWrapped config
                                         baseUrl
+                                        requestDefaults
                                         makeReady
                                         makePlatformResolver
                                         handleUserCmd
@@ -5817,7 +6701,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                                         ( _, dataBt ) =
                                             BackendTaskTest.resolveWithVirtualFsPartial
                                                 processedWrapped.virtualFs
-                                                (config.data (platformTestRequest (Url.toString dataFetchUrl) processedWrapped.cookieJar) dataRoute)
+                                                (config.data (platformTestRequest requestDefaults (Url.toString dataFetchUrl) processedWrapped.cookieJar) dataRoute)
 
                                         dataMakePhase m =
                                             makePhase m
@@ -5825,7 +6709,8 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                                     Advanced
                                         (Resolving
                                             (Resolver
-                                                { advance =
+                                                { kind = BackendResolver
+                                                , advance =
                                                     \_ sim ->
                                                         continueDataWithBt processedWrapped dataMakePhase (applySimToBt sim dataBt)
                                                 , pendingDescription =
@@ -5836,12 +6721,13 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                                             )
                                         )
                                         Nothing
+                                        []
 
                                 Nothing ->
-                                    Advanced (makePhase processedWrapped) Nothing
+                                    Advanced (makePhase processedWrapped) Nothing []
 
                         Nothing ->
-                            Advanced (makePhase { wrappedModel | virtualFs = vfsAfterAction, cookieJar = updatedJar, pendingActionBody = Nothing }) Nothing
+                            Advanced (makePhase { wrappedModel | virtualFs = vfsAfterAction, cookieJar = updatedJar, pendingActionBody = Nothing }) Nothing []
 
                 Ok ((RenderPage _ actionData) as renderResponse) ->
                     let
@@ -5853,7 +6739,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                         ( vfsAfterData, dataResult ) =
                             BackendTaskTest.resolveWithVirtualFs
                                 vfsAfterAction
-                                (config.data (platformTestRequest (Url.toString fetchUrl) updatedJar) route)
+                                (config.data (platformTestRequest requestDefaults (Url.toString fetchUrl) updatedJar) route)
                     in
                     case extractPageData config dataResult of
                         Just pageData ->
@@ -5870,6 +6756,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                                 ( processedWrapped, _, _ ) =
                                     processEffectsWrapped config
                                         baseUrl
+                                        requestDefaults
                                         makeReady
                                         makePlatformResolver
                                         handleUserCmd
@@ -5877,7 +6764,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                                         newEffect
                                         100
                             in
-                            Advanced (makePhase processedWrapped) Nothing
+                            Advanced (makePhase processedWrapped) Nothing []
 
                         Nothing ->
                             -- Data after action needs HTTP. Create a data Resolver.
@@ -5908,12 +6795,13 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                                 ( _, dataBt ) =
                                     BackendTaskTest.resolveWithVirtualFsPartial
                                         vfsAfterData
-                                        (config.data (platformTestRequest (Url.toString fetchUrl) updatedJar) route)
+                                        (config.data (platformTestRequest requestDefaults (Url.toString fetchUrl) updatedJar) route)
                             in
                             Advanced
                                 (Resolving
                                     (Resolver
-                                        { advance =
+                                        { kind = BackendResolver
+                                        , advance =
                                             \_ sim2 ->
                                                 continueDataWithBt updatedModel makePhase (applySimToBt sim2 dataBt)
                                         , pendingDescription =
@@ -5924,6 +6812,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                                     )
                                 )
                                 Nothing
+                                []
 
                 Err fatalErr ->
                     let
@@ -5933,15 +6822,16 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                     AdvanceError ("Route action failed: " ++ errInfo.title ++ ": " ++ errInfo.body)
 
                 _ ->
-                    Advanced (makePhase { wrappedModel | virtualFs = vfsAfterAction, pendingActionBody = Nothing }) Nothing
+                    Advanced (makePhase { wrappedModel | virtualFs = vfsAfterAction, pendingActionBody = Nothing }) Nothing []
 
         BackendTaskTest.Running runningState ->
             Advanced
                 (Resolving
                     (Resolver
-                        { advance =
+                        { kind = BackendResolver
+                        , advance =
                             \_ sim ->
-                                continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd continueDataWithBt wrappedModel fetchUrl makePhase (applySimToBt sim bt)
+                                continueActionWithBt config baseUrl requestDefaults makeReady makePlatformResolver handleUserCmd continueDataWithBt wrappedModel fetchUrl makePhase (applySimToBt sim bt)
                         , pendingDescription =
                             stillRunningDescription runningState.pendingRequests
                         , pendingUrls =
@@ -5952,6 +6842,7 @@ continueActionWithBt config baseUrl makeReady makePlatformResolver handleUserCmd
                     )
                 )
                 Nothing
+                []
 
         BackendTaskTest.TestError errMsg ->
             AdvanceError errMsg

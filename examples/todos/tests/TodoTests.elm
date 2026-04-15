@@ -1,5 +1,6 @@
 module TodoTests exposing
     ( fullLoginFlowTest
+    , preSignedInSessionTest
     , toggleAllTest
     , clearCompletedTest
     , optimisticUiTest
@@ -38,6 +39,12 @@ baseSetup =
     BackendTaskTest.init
         |> BackendTaskTest.withEnv "SESSION_SECRET" "test-secret"
         |> BackendTaskTest.withTime (Time.millisToPosix 1000)
+
+
+loginActionSetup =
+    baseSetup
+        |> BackendTaskTest.withEnv "TODOS_SEND_GRID_KEY" "test-send-grid-key"
+        |> BackendTaskTest.withEnv "BASE_URL" "https://localhost:1234"
 
 
 decryptResponse : Encode.Value
@@ -92,17 +99,32 @@ allCompleteTodosResponse =
         ]
 
 
-loginAndLoadTodos : Encode.Value -> TestApp.ProgramTest -> TestApp.ProgramTest
-loginAndLoadTodos todos =
+finishMagicLinkLoginAndLoadTodos : Encode.Value -> TestApp.ProgramTest -> TestApp.ProgramTest
+finishMagicLinkLoginAndLoadTodos todos =
     PagesProgram.simulateCustom "decrypt" decryptResponse
         >> PagesProgram.simulateCustom "findOrCreateUserAndSession" sessionIdResponse
         >> PagesProgram.simulateCustom "getTodosBySession" todos
 
 
-startLoggedInWithTodos : Encode.Value -> TestApp.ProgramTest
-startLoggedInWithTodos todos =
+startAfterMagicLinkWithTodos : Encode.Value -> TestApp.ProgramTest
+startAfterMagicLinkWithTodos todos =
     TestApp.start "/login?magic=fake-hash" baseSetup
-        |> loginAndLoadTodos todos
+        |> finishMagicLinkLoginAndLoadTodos todos
+
+
+startSignedInWithTodos : Encode.Value -> TestApp.ProgramTest
+startSignedInWithTodos todos =
+    TestApp.start "/"
+        (baseSetup
+            |> BackendTaskTest.withSessionCookie
+                { name = "mysession"
+                , session =
+                    BackendTaskTest.session
+                        |> BackendTaskTest.withSessionValue "sessionId" "test-session-id"
+                }
+        )
+        |> PagesProgram.ensurePendingCustom "getTodosBySession"
+        |> PagesProgram.simulateCustom "getTodosBySession" todos
 
 
 
@@ -172,15 +194,32 @@ gets redirected to the todo list, and sees their items.
 -}
 fullLoginFlowTest : TestApp.ProgramTest
 fullLoginFlowTest =
-    startLoggedInWithTodos todosResponse
-        |> PagesProgram.ensureBrowserUrl
-            (\url ->
-                if String.contains "/login" url then
-                    Expect.fail ("Should have redirected away from /login, but still at: " ++ url)
+    TestApp.start "/login" loginActionSetup
+        |> PagesProgram.ensureViewHas [ PSelector.text "You aren't logged in yet." ]
+        |> PagesProgram.fillIn "login" "email" "user@example.com"
+        |> PagesProgram.clickButton "Login"
+        |> PagesProgram.ensurePendingCustom "encrypt"
+        |> PagesProgram.simulateCustom "encrypt" (Encode.string "fake-hash")
+        |> PagesProgram.ensurePendingHttpPost "https://api.sendgrid.com/v3/mail/send"
+        |> PagesProgram.simulateHttpPost "https://api.sendgrid.com/v3/mail/send" Encode.null
+        |> PagesProgram.ensureViewHas [ PSelector.text "Check your inbox for your login link!" ]
+        |> PagesProgram.navigateTo "/login?magic=fake-hash"
+        |> finishMagicLinkLoginAndLoadTodos todosResponse
+        |> PagesProgram.ensureViewHas [ PSelector.text "todos" ]
+        |> PagesProgram.ensureBrowserUrl (Expect.equal "https://localhost:1234/")
+        |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Write tests" ]
+        |> PagesProgram.ensureViewHas [ PSelector.value "Walk the dog" ]
+        |> ensureItemsLeft 2
 
-                else
-                    Expect.pass
-            )
+
+{-| Start with a pre-signed session cookie and go straight to the
+authenticated route without exercising the login link flow.
+-}
+preSignedInSessionTest : TestApp.ProgramTest
+preSignedInSessionTest =
+    startSignedInWithTodos todosResponse
+        |> PagesProgram.ensureBrowserUrl (Expect.equal "https://localhost:1234/")
         |> PagesProgram.ensureViewHas [ PSelector.text "todos" ]
         |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
         |> PagesProgram.ensureViewHas [ PSelector.value "Write tests" ]
@@ -192,7 +231,7 @@ fullLoginFlowTest =
 -}
 toggleAllTest : TestApp.ProgramTest
 toggleAllTest =
-    startLoggedInWithTodos todosResponse
+    startAfterMagicLinkWithTodos todosResponse
         |> ensureItemsLeft 2
         |> PagesProgram.clickButton "❯"
         |> PagesProgram.simulateCustom "checkAllTodos" Encode.null
@@ -204,7 +243,7 @@ toggleAllTest =
 -}
 clearCompletedTest : TestApp.ProgramTest
 clearCompletedTest =
-    startLoggedInWithTodos todosResponse
+    startAfterMagicLinkWithTodos todosResponse
         |> ensureItemsLeft 2
         |> PagesProgram.ensureViewHas [ PSelector.value "Write tests" ]
         |> PagesProgram.clickButton "Clear completed"
@@ -266,7 +305,7 @@ optimisticUiTest =
                     ]
                 ]
     in
-    startLoggedInWithTodos todosResponse
+    startAfterMagicLinkWithTodos todosResponse
         |> ensureItemsLeft 2
         |> PagesProgram.group "Rapid-fire user actions"
             (deleteTodo "Write tests"
@@ -308,7 +347,7 @@ optimisticUiTest =
 -}
 createTodoTest : TestApp.ProgramTest
 createTodoTest =
-    startLoggedInWithTodos todosResponse
+    startAfterMagicLinkWithTodos todosResponse
         |> ensureItemsLeft 2
         -- Type a new todo description and submit
         |> PagesProgram.fillIn "new-item-0" "description" "Buy eggs"
@@ -348,7 +387,7 @@ createTodoTest =
 -}
 editTodoTest : TestApp.ProgramTest
 editTodoTest =
-    startLoggedInWithTodos todosResponse
+    startAfterMagicLinkWithTodos todosResponse
         |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
         -- Edit "Buy milk" -> "Buy oat milk"
         |> PagesProgram.fillIn "edit-todo-1" "description" "Buy oat milk"
@@ -396,7 +435,7 @@ and verify the correct items are shown/hidden.
 -}
 filterViewTest : TestApp.ProgramTest
 filterViewTest =
-    startLoggedInWithTodos todosResponse
+    startAfterMagicLinkWithTodos todosResponse
         -- All view: all 3 items visible
         |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
         |> PagesProgram.ensureViewHas [ PSelector.value "Write tests" ]

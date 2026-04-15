@@ -192,6 +192,70 @@ suite =
                     |> PagesProgram.clickButton "Increment"
                     |> PagesProgram.done
                     |> expectFailContaining "https://api.example.com/increment"
+        , test "GET form submission updates the URL and page data" <|
+            \() ->
+                TestApp.start "/get-form" BackendTaskTest.init
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Current page: 1" ]
+                    |> PagesProgram.clickButton "Page 2"
+                    |> PagesProgram.ensureBrowserUrl
+                        (\url -> url |> Expect.equal "https://localhost:1234/get-form?page=2")
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Current page: 2" ]
+                    |> PagesProgram.done
+        , test "raw cross-route logout form clears the session and redirects" <|
+            \() ->
+                TestApp.start "/login"
+                    (BackendTaskTest.init
+                        |> BackendTaskTest.withEnv "SESSION_SECRET" "test-secret"
+                    )
+                    |> PagesProgram.fillIn "form" "name" "Alice"
+                    |> PagesProgram.clickButton "Log in"
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Hello Alice!" ]
+                    |> PagesProgram.clickButton "Logout"
+                    |> PagesProgram.ensureBrowserUrl
+                        (\url -> url |> Expect.equal "https://localhost:1234/login")
+                    |> PagesProgram.ensureViewHas [ PSelector.text "You have been successfully logged out." ]
+                    |> PagesProgram.done
+        , test "fetcher background reload keeps view assertions live" <|
+            \() ->
+                TestApp.start "/fetcher-http" BackendTaskTest.init
+                    |> PagesProgram.simulateHttpGet
+                        "https://api.example.com/count"
+                        (Encode.object [ ( "count", Encode.int 0 ) ])
+                    |> PagesProgram.clickButton "Increment"
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
+                    |> PagesProgram.simulateHttpGetTo
+                        "https://api.example.com/increment"
+                        (Encode.object [])
+                    |> PagesProgram.ensurePendingHttpGet "https://api.example.com/count"
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
+                    |> PagesProgram.simulateHttpGetTo
+                        "https://api.example.com/count"
+                        (Encode.object [ ( "count", Encode.int 1 ) ])
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
+                    |> PagesProgram.done
+        , test "stale fetcher reloads are canceled when a newer submission starts" <|
+            \() ->
+                TestApp.start "/fetcher-http" BackendTaskTest.init
+                    |> PagesProgram.simulateHttpGet
+                        "https://api.example.com/count"
+                        (Encode.object [ ( "count", Encode.int 0 ) ])
+                    |> PagesProgram.clickButton "Increment"
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
+                    |> PagesProgram.simulateHttpGet
+                        "https://api.example.com/increment"
+                        (Encode.object [])
+                    |> PagesProgram.ensurePendingHttpGet "https://api.example.com/count"
+                    |> PagesProgram.clickButton "Increment"
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
+                    |> PagesProgram.simulateHttpGet
+                        "https://api.example.com/increment"
+                        (Encode.object [])
+                    |> PagesProgram.ensurePendingHttpGetCount "https://api.example.com/count" 1
+                    |> PagesProgram.simulateHttpGet
+                        "https://api.example.com/count"
+                        (Encode.object [ ( "count", Encode.int 2 ) ])
+                    |> PagesProgram.ensureViewHas [ PSelector.text "Count: 2" ]
+                    |> PagesProgram.done
         ]
 
 
