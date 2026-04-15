@@ -1,7 +1,9 @@
 module Test.BackendTask exposing
-    ( fromBackendTask, fromBackendTaskWith
+    ( TestSetup
+    , fromBackendTask, fromBackendTaskWith
     , fromScript, fromScriptWith
     , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
+    , withTimeZoneConfig, withTimeZoneByNameConfig
     , withDb, withDbSetTo
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateHttpStream
     , HttpError(..)
@@ -142,7 +144,13 @@ simulate it.
 
 Seed initial state before the test starts running.
 
-@docs init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
+@docs TestSetup, init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
+
+## Companion Module Helpers
+
+Low-level setup helpers used by [`Test.BackendTask.Time`](Test-BackendTask-Time).
+
+@docs withTimeZoneConfig, withTimeZoneByNameConfig
 
 @docs withDb, withDbSetTo
 
@@ -212,7 +220,7 @@ import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Json.Encode as Encode
 import Pages.Script exposing (Script)
-import Test.BackendTask.Internal as Internal exposing (BackendTaskTest, SessionSeed, TestSetup)
+import Test.BackendTask.Internal as Internal exposing (BackendTaskTest, SessionSeed)
 import Time
 
 
@@ -239,6 +247,18 @@ type Output
 type HttpError
     = NetworkError
     | Timeout
+
+
+{-| The virtual environment used to start a backend task test.
+
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
+
+-}
+type TestSetup
+    = TestSetup Internal.TestSetup
 
 
 
@@ -282,8 +302,8 @@ Use this when you need to seed initial files, environment variables, or other st
 
 -}
 fromBackendTaskWith : TestSetup -> BackendTask FatalError a -> BackendTaskTest a
-fromBackendTaskWith =
-    Internal.fromBackendTaskWith
+fromBackendTaskWith (TestSetup setup) backendTask =
+    Internal.fromBackendTaskWith setup backendTask
 
 
 {-| Start a test from a [`Script`](Pages-Script#Script) with simulated CLI arguments.
@@ -316,8 +336,8 @@ fromScript =
 
 -}
 fromScriptWith : TestSetup -> List String -> Script -> BackendTaskTest ()
-fromScriptWith =
-    Internal.fromScriptWith
+fromScriptWith (TestSetup setup) args script =
+    Internal.fromScriptWith setup args script
 
 
 
@@ -328,7 +348,7 @@ fromScriptWith =
 -}
 init : TestSetup
 init =
-    Internal.init
+    TestSetup Internal.init
 
 
 {-| Seed a file into the virtual filesystem.
@@ -339,8 +359,8 @@ init =
 
 -}
 withFile : String -> String -> TestSetup -> TestSetup
-withFile =
-    Internal.withFile
+withFile path contents =
+    mapTestSetup (Internal.withFile path contents)
 
 
 {-| Seed a binary file into the virtual filesystem.
@@ -355,8 +375,8 @@ withFile =
 
 -}
 withBinaryFile : String -> Bytes -> TestSetup -> TestSetup
-withBinaryFile =
-    Internal.withBinaryFile
+withBinaryFile path bytes =
+    mapTestSetup (Internal.withBinaryFile path bytes)
 
 
 {-| Seed stdin content for stream pipelines that read from `Stream.stdin`.
@@ -366,8 +386,8 @@ withBinaryFile =
 
 -}
 withStdin : String -> TestSetup -> TestSetup
-withStdin =
-    Internal.withStdin
+withStdin stdin =
+    mapTestSetup (Internal.withStdin stdin)
 
 
 {-| Seed an environment variable for `BackendTask.Env.get` and `BackendTask.Env.expect`.
@@ -377,8 +397,8 @@ withStdin =
 
 -}
 withEnv : String -> String -> TestSetup -> TestSetup
-withEnv =
-    Internal.withEnv
+withEnv key value =
+    mapTestSetup (Internal.withEnv key value)
 
 
 {-| Set a fixed virtual time for `BackendTask.Time.now`. Without this, any use of
@@ -391,8 +411,8 @@ withEnv =
 
 -}
 withTime : Time.Posix -> TestSetup -> TestSetup
-withTime =
-    Internal.withTime
+withTime posix =
+    mapTestSetup (Internal.withTime posix)
 
 
 {-| Set a fixed request time for server-rendered route requests in
@@ -405,8 +425,8 @@ withTime =
 
 -}
 withRequestTime : Time.Posix -> TestSetup -> TestSetup
-withRequestTime =
-    Internal.withRequestTime
+withRequestTime posix =
+    mapTestSetup (Internal.withRequestTime posix)
 
 
 {-| Seed a request header for server-rendered route requests in
@@ -419,8 +439,8 @@ Header names are normalized to lowercase.
 
 -}
 withRequestHeader : String -> String -> TestSetup -> TestSetup
-withRequestHeader =
-    Internal.withRequestHeader
+withRequestHeader key value =
+    mapTestSetup (Internal.withRequestHeader key value)
 
 
 {-| Seed a cookie on the initial server-rendered request in
@@ -431,8 +451,8 @@ withRequestHeader =
 
 -}
 withRequestCookie : String -> String -> TestSetup -> TestSetup
-withRequestCookie =
-    Internal.withRequestCookie
+withRequestCookie key value =
+    mapTestSetup (Internal.withRequestCookie key value)
 
 
 {-| Start building a seeded session for [`withSessionCookie`](#withSessionCookie).
@@ -499,8 +519,8 @@ work with session values instead of raw signed cookie strings.
 
 -}
 withSessionCookie : { name : String, session : SessionSeed } -> TestSetup -> TestSetup
-withSessionCookie =
-    Internal.withSessionCookie
+withSessionCookie sessionCookie =
+    mapTestSetup (Internal.withSessionCookie sessionCookie)
 
 
 {-| Set a fixed random seed for `BackendTask.Random.int32` and `BackendTask.Random.generate`.
@@ -511,8 +531,8 @@ Without this, any use of `BackendTask.Random` will produce a test error with a h
 
 -}
 withRandomSeed : Int -> TestSetup -> TestSetup
-withRandomSeed =
-    Internal.withRandomSeed
+withRandomSeed seed =
+    mapTestSetup (Internal.withRandomSeed seed)
 
 
 {-| Register a command as available for `Script.which` and `Script.expectWhich`.
@@ -523,8 +543,43 @@ Commands not registered will return `Nothing` from `Script.which`.
 
 -}
 withWhich : String -> String -> TestSetup -> TestSetup
-withWhich =
-    Internal.withWhich
+withWhich command path =
+    mapTestSetup (Internal.withWhich command path)
+
+
+{-| Low-level helper used by [`Test.BackendTask.Time.withTimeZone`](Test-BackendTask-Time#withTimeZone).
+
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withTimeZoneConfig
+            { defaultOffset = 0, eras = [] }
+
+-}
+withTimeZoneConfig :
+    { defaultOffset : Int, eras : List { start : Int, offset : Int } }
+    -> TestSetup
+    -> TestSetup
+withTimeZoneConfig timeZone =
+    mapTestSetup (Internal.withTimeZone timeZone)
+
+
+{-| Low-level helper used by [`Test.BackendTask.Time.withTimeZoneByName`](Test-BackendTask-Time#withTimeZoneByName).
+
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withTimeZoneByNameConfig "America/Chicago"
+            { defaultOffset = -360, eras = [] }
+
+-}
+withTimeZoneByNameConfig :
+    String
+    -> { defaultOffset : Int, eras : List { start : Int, offset : Int } }
+    -> TestSetup
+    -> TestSetup
+withTimeZoneByNameConfig name timeZone =
+    mapTestSetup (Internal.withTimeZoneByName name timeZone)
 
 
 {-| Seed the virtual DB with the default seed value from the generated `testConfig`.
@@ -548,7 +603,7 @@ withDb :
     -> TestSetup
     -> TestSetup
 withDb config =
-    Internal.withDb config
+    mapTestSetup (Internal.withDb config)
 
 
 {-| Seed the virtual DB with a specific initial value.
@@ -566,7 +621,12 @@ withDbSetTo :
     -> TestSetup
     -> TestSetup
 withDbSetTo initialValue config =
-    Internal.withDbSetTo initialValue config
+    mapTestSetup (Internal.withDbSetTo initialValue config)
+
+
+mapTestSetup : (Internal.TestSetup -> Internal.TestSetup) -> TestSetup -> TestSetup
+mapTestSetup fn (TestSetup setup) =
+    TestSetup (fn setup)
 
 
 

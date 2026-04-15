@@ -25,7 +25,8 @@ To set the virtual time itself, see [`Test.BackendTask.withTime`](Test-BackendTa
 
 -}
 
-import Test.BackendTask.Internal as Internal exposing (TestSetup)
+import Test.BackendTask as BackendTaskTest exposing (TestSetup)
+import Test.BackendTask.Internal as Internal
 
 
 {-| Represents a time zone for use in tests with [`withTimeZone`](#withTimeZone) and
@@ -91,7 +92,7 @@ customTimeZone defaultOffset eras =
 -}
 withTimeZone : TimeZone -> TestSetup -> TestSetup
 withTimeZone (TimeZone tz) =
-    Internal.withTimeZone tz
+    BackendTaskTest.withTimeZoneConfig tz
 
 
 {-| Register a named time zone for `BackendTask.Time.zoneByName` and
@@ -107,4 +108,4 @@ withTimeZone (TimeZone tz) =
 -}
 withTimeZoneByName : String -> TimeZone -> TestSetup -> TestSetup
 withTimeZoneByName name (TimeZone tz) =
-    Internal.withTimeZoneByName name tz
+    BackendTaskTest.withTimeZoneByNameConfig name tz

@@ -161,7 +161,8 @@ import Dict exposing (Dict)
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Test as ElmTest
-import Test.BackendTask.Internal as BackendTaskTest
+import Test.BackendTask as BackendTaskTest
+import Test.BackendTask.Internal as BackendTaskTestInternal
 import Test.Runner
 import Time
 import Tui exposing (Context)
@@ -429,7 +430,7 @@ startAppWithContext :
 startAppWithContext context setup app =
     case
         BackendTaskTest.fromBackendTaskWith setup app.data
-            |> BackendTaskTest.toResult
+            |> BackendTaskTestInternal.toResult
     of
         Ok resolvedData ->
             startWithContext context
@@ -862,12 +863,15 @@ advanceTimeHelp targetTime tuiTest =
                                 msgs =
                                     Tui.Sub.routeEvents sub rawEvent
 
+                                advancedTuiTest : TuiTest model msg
+                                advancedTuiTest =
+                                    List.foldl (applyMsg label) (TuiTest stateWithClock) msgs
+
                                 label : String
                                 label =
                                     "advance " ++ String.fromInt fireTime ++ "ms"
                             in
-                            List.foldl (applyMsg label) (TuiTest stateWithClock) msgs
-                                |> advanceTimeHelp targetTime
+                            advanceTimeHelp targetTime advancedTuiTest
 
 
 
@@ -881,7 +885,7 @@ advanceTimeHelp targetTime tuiTest =
 — the same type that `Test.BackendTask` functions operate on.
 -}
 type alias BackendTaskSimulator msg =
-    BackendTaskTest.BackendTaskTest msg
+    BackendTaskTestInternal.BackendTaskTest msg
 
 
 {-| Resolve a pending `BackendTask` effect using the full `Test.BackendTask`
@@ -1675,7 +1679,7 @@ The simulation function takes the raw BackendTask and returns a BackendTaskTest
 that has been configured with the appropriate simulation.
 -}
 resolveNextEffect :
-    (BackendTask FatalError msg -> BackendTaskTest.BackendTaskTest msg)
+    (BackendTask FatalError msg -> BackendTaskTestInternal.BackendTaskTest msg)
     -> TuiTest model msg
     -> TuiTest model msg
 resolveNextEffect simulate tuiTest =
@@ -1702,7 +1706,7 @@ resolveNextEffect simulate tuiTest =
                                 testResult : Result String msg
                                 testResult =
                                     simulate bt
-                                        |> BackendTaskTest.toResult
+                                        |> BackendTaskTestInternal.toResult
                             in
                             case testResult of
                                 Ok msg ->
