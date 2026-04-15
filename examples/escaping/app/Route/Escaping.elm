@@ -176,5 +176,15 @@ view static sharedModel =
         , Html.node "style" [] [ Html.text "body > * { html & { display: none; } }" ]
         , snapshotComment "closing style tag in content must not break out of raw text context"
         , Html.node "style" [] [ Html.text "</style><img src=x onerror=alert('xss')>" ]
+        , snapshotComment "textarea value attribute is rendered as text content"
+        , Html.textarea [ Attr.value "my value" ] []
+        , snapshotComment "textarea value attribute with special characters is escaped as text content"
+        , Html.textarea [ Attr.value "<script>alert('xss')</script>" ] []
+        , snapshotComment "textarea with value attribute and other attributes"
+        , Html.textarea [ Attr.id "notes", Attr.value "some text", Attr.attribute "rows" "5" ] []
+        , snapshotComment "textarea without value attribute is unchanged"
+        , Html.textarea [] []
+        , snapshotComment "textarea with child text content and no value attribute"
+        , Html.textarea [] [ Html.text "child content" ]
         ]
     }
