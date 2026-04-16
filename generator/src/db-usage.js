@@ -11,13 +11,126 @@ import * as path from "node:path";
  * @returns {string[]}
  */
 function parseImports(source) {
+  const sourceWithoutComments = stripElmComments(source);
   const imports = [];
   const importRegex = /^\s*import\s+([A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*)\b/gm;
   let match;
-  while ((match = importRegex.exec(source)) !== null) {
+  while ((match = importRegex.exec(sourceWithoutComments)) !== null) {
     imports.push(match[1]);
   }
   return imports;
+}
+
+/**
+ * Remove Elm line and nested block comments while preserving line breaks.
+ * @param {string} source
+ * @returns {string}
+ */
+function stripElmComments(source) {
+  let result = "";
+  let i = 0;
+  let blockCommentDepth = 0;
+  let inLineComment = false;
+  let inString = false;
+  let inChar = false;
+
+  while (i < source.length) {
+    const current = source[i];
+    const next = source[i + 1];
+
+    if (inLineComment) {
+      if (current === "\n") {
+        inLineComment = false;
+        result += current;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (blockCommentDepth > 0) {
+      if (current === "{" && next === "-") {
+        blockCommentDepth += 1;
+        i += 2;
+        continue;
+      }
+
+      if (current === "-" && next === "}") {
+        blockCommentDepth -= 1;
+        i += 2;
+        continue;
+      }
+
+      if (current === "\n") {
+        result += current;
+      }
+
+      i += 1;
+      continue;
+    }
+
+    if (inString) {
+      result += current;
+      if (current === "\\" && next !== undefined) {
+        result += next;
+        i += 2;
+        continue;
+      }
+
+      if (current === '"') {
+        inString = false;
+      }
+
+      i += 1;
+      continue;
+    }
+
+    if (inChar) {
+      result += current;
+      if (current === "\\" && next !== undefined) {
+        result += next;
+        i += 2;
+        continue;
+      }
+
+      if (current === "'") {
+        inChar = false;
+      }
+
+      i += 1;
+      continue;
+    }
+
+    if (current === "-" && next === "-") {
+      inLineComment = true;
+      i += 2;
+      continue;
+    }
+
+    if (current === "{" && next === "-") {
+      blockCommentDepth = 1;
+      i += 2;
+      continue;
+    }
+
+    if (current === '"') {
+      inString = true;
+      result += current;
+      i += 1;
+      continue;
+    }
+
+    if (current === "'") {
+      inChar = true;
+      result += current;
+      i += 1;
+      continue;
+    }
+
+    result += current;
+    i += 1;
+  }
+
+  return result;
 }
 
 /**
@@ -107,4 +220,3 @@ export async function scriptUsesPagesDb({
 
   return false;
 }
-

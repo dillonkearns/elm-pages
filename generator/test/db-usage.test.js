@@ -111,5 +111,42 @@ value = text "ok"
 
     expect(result).toBe(false);
   });
-});
 
+  it("ignores Pages.Db imports that only appear inside doc comments", async () => {
+    writeElmJson(tmpDir, ["src"]);
+    fs.mkdirSync(path.join(tmpDir, "src", "Pages"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, "src", "Main.elm"),
+      `module Main exposing (run)
+
+import Pages.Script
+
+run = Pages.Script.value
+`
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, "src", "Pages", "Script.elm"),
+      `module Pages.Script exposing (value)
+
+{-| Configure the default database file path.
+
+    import Pages.Db
+    import Pages.Script as Script
+
+    run =
+        Script.value
+
+-}
+value = ()
+`
+    );
+
+    const result = await scriptUsesPagesDb({
+      projectDirectory: tmpDir,
+      sourceDirectory: path.join(tmpDir, "src"),
+      entryModuleName: "Main",
+    });
+
+    expect(result).toBe(false);
+  });
+});
