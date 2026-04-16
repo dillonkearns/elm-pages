@@ -8,10 +8,7 @@ module Tui.Sub exposing
     , decodeRawEvent, getInterests, getTickIntervals, routeEvents
     )
 
-{-| Subscriptions for TUI terminal events — keys, mouse, paste, resize, ticks.
-
-Unlike `Platform.Sub`, these are inspectable: the framework and test harness
-can see what events are subscribed to and route them accordingly.
+{-| Subscriptions for a [`Tui.Program`](Tui#Program).
 
     import Tui.Sub
 
@@ -35,7 +32,9 @@ can see what events are subscribed to and route them accordingly.
                         ( model, Effect.exit )
 
                     Tui.Sub.Arrow Tui.Sub.Up ->
-                        ( { model | count = model.count + 1 }, Effect.none )
+                        ( { model | count = model.count + 1 }
+                        , Effect.none
+                        )
 
                     _ ->
                         ( model, Effect.none )
@@ -167,7 +166,7 @@ type MouseButton
 -- SUB (opaque — constructors are private to this module)
 
 
-{-| A TUI subscription — declares which terminal events to listen for.
+{-| A TUI subscription.
 -}
 type Sub msg
     = SubNone
@@ -193,7 +192,7 @@ batch =
     SubBatch
 
 
-{-| Subscribe to keyboard events.
+{-| Subscribe to [keyboard events](#keyboard-events).
 -}
 onKeyPress : (KeyEvent -> msg) -> Sub msg
 onKeyPress =
@@ -208,13 +207,9 @@ onMouse =
     OnMouse
 
 
-{-| Subscribe to paste events. When the terminal has bracketed paste mode
-enabled, pasted text arrives as a single event rather than individual
-keypresses. Essential for text inputs — without this, pasting multi-line
-text triggers keybindings for each character.
-
-    Tui.Sub.onPaste GotPaste
-
+{-| Subscribe to paste events. You can receive paste events and
+choose how to handle it in your program (treating it as normal text,
+or as you sometimes see in TUIs, bracketed text).
 -}
 onPaste : (String -> msg) -> Sub msg
 onPaste =
@@ -237,8 +232,8 @@ onResize =
 
 
 {-| Periodic tick at the given interval in milliseconds. The message
-constructor receives the wall-clock time (`Time.Posix`) at which the tick
-actually fired — store it in your model and subtract from the previous tick
+constructor receives the wall-clock time ([`Time.Posix`](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix)) at which the tick
+actually fired. You can store it in your `Model` and subtract from the previous tick
 to compute smooth deltas for animations.
 
     import Time
@@ -253,11 +248,9 @@ to compute smooth deltas for animations.
             , Tui.Sub.everyMillis 1000 ClockTick
             ]
 
-Each subscribed interval runs independently — batching two `everyMillis`
-subs at different rates does not collapse them. Multiple subs at the same
-interval all fire on each tick. When the runtime is blocked for longer than
-the interval, catch-up fires once with the actual elapsed `Posix` — it does
-not rapid-fire the missed ticks.
+Each unique interval runs independently. When the runtime is blocked
+for longer than the interval, catch-up fires once with the actual elapsed
+`Posix` (it does not rapid-fire the missed ticks).
 
 -}
 everyMillis : Int -> (Posix -> msg) -> Sub msg
