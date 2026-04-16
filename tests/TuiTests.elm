@@ -513,13 +513,6 @@ suite =
                                         -- The ensureViewDoesNotHave should have set an error
                                         Expect.pass
                            )
-            , test "sendMsg works for simulating BackendTask results" <|
-                \() ->
-                    counterTest
-                        |> TuiTest.sendMsg (CounterKeyPressed { key = Tui.Sub.Character 'k', modifiers = [] })
-                        |> TuiTest.ensureViewHas "Count: 1"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
             ]
         , describe "TuiTest - onResize"
             [ test "startWithContext routes initial context through subscriptions" <|
@@ -612,7 +605,11 @@ suite =
                     starsTest
                         |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
-                        |> TuiTest.sendMsg (GotStars (Ok 0))
+                        |> TuiTest.resolveEffectWith
+                            (BackendTaskTest.simulateHttpGet
+                                "https://api.github.com/repos/dillonkearns/elm-pages"
+                                (Encode.object [ ( "stargazers_count", Encode.int 0 ) ])
+                            )
                         |> TuiTest.expectRunning
                         |> TuiTest.done
             , test "simulating BackendTask result shows stars" <|
@@ -620,8 +617,11 @@ suite =
                     starsTest
                         |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
-                        -- Simulate the BackendTask completing with 1234 stars
-                        |> TuiTest.sendMsg (GotStars (Ok 1234))
+                        |> TuiTest.resolveEffectWith
+                            (BackendTaskTest.simulateHttpGet
+                                "https://api.github.com/repos/dillonkearns/elm-pages"
+                                (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
+                            )
                         |> TuiTest.ensureViewHas "Stars: 1234"
                         |> TuiTest.ensureViewDoesNotHave "Loading"
                         |> TuiTest.expectRunning
@@ -630,7 +630,12 @@ suite =
                 \() ->
                     starsTest
                         |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.sendMsg (GotStars (Err (FatalError.fromString "Not Found")))
+                        |> TuiTest.resolveEffectWith
+                            (BackendTaskTest.simulateHttpError
+                                "GET"
+                                "https://api.github.com/repos/dillonkearns/elm-pages"
+                                BackendTaskTest.NetworkError
+                            )
                         |> TuiTest.ensureViewHas "Request failed"
                         |> TuiTest.ensureViewDoesNotHave "Loading"
                         |> TuiTest.expectRunning
@@ -639,7 +644,11 @@ suite =
                 \() ->
                     starsTest
                         |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.sendMsg (GotStars (Ok 999))
+                        |> TuiTest.resolveEffectWith
+                            (BackendTaskTest.simulateHttpGet
+                                "https://api.github.com/repos/dillonkearns/elm-pages"
+                                (Encode.object [ ( "stargazers_count", Encode.int 999 ) ])
+                            )
                         |> TuiTest.ensureViewHas "Stars: 999"
                         -- Now type something — results should clear
                         |> TuiTest.pressKey 'x'
@@ -655,14 +664,22 @@ suite =
                         |> TuiTest.ensureViewHas "Repo: elm/core"
                         |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
-                        |> TuiTest.sendMsg (GotStars (Ok 7500))
+                        |> TuiTest.resolveEffectWith
+                            (BackendTaskTest.simulateHttpGet
+                                "https://api.github.com/repos/elm/core"
+                                (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
+                            )
                         |> TuiTest.ensureViewHas "Stars: 7500"
                         -- Edit: remove "core" (4 chars) and type "compiler"
                         |> repeatN 4 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
                         |> typeString "compiler"
                         |> TuiTest.ensureViewHas "Repo: elm/compiler"
                         |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.sendMsg (GotStars (Ok 7800))
+                        |> TuiTest.resolveEffectWith
+                            (BackendTaskTest.simulateHttpGet
+                                "https://api.github.com/repos/elm/compiler"
+                                (Encode.object [ ( "stargazers_count", Encode.int 7800 ) ])
+                            )
                         |> TuiTest.ensureViewHas "Stars: 7800"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
@@ -750,7 +767,7 @@ suite =
 
 Use TuiTest.resolveEffect to run the next effect with the default Test.BackendTask simulation. This is the right choice even for auto-resolvable BackendTasks like BackendTask.succeed and virtual file, env, or db reads.
 
-Use TuiTest.resolveEffectWith when the effect needs custom simulation (for example HTTP, commands, or custom effects), or TuiTest.sendMsg to skip the BackendTask and provide the resulting Msg directly."""
+Use TuiTest.resolveEffectWith when the effect needs custom simulation (for example HTTP, commands, or custom effects)."""
             , test "pressKey after exit fails with helpful message" <|
                 \() ->
                     counterTest

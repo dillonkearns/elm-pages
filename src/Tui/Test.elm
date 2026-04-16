@@ -3,14 +3,15 @@ module Tui.Test exposing
     , start, startWithContext
     , pressKey, pressKeyWith, pressKeyN, paste, resize
     , click, clickText, scrollDown, scrollUp, scrollDownN, scrollUpN
-    , sendMsg, advanceTime
-    , resolveEffect, resolveEffectWith, BackendTaskSimulator
+    , advanceTime
+    , resolveEffect, resolveEffectWith
     , ensureView, ensureViewHas, ensureViewDoesNotHave
     , ensureModel, annotateAssertion
     , StyleCheck, bold, dim, italic, underline, fg, bg
     , ensureViewHasStyled, ensureViewDoesNotHaveStyled
     , expectRunning, expectExit, expectExitWith
-    , test, describe, toTest, done, toNamedSnapshots
+    , test, describe, toTest, done
+    , toNamedSnapshots, BackendTaskSimulator
     , Snapshot, toSnapshots, withModelToString
     )
 
@@ -32,9 +33,8 @@ Typical flow:
 The same named tests can be:
 
   - Run headlessly through [`toTest`](#toTest) with `elm-test`
-  - Visualized through `elm-pages test`, which reads
-    [`toNamedSnapshots`](#toNamedSnapshots) and shows the recorded snapshots in
-    the terminal stepper
+  - Visualized through `elm-pages test`, which reads the same `TuiTest.Test`
+    value and shows the recorded snapshots in the terminal stepper
 
 ```elm
 import BackendTask
@@ -101,9 +101,6 @@ color profile.
 
 Both resolve `app.data` through [`Test.BackendTask`](Test-BackendTask).
 
-If your app uses `Tui.Sub.onResize`, the initial context is fired
-automatically.
-
 @docs start, startWithContext
 
 
@@ -113,14 +110,13 @@ Simulate user interactions in the order they would happen. Each function
 threads the `TuiTest` through `update` and captures the new screen.
 
 Prefer the user-facing helpers first (`pressKey`, `clickText`, `paste`,
-`resize`). Use [`sendMsg`](#sendMsg) when you intentionally want to bypass
-input routing and inject a `Msg` directly.
+`resize`).
 
 @docs pressKey, pressKeyWith, pressKeyN, paste, resize
 
 @docs click, clickText, scrollDown, scrollUp, scrollDownN, scrollUpN
 
-@docs sendMsg, advanceTime
+@docs advanceTime
 
 
 ## Resolving Effects
@@ -136,7 +132,7 @@ simulation, like stubbing an HTTP response:
     |> TuiTest.resolveEffectWith
         (BackendTaskTest.simulateCommand "git" "M src/Main.elm")
 
-@docs resolveEffect, resolveEffectWith, BackendTaskSimulator
+@docs resolveEffect, resolveEffectWith
 
 
 ## Screen Assertions
@@ -174,11 +170,18 @@ Every scenario ends with one of these. They finalize the pipeline into an
 If pending effects remain unresolved, these checks fail so you do not
 accidentally ignore `BackendTask`s. Wrap the resulting outcomes with
 [`test`](#test) and [`describe`](#describe), then run them through
-[`toTest`](#toTest).
+[`toTest`](#toTest) or [`done`](#done).
 
 @docs expectRunning, expectExit, expectExitWith
 
-@docs test, describe, toTest, done, toNamedSnapshots
+@docs test, describe, toTest, done
+
+
+## Internal
+
+Used by the generated `elm-pages test` stepper code.
+
+@docs toNamedSnapshots, BackendTaskSimulator
 
 
 ## Snapshots
@@ -317,7 +320,7 @@ Pure startup data usually uses `BackendTask.succeed`. For file, env, time, or
 db-backed startup, seed the virtual environment through the `TestSetup`.
 
 If your app subscribes to `Tui.Sub.onResize`, the initial context is fired
-automatically (matching runtime behavior).
+automatically.
 
     import BackendTask
     import Test.BackendTask as BackendTaskTest
@@ -391,8 +394,8 @@ responsive layouts, small terminals, or color-profile-dependent rendering.
             BackendTaskTest.init
             app
 
-If your app subscribes to `Tui.Sub.onResize`, the initial context is fired
-automatically (matching runtime behavior).
+If your app subscribes to `Tui.Sub.onResize`, this initial context is also sent
+through that subscription once at startup.
 
 -}
 startWithContext :
@@ -781,20 +784,6 @@ simulateMouseEvent label mouseEvent tuiTest =
             tuiTest
 
 
-{-| Send a message directly through `update`. Useful for simulating
-`BackendTask` results without needing the full simulation infrastructure.
-
-    test
-        |> TuiTest.pressKey 's'
-        |> TuiTest.sendMsg (StagingComplete "file.elm")
-        |> TuiTest.ensureViewHas "staged"
-
--}
-sendMsg : msg -> TuiTest model msg -> TuiTest model msg
-sendMsg msg =
-    applyMsg "sendMsg" msg
-
-
 {-| Advance simulated time by the given number of milliseconds. Any
 [`Tui.Sub.everyMillis`](Tui-Sub#everyMillis) subscriptions fire for each
 interval boundary crossed, passing the simulated `Time.Posix` at the moment
@@ -974,6 +963,10 @@ resolveEffect =
 Use this when the pending effect needs extra simulation, like an HTTP
 response or shell command output.
 
+The callback receives the same `Test.BackendTask` pipeline you would get from
+`BackendTaskTest.fromBackendTask`, so in practice you usually just pipe one or
+more `BackendTaskTest.simulate...` helpers into it.
+
     import Json.Encode as Encode
     import Test.BackendTask as BackendTaskTest
     import Tui.Test as TuiTest
@@ -1001,10 +994,20 @@ resolveEffectWith simulate =
         )
 
 
-{-| The type of the `Test.BackendTask` pipeline used with
-[`resolveEffectWith`](#resolveEffectWith). This is
-`Test.BackendTask.Internal.BackendTaskTest` — the same type that
-`Test.BackendTask` functions operate on.
+{-| Internal helper type used by [`resolveEffectWith`](#resolveEffectWith).
+Most tests do not need to refer to this directly; you can usually pass a
+`Test.BackendTask.simulate...` pipeline inline.
+
+    import Json.Encode as Encode
+    import Test.BackendTask as BackendTaskTest
+    import Tui.Test as TuiTest
+
+    simulateStars : TuiTest.BackendTaskSimulator msg -> TuiTest.BackendTaskSimulator msg
+    simulateStars =
+        BackendTaskTest.simulateHttpGet
+            "https://api.github.com/repos/dillonkearns/elm-pages"
+            (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
+
 -}
 type alias BackendTaskSimulator msg =
     BackendTaskTestInternal.BackendTaskTest msg
@@ -1483,8 +1486,8 @@ applyAttr attr flatStyle =
 
 {-| Assert that the TUI is still running (has not exited).
 Fails if there are unresolved pending `BackendTask` effects — use
-[`resolveEffect`](#resolveEffect), [`resolveEffectWith`](#resolveEffectWith),
-or [`sendMsg`](#sendMsg) to resolve them before calling this. Returns an
+[`resolveEffect`](#resolveEffect) or
+[`resolveEffectWith`](#resolveEffectWith) to resolve them before calling this. Returns an
 [`Outcome`](#Outcome) so the same scenario can be wrapped in a named
 [`test`](#test) or inspected directly with [`done`](#done).
 -}
@@ -1627,6 +1630,10 @@ describe label children =
 
 {-| Convert a named TUI test tree into an `elm-test` `Test.Test`.
 
+`elm-pages test` works with `TuiTest.Test` directly so it can show the
+interactive stepper. Use `toTest` when you want to run the same named tests
+through plain `elm-test` without the `elm-pages` wrapper CLI.
+
     import Test
     import Tui.Test as TuiTest
 
@@ -1650,9 +1657,10 @@ toTest tuiTest =
 
 {-| Run a single finalized outcome directly as an `Expect.Expectation`.
 
-This is mostly useful in low-level helper tests for `Tui.Test` itself. Most
-user code will prefer wrapping outcomes in [`test`](#test) and [`describe`](#describe),
-then calling [`toTest`](#toTest).
+Use this when you are already inside a regular `elm-test` `test` block, or
+when you are building helper functions that return an `Expectation` instead of
+a named `TuiTest.Test` tree. Use [`toTest`](#toTest) when you want the named
+tree form that also plugs into `elm-pages test`.
 
     import Expect
     import Tui.Test as TuiTest
@@ -1672,9 +1680,9 @@ done (Outcome outcome) =
 
 {-| Flatten a named TUI test tree into named snapshot sequences.
 
-`elm-pages test` uses this to populate the interactive terminal stepper. The
-names include any enclosing [`describe`](#describe) labels so the selected test
-is easy to identify.
+This is used by the generated `elm-pages test` stepper code. The names include
+any enclosing [`describe`](#describe) labels so the selected test is easy to
+identify.
 
     import Tui.Test as TuiTest
 
@@ -1724,7 +1732,7 @@ pendingEffectsError count =
            )
         ++ " that must be resolved before ending the test.\n\n"
         ++ "Use TuiTest.resolveEffect to run the next effect with the default Test.BackendTask simulation. This is the right choice even for auto-resolvable BackendTasks like BackendTask.succeed and virtual file, env, or db reads.\n\n"
-        ++ "Use TuiTest.resolveEffectWith when the effect needs custom simulation (for example HTTP, commands, or custom effects), or TuiTest.sendMsg to skip the BackendTask and provide the resulting Msg directly."
+        ++ "Use TuiTest.resolveEffectWith when the effect needs custom simulation (for example HTTP, commands, or custom effects)."
 
 
 
@@ -1979,7 +1987,7 @@ withModelToString modelToString tuiTest =
 
 {-| Extract the recorded snapshots from a test pipeline. Each step in the
 pipeline (`start`, `resize`, `pressKey`, `resolveEffect`,
-`resolveEffectWith`, `sendMsg`) records a snapshot of the screen, the action
+`resolveEffectWith`) records a snapshot of the screen, the action
 label, and whether effects are pending.
 
 If the pipeline encountered an error, a final snapshot with the error message
