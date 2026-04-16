@@ -538,16 +538,16 @@ suite =
             , test "startWithContext keeps effects returned from initial context update" <|
                 \() ->
                     contextTest True { width = 120, height = 40, colorProfile = Tui.TrueColor }
-                        |> TuiTest.resolveEffect identity
+                        |> TuiTest.resolveEffect
                         |> TuiTest.ensureViewHas "Effect: 120×40"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
             , test "resize keeps effects returned from context update" <|
                 \() ->
                     contextTest True { width = 80, height = 24, colorProfile = Tui.TrueColor }
-                        |> TuiTest.resolveEffect identity
+                        |> TuiTest.resolveEffect
                         |> TuiTest.resize { width = 120, height = 40 }
-                        |> TuiTest.resolveEffect identity
+                        |> TuiTest.resolveEffect
                         |> TuiTest.ensureViewHas "Effect: 120×40"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
@@ -673,7 +673,7 @@ suite =
                     starsTest
                         |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         |> TuiTest.ensureViewHas "Loading..."
-                        |> TuiTest.resolveEffect
+                        |> TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
                                 (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
@@ -688,7 +688,7 @@ suite =
                         |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
                         |> typeString "elm/core"
                         |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.resolveEffect
+                        |> TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/elm/core"
                                 (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
@@ -700,7 +700,7 @@ suite =
                 \() ->
                     starsTest
                         -- Don't press Enter — no pending effect
-                        |> TuiTest.resolveEffect
+                        |> TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/foo/bar"
                                 (Encode.int 0)
@@ -732,7 +732,7 @@ suite =
                 \() ->
                     starsTest
                         -- Don't press Enter — no effect triggered
-                        |> TuiTest.resolveEffect
+                        |> TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/foo/bar"
                                 (Encode.int 0)
@@ -740,6 +740,17 @@ suite =
                         |> TuiTest.expectRunning
                         |> TuiTest.done
                         |> expectFailureContaining "No pending BackendTask"
+            , test "expectRunning gives exact guidance for auto-resolvable effects" <|
+                \() ->
+                    contextTest True { width = 120, height = 40, colorProfile = Tui.TrueColor }
+                        |> TuiTest.expectRunning
+                        |> TuiTest.done
+                        |> expectFailureDescription
+                            """There is 1 pending BackendTask effect that must be resolved before ending the test.
+
+Use TuiTest.resolveEffect to run the next effect with the default Test.BackendTask simulation. This is the right choice even for auto-resolvable BackendTasks like BackendTask.succeed and virtual file, env, or db reads.
+
+Use TuiTest.resolveEffectWith when the effect needs custom simulation (for example HTTP, commands, or custom effects), or TuiTest.sendMsg to skip the BackendTask and provide the resulting Msg directly."""
             , test "pressKey after exit fails with helpful message" <|
                 \() ->
                     counterTest
@@ -752,7 +763,7 @@ suite =
                 \() ->
                     starsTest
                         |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.resolveEffect
+                        |> TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://WRONG-URL.com"
                                 (Encode.int 0)
@@ -833,7 +844,7 @@ suite =
                 \() ->
                     starsTest
                         |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.resolveEffect
+                        |> TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
                                 (Encode.object [ ( "stargazers_count", Encode.int 42 ) ])
@@ -1006,7 +1017,7 @@ tuiTests =
             (starsTest
                 |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                 |> TuiTest.ensureViewHas "Loading..."
-                |> TuiTest.resolveEffect
+                |> TuiTest.resolveEffectWith
                     (BackendTaskTest.simulateHttpGet
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
@@ -1073,6 +1084,29 @@ expectFailureContaining needle expectation =
                         ++ "\"\n\nbut the failure message was:\n\n    \""
                         ++ description
                         ++ "\""
+                    )
+
+
+expectFailureDescription : String -> Expectation -> Expectation
+expectFailureDescription expectedDescription expectation =
+    case Test.Runner.getFailureReason expectation of
+        Nothing ->
+            Expect.fail
+                ("Expected a failure with description:\n\n"
+                    ++ expectedDescription
+                    ++ "\n\nbut the test passed."
+                )
+
+        Just { description } ->
+            if description == expectedDescription then
+                Expect.pass
+
+            else
+                Expect.fail
+                    ("Expected failure description:\n\n"
+                        ++ expectedDescription
+                        ++ "\n\nbut got:\n\n"
+                        ++ description
                     )
 
 

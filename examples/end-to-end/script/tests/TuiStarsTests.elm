@@ -30,7 +30,7 @@ tuiTests =
                 |> TuiTest.ensureViewHas "Press Enter to fetch"
                 |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                 |> TuiTest.ensureViewHas "Fetching..."
-                |> TuiTest.resolveEffect
+                |> TuiTest.resolveEffectWith
                     (BackendTaskTest.simulateHttpGet
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
@@ -48,7 +48,7 @@ tuiTests =
                 |> TuiTest.paste "elm/compiler"
                 |> TuiTest.ensureViewHas "elm/compiler"
                 |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                |> TuiTest.resolveEffect
+                |> TuiTest.resolveEffectWith
                     (BackendTaskTest.simulateHttpGet
                         "https://api.github.com/repos/elm/compiler"
                         (Encode.object [ ( "stargazers_count", Encode.int 7800 ) ])
