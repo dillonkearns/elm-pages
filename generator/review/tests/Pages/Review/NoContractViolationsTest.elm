@@ -158,6 +158,91 @@ route = {}
                             ]
                           )
                         ]
+        , test "error when stateless route has wrong Model type" <|
+            \() ->
+                """module Route.About exposing (ActionData, Data, Model, Msg, route)
+
+type alias RouteParams = {}
+
+type alias Model = ()
+
+type alias Msg = ()
+
+route : StatelessRoute RouteParams Data ActionData
+route = Debug.todo ""
+"""
+                    |> testRouteModule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Route.About"
+                          , [ Review.Test.error
+                                { message = "Stateless route has incorrect Model type"
+                                , details =
+                                    [ "Routes using `buildNoState` must have `type alias Model = {}`."
+                                    , "The generated code expects this exact type. Using a different type (like `()`) will cause internal compilation errors in the generated Main.elm."
+                                    ]
+                                , under = "()"
+                                }
+                                |> Review.Test.atExactly { start = { row = 5, column = 20 }, end = { row = 5, column = 22 } }
+                            ]
+                          )
+                        ]
+        , test "error when stateless route has wrong Msg type" <|
+            \() ->
+                """module Route.About exposing (ActionData, Data, Model, Msg, route)
+
+type alias RouteParams = {}
+
+type alias Model = {}
+
+type alias Msg = Never
+
+route : StatelessRoute RouteParams Data ActionData
+route = Debug.todo ""
+"""
+                    |> testRouteModule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Route.About"
+                          , [ Review.Test.error
+                                { message = "Stateless route has incorrect Msg type"
+                                , details =
+                                    [ "Routes using `buildNoState` must have `type alias Msg = ()`."
+                                    , "The generated code expects this exact type. Using a different type (like `Never`) will cause internal compilation errors in the generated Main.elm."
+                                    ]
+                                , under = "Never"
+                                }
+                            ]
+                          )
+                        ]
+        , test "no error when stateless route has correct Model and Msg" <|
+            \() ->
+                """module Route.About exposing (ActionData, Data, Model, Msg, route)
+
+type alias RouteParams = {}
+
+type alias Model = {}
+
+type alias Msg = ()
+
+route : StatelessRoute RouteParams Data ActionData
+route = Debug.todo ""
+"""
+                    |> testRouteModule
+                    |> Review.Test.expectNoErrors
+        , test "no error when stateful route has non-unit Model and Msg" <|
+            \() ->
+                """module Route.Counter exposing (ActionData, Data, Model, Msg, route)
+
+type alias RouteParams = {}
+
+type alias Model = { count : Int }
+
+type Msg = Increment | Decrement
+
+route : StatefulRoute RouteParams Data ActionData Model Msg
+route = Debug.todo ""
+"""
+                    |> testRouteModule
+                    |> Review.Test.expectNoErrors
         , test "no error for modules that don't start with Route prefix" <|
             \() ->
                 """module NotRouteModule.Blog.Slug_ exposing (Model, Msg)
