@@ -4933,7 +4933,7 @@ type FrameworkModel model msg
 
 
 {-| Get the currently focused pane ID from a `FrameworkModel`. Useful in tests
-with [`TuiTest.ensureModel`](Tui-Test#ensureModel) — see [`Tui.Layout.Test`](Tui-Layout-Test)
+with [`TuiTest.ensureModel`](Test-Tui#ensureModel) — see [`Tui.Layout.Test`](Tui-Layout-Test)
 for convenient wrappers.
 -}
 frameworkFocusedPane : FrameworkModel model msg -> Maybe String

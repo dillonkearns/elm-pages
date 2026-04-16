@@ -1,4 +1,4 @@
-module Tui.Test exposing
+module Test.Tui exposing
     ( TuiTest, Test, Outcome
     , start, startWithContext
     , pressKey, pressKeyWith, pressKeyN, paste, resize
@@ -40,11 +40,11 @@ The same named tests can be:
 import BackendTask
 import Test
 import Test.BackendTask as BackendTaskTest
+import Test.Tui as TuiTest
 import Tui
 import Tui.Effect as Effect
 import Tui.Screen
 import Tui.Sub
-import Tui.Test as TuiTest
 
 type Msg
     = Increment
@@ -263,7 +263,7 @@ then pass the resulting value to [`toTest`](#toTest) for `elm-test` or expose it
 for `elm-pages test`.
 
     import Test
-    import Tui.Test as TuiTest
+    import Test.Tui as TuiTest
 
     tuiTests : TuiTest.Test
     tuiTests =
@@ -292,7 +292,7 @@ wrap it in a named test with [`test`](#test) or run it directly with
 [`done`](#done).
 
     import Expect
-    import Tui.Test as TuiTest
+    import Test.Tui as TuiTest
 
     result : TuiTest.Outcome
     result =
@@ -324,11 +324,11 @@ automatically.
 
     import BackendTask
     import Test.BackendTask as BackendTaskTest
+    import Test.Tui as TuiTest
     import Tui
     import Tui.Effect as Effect
     import Tui.Screen as Screen
     import Tui.Sub
-    import Tui.Test as TuiTest
 
     type Msg
         = Quit
@@ -362,11 +362,11 @@ responsive layouts, small terminals, or color-profile-dependent rendering.
 
     import BackendTask
     import Test.BackendTask as BackendTaskTest
+    import Test.Tui as TuiTest
     import Tui
     import Tui.Effect as Effect
     import Tui.Screen as Screen
     import Tui.Sub
-    import Tui.Test as TuiTest
 
     type Msg
         = Resized { width : Int, height : Int }
@@ -915,11 +915,11 @@ pure `BackendTask` flows.
 
     import BackendTask
     import Test.BackendTask as BackendTaskTest
+    import Test.Tui as TuiTest
     import Tui
     import Tui.Effect as Effect
     import Tui.Screen as Screen
     import Tui.Sub
-    import Tui.Test as TuiTest
 
     type Msg
         = Fetch
@@ -969,7 +969,7 @@ more `BackendTaskTest.simulate...` helpers into it.
 
     import Json.Encode as Encode
     import Test.BackendTask as BackendTaskTest
-    import Tui.Test as TuiTest
+    import Test.Tui as TuiTest
 
     starsTest
         |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
@@ -1000,7 +1000,7 @@ Most tests do not need to refer to this directly; you can usually pass a
 
     import Json.Encode as Encode
     import Test.BackendTask as BackendTaskTest
-    import Tui.Test as TuiTest
+    import Test.Tui as TuiTest
 
     simulateStars : TuiTest.BackendTaskSimulator msg -> TuiTest.BackendTaskSimulator msg
     simulateStars =
@@ -1173,7 +1173,7 @@ checked without creating a new snapshot.
 Use this when building companion helpers on top of [`ensureModel`](#ensureModel):
 
     import Expect
-    import Tui.Test as TuiTest
+    import Test.Tui as TuiTest
 
     ensureCount : Int -> TuiTest.TuiTest Int msg -> TuiTest.TuiTest Int msg
     ensureCount expected =
@@ -1590,7 +1590,7 @@ expectExitWith expectedCode tuiTest =
 
 {-| Wrap a single named TUI test.
 
-    import Tui.Test as TuiTest
+    import Test.Tui as TuiTest
 
     counterTests : TuiTest.Test
     counterTests =
@@ -1607,7 +1607,7 @@ test label outcome =
 
 {-| Group TUI tests under a shared heading.
 
-    import Tui.Test as TuiTest
+    import Test.Tui as TuiTest
 
     counterTests : TuiTest.Test
     counterTests =
@@ -1635,7 +1635,7 @@ interactive stepper. Use `toTest` when you want to run the same named tests
 through plain `elm-test` without the `elm-pages` wrapper CLI.
 
     import Test
-    import Tui.Test as TuiTest
+    import Test.Tui as TuiTest
 
     suite : Test.Test
     suite =
@@ -1663,7 +1663,7 @@ a named `TuiTest.Test` tree. Use [`toTest`](#toTest) when you want the named
 tree form that also plugs into `elm-pages test`.
 
     import Expect
-    import Tui.Test as TuiTest
+    import Test.Tui as TuiTest
 
     expectation : Expect.Expectation
     expectation =
@@ -1684,7 +1684,7 @@ This is used by the generated `elm-pages test` stepper code. The names include
 any enclosing [`describe`](#describe) labels so the selected test is easy to
 identify.
 
-    import Tui.Test as TuiTest
+    import Test.Tui as TuiTest
 
     snapshotNames : List String
     snapshotNames =

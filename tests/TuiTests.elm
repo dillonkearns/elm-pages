@@ -10,6 +10,7 @@ import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
 import Test.Runner
+import Test.Tui as TuiTest
 import Time
 import Tui
 import Tui.Effect as Effect exposing (Effect)
@@ -19,7 +20,6 @@ import Tui.Screen.Advanced as ScreenAdvanced
 import Tui.Screen.Internal.Encode as ScreenEncode
 import Tui.Sub
 import Tui.Sub.Internal as SubInternal
-import Tui.Test as TuiTest
 
 
 suite : Test

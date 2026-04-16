@@ -4,9 +4,9 @@ import Expect exposing (Expectation)
 import MiniGit exposing (initialModelWithContext, miniGitLayout, miniGitTest)
 import Test exposing (Test, describe, test)
 import Test.Runner
+import Test.Tui as TuiTest
 import Tui.Layout as Layout
 import Tui.Sub
-import Tui.Test as TuiTest
 
 
 suite : Test

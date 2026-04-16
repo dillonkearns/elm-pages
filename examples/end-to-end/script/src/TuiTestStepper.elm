@@ -6,11 +6,11 @@ module TuiTestStepper exposing (tuiTests)
 import Ansi.Color
 import BackendTask
 import Test.BackendTask as BackendTaskTest
+import Test.Tui as TuiTest
 import Tui
 import Tui.Effect as Effect
 import Tui.Screen exposing (plain)
 import Tui.Sub
-import Tui.Test as TuiTest
 
 
 tuiTests : TuiTest.Test

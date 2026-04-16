@@ -5,11 +5,11 @@ import BackendTask
 import Expect
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
+import Test.Tui as TuiTest
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Screen
 import Tui.Sub
-import Tui.Test as TuiTest
 
 
 suite : Test

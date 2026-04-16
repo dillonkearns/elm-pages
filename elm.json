@@ -53,7 +53,7 @@
         "Tui.Screen",
         "Tui.Screen.Advanced",
         "Tui.Sub",
-        "Tui.Test",
+        "Test.Tui",
         "Test.BackendTask",
         "Test.BackendTask.Time",
         "Test.PagesProgram",

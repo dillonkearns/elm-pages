@@ -8,7 +8,7 @@ module Tui.Layout.Test exposing
 
 {-| Test helpers for apps built with [`Layout.compileApp`](Tui-Layout#compileApp).
 
-These build on [`TuiTest.ensureModel`](Tui-Test#ensureModel) to query
+These build on [`TuiTest.ensureModel`](Test-Tui#ensureModel) to query
 the opaque `FrameworkModel` for focus, selection, and scroll state — no
 need to render debug info in your view or parse the screen output.
 
@@ -48,10 +48,10 @@ need to render debug info in your view or parse the screen output.
 -}
 
 import Expect
+import Test.Tui as TuiTest
 import Tui
 import Tui.Layout as Layout
 import Tui.Sub
-import Tui.Test as TuiTest
 
 
 {-| Assert which pane is currently focused.
@@ -279,6 +279,7 @@ between the left and right borders for that pane's column range.
 
 Layout renders titles like `╭─[1]Commits───╮`. We search for the title
 text followed by `─` (the border fill character) to find the pane.
+
 -}
 extractPaneText : String -> String -> String
 extractPaneText paneTitle screenText =

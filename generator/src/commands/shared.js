@@ -155,7 +155,7 @@ port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe
  * Generate a ScriptMain.elm that runs named TUI tests through the
  * interactive terminal stepper.
  * @param {string} moduleName
- * @param {string[]} tuiTestValues - names of exposed `Tui.Test.Test` values
+ * @param {string[]} tuiTestValues - names of exposed `Test.Tui.Test` values
  */
 export function testStepperWrapperFile(moduleName, tuiTestValues) {
   const shouldPrefixExportName = tuiTestValues.length > 1;
@@ -164,9 +164,9 @@ export function testStepperWrapperFile(moduleName, tuiTestValues) {
       (name) =>
         shouldPrefixExportName
           ? `            ${moduleName}.${name}\n` +
-            `                |> Tui.Test.toNamedSnapshots\n` +
+            `                |> Test.Tui.toNamedSnapshots\n` +
             `                |> List.map (\\( testName, snapshots ) -> ( "${name}: " ++ testName, snapshots ))`
-          : `            Tui.Test.toNamedSnapshots ${moduleName}.${name}`
+          : `            Test.Tui.toNamedSnapshots ${moduleName}.${name}`
     )
     .join("\n            , ");
 
@@ -183,7 +183,7 @@ import Tui
 import Tui.Effect as Effect
 import Tui.Screen as Screen exposing (plain)
 import Tui.Sub
-import Tui.Test
+import Test.Tui
 import ${moduleName}
 
 
@@ -204,10 +204,10 @@ main =
         }
 
 
-runNamed : List ( String, List Tui.Test.Snapshot ) -> Script
+runNamed : List ( String, List Test.Tui.Snapshot ) -> Script
 runNamed namedTests =
     let
-        allTests : List { name : String, snapshots : List Tui.Test.Snapshot }
+        allTests : List { name : String, snapshots : List Test.Tui.Snapshot }
         allTests =
             namedTests
                 |> List.map (\\( name, snapshots ) -> { name = name, snapshots = snapshots })
@@ -222,9 +222,9 @@ runNamed namedTests =
 
 
 type alias StepperModel =
-    { snapshots : List Tui.Test.Snapshot
+    { snapshots : List Test.Tui.Snapshot
     , currentIndex : Int
-    , allTests : List { name : String, snapshots : List Tui.Test.Snapshot }
+    , allTests : List { name : String, snapshots : List Test.Tui.Snapshot }
     , currentTestIndex : Int
     }
 
@@ -233,10 +233,10 @@ type StepperMsg
     = KeyPressed Tui.Sub.KeyEvent
 
 
-namedStepperInit : List { name : String, snapshots : List Tui.Test.Snapshot } -> ( StepperModel, Effect.Effect StepperMsg )
+namedStepperInit : List { name : String, snapshots : List Test.Tui.Snapshot } -> ( StepperModel, Effect.Effect StepperMsg )
 namedStepperInit tests =
     let
-        firstSnapshots : List Tui.Test.Snapshot
+        firstSnapshots : List Test.Tui.Snapshot
         firstSnapshots =
             tests
                 |> List.head
@@ -296,7 +296,7 @@ switchToNextTest model =
             nextIndex =
                 modBy (List.length model.allTests) (model.currentTestIndex + 1)
 
-            nextSnapshots : List Tui.Test.Snapshot
+            nextSnapshots : List Test.Tui.Snapshot
             nextSnapshots =
                 model.allTests
                     |> List.drop nextIndex
@@ -320,7 +320,7 @@ stepperView ctx model =
         dimStyle =
             { plain | attributes = [ Screen.Dim ] }
 
-        maybeSnapshot : Maybe Tui.Test.Snapshot
+        maybeSnapshot : Maybe Test.Tui.Snapshot
         maybeSnapshot =
             model.snapshots
                 |> List.drop model.currentIndex
@@ -1218,12 +1218,12 @@ export function discoverProgramTestModules(
 
 /**
  * Scan an Elm source file for exposed named TUI test values.
- * These are values annotated as `TuiTest.Test` or `Tui.Test.Test`.
+ * These are values annotated as `TuiTest.Test` or `Test.Tui.Test`.
  * @param {string} filePath
  * @returns {string[]}
  */
 export function findTuiTestValues(filePath) {
-  return findAnnotatedValues(filePath, /TuiTest\.Test|Tui\.Test\.Test/);
+  return findAnnotatedValues(filePath, /TuiTest\.Test|Test\.Tui\.Test/);
 }
 
 export function discoverTuiTestModules(

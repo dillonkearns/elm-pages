@@ -1,7 +1,7 @@
 /**
  * Test command - runs named TUI tests through the interactive stepper.
  *
- * Looks for exposed values annotated as `TuiTest.Test` / `Tui.Test.Test`,
+ * Looks for exposed values annotated as `TuiTest.Test` / `Test.Tui.Test`,
  * generates a ScriptMain that renders their snapshots in the terminal
  * stepper, and runs the result as an interactive TUI.
  *

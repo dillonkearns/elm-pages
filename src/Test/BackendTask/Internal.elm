@@ -9,8 +9,7 @@ module Test.BackendTask.Internal exposing
     , ensureFile, ensureFileExists, ensureNoFile
     , withVirtualEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
-    , toResult
-    , resolveWithVirtualFs, resolveWithVirtualFsPartial, extractVirtualFs, VirtualFS, emptyVirtualFS
+    , VirtualFS, emptyVirtualFS, extractVirtualFs, resolveWithVirtualFs, resolveWithVirtualFsPartial, toResult
     )
 
 {-| Internal implementation for [`Test.BackendTask`](Test-BackendTask) and its sub-modules.
@@ -3846,7 +3845,7 @@ expectSuccessWith assertion scriptTest =
 
 {-| Extract the result from a completed `BackendTaskTest`. Returns `Err` if the
 BackendTask has pending requests, encountered a test error, or failed. Used
-internally by `Tui.Test` to resolve effects.
+internally by `Test.Tui` to resolve effects.
 -}
 toResult : BackendTaskTest a -> Result String a
 toResult scriptTest =

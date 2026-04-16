@@ -3,8 +3,8 @@ module TuiStarsTests exposing (suite, tuiTests)
 import Json.Encode as Encode
 import Test exposing (Test)
 import Test.BackendTask as BackendTaskTest
+import Test.Tui as TuiTest
 import Tui.Sub
-import Tui.Test as TuiTest
 import TuiStars
 
 

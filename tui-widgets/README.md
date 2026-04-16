@@ -17,7 +17,7 @@ search, toasts — the building blocks for rich terminal UIs, all declarative El
   keybindings, status, and mouse dispatch together for you.
 - **Discoverable** — keybinding help screens, options bars, and command palettes
   are generated from the same binding declarations you use for dispatch.
-- **Testable** — `Tui.Test` lets you write pure Elm tests that simulate
+- **Testable** — `Test.Tui` lets you write pure Elm tests that simulate
   keypresses, mouse clicks, and scroll events, then assert on the rendered
   terminal output. No mocking, no real terminal needed.
 
@@ -117,13 +117,13 @@ See the full working example in
 
 ## Testing
 
-TUI apps built with `Layout.compileApp` are fully testable with `Tui.Test` —
+TUI apps built with `Layout.compileApp` are fully testable with `Test.Tui` —
 simulate keypresses, mouse clicks, and scroll events, then assert on the
 rendered terminal output. No mocking, no DOM — just pure Elm:
 
 ```elm
 import Test.BackendTask as BackendTaskTest
-import Tui.Test as TuiTest
+import Test.Tui as TuiTest
 
 suite : Test
 suite =

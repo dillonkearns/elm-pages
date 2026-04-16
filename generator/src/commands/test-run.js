@@ -332,7 +332,7 @@ function generateTestRunnerModule(programTests, tuiTests) {
   const testPagesProgramImport =
     programTests.length > 0 ? "import Test.PagesProgram\n" : "";
   const tuiTestImport =
-    tuiTests.length > 0 ? "import Tui.Test\n" : "";
+    tuiTests.length > 0 ? "import Test.Tui\n" : "";
 
   const imports = Array.from(
     new Set(
@@ -358,7 +358,7 @@ function generateTestRunnerModule(programTests, tuiTests) {
     t.values.map(
       (name) =>
         `        Test.describe "${t.moduleName}.${name}"\n` +
-        `            [ Tui.Test.toTest ${t.moduleName}.${name} ]`
+        `            [ Test.Tui.toTest ${t.moduleName}.${name} ]`
     )
   );
 

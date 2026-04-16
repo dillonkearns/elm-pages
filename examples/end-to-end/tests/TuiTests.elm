@@ -3,11 +3,11 @@ module TuiTests exposing (suite, tuiTests)
 import BackendTask
 import Test
 import Test.BackendTask as BackendTaskTest
+import Test.Tui as TuiTest
 import Tui
 import Tui.Effect as Effect
 import Tui.Screen
 import Tui.Sub
-import Tui.Test as TuiTest
 
 
 type Msg

@@ -11,6 +11,7 @@ import Ansi.Color
 import BackendTask exposing (BackendTask)
 import Pages.Script exposing (Script)
 import Test.BackendTask as BackendTaskTest
+import Test.Tui as TuiTest
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Input as Input
@@ -19,7 +20,6 @@ import Tui.Layout as Layout
 import Tui.Modal
 import Tui.Screen exposing (plain)
 import Tui.Sub
-import Tui.Test as TuiTest
 
 
 type alias Commit =

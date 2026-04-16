@@ -57,9 +57,7 @@ helper =
     const filePath = writeElmModule(`module Example exposing (tuiTest, helper)
 
 tuiTest :
-    Tui.Test.TuiTest
-        Model
-        Msg
+    Test.Tui.Test
 tuiTest =
     Debug.todo "not evaluated"
 
