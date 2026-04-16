@@ -3,10 +3,13 @@ module MiniGit exposing
     , initialModelWithContext
     , miniGitLayout
     , miniGitTest
+    , run
     , sampleCommits
     )
 
 import Ansi.Color
+import BackendTask exposing (BackendTask)
+import Pages.Script exposing (Script)
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Input as Input
@@ -64,6 +67,17 @@ type Msg
     | Mouse Tui.Sub.MouseEvent
     | GotPaste String
     | SelectCommit Commit
+
+
+run : Script
+run =
+    Tui.program
+        { data = BackendTask.succeed sampleCommits
+        , init = miniGitInit
+        , update = miniGitUpdate
+        , view = miniGitView
+        , subscriptions = miniGitSubscriptions
+        }
 
 
 testGlobalBindings : Keybinding.Group Action
