@@ -18,6 +18,7 @@ temp_dir="$repo_root/$(mktemp -d .tmp-tui-widgets-tests.XXXXXX)"
 
 cp tui-widgets/elm-application.json "$temp_dir/elm.json"
 ln -s "$repo_root/tui-widgets/src" "$temp_dir/src"
+ln -s "$repo_root/tui-widgets/examples" "$temp_dir/examples"
 ln -s "$repo_root/tui-widgets/tests" "$temp_dir/tests"
 
 cd "$temp_dir"
