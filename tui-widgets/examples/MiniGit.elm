@@ -66,6 +66,7 @@ type Msg
     = KeyPressed Tui.Sub.KeyEvent
     | Mouse Tui.Sub.MouseEvent
     | GotPaste String
+    | Resized { width : Int, height : Int }
     | SelectCommit Commit
 
 
@@ -231,142 +232,147 @@ miniGitLayout model =
 
 miniGitUpdate : Msg -> Model -> ( Model, Effect Msg )
 miniGitUpdate msg model =
-    case model.modal of
-        Just (CommitModal modalState) ->
-            case msg of
-                KeyPressed event ->
-                    case event.key of
-                        Tui.Sub.Escape ->
-                            ( { model | modal = Nothing }, Effect.none )
+    case msg of
+        Resized context ->
+            ( { model | layout = Layout.withContext context model.layout }, Effect.none )
 
-                        Tui.Sub.Enter ->
+        _ ->
+            case model.modal of
+                Just (CommitModal modalState) ->
+                    case msg of
+                        KeyPressed event ->
+                            case event.key of
+                                Tui.Sub.Escape ->
+                                    ( { model | modal = Nothing }, Effect.none )
+
+                                Tui.Sub.Enter ->
+                                    let
+                                        commitMsg : String
+                                        commitMsg =
+                                            Input.text modalState.input
+                                    in
+                                    ( { model
+                                        | modal = Nothing
+                                        , lastAction =
+                                            if String.isEmpty commitMsg then
+                                                "(empty commit message)"
+
+                                            else
+                                                "Committed: " ++ commitMsg
+                                      }
+                                    , Effect.none
+                                    )
+
+                                _ ->
+                                    ( { model | modal = Just (CommitModal { input = Input.update event modalState.input }) }
+                                    , Effect.none
+                                    )
+
+                        GotPaste pastedText ->
+                            ( { model | modal = Just (CommitModal { input = Input.insertText pastedText modalState.input }) }
+                            , Effect.none
+                            )
+
+                        _ ->
+                            ( model, Effect.none )
+
+                Just (HelpModal helpState) ->
+                    case msg of
+                        KeyPressed event ->
+                            case helpState.mode of
+                                HelpBrowse ->
+                                    case event.key of
+                                        Tui.Sub.Escape ->
+                                            ( { model | modal = Nothing }, Effect.none )
+
+                                        Tui.Sub.Character '/' ->
+                                            ( { model | modal = Just (HelpModal { helpState | mode = HelpSearch }) }, Effect.none )
+
+                                        Tui.Sub.Character 'j' ->
+                                            ( { model | modal = Just (HelpModal { helpState | selectedIndex = helpState.selectedIndex + 1 }) }, Effect.none )
+
+                                        Tui.Sub.Arrow Tui.Sub.Down ->
+                                            ( { model | modal = Just (HelpModal { helpState | selectedIndex = helpState.selectedIndex + 1 }) }, Effect.none )
+
+                                        Tui.Sub.Character 'k' ->
+                                            ( { model | modal = Just (HelpModal { helpState | selectedIndex = max 0 (helpState.selectedIndex - 1) }) }, Effect.none )
+
+                                        Tui.Sub.Arrow Tui.Sub.Up ->
+                                            ( { model | modal = Just (HelpModal { helpState | selectedIndex = max 0 (helpState.selectedIndex - 1) }) }, Effect.none )
+
+                                        _ ->
+                                            -- Fall through to global bindings
+                                            case Keybinding.dispatch [ testGlobalBindings ] event of
+                                                Just action ->
+                                                    handleAction action { model | modal = Nothing }
+
+                                                Nothing ->
+                                                    ( model, Effect.none )
+
+                                HelpSearch ->
+                                    case event.key of
+                                        Tui.Sub.Escape ->
+                                            ( { model | modal = Just (HelpModal { helpState | mode = HelpBrowse }) }, Effect.none )
+
+                                        Tui.Sub.Enter ->
+                                            ( { model | modal = Just (HelpModal { helpState | mode = HelpBrowse, selectedIndex = 0 }) }, Effect.none )
+
+                                        _ ->
+                                            ( { model | modal = Just (HelpModal { helpState | filter = Input.update event helpState.filter, selectedIndex = 0 }) }, Effect.none )
+
+                        GotPaste pastedText ->
+                            case helpState.mode of
+                                HelpSearch ->
+                                    ( { model | modal = Just (HelpModal { helpState | filter = Input.insertText pastedText helpState.filter, selectedIndex = 0 }) }, Effect.none )
+
+                                HelpBrowse ->
+                                    ( model, Effect.none )
+
+                        _ ->
+                            ( model, Effect.none )
+
+                Nothing ->
+                    case msg of
+                        KeyPressed event ->
+                            -- Layout handles filter keys (/, typing, Enter, Escape) and
+                            -- number keys for pane focus. Check it first.
+                            case Layout.handleKeyEvent event (miniGitLayout model) model.layout of
+                                ( newLayout, Just layoutMsg, _ ) ->
+                                    miniGitUpdate layoutMsg { model | layout = newLayout }
+
+                                ( newLayout, Nothing, True ) ->
+                                    ( { model | layout = newLayout }, Effect.none )
+
+                                ( _, Nothing, False ) ->
+                                    case Keybinding.dispatch (testActiveBindings model) event of
+                                        Just action ->
+                                            handleAction action model
+
+                                        Nothing ->
+                                            ( model, Effect.none )
+
+                        Mouse mouseEvent ->
                             let
-                                commitMsg : String
-                                commitMsg =
-                                    Input.text modalState.input
+                                ( newLayout, maybeMsg ) =
+                                    Layout.handleMouse mouseEvent (Layout.contextOf model.layout) (miniGitLayout model) model.layout
                             in
-                            ( { model
-                                | modal = Nothing
-                                , lastAction =
-                                    if String.isEmpty commitMsg then
-                                        "(empty commit message)"
+                            case maybeMsg of
+                                Just userMsg ->
+                                    miniGitUpdate userMsg { model | layout = newLayout }
 
-                                    else
-                                        "Committed: " ++ commitMsg
+                                Nothing ->
+                                    ( { model | layout = newLayout }, Effect.none )
+
+                        SelectCommit commit ->
+                            ( { model
+                                | layout = Layout.resetScroll "diff" model.layout
+                                , diffContent = diffForCommit commit.sha
                               }
                             , Effect.none
                             )
 
                         _ ->
-                            ( { model | modal = Just (CommitModal { input = Input.update event modalState.input }) }
-                            , Effect.none
-                            )
-
-                GotPaste pastedText ->
-                    ( { model | modal = Just (CommitModal { input = Input.insertText pastedText modalState.input }) }
-                    , Effect.none
-                    )
-
-                _ ->
-                    ( model, Effect.none )
-
-        Just (HelpModal helpState) ->
-            case msg of
-                KeyPressed event ->
-                    case helpState.mode of
-                        HelpBrowse ->
-                            case event.key of
-                                Tui.Sub.Escape ->
-                                    ( { model | modal = Nothing }, Effect.none )
-
-                                Tui.Sub.Character '/' ->
-                                    ( { model | modal = Just (HelpModal { helpState | mode = HelpSearch }) }, Effect.none )
-
-                                Tui.Sub.Character 'j' ->
-                                    ( { model | modal = Just (HelpModal { helpState | selectedIndex = helpState.selectedIndex + 1 }) }, Effect.none )
-
-                                Tui.Sub.Arrow Tui.Sub.Down ->
-                                    ( { model | modal = Just (HelpModal { helpState | selectedIndex = helpState.selectedIndex + 1 }) }, Effect.none )
-
-                                Tui.Sub.Character 'k' ->
-                                    ( { model | modal = Just (HelpModal { helpState | selectedIndex = max 0 (helpState.selectedIndex - 1) }) }, Effect.none )
-
-                                Tui.Sub.Arrow Tui.Sub.Up ->
-                                    ( { model | modal = Just (HelpModal { helpState | selectedIndex = max 0 (helpState.selectedIndex - 1) }) }, Effect.none )
-
-                                _ ->
-                                    -- Fall through to global bindings
-                                    case Keybinding.dispatch [ testGlobalBindings ] event of
-                                        Just action ->
-                                            handleAction action { model | modal = Nothing }
-
-                                        Nothing ->
-                                            ( model, Effect.none )
-
-                        HelpSearch ->
-                            case event.key of
-                                Tui.Sub.Escape ->
-                                    ( { model | modal = Just (HelpModal { helpState | mode = HelpBrowse }) }, Effect.none )
-
-                                Tui.Sub.Enter ->
-                                    ( { model | modal = Just (HelpModal { helpState | mode = HelpBrowse, selectedIndex = 0 }) }, Effect.none )
-
-                                _ ->
-                                    ( { model | modal = Just (HelpModal { helpState | filter = Input.update event helpState.filter, selectedIndex = 0 }) }, Effect.none )
-
-                GotPaste pastedText ->
-                    case helpState.mode of
-                        HelpSearch ->
-                            ( { model | modal = Just (HelpModal { helpState | filter = Input.insertText pastedText helpState.filter, selectedIndex = 0 }) }, Effect.none )
-
-                        HelpBrowse ->
                             ( model, Effect.none )
-
-                _ ->
-                    ( model, Effect.none )
-
-        Nothing ->
-            case msg of
-                KeyPressed event ->
-                    -- Layout handles filter keys (/, typing, Enter, Escape) and
-                    -- number keys for pane focus. Check it first.
-                    case Layout.handleKeyEvent event (miniGitLayout model) model.layout of
-                        ( newLayout, Just layoutMsg, _ ) ->
-                            miniGitUpdate layoutMsg { model | layout = newLayout }
-
-                        ( newLayout, Nothing, True ) ->
-                            ( { model | layout = newLayout }, Effect.none )
-
-                        ( _, Nothing, False ) ->
-                            case Keybinding.dispatch (testActiveBindings model) event of
-                                Just action ->
-                                    handleAction action model
-
-                                Nothing ->
-                                    ( model, Effect.none )
-
-                Mouse mouseEvent ->
-                    let
-                        ( newLayout, maybeMsg ) =
-                            Layout.handleMouse mouseEvent { width = 80, height = 24 } (miniGitLayout model) model.layout
-                    in
-                    case maybeMsg of
-                        Just userMsg ->
-                            miniGitUpdate userMsg { model | layout = newLayout }
-
-                        Nothing ->
-                            ( { model | layout = newLayout }, Effect.none )
-
-                SelectCommit commit ->
-                    ( { model
-                        | layout = Layout.resetScroll "diff" model.layout
-                        , diffContent = diffForCommit commit.sha
-                      }
-                    , Effect.none
-                    )
-
-                _ ->
-                    ( model, Effect.none )
 
 
 handleAction : Action -> Model -> ( Model, Effect Msg )
@@ -547,6 +553,7 @@ miniGitSubscriptions _ =
         [ Tui.Sub.onKeyPress KeyPressed
         , Tui.Sub.onMouse Mouse
         , Tui.Sub.onPaste GotPaste
+        , Tui.Sub.onResize Resized
         ]
 
 

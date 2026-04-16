@@ -77,6 +77,23 @@ suite =
                         |> TuiTest.scrollDown { row = 2, col = 5 }
                         |> TuiTest.expectRunning
                         |> TuiTest.done
+            , test "clicking blank space in a resized diff pane still focuses that pane" <|
+                \() ->
+                    miniGitTest
+                        |> TuiTest.ensureModel
+                            (\model ->
+                                Layout.focusedPane model.layout
+                                    |> Expect.equal (Just "commits")
+                            )
+                        |> TuiTest.resize { width = 120, height = 24 }
+                        |> TuiTest.click { row = 1, col = 100 }
+                        |> TuiTest.ensureModel
+                            (\model ->
+                                Layout.focusedPane model.layout
+                                    |> Expect.equal (Just "diff")
+                            )
+                        |> TuiTest.expectRunning
+                        |> TuiTest.done
             ]
         , describe "Layout.resetScroll"
             [ test "resetScroll sets scroll to 0" <|
