@@ -1,7 +1,6 @@
 module Tui.Screen.Advanced exposing
     ( Line, Span, toLines
     , fromLine
-    , splitLineAt
     )
 
 {-| Framework-level helpers for inspecting and rebuilding styled terminal lines.
@@ -10,7 +9,6 @@ Most app code should stay in [`Tui.Screen`](Tui-Screen). This module is for
 packages like `tui-widgets` that need to preserve styles while transforming
 rendered text.
 
-    import Ansi.Color
     import Tui.Screen as Screen
     import Tui.Screen.Advanced as Advanced
 
@@ -25,8 +23,6 @@ rendered text.
         |> Advanced.toLines
         |> List.head
         |> Maybe.withDefault []
-        |> Advanced.splitLineAt 6
-        |> Tuple.second
         |> Advanced.fromLine
         |> Screen.toString
 
@@ -40,14 +36,8 @@ rendered text.
 
 @docs fromLine
 
-
-## Line Helpers
-
-@docs splitLineAt
-
 -}
 
-import String.Graphemes as Graphemes
 import Tui.Screen
 import Tui.Screen.Internal as Internal
 
@@ -127,66 +117,6 @@ fromLine line =
         line
             |> List.map spanToInternal
             |> Internal.spansToScreen flatStyleToStyle
-
-
-{-| Split a rendered line at a grapheme column, preserving styles on both sides.
-
-    import Ansi.Color
-    import Tui.Screen as Screen
-    import Tui.Screen.Advanced as Advanced
-
-    split : ( Advanced.Line, Advanced.Line )
-    split =
-        let
-            cyanStyle : Screen.Style
-            cyanStyle =
-                { fg = Just Ansi.Color.cyan
-                , bg = Nothing
-                , attributes = []
-                , hyperlink = Nothing
-                }
-        in
-        [ { text = "hello world", style = cyanStyle } ]
-            |> Advanced.splitLineAt 5
-
--}
-splitLineAt : Int -> Line -> ( Line, Line )
-splitLineAt column line =
-    if column <= 0 then
-        ( [], line )
-
-    else
-        splitLineAtHelp column [] line
-
-
-splitLineAtHelp : Int -> Line -> Line -> ( Line, Line )
-splitLineAtHelp remaining reversedBefore line =
-    if remaining <= 0 then
-        ( List.reverse reversedBefore, line )
-
-    else
-        case line of
-            [] ->
-                ( List.reverse reversedBefore, [] )
-
-            span :: rest ->
-                let
-                    spanLen : Int
-                    spanLen =
-                        Graphemes.length span.text
-                in
-                if spanLen <= remaining then
-                    splitLineAtHelp (remaining - spanLen) (span :: reversedBefore) rest
-
-                else
-                    let
-                        splitSpan : Span
-                        splitSpan =
-                            { span | text = Graphemes.left remaining span.text }
-                    in
-                    ( List.reverse (splitSpan :: reversedBefore)
-                    , { span | text = Graphemes.dropLeft remaining span.text } :: rest
-                    )
 
 
 styleToFlatStyle : Tui.Screen.Style -> Internal.FlatStyle

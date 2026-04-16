@@ -55,37 +55,6 @@ suite =
                         |> Advanced.fromLine
                         |> Screen.toString
                         |> Expect.equal "Status: ready"
-            , test "splitLineAt preserves style information on both sides of the split" <|
-                \() ->
-                    let
-                        cyanStyle : Screen.Style
-                        cyanStyle =
-                            { fg = Just Ansi.Color.cyan
-                            , bg = Nothing
-                            , attributes = []
-                            , hyperlink = Nothing
-                            }
-                    in
-                    [ { text = "hello world", style = cyanStyle } ]
-                        |> Advanced.splitLineAt 5
-                        |> Expect.equal
-                            ( [ { text = "hello", style = cyanStyle } ]
-                            , [ { text = " world", style = cyanStyle } ]
-                            )
-            , test "splitLineAt with non-positive width returns an empty left side" <|
-                \() ->
-                    [ { text = "hello", style = Screen.plain } ]
-                        |> Advanced.splitLineAt 0
-                        |> Expect.equal
-                            ( [], [ { text = "hello", style = Screen.plain } ] )
-            , test "splitLineAt respects grapheme boundaries" <|
-                \() ->
-                    [ { text = "áb", style = Screen.plain } ]
-                        |> Advanced.splitLineAt 1
-                        |> Expect.equal
-                            ( [ { text = "á", style = Screen.plain } ]
-                            , [ { text = "b", style = Screen.plain } ]
-                            )
             , test "fromLine [] preserves a blank rendered line" <|
                 \() ->
                     []

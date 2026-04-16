@@ -169,6 +169,7 @@ import Char
 import Dict exposing (Dict)
 import FatalError exposing (FatalError)
 import Set exposing (Set)
+import String.Graphemes as Graphemes
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Keybinding
@@ -3281,10 +3282,10 @@ buildHighlightedLine spans matches currentMatch col =
                     match.col - col
 
                 ( beforeSpans, afterBefore ) =
-                    TuiScreenAdvanced.splitLineAt beforeLen spans
+                    splitLineAt beforeLen spans
 
                 ( matchSpans, afterMatch ) =
-                    TuiScreenAdvanced.splitLineAt match.len afterBefore
+                    splitLineAt match.len afterBefore
 
                 isCurrent : Bool
                 isCurrent =
@@ -3332,7 +3333,7 @@ resolveHyperlinkAt targetCol screen =
         [ spans ] ->
             let
                 ( _, right ) =
-                    TuiScreenAdvanced.splitLineAt targetCol spans
+                    splitLineAt targetCol spans
             in
             case right of
                 span :: _ ->
@@ -3358,6 +3359,49 @@ leadingStyleOfLine screen =
 
         [] ->
             plain
+
+
+splitLineAt : Int -> TuiScreenAdvanced.Line -> ( TuiScreenAdvanced.Line, TuiScreenAdvanced.Line )
+splitLineAt column line =
+    if column <= 0 then
+        ( [], line )
+
+    else
+        splitLineAtHelp column [] line
+
+
+splitLineAtHelp :
+    Int
+    -> TuiScreenAdvanced.Line
+    -> TuiScreenAdvanced.Line
+    -> ( TuiScreenAdvanced.Line, TuiScreenAdvanced.Line )
+splitLineAtHelp remaining reversedBefore line =
+    if remaining <= 0 then
+        ( List.reverse reversedBefore, line )
+
+    else
+        case line of
+            [] ->
+                ( List.reverse reversedBefore, [] )
+
+            span :: rest ->
+                let
+                    spanLen : Int
+                    spanLen =
+                        Graphemes.length span.text
+                in
+                if spanLen <= remaining then
+                    splitLineAtHelp (remaining - spanLen) (span :: reversedBefore) rest
+
+                else
+                    let
+                        splitSpan : TuiScreenAdvanced.Span
+                        splitSpan =
+                            { span | text = Graphemes.left remaining span.text }
+                    in
+                    ( List.reverse (splitSpan :: reversedBefore)
+                    , { span | text = Graphemes.dropLeft remaining span.text } :: rest
+                    )
 
 
 clampScroll : Int -> Int -> Int -> Int
