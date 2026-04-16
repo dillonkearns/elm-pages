@@ -18,6 +18,7 @@ import Tui.Screen exposing (plain)
 import Tui.Screen.Advanced as ScreenAdvanced
 import Tui.Screen.Internal.Encode as ScreenEncode
 import Tui.Sub
+import Tui.Sub.Internal as SubInternal
 import Tui.Test as TuiTest
 
 
@@ -550,6 +551,41 @@ suite =
                         |> TuiTest.ensureViewHas "Effect: 120×40"
                         |> TuiTest.expectRunning
                         |> TuiTest.done
+            ]
+        , describe "Tui.Sub.Internal.decodeRawEvent"
+            [ test "decodes keypress events" <|
+                \() ->
+                    Decode.decodeValue
+                        SubInternal.decodeRawEvent
+                        (Encode.object
+                            [ ( "type", Encode.string "keypress" )
+                            , ( "key"
+                              , Encode.object
+                                    [ ( "tag", Encode.string "Character" )
+                                    , ( "char", Encode.string "q" )
+                                    ]
+                              )
+                            , ( "modifiers", Encode.list Encode.string [ "Ctrl" ] )
+                            ]
+                        )
+                        |> Expect.equal
+                            (Ok
+                                (Just
+                                    (Tui.Sub.RawKeyPress
+                                        { key = Tui.Sub.Character 'q'
+                                        , modifiers = [ Tui.Sub.Ctrl ]
+                                        }
+                                    )
+                                )
+                            )
+            , test "ignores bare resize events" <|
+                \() ->
+                    Decode.decodeValue
+                        SubInternal.decodeRawEvent
+                        (Encode.object
+                            [ ( "type", Encode.string "resize" ) ]
+                        )
+                        |> Expect.equal (Ok Nothing)
             ]
         , describe "TuiTest - Stars (BackendTask Effects)"
             [ test "initial view shows default repo and prompt" <|

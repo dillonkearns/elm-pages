@@ -116,6 +116,7 @@ import Tui.Effect.Internal as EffectInternal
 import Tui.Screen exposing (Screen)
 import Tui.Screen.Internal.Encode as ScreenEncode
 import Tui.Sub
+import Tui.Sub.Internal as SubInternal
 
 
 
@@ -564,15 +565,15 @@ processBatchedEventsHelp app sub context model accEffects events =
 
         rawValue :: rest ->
             let
-                rawEvent : Tui.Sub.RawEvent
-                rawEvent =
+                maybeRawEvent : Maybe Tui.Sub.RawEvent
+                maybeRawEvent =
                     decodeRawEvent rawValue
             in
-            case rawEvent of
-                Tui.Sub.RawResize ->
+            case maybeRawEvent of
+                Nothing ->
                     processBatchedEventsHelp app sub context model accEffects rest
 
-                _ ->
+                Just rawEvent ->
                     let
                         ( newModel, newAccEffects ) =
                             List.foldl
@@ -589,14 +590,14 @@ processBatchedEventsHelp app sub context model accEffects events =
                     processBatchedEventsHelp app sub context newModel newAccEffects rest
 
 
-decodeRawEvent : Decode.Value -> Tui.Sub.RawEvent
+decodeRawEvent : Decode.Value -> Maybe Tui.Sub.RawEvent
 decodeRawEvent value =
-    case Decode.decodeValue Tui.Sub.decodeRawEvent value of
+    case Decode.decodeValue SubInternal.decodeRawEvent value of
         Ok event ->
             event
 
         Err _ ->
-            Tui.Sub.RawResize
+            Nothing
 
 
 applyContextUpdate :
