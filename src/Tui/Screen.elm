@@ -1,12 +1,9 @@
 module Tui.Screen exposing
     ( Screen, text, styled, lines, concat, empty, blank
     , fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
-    , Style, plain, extractStyle, Attribute(..)
+    , Style, plain, Attribute(..)
     , truncateWidth, wrapWidth
     , toString
-    , Span
-    , toSpanLines, fromSpans
-    , truncateSpans, wrapSpans
     )
 
 {-| Styled terminal output for a [`Tui.Program`](Tui#Program)'s `view` function.
@@ -42,7 +39,7 @@ Pipeline-style builders that compose on any `Screen` — text, concat, lines:
 
 @docs fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
 
-@docs Style, plain, extractStyle, Attribute
+@docs Style, plain, Attribute
 
 
 ## Text Manipulation
@@ -54,16 +51,8 @@ Pipeline-style builders that compose on any `Screen` — text, concat, lines:
 
 @docs toString
 
-
-## Advanced: styled span views
-
-A styled-span view of a [`Screen`](#Screen). Most apps do not need this
-directly — it is useful when analyzing or rebuilding styled terminal
-content while preserving colors, text attributes, and hyperlinks.
-
-@docs Span
-@docs toSpanLines, fromSpans
-@docs truncateSpans, wrapSpans
+For framework-level consumers that need to inspect rendered lines or rebuild
+styled output, see [`Tui.Screen.Advanced`](Tui-Screen-Advanced).
 
 -}
 
@@ -386,31 +375,17 @@ flatStyleToAttrs s =
         ]
 
 
+flattenToSpanLines : Screen -> List (List Internal.Span)
+flattenToSpanLines =
+    Internal.flattenToSpanLines styleToFlatStyle
+
+
 flatStyleToStyle : Internal.FlatStyle -> Style
 flatStyleToStyle fs =
     { fg = fs.foreground
     , bg = fs.background
     , attributes = flatStyleToAttrs fs
     , hyperlink = fs.hyperlink
-    }
-
-
-flattenToSpanLines : Screen -> List (List Internal.Span)
-flattenToSpanLines =
-    Internal.flattenToSpanLines styleToFlatStyle
-
-
-spanToInternal : Span -> Internal.Span
-spanToInternal span =
-    { text = span.text
-    , style = styleToFlatStyle span.style
-    }
-
-
-spanFromInternal : Internal.Span -> Span
-spanFromInternal span =
-    { text = span.text
-    , style = flatStyleToStyle span.style
     }
 
 
@@ -426,22 +401,6 @@ toString screen =
     flattenToSpanLines screen
         |> List.map (\spans -> spans |> List.map .text |> String.concat)
         |> String.join "\n"
-
-
-{-| Extract the outermost style from a Screen. Returns `plain` for unstyled
-text. Useful for extending a row's style to fill remaining width (e.g.,
-making a selection highlight span the full pane width).
-
-    style =
-        Screen.extractStyle selectedLine
-
-    padding =
-        Screen.styled style (String.repeat n " ")
-
--}
-extractStyle : Screen -> Style
-extractStyle =
-    Internal.extractStyle plain
 
 
 {-| Truncate a Screen to a maximum width in columns, preserving styles.
@@ -510,51 +469,3 @@ wrapWidth maxWidth screen =
                         Internal.wrapSpans maxWidth spanLine
                             |> List.map (Internal.spansToScreen flatStyleToStyle)
                 )
-
-
--- STYLED SPAN VIEW (advanced)
-
-
-{-| A styled text segment from a rendered screen line.
--}
-type alias Span =
-    { text : String
-    , style : Style
-    }
-
-
-{-| Flatten a `Screen` into styled span lines.
--}
-toSpanLines : Screen -> List (List Span)
-toSpanLines screen =
-    flattenToSpanLines screen
-        |> List.map (List.map spanFromInternal)
-
-
-{-| Rebuild a `Screen` from styled spans.
--}
-fromSpans : List Span -> Screen
-fromSpans spans =
-    spans
-        |> List.map spanToInternal
-        |> Internal.spansToScreen flatStyleToStyle
-
-
-{-| Truncate a span line to a maximum width, preserving styles.
--}
-truncateSpans : Int -> List Span -> List Span
-truncateSpans maxWidth spans =
-    spans
-        |> List.map spanToInternal
-        |> Internal.truncateSpans maxWidth
-        |> List.map spanFromInternal
-
-
-{-| Wrap a span line to a maximum width, preserving styles.
--}
-wrapSpans : Int -> List Span -> List (List Span)
-wrapSpans maxWidth spans =
-    spans
-        |> List.map spanToInternal
-        |> Internal.wrapSpans maxWidth
-        |> List.map (List.map spanFromInternal)

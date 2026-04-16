@@ -15,6 +15,7 @@ import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Input as Input
 import Tui.Screen exposing (plain)
+import Tui.Screen.Advanced as ScreenAdvanced
 import Tui.Screen.Internal.Encode as ScreenEncode
 import Tui.Sub
 import Tui.Test as TuiTest
@@ -231,7 +232,7 @@ suite =
                     Tui.Screen.text "hello world"
                         |> Tui.Screen.link { url = "https://example.com" }
                         |> Tui.Screen.wrapWidth 6
-                        |> List.map (\s -> Tui.Screen.extractStyle s |> .hyperlink)
+                        |> List.map (\s -> leadingStyleOfLine s |> .hyperlink)
                         |> Expect.equal [ Just "https://example.com", Just "https://example.com" ]
             ]
         , describe "Input"
@@ -299,7 +300,7 @@ suite =
                     Tui.Screen.text "hello world"
                         |> Tui.Screen.bold
                         |> Tui.Screen.wrapWidth 6
-                        |> List.map (\s -> ( Tui.Screen.toString s, Tui.Screen.extractStyle s ))
+                        |> List.map (\s -> ( Tui.Screen.toString s, leadingStyleOfLine s ))
                         |> Expect.equal
                             [ ( "hello", { plain | attributes = [ Tui.Screen.Bold ] } )
                             , ( "world", { plain | attributes = [ Tui.Screen.Bold ] } )
@@ -978,6 +979,21 @@ tuiTests =
                 |> TuiTest.expectRunning
             )
         ]
+
+
+leadingStyleOfLine : Tui.Screen.Screen -> Tui.Screen.Style
+leadingStyleOfLine screen =
+    case ScreenAdvanced.toLines screen of
+        firstLine :: _ ->
+            case firstLine of
+                firstSpan :: _ ->
+                    firstSpan.style
+
+                [] ->
+                    plain
+
+        [] ->
+            plain
 
 
 {-| Apply a function N times.

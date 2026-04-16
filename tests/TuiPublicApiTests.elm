@@ -6,26 +6,27 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui.Effect as Effect
 import Tui.Screen as Screen
+import Tui.Screen.Advanced as Advanced
 
 
 suite : Test
 suite =
     describe "public TUI API"
-        [ describe "Screen.Screen"
-            [ test "toSpanLines preserves styled text in public spans" <|
+        [ describe "Tui.Screen.Advanced"
+            [ test "toLines preserves styled text in public spans" <|
                 \() ->
                     let
-                        spanLines : List (List Screen.Span)
-                        spanLines =
+                        lines : List Advanced.Line
+                        lines =
                             Screen.concat
                                 [ Screen.text "Hello" |> Screen.fg Ansi.Color.red |> Screen.bold
                                 , Screen.text " "
                                 , Screen.text "elm-pages" |> Screen.link { url = "https://elm-pages.com" }
                                 ]
-                                |> Screen.toSpanLines
+                                |> Advanced.toLines
                     in
-                    case spanLines of
-                        [ first :: _ :: third :: [] ] ->
+                    case lines of
+                        [ [ first, _, third ] ] ->
                             Expect.all
                                 [ \_ -> Expect.equal "Hello" first.text
                                 , \_ -> Expect.equal (Just Ansi.Color.red) first.style.fg
@@ -37,7 +38,7 @@ suite =
 
                         _ ->
                             Expect.fail "Expected a single line with three public spans"
-            , test "fromSpans rebuilds a screen from public spans" <|
+            , test "fromLine rebuilds a screen from public spans" <|
                 \() ->
                     let
                         plainStyle : Screen.Style
@@ -51,41 +52,46 @@ suite =
                     [ { text = "Status", style = greenBoldStyle }
                     , { text = ": ready", style = plainStyle }
                     ]
-                        |> Screen.fromSpans
+                        |> Advanced.fromLine
                         |> Screen.toString
                         |> Expect.equal "Status: ready"
-            , test "truncateSpans keeps style information on the truncated span" <|
+            , test "splitLineAt preserves style information on both sides of the split" <|
                 \() ->
                     let
-                        plainStyle : Screen.Style
-                        plainStyle =
-                            Screen.plain
-
-                        linkStyle : Screen.Style
-                        linkStyle =
-                            { plainStyle | hyperlink = Just "https://elm-pages.com" }
-                    in
-                    [ { text = "elm-pages toolkit", style = linkStyle } ]
-                        |> Screen.truncateSpans 10
-                        |> Expect.equal
-                            [ { text = "elm-pages…", style = linkStyle } ]
-            , test "wrapSpans preserves style information across wrapped lines" <|
-                \() ->
-                    let
-                        plainStyle : Screen.Style
-                        plainStyle =
-                            Screen.plain
-
                         cyanStyle : Screen.Style
                         cyanStyle =
-                            { plainStyle | fg = Just Ansi.Color.cyan }
+                            { fg = Just Ansi.Color.cyan
+                            , bg = Nothing
+                            , attributes = []
+                            , hyperlink = Nothing
+                            }
                     in
                     [ { text = "hello world", style = cyanStyle } ]
-                        |> Screen.wrapSpans 6
+                        |> Advanced.splitLineAt 5
                         |> Expect.equal
-                            [ [ { text = "hello", style = cyanStyle } ]
-                            , [ { text = "world", style = cyanStyle } ]
-                            ]
+                            ( [ { text = "hello", style = cyanStyle } ]
+                            , [ { text = " world", style = cyanStyle } ]
+                            )
+            , test "splitLineAt with non-positive width returns an empty left side" <|
+                \() ->
+                    [ { text = "hello", style = Screen.plain } ]
+                        |> Advanced.splitLineAt 0
+                        |> Expect.equal
+                            ( [], [ { text = "hello", style = Screen.plain } ] )
+            , test "splitLineAt respects grapheme boundaries" <|
+                \() ->
+                    [ { text = "áb", style = Screen.plain } ]
+                        |> Advanced.splitLineAt 1
+                        |> Expect.equal
+                            ( [ { text = "á", style = Screen.plain } ]
+                            , [ { text = "b", style = Screen.plain } ]
+                            )
+            , test "fromLine [] preserves a blank rendered line" <|
+                \() ->
+                    []
+                        |> Advanced.fromLine
+                        |> Advanced.toLines
+                        |> Expect.equal [ [] ]
             ]
         , describe "Tui.Effect.fold"
             [ test "fold can inspect batched public effects without constructors" <|
@@ -110,31 +116,6 @@ suite =
                         |> Expect.equal
                             [ "backend-task"
                             , "exit:2"
-                            ]
-            ]
-        , describe "Screen.Screen width helpers"
-            [ test "truncateSpans with non-positive width returns no spans" <|
-                \() ->
-                    [ { text = "hello", style = Screen.plain } ]
-                        |> Screen.truncateSpans 0
-                        |> Expect.equal []
-            , test "wrapSpans with non-positive width returns no lines" <|
-                \() ->
-                    [ { text = "hello", style = Screen.plain } ]
-                        |> Screen.wrapSpans 0
-                        |> Expect.equal []
-            , test "truncateSpans respects grapheme boundaries" <|
-                \() ->
-                    [ { text = "🙂x", style = Screen.plain } ]
-                        |> Screen.truncateSpans 2
-                        |> Expect.equal [ { text = "🙂x", style = Screen.plain } ]
-            , test "wrapSpans respects grapheme boundaries" <|
-                \() ->
-                    [ { text = "áb", style = Screen.plain } ]
-                        |> Screen.wrapSpans 1
-                        |> Expect.equal
-                            [ [ { text = "á", style = Screen.plain } ]
-                            , [ { text = "b", style = Screen.plain } ]
                             ]
             ]
         ]

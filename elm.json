@@ -51,6 +51,7 @@
         "Tui.Effect",
         "Tui.Input",
         "Tui.Screen",
+        "Tui.Screen.Advanced",
         "Tui.Sub",
         "Tui.Test",
         "Test.BackendTask",

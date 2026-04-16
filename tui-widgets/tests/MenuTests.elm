@@ -7,6 +7,7 @@ import Tui
 import Tui.Menu as Menu
 import Tui.Modal as Modal
 import Tui.Screen
+import Tui.Screen.Advanced as ScreenAdvanced
 import Tui.Sub
 
 
@@ -43,14 +44,14 @@ suite =
                             rows
                                 |> List.drop 1
                                 |> List.head
-                                |> Maybe.map Tui.Screen.extractStyle
+                                |> Maybe.map leadingStyleOfLine
                                 |> Maybe.andThen .bg
 
                         secondDuplicateBg =
                             rows
                                 |> List.drop 2
                                 |> List.head
-                                |> Maybe.map Tui.Screen.extractStyle
+                                |> Maybe.map leadingStyleOfLine
                                 |> Maybe.andThen .bg
                     in
                     Expect.all
@@ -139,3 +140,18 @@ expectContains needle haystack =
                 ++ "\" in:\n\n"
                 ++ haystack
             )
+
+
+leadingStyleOfLine : Tui.Screen.Screen -> Tui.Screen.Style
+leadingStyleOfLine screen =
+    case ScreenAdvanced.toLines screen of
+        firstLine :: _ ->
+            case firstLine of
+                firstSpan :: _ ->
+                    firstSpan.style
+
+                [] ->
+                    Tui.Screen.plain
+
+        [] ->
+            Tui.Screen.plain

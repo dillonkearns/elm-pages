@@ -1,7 +1,6 @@
 module Tui.Layout exposing
     ( Layout, Pane, horizontal, vertical, pane, paneGroup, TabConfig
-    , PaneContent, content, selectableList, indexSelectableList, withUnfocusedStyle, withFilterable, withSearchable, withTreeView
-    , SelectionState(..)
+    , PaneContent, content, selectableList, SelectionState(..), indexSelectableList, withUnfocusedStyle, withFilterable, withSearchable, withTreeView
     , Modal, promptModal, confirmModal, pickerModal, menuModal, helpModal
     , Group, Binding, group, binding, charBinding
     , Width, fill, fillPortion, fixed
@@ -43,12 +42,20 @@ indices, and terminal dimensions in an opaque `State`. The user stores one
                 { title = "Commits", width = Layout.fill }
                 (Layout.selectableList
                     { onSelect = \c -> SelectCommit c
-                    , view = \{ selection } c ->
-                        case selection of
-                            Layout.Selected { focused } ->
-                                TuiScreen.text ("▸ " ++ c.sha)
-                                    |> (if focused then TuiScreen.bold else identity)
-                            Layout.NotSelected -> TuiScreen.text ("  " ++ c.sha)
+                    , view =
+                        \{ selection } c ->
+                            case selection of
+                                Layout.Selected { focused } ->
+                                    TuiScreen.text ("▸ " ++ c.sha)
+                                        |> (if focused then
+                                                TuiScreen.bold
+
+                                            else
+                                                identity
+                                           )
+
+                                Layout.NotSelected ->
+                                    TuiScreen.text ("  " ++ c.sha)
                     }
                     model.commits
                 )
@@ -171,6 +178,7 @@ import Tui.Modal
 import Tui.OptionsBar
 import Tui.Prompt
 import Tui.Screen as TuiScreen exposing (Screen, plain)
+import Tui.Screen.Advanced as TuiScreenAdvanced
 import Tui.Status
 import Tui.Sub exposing (MouseEvent)
 
@@ -211,14 +219,21 @@ SelectableContent stores items lazily: the render functions are only applied
 when `getContentLine` needs a specific visible item. This means a list of
 10,000 items only renders the ~30 that are on screen (viewport-only rendering,
 inspired by lazygit's `renderOnlyVisibleLines` and Ratatui's `ListState`).
+
 -}
 type PaneContent msg
     = StaticContent { lines : Array.Array Screen, lineCount : Int, searchable : Bool }
     | SelectableContent
         { itemCount : Int
-        , renderItem : Int -> Screen -- renders default view for item at index
-        , renderSelected : Int -> Screen -- renders selected view for item at index
-        , renderSelectedUnfocused : Int -> Screen -- renders selected view when pane is unfocused
+        , renderItem :
+            Int
+            -> Screen -- renders default view for item at index
+        , renderSelected :
+            Int
+            -> Screen -- renders selected view for item at index
+        , renderSelectedUnfocused :
+            Int
+            -> Screen -- renders selected view when pane is unfocused
         , onSelect : Int -> msg
         , filterText : Maybe (Int -> String)
         , treeConfig : Maybe { toPath : Int -> List String }
@@ -303,6 +318,7 @@ height allocation (same `Fill`/`Fixed` proportional sizing).
 
     if ctx.width <= 84 && ctx.height > 45 then
         Layout.vertical [ commitsPane, diffPane ]
+
     else
         Layout.horizontal [ commitsPane, diffPane ]
 
@@ -528,14 +544,20 @@ Use `Selected _` to match any selected item regardless of focus.
 
     Layout.selectableList
         { onSelect = \commit -> SelectCommit commit
-        , view = \{ selection } commit ->
-            case selection of
-                Layout.Selected { focused } ->
-                    TuiScreen.text commit.sha
-                        |> (if focused then TuiScreen.bg Ansi.Color.blue else TuiScreen.bold)
+        , view =
+            \{ selection } commit ->
+                case selection of
+                    Layout.Selected { focused } ->
+                        TuiScreen.text commit.sha
+                            |> (if focused then
+                                    TuiScreen.bg Ansi.Color.blue
 
-                Layout.NotSelected ->
-                    TuiScreen.text commit.sha
+                                else
+                                    TuiScreen.bold
+                               )
+
+                    Layout.NotSelected ->
+                        TuiScreen.text commit.sha
         }
         model.commits
 
@@ -550,12 +572,20 @@ that receives `SelectionState`.
 
     Layout.selectableList
         { onSelect = \item -> SelectItem item
-        , view = \{ selection } item ->
-            case selection of
-                Layout.Selected { focused } ->
-                    TuiScreen.text item
-                        |> (if focused then TuiScreen.bg Ansi.Color.blue else TuiScreen.bold)
-                Layout.NotSelected -> TuiScreen.text item
+        , view =
+            \{ selection } item ->
+                case selection of
+                    Layout.Selected { focused } ->
+                        TuiScreen.text item
+                            |> (if focused then
+                                    TuiScreen.bg Ansi.Color.blue
+
+                                else
+                                    TuiScreen.bold
+                               )
+
+                    Layout.NotSelected ->
+                        TuiScreen.text item
         }
         items
 
@@ -773,7 +803,9 @@ group =
 {-| Create a binding with any [`Tui.Sub.Key`](Tui#Key).
 
     Layout.binding (Tui.Sub.Character 'c') "Commit" OpenCommitDialog
+
     Layout.binding Tui.Sub.Enter "Confirm" Confirm
+
     Layout.binding (Tui.Sub.FunctionKey 5) "Refresh" Refresh
 
 For a shorthand that takes a `Char`, see [`charBinding`](#charBinding).
@@ -788,6 +820,7 @@ binding =
 Shorthand for `binding (Tui.Sub.Character c) desc action`.
 
     Layout.charBinding 'c' "Commit" OpenCommitDialog
+
     Layout.charBinding 'q' "Quit" Quit
 
 -}
@@ -1501,8 +1534,11 @@ automatically — filter, tree view, and scroll are all accounted for. Returns
 index is out of bounds.
 
     case Layout.selectedItem "files" model.files layout model.layout of
-        Just file -> showFileDetails file
-        Nothing -> showDirectoryInfo
+        Just file ->
+            showFileDetails file
+
+        Nothing ->
+            showDirectoryInfo
 
 -}
 selectedItem : String -> List item -> Layout msg -> State -> Maybe item
@@ -1666,9 +1702,10 @@ setSelectedIndexAndScroll paneId index totalItems (State s) =
 {-| Get the total item count for a pane. Useful for displaying "N of M" counters
 without manually computing `List.length` on your items list.
 
-    footer = String.fromInt (Layout.selectedIndex "list" state + 1)
-        ++ " of "
-        ++ String.fromInt (Layout.itemCount "list" layout)
+    footer =
+        String.fromInt (Layout.selectedIndex "list" state + 1)
+            ++ " of "
+            ++ String.fromInt (Layout.itemCount "list" layout)
 
 -}
 itemCount : String -> Layout msg -> Int
@@ -1694,7 +1731,10 @@ scrollPosition paneId (State s) =
 {-| Get scroll information for a pane. Useful for rendering scroll
 position indicators like "42%" or "120/280".
 
-    info = Layout.scrollInfo "docs" layout model.layout
+
+    info =
+        Layout.scrollInfo "docs" layout model.layout
+
     -- { offset = 42, visible = 20, total = 280 }
     -- percentage = info.offset * 100 // info.total
 
@@ -2612,10 +2652,15 @@ mapFilteredIndex filteredIdx maybeFs =
 any uppercase characters, the match is case-sensitive; otherwise it is
 case-insensitive.
 -}
+
+
+
 -- Smart-case substring matching with space-separated AND terms.
 -- Matches lazygit's default filter behavior:
 -- "json dec" matches "Json.Decode" (both terms must match)
 -- Smart-case per term: case-insensitive unless term has uppercase
+
+
 matchesFilter : String -> String -> Bool
 matchesFilter query text =
     let
@@ -2706,8 +2751,11 @@ filterStatusBar paneId (State s) =
 Checks all panes — use this instead of checking each pane individually.
 
     case Layout.activeFilterStatusBar model.layout of
-        Just filterBar -> filterBar
-        Nothing -> myNormalOptionsBar
+        Just filterBar ->
+            filterBar
+
+        Nothing ->
+            myNormalOptionsBar
 
 -}
 activeFilterStatusBar : State -> Maybe Screen
@@ -3204,9 +3252,9 @@ highlightMatchesOnLine lineIdx ss lineScreen =
 
     else
         let
-            spans : List TuiScreen.Span
+            spans : TuiScreenAdvanced.Line
             spans =
-                case TuiScreen.toSpanLines lineScreen of
+                case TuiScreenAdvanced.toLines lineScreen of
                     first :: _ ->
                         first
 
@@ -3219,12 +3267,12 @@ highlightMatchesOnLine lineIdx ss lineScreen =
 {-| Build a highlighted line from styled spans and match positions,
 preserving existing styles on non-matched segments.
 -}
-buildHighlightedLine : List TuiScreen.Span -> List { line : Int, col : Int, len : Int } -> Maybe { line : Int, col : Int, len : Int } -> Int -> Screen
+buildHighlightedLine : TuiScreenAdvanced.Line -> List { line : Int, col : Int, len : Int } -> Maybe { line : Int, col : Int, len : Int } -> Int -> Screen
 buildHighlightedLine spans matches currentMatch col =
     case matches of
         [] ->
             -- Remaining spans after last match — keep original styles
-            spansToScreen spans
+            TuiScreenAdvanced.fromLine spans
 
         match :: rest ->
             let
@@ -3233,10 +3281,10 @@ buildHighlightedLine spans matches currentMatch col =
                     match.col - col
 
                 ( beforeSpans, afterBefore ) =
-                    splitSpansAt beforeLen spans
+                    TuiScreenAdvanced.splitLineAt beforeLen spans
 
                 ( matchSpans, afterMatch ) =
-                    splitSpansAt match.len afterBefore
+                    TuiScreenAdvanced.splitLineAt match.len afterBefore
 
                 isCurrent : Bool
                 isCurrent =
@@ -3266,47 +3314,13 @@ buildHighlightedLine spans matches currentMatch col =
                                 in
                                 { span | style = { oldStyle | bg = Just highlightBg } }
                             )
-                        |> spansToScreen
+                        |> TuiScreenAdvanced.fromLine
             in
             TuiScreen.concat
-                [ spansToScreen beforeSpans
+                [ TuiScreenAdvanced.fromLine beforeSpans
                 , highlightedMatchScreen
                 , buildHighlightedLine afterMatch rest currentMatch (match.col + match.len)
                 ]
-
-
-{-| Split a list of spans at a character position. Returns (before, after)
-where before contains exactly `n` characters worth of spans.
--}
-splitSpansAt : Int -> List TuiScreen.Span -> ( List TuiScreen.Span, List TuiScreen.Span )
-splitSpansAt n spans =
-    -- elm-review: known-unoptimized-recursion
-    if n <= 0 then
-        ( [], spans )
-
-    else
-        case spans of
-            [] ->
-                ( [], [] )
-
-            span :: rest ->
-                let
-                    spanLen : Int
-                    spanLen =
-                        String.length span.text
-                in
-                if spanLen <= n then
-                    let
-                        ( restBefore, after ) =
-                            splitSpansAt (n - spanLen) rest
-                    in
-                    ( span :: restBefore, after )
-
-                else
-                    -- Split this span in two
-                    ( [ { span | text = String.left n span.text } ]
-                    , { span | text = String.dropLeft n span.text } :: rest
-                    )
 
 
 {-| Resolve the hyperlink URL at a given column within a single-line Screen.
@@ -3314,11 +3328,11 @@ Returns `Just url` if the character at `targetCol` has a hyperlink, `Nothing` ot
 -}
 resolveHyperlinkAt : Int -> Screen -> Maybe String
 resolveHyperlinkAt targetCol screen =
-    case TuiScreen.toSpanLines screen of
+    case TuiScreenAdvanced.toLines screen of
         [ spans ] ->
             let
                 ( _, right ) =
-                    splitSpansAt targetCol spans
+                    TuiScreenAdvanced.splitLineAt targetCol spans
             in
             case right of
                 span :: _ ->
@@ -3331,11 +3345,19 @@ resolveHyperlinkAt targetCol screen =
             Nothing
 
 
-{-| Convert FlatStyle spans back to a Screen.
--}
-spansToScreen : List TuiScreen.Span -> Screen
-spansToScreen spans =
-    TuiScreen.fromSpans spans
+leadingStyleOfLine : Screen -> TuiScreen.Style
+leadingStyleOfLine screen =
+    case TuiScreenAdvanced.toLines screen of
+        firstLine :: _ ->
+            case firstLine of
+                firstSpan :: _ ->
+                    firstSpan.style
+
+                [] ->
+                    plain
+
+        [] ->
+            plain
 
 
 clampScroll : Int -> Int -> Int -> Int
@@ -3561,7 +3583,12 @@ flattenTree nodes treeState depth parentPath =
                       , depth = depth
                       , isDirectory = False
                       , isExpanded = False
-                      , path = if parentPath == "" then name else parentPath ++ "/" ++ name
+                      , path =
+                            if parentPath == "" then
+                                name
+
+                            else
+                                parentPath ++ "/" ++ name
                       }
                     ]
 
@@ -4301,7 +4328,7 @@ toRowsHorizontal s panes =
                                     paddingScreen =
                                         if isSelectedRow && padding > 0 then
                                             -- Extend the selection highlight across full pane width
-                                            TuiScreen.styled (TuiScreen.extractStyle lineScreen) (String.repeat padding " ")
+                                            TuiScreen.styled (leadingStyleOfLine lineScreen) (String.repeat padding " ")
 
                                         else
                                             TuiScreen.text (String.repeat padding " ")
@@ -4550,7 +4577,7 @@ toRowsVertical s panes =
                                     paddingScreen : Screen
                                     paddingScreen =
                                         if isSelectedRow && padding > 0 then
-                                            TuiScreen.styled (TuiScreen.extractStyle lineScreen) (String.repeat padding " ")
+                                            TuiScreen.styled (leadingStyleOfLine lineScreen) (String.repeat padding " ")
 
                                         else
                                             TuiScreen.text (String.repeat padding " ")
@@ -4797,6 +4824,7 @@ resolveWidths totalWidth widthSpecs =
             )
 
 
+
 -- RAW EVENT
 
 
@@ -4822,7 +4850,6 @@ type RawEvent
 type ScrollDirection
     = ScrollingUp
     | ScrollingDown
-
 
 
 {-| Context passed to the `update` function in `compileApp`. Provides
@@ -5272,7 +5299,6 @@ compileUpdate config fwMsg (FrameworkModel fw) =
 
         UserMsg msg ->
             applyUserMsg config msg (FrameworkModel fw)
-
 
 
 handleKeyPressed :

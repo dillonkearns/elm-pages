@@ -1,12 +1,10 @@
 module Tui.Screen.Internal exposing
-    ( Screen(..)
-    , Span, FlatStyle
+    ( Screen(..), Span, FlatStyle
     , flattenToSpanLines, defaultFlatStyle
     , applyStyle
     , spanToScreen, spansToScreen
     , truncateSpans
     , wrapSpans
-    , extractStyle
     )
 
 {-| Internal module for Screen types and flattening.
@@ -17,7 +15,6 @@ module Tui.Screen.Internal exposing
 @docs spanToScreen, spansToScreen
 @docs truncateSpans
 @docs wrapSpans
-@docs extractStyle
 
 -}
 
@@ -183,10 +180,10 @@ truncateSpans remaining spans =
                     span :: truncateSpans (remaining - spanLen) rest
 
                 else if remaining <= 1 then
-                    [ { span | text = "\u{2026}" } ]
+                    [ { span | text = "…" } ]
 
                 else
-                    [ { span | text = Graphemes.left (remaining - 1) span.text ++ "\u{2026}" } ]
+                    [ { span | text = Graphemes.left (remaining - 1) span.text ++ "…" } ]
 
 
 {-| Wrap a flat list of spans into lines, each fitting within maxWidth.
@@ -331,7 +328,8 @@ graphemesToSpans graphemes =
 
                 spanText : String
                 spanText =
-                    first.text :: List.map .text sameStyle
+                    first.text
+                        :: List.map .text sameStyle
                         |> String.concat
 
                 remaining : List { text : String, style : FlatStyle }
@@ -382,23 +380,3 @@ concatSpanLines lineGroups =
                         )
         in
         currentLine :: concatSpanLines remainingGroups
-
-
-{-| Extract the outermost style from a Screen.
--}
-extractStyle : style -> Screen style -> style
-extractStyle defaultStyle screen =
-    case screen of
-        ScreenStyled stl _ ->
-            stl
-
-        ScreenConcat items ->
-            case items of
-                (ScreenStyled stl _) :: _ ->
-                    stl
-
-                _ ->
-                    defaultStyle
-
-        _ ->
-            defaultStyle

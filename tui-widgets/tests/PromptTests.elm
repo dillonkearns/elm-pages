@@ -5,6 +5,7 @@ import Test exposing (Test, describe, test)
 import Tui
 import Tui.Prompt as Prompt
 import Tui.Screen
+import Tui.Screen.Advanced as ScreenAdvanced
 import Tui.Sub
 
 
@@ -68,7 +69,7 @@ renderedBodyHasInverseCursor : Prompt.State -> Bool
 renderedBodyHasInverseCursor state =
     Prompt.viewBody { width = 40 } state
         |> Tui.Screen.lines
-        |> Tui.Screen.toSpanLines
+        |> ScreenAdvanced.toLines
         |> List.concat
         |> List.any (\span -> List.member Tui.Screen.Inverse span.style.attributes)
 
