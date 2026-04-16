@@ -4,8 +4,8 @@ import Ansi.Color
 import BackendTask
 import Test.BackendTask as BackendTaskTest
 import Tui
-import Tui.Layout.Effect as Effect
 import Tui.Layout as Layout
+import Tui.Layout.Effect as Effect
 import Tui.Layout.Test as LayoutTest
 import Tui.Screen
 import Tui.Sub
@@ -15,7 +15,7 @@ import Tui.Test as TuiTest
 tuiTests : TuiTest.Test
 tuiTests =
     TuiTest.test "layout stepper demo"
-        (TuiTest.startApp BackendTaskTest.init appConfig
+        (TuiTest.start BackendTaskTest.init appConfig
             |> LayoutTest.ensureFocusedPane "left"
             |> LayoutTest.ensureSelectedIndex "left" 0
             |> TuiTest.pressKeyN 3 'j'

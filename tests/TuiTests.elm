@@ -1179,8 +1179,8 @@ counterSubscriptions _ =
 
 counterTest : TuiTest.TuiTest CounterModel CounterMsg
 counterTest =
-    TuiTest.start
-        { data = ()
+    TuiTest.start BackendTaskTest.init
+        { data = BackendTask.succeed ()
         , init = counterInit
         , update = counterUpdate
         , view = counterView
@@ -1252,7 +1252,8 @@ contextSubscriptions _ =
 contextTest : Bool -> Tui.Context -> TuiTest.TuiTest ContextModel ContextMsg
 contextTest triggerEffect context =
     TuiTest.startWithContext context
-        { data = ()
+        BackendTaskTest.init
+        { data = BackendTask.succeed ()
         , init = contextInit triggerEffect
         , update = contextUpdate
         , view = contextView
@@ -1377,8 +1378,8 @@ starsSubscriptions _ =
 
 starsTest : TuiTest.TuiTest StarsModel StarsMsg
 starsTest =
-    TuiTest.start
-        { data = ()
+    TuiTest.start BackendTaskTest.init
+        { data = BackendTask.succeed ()
         , init = starsInit
         , update = starsUpdate
         , view = starsView
@@ -1431,8 +1432,8 @@ tickerSubscriptions model =
 
 singleIntervalTickerTest : Int -> TuiTest.TuiTest TickerModel TickerMsg
 singleIntervalTickerTest interval =
-    TuiTest.start
-        { data = ()
+    TuiTest.start BackendTaskTest.init
+        { data = BackendTask.succeed ()
         , init = tickerInit [ interval ]
         , update = tickerUpdate
         , view = tickerView
@@ -1442,8 +1443,8 @@ singleIntervalTickerTest interval =
 
 twoIntervalTickerTest : Int -> Int -> TuiTest.TuiTest TickerModel TickerMsg
 twoIntervalTickerTest a b =
-    TuiTest.start
-        { data = ()
+    TuiTest.start BackendTaskTest.init
+        { data = BackendTask.succeed ()
         , init = tickerInit [ a, b ]
         , update = tickerUpdate
         , view = tickerView
@@ -1480,8 +1481,8 @@ dualSubUpdate msg model =
 
 sameIntervalDualSubTest : Int -> TuiTest.TuiTest DualSubModel DualSubMsg
 sameIntervalDualSubTest interval =
-    TuiTest.start
-        { data = ()
+    TuiTest.start BackendTaskTest.init
+        { data = BackendTask.succeed ()
         , init =
             \() ->
                 ( { primaryCount = 0, secondaryCount = 0, interval = interval }
@@ -1505,8 +1506,8 @@ sameIntervalDualSubTest interval =
 
 conditionalTickerTest : TuiTest.TuiTest TickerModel TickerMsg
 conditionalTickerTest =
-    TuiTest.start
-        { data = ()
+    TuiTest.start BackendTaskTest.init
+        { data = BackendTask.succeed ()
         , init = \() -> ( { ticks = [], intervals = [] }, Effect.none )
         , update = tickerUpdate
         , view = tickerView

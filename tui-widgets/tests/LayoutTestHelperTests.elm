@@ -7,8 +7,8 @@ import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
 import Test.Runner
 import Tui
-import Tui.Layout.Effect as Effect exposing (Effect)
 import Tui.Layout as Layout
+import Tui.Layout.Effect as Effect exposing (Effect)
 import Tui.Layout.Test as LayoutTest
 import Tui.Screen
 import Tui.Sub
@@ -209,7 +209,7 @@ appConfig =
 
 twoPane : TuiTest.TuiTest (Layout.FrameworkModel () Msg) (Layout.FrameworkMsg Msg)
 twoPane =
-    TuiTest.startApp BackendTaskTest.init appConfig
+    TuiTest.start BackendTaskTest.init appConfig
 
 
 appView : Tui.Context -> () -> Layout.Layout Msg

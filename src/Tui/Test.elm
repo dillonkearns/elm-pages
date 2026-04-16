@@ -1,6 +1,6 @@
 module Tui.Test exposing
     ( TuiTest, Test, Outcome
-    , start, startWithContext, startApp, startAppWithContext
+    , start, startWithContext
     , pressKey, pressKeyWith, pressKeyN, paste, resize
     , click, clickText, scrollDown, scrollUp, scrollDownN, scrollUpN
     , sendMsg, advanceTime
@@ -20,7 +20,7 @@ terminal events, and assert on the screen or model. Inspired by
 
 Typical flow:
 
-  - Start with [`start`](#start) or [`startApp`](#startApp).
+  - Start with [`start`](#start) or [`startWithContext`](#startWithContext).
   - Simulate input with [`pressKey`](#pressKey), [`clickText`](#clickText),
     [`paste`](#paste), [`resize`](#resize), or [`advanceTime`](#advanceTime).
   - Resolve pending `BackendTask` effects with [`resolveEffect`](#resolveEffect)
@@ -37,7 +37,10 @@ The same named tests can be:
     the terminal stepper
 
 ```elm
+import BackendTask
 import Test
+import Test.BackendTask as BackendTaskTest
+import Tui
 import Tui.Effect as Effect
 import Tui.Screen
 import Tui.Sub
@@ -56,24 +59,27 @@ keyToMsg event =
         _ ->
             Quit
 
+app : Tui.Program () Int Msg
+app =
+    { data = BackendTask.succeed ()
+    , init = \() -> ( 0, Effect.none )
+    , update =
+        \msg count ->
+            case msg of
+                Increment ->
+                    ( count + 1, Effect.none )
+
+                Quit ->
+                    ( count, Effect.exit )
+    , view = \_ count -> Tui.Screen.text ("Count: " ++ String.fromInt count)
+    , subscriptions = \_ -> Tui.Sub.onKeyPress keyToMsg
+    }
+
 tuiTests : TuiTest.Test
 tuiTests =
     TuiTest.describe "Counter"
         [ TuiTest.test "increments with j" <|
-            TuiTest.start
-                { data = ()
-                , init = \() -> ( 0, Effect.none )
-                , update =
-                    \msg count ->
-                        case msg of
-                            Increment ->
-                                ( count + 1, Effect.none )
-
-                            Quit ->
-                                ( count, Effect.exit )
-                , view = \_ count -> Tui.Screen.text ("Count: " ++ String.fromInt count)
-                , subscriptions = \_ -> Tui.Sub.onKeyPress keyToMsg
-                }
+            TuiTest.start BackendTaskTest.init app
                 |> TuiTest.pressKey 'j'
                 |> TuiTest.ensureViewHas "Count: 1"
                 |> TuiTest.expectRunning
@@ -89,17 +95,16 @@ suite =
 
 ## Starting a Test
 
-Use [`start`](#start) and [`startWithContext`](#startWithContext) when you
-already have the `data` value.
+Use [`start`](#start) for the default terminal size, and
+[`startWithContext`](#startWithContext) when you want custom dimensions or
+color profile.
 
-Use [`startApp`](#startApp) and [`startAppWithContext`](#startAppWithContext)
-when you want the test to resolve `app.data` through
-[`Test.BackendTask`](Test-BackendTask).
+Both resolve `app.data` through [`Test.BackendTask`](Test-BackendTask).
 
 If your app uses `Tui.Sub.onResize`, the initial context is fired
 automatically.
 
-@docs start, startWithContext, startApp, startAppWithContext
+@docs start, startWithContext
 
 
 ## Simulating Events
@@ -305,12 +310,18 @@ type Outcome
 
 
 {-| Start a TUI test with a default 80×24 terminal and `TrueColor` profile.
-Use this when you already have the `data` value and want to test only the TUI
-loop.
+This resolves `app.data` through [`Test.BackendTask`](Test-BackendTask)
+before the first snapshot.
+
+Pure startup data usually uses `BackendTask.succeed`. For file, env, time, or
+db-backed startup, seed the virtual environment through the `TestSetup`.
 
 If your app subscribes to `Tui.Sub.onResize`, the initial context is fired
 automatically (matching runtime behavior).
 
+    import BackendTask
+    import Test.BackendTask as BackendTaskTest
+    import Tui
     import Tui.Effect as Effect
     import Tui.Screen as Screen
     import Tui.Sub
@@ -319,34 +330,35 @@ automatically (matching runtime behavior).
     type Msg
         = Quit
 
+    app : Tui.Program Int Int Msg
+    app =
+        { data = BackendTask.succeed 0
+        , init = \count -> ( count, Effect.none )
+        , update = \_ count -> ( count, Effect.exit )
+        , view = \_ count -> Screen.text ("Count: " ++ String.fromInt count)
+        , subscriptions = \_ -> Tui.Sub.onKeyPress (\_ -> Quit)
+        }
+
     counterTest : TuiTest.TuiTest Int Msg
     counterTest =
-        TuiTest.start
-            { data = 0
-            , init = \count -> ( count, Effect.none )
-            , update = \_ count -> ( count, Effect.exit )
-            , view = \_ count -> Screen.text ("Count: " ++ String.fromInt count)
-            , subscriptions = \_ -> Tui.Sub.onKeyPress (\_ -> Quit)
-            }
+        TuiTest.start BackendTaskTest.init app
 
 Use [`startWithContext`](#startWithContext) for a custom terminal size.
 
 -}
 start :
-    { data : data
-    , init : data -> ( model, Effect msg )
-    , update : msg -> model -> ( model, Effect msg )
-    , view : Context -> model -> Screen
-    , subscriptions : model -> Sub msg
-    }
+    BackendTaskTest.TestSetup
+    -> Tui.Program data model msg
     -> TuiTest model msg
-start config =
-    startWithContext { width = 80, height = 24, colorProfile = Tui.TrueColor } config
+start setup app =
+    startWithContext { width = 80, height = 24, colorProfile = Tui.TrueColor } setup app
 
 
 {-| Like [`start`](#start), but with a custom terminal context. Use this for
 responsive layouts, small terminals, or color-profile-dependent rendering.
 
+    import BackendTask
+    import Test.BackendTask as BackendTaskTest
     import Tui
     import Tui.Effect as Effect
     import Tui.Screen as Screen
@@ -356,29 +368,57 @@ responsive layouts, small terminals, or color-profile-dependent rendering.
     type Msg
         = Resized { width : Int, height : Int }
 
+    app : Tui.Program { width : Int, height : Int } { width : Int, height : Int } Msg
+    app =
+        { data = BackendTask.succeed { width = 0, height = 0 }
+        , init = \model -> ( model, Effect.none )
+        , update =
+            \msg _ ->
+                case msg of
+                    Resized size ->
+                        ( size, Effect.none )
+        , view =
+            \_ size ->
+                Screen.text
+                    (String.fromInt size.width ++ "x" ++ String.fromInt size.height)
+        , subscriptions = \_ -> Tui.Sub.onResize Resized
+        }
+
     resizedTest : TuiTest.TuiTest { width : Int, height : Int } Msg
     resizedTest =
         TuiTest.startWithContext
             { width = 120, height = 40, colorProfile = Tui.TrueColor }
-            { data = { width = 0, height = 0 }
-            , init = \model -> ( model, Effect.none )
-            , update =
-                \msg _ ->
-                    case msg of
-                        Resized size ->
-                            ( size, Effect.none )
-            , view =
-                \_ size ->
-                    Screen.text
-                        (String.fromInt size.width ++ "x" ++ String.fromInt size.height)
-            , subscriptions = \_ -> Tui.Sub.onResize Resized
-            }
+            BackendTaskTest.init
+            app
 
 If your app subscribes to `Tui.Sub.onResize`, the initial context is fired
 automatically (matching runtime behavior).
 
 -}
 startWithContext :
+    Context
+    -> BackendTaskTest.TestSetup
+    -> Tui.Program data model msg
+    -> TuiTest model msg
+startWithContext context setup app =
+    case
+        BackendTaskTest.fromBackendTaskWith setup app.data
+            |> BackendTaskTestInternal.toResult
+    of
+        Ok resolvedData ->
+            startResolvedWithContext context
+                { data = resolvedData
+                , init = app.init
+                , update = app.update
+                , view = app.view
+                , subscriptions = app.subscriptions
+                }
+
+        Err errorMessage ->
+            SetupError ("Failed to resolve app.data: " ++ errorMessage)
+
+
+startResolvedWithContext :
     Context
     ->
         { data : data
@@ -388,7 +428,7 @@ startWithContext :
         , subscriptions : model -> Sub msg
         }
     -> TuiTest model msg
-startWithContext context config =
+startResolvedWithContext context config =
     let
         ( initialModel, initialEffect ) =
             config.init config.data
@@ -436,115 +476,6 @@ startWithContext context config =
         , currentTime = 0
         , tickFireTimes = Dict.empty
         }
-
-
-{-| Start a test from a [`Tui.Program`](Tui#Program). Use this when you want
-to run `app.data` through [`Test.BackendTask`](Test-BackendTask) instead of
-resolving it by hand first.
-
-Unlike production, where `data` runs against the real filesystem and network,
-tests resolve it against a [`Test.BackendTask.TestSetup`](Test-BackendTask#init)
-that you seed with [`withFile`](Test-BackendTask#withFile),
-[`withEnv`](Test-BackendTask#withEnv), and friends.
-
-Choose [`start`](#start) instead when you already have the `data` value, or
-when `app.data` makes HTTP requests or shell commands that you want to model
-manually later. `startApp` does not currently interleave HTTP simulation into
-the data-loading step.
-
-    import BackendTask.Env
-    import Test.BackendTask as BackendTaskTest
-    import Tui
-    import Tui.Effect as Effect
-    import Tui.Screen as Screen
-    import Tui.Sub
-    import Tui.Test as TuiTest
-
-    type Msg
-        = Quit
-
-    app : Tui.Program String String Msg
-    app =
-        { data = BackendTask.Env.get "GREETING"
-        , init = \greeting -> ( greeting, Effect.none )
-        , update = \_ greeting -> ( greeting, Effect.exit )
-        , view = \_ greeting -> Screen.text greeting
-        , subscriptions = \_ -> Tui.Sub.onKeyPress (\_ -> Quit)
-        }
-
-    greetingTest : TuiTest.TuiTest String Msg
-    greetingTest =
-        TuiTest.startApp
-            (BackendTaskTest.init
-                |> BackendTaskTest.withEnv "GREETING" "hello from tests"
-            )
-            app
-
-If `data` fails to resolve (pending HTTP, missing file, etc.), the returned
-`TuiTest` is in an error state and subsequent assertions report the failure.
-
--}
-startApp :
-    BackendTaskTest.TestSetup
-    -> Tui.Program data model msg
-    -> TuiTest model msg
-startApp setup app =
-    startAppWithContext { width = 80, height = 24, colorProfile = Tui.TrueColor } setup app
-
-
-{-| Like [`startApp`](#startApp), but with a custom terminal context.
-
-    import BackendTask.Env
-    import Test.BackendTask as BackendTaskTest
-    import Tui
-    import Tui.Effect as Effect
-    import Tui.Screen as Screen
-    import Tui.Sub
-    import Tui.Test as TuiTest
-
-    type Msg
-        = Quit
-
-    app : Tui.Program String String Msg
-    app =
-        { data = BackendTask.Env.get "GREETING"
-        , init = \greeting -> ( greeting, Effect.none )
-        , update = \_ greeting -> ( greeting, Effect.exit )
-        , view = \_ greeting -> Screen.text greeting
-        , subscriptions = \_ -> Tui.Sub.onKeyPress (\_ -> Quit)
-        }
-
-    wideGreetingTest : TuiTest.TuiTest String Msg
-    wideGreetingTest =
-        TuiTest.startAppWithContext
-            { width = 120, height = 40, colorProfile = Tui.TrueColor }
-            (BackendTaskTest.init
-                |> BackendTaskTest.withEnv "GREETING" "hello from tests"
-            )
-            app
-
--}
-startAppWithContext :
-    Context
-    -> BackendTaskTest.TestSetup
-    -> Tui.Program data model msg
-    -> TuiTest model msg
-startAppWithContext context setup app =
-    case
-        BackendTaskTest.fromBackendTaskWith setup app.data
-            |> BackendTaskTestInternal.toResult
-    of
-        Ok resolvedData ->
-            startWithContext context
-                { data = resolvedData
-                , init = app.init
-                , update = app.update
-                , view = app.view
-                , subscriptions = app.subscriptions
-                }
-
-        Err errorMessage ->
-            SetupError ("Failed to resolve app.data: " ++ errorMessage)
 
 
 
@@ -994,6 +925,8 @@ extra setup, for example `BackendTask.succeed`, `map`, `andThen`, or other
 pure `BackendTask` flows.
 
     import BackendTask
+    import Test.BackendTask as BackendTaskTest
+    import Tui
     import Tui.Effect as Effect
     import Tui.Screen as Screen
     import Tui.Sub
@@ -1003,25 +936,28 @@ pure `BackendTask` flows.
         = Fetch
         | Fetched String
 
+    app : Tui.Program String String Msg
+    app =
+        { data = BackendTask.succeed "idle"
+        , init = \status -> ( status, Effect.none )
+        , update =
+            \msg status ->
+                case msg of
+                    Fetch ->
+                        ( status
+                        , BackendTask.succeed "done"
+                            |> Effect.perform Fetched
+                        )
+
+                    Fetched newStatus ->
+                        ( newStatus, Effect.none )
+        , view = \_ status -> Screen.text status
+        , subscriptions = \_ -> Tui.Sub.onKeyPress (\_ -> Fetch)
+        }
+
     backendTaskTest : TuiTest.TuiTest String Msg
     backendTaskTest =
-        TuiTest.start
-            { data = "idle"
-            , init = \status -> ( status, Effect.none )
-            , update =
-                \msg status ->
-                    case msg of
-                        Fetch ->
-                            ( status
-                            , BackendTask.succeed "done"
-                                |> Effect.perform Fetched
-                            )
-
-                        Fetched newStatus ->
-                            ( newStatus, Effect.none )
-            , view = \_ status -> Screen.text status
-            , subscriptions = \_ -> Tui.Sub.onKeyPress (\_ -> Fetch)
-            }
+        TuiTest.start BackendTaskTest.init app
             |> TuiTest.pressKey 'f'
             |> TuiTest.resolveEffect
             |> TuiTest.ensureViewHas "done"

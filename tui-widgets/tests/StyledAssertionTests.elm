@@ -1,8 +1,10 @@
 module StyledAssertionTests exposing (suite)
 
 import Ansi.Color
+import BackendTask
 import Expect
 import Test exposing (Test, describe, test)
+import Test.BackendTask as BackendTaskTest
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Screen
@@ -129,8 +131,8 @@ type StyledMsg
 
 styledApp : TuiTest.TuiTest StyledModel StyledMsg
 styledApp =
-    TuiTest.start
-        { data = ()
+    TuiTest.start BackendTaskTest.init
+        { data = BackendTask.succeed ()
         , init = \() -> ( (), Effect.none )
         , update = \_ model -> ( model, Effect.none )
         , view = styledView
@@ -156,8 +158,8 @@ styledView _ _ =
 
 fragmentedApp : TuiTest.TuiTest StyledModel StyledMsg
 fragmentedApp =
-    TuiTest.start
-        { data = ()
+    TuiTest.start BackendTaskTest.init
+        { data = BackendTask.succeed ()
         , init = \() -> ( (), Effect.none )
         , update = \_ model -> ( model, Effect.none )
         , view = fragmentedView

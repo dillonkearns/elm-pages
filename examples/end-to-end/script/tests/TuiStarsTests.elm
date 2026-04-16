@@ -23,7 +23,7 @@ tuiTests =
     in
     TuiTest.describe "TuiStars"
         [ TuiTest.test "seeds the default repo from data and fetches stars"
-            (TuiTest.startApp
+            (TuiTest.start
                 setup
                 TuiStars.app
                 |> TuiTest.ensureViewHas "dillonkearns/elm-pages"
@@ -40,7 +40,7 @@ tuiTests =
                 |> TuiTest.expectRunning
             )
         , TuiTest.test "input can paste a new repo and refetch"
-            (TuiTest.startApp setup TuiStars.app
+            (TuiTest.start setup TuiStars.app
                 |> TuiTest.pressKeyWith
                     { key = Tui.Sub.Character 'u'
                     , modifiers = [ Tui.Sub.Ctrl ]

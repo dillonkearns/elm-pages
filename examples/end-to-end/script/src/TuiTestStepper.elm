@@ -4,6 +4,8 @@ module TuiTestStepper exposing (tuiTests)
 -}
 
 import Ansi.Color
+import BackendTask
+import Test.BackendTask as BackendTaskTest
 import Tui
 import Tui.Effect as Effect
 import Tui.Screen exposing (plain)
@@ -16,7 +18,8 @@ tuiTests =
     TuiTest.describe "Mini Git"
         [ TuiTest.test "navigates and clicks through commits"
             (TuiTest.startWithContext { width = 60, height = 12, colorProfile = Tui.TrueColor }
-                { data = sampleCommits
+                BackendTaskTest.init
+                { data = BackendTask.succeed sampleCommits
                 , init = miniGitInit
                 , update = miniGitUpdate
                 , view = miniGitView

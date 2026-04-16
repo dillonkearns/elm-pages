@@ -1,6 +1,8 @@
 module TuiTests exposing (suite, tuiTests)
 
+import BackendTask
 import Test
+import Test.BackendTask as BackendTaskTest
 import Tui
 import Tui.Effect as Effect
 import Tui.Screen
@@ -33,8 +35,8 @@ suite =
 
 counterApp : TuiTest.TuiTest Int Msg
 counterApp =
-    TuiTest.start
-        { data = ()
+    TuiTest.start BackendTaskTest.init
+        { data = BackendTask.succeed ()
         , init = \() -> ( 0, Effect.none )
         , update = update
         , view = view

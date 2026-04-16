@@ -10,6 +10,7 @@ module MiniGit exposing
 import Ansi.Color
 import BackendTask exposing (BackendTask)
 import Pages.Script exposing (Script)
+import Test.BackendTask as BackendTaskTest
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Input as Input
@@ -559,8 +560,8 @@ miniGitSubscriptions _ =
 
 miniGitTest : TuiTest.TuiTest Model Msg
 miniGitTest =
-    TuiTest.start
-        { data = sampleCommits
+    TuiTest.start BackendTaskTest.init
+        { data = BackendTask.succeed sampleCommits
         , init = miniGitInit
         , update = miniGitUpdate
         , view = miniGitView

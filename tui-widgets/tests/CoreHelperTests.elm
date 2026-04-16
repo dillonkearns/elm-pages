@@ -1,7 +1,9 @@
 module CoreHelperTests exposing (suite)
 
+import BackendTask
 import Expect
 import Test exposing (Test, describe, test)
+import Test.BackendTask as BackendTaskTest
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Screen
@@ -96,8 +98,8 @@ type CounterMsg
 
 counterApp : TuiTest.TuiTest CounterModel (Maybe CounterMsg)
 counterApp =
-    TuiTest.start
-        { data = ()
+    TuiTest.start BackendTaskTest.init
+        { data = BackendTask.succeed ()
         , init = \() -> ( { count = 0 }, Effect.none )
         , update = counterUpdate
         , view = counterView
@@ -151,8 +153,8 @@ type ScrollMsg
 
 scrollApp : TuiTest.TuiTest ScrollModel (Maybe ScrollMsg)
 scrollApp =
-    TuiTest.start
-        { data = ()
+    TuiTest.start BackendTaskTest.init
+        { data = BackendTask.succeed ()
         , init = \() -> ( { scrolled = 0 }, Effect.none )
         , update = scrollUpdate
         , view = scrollView

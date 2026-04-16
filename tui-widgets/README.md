@@ -122,6 +122,7 @@ simulate keypresses, mouse clicks, and scroll events, then assert on the
 rendered terminal output. No mocking, no DOM — just pure Elm:
 
 ```elm
+import Test.BackendTask as BackendTaskTest
 import Tui.Test as TuiTest
 
 suite : Test
@@ -129,20 +130,20 @@ suite =
     describe "MiniGit"
         [ test "j/k navigates the commit list" <|
             \() ->
-                TuiTest.startApp () appConfig
+                TuiTest.start BackendTaskTest.init appConfig
                     |> TuiTest.ensureViewHas "▸ abc123"
                     |> TuiTest.pressKey 'j'
                     |> TuiTest.ensureViewHas "▸ def456"
                     |> TuiTest.expectRunning
         , test "c opens the commit dialog" <|
             \() ->
-                TuiTest.startApp () appConfig
+                TuiTest.start BackendTaskTest.init appConfig
                     |> TuiTest.pressKey 'c'
                     |> TuiTest.ensureViewHas "Commit Message"
                     |> TuiTest.expectRunning
         , test "? opens help, Esc closes it" <|
             \() ->
-                TuiTest.startApp () appConfig
+                TuiTest.start BackendTaskTest.init appConfig
                     |> TuiTest.pressKey '?'
                     |> TuiTest.ensureViewHas "Keybindings"
                     |> TuiTest.pressKeyWith { key = Tui.Sub.Escape, modifiers = [] }
@@ -150,7 +151,7 @@ suite =
                     |> TuiTest.expectRunning
         , test "clicking a link fires the link callback" <|
             \() ->
-                TuiTest.startApp () appConfig
+                TuiTest.start BackendTaskTest.init appConfig
                     |> TuiTest.clickText "docs link"
                     |> TuiTest.ensureViewHas "clicked: https://example.com"
                     |> TuiTest.expectRunning

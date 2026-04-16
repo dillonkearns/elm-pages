@@ -13,6 +13,7 @@
     "dependencies": {
         "direct": {
             "MaybeJustJames/yaml": "2.1.7",
+            "BrianHicks/elm-string-graphemes": "1.0.4",
             "avh4/elm-color": "1.0.0",
             "avh4/elm-fifo": "1.0.4",
             "danfishgold/base64-bytes": "1.1.0",
