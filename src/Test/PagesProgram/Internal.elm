@@ -17,7 +17,7 @@ part of the public API and should not be relied upon by end users.
 -}
 
 import Html exposing (Html)
-import Test.PagesProgram.Selector exposing (AssertionSelector)
+import Test.PagesProgram.Selector.Internal exposing (AssertionSelector)
 
 
 {-| A snapshot of the program state at a point in the test pipeline.

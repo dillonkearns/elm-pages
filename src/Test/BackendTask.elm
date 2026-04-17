@@ -257,8 +257,8 @@ type HttpError
         |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
 
 -}
-type TestSetup
-    = TestSetup Internal.TestSetup
+type alias TestSetup =
+    Internal.TestSetup
 
 
 
@@ -302,8 +302,8 @@ Use this when you need to seed initial files, environment variables, or other st
 
 -}
 fromBackendTaskWith : TestSetup -> BackendTask FatalError a -> BackendTaskTest a
-fromBackendTaskWith (TestSetup setup) backendTask =
-    Internal.fromBackendTaskWith setup backendTask
+fromBackendTaskWith =
+    Internal.fromBackendTaskWith
 
 
 {-| Start a test from a [`Script`](Pages-Script#Script) with simulated CLI arguments.
@@ -336,8 +336,8 @@ fromScript =
 
 -}
 fromScriptWith : TestSetup -> List String -> Script -> BackendTaskTest ()
-fromScriptWith (TestSetup setup) args script =
-    Internal.fromScriptWith setup args script
+fromScriptWith =
+    Internal.fromScriptWith
 
 
 
@@ -348,7 +348,7 @@ fromScriptWith (TestSetup setup) args script =
 -}
 init : TestSetup
 init =
-    TestSetup Internal.init
+    Internal.init
 
 
 {-| Seed a file into the virtual filesystem.
@@ -359,8 +359,8 @@ init =
 
 -}
 withFile : String -> String -> TestSetup -> TestSetup
-withFile path contents =
-    mapTestSetup (Internal.withFile path contents)
+withFile =
+    Internal.withFile
 
 
 {-| Seed a binary file into the virtual filesystem.
@@ -375,8 +375,8 @@ withFile path contents =
 
 -}
 withBinaryFile : String -> Bytes -> TestSetup -> TestSetup
-withBinaryFile path bytes =
-    mapTestSetup (Internal.withBinaryFile path bytes)
+withBinaryFile =
+    Internal.withBinaryFile
 
 
 {-| Seed stdin content for stream pipelines that read from `Stream.stdin`.
@@ -386,8 +386,8 @@ withBinaryFile path bytes =
 
 -}
 withStdin : String -> TestSetup -> TestSetup
-withStdin stdin =
-    mapTestSetup (Internal.withStdin stdin)
+withStdin =
+    Internal.withStdin
 
 
 {-| Seed an environment variable for `BackendTask.Env.get` and `BackendTask.Env.expect`.
@@ -397,8 +397,8 @@ withStdin stdin =
 
 -}
 withEnv : String -> String -> TestSetup -> TestSetup
-withEnv key value =
-    mapTestSetup (Internal.withEnv key value)
+withEnv =
+    Internal.withEnv
 
 
 {-| Set a fixed virtual time for `BackendTask.Time.now`. Without this, any use of
@@ -411,8 +411,8 @@ withEnv key value =
 
 -}
 withTime : Time.Posix -> TestSetup -> TestSetup
-withTime posix =
-    mapTestSetup (Internal.withTime posix)
+withTime =
+    Internal.withTime
 
 
 {-| Set a fixed request time for server-rendered route requests in
@@ -425,8 +425,8 @@ withTime posix =
 
 -}
 withRequestTime : Time.Posix -> TestSetup -> TestSetup
-withRequestTime posix =
-    mapTestSetup (Internal.withRequestTime posix)
+withRequestTime =
+    Internal.withRequestTime
 
 
 {-| Seed a request header for server-rendered route requests in
@@ -439,8 +439,8 @@ Header names are normalized to lowercase.
 
 -}
 withRequestHeader : String -> String -> TestSetup -> TestSetup
-withRequestHeader key value =
-    mapTestSetup (Internal.withRequestHeader key value)
+withRequestHeader =
+    Internal.withRequestHeader
 
 
 {-| Seed a cookie on the initial server-rendered request in
@@ -451,8 +451,8 @@ withRequestHeader key value =
 
 -}
 withRequestCookie : String -> String -> TestSetup -> TestSetup
-withRequestCookie key value =
-    mapTestSetup (Internal.withRequestCookie key value)
+withRequestCookie =
+    Internal.withRequestCookie
 
 
 {-| Start building a seeded session for [`withSessionCookie`](#withSessionCookie).
@@ -519,8 +519,8 @@ work with session values instead of raw signed cookie strings.
 
 -}
 withSessionCookie : { name : String, session : SessionSeed } -> TestSetup -> TestSetup
-withSessionCookie sessionCookie =
-    mapTestSetup (Internal.withSessionCookie sessionCookie)
+withSessionCookie =
+    Internal.withSessionCookie
 
 
 {-| Set a fixed random seed for `BackendTask.Random.int32` and `BackendTask.Random.generate`.
@@ -531,8 +531,8 @@ Without this, any use of `BackendTask.Random` will produce a test error with a h
 
 -}
 withRandomSeed : Int -> TestSetup -> TestSetup
-withRandomSeed seed =
-    mapTestSetup (Internal.withRandomSeed seed)
+withRandomSeed =
+    Internal.withRandomSeed
 
 
 {-| Register a command as available for `Script.which` and `Script.expectWhich`.
@@ -543,8 +543,8 @@ Commands not registered will return `Nothing` from `Script.which`.
 
 -}
 withWhich : String -> String -> TestSetup -> TestSetup
-withWhich command path =
-    mapTestSetup (Internal.withWhich command path)
+withWhich =
+    Internal.withWhich
 
 
 {-| Low-level helper used by [`Test.BackendTask.Time.withTimeZone`](Test-BackendTask-Time#withTimeZone).
@@ -560,8 +560,8 @@ withTimeZoneConfig :
     { defaultOffset : Int, eras : List { start : Int, offset : Int } }
     -> TestSetup
     -> TestSetup
-withTimeZoneConfig timeZone =
-    mapTestSetup (Internal.withTimeZone timeZone)
+withTimeZoneConfig =
+    Internal.withTimeZone
 
 
 {-| Low-level helper used by [`Test.BackendTask.Time.withTimeZoneByName`](Test-BackendTask-Time#withTimeZoneByName).
@@ -578,8 +578,8 @@ withTimeZoneByNameConfig :
     -> { defaultOffset : Int, eras : List { start : Int, offset : Int } }
     -> TestSetup
     -> TestSetup
-withTimeZoneByNameConfig name timeZone =
-    mapTestSetup (Internal.withTimeZoneByName name timeZone)
+withTimeZoneByNameConfig =
+    Internal.withTimeZoneByName
 
 
 {-| Seed the virtual DB with the default seed value from the generated `testConfig`.
@@ -602,8 +602,8 @@ withDb :
     { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes, seed : db }
     -> TestSetup
     -> TestSetup
-withDb config =
-    mapTestSetup (Internal.withDb config)
+withDb =
+    Internal.withDb
 
 
 {-| Seed the virtual DB with a specific initial value.
@@ -620,13 +620,8 @@ withDbSetTo :
     -> { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes }
     -> TestSetup
     -> TestSetup
-withDbSetTo initialValue config =
-    mapTestSetup (Internal.withDbSetTo initialValue config)
-
-
-mapTestSetup : (Internal.TestSetup -> Internal.TestSetup) -> TestSetup -> TestSetup
-mapTestSetup fn (TestSetup setup) =
-    TestSetup (fn setup)
+withDbSetTo =
+    Internal.withDbSetTo
 
 
 

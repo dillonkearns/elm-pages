@@ -1,10 +1,8 @@
 module TuiPublicApiTests exposing (suite)
 
 import Ansi.Color
-import BackendTask
 import Expect
 import Test exposing (Test, describe, test)
-import Tui.Effect as Effect
 import Tui.Screen as Screen
 import Tui.Screen.Advanced as Advanced
 
@@ -61,30 +59,5 @@ suite =
                         |> Advanced.fromLine
                         |> Advanced.toLines
                         |> Expect.equal [ [] ]
-            ]
-        , describe "Tui.Effect.fold"
-            [ test "fold can inspect batched public effects without constructors" <|
-                \() ->
-                    let
-                        describeEffect : Effect.Effect String -> List String
-                        describeEffect currentEffect =
-                            Effect.fold
-                                { none = [ "none" ]
-                                , batch = List.concatMap describeEffect
-                                , backendTask = \_ -> [ "backend-task" ]
-                                , exit = \code -> [ "exit:" ++ String.fromInt code ]
-                                }
-                                currentEffect
-                    in
-                    Effect.batch
-                        [ BackendTask.succeed "done"
-                            |> Effect.perform identity
-                        , Effect.exitWithCode 2
-                        ]
-                        |> describeEffect
-                        |> Expect.equal
-                            [ "backend-task"
-                            , "exit:2"
-                            ]
             ]
         ]

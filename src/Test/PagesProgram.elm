@@ -238,7 +238,7 @@ import Test.PagesProgram.Internal as Internal
         , StepKind(..)
         , TargetSelector(..)
         )
-import Test.PagesProgram.Selector as PSelector exposing (AssertionSelector(..))
+import Test.PagesProgram.Selector.Internal as PSelector exposing (AssertionSelector(..))
 import Test.PagesProgram.SimulatedEffect as SimulatedEffect
 import Test.PagesProgram.SimulatedSub as SimulatedSub exposing (SimulatedSub)
 import Test.Runner

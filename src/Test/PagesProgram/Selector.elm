@@ -2,8 +2,6 @@ module Test.PagesProgram.Selector exposing
     ( Selector
     , text, tag, class, id, value, attribute, containing, disabled
     , raw
-    , toLabel, toHtmlSelectors
-    , AssertionSelector(..), toAssertionSelectors
     )
 
 {-| Labeled selectors for the elm-pages visual test runner.
@@ -25,34 +23,17 @@ making assertions instantly scannable without reading source code.
 
 @docs raw
 
-@docs toLabel, toHtmlSelectors
-
-@docs AssertionSelector, toAssertionSelectors
-
 -}
 
-import Html.Attributes as Attr
 import Test.Html.Selector as HtmlSelector
+import Test.PagesProgram.Selector.Internal as Internal
 
 
 {-| A selector that carries both a real `Test.Html.Selector.Selector` for DOM
 querying and a human-readable label for display in the visual test runner.
 -}
-type Selector
-    = Selector String AssertionSelector HtmlSelector.Selector
-
-
-{-| Structured selector data for highlighting elements in the visual test runner.
-Each variant maps to a CSS selector strategy in the highlight JS.
--}
-type AssertionSelector
-    = ByText String
-    | ByClass String
-    | ById_ String
-    | ByTag_ String
-    | ByValue String
-    | ByContaining (List AssertionSelector)
-    | ByOther String
+type alias Selector =
+    Internal.Selector
 
 
 {-| Match elements containing the given text.
@@ -62,8 +43,8 @@ type AssertionSelector
 
 -}
 text : String -> Selector
-text s =
-    Selector ("text \"" ++ s ++ "\"") (ByText s) (HtmlSelector.text s)
+text =
+    Internal.text
 
 
 {-| Match elements with the given tag name.
@@ -73,8 +54,8 @@ text s =
 
 -}
 tag : String -> Selector
-tag s =
-    Selector ("<" ++ s ++ ">") (ByTag_ s) (HtmlSelector.tag s)
+tag =
+    Internal.tag
 
 
 {-| Match elements with the given CSS class.
@@ -84,8 +65,8 @@ tag s =
 
 -}
 class : String -> Selector
-class s =
-    Selector ("." ++ s) (ByClass s) (HtmlSelector.class s)
+class =
+    Internal.class
 
 
 {-| Match elements with the given id.
@@ -95,8 +76,8 @@ class s =
 
 -}
 id : String -> Selector
-id s =
-    Selector ("#" ++ s) (ById_ s) (HtmlSelector.id s)
+id =
+    Internal.id
 
 
 {-| Match elements with the given `value` attribute. This is a shorthand
@@ -107,8 +88,8 @@ for the common pattern `Selector.attribute (Attr.value ...)`.
 
 -}
 value : String -> Selector
-value s =
-    Selector ("value=\"" ++ s ++ "\"") (ByValue s) (HtmlSelector.attribute (Attr.value s))
+value =
+    Internal.value
 
 
 {-| Match elements with the given HTML attribute. You provide a label
@@ -119,8 +100,8 @@ and the attribute.
 
 -}
 attribute : String -> HtmlSelector.Selector -> Selector
-attribute label sel =
-    Selector label (ByOther label) sel
+attribute =
+    Internal.attribute
 
 
 {-| Match elements that contain descendants matching all the given selectors.
@@ -130,11 +111,8 @@ attribute label sel =
 
 -}
 containing : List Selector -> Selector
-containing selectors =
-    Selector
-        (":has(" ++ labelsString selectors ++ ")")
-        (ByContaining (List.map unwrapAssertion selectors))
-        (HtmlSelector.containing (List.map unwrapHtml selectors))
+containing =
+    Internal.containing
 
 
 {-| Match elements based on their disabled state.
@@ -144,23 +122,8 @@ containing selectors =
 
 -}
 disabled : Bool -> Selector
-disabled b =
-    Selector
-        (if b then
-            "[disabled]"
-
-         else
-            ":not([disabled])"
-        )
-        (ByOther
-            (if b then
-                "[disabled]"
-
-             else
-                ":not([disabled])"
-            )
-        )
-        (HtmlSelector.disabled b)
+disabled =
+    Internal.disabled
 
 
 {-| Escape hatch: wrap any `Test.Html.Selector.Selector` with a custom label.
@@ -170,56 +133,5 @@ Use this for selectors not covered by the convenience constructors above.
 
 -}
 raw : String -> HtmlSelector.Selector -> Selector
-raw label sel =
-    Selector label (ByOther label) sel
-
-
-{-| Get a human-readable label from a list of selectors.
-Multiple selectors are comma-separated.
-
-    toLabel [ Selector.text "Hello", Selector.class "greeting" ]
-    -- "text \"Hello\", .greeting"
-
--}
-toLabel : List Selector -> String
-toLabel selectors =
-    selectors
-        |> List.map (\(Selector label _ _) -> label)
-        |> String.join ", "
-
-
-{-| Extract the underlying `Test.Html.Selector.Selector` values for use with
-`Test.Html.Query` functions.
--}
-toHtmlSelectors : List Selector -> List HtmlSelector.Selector
-toHtmlSelectors selectors =
-    List.map unwrapHtml selectors
-
-
-{-| Extract the `AssertionSelector` values for use by the visual test runner
-to highlight matching elements in the preview.
--}
-toAssertionSelectors : List Selector -> List AssertionSelector
-toAssertionSelectors selectors =
-    List.map unwrapAssertion selectors
-
-
-
--- INTERNAL
-
-
-unwrapHtml : Selector -> HtmlSelector.Selector
-unwrapHtml (Selector _ _ sel) =
-    sel
-
-
-unwrapAssertion : Selector -> AssertionSelector
-unwrapAssertion (Selector _ a _) =
-    a
-
-
-labelsString : List Selector -> String
-labelsString selectors =
-    selectors
-        |> List.map (\(Selector label _ _) -> label)
-        |> String.join ", "
+raw =
+    Internal.raw

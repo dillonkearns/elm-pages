@@ -3,7 +3,6 @@ module Tui.Effect exposing
     , perform, attempt
     , none, batch, map
     , exit, exitWithCode
-    , fold
     )
 
 {-| The core Effects for [`Tui.Program`](Tui#Program)s.
@@ -41,13 +40,6 @@ as a `Msg`.
 ## Exiting Program
 
 @docs exit, exitWithCode
-
-
-## Internal
-
-Low-level framework hook for companion packages (like `tui-widgets`
-
-@docs fold
 
 -}
 
@@ -132,17 +124,3 @@ exitWithCode =
 map : (a -> b) -> Effect a -> Effect b
 map =
     Internal.map
-
-
-{-| Inspect an opaque `Effect` without exposing its constructors. Mainly useful for framework authors.
--}
-fold :
-    { none : a
-    , batch : List (Effect msg) -> a
-    , backendTask : BackendTask FatalError msg -> a
-    , exit : Int -> a
-    }
-    -> Effect msg
-    -> a
-fold =
-    Internal.fold

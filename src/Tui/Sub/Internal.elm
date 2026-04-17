@@ -1,8 +1,161 @@
-module Tui.Sub.Internal exposing (decodeRawEvent)
+module Tui.Sub.Internal exposing
+    ( RawEvent(..)
+    , getInterests, getTickIntervals, routeEvents
+    , decodeRawEvent
+    )
+
+{-| Framework-internal hooks for `Tui.Sub`. Not part of the public API.
+
+These are used by the TUI runtime (`Tui`) and the test harness (`Test.Tui`)
+to declare event-source interests, collect tick intervals, and route raw
+terminal events to user subscriptions. Application code and framework
+consumers (like `tui-widgets`) should not import this module.
+
+-}
 
 import Json.Decode as Decode
-import Time
-import Tui.Sub exposing (Direction(..), Key(..), KeyEvent, Modifier(..), MouseButton(..), MouseEvent(..), RawEvent(..))
+import Json.Encode as Encode
+import Time exposing (Posix)
+import Tui.Sub exposing (Direction(..), Key(..), KeyEvent, Modifier(..), MouseButton(..), MouseEvent(..), Sub(..))
+
+
+{-| A raw terminal event before it's routed through a subscription.
+-}
+type RawEvent
+    = RawKeyPress KeyEvent
+    | RawMouse MouseEvent
+    | RawPaste String
+    | RawContext { width : Int, height : Int }
+    | RawTick { interval : Int, time : Posix }
+
+
+{-| Collect the event-type interests declared by a `Sub`, as a JSON value
+the TUI runtime can use to decide which terminal event sources to enable
+(mouse tracking, paste mode, etc.).
+-}
+getInterests : Sub msg -> Encode.Value
+getInterests sub =
+    let
+        collect : Sub msg -> List String -> List String
+        collect s acc =
+            -- elm-review: known-unoptimized-recursion
+            case s of
+                SubNone ->
+                    acc
+
+                SubBatch subs ->
+                    List.foldl (\inner a -> collect inner a) acc subs
+
+                OnKeyPress _ ->
+                    "keypress" :: acc
+
+                OnMouse _ ->
+                    "mouse" :: acc
+
+                OnPaste _ ->
+                    "paste" :: acc
+
+                OnResize _ ->
+                    acc
+
+                Every _ _ ->
+                    acc
+    in
+    collect sub []
+        |> (\interests -> "resize" :: interests)
+        |> List.reverse
+        |> Encode.list Encode.string
+
+
+{-| Collect unique tick intervals (in ms) across the subscription tree.
+Duplicates are removed so the JS runtime only starts one timer per interval
+even if multiple `everyMillis` subscriptions share it.
+-}
+getTickIntervals : Sub msg -> List Int
+getTickIntervals sub =
+    let
+        collect : Sub msg -> List Int -> List Int
+        collect s acc =
+            -- elm-review: known-unoptimized-recursion
+            case s of
+                SubNone ->
+                    acc
+
+                SubBatch subs ->
+                    List.foldl (\inner a -> collect inner a) acc subs
+
+                Every interval _ ->
+                    if List.member interval acc then
+                        acc
+
+                    else
+                        interval :: acc
+
+                _ ->
+                    acc
+    in
+    collect sub []
+        |> List.reverse
+
+
+{-| Route a raw event to every matching subscription and return each resulting
+message. Returns a list so batched subscriptions of the same kind (e.g., two
+`everyMillis 1000` subs or two `onKeyPress` handlers) all fire on a single
+event. Context updates should be routed through `RawContext`.
+-}
+routeEvents : Sub msg -> RawEvent -> List msg
+routeEvents sub event =
+    -- elm-review: known-unoptimized-recursion
+    case sub of
+        SubNone ->
+            []
+
+        SubBatch subs ->
+            List.concatMap (\s -> routeEvents s event) subs
+
+        OnKeyPress toMsg ->
+            case event of
+                RawKeyPress keyEvent ->
+                    [ toMsg keyEvent ]
+
+                _ ->
+                    []
+
+        OnMouse toMsg ->
+            case event of
+                RawMouse mouseEvent ->
+                    [ toMsg mouseEvent ]
+
+                _ ->
+                    []
+
+        OnPaste toMsg ->
+            case event of
+                RawPaste pastedText ->
+                    [ toMsg pastedText ]
+
+                _ ->
+                    []
+
+        OnResize toMsg ->
+            case event of
+                RawContext ctx ->
+                    [ toMsg ctx ]
+
+                _ ->
+                    []
+
+        Every subInterval toMsg ->
+            case event of
+                RawTick { interval, time } ->
+                    if interval == subInterval then
+                        [ toMsg time ]
+
+                    else
+                        []
+
+                _ ->
+                    []
 
 
 decodeRawEvent : Decode.Decoder (Maybe RawEvent)

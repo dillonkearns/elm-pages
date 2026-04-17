@@ -411,8 +411,8 @@ tuiRenderAndWait screen sub =
             BackendTask.Http.jsonBody
                 (Encode.object
                     [ ( "screen", ScreenEncode.screen screen )
-                    , ( "interests", Tui.Sub.getInterests sub )
-                    , ( "tickIntervals", Encode.list Encode.int (Tui.Sub.getTickIntervals sub) )
+                    , ( "interests", SubInternal.getInterests sub )
+                    , ( "tickIntervals", Encode.list Encode.int (SubInternal.getTickIntervals sub) )
                     ]
                 )
         , expect =
@@ -565,7 +565,7 @@ processBatchedEventsHelp app sub context model accEffects events =
 
         rawValue :: rest ->
             let
-                maybeRawEvent : Maybe Tui.Sub.RawEvent
+                maybeRawEvent : Maybe SubInternal.RawEvent
                 maybeRawEvent =
                     decodeRawEvent rawValue
             in
@@ -585,12 +585,12 @@ processBatchedEventsHelp app sub context model accEffects events =
                                     ( m2, newEffect :: effs )
                                 )
                                 ( model, accEffects )
-                                (Tui.Sub.routeEvents sub rawEvent)
+                                (SubInternal.routeEvents sub rawEvent)
                     in
                     processBatchedEventsHelp app sub context newModel newAccEffects rest
 
 
-decodeRawEvent : Decode.Value -> Maybe Tui.Sub.RawEvent
+decodeRawEvent : Decode.Value -> Maybe SubInternal.RawEvent
 decodeRawEvent value =
     case Decode.decodeValue SubInternal.decodeRawEvent value of
         Ok event ->
@@ -607,7 +607,7 @@ applyContextUpdate :
     -> model
     -> ( model, Effect.Effect msg )
 applyContextUpdate update sub context model =
-    Tui.Sub.routeEvents sub (Tui.Sub.RawContext { width = context.width, height = context.height })
+    SubInternal.routeEvents sub (SubInternal.RawContext { width = context.width, height = context.height })
         |> List.foldl
             (\msg ( m, accEffect ) ->
                 let
@@ -621,7 +621,7 @@ applyContextUpdate update sub context model =
 
 effectToList : Effect.Effect msg -> List (Effect.Effect msg)
 effectToList effect =
-    Effect.fold
+    EffectInternal.fold
         { none = []
         , batch = \_ -> [ effect ]
         , backendTask = \_ -> [ effect ]

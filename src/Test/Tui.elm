@@ -213,6 +213,7 @@ import Tui.Effect.Internal as EffectInternal
 import Tui.Screen exposing (Screen)
 import Tui.Screen.Internal as ScreenInternal
 import Tui.Sub exposing (KeyEvent, Sub)
+import Tui.Sub.Internal as SubInternal
 
 
 {-| An in-progress TUI test. Thread this through the pipeline to simulate
@@ -437,9 +438,9 @@ startResolvedWithContext context config =
             config.init config.data
 
         ( modelWithContext, contextEffect ) =
-            Tui.Sub.routeEvents
+            SubInternal.routeEvents
                 (config.subscriptions initialModel)
-                (Tui.Sub.RawContext { width = context.width, height = context.height })
+                (SubInternal.RawContext { width = context.width, height = context.height })
                 |> List.foldl
                     (\msg ( m, accEffect ) ->
                         let
@@ -530,7 +531,7 @@ pressKeyWith keyEvent tuiTest =
                         sub =
                             state.subscriptions state.model
                     in
-                    Tui.Sub.routeEvents sub (Tui.Sub.RawKeyPress keyEvent)
+                    SubInternal.routeEvents sub (SubInternal.RawKeyPress keyEvent)
                         |> List.foldl (applyMsg (keyEventLabel keyEvent)) (TuiTest state)
 
         SetupError _ ->
@@ -566,7 +567,7 @@ paste pastedText tuiTest =
                         sub =
                             state.subscriptions state.model
                     in
-                    Tui.Sub.routeEvents sub (Tui.Sub.RawPaste pastedText)
+                    SubInternal.routeEvents sub (SubInternal.RawPaste pastedText)
                         |> List.foldl
                             (applyMsg ("paste \"" ++ truncateLabel pastedText ++ "\""))
                             (TuiTest state)
@@ -606,9 +607,9 @@ resize size tuiTest =
                             { width = size.width, height = size.height, colorProfile = state.context.colorProfile }
 
                         ( newModel, effect ) =
-                            Tui.Sub.routeEvents
+                            SubInternal.routeEvents
                                 (state.subscriptions state.model)
-                                (Tui.Sub.RawContext { width = newContext.width, height = newContext.height })
+                                (SubInternal.RawContext { width = newContext.width, height = newContext.height })
                                 |> List.foldl
                                     (\msg ( m, accEffect ) ->
                                         let
@@ -777,7 +778,7 @@ simulateMouseEvent label mouseEvent tuiTest =
                         sub =
                             state.subscriptions state.model
                     in
-                    Tui.Sub.routeEvents sub (Tui.Sub.RawMouse mouseEvent)
+                    SubInternal.routeEvents sub (SubInternal.RawMouse mouseEvent)
                         |> List.foldl (applyMsg label) (TuiTest state)
 
         SetupError _ ->
@@ -848,7 +849,7 @@ advanceTimeHelp targetTime tuiTest =
 
                         intervals : List Int
                         intervals =
-                            Tui.Sub.getTickIntervals sub
+                            SubInternal.getTickIntervals sub
 
                         nextFires : List ( Int, Int )
                         nextFires =
@@ -872,9 +873,9 @@ advanceTimeHelp targetTime tuiTest =
 
                         ( interval, fireTime ) :: _ ->
                             let
-                                rawEvent : Tui.Sub.RawEvent
+                                rawEvent : SubInternal.RawEvent
                                 rawEvent =
-                                    Tui.Sub.RawTick
+                                    SubInternal.RawTick
                                         { interval = interval
                                         , time = Time.millisToPosix fireTime
                                         }
@@ -889,7 +890,7 @@ advanceTimeHelp targetTime tuiTest =
 
                                 msgs : List msg
                                 msgs =
-                                    Tui.Sub.routeEvents sub rawEvent
+                                    SubInternal.routeEvents sub rawEvent
 
                                 advancedTuiTest : TuiTest model msg
                                 advancedTuiTest =

@@ -564,7 +564,7 @@ suite =
                         |> Expect.equal
                             (Ok
                                 (Just
-                                    (Tui.Sub.RawKeyPress
+                                    (SubInternal.RawKeyPress
                                         { key = Tui.Sub.Character 'q'
                                         , modifiers = [ Tui.Sub.Ctrl ]
                                         }

@@ -19,7 +19,8 @@ import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.PagesProgram as PagesProgram
 import Test.PagesProgram.Internal exposing (NetworkStatus(..))
-import Test.PagesProgram.Selector as PSelector exposing (AssertionSelector(..))
+import Test.PagesProgram.Selector as PSelector
+import Test.PagesProgram.Selector.Internal exposing (AssertionSelector(..))
 import Test.PagesProgram.SimulatedEffect as SimulatedEffect
 import Test.PagesProgram.SimulatedSub as SimulatedSub
 import Test.Runner

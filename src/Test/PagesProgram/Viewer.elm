@@ -38,7 +38,7 @@ import Set exposing (Set)
 import Task
 import Test.PagesProgram.Internal exposing (FetcherEntry, FetcherStatus(..), NetworkEntry, NetworkSource(..), NetworkStatus(..), Snapshot, StepKind(..), TargetSelector(..))
 import Test.PagesProgram.DebugParser as DebugParser
-import Test.PagesProgram.Selector exposing (AssertionSelector(..))
+import Test.PagesProgram.Selector.Internal exposing (AssertionSelector(..))
 import Url exposing (Url)
 
 
