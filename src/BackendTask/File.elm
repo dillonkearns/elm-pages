@@ -474,7 +474,7 @@ fileNotFound filePath =
         FileDoesntExist
 
 
-{-| Check if a file or directory exists at the given path. Never fails — returns `True` if the path exists, `False` otherwise.
+{-| Check if a file or directory exists at the given path. Never fails; returns `True` if the path exists, `False` otherwise.
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File

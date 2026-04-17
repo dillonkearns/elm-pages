@@ -87,7 +87,7 @@ That behavior is covered by [examples/end-to-end/script/tests/TuiStarsTests.elm]
 For programs that make sense both interactively and non-interactively (an
 agent piping output, a CI run), use [`programOrScript`](#programOrScript) to
 provide a `script` branch alongside the `tui`. At runtime, `mode` decides
-which path to take — [`isInteractive`](#isInteractive) is the standard
+which path to take. [`isInteractive`](#isInteractive) is the standard
 heuristic (isatty + CI + NO\_COLOR) for common use.
 
 @docs Mode, programOrScript, isInteractive
@@ -136,8 +136,8 @@ type alias Context =
 Follows charmbracelet/colorprofile's detection precedence:
 `$NO_COLOR` -> `$COLORTERM` -> known terminals -> `$TERM` suffix -> default.
 
-The renderer automatically degrades colors based on the profile — the Elm app
-can always use the highest fidelity colors and they'll be converted. But this
+The renderer automatically degrades colors based on the profile, so the Elm app
+can always use the highest fidelity colors and they'll be converted. This
 field lets apps adapt themes (e.g., use different palettes for 16-color).
 
     view ctx model =
@@ -220,7 +220,7 @@ programWithCliOptions config toApp =
         }
 
 
-{-| Which path should a [`programOrScript`](#programOrScript) take — the
+{-| Which path should a [`programOrScript`](#programOrScript) take: the
 interactive TUI, or the plain `BackendTask` fallback?
 
     type Mode
@@ -238,7 +238,7 @@ type Mode
 
 
 {-| Run a TUI when the terminal is interactive, fall back to a non-interactive
-script otherwise. The `mode` BackendTask decides which path to take — pass
+script otherwise. The `mode` BackendTask decides which path to take. Pass
 [`isInteractive`](#isInteractive) for the standard isatty + CI + NO\_COLOR
 heuristic, or your own `BackendTask FatalError Mode` for custom detection.
 

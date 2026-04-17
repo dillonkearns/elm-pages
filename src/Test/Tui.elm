@@ -585,7 +585,7 @@ truncateLabel s =
         s
 
 
-{-| Simulate a terminal resize. The framework handles resize automatically —
+{-| Simulate a terminal resize. The framework handles resize automatically:
 this updates the `Context` that `view` receives and routes the new size through
 any `Tui.Sub.onResize` subscriptions.
 -}
@@ -659,7 +659,7 @@ click pos =
 
 
 {-| Find a line containing the given text and simulate a click on it.
-Like elm-program-test's `clickButton` — finds elements by content instead of
+Like elm-program-test's `clickButton`, finds elements by content instead of
 coordinates, making tests resilient to layout changes.
 
     test |> TuiTest.clickText "def5678"
@@ -1200,7 +1200,7 @@ annotateAssertion description tuiTest =
 
 
 {-| A check on a single style attribute. Combine multiple checks in a list
-to require all of them — `[ bold, fg Ansi.Color.red ]` means "bold AND red."
+to require all of them. For example, `[ bold, fg Ansi.Color.red ]` means "bold AND red."
 -}
 type StyleCheck
     = StyleCheck (ScreenInternal.FlatStyle -> Bool)
@@ -1486,7 +1486,7 @@ applyAttr attr flatStyle =
 
 
 {-| Assert that the TUI is still running (has not exited).
-Fails if there are unresolved pending `BackendTask` effects — use
+Fails if there are unresolved pending `BackendTask` effects. Use
 [`resolveEffect`](#resolveEffect) or
 [`resolveEffectWith`](#resolveEffectWith) to resolve them before calling this. Returns an
 [`Outcome`](#Outcome) so the same scenario can be wrapped in a named
@@ -1916,7 +1916,7 @@ indentScreenText screenText =
 
 
 {-| Append an assertion description to the most recent snapshot.
-This doesn't create a new snapshot — the screen hasn't changed —
+This doesn't create a new snapshot (the screen hasn't changed);
 it just annotates the last action with what was checked.
 -}
 recordAssertion : String -> State model msg -> State model msg

@@ -51,7 +51,7 @@ text (State s) =
     s.content
 
 
-{-| Insert a string at the cursor position. Useful for handling paste events —
+{-| Insert a string at the cursor position. Useful for handling paste events:
 when bracketed paste delivers a chunk of text, insert it all at once.
 
     case msg of

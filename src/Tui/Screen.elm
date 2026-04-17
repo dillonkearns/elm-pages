@@ -31,7 +31,7 @@ the `tui-widgets` package.
 
 ## Styling
 
-Pipeline-style builders that compose on any `Screen` — text, concat, lines:
+Pipeline-style builders that compose on any `Screen` (text, concat, lines):
 
     Screen.text "warning" |> Screen.fg Ansi.Color.yellow |> Screen.bold
 
@@ -71,7 +71,7 @@ type alias Screen =
     Internal.Screen Style
 
 
-{-| Terminal cell style — foreground color, background color, text
+{-| Terminal cell style: foreground color, background color, text
 attributes, and optional hyperlink. Matches the terminal cell model
 (one fg, one bg, set of decoration flags, optional OSC 8 link).
 
@@ -90,7 +90,7 @@ type alias Style =
     }
 
 
-{-| Default style — no colors, no decorations. Use record update to customize:
+{-| Default style with no colors and no decorations. Use record update to customize:
 
     import Tui.Screen as Screen exposing (plain)
 
@@ -164,7 +164,7 @@ concat =
     Internal.ScreenConcat
 
 
-{-| Empty screen — renders nothing, takes up zero lines. Use this as
+{-| Empty screen that renders nothing and takes up zero lines. Use this as
 a "null" value, for example with `Maybe.withDefault`:
 
     case maybeError of
@@ -183,7 +183,7 @@ empty =
     Internal.ScreenEmpty
 
 
-{-| A blank line — renders one empty line. Useful as a vertical spacer
+{-| A blank line that renders one empty line. Useful as a vertical spacer
 in [`lines`](#lines):
 
     Screen.lines
