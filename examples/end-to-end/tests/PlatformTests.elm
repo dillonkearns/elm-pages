@@ -226,7 +226,7 @@ suite =
                     |> PagesProgram.simulateHttpGetTo
                         "https://api.example.com/increment"
                         (Encode.object [])
-                    |> PagesProgram.ensurePendingHttpGet "https://api.example.com/count"
+                    |> PagesProgram.ensureHttpGet "https://api.example.com/count"
                     |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
                     |> PagesProgram.simulateHttpGetTo
                         "https://api.example.com/count"
@@ -244,13 +244,13 @@ suite =
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/increment"
                         (Encode.object [])
-                    |> PagesProgram.ensurePendingHttpGet "https://api.example.com/count"
+                    |> PagesProgram.ensureHttpGet "https://api.example.com/count"
                     |> PagesProgram.clickButton "Increment"
                     |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/increment"
                         (Encode.object [])
-                    |> PagesProgram.ensurePendingHttpGetCount "https://api.example.com/count" 1
+                    |> PagesProgram.ensureHttpGetCount "https://api.example.com/count" 1
                     |> PagesProgram.simulateHttpGet
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 2 ) ])

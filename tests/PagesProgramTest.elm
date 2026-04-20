@@ -1188,7 +1188,7 @@ all =
                         |> PagesProgram.done
                         |> expectFailContaining "not currently subscribed"
             ]
-        , describe "ensurePendingHttpGet"
+        , describe "ensureHttpGet"
             [ test "passes when a GET request to the URL is pending" <|
                 \() ->
                     PagesProgram.start
@@ -1201,7 +1201,7 @@ all =
                         , update = \_ model -> ( model, [] )
                         , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
                         }
-                        |> PagesProgram.ensurePendingHttpGet "https://api.example.com/user"
+                        |> PagesProgram.ensureHttpGet "https://api.example.com/user"
                         |> PagesProgram.simulateHttpGet
                             "https://api.example.com/user"
                             (Encode.object [ ( "name", Encode.string "Alice" ) ])
@@ -1214,7 +1214,7 @@ all =
                         , update = \_ model -> ( model, [] )
                         , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
                         }
-                        |> PagesProgram.ensurePendingHttpGet "https://api.example.com/user"
+                        |> PagesProgram.ensureHttpGet "https://api.example.com/user"
                         |> PagesProgram.done
                         |> expectFailContaining "https://api.example.com/user"
             , test "fails when the URL is wrong" <|
@@ -1229,11 +1229,11 @@ all =
                         , update = \_ model -> ( model, [] )
                         , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
                         }
-                        |> PagesProgram.ensurePendingHttpGet "https://api.example.com/wrong-url"
+                        |> PagesProgram.ensureHttpGet "https://api.example.com/wrong-url"
                         |> PagesProgram.done
                         |> expectFailContaining "wrong-url"
             ]
-        , describe "ensurePendingCustom"
+        , describe "ensureCustom"
             [ test "passes when a custom BackendTask port is pending" <|
                 \() ->
                     PagesProgram.start
@@ -1246,7 +1246,7 @@ all =
                         , update = \_ model -> ( model, [] )
                         , view = \_ model -> { title = "Todos", body = [ Html.text model.todos ] }
                         }
-                        |> PagesProgram.ensurePendingCustom "getTodos"
+                        |> PagesProgram.ensureCustom "getTodos"
                         |> PagesProgram.simulateCustom "getTodos" (Encode.string "[]")
                         |> PagesProgram.done
             ]

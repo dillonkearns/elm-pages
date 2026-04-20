@@ -123,7 +123,7 @@ startSignedInWithTodos todos =
                         |> BackendTaskTest.withSessionValue "sessionId" "test-session-id"
                 }
         )
-        |> PagesProgram.ensurePendingCustom "getTodosBySession"
+        |> PagesProgram.ensureCustom "getTodosBySession"
         |> PagesProgram.simulateCustom "getTodosBySession" todos
 
 
@@ -198,9 +198,9 @@ fullLoginFlowTest =
         |> PagesProgram.ensureViewHas [ PSelector.text "You aren't logged in yet." ]
         |> PagesProgram.fillIn "login" "email" "user@example.com"
         |> PagesProgram.clickButton "Login"
-        |> PagesProgram.ensurePendingCustom "encrypt"
+        |> PagesProgram.ensureCustom "encrypt"
         |> PagesProgram.simulateCustom "encrypt" (Encode.string "fake-hash")
-        |> PagesProgram.ensurePendingHttpPost "https://api.sendgrid.com/v3/mail/send"
+        |> PagesProgram.ensureHttpPost "https://api.sendgrid.com/v3/mail/send"
         |> PagesProgram.simulateHttpPost "https://api.sendgrid.com/v3/mail/send" Encode.null
         |> PagesProgram.ensureViewHas [ PSelector.text "Check your inbox for your login link!" ]
         |> PagesProgram.navigateTo "/login?magic=fake-hash"

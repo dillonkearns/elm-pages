@@ -11,7 +11,7 @@ module Test.PagesProgram exposing
     , ensureBrowserHistory, expectBrowserHistory
     , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
     , simulateCustom
-    , ensurePendingHttpGet, ensurePendingHttpGetCount, ensurePendingHttpPost, ensurePendingCustom
+    , ensureHttpGet, ensureHttpGetCount, ensureHttpPost, ensureCustom
     , withSimulatedSubscriptions, simulateIncomingPort
     , Snapshot, toSnapshots, withModelInspector
     , start, startWithEffects, startPlatform
@@ -165,7 +165,7 @@ form actions, or BackendTask effects returned from `update`.
 
 ## Asserting on pending requests
 
-@docs ensurePendingHttpGet, ensurePendingHttpGetCount, ensurePendingHttpPost, ensurePendingCustom
+@docs ensureHttpGet, ensureHttpGetCount, ensureHttpPost, ensureCustom
 
 
 ## Subscriptions and incoming ports
@@ -1455,13 +1455,13 @@ simulateHttpPostTo targetUrl jsonResponse =
 Use this before `simulateHttpGet` to verify the right request was made.
 
     TestApp.start "/" BackendTaskTest.init
-        |> PagesProgram.ensurePendingHttpGet "https://api.example.com/user"
+        |> PagesProgram.ensureHttpGet "https://api.example.com/user"
         |> PagesProgram.simulateHttpGet "https://api.example.com/user" response
 
 -}
-ensurePendingHttpGet : String -> ProgramTest model msg -> ProgramTest model msg
-ensurePendingHttpGet url (ProgramTest state) =
-    ensurePendingRequest "ensurePendingHttpGet" (\r -> r.method == "GET" && r.url == url) url (ProgramTest state)
+ensureHttpGet : String -> ProgramTest model msg -> ProgramTest model msg
+ensureHttpGet url (ProgramTest state) =
+    ensurePendingRequest "ensureHttpGet" (\r -> r.method == "GET" && r.url == url) url (ProgramTest state)
 
 
 {-| Assert how many pending GET requests currently target the given URL.
@@ -1469,11 +1469,11 @@ This is useful for verifying that stale background reloads were canceled
 before you simulate the remaining response.
 
     TestApp.start "/" BackendTaskTest.init
-        |> PagesProgram.ensurePendingHttpGetCount "https://api.example.com/user" 1
+        |> PagesProgram.ensureHttpGetCount "https://api.example.com/user" 1
 
 -}
-ensurePendingHttpGetCount : String -> Int -> ProgramTest model msg -> ProgramTest model msg
-ensurePendingHttpGetCount url expectedCount (ProgramTest state) =
+ensureHttpGetCount : String -> Int -> ProgramTest model msg -> ProgramTest model msg
+ensureHttpGetCount url expectedCount (ProgramTest state) =
     let
         actualCount =
             gatherAllPendingRequestDetails state
@@ -1488,7 +1488,7 @@ ensurePendingHttpGetCount url expectedCount (ProgramTest state) =
             { state
                 | error =
                     Just
-                        ("ensurePendingHttpGetCount \""
+                        ("ensureHttpGetCount \""
                             ++ url
                             ++ "\" expected "
                             ++ String.fromInt expectedCount
@@ -1502,27 +1502,27 @@ ensurePendingHttpGetCount url expectedCount (ProgramTest state) =
 {-| Assert that a POST request to the given URL is currently pending.
 
     TestApp.start "/" BackendTaskTest.init
-        |> PagesProgram.ensurePendingHttpPost "https://api.example.com/submit"
+        |> PagesProgram.ensureHttpPost "https://api.example.com/submit"
         |> PagesProgram.simulateHttpPost "https://api.example.com/submit" response
 
 -}
-ensurePendingHttpPost : String -> ProgramTest model msg -> ProgramTest model msg
-ensurePendingHttpPost url (ProgramTest state) =
-    ensurePendingRequest "ensurePendingHttpPost" (\r -> r.method == "POST" && r.url == url) url (ProgramTest state)
+ensureHttpPost : String -> ProgramTest model msg -> ProgramTest model msg
+ensureHttpPost url (ProgramTest state) =
+    ensurePendingRequest "ensureHttpPost" (\r -> r.method == "POST" && r.url == url) url (ProgramTest state)
 
 
 {-| Assert that a `BackendTask.Custom.run` call with the given port name
 is currently pending.
 
     TestApp.start "/" BackendTaskTest.init
-        |> PagesProgram.ensurePendingCustom "getTodos"
+        |> PagesProgram.ensureCustom "getTodos"
         |> PagesProgram.simulateCustom "getTodos" response
 
 -}
-ensurePendingCustom : String -> ProgramTest model msg -> ProgramTest model msg
-ensurePendingCustom portName (ProgramTest state) =
+ensureCustom : String -> ProgramTest model msg -> ProgramTest model msg
+ensureCustom portName (ProgramTest state) =
     ensurePendingRequest
-        "ensurePendingCustom"
+        "ensureCustom"
         (\r -> r.url == "elm-pages-internal://port" && pendingPortName r == Just portName)
         portName
         (ProgramTest state)
