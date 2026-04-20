@@ -1797,7 +1797,7 @@ resolveNextEffect simulate tuiTest =
                     TuiTest state
 
                 ( _, Just _ ) ->
-                    TuiTest { state | error = Just "simulateEffect called after TUI exited" }
+                    TuiTest { state | error = Just "Cannot resolve effect: the TUI has already exited." }
 
                 ( Nothing, Nothing ) ->
                     case state.pendingEffects of

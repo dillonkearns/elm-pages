@@ -7,7 +7,25 @@ will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [12.1.2] - 2026-04-01
+## [12.2.0] - 2026-04-20
+
+### Added
+
+- `Tui` module — build interactive Text-Based User Interfaces (TUIs) as elm-pages scripts. Programs have `data`, `init`, `update`, `view`, and `subscriptions` like a standard TEA app, but render to the terminal instead of the DOM.
+  - `Tui.program` and `Tui.programWithCliOptions` — entry points for building a TUI as a `Pages.Script.Script`.
+  - `Tui.programOrScript` and `Tui.isInteractive` — for programs that run as a TUI interactively and fall back to a plain `BackendTask` in non-interactive environments (CI, agents piping output).
+  - `Tui.Effect` module — `perform` and `attempt` to run `BackendTask`s from `init`/`update`, plus `exit` and `exitWithCode`.
+  - `Tui.Sub` module — subscribe to keyboard, mouse, paste, resize, and periodic tick events.
+  - `Tui.Screen` module — build styled terminal output with colors, bold, italic, underline, strikethrough, hyperlinks, text wrapping, and truncation.
+  - `Tui.Screen.Advanced` module — low-level line/span inspection for framework authors building on top of `Tui.Screen`.
+  - `Tui.Input` module — single-line text input primitive with cursor movement and editing.
+- `Test.Tui` module — pure Elm tests for `Tui.program` values, inspired by [elm-program-test](https://package.elm-lang.org/packages/avh4/elm-program-test/latest/). Simulate keypresses, clicks, paste events, resizes, and time; assert on rendered screen output or model state; resolve pending `BackendTask` effects with the sibling `Test.BackendTask` simulators.
+- `Test.PagesProgram` module — end-to-end tests for elm-pages routes. Exercises the real framework runtime (data loading, form submissions, redirects, cookies, error pages, optimistic UI via concurrent fetchers) with simulated HTTP responses and custom ports. Tests are deterministic and run in-process via `elm-test`, and can also be stepped through visually with `elm-pages test-view`.
+  - `Test.PagesProgram.Selector` — labeled selectors that wrap `Test.Html.Selector` so assertions appear as human-readable labels in the visual test runner.
+  - `Test.PagesProgram.SimulatedEffect` — data representation of client-side `Effect` values for route modules that use client-side TEA.
+  - `Test.PagesProgram.SimulatedSub` — data representation of client-side `Sub` values so tests can simulate incoming port messages.
+
+
 
 ### Fixed
 
