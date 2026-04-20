@@ -172,6 +172,12 @@ accidentally ignore `BackendTask`s. Wrap the resulting outcomes with
 [`test`](#test) and [`describe`](#describe), then run them through
 [`toTest`](#toTest) or [`done`](#done).
 
+TUI tests produce a named tree (`Test`) because the terminal stepper needs
+labelled entries to navigate between scenarios. [`Test.PagesProgram`](Test-PagesProgram)
+is shaped differently: route tests are discovered by the module-level value
+names (e.g. `myTest : TestApp.ProgramTest`), so they finalize directly into
+an `Expectation` via `PagesProgram.done` without this extra wrapping.
+
 @docs expectRunning, expectExit, expectExitWith
 
 @docs test, describe, toTest, done

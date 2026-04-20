@@ -3704,6 +3704,13 @@ renderScopedView ready =
 
 {-| Finalize the test. Fails if any earlier assertion failed, or if there are
 unresolved pending BackendTask effects.
+
+Route tests are discovered by their module-level value names (e.g.
+`myTest : TestApp.ProgramTest`), so they finalize directly into an
+`Expectation` here. [`Test.Tui`](Test-Tui) is shaped differently: TUI tests
+go through [`TuiTest.test`](Test-Tui#test) and [`TuiTest.describe`](Test-Tui#describe)
+to build a named tree that the terminal stepper can navigate.
+
 -}
 done : ProgramTest model msg -> Expectation
 done (ProgramTest state) =
