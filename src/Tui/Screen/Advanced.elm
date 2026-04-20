@@ -5,9 +5,12 @@ module Tui.Screen.Advanced exposing
 
 {-| Framework-level helpers for inspecting and rebuilding styled terminal lines.
 
-Most app code should stay in [`Tui.Screen`](Tui-Screen). This module is for
-packages like `tui-widgets` that need to preserve styles while transforming
-rendered text.
+Most app code should stay in [`Tui.Screen`](Tui-Screen). Reach for this module
+when you need to preserve styling while transforming rendered text. Typical use
+cases are highlighting search matches in an already-styled buffer, applying
+syntax coloring to rendered output, splitting lines at arbitrary character
+positions without losing styles, or implementing diff-style overlays. The
+`tui-widgets` package uses this internally for its search and layout features.
 
     import Tui.Screen as Screen
     import Tui.Screen.Advanced as Advanced

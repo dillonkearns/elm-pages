@@ -90,6 +90,8 @@ and assert on the results with [`ensureFile`](#ensureFile).
 ## See Also
 
   - [`Test.BackendTask.Time`](Test-BackendTask-Time) - configure virtual time zones
+  - [`Test.PagesProgram`](Test-PagesProgram) - end-to-end tests for elm-pages routes. Uses [`TestSetup`](#TestSetup) to seed initial state and reuses the simulators defined here for route-level HTTP and custom port responses.
+  - [`Test.Tui`](Test-Tui) - tests for `Tui.program` values. Uses [`TestSetup`](#TestSetup) to seed initial state and the simulators here to resolve `BackendTask` effects that a TUI performs via `Tui.Effect.perform`.
 
 
 ## Automatic Virtual State Emulation
