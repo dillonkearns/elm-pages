@@ -775,7 +775,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
                         |> TuiTest.pressKey 'k'
                         |> TuiTest.expectExit
                         |> TuiTest.done
-                        |> expectFailureContaining "after TUI exited"
+                        |> expectFailureContaining "the TUI has already exited"
             , test "resolveEffect with wrong URL surfaces Test.BackendTask error" <|
                 \() ->
                     starsTest

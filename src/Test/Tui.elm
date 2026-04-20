@@ -523,7 +523,7 @@ pressKeyWith keyEvent tuiTest =
                     TuiTest state
 
                 ( _, Just _ ) ->
-                    TuiTest { state | error = Just "pressKey called after TUI exited" }
+                    TuiTest { state | error = Just "Cannot press key: the TUI has already exited." }
 
                 ( Nothing, Nothing ) ->
                     let
@@ -559,7 +559,7 @@ paste pastedText tuiTest =
                     TuiTest state
 
                 ( _, Just _ ) ->
-                    TuiTest { state | error = Just "paste called after TUI exited" }
+                    TuiTest { state | error = Just "Cannot paste: the TUI has already exited." }
 
                 ( Nothing, Nothing ) ->
                     let
@@ -598,7 +598,7 @@ resize size tuiTest =
                     TuiTest state
 
                 ( _, Just _ ) ->
-                    TuiTest { state | error = Just "resize called after TUI exited" }
+                    TuiTest { state | error = Just "Cannot resize: the TUI has already exited." }
 
                 ( Nothing, Nothing ) ->
                     let
@@ -676,7 +676,7 @@ clickText needle tuiTest =
                     TuiTest state
 
                 ( _, Just _ ) ->
-                    TuiTest { state | error = Just "clickText called after TUI exited" }
+                    TuiTest { state | error = Just "Cannot click text: the TUI has already exited." }
 
                 ( Nothing, Nothing ) ->
                     let
@@ -770,7 +770,7 @@ simulateMouseEvent label mouseEvent tuiTest =
                     TuiTest state
 
                 ( _, Just _ ) ->
-                    TuiTest { state | error = Just "mouse event after TUI exited" }
+                    TuiTest { state | error = Just ("Cannot " ++ label ++ ": the TUI has already exited.") }
 
                 ( Nothing, Nothing ) ->
                     let
@@ -820,7 +820,7 @@ advanceTime deltaMs tuiTest =
                     TuiTest state
 
                 ( _, Just _ ) ->
-                    TuiTest { state | error = Just "advanceTime called after TUI exited" }
+                    TuiTest { state | error = Just "Cannot advance time: the TUI has already exited." }
 
                 ( Nothing, Nothing ) ->
                     advanceTimeHelp (state.currentTime + deltaMs) (TuiTest state)
