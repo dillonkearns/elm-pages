@@ -1,5 +1,6 @@
 module BackendTask.Custom exposing
     ( run
+    , runBytes
     , Error(..)
     , timeDecoder, dateDecoder
     )
@@ -13,7 +14,7 @@ This means that you can call shell scripts, run NPM packages that are installed,
 
 A `BackendTask.Custom` will call an async JavaScript function with the given name from the definition in a file called `custom-backend-task.js` in your project's root directory. The function receives the input JSON value, and the Decoder is used to decode the return value of the async function.
 
-@docs run
+@docs run, runBytes
 
 Here is the Elm code and corresponding JavaScript definition for getting an environment variable (or an `FatalError BackendTask.Custom.Error` if it isn't found). In this example,
 we're using `BackendTask.allowFatal` to let the framework treat that as an unexpected exception, but we could also handle the possible failures of the `FatalError` (see [`FatalError`](FatalError)).
@@ -123,6 +124,8 @@ But often JavaScript libraries and core APIs will give you JS Date objects, so t
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
+import Bytes exposing (Bytes)
+import Bytes.Decode
 import Date
 import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
@@ -270,6 +273,50 @@ run portName input decoder =
                     )
         }
         |> BackendTask.andThen BackendTask.fromResult
+
+
+{-| A `Bytes`-in / `Bytes`-out variant of [`run`](#run). Useful for passing
+binary payloads to and from JavaScript — for example, sharing a serialized
+Wire3 blob with a worker pool, or invoking a JS function that expects a
+`Buffer` input.
+
+The JavaScript function receives a Node `Buffer` as its first argument and
+must return a `Buffer`, `Uint8Array`, or `ArrayBuffer`:
+
+    // custom-backend-task.js
+    export async function echoBytes(inputBytes, context) {
+        return inputBytes;  // round-trip
+    }
+
+On the Elm side:
+
+    import Bytes.Decode
+    import Bytes.Encode
+    import BackendTask.Custom
+
+    roundTrip : Bytes -> BackendTask FatalError Bytes
+    roundTrip payload =
+        BackendTask.Custom.runBytes "echoBytes"
+            payload
+            (Bytes.Decode.bytes (Bytes.width payload))
+
+Unlike [`run`](#run), `runBytes` reports port failures as a generic
+`FatalError` — there is no `Error` decoder, because the response body is
+raw bytes. If you need richer error handling, fall back to `run` with a
+JSON envelope.
+
+-}
+runBytes :
+    String
+    -> Bytes
+    -> Bytes.Decode.Decoder b
+    -> BackendTask FatalError b
+runBytes portName input decoder =
+    BackendTask.Internal.Request.requestBytes
+        { name = "port-bytes/" ++ portName
+        , body = BackendTask.Http.bytesBody "application/octet-stream" input
+        , expect = decoder
+        }
 
 
 {-| -}

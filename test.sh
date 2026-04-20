@@ -15,6 +15,9 @@ elm-verify-examples --run-tests --elm-test-args '--compiler=lamdera'
 
 (cd test-scripts && npx elm-pages run src/TestBinaryRead.elm)
 
+# Bytes round-trip test for BackendTask.Custom.runBytes
+(cd test-scripts && npx elm-pages run src/TestCustomBytes.elm)
+
 # withSchema smoke tests - verify --introspect-cli output and normal execution
 (cd test-scripts && npx elm-pages run src/TestWithSchema.elm --introspect-cli | python3 -c '
 import sys, json

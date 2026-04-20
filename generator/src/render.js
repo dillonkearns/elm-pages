@@ -266,6 +266,9 @@ function runGeneratorAppHelp(
             let result;
             if (
               requestToPerform.url !== "elm-pages-internal://port" &&
+              !requestToPerform.url.startsWith(
+                "elm-pages-internal://port-bytes/"
+              ) &&
               requestToPerform.url.startsWith("elm-pages-internal://")
             ) {
               [, result] = await runInternalJob(
@@ -441,6 +444,9 @@ function runElmApp(
             let result;
             if (
               requestToPerform.url !== "elm-pages-internal://port" &&
+              !requestToPerform.url.startsWith(
+                "elm-pages-internal://port-bytes/"
+              ) &&
               requestToPerform.url.startsWith("elm-pages-internal://")
             ) {
               [, result] = await runInternalJob(

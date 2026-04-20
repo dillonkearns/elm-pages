@@ -38,7 +38,107 @@ export function lookupOrPerform(portsFile, mode, rawRequest) {
       portBackendTaskImportError = e;
     }
 
-    if (request.url === "elm-pages-internal://port") {
+    if (request.url.startsWith("elm-pages-internal://port-bytes/")) {
+      // Bytes-in / Bytes-out variant used by BackendTask.Custom.runBytes.
+      // The port name is encoded in the URL path; the input Bytes arrive via
+      // the port sidecar as `rawRequest.__rawBytes`; the response is a raw
+      // Buffer returned directly (no JSON envelope).
+      const portName = request.url.substring(
+        "elm-pages-internal://port-bytes/".length
+      );
+      try {
+        const inputBytes = rawRequest.__rawBytes || Buffer.alloc(0);
+
+        if (portBackendTask === null) {
+          reject({
+            title: "BackendTask.Custom.runBytes Error",
+            message:
+              "No custom-backend-task file found. Create a custom-backend-task.js or .ts file at the project root.",
+          });
+          return;
+        }
+        if (portBackendTask && portBackendTask.__internalElmPagesError) {
+          reject({
+            title: "BackendTask.Custom.runBytes Error",
+            message:
+              "Error importing custom-backend-task file: " +
+              portBackendTask.__internalElmPagesError,
+          });
+          return;
+        }
+        if (!portBackendTask[portName]) {
+          reject({
+            title: "BackendTask.Custom.runBytes Error",
+            message: `No export named \`${portName}\` found in custom-backend-task file.`,
+          });
+          return;
+        }
+        if (typeof portBackendTask[portName] !== "function") {
+          reject({
+            title: "BackendTask.Custom.runBytes Error",
+            message: `Export \`${portName}\` is not a function (found ${typeof portBackendTask[
+              portName
+            ]}).`,
+          });
+          return;
+        }
+
+        timeStart(`BackendTask.Custom.runBytes "${portName}"`);
+        const context = {
+          cwd: path.resolve(...rawRequest.dir),
+          quiet: rawRequest.quiet,
+          env: { ...process.env, ...rawRequest.env },
+        };
+
+        let result;
+        try {
+          result = await portBackendTask[portName](inputBytes, context);
+        } catch (portCallError) {
+          timeEnd(`BackendTask.Custom.runBytes "${portName}"`);
+          reject({
+            title: "BackendTask.Custom.runBytes Error",
+            message: `Port \`${portName}\` threw: ${
+              portCallError instanceof Error
+                ? portCallError.message
+                : String(portCallError)
+            }`,
+          });
+          return;
+        }
+        timeEnd(`BackendTask.Custom.runBytes "${portName}"`);
+
+        // Accept Buffer, Uint8Array, or ArrayBuffer; reject anything else.
+        let outputBuffer;
+        if (Buffer.isBuffer(result)) {
+          outputBuffer = result;
+        } else if (result instanceof Uint8Array) {
+          outputBuffer = Buffer.from(
+            result.buffer,
+            result.byteOffset,
+            result.byteLength
+          );
+        } else if (result instanceof ArrayBuffer) {
+          outputBuffer = Buffer.from(result);
+        } else {
+          reject({
+            title: "BackendTask.Custom.runBytes Error",
+            message: `Port \`${portName}\` must return Bytes (Buffer, Uint8Array, or ArrayBuffer). Got: ${typeof result}`,
+          });
+          return;
+        }
+
+        resolve({
+          kind: "response-json",
+          value: { bodyKind: "bytes", body: null },
+          rawBytes: outputBuffer,
+        });
+      } catch (error) {
+        reject({
+          title: "BackendTask.Custom.runBytes Error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    } else if (request.url === "elm-pages-internal://port") {
       try {
         const { input, portName } = rawRequest.body.args[0];
 
