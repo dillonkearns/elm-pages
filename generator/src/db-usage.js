@@ -7,17 +7,72 @@ import * as path from "node:path";
 
 /**
  * Parse Elm import declarations from source text.
+ *
+ * Strips Elm block comments `{- ... -}` (including nested, as Elm allows)
+ * and line comments `-- ...` before scanning for imports, so docstring
+ * examples that contain an `import Foo` line aren't mistaken for real
+ * imports.
+ *
  * @param {string} source
  * @returns {string[]}
  */
 function parseImports(source) {
+  const stripped = stripElmComments(source);
   const imports = [];
   const importRegex = /^\s*import\s+([A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*)\b/gm;
   let match;
-  while ((match = importRegex.exec(source)) !== null) {
+  while ((match = importRegex.exec(stripped)) !== null) {
     imports.push(match[1]);
   }
   return imports;
+}
+
+/**
+ * Strip Elm block comments (with nesting) and line comments from source.
+ * Replaces comment contents with spaces so line numbers/positions are
+ * preserved for any downstream regex matching.
+ *
+ * @param {string} source
+ * @returns {string}
+ */
+function stripElmComments(source) {
+  const out = [];
+  let i = 0;
+  const n = source.length;
+  while (i < n) {
+    const ch = source[i];
+    const next = source[i + 1];
+    if (ch === "{" && next === "-") {
+      // Block comment; handle nesting.
+      let depth = 1;
+      out.push("  ");
+      i += 2;
+      while (i < n && depth > 0) {
+        if (source[i] === "{" && source[i + 1] === "-") {
+          depth++;
+          out.push("  ");
+          i += 2;
+        } else if (source[i] === "-" && source[i + 1] === "}") {
+          depth--;
+          out.push("  ");
+          i += 2;
+        } else {
+          out.push(source[i] === "\n" ? "\n" : " ");
+          i++;
+        }
+      }
+    } else if (ch === "-" && next === "-") {
+      // Line comment to end-of-line.
+      while (i < n && source[i] !== "\n") {
+        out.push(" ");
+        i++;
+      }
+    } else {
+      out.push(ch);
+      i++;
+    }
+  }
+  return out.join("");
 }
 
 /**
