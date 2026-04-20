@@ -98,6 +98,56 @@ export function lookupOrPerform(portsFile, mode, rawRequest) {
           message: error instanceof Error ? error.message : String(error),
         });
       }
+    } else if (
+      request.url === "elm-pages-internal://parallel-worker-init-shared"
+    ) {
+      // BackendTask.Parallel.initShared — primitive used by an Elm script
+      // running inside a parallel worker thread to receive its one-time
+      // shared payload from the parent thread.
+      //
+      // B.1 stub: returns empty bytes so the caller's decoder can be
+      // exercised. The real handler in B.3 will block until the parent
+      // worker pool delivers the actual shared payload through the
+      // worker-side bridge in parallel-worker.js.
+      resolve({
+        kind: "response-json",
+        value: { bodyKind: "bytes", body: null },
+        rawBytes: Buffer.alloc(0),
+      });
+    } else if (
+      request.url === "elm-pages-internal://parallel-worker-receive-task"
+    ) {
+      // BackendTask.Parallel.receiveTask — primitive used by an Elm script
+      // running inside a parallel worker thread to receive the next task's
+      // input bytes from the parent thread.
+      //
+      // B.1 stub: returns a 4-byte big-endian u32 sentinel (42) so the
+      // smoke test in test-scripts/ can exercise the plumbing end-to-end.
+      // The real handler in B.3 will block until the parent dispatches a
+      // task via parallel-worker-pool's elm-script branch.
+      const stub = Buffer.alloc(4);
+      stub.writeUInt32BE(42, 0);
+      resolve({
+        kind: "response-json",
+        value: { bodyKind: "bytes", body: null },
+        rawBytes: stub,
+      });
+    } else if (
+      request.url === "elm-pages-internal://parallel-worker-send-result"
+    ) {
+      // BackendTask.Parallel.sendResult — primitive used by an Elm script
+      // running inside a parallel worker thread to hand a task result back
+      // to the parent.
+      //
+      // B.1 stub: discards the input bytes and resolves with empty bytes
+      // (the Elm side decodes `Bytes.Decode.succeed ()`). The real handler
+      // in B.3 will route the bytes back to the awaiting `runOn` promise
+      // on the parent.
+      resolve({
+        kind: "response-json",
+        value: { bodyKind: "bytes", body: null },
+        rawBytes: Buffer.alloc(0),
+      });
     } else if (request.url.startsWith("elm-pages-internal://port-bytes/")) {
       // Bytes-in / Bytes-out variant used by BackendTask.Custom.runBytes.
       // The port name is encoded in the URL path; the input Bytes arrive via
