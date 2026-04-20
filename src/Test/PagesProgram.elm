@@ -2177,7 +2177,7 @@ clickButton buttonText (ProgramTest state) =
                                                             , action = submission.action
                                                             , fields = submission.fields
                                                             , method = submission.method
-                                                            , useFetcher = False
+                                                            , useFetcher = submission.useFetcher
                                                             }
                                                         )
                                                         (ProgramTest state)
@@ -2361,7 +2361,7 @@ clickButtonWith selectors (ProgramTest state) =
                                                             , action = submission.action
                                                             , fields = submission.fields
                                                             , method = submission.method
-                                                            , useFetcher = False
+                                                            , useFetcher = submission.useFetcher
                                                             }
                                                         )
                                                         (ProgramTest state)
@@ -4830,6 +4830,7 @@ type alias BrowserFormSubmission =
     , method : Form.Method
     , submitterName : Maybe String
     , submitterValue : Maybe String
+    , useFetcher : Bool
     }
 
 
@@ -4917,6 +4918,7 @@ extractFormSubmission ready formQuery buttonQuery =
                                 , method = method
                                 , submitterName = Dict.get "name" buttonAttributes
                                 , submitterValue = Dict.get "value" buttonAttributes
+                                , useFetcher = Dict.member "data-fetcher" formAttributes
                                 }
                             )
                 )

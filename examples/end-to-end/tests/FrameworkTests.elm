@@ -123,8 +123,19 @@ errorPageTest =
 
 
 {-| Concurrent form submission with SubmitFetcher.
-The form uses withConcurrent, so submission status is tracked
-in concurrentSubmissions and the page doesn't block navigation.
+
+Doubles as a regression guard for `useFetcher` routing: the QuickNote view
+renders "Done: <note>" **only** by iterating `app.concurrentSubmissions`.
+That dict is populated by `Pages.Internal.Platform` only when the submit
+Msg carries `useFetcher = True` (see Platform.elm, the branch on
+`fields.useFetcher`). If the test harness ever regressed to passing
+`useFetcher = False` for a form rendered with `Pages.Form.withConcurrent`,
+the view would stay blank and this assertion would fail.
+
+The test harness's primary submit path invokes the form's onSubmit handler
+(Pages/Form.elm captures `concurrent` into the `Submit` msg), so the
+correct `useFetcher` flows through `Event.simulate ("submit", ...)`.
+
 -}
 concurrentSubmissionTest : TestApp.ProgramTest
 concurrentSubmissionTest =
