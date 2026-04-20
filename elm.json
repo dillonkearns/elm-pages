@@ -22,6 +22,7 @@
         "FilePath",
         "BackendTask.Custom",
         "BackendTask.Env",
+        "BackendTask.Parallel",
         "BackendTask.Stream",
         "BackendTask.Do",
         "Server.Request",

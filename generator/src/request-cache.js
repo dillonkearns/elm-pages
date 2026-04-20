@@ -2,6 +2,7 @@ import * as path from "path";
 import * as fsPromises from "fs/promises";
 import * as kleur from "kleur/colors";
 import { default as makeFetchHappenOriginal } from "make-fetch-happen";
+import * as parallelWorkerPool from "./parallel-worker-pool.js";
 
 const defaultHttpCachePath = "./.elm-pages/http-cache";
 
@@ -38,7 +39,66 @@ export function lookupOrPerform(portsFile, mode, rawRequest) {
       portBackendTaskImportError = e;
     }
 
-    if (request.url.startsWith("elm-pages-internal://port-bytes/")) {
+    if (
+      request.url.startsWith("elm-pages-internal://parallel-port-bytes/")
+    ) {
+      // BackendTask.Parallel.run — same Bytes-in/Bytes-out wire as
+      // Custom.runBytes, but the port function runs in a worker thread
+      // pulled from the persistent pool. Port name follows the URL prefix.
+      const portName = request.url.substring(
+        "elm-pages-internal://parallel-port-bytes/".length
+      );
+      try {
+        const inputBytes = rawRequest.__rawBytes || Buffer.alloc(0);
+        const context = {
+          cwd: path.resolve(...rawRequest.dir),
+          quiet: rawRequest.quiet,
+          env: { ...process.env, ...rawRequest.env },
+        };
+
+        timeStart(`BackendTask.Parallel.run "${portName}"`);
+        let outputBuffer;
+        try {
+          const result = await parallelWorkerPool.dispatch(
+            portName,
+            inputBytes,
+            context
+          );
+          // Worker returns Buffer, but structured-clone across the thread
+          // boundary may surface it as Uint8Array. Normalize to Buffer
+          // (zero-copy when possible) before handing to render.js.
+          outputBuffer = Buffer.isBuffer(result)
+            ? result
+            : Buffer.from(
+                result.buffer,
+                result.byteOffset,
+                result.byteLength
+              );
+        } catch (dispatchError) {
+          timeEnd(`BackendTask.Parallel.run "${portName}"`);
+          reject({
+            title: "BackendTask.Parallel.run Error",
+            message:
+              dispatchError instanceof Error
+                ? dispatchError.message
+                : String(dispatchError),
+          });
+          return;
+        }
+        timeEnd(`BackendTask.Parallel.run "${portName}"`);
+
+        resolve({
+          kind: "response-json",
+          value: { bodyKind: "bytes", body: null },
+          rawBytes: outputBuffer,
+        });
+      } catch (error) {
+        reject({
+          title: "BackendTask.Parallel.run Error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    } else if (request.url.startsWith("elm-pages-internal://port-bytes/")) {
       // Bytes-in / Bytes-out variant used by BackendTask.Custom.runBytes.
       // The port name is encoded in the URL path; the input Bytes arrive via
       // the port sidecar as `rawRequest.__rawBytes`; the response is a raw

@@ -20,6 +20,7 @@ import {
   printCaughtError,
 } from "./shared.js";
 import { scriptUsesPagesDb } from "../db-usage.js";
+import * as parallelWorkerPool from "../parallel-worker-pool.js";
 
 export async function run(elmModulePath, options, options2) {
   if (elmModulePath === "--help" || elmModulePath === "-h") {
@@ -219,6 +220,13 @@ export async function run(elmModulePath, options, options2) {
       });
     }
 
+    // Configure the parallel worker pool so it can spawn workers that
+    // share the project's custom-backend-task module. The pool itself is
+    // initialized lazily on the first BackendTask.Parallel.run call.
+    parallelWorkerPool.configure({
+      portsPath: portsPath ? path.resolve(portsPath) : null,
+    });
+
     await renderer.runGenerator(
       unprocessedCliOptions,
       portsPath
@@ -229,6 +237,9 @@ export async function run(elmModulePath, options, options2) {
       undefined,
       { suppressConsoleLogDuringInit: isIntrospectionRun }
     );
+
+    // Workers are long-lived; tear them down when the script finishes.
+    await parallelWorkerPool.shutdown();
   } catch (error) {
     printCaughtError(error, restoreColorSafe);
     process.exit(1);
