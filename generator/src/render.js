@@ -312,7 +312,6 @@ function runGeneratorAppHelp(
             ) {
               result = await runInternalJob(
                 requestHash,
-                app,
                 requestToPerform,
                 patternsToWatch,
                 portsFile
@@ -487,7 +486,6 @@ function runElmApp(
             ) {
               result = await runInternalJob(
                 requestHash,
-                app,
                 requestToPerform,
                 patternsToWatch,
                 portsFile
@@ -709,7 +707,6 @@ function dataViewToBuffer(dv) {
 
 /**
  * @param {unknown} requestHash
- * @param {unknown} app
  * @param {Set<string>} patternsToWatch
  * @param {PortsFile} portsFile
  * @param {InternalJob} requestToPerform
@@ -717,7 +714,6 @@ function dataViewToBuffer(dv) {
  */
 async function runInternalJob(
   requestHash,
-  app,
   requestToPerform,
   patternsToWatch,
   portsFile
