@@ -1572,6 +1572,28 @@ ensurePendingRequest callerName predicate target (ProgramTest state) =
                     }
 
 
+{-| Render the list of currently pending requests as a hint appended to
+"cannot X while data is still resolving" errors. Returns an empty string when
+nothing is pending, so callers can append unconditionally.
+-}
+pendingRequestsHint : State model msg -> String
+pendingRequestsHint state =
+    let
+        pending =
+            gatherAllPendingRequestDetails state
+    in
+    if List.isEmpty pending then
+        ""
+
+    else
+        "\n\nCurrently pending:\n"
+            ++ (pending
+                    |> List.map (\r -> "  " ++ r.method ++ " " ++ r.url)
+                    |> String.join "\n"
+               )
+            ++ "\n\nResolve these with simulateHttpGet, simulateHttpPost, simulateHttpError, or simulateCustom before asserting on the view."
+
+
 gatherAllPendingRequestDetails : State model msg -> List { url : String, method : String, headers : List ( String, String ), body : Maybe String }
 gatherAllPendingRequestDetails state =
     let
@@ -1641,6 +1663,7 @@ selectOption labelText optionText (ProgramTest state) =
                                         ++ "\" \""
                                         ++ optionText
                                         ++ "\": Cannot interact while BackendTask data is still resolving."
+                                        ++ pendingRequestsHint state
                                     )
                         }
 
@@ -1872,7 +1895,7 @@ simulateDomEvent findTarget event (ProgramTest state) =
             case state.phase of
                 Resolving _ ->
                     ProgramTest
-                        { state | error = Just "simulateDomEvent: Cannot interact while BackendTask data is still resolving." }
+                        { state | error = Just ("simulateDomEvent: Cannot interact while BackendTask data is still resolving." ++ pendingRequestsHint state) }
 
                 Ready ready ->
                     let
@@ -2069,6 +2092,7 @@ clickButton buttonText (ProgramTest state) =
                                     ("clickButton \""
                                         ++ buttonText
                                         ++ "\": Cannot interact while BackendTask data is still resolving."
+                                        ++ pendingRequestsHint state
                                     )
                         }
 
@@ -2262,7 +2286,7 @@ clickButtonWith selectors (ProgramTest state) =
                     ProgramTest
                         { state
                             | error =
-                                Just "clickButtonWith: Cannot interact while BackendTask data is still resolving."
+                                Just ("clickButtonWith: Cannot interact while BackendTask data is still resolving." ++ pendingRequestsHint state)
                         }
 
                 Ready ready ->
@@ -2449,6 +2473,7 @@ fillIn fieldId fieldName value (ProgramTest state) =
                                     ("fillIn \""
                                         ++ fieldName
                                         ++ "\": Cannot interact while BackendTask data is still resolving."
+                                        ++ pendingRequestsHint state
                                     )
                         }
 
@@ -2592,7 +2617,7 @@ fillInTextarea newContent (ProgramTest state) =
             case state.phase of
                 Resolving _ ->
                     ProgramTest
-                        { state | error = Just "fillInTextarea: Cannot interact while BackendTask data is still resolving." }
+                        { state | error = Just ("fillInTextarea: Cannot interact while BackendTask data is still resolving." ++ pendingRequestsHint state) }
 
                 Ready ready ->
                     let
@@ -2642,6 +2667,7 @@ clickLink linkText (ProgramTest state) =
                                     ("clickLink \""
                                         ++ linkText
                                         ++ "\": Cannot interact while BackendTask data is still resolving."
+                                        ++ pendingRequestsHint state
                                     )
                         }
 
@@ -2803,7 +2829,7 @@ navigateTo path (ProgramTest state) =
                 Resolving _ ->
                     ProgramTest
                         { state
-                            | error = Just "navigateTo: Cannot navigate while BackendTask data is still resolving."
+                            | error = Just ("navigateTo: Cannot navigate while BackendTask data is still resolving." ++ pendingRequestsHint state)
                         }
 
                 Ready ready ->
@@ -2841,7 +2867,7 @@ ensureBrowserUrl assertion (ProgramTest state) =
             case state.phase of
                 Resolving _ ->
                     ProgramTest
-                        { state | error = Just "ensureBrowserUrl: Cannot check URL while data is resolving." }
+                        { state | error = Just ("ensureBrowserUrl: Cannot check URL while data is resolving." ++ pendingRequestsHint state) }
 
                 Ready ready ->
                     case ready.getBrowserUrl of
@@ -2889,7 +2915,7 @@ expectBrowserUrl assertion (ProgramTest state) =
         Nothing ->
             case state.phase of
                 Resolving _ ->
-                    Expect.fail "expectBrowserUrl: Cannot check URL while data is resolving."
+                    Expect.fail ("expectBrowserUrl: Cannot check URL while data is resolving." ++ pendingRequestsHint state)
 
                 Ready ready ->
                     case ready.getBrowserUrl of
@@ -2924,7 +2950,7 @@ ensureBrowserHistory assertion (ProgramTest state) =
             case state.phase of
                 Resolving _ ->
                     ProgramTest
-                        { state | error = Just "ensureBrowserHistory: Cannot check history while data is resolving." }
+                        { state | error = Just ("ensureBrowserHistory: Cannot check history while data is resolving." ++ pendingRequestsHint state) }
 
                 Ready ready ->
                     case ready.getBrowserUrl of
@@ -2966,7 +2992,7 @@ expectBrowserHistory assertion (ProgramTest state) =
         Nothing ->
             case state.phase of
                 Resolving _ ->
-                    Expect.fail "expectBrowserHistory: Cannot check history while data is resolving."
+                    Expect.fail ("expectBrowserHistory: Cannot check history while data is resolving." ++ pendingRequestsHint state)
 
                 Ready ready ->
                     case ready.getBrowserUrl of
@@ -3051,6 +3077,7 @@ check labelText isChecked (ProgramTest state) =
                                     ("check \""
                                         ++ labelText
                                         ++ "\": Cannot interact while BackendTask data is still resolving."
+                                        ++ pendingRequestsHint state
                                     )
                         }
 
@@ -3373,7 +3400,7 @@ ensureViewHasNot selectors (ProgramTest state) =
         Nothing ->
             case state.phase of
                 Resolving _ ->
-                    ProgramTest { state | error = Just "ensureViewHasNot: Cannot check view while data is resolving." }
+                    ProgramTest { state | error = Just ("ensureViewHasNot: Cannot check view while data is resolving." ++ pendingRequestsHint state) }
 
                 Ready ready ->
                     case ready.getModelError ready.model of
@@ -3422,7 +3449,7 @@ ensureView assertion (ProgramTest state) =
         Nothing ->
             case state.phase of
                 Resolving _ ->
-                    ProgramTest { state | error = Just "ensureView: Cannot check view while data is resolving." }
+                    ProgramTest { state | error = Just ("ensureView: Cannot check view while data is resolving." ++ pendingRequestsHint state) }
 
                 Ready ready ->
                     case ready.getModelError ready.model of
@@ -3467,7 +3494,7 @@ expectViewHas selectors (ProgramTest state) =
         Nothing ->
             case state.phase of
                 Resolving _ ->
-                    Expect.fail "expectViewHas: Cannot check view while data is resolving."
+                    Expect.fail ("expectViewHas: Cannot check view while data is resolving." ++ pendingRequestsHint state)
 
                 Ready ready ->
                     renderScopedView ready |> Query.has (PSelector.toHtmlSelectors selectors)
@@ -3484,7 +3511,7 @@ expectViewHasNot selectors (ProgramTest state) =
         Nothing ->
             case state.phase of
                 Resolving _ ->
-                    Expect.fail "expectViewHasNot: Cannot check view while data is resolving."
+                    Expect.fail ("expectViewHasNot: Cannot check view while data is resolving." ++ pendingRequestsHint state)
 
                 Ready ready ->
                     renderScopedView ready |> Query.hasNot (PSelector.toHtmlSelectors selectors)
@@ -3509,7 +3536,7 @@ expectView assertion (ProgramTest state) =
         Nothing ->
             case state.phase of
                 Resolving _ ->
-                    Expect.fail "expectView: Cannot check view while data is resolving."
+                    Expect.fail ("expectView: Cannot check view while data is resolving." ++ pendingRequestsHint state)
 
                 Ready ready ->
                     assertion (renderScopedView ready)

@@ -175,6 +175,20 @@ all =
                         |> PagesProgram.ensureViewHas [ PSelector.text "Alice" ]
                         |> PagesProgram.done
                         |> expectFailContaining "Cannot check view"
+            , test "expectView error during resolving lists the pending URL" <|
+                \() ->
+                    PagesProgram.start
+                        { data =
+                            BackendTask.Http.getJson
+                                "https://api.example.com/user"
+                                Decode.string
+                                |> BackendTask.allowFatal
+                        , init = \name -> ( { name = name }, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                        }
+                        |> PagesProgram.expectView (\_ -> Expect.pass)
+                        |> expectFailContaining "https://api.example.com/user"
             ]
         , describe "Step 3: user interaction"
             [ test "clicking a button updates the view" <|
