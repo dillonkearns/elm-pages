@@ -44,15 +44,13 @@ suite =
                             rows
                                 |> List.drop 1
                                 |> List.head
-                                |> Maybe.map leadingStyleOfLine
-                                |> Maybe.andThen .bg
+                                |> Maybe.andThen leadingBgOfLine
 
                         secondDuplicateBg =
                             rows
                                 |> List.drop 2
                                 |> List.head
-                                |> Maybe.map leadingStyleOfLine
-                                |> Maybe.andThen .bg
+                                |> Maybe.andThen leadingBgOfLine
                     in
                     Expect.all
                         [ \_ -> Expect.equal Nothing firstDuplicateBg
@@ -142,16 +140,16 @@ expectContains needle haystack =
             )
 
 
-leadingStyleOfLine : Tui.Screen.Screen -> Tui.Screen.Style
-leadingStyleOfLine screen =
+leadingBgOfLine : Tui.Screen.Screen -> Maybe Ansi.Color.Color
+leadingBgOfLine screen =
     case ScreenAdvanced.toLines screen of
         firstLine :: _ ->
             case firstLine of
                 firstSpan :: _ ->
-                    firstSpan.style
+                    Tui.Screen.styleBackground firstSpan.style
 
                 [] ->
-                    Tui.Screen.plain
+                    Nothing
 
         [] ->
-            Tui.Screen.plain
+            Nothing

@@ -50,7 +50,7 @@ instead of importing this module directly.
 
 import Ansi.Color
 import Tui
-import Tui.Screen exposing (plain)
+import Tui.Screen
 import Tui.Sub
 
 
@@ -367,21 +367,21 @@ helpRowsWithSelection selectedIdx filter groups =
                 |> List.maximum
                 |> Maybe.withDefault 0
 
-        cyanStyle : Tui.Screen.Style
-        cyanStyle =
-            { plain | fg = Just Ansi.Color.cyan }
+        cyanStyling : Tui.Screen.Screen -> Tui.Screen.Screen
+        cyanStyling =
+            Tui.Screen.fg Ansi.Color.cyan
 
-        selectedStyle : Tui.Screen.Style
-        selectedStyle =
-            { plain | fg = Just Ansi.Color.white, bg = Just Ansi.Color.blue, attributes = [ Tui.Screen.Bold ] }
+        selectedStyling : Tui.Screen.Screen -> Tui.Screen.Screen
+        selectedStyling =
+            Tui.Screen.fg Ansi.Color.white >> Tui.Screen.bg Ansi.Color.blue >> Tui.Screen.bold
 
-        selectedKeyStyle : Tui.Screen.Style
-        selectedKeyStyle =
-            { plain | fg = Just Ansi.Color.cyan, bg = Just Ansi.Color.blue, attributes = [ Tui.Screen.Bold ] }
+        selectedKeyStyling : Tui.Screen.Screen -> Tui.Screen.Screen
+        selectedKeyStyling =
+            Tui.Screen.fg Ansi.Color.cyan >> Tui.Screen.bg Ansi.Color.blue >> Tui.Screen.bold
 
-        sectionStyle : Tui.Screen.Style
-        sectionStyle =
-            { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Screen.Bold ] }
+        sectionStyling : Tui.Screen.Screen -> Tui.Screen.Screen
+        sectionStyling =
+            Tui.Screen.fg Ansi.Color.green >> Tui.Screen.bold
 
         renderBinding : Int -> Binding msg -> Tui.Screen.Screen
         renderBinding bindingIdx b =
@@ -400,23 +400,23 @@ helpRowsWithSelection selectedIdx filter groups =
             in
             if isSelected then
                 Tui.Screen.concat
-                    [ Tui.Screen.styled selectedStyle "  "
-                    , Tui.Screen.styled selectedKeyStyle (padding ++ keyLabel)
-                    , Tui.Screen.styled selectedStyle "  "
-                    , Tui.Screen.styled selectedStyle b.description
+                    [ Tui.Screen.text "  " |> selectedStyling
+                    , Tui.Screen.text (padding ++ keyLabel) |> selectedKeyStyling
+                    , Tui.Screen.text "  " |> selectedStyling
+                    , Tui.Screen.text b.description |> selectedStyling
                     ]
 
             else
                 Tui.Screen.concat
                     [ Tui.Screen.text "  "
-                    , Tui.Screen.styled cyanStyle (padding ++ keyLabel)
+                    , Tui.Screen.text (padding ++ keyLabel) |> cyanStyling
                     , Tui.Screen.text "  "
                     , Tui.Screen.text b.description
                     ]
 
         renderSectionHeader : String -> Tui.Screen.Screen
         renderSectionHeader name =
-            Tui.Screen.styled sectionStyle ("--- " ++ name ++ " ---")
+            Tui.Screen.text ("--- " ++ name ++ " ---") |> sectionStyling
 
         renderGroup : Bool -> Int -> Group msg -> ( List Tui.Screen.Screen, Int )
         renderGroup isFirst bindingOffset g =
@@ -472,7 +472,7 @@ infoRow : String -> String -> Tui.Screen.Screen
 infoRow keyLabel description =
     Tui.Screen.concat
         [ Tui.Screen.text "  "
-        , Tui.Screen.styled { plain | fg = Just Ansi.Color.cyan } keyLabel
+        , Tui.Screen.text keyLabel |> Tui.Screen.fg Ansi.Color.cyan
         , Tui.Screen.text "  "
         , Tui.Screen.text description
         ]
@@ -485,5 +485,6 @@ infoRow keyLabel description =
 -}
 sectionHeader : String -> Tui.Screen.Screen
 sectionHeader name =
-    Tui.Screen.styled { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Screen.Bold ] }
-        ("--- " ++ name ++ " ---")
+    Tui.Screen.text ("--- " ++ name ++ " ---")
+        |> Tui.Screen.fg Ansi.Color.green
+        |> Tui.Screen.bold

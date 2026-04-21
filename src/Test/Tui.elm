@@ -1446,43 +1446,8 @@ describeCheck (StyleCheck check) =
 
 
 tuiStyleToFlatStyle : Tui.Screen.Style -> ScreenInternal.FlatStyle
-tuiStyleToFlatStyle s =
-    let
-        def : ScreenInternal.FlatStyle
-        def =
-            ScreenInternal.defaultFlatStyle
-
-        base : ScreenInternal.FlatStyle
-        base =
-            { def
-                | foreground = s.fg
-                , background = s.bg
-                , hyperlink = s.hyperlink
-            }
-    in
-    List.foldl applyAttr base s.attributes
-
-
-applyAttr : Tui.Screen.Attribute -> ScreenInternal.FlatStyle -> ScreenInternal.FlatStyle
-applyAttr attr flatStyle =
-    case attr of
-        Tui.Screen.Bold ->
-            { flatStyle | bold = True }
-
-        Tui.Screen.Dim ->
-            { flatStyle | dim = True }
-
-        Tui.Screen.Italic ->
-            { flatStyle | italic = True }
-
-        Tui.Screen.Underline ->
-            { flatStyle | underline = True }
-
-        Tui.Screen.Strikethrough ->
-            { flatStyle | strikethrough = True }
-
-        Tui.Screen.Inverse ->
-            { flatStyle | inverse = True }
+tuiStyleToFlatStyle =
+    Tui.Screen.styleToFlatStyle
 
 
 

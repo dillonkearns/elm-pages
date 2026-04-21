@@ -317,9 +317,9 @@ switchToNextTest model =
 stepperView : Tui.Context -> StepperModel -> Screen.Screen
 stepperView ctx model =
     let
-        dimStyle : Screen.Style
-        dimStyle =
-            { plain | attributes = [ Screen.Dim ] }
+        dimStyling : Screen.Screen -> Screen.Screen
+        dimStyling =
+            Screen.dim
 
         maybeSnapshot : Maybe Test.Tui.Snapshot
         maybeSnapshot =
@@ -330,9 +330,9 @@ stepperView ctx model =
     case maybeSnapshot of
         Just snapshot ->
             let
-                headerStyle : Screen.Style
-                headerStyle =
-                    { plain | fg = Just Ansi.Color.cyan, attributes = [ Screen.Bold ] }
+                headerStyling : Screen.Screen -> Screen.Screen
+                headerStyling =
+                    Screen.fg Ansi.Color.cyan >> Screen.bold
 
                 separator : String
                 separator =
@@ -370,9 +370,8 @@ stepperView ctx model =
                             |> List.indexedMap
                                 (\\i snapshotForIndicator ->
                                     if i == model.currentIndex then
-                                        Screen.styled
-                                            { plain | fg = Just Ansi.Color.cyan, attributes = [ Screen.Bold ] }
-                                            (" ● " ++ snapshotForIndicator.label ++ " ")
+                                        Screen.text (" ● " ++ snapshotForIndicator.label ++ " ")
+                                            |> headerStyling
 
                                     else
                                         let
@@ -381,37 +380,34 @@ stepperView ctx model =
                                                 not (List.isEmpty snapshotForIndicator.assertions)
                                         in
                                         if hasAssertions then
-                                            Screen.styled
-                                                { plain | fg = Just Ansi.Color.green }
-                                                " ◆ "
+                                            Screen.text " ◆ " |> Screen.fg Ansi.Color.green
 
                                         else
-                                            Screen.styled dimStyle " ○ "
+                                            Screen.text " ○ " |> dimStyling
                                 )
                         )
             in
             Screen.lines
                 ([ snapshot.screen
                  , Screen.text ""
-                       , Screen.styled dimStyle ("  " ++ separator)
+                       , Screen.text ("  " ++ separator) |> dimStyling
                        , Screen.text ""
                        , stepIndicator
                        , Screen.text ""
-                       , Screen.styled dimStyle footerText
+                       , Screen.text footerText |> dimStyling
                        , Screen.text ""
-                       , Screen.styled dimStyle ("  " ++ separator)
+                       , Screen.text ("  " ++ separator) |> dimStyling
                        , Screen.text ""
-                       , Screen.styled headerStyle headerText
+                       , Screen.text headerText |> headerStyling
                        , Screen.text ""
                        , Screen.concat
-                            [ Screen.styled dimStyle "  Action: "
-                            , Screen.styled
-                                { plain | fg = Just Ansi.Color.yellow, attributes = [ Screen.Bold ] }
-                                snapshot.label
+                            [ Screen.text "  Action: " |> dimStyling
+                            , Screen.text snapshot.label
+                                |> Screen.fg Ansi.Color.yellow
+                                |> Screen.bold
                             , if snapshot.hasPendingEffects then
-                                Screen.styled
-                                    { plain | fg = Just Ansi.Color.magenta }
-                                    "  ⟳ pending effect"
+                                Screen.text "  ⟳ pending effect"
+                                    |> Screen.fg Ansi.Color.magenta
 
                               else
                                 Screen.empty
@@ -424,21 +420,20 @@ stepperView ctx model =
                             snapshot.assertions
                                 |> List.map
                                     (\\assertion ->
-                                        Screen.styled
-                                            { plain | fg = Just Ansi.Color.green }
-                                            ("    " ++ assertion)
+                                        Screen.text ("    " ++ assertion)
+                                            |> Screen.fg Ansi.Color.green
                                     )
                        )
                     ++ [ case snapshot.modelState of
                             Just modelStr ->
                                 Screen.lines
                                     [ Screen.text ""
-                                    , Screen.styled
-                                        { plain | fg = Just Ansi.Color.green, attributes = [ Screen.Bold ] }
-                                        "  Model:"
+                                    , Screen.text "  Model:"
+                                        |> Screen.fg Ansi.Color.green
+                                        |> Screen.bold
                                     , modelStr
                                         |> String.lines
-                                        |> List.map (\\line -> Screen.styled dimStyle ("    " ++ line))
+                                        |> List.map (\\line -> Screen.text ("    " ++ line) |> dimStyling)
                                         |> Screen.lines
                                     ]
 
@@ -448,7 +443,7 @@ stepperView ctx model =
                 )
 
         Nothing ->
-            Screen.styled dimStyle "  No snapshots"
+            Screen.text "  No snapshots" |> Screen.dim
 
 
 stepperSubscriptions : StepperModel -> Tui.Sub.Sub StepperMsg

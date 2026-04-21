@@ -178,7 +178,7 @@ import Tui.Menu
 import Tui.Modal
 import Tui.OptionsBar
 import Tui.Prompt
-import Tui.Screen as TuiScreen exposing (Screen, plain)
+import Tui.Screen as TuiScreen exposing (Screen)
 import Tui.Screen.Advanced as TuiScreenAdvanced
 import Tui.Status
 import Tui.Sub exposing (MouseEvent)
@@ -454,7 +454,7 @@ new code — the item-based `onSelect` eliminates index-mapping bugs.
 
     Layout.indexSelectableList
         { onSelect = SelectCommitIndex
-        , selected = \commit -> TuiScreen.styled selectedStyle commit.sha
+        , selected = \commit -> TuiScreen.text commit.sha |> TuiScreen.bg Ansi.Color.blue
         , default = \commit -> TuiScreen.text commit.sha
         }
         model.commits
@@ -3307,15 +3307,8 @@ buildHighlightedLine spans matches currentMatch col =
                 highlightedMatchScreen : Screen
                 highlightedMatchScreen =
                     matchSpans
-                        |> List.map
-                            (\span ->
-                                let
-                                    oldStyle =
-                                        span.style
-                                in
-                                { span | style = { oldStyle | bg = Just highlightBg } }
-                            )
                         |> TuiScreenAdvanced.fromLine
+                        |> TuiScreen.bg highlightBg
             in
             TuiScreen.concat
                 [ TuiScreenAdvanced.fromLine beforeSpans
@@ -3337,7 +3330,7 @@ resolveHyperlinkAt targetCol screen =
             in
             case right of
                 span :: _ ->
-                    span.style.hyperlink
+                    TuiScreen.styleHyperlink span.style
 
                 [] ->
                     Nothing
@@ -3346,19 +3339,47 @@ resolveHyperlinkAt targetCol screen =
             Nothing
 
 
-leadingStyleOfLine : Screen -> TuiScreen.Style
-leadingStyleOfLine screen =
+leadingStylingOfLine : Screen -> (Screen -> Screen)
+leadingStylingOfLine screen =
     case TuiScreenAdvanced.toLines screen of
         firstLine :: _ ->
             case firstLine of
                 firstSpan :: _ ->
-                    firstSpan.style
+                    stylingFromStyle firstSpan.style
 
                 [] ->
-                    plain
+                    identity
 
         [] ->
-            plain
+            identity
+
+
+stylingFromStyle : TuiScreen.Style -> (Screen -> Screen)
+stylingFromStyle style =
+    let
+        withFg : Screen -> Screen
+        withFg =
+            case TuiScreen.styleForeground style of
+                Just color ->
+                    TuiScreen.fg color
+
+                Nothing ->
+                    identity
+
+        withBg : Screen -> Screen
+        withBg =
+            case TuiScreen.styleBackground style of
+                Just color ->
+                    TuiScreen.bg color
+
+                Nothing ->
+                    identity
+
+        withAttrs : Screen -> Screen
+        withAttrs =
+            TuiScreen.withAttributes (TuiScreen.styleAttributes style)
+    in
+    withFg >> withBg >> withAttrs
 
 
 splitLineAt : Int -> TuiScreenAdvanced.Line -> ( TuiScreenAdvanced.Line, TuiScreenAdvanced.Line )
@@ -3715,8 +3736,8 @@ collectDirPathsFromNodes nodes parentPath =
         nodes
 
 
-scrollbarBorder : TuiScreen.Style -> PaneContent msg -> PaneState -> Maybe FilterState -> Int -> Int -> Screen
-scrollbarBorder borderStyle paneContents ps maybeFs contentRow totalHeight =
+scrollbarBorder : (Screen -> Screen) -> PaneContent msg -> PaneState -> Maybe FilterState -> Int -> Int -> Screen
+scrollbarBorder borderStyling paneContents ps maybeFs contentRow totalHeight =
     let
         contentLen : Int
         contentLen =
@@ -3742,13 +3763,13 @@ scrollbarBorder borderStyle paneContents ps maybeFs contentRow totalHeight =
                 ps.scrollOffset * (visibleHeight - thumbSize) // max 1 (contentLen - visibleHeight)
         in
         if contentRow >= thumbPos && contentRow < thumbPos + thumbSize then
-            TuiScreen.styled borderStyle "█"
+            TuiScreen.text "█" |> borderStyling
 
         else
-            TuiScreen.styled borderStyle "│"
+            TuiScreen.text "│" |> borderStyling
 
     else
-        TuiScreen.styled borderStyle "│"
+        TuiScreen.text "│" |> borderStyling
 
 
 
@@ -4142,16 +4163,16 @@ toRowsHorizontal s panes =
                                 isFocused =
                                     s.focusedPaneId == Just paneConfig.id
 
-                                borderStyle : TuiScreen.Style
-                                borderStyle =
+                                borderStyling : Screen -> Screen
+                                borderStyling =
                                     if isFocused && s.searching then
-                                        { plain | fg = Just Ansi.Color.cyan, attributes = [ TuiScreen.Bold ] }
+                                        TuiScreen.fg Ansi.Color.cyan >> TuiScreen.bold
 
                                     else if isFocused then
-                                        { plain | fg = Just Ansi.Color.green, attributes = [ TuiScreen.Bold ] }
+                                        TuiScreen.fg Ansi.Color.green >> TuiScreen.bold
 
                                     else
-                                        { plain | attributes = [ TuiScreen.Dim ] }
+                                        TuiScreen.dim
                             in
                             if row == 0 then
                                 let
@@ -4168,12 +4189,12 @@ toRowsHorizontal s panes =
                                         case paneConfig.titleScreen of
                                             Just screen ->
                                                 TuiScreen.concat
-                                                    [ TuiScreen.styled borderStyle jumpLabel
+                                                    [ TuiScreen.text jumpLabel |> borderStyling
                                                     , TuiScreen.truncateWidth (innerW - 1 - String.length jumpLabel) screen
                                                     ]
 
                                             Nothing ->
-                                                TuiScreen.styled borderStyle titleText
+                                                TuiScreen.text titleText |> borderStyling
 
                                     titleWidth : Int
                                     titleWidth =
@@ -4207,10 +4228,10 @@ toRowsHorizontal s panes =
                                 in
                                 TuiScreen.concat
                                     [ gap
-                                    , TuiScreen.styled borderStyle "╭─"
+                                    , TuiScreen.text "╭─" |> borderStyling
                                     , titleContent
-                                    , TuiScreen.styled borderStyle (String.repeat fillLen "─")
-                                    , TuiScreen.styled borderStyle "╮"
+                                    , TuiScreen.text (String.repeat fillLen "─") |> borderStyling
+                                    , TuiScreen.text "╮" |> borderStyling
                                     ]
 
                             else if row == totalHeight - 1 then
@@ -4224,7 +4245,7 @@ toRowsHorizontal s panes =
                                             Nothing ->
                                                 case paneConfig.footer of
                                                     Just ft ->
-                                                        TuiScreen.styled borderStyle ft
+                                                        TuiScreen.text ft |> borderStyling
 
                                                     Nothing ->
                                                         TuiScreen.empty
@@ -4248,14 +4269,14 @@ toRowsHorizontal s panes =
                                 in
                                 TuiScreen.concat
                                     [ gap
-                                    , TuiScreen.styled borderStyle "╰"
-                                    , TuiScreen.styled borderStyle (String.repeat dashLen "─")
+                                    , TuiScreen.text "╰" |> borderStyling
+                                    , TuiScreen.text (String.repeat dashLen "─") |> borderStyling
                                     , if footerLen > 0 then
                                         footerContent
 
                                       else
                                         TuiScreen.empty
-                                    , TuiScreen.styled borderStyle "╯"
+                                    , TuiScreen.text "╯" |> borderStyling
                                     ]
 
                             else if paneConfig.inlineFooter /= Nothing && row == totalHeight - 2 then
@@ -4287,10 +4308,10 @@ toRowsHorizontal s panes =
                                 in
                                 TuiScreen.concat
                                     [ gap
-                                    , TuiScreen.styled borderStyle "│"
+                                    , TuiScreen.text "│" |> borderStyling
                                     , TuiScreen.truncateWidth innerW footerScreen
                                     , TuiScreen.text (String.repeat padding " ")
-                                    , TuiScreen.styled borderStyle "│"
+                                    , TuiScreen.text "│" |> borderStyling
                                     ]
 
                             else
@@ -4372,7 +4393,8 @@ toRowsHorizontal s panes =
                                     paddingScreen =
                                         if isSelectedRow && padding > 0 then
                                             -- Extend the selection highlight across full pane width
-                                            TuiScreen.styled (leadingStyleOfLine lineScreen) (String.repeat padding " ")
+                                            TuiScreen.text (String.repeat padding " ")
+                                                |> leadingStylingOfLine lineScreen
 
                                         else
                                             TuiScreen.text (String.repeat padding " ")
@@ -4388,10 +4410,10 @@ toRowsHorizontal s panes =
                                 in
                                 TuiScreen.concat
                                     [ gap
-                                    , TuiScreen.styled borderStyle "│"
+                                    , TuiScreen.text "│" |> borderStyling
                                     , truncatedLine
                                     , paddingScreen
-                                    , scrollbarBorder borderStyle paneConfig.paneContent ps renderFilterState contentRow totalHeight
+                                    , scrollbarBorder borderStyling paneConfig.paneContent ps renderFilterState contentRow totalHeight
                                     ]
                         )
                 )
@@ -4441,16 +4463,16 @@ toRowsVertical s panes =
                 isFocused =
                     s.focusedPaneId == Just paneConfig.id
 
-                borderStyle : TuiScreen.Style
-                borderStyle =
+                borderStyling : Screen -> Screen
+                borderStyling =
                     if isFocused && s.searching then
-                        { plain | fg = Just Ansi.Color.cyan, attributes = [ TuiScreen.Bold ] }
+                        TuiScreen.fg Ansi.Color.cyan >> TuiScreen.bold
 
                     else if isFocused then
-                        { plain | fg = Just Ansi.Color.green, attributes = [ TuiScreen.Bold ] }
+                        TuiScreen.fg Ansi.Color.green >> TuiScreen.bold
 
                     else
-                        { plain | attributes = [ TuiScreen.Dim ] }
+                        TuiScreen.dim
 
                 vertStateKey : String
                 vertStateKey =
@@ -4484,12 +4506,12 @@ toRowsVertical s panes =
                     case paneConfig.titleScreen of
                         Just screen ->
                             TuiScreen.concat
-                                [ TuiScreen.styled borderStyle jumpLabel
+                                [ TuiScreen.text jumpLabel |> borderStyling
                                 , TuiScreen.truncateWidth (innerW - String.length jumpLabel) screen
                                 ]
 
                         Nothing ->
-                            TuiScreen.styled borderStyle titleText
+                            TuiScreen.text titleText |> borderStyling
 
                 titleWidth : Int
                 titleWidth =
@@ -4502,22 +4524,24 @@ toRowsVertical s panes =
                 topBorder : Screen
                 topBorder =
                     TuiScreen.concat
-                        [ TuiScreen.styled borderStyle
+                        [ TuiScreen.text
                             (if isFirstPane then
                                 "╭"
 
                              else
                                 "├"
                             )
+                            |> borderStyling
                         , titleContent
-                        , TuiScreen.styled borderStyle (String.repeat fillLen "─")
-                        , TuiScreen.styled borderStyle
+                        , TuiScreen.text (String.repeat fillLen "─") |> borderStyling
+                        , TuiScreen.text
                             (if isFirstPane then
                                 "╮"
 
                              else
                                 "┤"
                             )
+                            |> borderStyling
                         ]
 
                 bottomBorder : Screen
@@ -4532,7 +4556,7 @@ toRowsVertical s panes =
                                 Nothing ->
                                     case paneConfig.footer of
                                         Just ft ->
-                                            TuiScreen.styled borderStyle ft
+                                            TuiScreen.text ft |> borderStyling
 
                                         Nothing ->
                                             TuiScreen.empty
@@ -4546,14 +4570,14 @@ toRowsVertical s panes =
                             max 0 (innerW - footerLen)
                     in
                     TuiScreen.concat
-                        [ TuiScreen.styled borderStyle "╰"
-                        , TuiScreen.styled borderStyle (String.repeat dashLen "─")
+                        [ TuiScreen.text "╰" |> borderStyling
+                        , TuiScreen.text (String.repeat dashLen "─") |> borderStyling
                         , if footerLen > 0 then
                             footerContent
 
                           else
                             TuiScreen.empty
-                        , TuiScreen.styled borderStyle "╯"
+                        , TuiScreen.text "╯" |> borderStyling
                         ]
 
                 -- Content rows: top border + content, last pane also gets bottom border
@@ -4621,16 +4645,17 @@ toRowsVertical s panes =
                                     paddingScreen : Screen
                                     paddingScreen =
                                         if isSelectedRow && padding > 0 then
-                                            TuiScreen.styled (leadingStyleOfLine lineScreen) (String.repeat padding " ")
+                                            TuiScreen.text (String.repeat padding " ")
+                                                |> leadingStylingOfLine lineScreen
 
                                         else
                                             TuiScreen.text (String.repeat padding " ")
                                 in
                                 TuiScreen.concat
-                                    [ TuiScreen.styled borderStyle "│"
+                                    [ TuiScreen.text "│" |> borderStyling
                                     , truncatedLine
                                     , paddingScreen
-                                    , TuiScreen.styled borderStyle "│"
+                                    , TuiScreen.text "│" |> borderStyling
                                     ]
                             )
             in

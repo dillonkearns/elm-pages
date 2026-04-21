@@ -26,7 +26,7 @@ popup system. Modal height is capped at 75% of terminal height.
 
 import Ansi.Color
 import Tui
-import Tui.Screen exposing (plain)
+import Tui.Screen
 
 
 {-| Calculate a good default modal width for the given terminal width.
@@ -133,9 +133,9 @@ overlay config term bgRows =
         leftPad =
             (term.width - modalWidth) // 2
 
-        borderStyle : Tui.Screen.Style
-        borderStyle =
-            { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Screen.Bold ] }
+        borderStyling : Tui.Screen.Screen -> Tui.Screen.Screen
+        borderStyling =
+            Tui.Screen.fg Ansi.Color.green >> Tui.Screen.bold
 
         -- Composite a modal strip onto a background row:
         -- [background left edge] [modal content] [right fill]
@@ -144,7 +144,7 @@ overlay config term bgRows =
             Tui.Screen.concat
                 [ Tui.Screen.truncateWidth leftPad bgRow
                 , modalStrip
-                , Tui.Screen.styled Tui.Screen.plain
+                , Tui.Screen.text
                     (String.repeat (term.width - leftPad - modalWidth) " ")
                 ]
 
@@ -160,10 +160,10 @@ overlay config term bgRows =
                     max 0 (innerWidth - String.length titleText)
             in
             Tui.Screen.concat
-                [ Tui.Screen.styled borderStyle "╭"
-                , Tui.Screen.styled borderStyle titleText
-                , Tui.Screen.styled borderStyle (String.repeat fillLen "─")
-                , Tui.Screen.styled borderStyle "╮"
+                [ Tui.Screen.text "╭" |> borderStyling
+                , Tui.Screen.text titleText |> borderStyling
+                , Tui.Screen.text (String.repeat fillLen "─") |> borderStyling
+                , Tui.Screen.text "╮" |> borderStyling
                 ]
 
         bottomBorder : Tui.Screen.Screen
@@ -178,10 +178,10 @@ overlay config term bgRows =
                     max 0 (innerWidth - String.length footerText)
             in
             Tui.Screen.concat
-                [ Tui.Screen.styled borderStyle "╰"
-                , Tui.Screen.styled borderStyle (String.repeat fillLen "─")
-                , Tui.Screen.styled borderStyle footerText
-                , Tui.Screen.styled borderStyle "╯"
+                [ Tui.Screen.text "╰" |> borderStyling
+                , Tui.Screen.text (String.repeat fillLen "─") |> borderStyling
+                , Tui.Screen.text footerText |> borderStyling
+                , Tui.Screen.text "╯" |> borderStyling
                 ]
 
         bodyStrip : Tui.Screen.Screen -> Tui.Screen.Screen
@@ -200,11 +200,11 @@ overlay config term bgRows =
                     max 0 (innerWidth - contentWidth)
             in
             Tui.Screen.concat
-                [ Tui.Screen.styled borderStyle "│"
+                [ Tui.Screen.text "│" |> borderStyling
                 , Tui.Screen.truncateWidth innerWidth content
-                , Tui.Screen.styled Tui.Screen.plain
+                , Tui.Screen.text
                     (String.repeat padding " ")
-                , Tui.Screen.styled borderStyle "│"
+                , Tui.Screen.text "│" |> borderStyling
                 ]
 
         modalStrips : List Tui.Screen.Screen

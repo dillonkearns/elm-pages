@@ -293,9 +293,7 @@ tokenToScreen token =
             Tui.Screen.text textPart
 
         CursorToken textPart ->
-            Tui.Screen.styled
-                { fg = Nothing, bg = Nothing, attributes = [ Tui.Screen.Inverse ], hyperlink = Nothing }
-                textPart
+            Tui.Screen.text textPart |> Tui.Screen.inverse
 
 
 tokensToScreens : List Token -> List Tui.Screen.Screen

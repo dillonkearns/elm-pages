@@ -132,9 +132,9 @@ fetchStars repo =
 view : Tui.Context -> Model -> Tui.Screen.Screen
 view ctx model =
     let
-        dimStyle : Tui.Screen.Style
-        dimStyle =
-            { plain | attributes = [ Tui.Screen.Dim ] }
+        dimStyling : Tui.Screen.Screen -> Tui.Screen.Screen
+        dimStyling =
+            Tui.Screen.dim
 
         repoText : String
         repoText =
@@ -142,38 +142,38 @@ view ctx model =
     in
     Tui.Screen.lines
         [ Tui.Screen.text ""
-        , Tui.Screen.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Screen.Bold ] }
-            "  GitHub Stars Fetcher"
+        , Tui.Screen.text "  GitHub Stars Fetcher"
+            |> Tui.Screen.fg Ansi.Color.cyan
+            |> Tui.Screen.bold
         , Tui.Screen.text ""
         , Tui.Screen.concat
-            [ Tui.Screen.styled dimStyle "  Repo: "
+            [ Tui.Screen.text "  Repo: " |> dimStyling
             , Input.view { width = max 12 (ctx.width - 8) } model.repo
             ]
         , Tui.Screen.text ""
         , case ( model.loading, model.result ) of
             ( True, _ ) ->
-                Tui.Screen.styled { plain | fg = Just Ansi.Color.yellow } "  ⟳ Fetching..."
+                Tui.Screen.text "  ⟳ Fetching..." |> Tui.Screen.fg Ansi.Color.yellow
 
             ( _, Ok stars ) ->
                 Tui.Screen.concat
                     [ Tui.Screen.text "  "
-                    , Tui.Screen.styled { plain | fg = Just Ansi.Color.yellow } "★ "
-                    , Tui.Screen.styled { plain | fg = Just Ansi.Color.green, attributes = [ Tui.Screen.Bold ] }
-                        (String.fromInt stars)
-                    , Tui.Screen.styled dimStyle
-                        (" stars on " ++ repoText)
+                    , Tui.Screen.text "★ " |> Tui.Screen.fg Ansi.Color.yellow
+                    , Tui.Screen.text (String.fromInt stars)
+                        |> Tui.Screen.fg Ansi.Color.green
+                        |> Tui.Screen.bold
+                    , Tui.Screen.text (" stars on " ++ repoText) |> dimStyling
                     ]
 
             ( _, Err "" ) ->
-                Tui.Screen.styled dimStyle "  Press Enter to fetch"
+                Tui.Screen.text "  Press Enter to fetch" |> dimStyling
 
             ( _, Err errMsg ) ->
-                Tui.Screen.styled { plain | fg = Just Ansi.Color.red }
-                    ("  " ++ errMsg)
+                Tui.Screen.text ("  " ++ errMsg) |> Tui.Screen.fg Ansi.Color.red
         , Tui.Screen.text ""
-        , Tui.Screen.styled dimStyle "  Enter    fetch stars"
-        , Tui.Screen.styled dimStyle "  Paste    insert repo"
-        , Tui.Screen.styled dimStyle "  Esc      quit"
+        , Tui.Screen.text "  Enter    fetch stars" |> dimStyling
+        , Tui.Screen.text "  Paste    insert repo" |> dimStyling
+        , Tui.Screen.text "  Esc      quit" |> dimStyling
         ]
 
 

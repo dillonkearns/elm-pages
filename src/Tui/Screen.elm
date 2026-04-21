@@ -1,9 +1,11 @@
 module Tui.Screen exposing
-    ( Screen, text, styled, lines, concat, empty, blank
-    , fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
-    , Style, plain, Attribute(..)
+    ( Screen, text, lines, concat, empty, blank
+    , fg, bg, bold, dim, italic, underline, strikethrough, inverse, withAttributes, link
+    , Style, Attribute(..)
+    , styleForeground, styleBackground, styleAttributes, styleHyperlink
     , truncateWidth, wrapWidth
     , toString
+    , styleToFlatStyle, flatStyleToStyle
     )
 
 {-| Styled terminal output for a [`Tui.Program`](Tui#Program)'s `view` function.
@@ -26,7 +28,7 @@ Screens compose vertically with [`lines`](#lines) and horizontally with
 [`concat`](#concat). For split-pane layouts, see the `Tui.Layout` module in
 the `tui-widgets` package.
 
-@docs Screen, text, styled, lines, concat, empty, blank
+@docs Screen, text, lines, concat, empty, blank
 
 
 ## Styling
@@ -37,9 +39,26 @@ Pipeline-style builders that compose on any `Screen` (text, concat, lines):
 
     Screen.concat [ a, b ] |> Screen.dim -- dims both a and b
 
-@docs fg, bg, bold, dim, italic, underline, strikethrough, inverse, link
+For reusable styling, define a styling function and apply it to multiple
+screens:
 
-@docs Style, plain, Attribute
+    borderStyling : Screen -> Screen
+    borderStyling = Screen.fg Ansi.Color.gray >> Screen.bold
+
+    Screen.text "|" |> borderStyling
+
+@docs fg, bg, bold, dim, italic, underline, strikethrough, inverse, withAttributes, link
+
+@docs Style, Attribute
+
+
+## Reading a Style
+
+Use these getters when inspecting the `style` field of a
+[`Tui.Screen.Advanced.Span`](Tui-Screen-Advanced#Span). `Style` is opaque so
+that future releases can add fields without breaking user code.
+
+@docs styleForeground, styleBackground, styleAttributes, styleHyperlink
 
 
 ## Text Manipulation
@@ -72,17 +91,19 @@ type alias Screen =
 
 
 {-| Terminal cell style: foreground color, background color, text
-attributes, and optional hyperlink. Matches the terminal cell model
-(one fg, one bg, set of decoration flags, optional OSC 8 link).
+attributes, and optional hyperlink.
 
-    { fg = Just Ansi.Color.red
-    , bg = Nothing
-    , attributes = [ Screen.Bold, Screen.Underline ]
-    , hyperlink = Nothing
-    }
-
+Opaque so the field list can grow in future releases without breaking user
+code. To build styled text, use the Screen-level builders
+([`fg`](#fg), [`bold`](#bold), etc.) directly on a `Screen`. To read the
+style of a [`Tui.Screen.Advanced.Span`](Tui-Screen-Advanced#Span), use
+[`styleForeground`](#styleForeground) and friends.
 -}
-type alias Style =
+type Style
+    = Style StyleFields
+
+
+type alias StyleFields =
     { fg : Maybe Ansi.Color.Color
     , bg : Maybe Ansi.Color.Color
     , attributes : List Attribute
@@ -90,20 +111,13 @@ type alias Style =
     }
 
 
-{-| Default style with no colors and no decorations. Use record update to customize:
-
-    import Tui.Screen as Screen exposing (plain)
-
-    { plain | fg = Just Ansi.Color.cyan }
-    { plain | attributes = [ Screen.Bold ] }
-
-Note: Elm record update requires a bare identifier on the left side, so
-import `plain` unqualified (as shown above) rather than writing
-`{ Screen.plain | ... }` (which is a parse error).
-
--}
 plain : Style
 plain =
+    Style plainFields
+
+
+plainFields : StyleFields
+plainFields =
     { fg = Nothing
     , bg = Nothing
     , attributes = []
@@ -129,20 +143,9 @@ text =
     Internal.ScreenText
 
 
-{-| Styled text. Takes a [`Style`](#Style) record specifying foreground color,
-background color, and text attributes.
-
-    import Ansi.Color
-
-    -- Bold red text
-    Screen.styled { plain | fg = Just Ansi.Color.red, attributes = [ Screen.Bold ] } "error"
-
-    -- Just bold, default colors
-    Screen.styled { plain | attributes = [ Screen.Bold ] } "important"
-
-    -- Foreground color only
-    Screen.styled { plain | fg = Just Ansi.Color.cyan } "info"
-
+{-| Internal: styled text primitive used by `Tui.Screen.Advanced.fromLine`.
+Not exposed to application code; use the builders
+([`fg`](#fg), [`bold`](#bold), etc.) on a [`text`](#text) value instead.
 -}
 styled : Style -> String -> Screen
 styled =
@@ -214,7 +217,7 @@ blank =
 -}
 fg : Ansi.Color.Color -> Screen -> Screen
 fg color screen =
-    Internal.applyStyle plain (\s -> { s | fg = Just color }) screen
+    Internal.applyStyle plain (\(Style s) -> Style { s | fg = Just color }) screen
 
 
 {-| Set background color on a Screen.
@@ -224,7 +227,7 @@ fg color screen =
 -}
 bg : Ansi.Color.Color -> Screen -> Screen
 bg color screen =
-    Internal.applyStyle plain (\s -> { s | bg = Just color }) screen
+    Internal.applyStyle plain (\(Style s) -> Style { s | bg = Just color }) screen
 
 
 {-| Apply bold attribute.
@@ -287,12 +290,65 @@ is silently ignored and the text renders normally.
 -}
 link : { url : String } -> Screen -> Screen
 link { url } =
-    Internal.applyStyle plain (\s -> { s | hyperlink = Just url })
+    Internal.applyStyle plain (\(Style s) -> Style { s | hyperlink = Just url })
 
 
 addAttr : Attribute -> Screen -> Screen
 addAttr attr =
-    Internal.applyStyle plain (\s -> { s | attributes = attr :: s.attributes })
+    Internal.applyStyle plain (\(Style s) -> Style { s | attributes = attr :: s.attributes })
+
+
+{-| Apply a list of attributes at once. Useful when the attribute set is
+dynamic (from a config, theme, or computed list). Equivalent to chaining the
+individual builders.
+
+    Screen.text "Heading"
+        |> Screen.withAttributes [ Screen.Bold, Screen.Underline ]
+
+-}
+withAttributes : List Attribute -> Screen -> Screen
+withAttributes attrs screen =
+    List.foldl addAttr screen attrs
+
+
+
+-- STYLE INSPECTION
+
+
+{-| Read the foreground color of a [`Style`](#Style). Mainly useful for
+inspecting the `style` field of a [`Tui.Screen.Advanced.Span`](Tui-Screen-Advanced#Span).
+-}
+styleForeground : Style -> Maybe Ansi.Color.Color
+styleForeground (Style s) =
+    s.fg
+
+
+{-| Read the background color of a [`Style`](#Style). See
+[`styleForeground`](#styleForeground).
+-}
+styleBackground : Style -> Maybe Ansi.Color.Color
+styleBackground (Style s) =
+    s.bg
+
+
+{-| Read the attribute list of a [`Style`](#Style). See
+[`styleForeground`](#styleForeground).
+
+    if List.member Screen.Bold (Screen.styleAttributes span.style) then
+        ...
+
+-}
+styleAttributes : Style -> List Attribute
+styleAttributes (Style s) =
+    s.attributes
+
+
+{-| Read the hyperlink URL of a [`Style`](#Style), if any. See
+[`styleForeground`](#styleForeground).
+-}
+styleHyperlink : Style -> Maybe String
+styleHyperlink (Style s) =
+    s.hyperlink
 
 
 
@@ -300,7 +356,7 @@ addAttr attr =
 
 
 styleToFlatStyle : Style -> Internal.FlatStyle
-styleToFlatStyle s =
+styleToFlatStyle (Style s) =
     let
         def : Internal.FlatStyle
         def =
@@ -382,11 +438,12 @@ flattenToSpanLines =
 
 flatStyleToStyle : Internal.FlatStyle -> Style
 flatStyleToStyle fs =
-    { fg = fs.foreground
-    , bg = fs.background
-    , attributes = flatStyleToAttrs fs
-    , hyperlink = fs.hyperlink
-    }
+    Style
+        { fg = fs.foreground
+        , bg = fs.background
+        , attributes = flatStyleToAttrs fs
+        , hyperlink = fs.hyperlink
+        }
 
 
 

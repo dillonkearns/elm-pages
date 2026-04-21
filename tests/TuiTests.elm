@@ -15,8 +15,9 @@ import Time
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Input as Input
-import Tui.Screen exposing (plain)
+import Tui.Screen
 import Tui.Screen.Advanced as ScreenAdvanced
+import Tui.Screen.Internal as ScreenInternal
 import Tui.Screen.Internal.Encode as ScreenEncode
 import Tui.Sub
 import Tui.Sub.Internal as SubInternal
@@ -47,9 +48,11 @@ suite =
                         ]
                         |> Tui.Screen.toString
                         |> Expect.equal "hello world"
-            , test "styled text has Tui.Screen.plain text content" <|
+            , test "styled text via builders has plain text content" <|
                 \() ->
-                    Tui.Screen.styled { plain | fg = Just Ansi.Color.red, attributes = [ Tui.Screen.Bold ] } "warning"
+                    Tui.Screen.text "warning"
+                        |> Tui.Screen.fg Ansi.Color.red
+                        |> Tui.Screen.bold
                         |> Tui.Screen.toString
                         |> Expect.equal "warning"
             , test "empty produces nothing" <|
@@ -233,7 +236,7 @@ suite =
                     Tui.Screen.text "hello world"
                         |> Tui.Screen.link { url = "https://example.com" }
                         |> Tui.Screen.wrapWidth 6
-                        |> List.map (\s -> leadingStyleOfLine s |> .hyperlink)
+                        |> List.map (\s -> leadingStyleOfLine s |> Tui.Screen.styleHyperlink)
                         |> Expect.equal [ Just "https://example.com", Just "https://example.com" ]
             ]
         , describe "Input"
@@ -301,10 +304,10 @@ suite =
                     Tui.Screen.text "hello world"
                         |> Tui.Screen.bold
                         |> Tui.Screen.wrapWidth 6
-                        |> List.map (\s -> ( Tui.Screen.toString s, leadingStyleOfLine s ))
+                        |> List.map (\s -> ( Tui.Screen.toString s, Tui.Screen.styleAttributes (leadingStyleOfLine s) ))
                         |> Expect.equal
-                            [ ( "hello", { plain | attributes = [ Tui.Screen.Bold ] } )
-                            , ( "world", { plain | attributes = [ Tui.Screen.Bold ] } )
+                            [ ( "hello", [ Tui.Screen.Bold ] )
+                            , ( "world", [ Tui.Screen.Bold ] )
                             ]
             , test "preserves styles in concat across wrap boundary" <|
                 \() ->
@@ -1054,10 +1057,15 @@ leadingStyleOfLine screen =
                     firstSpan.style
 
                 [] ->
-                    plain
+                    plainStyle
 
         [] ->
-            plain
+            plainStyle
+
+
+plainStyle : Tui.Screen.Style
+plainStyle =
+    Tui.Screen.flatStyleToStyle ScreenInternal.defaultFlatStyle
 
 
 {-| Apply a function N times.
@@ -1175,7 +1183,7 @@ counterUpdate msg model =
 counterView : Tui.Context -> CounterModel -> Tui.Screen.Screen
 counterView ctx model =
     Tui.Screen.lines
-        [ Tui.Screen.styled { plain | attributes = [ Tui.Screen.Bold ] } "Counter"
+        [ Tui.Screen.text "Counter" |> Tui.Screen.bold
         , Tui.Screen.concat
             [ Tui.Screen.text "Count: "
             , Tui.Screen.text (String.fromInt model.count)
@@ -1368,7 +1376,7 @@ starsFetch repo =
 starsView : Tui.Context -> StarsModel -> Tui.Screen.Screen
 starsView _ model =
     Tui.Screen.lines
-        [ Tui.Screen.styled { plain | attributes = [ Tui.Screen.Bold ] } "GitHub Stars"
+        [ Tui.Screen.text "GitHub Stars" |> Tui.Screen.bold
         , Tui.Screen.concat
             [ Tui.Screen.text "Repo: "
             , Tui.Screen.text model.input

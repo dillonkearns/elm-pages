@@ -69,9 +69,9 @@ suite =
                                         { onSelect = identity
                                         , selected =
                                             \item ->
-                                                Tui.Screen.styled
-                                                    { plain | fg = Just Ansi.Color.yellow, attributes = [ Tui.Screen.Bold ] }
-                                                    ("▸ " ++ item)
+                                                Tui.Screen.text ("▸ " ++ item)
+                                                    |> Tui.Screen.fg Ansi.Color.yellow
+                                                    |> Tui.Screen.bold
                                         , default = \item -> Tui.Screen.text ("  " ++ item)
                                         }
                                         [ "apple", "banana" ]

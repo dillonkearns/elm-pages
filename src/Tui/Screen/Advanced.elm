@@ -58,17 +58,12 @@ type alias Line =
     List Span
 
 
-{-| A styled segment within a rendered line.
-
-    import Tui.Screen as Screen
-    import Tui.Screen.Advanced as Advanced
-
-    span : Advanced.Span
-    span =
-        { text = "hello"
-        , style = Screen.plain
-        }
-
+{-| A styled segment within a rendered line. Obtain spans by calling
+[`toLines`](#toLines) on a rendered `Tui.Screen.Screen`. Inspect the `style`
+field with [`Tui.Screen.styleForeground`](Tui-Screen#styleForeground),
+[`styleBackground`](Tui-Screen#styleBackground),
+[`styleAttributes`](Tui-Screen#styleAttributes), and
+[`styleHyperlink`](Tui-Screen#styleHyperlink).
 -}
 type alias Span =
     { text : String
@@ -102,12 +97,22 @@ toLines screen =
 An empty line becomes [`Tui.Screen.blank`](Tui-Screen#blank), preserving the
 fact that it takes up one terminal row.
 
+Typical use is a round-trip: obtain spans with [`toLines`](#toLines), transform
+them (e.g. to highlight search matches), and reassemble with `fromLine`.
+
     import Tui.Screen as Screen
     import Tui.Screen.Advanced as Advanced
 
-    screen : Screen.Screen
-    screen =
-        [ { text = "Status", style = Screen.plain } ]
+    source : Screen.Screen
+    source =
+        Screen.text "hello" |> Screen.bold
+
+    roundTripped : Screen.Screen
+    roundTripped =
+        source
+            |> Advanced.toLines
+            |> List.head
+            |> Maybe.withDefault []
             |> Advanced.fromLine
 
 -}
@@ -123,88 +128,13 @@ fromLine line =
 
 
 styleToFlatStyle : Tui.Screen.Style -> Internal.FlatStyle
-styleToFlatStyle style =
-    let
-        defaultStyle : Internal.FlatStyle
-        defaultStyle =
-            Internal.defaultFlatStyle
-
-        base : Internal.FlatStyle
-        base =
-            { defaultStyle
-                | foreground = style.fg
-                , background = style.bg
-                , hyperlink = style.hyperlink
-            }
-    in
-    List.foldl applyAttr base style.attributes
-
-
-applyAttr : Tui.Screen.Attribute -> Internal.FlatStyle -> Internal.FlatStyle
-applyAttr attr flatStyle =
-    case attr of
-        Tui.Screen.Bold ->
-            { flatStyle | bold = True }
-
-        Tui.Screen.Dim ->
-            { flatStyle | dim = True }
-
-        Tui.Screen.Italic ->
-            { flatStyle | italic = True }
-
-        Tui.Screen.Underline ->
-            { flatStyle | underline = True }
-
-        Tui.Screen.Strikethrough ->
-            { flatStyle | strikethrough = True }
-
-        Tui.Screen.Inverse ->
-            { flatStyle | inverse = True }
-
-
-flatStyleToAttrs : Internal.FlatStyle -> List Tui.Screen.Attribute
-flatStyleToAttrs style =
-    List.filterMap identity
-        [ if style.bold then
-            Just Tui.Screen.Bold
-
-          else
-            Nothing
-        , if style.dim then
-            Just Tui.Screen.Dim
-
-          else
-            Nothing
-        , if style.italic then
-            Just Tui.Screen.Italic
-
-          else
-            Nothing
-        , if style.underline then
-            Just Tui.Screen.Underline
-
-          else
-            Nothing
-        , if style.strikethrough then
-            Just Tui.Screen.Strikethrough
-
-          else
-            Nothing
-        , if style.inverse then
-            Just Tui.Screen.Inverse
-
-          else
-            Nothing
-        ]
+styleToFlatStyle =
+    Tui.Screen.styleToFlatStyle
 
 
 flatStyleToStyle : Internal.FlatStyle -> Tui.Screen.Style
-flatStyleToStyle style =
-    { fg = style.foreground
-    , bg = style.background
-    , attributes = flatStyleToAttrs style
-    , hyperlink = style.hyperlink
-    }
+flatStyleToStyle =
+    Tui.Screen.flatStyleToStyle
 
 
 spanToInternal : Span -> Internal.Span

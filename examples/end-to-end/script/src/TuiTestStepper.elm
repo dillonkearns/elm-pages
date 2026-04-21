@@ -144,9 +144,9 @@ adjustScroll model =
 miniGitView : Tui.Context -> Model -> Tui.Screen.Screen
 miniGitView ctx model =
     let
-        dimStyle : Tui.Screen.Style
-        dimStyle =
-            { plain | attributes = [ Tui.Screen.Dim ] }
+        dimStyling : Tui.Screen.Screen -> Tui.Screen.Screen
+        dimStyling =
+            Tui.Screen.dim
 
         visibleRows : Int
         visibleRows =
@@ -160,7 +160,9 @@ miniGitView ctx model =
                 |> List.take visibleRows
     in
     Tui.Screen.lines
-        ([ Tui.Screen.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Screen.Bold ] } "Mini Git Log"
+        ([ Tui.Screen.text "Mini Git Log"
+            |> Tui.Screen.fg Ansi.Color.cyan
+            |> Tui.Screen.bold
          , Tui.Screen.text ""
          ]
             ++ List.map
@@ -173,14 +175,13 @@ miniGitView ctx model =
                              else
                                 "  "
                             )
-                        , Tui.Screen.styled
-                            (if i == model.selected then
-                                { plain | fg = Just Ansi.Color.yellow, attributes = [ Tui.Screen.Bold ] }
+                        , Tui.Screen.text commit.sha
+                            |> (if i == model.selected then
+                                    Tui.Screen.fg Ansi.Color.yellow >> Tui.Screen.bold
 
-                             else
-                                dimStyle
-                            )
-                            commit.sha
+                                else
+                                    dimStyling
+                               )
                         , Tui.Screen.text (" " ++ commit.message)
                         ]
                 )
@@ -189,8 +190,8 @@ miniGitView ctx model =
                , case model.commits |> List.drop model.selected |> List.head of
                     Just commit ->
                         Tui.Screen.lines
-                            [ Tui.Screen.styled dimStyle "───────────"
-                            , Tui.Screen.concat [ Tui.Screen.styled dimStyle "SHA: ", Tui.Screen.text commit.sha ]
+                            [ Tui.Screen.text "───────────" |> dimStyling
+                            , Tui.Screen.concat [ Tui.Screen.text "SHA: " |> dimStyling, Tui.Screen.text commit.sha ]
                             , Tui.Screen.text commit.message
                             ]
 

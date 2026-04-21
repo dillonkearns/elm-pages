@@ -18,7 +18,7 @@ import Tui.Input as Input
 import Tui.Keybinding as Keybinding
 import Tui.Layout as Layout
 import Tui.Modal
-import Tui.Screen exposing (plain)
+import Tui.Screen
 import Tui.Sub
 
 
@@ -510,7 +510,7 @@ miniGitView ctx model =
                     case helpState.mode of
                         HelpSearch ->
                             [ Tui.Screen.concat
-                                [ Tui.Screen.styled { plain | attributes = [ Tui.Screen.Dim ] } "/"
+                                [ Tui.Screen.text "/" |> Tui.Screen.dim
                                 , Input.view { width = 40 } helpState.filter
                                 ]
                             , Tui.Screen.text ""
@@ -518,7 +518,7 @@ miniGitView ctx model =
 
                         HelpBrowse ->
                             if not (String.isEmpty filterText) then
-                                [ Tui.Screen.styled { plain | attributes = [ Tui.Screen.Dim ] } ("/" ++ filterText)
+                                [ Tui.Screen.text ("/" ++ filterText) |> Tui.Screen.dim
                                 , Tui.Screen.text ""
                                 ]
 

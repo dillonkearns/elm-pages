@@ -27,10 +27,10 @@ suite =
                         [ [ first, _, third ] ] ->
                             Expect.all
                                 [ \_ -> Expect.equal "Hello" first.text
-                                , \_ -> Expect.equal (Just Ansi.Color.red) first.style.fg
-                                , \_ -> Expect.equal [ Screen.Bold ] first.style.attributes
+                                , \_ -> Expect.equal (Just Ansi.Color.red) (Screen.styleForeground first.style)
+                                , \_ -> Expect.equal [ Screen.Bold ] (Screen.styleAttributes first.style)
                                 , \_ -> Expect.equal "elm-pages" third.text
-                                , \_ -> Expect.equal (Just "https://elm-pages.com") third.style.hyperlink
+                                , \_ -> Expect.equal (Just "https://elm-pages.com") (Screen.styleHyperlink third.style)
                                 ]
                                 ()
 
@@ -39,17 +39,17 @@ suite =
             , test "fromLine rebuilds a screen from public spans" <|
                 \() ->
                     let
-                        plainStyle : Screen.Style
-                        plainStyle =
-                            Screen.plain
-
-                        greenBoldStyle : Screen.Style
-                        greenBoldStyle =
-                            { plainStyle | fg = Just Ansi.Color.green, attributes = [ Screen.Bold ] }
+                        source : Screen.Screen
+                        source =
+                            Screen.concat
+                                [ Screen.text "Status" |> Screen.fg Ansi.Color.green |> Screen.bold
+                                , Screen.text ": ready"
+                                ]
                     in
-                    [ { text = "Status", style = greenBoldStyle }
-                    , { text = ": ready", style = plainStyle }
-                    ]
+                    source
+                        |> Advanced.toLines
+                        |> List.head
+                        |> Maybe.withDefault []
                         |> Advanced.fromLine
                         |> Screen.toString
                         |> Expect.equal "Status: ready"

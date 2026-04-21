@@ -124,40 +124,5 @@ encodeColor ansiColor =
 
 
 styleToFlatStyle : Tui.Screen.Style -> Internal.FlatStyle
-styleToFlatStyle style =
-    let
-        defaultStyle : Internal.FlatStyle
-        defaultStyle =
-            Internal.defaultFlatStyle
-
-        base : Internal.FlatStyle
-        base =
-            { defaultStyle
-                | foreground = style.fg
-                , background = style.bg
-                , hyperlink = style.hyperlink
-            }
-    in
-    List.foldl applyAttr base style.attributes
-
-
-applyAttr : Tui.Screen.Attribute -> Internal.FlatStyle -> Internal.FlatStyle
-applyAttr attr flatStyle =
-    case attr of
-        Tui.Screen.Bold ->
-            { flatStyle | bold = True }
-
-        Tui.Screen.Dim ->
-            { flatStyle | dim = True }
-
-        Tui.Screen.Italic ->
-            { flatStyle | italic = True }
-
-        Tui.Screen.Underline ->
-            { flatStyle | underline = True }
-
-        Tui.Screen.Strikethrough ->
-            { flatStyle | strikethrough = True }
-
-        Tui.Screen.Inverse ->
-            { flatStyle | inverse = True }
+styleToFlatStyle =
+    Tui.Screen.styleToFlatStyle

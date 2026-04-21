@@ -78,40 +78,42 @@ update msg model =
 view : Tui.Context -> Model -> Tui.Screen.Screen
 view ctx model =
     let
-        dimStyle =
-            { plain | attributes = [ Tui.Screen.Dim ] }
+        dimStyling : Tui.Screen.Screen -> Tui.Screen.Screen
+        dimStyling =
+            Tui.Screen.dim
+
+        countColor : Ansi.Color.Color
+        countColor =
+            if model.count >= 0 then
+                Ansi.Color.green
+
+            else
+                Ansi.Color.red
     in
     Tui.Screen.lines
         [ Tui.Screen.text ""
-        , Tui.Screen.styled { plain | fg = Just Ansi.Color.cyan, attributes = [ Tui.Screen.Bold ] }
-            "  TUI Counter Demo"
+        , Tui.Screen.text "  TUI Counter Demo"
+            |> Tui.Screen.fg Ansi.Color.cyan
+            |> Tui.Screen.bold
         , Tui.Screen.text ""
         , Tui.Screen.concat
             [ Tui.Screen.text "  Count: "
-            , Tui.Screen.styled
-                { plain | fg =
-                        Just
-                            (if model.count >= 0 then
-                                Ansi.Color.green
-
-                             else
-                                Ansi.Color.red
-                            )
-                    , attributes = [ Tui.Screen.Bold ]
-                }
-                (String.fromInt model.count)
+            , Tui.Screen.text (String.fromInt model.count)
+                |> Tui.Screen.fg countColor
+                |> Tui.Screen.bold
             ]
         , Tui.Screen.text ""
-        , Tui.Screen.styled dimStyle "  k/↑  increment"
-        , Tui.Screen.styled dimStyle "  j/↓  decrement"
-        , Tui.Screen.styled dimStyle "  q    quit"
+        , Tui.Screen.text "  k/↑  increment" |> dimStyling
+        , Tui.Screen.text "  j/↓  decrement" |> dimStyling
+        , Tui.Screen.text "  q    quit" |> dimStyling
         , Tui.Screen.text ""
-        , Tui.Screen.styled dimStyle
+        , Tui.Screen.text
             ("  Terminal: "
                 ++ String.fromInt ctx.width
                 ++ "×"
                 ++ String.fromInt ctx.height
             )
+            |> dimStyling
         ]
 
 
