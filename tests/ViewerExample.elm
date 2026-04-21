@@ -21,7 +21,7 @@ import Test.BackendTask as BackendTaskTest
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.PagesProgram as PagesProgram
-import Test.PagesProgram.Selector as PSelector
+import Test.Html.Selector as PSelector
 import Test.PagesProgram.Viewer as Viewer
 
 

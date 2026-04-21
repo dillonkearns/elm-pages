@@ -29,7 +29,7 @@ import Test.BackendTask as BackendTaskTest exposing (HttpError(..))
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector exposing (text)
 import Test.PagesProgram as PagesProgram
-import Test.PagesProgram.Selector as PSelector
+import Test.Html.Selector as PSelector
 import TestApp
 
 

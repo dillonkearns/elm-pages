@@ -7,17 +7,31 @@ module Test.PagesProgram.Internal exposing
     , NetworkSource(..)
     , FetcherEntry
     , FetcherStatus(..)
+    , AssertionSelector(..)
     )
 
 {-| Internal types used by the visual test runner (Viewer). These are not
 part of the public API and should not be relied upon by end users.
 
-@docs Snapshot, StepKind, TargetSelector, NetworkEntry, NetworkStatus, FetcherEntry, FetcherStatus
+@docs Snapshot, StepKind, TargetSelector, NetworkEntry, NetworkStatus, FetcherEntry, FetcherStatus, AssertionSelector
 
 -}
 
 import Html exposing (Html)
-import Test.PagesProgram.Selector.Internal exposing (AssertionSelector)
+
+
+{-| Structured selector data used by the visual runner to highlight matching
+elements. Derived from the label string produced by `Test.Html.Query.has`'s
+failure description.
+-}
+type AssertionSelector
+    = ByText String
+    | ByClass String
+    | ById_ String
+    | ByTag_ String
+    | ByValue String
+    | ByContaining (List AssertionSelector)
+    | ByOther String
 
 
 {-| A snapshot of the program state at a point in the test pipeline.

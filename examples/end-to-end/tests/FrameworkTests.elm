@@ -31,7 +31,7 @@ import Expect
 import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
 import Test.PagesProgram as PagesProgram
-import Test.PagesProgram.Selector as PSelector
+import Test.Html.Selector as PSelector
 import TestApp
 
 

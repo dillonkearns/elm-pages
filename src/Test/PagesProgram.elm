@@ -66,7 +66,7 @@ through the dev server.
     import Json.Encode as Encode
     import Test.BackendTask as BackendTaskTest
     import Test.PagesProgram as PagesProgram
-    import Test.PagesProgram.Selector as Selector
+    import Test.Html.Selector as Selector
     import TestApp
 
     starsTest : TestApp.ProgramTest
@@ -232,13 +232,14 @@ import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.PagesProgram.Internal as Internal
     exposing
-        ( FetcherStatus(..)
+        ( AssertionSelector(..)
+        , FetcherStatus(..)
         , NetworkSource(..)
         , NetworkStatus(..)
         , StepKind(..)
         , TargetSelector(..)
         )
-import Test.PagesProgram.Selector.Internal as PSelector exposing (AssertionSelector(..))
+import Test.PagesProgram.SelectorLabel as SelectorLabel
 import Test.PagesProgram.SimulatedEffect as SimulatedEffect
 import Test.PagesProgram.SimulatedSub as SimulatedSub exposing (SimulatedSub)
 import Test.Runner
@@ -2274,7 +2275,7 @@ If the button is inside a `<form>`, the form submit event is simulated
 event is simulated.
 
 -}
-clickButtonWith : List PSelector.Selector -> ProgramTest model msg -> ProgramTest model msg
+clickButtonWith : List Selector.Selector -> ProgramTest model msg -> ProgramTest model msg
 clickButtonWith selectors (ProgramTest state) =
     case state.error of
         Just _ ->
@@ -2294,11 +2295,16 @@ clickButtonWith selectors (ProgramTest state) =
                         query =
                             renderScopedView ready
 
-                        htmlSelectors =
-                            PSelector.toHtmlSelectors selectors
+                        labelList : List String
+                        labelList =
+                            SelectorLabel.extractLabels selectors
+
+                        labelsJoined : String
+                        labelsJoined =
+                            String.join ", " labelList
 
                         buttonSelectors =
-                            Selector.tag "button" :: htmlSelectors
+                            Selector.tag "button" :: selectors
 
                         -- Check for disabled button first (elm-program-test pattern)
                         disabledButtonExists : Bool
@@ -2314,7 +2320,7 @@ clickButtonWith selectors (ProgramTest state) =
                                 | error =
                                     Just
                                         ("clickButtonWith "
-                                            ++ PSelector.toLabel selectors
+                                            ++ labelsJoined
                                             ++ " failed: the button is disabled."
                                         )
                             }
@@ -2335,7 +2341,7 @@ clickButtonWith selectors (ProgramTest state) =
                                     | error =
                                         Just
                                             ("clickButtonWith "
-                                                ++ PSelector.toLabel selectors
+                                                ++ labelsJoined
                                                 ++ " found multiple buttons matching those selectors. Use `withinFind` to scope to a specific element, or use more specific selectors."
                                             )
                                 }
@@ -2358,10 +2364,10 @@ clickButtonWith selectors (ProgramTest state) =
                                         |> Event.toResult
 
                                 label =
-                                    "clickButtonWith " ++ PSelector.toLabel selectors
+                                    "clickButtonWith " ++ labelsJoined
 
                                 targetSelector =
-                                    Just (BySelectors (PSelector.toAssertionSelectors selectors))
+                                    Just (BySelectors (List.map SelectorLabel.parseLabelToAssertion labelList))
                             in
                             case extractFormSubmission ready formQuery buttonQuery of
                                 Ok (Just submission) ->
@@ -3329,12 +3335,8 @@ continued testing.
         |> PagesProgram.ensureViewHas [ Selector.id "main-content" ]
 
 -}
-ensureViewHas : List PSelector.Selector -> ProgramTest model msg -> ProgramTest model msg
+ensureViewHas : List Selector.Selector -> ProgramTest model msg -> ProgramTest model msg
 ensureViewHas selectors (ProgramTest state) =
-    let
-        htmlSelectors =
-            PSelector.toHtmlSelectors selectors
-    in
     case state.error of
         Just _ ->
             ProgramTest state
@@ -3366,7 +3368,7 @@ ensureViewHas selectors (ProgramTest state) =
                             let
                                 result : Expectation
                                 result =
-                                    renderScopedView ready |> Query.has htmlSelectors
+                                    renderScopedView ready |> Query.has selectors
                             in
                             case getFailureMessage result of
                                 Just failMsg ->
@@ -3380,19 +3382,19 @@ ensureViewHas selectors (ProgramTest state) =
                                         }
 
                                 Nothing ->
+                                    let
+                                        labelList =
+                                            SelectorLabel.extractLabels selectors
+                                    in
                                     ProgramTest state
-                                        |> recordAssertionSnapshot ("ensureViewHas " ++ PSelector.toLabel selectors) (PSelector.toAssertionSelectors selectors)
+                                        |> recordAssertionSnapshot ("ensureViewHas " ++ String.join ", " labelList) (List.map SelectorLabel.parseLabelToAssertion labelList)
 
 
 {-| Assert that the rendered view does NOT contain elements matching the given
 selectors. Chainable.
 -}
-ensureViewHasNot : List PSelector.Selector -> ProgramTest model msg -> ProgramTest model msg
+ensureViewHasNot : List Selector.Selector -> ProgramTest model msg -> ProgramTest model msg
 ensureViewHasNot selectors (ProgramTest state) =
-    let
-        htmlSelectors =
-            PSelector.toHtmlSelectors selectors
-    in
     case state.error of
         Just _ ->
             ProgramTest state
@@ -3411,7 +3413,7 @@ ensureViewHasNot selectors (ProgramTest state) =
                             let
                                 result : Expectation
                                 result =
-                                    renderScopedView ready |> Query.hasNot htmlSelectors
+                                    renderScopedView ready |> Query.hasNot selectors
                             in
                             case getFailureMessage result of
                                 Just failMsg ->
@@ -3425,8 +3427,12 @@ ensureViewHasNot selectors (ProgramTest state) =
                                         }
 
                                 Nothing ->
+                                    let
+                                        labelList =
+                                            SelectorLabel.extractLabels selectors
+                                    in
                                     ProgramTest state
-                                        |> recordAssertionSnapshot ("ensureViewHasNot " ++ PSelector.toLabel selectors) (PSelector.toAssertionSelectors selectors)
+                                        |> recordAssertionSnapshot ("ensureViewHasNot " ++ String.join ", " labelList) (List.map SelectorLabel.parseLabelToAssertion labelList)
 
 
 {-| Assert on the rendered view using a custom assertion function.
@@ -3485,7 +3491,7 @@ the pipeline). Use for final view assertions.
         |> PagesProgram.expectViewHas [ Selector.text "Done!" ]
 
 -}
-expectViewHas : List PSelector.Selector -> ProgramTest model msg -> Expectation
+expectViewHas : List Selector.Selector -> ProgramTest model msg -> Expectation
 expectViewHas selectors (ProgramTest state) =
     case state.error of
         Just errMsg ->
@@ -3497,12 +3503,12 @@ expectViewHas selectors (ProgramTest state) =
                     Expect.fail ("expectViewHas: Cannot check view while data is resolving." ++ pendingRequestsHint state)
 
                 Ready ready ->
-                    renderScopedView ready |> Query.has (PSelector.toHtmlSelectors selectors)
+                    renderScopedView ready |> Query.has selectors
 
 
 {-| Like `ensureViewHasNot`, but returns an `Expectation` (terminal).
 -}
-expectViewHasNot : List PSelector.Selector -> ProgramTest model msg -> Expectation
+expectViewHasNot : List Selector.Selector -> ProgramTest model msg -> Expectation
 expectViewHasNot selectors (ProgramTest state) =
     case state.error of
         Just errMsg ->
@@ -3514,7 +3520,7 @@ expectViewHasNot selectors (ProgramTest state) =
                     Expect.fail ("expectViewHasNot: Cannot check view while data is resolving." ++ pendingRequestsHint state)
 
                 Ready ready ->
-                    renderScopedView ready |> Query.hasNot (PSelector.toHtmlSelectors selectors)
+                    renderScopedView ready |> Query.hasNot selectors
 
 
 {-| Like `ensureView`, but returns an `Expectation` (terminal).
@@ -3575,19 +3581,22 @@ The scope label appears in assertion labels, e.g.,
 The scope container is also highlighted with a dashed border in the preview.
 
 -}
-withinFind : List PSelector.Selector -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
+withinFind : List Selector.Selector -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
 withinFind selectors action =
     let
-        htmlSelectors =
-            PSelector.toHtmlSelectors selectors
+        labelList : List String
+        labelList =
+            SelectorLabel.extractLabels selectors
 
+        label : String
         label =
-            PSelector.toLabel selectors
+            String.join ", " labelList
 
+        assertionSels : List AssertionSelector
         assertionSels =
-            PSelector.toAssertionSelectors selectors
+            List.map SelectorLabel.parseLabelToAssertion labelList
     in
-    withinInternal (Just label) (Just assertionSels) (Query.find htmlSelectors) action
+    withinInternal (Just label) (Just assertionSels) (Query.find selectors) action
 
 
 withinInternal : Maybe String -> Maybe (List AssertionSelector) -> (Query.Single msg -> Query.Single msg) -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg

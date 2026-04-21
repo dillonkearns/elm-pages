@@ -7,7 +7,7 @@ import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
 import Test.Html.Selector as Selector
 import Test.PagesProgram as PagesProgram
-import Test.PagesProgram.Selector as PSelector
+import Test.Html.Selector as PSelector
 import Test.Runner
 import TestApp
 
@@ -106,8 +106,8 @@ suite =
                     |> PagesProgram.fillIn "feedback-form" "message" "Hello from test!"
                     |> PagesProgram.ensureViewHas
                         [ PSelector.tag "input"
-                        , PSelector.attribute "name=\"message\"" (Attr.name "message")
-                        , PSelector.value "Hello from test!"
+                        , PSelector.attribute (Attr.name "message")
+                        , PSelector.attribute (Attr.value "Hello from test!")
                         ]
                     |> PagesProgram.done
         , test "navigating to route with unsimulated HTTP in data surfaces pending request error" <|

@@ -28,7 +28,7 @@ import Test.Html.Event as Event
 import Test.Html.Query as Query
 import Test.Html.Selector as HtmlSelector
 import Test.PagesProgram as PagesProgram
-import Test.PagesProgram.Selector as Selector
+import Test.Html.Selector as Selector
 import TestApp
 import Time
 

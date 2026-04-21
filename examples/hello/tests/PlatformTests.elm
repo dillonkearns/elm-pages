@@ -5,7 +5,7 @@ import Pages.StaticHttp.Request
 import RequestsAndPending
 import Test exposing (Test, describe, test)
 import Test.PagesProgram as PagesProgram
-import Test.PagesProgram.Selector as PSelector
+import Test.Html.Selector as PSelector
 import TestApp
 
 

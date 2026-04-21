@@ -19,8 +19,8 @@ import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.PagesProgram as PagesProgram
 import Test.PagesProgram.Internal exposing (NetworkStatus(..))
-import Test.PagesProgram.Selector as PSelector
-import Test.PagesProgram.Selector.Internal exposing (AssertionSelector(..))
+import Test.Html.Selector as PSelector
+import Test.PagesProgram.Internal exposing (AssertionSelector(..))
 import Test.PagesProgram.SimulatedEffect as SimulatedEffect
 import Test.PagesProgram.SimulatedSub as SimulatedSub
 import Test.Runner
@@ -500,9 +500,9 @@ all =
                         |> Expect.equal
                             [ "start"
                             , "ensureViewHas text \"0\""
-                            , "ensureViewHas #main"
-                            , "ensureViewHas .counter"
-                            , "ensureViewHas <div>"
+                            , "ensureViewHas attribute \"id\" \"main\""
+                            , "ensureViewHas class \"counter\""
+                            , "ensureViewHas tag \"div\""
                             , "ensureViewHasNot text \"Error\""
                             ]
             , test "snapshot labels show multiple selectors comma-separated" <|
@@ -523,7 +523,7 @@ all =
                         |> List.map .label
                         |> Expect.equal
                             [ "start"
-                            , "ensureViewHas <h1>, text \"Welcome\""
+                            , "ensureViewHas tag \"h1\", text \"Welcome\""
                             ]
             , test "clickButtonWith snapshot labels show selector details" <|
                 \() ->
@@ -550,7 +550,7 @@ all =
                         |> List.map .label
                         |> Expect.equal
                             [ "start"
-                            , "clickButtonWith .submit-btn"
+                            , "clickButtonWith class \"submit-btn\""
                             ]
             , test "withinFind adds scope label to assertion snapshots" <|
                 \() ->
@@ -583,7 +583,7 @@ all =
                         |> List.map .label
                         |> Expect.equal
                             [ "start"
-                            , "ensureViewHas text \"0\" (within #counter)"
+                            , "ensureViewHas text \"0\" (within attribute \"id\" \"counter\")"
                             ]
             , test "nested withinFind shows chained scope labels" <|
                 \() ->
@@ -612,7 +612,7 @@ all =
                         |> List.map .label
                         |> Expect.equal
                             [ "start"
-                            , "ensureViewHas text \"Hello\" (within #outer > .inner)"
+                            , "ensureViewHas text \"Hello\" (within attribute \"id\" \"outer\" > class \"inner\")"
                             ]
             , test "plain within does not add scope labels" <|
                 \() ->
@@ -697,7 +697,7 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.ensureViewHas [ PSelector.value "Buy milk" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
                         |> PagesProgram.toSnapshots
                         |> List.map .assertionSelectors
                         |> Expect.equal

@@ -9,7 +9,7 @@ import Blog
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.PagesProgram as PagesProgram
-import Test.PagesProgram.Selector as PSelector
+import Test.Html.Selector as PSelector
 
 
 blogApp : PagesProgram.ProgramTest Blog.Model Blog.Msg

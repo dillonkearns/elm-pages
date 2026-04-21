@@ -19,7 +19,7 @@ View in browser: elm-pages test-view tests/CounterTests.elm
 import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
 import Test.PagesProgram as PagesProgram
-import Test.PagesProgram.Selector as Selector
+import Test.Html.Selector as Selector
 import TestApp
 
 
