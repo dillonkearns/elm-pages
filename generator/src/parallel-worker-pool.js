@@ -39,6 +39,15 @@ let nextTaskId = 0;
 const elmSubPools = new Map(); // workerModule -> { workers, queue, sharedBytes, compiledElmPath }
 const compiledWorkerCache = new Map(); // workerModule -> Promise<string>
 
+// Lazy-spawn state: `BackendTask.Parallel.worker` registers a config here
+// without creating workers. The actual pool only spawns on the first
+// `Parallel.runOn` for that module. Runs whose test evals are all cache
+// hits (via `Cache.computeAsync` in the TestRunner pipeline) never
+// trigger `dispatchElmTask`, so the worker pool stays idle and we skip
+// compile + load + worker-boot entirely.
+const pendingElmPools = new Map(); // workerModule -> { sharedBytes }
+const inFlightSpawns = new Map(); // workerModule -> Promise<void>
+
 /**
  * Configure the pool before first use. Called once from the command
  * runner so the pool can spawn workers that share the project's
@@ -203,6 +212,8 @@ export async function shutdown() {
     teardown.push(...sub.workers.map((w) => w.worker.terminate()));
   }
   elmSubPools.clear();
+  pendingElmPools.clear();
+  inFlightSpawns.clear();
   compiledWorkerCache.clear();
   await Promise.all(teardown);
 }
@@ -241,24 +252,37 @@ function ensureWorkerCompiled(workerModule) {
 }
 
 /**
- * Spawn (or rebuild) the Elm-in-worker sub-pool for a given module and
- * deliver the one-time shared payload to each worker.
+ * Register the Elm-in-worker pool configuration for a given module —
+ * **without** actually spawning workers or compiling the worker script.
+ * The first `dispatchElmTask` call for this module triggers the real
+ * spawn (`actuallySpawnElmPool` below).
  *
- * Calling this again for the same module tears down the old workers and
- * spawns fresh ones with the new shared payload — so re-issuing
- * `Parallel.worker` mid-run effectively resets the pool's shared state.
+ * Called from the `parallel-spawn-worker/X` URL handler when the main
+ * script evaluates `BackendTask.Parallel.worker { workerModule, shared }`.
+ *
+ * Rationale: after the Cache.run + worker dispatch integration
+ * (commit `95927ed`), warm reruns often hit the on-disk cache for
+ * every test and never actually dispatch to a worker. With the
+ * previous eager-spawn, every run paid the worker-pool spawn cost
+ * (compile-cached, ~300 ms + per-worker load) even when no `runOn`
+ * fired. Lazy spawn eliminates that cost for warm-only runs — closes
+ * the NEW-vs-OLD warm gap on core-extra (2.7 s → ~2.5 s) and
+ * elm-markdown (1.95 s → ~1.7 s).
+ *
+ * Re-registering for the same module tears down any already-spawned
+ * pool so the next dispatch picks up the new `sharedBytes`.
  *
  * @param {{ workerModule: string, sharedBytes: Buffer }} options
  * @returns {Promise<void>}
  */
 export async function spawnElmWorkerPool({ workerModule, sharedBytes }) {
-  const compiledElmPath = await ensureWorkerCompiled(workerModule);
-
-  // Tear down any pre-existing sub-pool for this module.
+  // Tear down any pre-existing sub-pool for this module (idempotent
+  // if no prior pool existed). This happens immediately because the
+  // old pool might still be holding memory / worker threads we don't
+  // want to carry forward under a new shared payload.
   const previous = elmSubPools.get(workerModule);
   if (previous) {
     await Promise.all(previous.workers.map((w) => w.worker.terminate()));
-    // Reject any queued tasks — they're stale now.
     for (const task of previous.queue) {
       task.reject(
         new Error(
@@ -266,7 +290,52 @@ export async function spawnElmWorkerPool({ workerModule, sharedBytes }) {
         )
       );
     }
+    elmSubPools.delete(workerModule);
   }
+
+  // Record the config; actual worker spawn is deferred to the first
+  // dispatch via `ensureElmWorkerPoolSpawned`.
+  pendingElmPools.set(workerModule, { sharedBytes });
+}
+
+/**
+ * If the pool for `workerModule` isn't running yet but has a pending
+ * registration, spawn it now. Idempotent + concurrent-safe: multiple
+ * simultaneous `dispatchElmTask` calls dedupe on a shared in-flight
+ * Promise so the pool is only spawned once.
+ */
+function ensureElmWorkerPoolSpawned(workerModule) {
+  if (elmSubPools.has(workerModule)) {
+    return Promise.resolve();
+  }
+  const inFlight = inFlightSpawns.get(workerModule);
+  if (inFlight) {
+    return inFlight;
+  }
+  const pending = pendingElmPools.get(workerModule);
+  if (!pending) {
+    return Promise.reject(
+      new Error(
+        `No Elm worker pool registered for "${workerModule}". Call BackendTask.Parallel.worker before runOn.`
+      )
+    );
+  }
+  const spawnPromise = actuallySpawnElmPool(workerModule, pending.sharedBytes);
+  inFlightSpawns.set(workerModule, spawnPromise);
+  spawnPromise
+    .then(() => {
+      inFlightSpawns.delete(workerModule);
+      pendingElmPools.delete(workerModule);
+    })
+    .catch(() => {
+      // On failure, drop the in-flight entry so a retry can re-attempt.
+      inFlightSpawns.delete(workerModule);
+    });
+  return spawnPromise;
+}
+
+async function actuallySpawnElmPool(workerModule, sharedBytes) {
+  const compiledElmPath = await ensureWorkerCompiled(workerModule);
 
   const size = resolvePoolSize();
   const sub = { workers: [], queue: [] };
@@ -320,19 +389,21 @@ export async function spawnElmWorkerPool({ workerModule, sharedBytes }) {
 
 /**
  * Dispatch a single per-task input to a free worker in the sub-pool for
- * the given module. The promise resolves with the bytes the worker
- * passed back via `Parallel.sendResult`.
+ * the given module. If the pool was registered by `spawnElmWorkerPool`
+ * but hasn't been spawned yet (lazy spawn — see that function's doc),
+ * the first `dispatchElmTask` call triggers the actual compile + worker
+ * boot. The promise resolves with the bytes the worker passed back via
+ * `Parallel.sendResult`.
  *
  * @param {{ workerModule: string, inputBytes: Buffer }} options
  * @returns {Promise<Buffer>}
  */
-export function dispatchElmTask({ workerModule, inputBytes }) {
+export async function dispatchElmTask({ workerModule, inputBytes }) {
+  await ensureElmWorkerPoolSpawned(workerModule);
   const sub = elmSubPools.get(workerModule);
   if (!sub) {
-    return Promise.reject(
-      new Error(
-        `No Elm worker pool for "${workerModule}". Call BackendTask.Parallel.worker before runOn.`
-      )
+    throw new Error(
+      `No Elm worker pool for "${workerModule}" after spawn; internal bookkeeping error.`
     );
   }
   return new Promise((resolve, reject) => {
