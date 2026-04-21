@@ -62,6 +62,7 @@ run =
             , onRawEvent = Nothing
             }
         )
+        |> Tui.toScript
 
 
 loadCommits : BackendTask FatalError (List Commit)

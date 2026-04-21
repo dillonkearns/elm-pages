@@ -80,6 +80,7 @@ run =
         , view = miniGitView
         , subscriptions = miniGitSubscriptions
         }
+        |> Tui.toScript
 
 
 testGlobalBindings : Keybinding.Group Action

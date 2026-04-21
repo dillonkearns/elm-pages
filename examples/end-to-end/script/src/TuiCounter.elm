@@ -38,6 +38,7 @@ run =
         , view = view
         , subscriptions = subscriptions
         }
+        |> Tui.toScript
 
 
 init : () -> ( Model, Effect.Effect Msg )

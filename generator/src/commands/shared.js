@@ -219,6 +219,7 @@ runNamed namedTests =
         , view = stepperView
         , subscriptions = stepperSubscriptions
         }
+        |> Tui.toScript
 
 
 type alias StepperModel =

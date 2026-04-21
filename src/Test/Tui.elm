@@ -59,7 +59,7 @@ keyToMsg event =
         _ ->
             Quit
 
-app : Tui.Program () Int Msg
+app : Tui.ProgramConfig () Int Msg
 app =
     { data = BackendTask.succeed ()
     , init = \() -> ( 0, Effect.none )
@@ -74,6 +74,10 @@ app =
     , view = \_ count -> Tui.Screen.text ("Count: " ++ String.fromInt count)
     , subscriptions = \_ -> Tui.Sub.onKeyPress keyToMsg
     }
+
+run : Script
+run =
+    Tui.program app |> Tui.toScript
 
 tuiTests : TuiTest.Test
 tuiTests =
@@ -340,25 +344,26 @@ automatically.
     type Msg
         = Quit
 
-    app : Tui.Program Int Int Msg
-    app =
-        { data = BackendTask.succeed 0
-        , init = \count -> ( count, Effect.none )
-        , update = \_ count -> ( count, Effect.exit )
-        , view = \_ count -> Screen.text ("Count: " ++ String.fromInt count)
-        , subscriptions = \_ -> Tui.Sub.onKeyPress (\_ -> Quit)
-        }
-
     counterTest : TuiTest.TuiTest Int Msg
     counterTest =
-        TuiTest.start BackendTaskTest.init app
+        TuiTest.start BackendTaskTest.init
+            { data = BackendTask.succeed 0
+            , init = \count -> ( count, Effect.none )
+            , update = \_ count -> ( count, Effect.exit )
+            , view = \_ count -> Screen.text ("Count: " ++ String.fromInt count)
+            , subscriptions = \_ -> Tui.Sub.onKeyPress (\_ -> Quit)
+            }
+
+The config record is the same shape you pass to [`Tui.program`](Tui#program),
+so you can share a single app value between your production script and your
+tests.
 
 Use [`startWithContext`](#startWithContext) for a custom terminal size.
 
 -}
 start :
     BackendTaskTest.TestSetup
-    -> Tui.Program data model msg
+    -> Tui.ProgramConfig data model msg
     -> TuiTest model msg
 start setup app =
     startWithContext { width = 80, height = 24, colorProfile = Tui.TrueColor } setup app
@@ -378,28 +383,24 @@ responsive layouts, small terminals, or color-profile-dependent rendering.
     type Msg
         = Resized { width : Int, height : Int }
 
-    app : Tui.Program { width : Int, height : Int } { width : Int, height : Int } Msg
-    app =
-        { data = BackendTask.succeed { width = 0, height = 0 }
-        , init = \model -> ( model, Effect.none )
-        , update =
-            \msg _ ->
-                case msg of
-                    Resized size ->
-                        ( size, Effect.none )
-        , view =
-            \_ size ->
-                Screen.text
-                    (String.fromInt size.width ++ "x" ++ String.fromInt size.height)
-        , subscriptions = \_ -> Tui.Sub.onResize Resized
-        }
-
     resizedTest : TuiTest.TuiTest { width : Int, height : Int } Msg
     resizedTest =
         TuiTest.startWithContext
             { width = 120, height = 40, colorProfile = Tui.TrueColor }
             BackendTaskTest.init
-            app
+            { data = BackendTask.succeed { width = 0, height = 0 }
+            , init = \model -> ( model, Effect.none )
+            , update =
+                \msg _ ->
+                    case msg of
+                        Resized size ->
+                            ( size, Effect.none )
+            , view =
+                \_ size ->
+                    Screen.text
+                        (String.fromInt size.width ++ "x" ++ String.fromInt size.height)
+            , subscriptions = \_ -> Tui.Sub.onResize Resized
+            }
 
 If your app subscribes to `Tui.Sub.onResize`, this initial context is also sent
 through that subscription once at startup.
@@ -408,7 +409,7 @@ through that subscription once at startup.
 startWithContext :
     Context
     -> BackendTaskTest.TestSetup
-    -> Tui.Program data model msg
+    -> Tui.ProgramConfig data model msg
     -> TuiTest model msg
 startWithContext context setup app =
     case
@@ -932,28 +933,25 @@ pure `BackendTask` flows.
         = Fetch
         | Fetched String
 
-    app : Tui.Program String String Msg
-    app =
-        { data = BackendTask.succeed "idle"
-        , init = \status -> ( status, Effect.none )
-        , update =
-            \msg status ->
-                case msg of
-                    Fetch ->
-                        ( status
-                        , BackendTask.succeed "done"
-                            |> Effect.perform Fetched
-                        )
-
-                    Fetched newStatus ->
-                        ( newStatus, Effect.none )
-        , view = \_ status -> Screen.text status
-        , subscriptions = \_ -> Tui.Sub.onKeyPress (\_ -> Fetch)
-        }
-
     backendTaskTest : TuiTest.TuiTest String Msg
     backendTaskTest =
-        TuiTest.start BackendTaskTest.init app
+        TuiTest.start BackendTaskTest.init
+            { data = BackendTask.succeed "idle"
+            , init = \status -> ( status, Effect.none )
+            , update =
+                \msg status ->
+                    case msg of
+                        Fetch ->
+                            ( status
+                            , BackendTask.succeed "done"
+                                |> Effect.perform Fetched
+                            )
+
+                        Fetched newStatus ->
+                            ( newStatus, Effect.none )
+            , view = \_ status -> Screen.text status
+            , subscriptions = \_ -> Tui.Sub.onKeyPress (\_ -> Fetch)
+            }
             |> TuiTest.pressKey 'f'
             |> TuiTest.resolveEffect
             |> TuiTest.ensureViewHas "done"

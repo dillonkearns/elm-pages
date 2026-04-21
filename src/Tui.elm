@@ -1,5 +1,6 @@
 module Tui exposing
-    ( Program, program, programWithCliOptions
+    ( Program, ProgramConfig, program, toScript
+    , programWithCliOptions
     , Mode(..), programOrScript, isInteractive
     , Context, ColorProfile(..)
     )
@@ -59,6 +60,7 @@ resolves a `BackendTask` prior to `init`
                     Screen.text ("Count: " ++ String.fromInt model.count)
             , subscriptions = \_ -> Tui.Sub.onKeyPress KeyPressed
             }
+            |> Tui.toScript
 
 You run a TUI like you run any other [`Pages.Script.Script`](Pages-Script#Script), [see the elm-pages scripts docs page](https://elm-pages.com/docs/elm-pages-scripts)
 
@@ -79,7 +81,12 @@ That behavior is covered by [examples/end-to-end/script/tests/TuiStarsTests.elm]
 
 ## Building a `Tui.Program`
 
-@docs Program, program, programWithCliOptions
+[`program`](#program) builds an opaque [`Program`](#Program) value; [`toScript`](#toScript)
+finalizes it into a runnable `Pages.Script.Script`. Keeping the intermediate
+`Program` as its own type lets future releases add pipeable modifiers (themes,
+key bindings, etc.) without changing the shape of any existing user code.
+
+@docs Program, ProgramConfig, program, toScript, programWithCliOptions
 
 
 ## TUI or CLI
@@ -160,9 +167,24 @@ type ColorProfile
 -- PROGRAM
 
 
-{-| The core configuration of your TUI program.
+{-| An opaque TUI program value. Construct one with [`program`](#program) and
+finalize it with [`toScript`](#toScript). Future releases will add pipeable
+modifiers that work on this type without changing its public shape.
 -}
-type alias Program data model msg =
+type Program data model msg
+    = Program (ProgramConfig data model msg)
+
+
+{-| The record shape that [`program`](#program) accepts, and also the shape
+that [`Test.Tui.start`](Test-Tui#start) accepts so a single config value can
+be shared between a production script and its tests.
+
+The field list is intentionally locked for the v12 series: future TUI
+capabilities will be added as pipeable modifiers on [`Program`](#Program)
+rather than as new required fields.
+
+-}
+type alias ProgramConfig data model msg =
     { data : BackendTask FatalError data
     , init : data -> ( model, Effect.Effect msg )
     , update : msg -> model -> ( model, Effect.Effect msg )
@@ -171,14 +193,41 @@ type alias Program data model msg =
     }
 
 
-{-| Build an interactive TUI.
+{-| Build an interactive TUI from a config record.
 
-See also [`programWithCliOptions`](#programWithCliOptions) and [`programOrScript`](#programOrScript).
+    run : Script
+    run =
+        Tui.program
+            { data = BackendTask.succeed ()
+            , init = \() -> ( { count = 0 }, Effect.none )
+            , update = update
+            , view = view
+            , subscriptions = subscriptions
+            }
+            |> Tui.toScript
+
+See also [`programWithCliOptions`](#programWithCliOptions) and
+[`programOrScript`](#programOrScript).
 
 -}
-program : Program data model msg -> Pages.Internal.Script.Script
-program app =
-    scriptFromBackendTask (runProgram app)
+program : ProgramConfig data model msg -> Program data model msg
+program =
+    Program
+
+
+{-| Turn a [`Program`](#Program) into a runnable `Pages.Script.Script`. This is
+the terminal step of a TUI pipeline. Placing it at the end leaves room for
+future pipeable modifiers (e.g. `|> Tui.withTheme ...`) without forcing every
+user to restructure.
+
+    run : Script
+    run =
+        Tui.program { ... } |> Tui.toScript
+
+-}
+toScript : Program data model msg -> Pages.Internal.Script.Script
+toScript (Program fields) =
+    scriptFromBackendTask (runProgram fields)
 
 
 {-| Run a TUI as a Script, with CLI option parsing.
@@ -215,7 +264,13 @@ programWithCliOptions config toApp =
             \_ ->
                 config
                     |> CliProgram.mapConfig
-                        (\cliOptions -> runProgram (toApp cliOptions))
+                        (\cliOptions ->
+                            let
+                                (Program fields) =
+                                    toApp cliOptions
+                            in
+                            runProgram fields
+                        )
         , metadata = Nothing
         }
 
@@ -292,9 +347,12 @@ programOrScript config toBranches =
                                     }
                                 branches =
                                     toBranches cliOptions
+
+                                (Program tuiFields) =
+                                    branches.tui
                             in
                             chooseBranch branches.mode
-                                (runProgram branches.tui)
+                                (runProgram tuiFields)
                                 branches.script
                         )
         , metadata = Nothing
@@ -360,7 +418,7 @@ scriptFromBackendTask task =
         }
 
 
-runProgram : Program data model msg -> BackendTask FatalError ()
+runProgram : ProgramConfig data model msg -> BackendTask FatalError ()
 runProgram app =
     app.data
         |> BackendTask.quiet
@@ -462,7 +520,7 @@ decodeColorProfile =
 
 
 processEffectsThenRenderAndWait :
-    Program data model msg
+    ProgramConfig data model msg
     -> Context
     -> model
     -> Effect.Effect msg
@@ -503,7 +561,7 @@ processEffectsThenRenderAndWait app context model effect =
 
 
 renderAndWait :
-    Program data model msg
+    ProgramConfig data model msg
     -> Context
     -> model
     -> BackendTask FatalError ()
@@ -542,7 +600,7 @@ renderAndWait app context model =
 
 
 processBatchedEventsHelp :
-    Program data model msg
+    ProgramConfig data model msg
     -> Tui.Sub.Sub msg
     -> Context
     -> model

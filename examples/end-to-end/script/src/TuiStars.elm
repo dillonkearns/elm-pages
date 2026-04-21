@@ -38,7 +38,7 @@ type Msg
     | GotStars (Result FatalError Int)
 
 
-app : Tui.Program String Model Msg
+app : Tui.ProgramConfig String Model Msg
 app =
     { data =
         BackendTask.File.rawFile "elm.json"
@@ -53,7 +53,7 @@ app =
 
 run : Script
 run =
-    Tui.program app
+    Tui.program app |> Tui.toScript
 
 
 init : String -> ( Model, Effect.Effect Msg )

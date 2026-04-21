@@ -12,7 +12,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - `Tui` module — build interactive Text-Based User Interfaces (TUIs) as elm-pages scripts. Programs have `data`, `init`, `update`, `view`, and `subscriptions` like a standard TEA app, but render to the terminal instead of the DOM.
-  - `Tui.program` and `Tui.programWithCliOptions` — entry points for building a TUI as a `Pages.Script.Script`.
+  - `Tui.program` builds an opaque `Tui.Program` value; `Tui.toScript` finalizes it into a runnable `Pages.Script.Script`. Keeping the intermediate `Program` as its own type lets future releases add pipeable modifiers (themes, key bindings, etc.) without changing the shape of existing user code.
+  - `Tui.programWithCliOptions` — TUI entry point with CLI option parsing.
+  - `Tui.ProgramConfig` — the record shape that `Tui.program` and `Test.Tui.start` both accept, so one config can be shared between production and tests.
   - `Tui.programOrScript` and `Tui.isInteractive` — for programs that run as a TUI interactively and fall back to a plain `BackendTask` in non-interactive environments (CI, agents piping output).
   - `Tui.Effect` module — `perform` and `attempt` to run `BackendTask`s from `init`/`update`, plus `exit` and `exitWithCode`.
   - `Tui.Sub` module — subscribe to keyboard, mouse, paste, resize, and periodic tick events.

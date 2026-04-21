@@ -110,6 +110,7 @@ run =
             , onRawEvent = Nothing
             }
         )
+        |> Tui.toScript
 ```
 
 See the full working example in

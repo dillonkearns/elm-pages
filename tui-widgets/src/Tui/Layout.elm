@@ -4996,13 +4996,15 @@ type alias PickerInteractionState =
     }
 
 
-{-| Transform a declarative TUI app configuration into a runnable
-[`Tui.Program`](Tui#Program).
+{-| Transform a declarative TUI app configuration into a
+[`Tui.ProgramConfig`](Tui#ProgramConfig).
 
 The user describes WHAT (panes, actions, status, modals) and `compileApp`
 handles HOW (rendering, key routing, subscriptions, state management). The
-result is a [`Tui.Program`](Tui#Program), ready to pass to
-`Tui.program`.
+result is a [`Tui.ProgramConfig`](Tui#ProgramConfig); wrap it with
+[`Tui.program`](Tui#program) and finalize with
+[`Tui.toScript`](Tui#toScript) to produce a runnable `Script`, or pass it
+directly to [`Test.Tui.start`](Test-Tui#start) for pure-Elm tests.
 
     run : Script
     run =
@@ -5018,6 +5020,7 @@ result is a [`Tui.Program`](Tui#Program), ready to pass to
                 , onRawEvent = Nothing
                 }
             )
+            |> Tui.toScript
 
 The `data` BackendTask runs before `init` while the terminal is still in
 normal mode.
@@ -5033,7 +5036,7 @@ compileApp :
     , modal : model -> Maybe (Modal msg)
     , onRawEvent : Maybe (RawEvent -> msg)
     }
-    -> Tui.Program data (FrameworkModel model msg) (FrameworkMsg msg)
+    -> Tui.ProgramConfig data (FrameworkModel model msg) (FrameworkMsg msg)
 compileApp config =
     { data = config.data
     , init = compileInit config
