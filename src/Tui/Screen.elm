@@ -73,6 +73,14 @@ that future releases can add fields without breaking user code.
 For framework-level consumers that need to inspect rendered lines or rebuild
 styled output, see [`Tui.Screen.Advanced`](Tui-Screen-Advanced).
 
+
+## Framework-internal
+
+These conversions are exposed for use by other modules in the
+`dillonkearns/elm-pages` package. Application code should not call them.
+
+@docs styleToFlatStyle, flatStyleToStyle
+
 -}
 
 import Ansi.Color
@@ -355,6 +363,10 @@ styleHyperlink (Style s) =
 -- STYLE CONVERSION (package-internal, used by span helpers)
 
 
+{-| Framework-internal. Converts an opaque [`Style`](#Style) to the flat record
+representation used by the renderer and serializer. Application code should
+not need this.
+-}
 styleToFlatStyle : Style -> Internal.FlatStyle
 styleToFlatStyle (Style s) =
     let
@@ -436,6 +448,9 @@ flattenToSpanLines =
     Internal.flattenToSpanLines styleToFlatStyle
 
 
+{-| Framework-internal. Inverse of [`styleToFlatStyle`](#styleToFlatStyle).
+Application code should not need this.
+-}
 flatStyleToStyle : Internal.FlatStyle -> Style
 flatStyleToStyle fs =
     Style
