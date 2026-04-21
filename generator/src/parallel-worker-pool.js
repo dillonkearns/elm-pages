@@ -57,11 +57,29 @@ export function configure({ portsPath, poolSize, projectDirectory }) {
   }
 }
 
+/**
+ * Resolve the worker pool size, honoring (in order) an explicit
+ * `configure({ poolSize })` call, the `ELM_PAGES_PARALLEL_POOL_SIZE`
+ * environment variable, and finally falling back to `min(cpus, 16)`.
+ *
+ * Per-call CPU bookkeeping, NOT cached — the env var can change between
+ * `Parallel.run` and `Parallel.worker` invocations within one process,
+ * which is useful for ad-hoc benchmarks (`POOL_SIZE=2 npm run bench`).
+ */
+function resolvePoolSize() {
+  if (typeof config.poolSize === "number" && config.poolSize > 0) {
+    return config.poolSize;
+  }
+  const envOverride = Number(process.env.ELM_PAGES_PARALLEL_POOL_SIZE);
+  if (Number.isFinite(envOverride) && envOverride > 0) {
+    return Math.floor(envOverride);
+  }
+  return Math.max(1, Math.min(os.cpus().length, 16));
+}
+
 function ensurePool() {
   if (workers !== null) return;
-  const size =
-    config.poolSize ||
-    Math.max(1, Math.min(os.cpus().length, 16));
+  const size = resolvePoolSize();
   workers = [];
   for (let i = 0; i < size; i++) {
     const worker = new Worker(WORKER_ENTRY, {
@@ -250,8 +268,7 @@ export async function spawnElmWorkerPool({ workerModule, sharedBytes }) {
     }
   }
 
-  const size =
-    config.poolSize || Math.max(1, Math.min(os.cpus().length, 16));
+  const size = resolvePoolSize();
   const sub = { workers: [], queue: [] };
   for (let i = 0; i < size; i++) {
     const worker = new Worker(WORKER_ENTRY, {
