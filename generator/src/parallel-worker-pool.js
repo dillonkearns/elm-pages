@@ -19,13 +19,20 @@ import * as url from "node:url";
 
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const WORKER_ENTRY = path.join(__dirname, "parallel-worker.js");
+const DEFAULT_WORKER_ENTRY = path.join(__dirname, "parallel-worker.js");
 
 // Module-level state: pool of persistent workers and configuration.
+//
+// `workerEntryPath` defaults to the sibling `parallel-worker.js` in this
+// package. `commands/bundle-script.js` overrides it to point at a
+// pre-bundled copy next to the output script, since esbuild can't track
+// a runtime `path.join(__dirname, …)` as a worker entry and the default
+// path resolves to the *bundle's* directory rather than elm-pages3's.
 let config = {
   portsPath: null,
   poolSize: null,
   projectDirectory: null,
+  workerEntryPath: DEFAULT_WORKER_ENTRY,
 };
 let workers = null; // Array<{ worker: Worker, busy: boolean, taskId: string | null, resolve: Function | null, reject: Function | null }>
 let taskQueue = []; // Array<{ portName, inputBytes, context, resolve, reject }>
@@ -61,15 +68,18 @@ const inFlightSpawns = new Map(); // workerModule -> Promise<void>
  * custom-backend-task module and (for Elm-in-worker) reach the project
  * directory for on-demand worker-script compilation.
  *
- * @param {{ portsPath: string | null, poolSize?: number, projectDirectory?: string }} options
+ * @param {{ portsPath: string | null, poolSize?: number, projectDirectory?: string, workerEntryPath?: string }} options
  */
-export function configure({ portsPath, poolSize, projectDirectory }) {
+export function configure({ portsPath, poolSize, projectDirectory, workerEntryPath }) {
   config.portsPath = portsPath;
   if (typeof poolSize === "number" && poolSize > 0) {
     config.poolSize = poolSize;
   }
   if (typeof projectDirectory === "string") {
     config.projectDirectory = projectDirectory;
+  }
+  if (typeof workerEntryPath === "string") {
+    config.workerEntryPath = workerEntryPath;
   }
 }
 
@@ -98,7 +108,7 @@ function ensurePool() {
   const size = resolvePoolSize();
   workers = [];
   for (let i = 0; i < size; i++) {
-    const worker = new Worker(WORKER_ENTRY, {
+    const worker = new Worker(config.workerEntryPath, {
       workerData: { portsPath: config.portsPath },
       // Workers inherit the parent env; this mirrors how render workers
       // are spawned in build.js (SHARE_ENV). Parallel workers need the
@@ -355,7 +365,7 @@ async function actuallySpawnElmPool(workerModule, sharedSab) {
   const size = resolvePoolSize();
   const sub = { workers: [], queue: [] };
   for (let i = 0; i < size; i++) {
-    const worker = new Worker(WORKER_ENTRY, {
+    const worker = new Worker(config.workerEntryPath, {
       workerData: {
         workerKind: "elm-script",
         compiledElmPath,
