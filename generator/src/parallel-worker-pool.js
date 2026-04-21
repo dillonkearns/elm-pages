@@ -352,6 +352,10 @@ function assignElmTask(entry, task) {
   entry.taskId = taskId;
   entry.resolve = task.resolve;
   entry.reject = task.reject;
+  task._assignedAt = Date.now();
+  if (process.env.ELM_PAGES_PARALLEL_DEBUG) {
+    console.error(`[pool] assign task ${taskId} at +${task._assignedAt - poolStart}ms`);
+  }
   entry.worker.postMessage({
     tag: "task",
     taskId,
@@ -359,10 +363,15 @@ function assignElmTask(entry, task) {
   });
 }
 
+const poolStart = Date.now();
+
 function handleElmResult(sub, entry, msg) {
   if (msg && msg.tag === "result") {
     if (!entry.busy || entry.taskId !== msg.taskId) return; // stale
     const { resolve } = entry;
+    if (process.env.ELM_PAGES_PARALLEL_DEBUG) {
+      console.error(`[pool] result task ${msg.taskId} at +${Date.now() - poolStart}ms`);
+    }
     entry.busy = false;
     entry.taskId = null;
     entry.resolve = null;
