@@ -260,6 +260,8 @@ export async function spawnElmWorkerPool({ workerModule, sharedBytes }) {
         compiledElmPath,
         workerModule,
         sharedBytes,
+        portsPath: config.portsPath,
+        mode: "build",
       },
       env: process.env,
     });

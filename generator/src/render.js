@@ -708,7 +708,7 @@ function dataViewToBuffer(dv) {
  * @param {PortsFile} portsFile
  * @param {InternalJob} requestToPerform
  */
-async function runInternalJob(
+export async function runInternalJob(
   requestHash,
   app,
   requestToPerform,

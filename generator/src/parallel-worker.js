@@ -138,8 +138,36 @@ async function runJsPortWorker() {
 // ───────────────────────── elm-script ─────────────────────────
 
 async function runElmScriptWorker() {
-  const { compiledElmPath, workerModule, sharedBytes } = workerData;
+  const { compiledElmPath, workerModule, sharedBytes, portsPath, mode } =
+    workerData;
   const sharedBuffer = bytesToBuffer(sharedBytes);
+
+  // Lazily load the project's custom-backend-task + the request-cache so
+  // the worker can resolve any non-`parallel-worker-*` BackendTask URL it
+  // emits. This is the v1 path that lets a worker call e.g.
+  // `InterpreterProject.load` (file IO, Cache.run, etc.) at startup
+  // before entering its per-task loop. The per-task interface stays
+  // pure Bytes-in / Bytes-out — only worker-internal setup uses the
+  // wider BackendTask surface.
+  let portsFile = null;
+  if (portsPath) {
+    try {
+      portsFile = await import(url.pathToFileURL(path.resolve(portsPath)).href);
+    } catch (e) {
+      console.error(
+        `[parallel elm-worker ${workerModule}] failed to load custom-backend-task: ${
+          e && e.message ? e.message : e
+        }`
+      );
+    }
+  }
+  const { lookupOrPerform } = await import("./request-cache.js");
+  const { runInternalJob } = await import("./render.js");
+  const fallbackMode = typeof mode === "string" ? mode : "build";
+  // Patterns-to-watch is a render.js dev-server concept; in a worker
+  // there's no dev-server file watcher to feed, so we hand
+  // `runInternalJob` an inert Set that just absorbs writes.
+  const inertWatchSet = new Set();
 
   // The sub-pool sends tasks as { tag: "task", taskId, inputBytes }.
   // We queue them until the Elm runtime's next `receiveTask` request
@@ -316,14 +344,99 @@ async function runElmScriptWorker() {
           );
         }
 
-        // No other internal URLs are supported inside an Elm-script
-        // worker for v1: the worker is expected to do pure CPU work
-        // against the shared payload + per-task input. If the user
-        // wires e.g. BackendTask.Glob into a worker, surface a clear
-        // error rather than silently hanging.
-        throw new Error(
-          `[parallel elm-worker ${workerModule}] unsupported BackendTask URL: ${u}. Workers may only use BackendTask.Parallel primitives in v1.`
-        );
+        // Fall through to the standard request resolver so the worker
+        // can handle file IO, BackendTask.Custom, http, glob, etc. on
+        // its own thread (no main-thread round-trip). This is what
+        // lets a worker do `InterpreterProject.load` at startup.
+        //
+        // Mirror render.js's split: internal `elm-pages-internal://*`
+        // URLs (read-file, glob, now, env, stream, db-*, …) go through
+        // `runInternalJob`; everything else (custom backend tasks,
+        // bytes ports, http) goes through `lookupOrPerform`.
+        try {
+          const isInternalJob =
+            u !== "elm-pages-internal://port" &&
+            !u.startsWith("elm-pages-internal://port-bytes/") &&
+            !u.startsWith("elm-pages-internal://parallel-port-bytes/") &&
+            !u.startsWith("elm-pages-internal://parallel-spawn-worker/") &&
+            !u.startsWith("elm-pages-internal://parallel-worker-task/") &&
+            u.startsWith("elm-pages-internal://");
+
+          if (isInternalJob) {
+            const [, internalResult] = await runInternalJob(
+              requestHash,
+              app,
+              requestToPerform,
+              inertWatchSet,
+              portsFile
+            );
+            return {
+              key: requestHash,
+              json: {
+                request: internalResult.request,
+                response: internalResult.response,
+              },
+              bytes: internalResult.rawBytes
+                ? bufferToDataView(internalResult.rawBytes)
+                : null,
+            };
+          }
+
+          const lookupResponse = await lookupOrPerform(
+            portsFile,
+            fallbackMode,
+            requestToPerform
+          );
+          if (lookupResponse.kind === "response-json") {
+            return {
+              key: requestHash,
+              json: {
+                request: requestToPerform,
+                response: lookupResponse.value,
+              },
+              bytes: lookupResponse.rawBytes
+                ? bufferToDataView(lookupResponse.rawBytes)
+                : null,
+            };
+          }
+          if (lookupResponse.kind === "cache-response-path") {
+            const responseJson = JSON.parse(
+              await (
+                await import("node:fs/promises")
+              ).readFile(lookupResponse.value, "utf8")
+            );
+            return {
+              key: requestHash,
+              json: { request: requestToPerform, response: responseJson },
+              bytes: null,
+            };
+          }
+          throw new Error(
+            `[parallel elm-worker ${workerModule}] lookupOrPerform returned unexpected kind: ${lookupResponse.kind}`
+          );
+        } catch (lookupError) {
+          const message =
+            lookupError instanceof Error
+              ? lookupError.message
+              : typeof lookupError === "object"
+              ? JSON.stringify(lookupError)
+              : String(lookupError);
+          return {
+            key: requestHash,
+            json: {
+              request: requestToPerform,
+              response: {
+                statusCode: 500,
+                statusText: "Internal Error",
+                headers: {},
+                url: requestToPerform.url,
+                bodyKind: "string",
+                body: message,
+              },
+            },
+            bytes: null,
+          };
+        }
       })
     );
 
