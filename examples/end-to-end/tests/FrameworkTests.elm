@@ -341,12 +341,12 @@ fetcherBackgroundReloadTest =
         |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
         |> PagesProgram.clickButton "Increment"
         |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
-        |> PagesProgram.simulateHttpGetTo
+        |> PagesProgram.simulateHttpGet
             "https://api.example.com/increment"
             (Encode.object [])
         |> PagesProgram.ensureHttpGet "https://api.example.com/count"
         |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
-        |> PagesProgram.simulateHttpGetTo
+        |> PagesProgram.simulateHttpGet
             "https://api.example.com/count"
             (Encode.object [ ( "count", Encode.int 1 ) ])
         |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]

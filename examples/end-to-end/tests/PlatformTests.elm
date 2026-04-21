@@ -142,21 +142,21 @@ suite =
                     |> PagesProgram.done
         , test "fetcher-http: URL-targeted simulation" <|
             \() ->
-                -- Use simulateHttpGetTo to target specific URLs regardless of order
+                -- Use simulateHttpGet to target specific URLs regardless of order
                 TestApp.start "/fetcher-http"
                     BackendTaskTest.init
-                    |> PagesProgram.simulateHttpGetTo
+                    |> PagesProgram.simulateHttpGet
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 0 ) ])
                     |> PagesProgram.ensureViewHas [ PSelector.text "Count: 0" ]
                     |> PagesProgram.clickButton "Increment"
                     |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
                     -- Resolve by URL (not order): target mutation directly
-                    |> PagesProgram.simulateHttpGetTo
+                    |> PagesProgram.simulateHttpGet
                         "https://api.example.com/increment"
                         (Encode.object [])
                     -- Data reload settles on the server count after the fetcher finishes.
-                    |> PagesProgram.simulateHttpGetTo
+                    |> PagesProgram.simulateHttpGet
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 1 ) ])
                     |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
@@ -223,12 +223,12 @@ suite =
                         (Encode.object [ ( "count", Encode.int 0 ) ])
                     |> PagesProgram.clickButton "Increment"
                     |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
-                    |> PagesProgram.simulateHttpGetTo
+                    |> PagesProgram.simulateHttpGet
                         "https://api.example.com/increment"
                         (Encode.object [])
                     |> PagesProgram.ensureHttpGet "https://api.example.com/count"
                     |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
-                    |> PagesProgram.simulateHttpGetTo
+                    |> PagesProgram.simulateHttpGet
                         "https://api.example.com/count"
                         (Encode.object [ ( "count", Encode.int 1 ) ])
                     |> PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]

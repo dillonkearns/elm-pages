@@ -9,7 +9,7 @@ module Test.PagesProgram exposing
     , group
     , navigateTo, ensureBrowserUrl, expectBrowserUrl
     , ensureBrowserHistory, expectBrowserHistory
-    , simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
+    , simulateHttpGet, simulateHttpPost, simulateHttpError
     , simulateCustom
     , ensureHttpGet, ensureHttpGetCount, ensureHttpPost, ensureCustom
     , withSimulatedSubscriptions, simulateIncomingPort
@@ -65,8 +65,8 @@ through the dev server.
 
     import Json.Encode as Encode
     import Test.BackendTask as BackendTaskTest
-    import Test.PagesProgram as PagesProgram
     import Test.Html.Selector as Selector
+    import Test.PagesProgram as PagesProgram
     import TestApp
 
     starsTest : TestApp.ProgramTest
@@ -158,7 +158,7 @@ test pauses until you provide a simulated response. These functions work
 regardless of where the `BackendTask` originated -- route data loading,
 form actions, or BackendTask effects returned from `update`.
 
-@docs simulateHttpGet, simulateHttpPost, simulateHttpError, simulateHttpGetTo, simulateHttpPostTo
+@docs simulateHttpGet, simulateHttpPost, simulateHttpError
 
 @docs simulateCustom
 
@@ -795,15 +795,15 @@ startPlatform simulateEffect config initialPath testSetup =
                                                                         initModel
 
                                                                 ( processedWrapped, _, _ ) =
-                                                                        processEffectsWrapped config
-                                                                            baseUrl
-                                                                            requestDefaults
-                                                                            makeReady
-                                                                            makePlatformResolver
-                                                                            handleUserCmd
-                                                                            { platformModel = readyModel, virtualFs = doneState.virtualFS, cookieJar = initialCookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
-                                                                            readyEffect
-                                                                            100
+                                                                    processEffectsWrapped config
+                                                                        baseUrl
+                                                                        requestDefaults
+                                                                        makeReady
+                                                                        makePlatformResolver
+                                                                        handleUserCmd
+                                                                        { platformModel = readyModel, virtualFs = doneState.virtualFS, cookieJar = initialCookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
+                                                                        readyEffect
+                                                                        100
                                                             in
                                                             Advanced (Ready (makeReady processedWrapped)) Nothing []
 
@@ -967,7 +967,7 @@ startPlatform simulateEffect config initialPath testSetup =
                                     config_.urlToRoute fetchUrl
 
                                 actionRequest =
-                                            Internal.Request.Request
+                                    Internal.Request.Request
                                         { time = requestDefaults.requestTime
                                         , method = "POST"
                                         , body = Just body
@@ -979,9 +979,9 @@ startPlatform simulateEffect config initialPath testSetup =
                                         }
 
                                 ( _, bt ) =
-                                            BackendTaskTest.resolveWithVirtualFsPartial
-                                                wrappedModel.virtualFs
-                                                (config_.action actionRequest route)
+                                    BackendTaskTest.resolveWithVirtualFsPartial
+                                        wrappedModel.virtualFs
+                                        (config_.action actionRequest route)
                             in
                             Resolving
                                 (Resolver
@@ -1077,51 +1077,51 @@ startPlatform simulateEffect config initialPath testSetup =
                                                 { platformModel = cleanedModel, virtualFs = vfsAfterData, cookieJar = wrappedModel.cookieJar, pendingDataError = Nothing, pendingDataPath = Nothing, pendingActionBody = Nothing }
                                                 newEffect
                                                 100
-                                                in
-                                                    case processedWrapped.pendingDataPath of
-                                                        Just dataPath ->
-                                                            let
-                                                                dataFetchUrl =
-                                                                    makeTestUrl baseUrl dataPath
+                                    in
+                                    case processedWrapped.pendingDataPath of
+                                        Just dataPath ->
+                                            let
+                                                dataFetchUrl =
+                                                    makeTestUrl baseUrl dataPath
 
-                                                                dataRoute =
-                                                                    config.urlToRoute dataFetchUrl
+                                                dataRoute =
+                                                    config.urlToRoute dataFetchUrl
 
-                                                                ( _, dataBt ) =
-                                                                    BackendTaskTest.resolveWithVirtualFsPartial
-                                                                        processedWrapped.virtualFs
-                                                                        (config.data (platformTestRequest requestDefaults (Url.toString dataFetchUrl) processedWrapped.cookieJar) dataRoute)
+                                                ( _, dataBt ) =
+                                                    BackendTaskTest.resolveWithVirtualFsPartial
+                                                        processedWrapped.virtualFs
+                                                        (config.data (platformTestRequest requestDefaults (Url.toString dataFetchUrl) processedWrapped.cookieJar) dataRoute)
 
-                                                                dataMakePhase m =
-                                                                    makePhase m
-                                                            in
-                                                            case dataBt of
-                                                                BackendTaskTest.Running _ ->
-                                                                    Advanced
-                                                                        (Resolving
-                                                                            (Resolver
-                                                                                { kind = BackendResolver
-                                                                                , advance =
-                                                                                    \_ sim ->
-                                                                                        continueDataWithBt processedWrapped dataMakePhase (applySimToBt sim dataBt)
-                                                                                , pendingDescription =
-                                                                                    processedWrapped.pendingDataError |> Maybe.withDefault "Pending data HTTP after navigation redirect"
-                                                                                , pendingUrls = btPendingUrls dataBt
-                                                                                , pendingRequestDetails = btPendingRequestDetails dataBt
-                                                                                }
-                                                                            )
-                                                                        )
-                                                                        Nothing
-                                                                        []
+                                                dataMakePhase m =
+                                                    makePhase m
+                                            in
+                                            case dataBt of
+                                                BackendTaskTest.Running _ ->
+                                                    Advanced
+                                                        (Resolving
+                                                            (Resolver
+                                                                { kind = BackendResolver
+                                                                , advance =
+                                                                    \_ sim ->
+                                                                        continueDataWithBt processedWrapped dataMakePhase (applySimToBt sim dataBt)
+                                                                , pendingDescription =
+                                                                    processedWrapped.pendingDataError |> Maybe.withDefault "Pending data HTTP after navigation redirect"
+                                                                , pendingUrls = btPendingUrls dataBt
+                                                                , pendingRequestDetails = btPendingRequestDetails dataBt
+                                                                }
+                                                            )
+                                                        )
+                                                        Nothing
+                                                        []
 
-                                                                BackendTaskTest.Done _ ->
-                                                                    continueDataWithBt processedWrapped dataMakePhase dataBt
+                                                BackendTaskTest.Done _ ->
+                                                    continueDataWithBt processedWrapped dataMakePhase dataBt
 
-                                                                BackendTaskTest.TestError errMsg ->
-                                                                    AdvanceError errMsg
+                                                BackendTaskTest.TestError errMsg ->
+                                                    AdvanceError errMsg
 
-                                                        Nothing ->
-                                                            Advanced (makePhase processedWrapped) Nothing []
+                                        Nothing ->
+                                            Advanced (makePhase processedWrapped) Nothing []
 
                                 Nothing ->
                                     -- Redirect or non-renderable response
@@ -1423,29 +1423,6 @@ simulateHttpError method url error =
                     "Timeout"
     in
     applySimulation (SimHttpError method url errorString)
-
-
-{-| Like [`simulateHttpGet`](#simulateHttpGet), but targets the resolver whose
-pending URL matches. Use when multiple resolvers are pending for different URLs
-and you want to resolve a specific one regardless of queue order.
-
-    test
-        |> PagesProgram.simulateHttpGetTo
-            "https://api.example.com/count"
-            (Encode.object [ ( "count", Encode.int 5 ) ])
-
--}
-simulateHttpGetTo : String -> Encode.Value -> ProgramTest model msg -> ProgramTest model msg
-simulateHttpGetTo targetUrl jsonResponse =
-    applySimulationToUrl targetUrl (SimHttpGet targetUrl jsonResponse)
-
-
-{-| Like [`simulateHttpPost`](#simulateHttpPost), but targets the resolver whose
-pending URL matches.
--}
-simulateHttpPostTo : String -> Encode.Value -> ProgramTest model msg -> ProgramTest model msg
-simulateHttpPostTo targetUrl jsonResponse =
-    applySimulationToUrl targetUrl (SimHttpPost targetUrl jsonResponse)
 
 
 
@@ -4023,40 +4000,37 @@ applySimulation sim (ProgramTest state) =
             ProgramTest state
 
         Nothing ->
-            case state.phase of
-                Resolving ((Resolver resolverRecord) as resolver) ->
-                    -- When pending fetcher effects exist, try them first. Fetchers
-                    -- represent user interactions that should resolve before background
-                    -- data reloads. This prevents a stale data reload resolver from
-                    -- consuming a response meant for a fetcher mutation (which would
-                    -- happen when mutation and data responses share the same JSON shape).
-                    case ( state.pendingFetcherEffects, state.lastReadyModel ) of
-                        ( ((Resolver _) as fetcherResolver) :: restFetchers, Just currentModel ) ->
-                            case advanceResolver Backend (Just currentModel) restFetchers sim state fetcherResolver of
-                                Ok (ProgramTest newState) ->
-                                    ProgramTest newState
+            let
+                target : String
+                target =
+                    simulationUrl sim
+            in
+            case findResolverByUrl target state.pendingFetcherEffects of
+                Just ( matchedFetcher, restFetchers ) ->
+                    let
+                        maybeModel =
+                            case state.phase of
+                                Ready ready ->
+                                    Just ready.model
 
-                                Err _ ->
-                                    -- Fetcher didn't accept this sim. Try the main resolver.
-                                    advanceResolverOrError Backend Nothing state.pendingFetcherEffects sim state resolver
+                                Resolving _ ->
+                                    state.lastReadyModel
+                    in
+                    case advanceResolver Backend maybeModel restFetchers sim state matchedFetcher of
+                        Ok (ProgramTest newState) ->
+                            ProgramTest newState
 
-                        _ ->
+                        Err errMsg ->
+                            ProgramTest { state | error = Just ("Fetcher effect resolution failed:\n\n" ++ errMsg) }
+
+                Nothing ->
+                    case state.phase of
+                        Resolving ((Resolver _) as resolver) ->
                             advanceResolverOrError Backend Nothing state.pendingFetcherEffects sim state resolver
 
-                Ready ready ->
-                    -- No navigation/action HTTP pending. Check for pending fetcher effects first.
-                    case state.pendingFetcherEffects of
-                        ((Resolver _) as fetcherResolver) :: restFetchers ->
-                            case advanceResolver Backend (Just ready.model) restFetchers sim state fetcherResolver of
-                                Ok (ProgramTest newState) ->
-                                    ProgramTest newState
-
-                                Err errMsg ->
-                                    ProgramTest { state | error = Just ("Fetcher effect resolution failed:\n\n" ++ errMsg) }
-
-                        [] ->
-                            -- No fetcher effects. Check for pending BackendTask effects from update
-                            -- (BackendTasks returned from update).
+                        Ready ready ->
+                            -- No fetcher URL match. Fall through to pending BackendTask effects
+                            -- from update (BackendTasks returned from update).
                             case ready.pendingEffects of
                                 bt :: rest ->
                                     let
@@ -4173,75 +4147,6 @@ simulationUrl sim =
 
         SimCustom portName _ ->
             portName
-
-
-{-| Like applySimulation, but targets a resolver whose pendingUrls contains
-the given URL. Searches the phase resolver and pendingFetcherEffects.
--}
-applySimulationToUrl : String -> Simulation -> ProgramTest model msg -> ProgramTest model msg
-applySimulationToUrl targetUrl sim (ProgramTest state) =
-    case state.error of
-        Just _ ->
-            ProgramTest state
-
-        Nothing ->
-            case state.phase of
-                Resolving ((Resolver resolverRecord) as resolver) ->
-                    if List.member targetUrl resolverRecord.pendingUrls then
-                        -- Phase resolver matches the URL
-                        advanceResolverOrError Backend Nothing state.pendingFetcherEffects sim state resolver
-
-                    else
-                        -- Phase resolver doesn't match. Search pendingFetcherEffects.
-                        case findResolverByUrl targetUrl state.pendingFetcherEffects of
-                            Just ( matchedResolver, restFetchers ) ->
-                                case state.lastReadyModel of
-                                    Just currentModel ->
-                                        case advanceResolver Backend (Just currentModel) restFetchers sim state matchedResolver of
-                                            Ok (ProgramTest newState) ->
-                                                ProgramTest newState
-
-                                            Err errMsg ->
-                                                ProgramTest { state | error = Just errMsg }
-
-                                    Nothing ->
-                                        ProgramTest { state | error = Just ("simulateHttpTo: No current model available for fetcher resolver matching " ++ targetUrl) }
-
-                            Nothing ->
-                                ProgramTest
-                                    { state
-                                        | error =
-                                            Just
-                                                ("No pending resolver found for URL: "
-                                                    ++ targetUrl
-                                                    ++ "\n\nPhase resolver pending: "
-                                                    ++ resolverRecord.pendingDescription
-                                                    ++ "\n\nPending fetcher effects: "
-                                                    ++ String.fromInt (List.length state.pendingFetcherEffects)
-                                                )
-                                    }
-
-                Ready ready ->
-                    case findResolverByUrl targetUrl state.pendingFetcherEffects of
-                        Just ( matchedResolver, restFetchers ) ->
-                            case advanceResolver Backend (Just ready.model) restFetchers sim state matchedResolver of
-                                Ok (ProgramTest newState) ->
-                                    ProgramTest newState
-
-                                Err errMsg ->
-                                    ProgramTest { state | error = Just ("Fetcher effect resolution failed:\n\n" ++ errMsg) }
-
-                        Nothing ->
-                            ProgramTest
-                                { state
-                                    | error =
-                                        Just
-                                            ("No pending resolver found for URL: "
-                                                ++ targetUrl
-                                                ++ "\n\nPending fetcher effects: "
-                                                ++ String.fromInt (List.length state.pendingFetcherEffects)
-                                            )
-                                }
 
 
 {-| Find the first resolver in the list whose pendingUrls contains the target URL.
@@ -4844,7 +4749,6 @@ extractHtmlFromElement element =
         forcedFailure =
             element
                 |> Query.has [ Selector.text marker ]
-
     in
     case Test.Runner.getFailureReason forcedFailure of
         Nothing ->
@@ -5064,7 +4968,7 @@ parseHtmlAttributes attributesChunk =
         |> List.foldl
             (\match attrs ->
                 case match.submatches of
-                    Just name :: maybeValue :: [] ->
+                    (Just name) :: maybeValue :: [] ->
                         Dict.insert name (Maybe.withDefault "true" maybeValue) attrs
 
                     _ ->
@@ -6190,17 +6094,17 @@ processEffectsWrapped config baseUrl requestDefaults makeReady makePlatformResol
                                                         Advanced (Ready (makeReady processedWrapped2)) Nothing []
 
                                                     else
-                                                            let
-                                                                readyWhileReloading =
-                                                                    { processedWrapped2
-                                                                        | pendingDataError = Nothing
-                                                                        , pendingDataPath = Nothing
-                                                                    }
-                                                            in
-                                                            Advanced
-                                                                (Ready (makeReady readyWhileReloading))
-                                                                (Just readyWhileReloading)
-                                                                backgroundReloadResolvers
+                                                        let
+                                                            readyWhileReloading =
+                                                                { processedWrapped2
+                                                                    | pendingDataError = Nothing
+                                                                    , pendingDataPath = Nothing
+                                                                }
+                                                        in
+                                                        Advanced
+                                                            (Ready (makeReady readyWhileReloading))
+                                                            (Just readyWhileReloading)
+                                                            backgroundReloadResolvers
 
                                                 Err errMsg ->
                                                     AdvanceError ("Fetcher action resolution failed:\n\n" ++ errMsg)
