@@ -40,6 +40,86 @@ export function lookupOrPerform(portsFile, mode, rawRequest) {
     }
 
     if (
+      request.url.startsWith("elm-pages-internal://parallel-spawn-worker/")
+    ) {
+      // BackendTask.Parallel.worker — bring up (or rebuild) an Elm-in-
+      // worker sub-pool for this module and ship it the one-time shared
+      // payload. Resolves with empty bytes (the Elm side decodes
+      // `Bytes.Decode.succeed (Worker workerModule)`).
+      const workerModule = request.url.substring(
+        "elm-pages-internal://parallel-spawn-worker/".length
+      );
+      try {
+        const sharedBytes = rawRequest.__rawBytes || Buffer.alloc(0);
+        timeStart(`BackendTask.Parallel.worker "${workerModule}"`);
+        try {
+          await parallelWorkerPool.spawnElmWorkerPool({
+            workerModule,
+            sharedBytes,
+          });
+        } finally {
+          timeEnd(`BackendTask.Parallel.worker "${workerModule}"`);
+        }
+        resolve({
+          kind: "response-json",
+          value: { bodyKind: "bytes", body: null },
+          rawBytes: Buffer.alloc(0),
+        });
+      } catch (error) {
+        reject({
+          title: "BackendTask.Parallel.worker Error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    } else if (
+      request.url.startsWith("elm-pages-internal://parallel-worker-task/")
+    ) {
+      // BackendTask.Parallel.runOn — dispatch one task input to a free
+      // worker in the sub-pool for the given module. Resolves with the
+      // bytes the worker handed back via `sendResult`.
+      const workerModule = request.url.substring(
+        "elm-pages-internal://parallel-worker-task/".length
+      );
+      try {
+        const inputBytes = rawRequest.__rawBytes || Buffer.alloc(0);
+        timeStart(`BackendTask.Parallel.runOn "${workerModule}"`);
+        let outputBuffer;
+        try {
+          const result = await parallelWorkerPool.dispatchElmTask({
+            workerModule,
+            inputBytes,
+          });
+          outputBuffer = Buffer.isBuffer(result)
+            ? result
+            : Buffer.from(
+                result.buffer,
+                result.byteOffset,
+                result.byteLength
+              );
+        } catch (dispatchError) {
+          timeEnd(`BackendTask.Parallel.runOn "${workerModule}"`);
+          reject({
+            title: "BackendTask.Parallel.runOn Error",
+            message:
+              dispatchError instanceof Error
+                ? dispatchError.message
+                : String(dispatchError),
+          });
+          return;
+        }
+        timeEnd(`BackendTask.Parallel.runOn "${workerModule}"`);
+        resolve({
+          kind: "response-json",
+          value: { bodyKind: "bytes", body: null },
+          rawBytes: outputBuffer,
+        });
+      } catch (error) {
+        reject({
+          title: "BackendTask.Parallel.runOn Error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    } else if (
       request.url.startsWith("elm-pages-internal://parallel-port-bytes/")
     ) {
       // BackendTask.Parallel.run — same Bytes-in/Bytes-out wire as

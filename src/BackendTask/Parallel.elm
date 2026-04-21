@@ -1,4 +1,8 @@
-module BackendTask.Parallel exposing (run, initShared, receiveTask, sendResult)
+module BackendTask.Parallel exposing
+    ( run
+    , Worker, worker, runOn
+    , initShared, receiveTask, sendResult
+    )
 
 {-| Dispatch a `Bytes`-in / `Bytes`-out task to a pool of long-lived Node
 Worker threads. Unlike [`BackendTask.Custom.runBytes`](BackendTask-Custom#runBytes),
@@ -12,6 +16,42 @@ main event loop. For use cases where the work is I/O bound, plain
 `BackendTask.combine` already gets you main-thread-level concurrency.
 
 @docs run
+
+
+# Spawning Elm-in-worker pools
+
+For workloads where each unit of work is itself an Elm computation
+(running an interpreter, evaluating tests, etc.), it is much faster to
+share a one-time payload (`shared`) across many tasks than to redo that
+setup per task. The `worker` / `runOn` pair lets a main script spawn a
+pool of long-lived worker threads — each of which boots a compiled Elm
+script — and then dispatch many small tasks to that pool.
+
+The worker module is a regular Elm-pages [`Pages.Script`](Pages-Script#Script)
+in the project's source-directories. It receives the shared payload via
+[`initShared`](#initShared), then loops calling [`receiveTask`](#receiveTask)
+and [`sendResult`](#sendResult). Example main script:
+
+    main : Script
+    main =
+        BackendTask.Parallel.worker
+            { workerModule = "TestFileWorker"
+            , shared = encodeProject project
+            }
+            |> BackendTask.andThen
+                (\w ->
+                    files
+                        |> List.map
+                            (\f ->
+                                BackendTask.Parallel.runOn w
+                                    (encodeFile f)
+                                    fileResultDecoder
+                            )
+                        |> BackendTask.combine
+                )
+            |> Script.withoutCliOptions
+
+@docs Worker, worker, runOn
 
 
 # Worker-script primitives
@@ -92,6 +132,70 @@ run :
 run portName input decoder =
     BackendTask.Internal.Request.requestBytes
         { name = "parallel-port-bytes/" ++ portName
+        , body = BackendTask.Http.bytesBody "application/octet-stream" input
+        , expect = decoder
+        }
+
+
+{-| An opaque handle to a pool of Elm worker threads, returned by
+[`worker`](#worker) and consumed by [`runOn`](#runOn).
+
+Internally, the handle just remembers which worker module the pool was
+spawned for; the actual worker threads live on the JS side, indexed by
+that module name.
+
+-}
+type Worker
+    = Worker String
+
+
+{-| Spawn (or attach to) a pool of long-lived Elm worker threads for the
+given Elm module, and pass them the one-time shared payload.
+
+The pool is brought up lazily on the first `worker` call for a given
+`workerModule`; subsequent calls for the same module attach to the
+existing pool and re-broadcast the new shared payload (so calling
+`worker` again with a fresh payload effectively rebuilds the pool's
+shared state). Workers persist for the lifetime of `elm-pages run`.
+
+`workerModule` must name an Elm module in your project's
+source-directories that exposes `run : Pages.Script.Script`. The script
+should call `initShared` once and then loop calling `receiveTask` /
+`sendResult`.
+
+-}
+worker :
+    { workerModule : String
+    , shared : Bytes
+    }
+    -> BackendTask FatalError Worker
+worker { workerModule, shared } =
+    BackendTask.Internal.Request.requestBytes
+        { name = "parallel-spawn-worker/" ++ workerModule
+        , body = BackendTask.Http.bytesBody "application/octet-stream" shared
+        , expect = Bytes.Decode.succeed (Worker workerModule)
+        }
+
+
+{-| Dispatch a single task to the pool for this `Worker`, blocking (as a
+`BackendTask`) until any free worker in the pool returns the result.
+
+Combine with `BackendTask.combine` to fan out many tasks across the pool
+in parallel:
+
+    files
+        |> List.map (\f -> runOn w (encodeFile f) decodeResult)
+        |> BackendTask.combine
+
+-}
+runOn :
+    Worker
+    -> Bytes
+    -> Bytes.Decode.Decoder output
+    -> BackendTask FatalError output
+runOn (Worker workerModule) input decoder =
+    BackendTask.Internal.Request.requestBytes
+        { name = "parallel-worker-task/" ++ workerModule
         , body = BackendTask.Http.bytesBody "application/octet-stream" input
         , expect = decoder
         }

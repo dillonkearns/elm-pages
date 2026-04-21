@@ -33,21 +33,10 @@ run : Script
 run =
     (BackendTask.Parallel.initShared (Bytes.Decode.succeed ())
         |> BackendTask.andThen (\_ -> Script.log "  ✓ initShared resolved")
-        |> BackendTask.andThen (\_ -> BackendTask.Parallel.receiveTask u32BE)
-        |> BackendTask.andThen
-            (\value ->
-                if value == 42 then
-                    Script.log
-                        ("  ✓ receiveTask returned sentinel "
-                            ++ String.fromInt value
-                        )
-
-                else
-                    BackendTask.fail
-                        (FatalError.fromString
-                            ("Expected 42, got " ++ String.fromInt value)
-                        )
-            )
+        |> BackendTask.andThen (\_ -> recvAndCheck 1)
+        |> BackendTask.andThen (\_ -> recvAndCheck 2)
+        |> BackendTask.andThen (\_ -> recvAndCheck 3)
+        |> BackendTask.andThen (\_ -> Script.log "  ✓ 3 sequential receiveTask calls each fired (no cross-batch dedup)")
         |> BackendTask.andThen
             (\_ ->
                 BackendTask.Parallel.sendResult
@@ -60,6 +49,26 @@ run =
             )
     )
         |> Script.withoutCliOptions
+
+
+recvAndCheck : Int -> BackendTask FatalError.FatalError ()
+recvAndCheck callIx =
+    BackendTask.Parallel.receiveTask u32BE
+        |> BackendTask.andThen
+            (\value ->
+                if value == 42 then
+                    BackendTask.succeed ()
+
+                else
+                    BackendTask.fail
+                        (FatalError.fromString
+                            ("receiveTask call #"
+                                ++ String.fromInt callIx
+                                ++ " expected 42, got "
+                                ++ String.fromInt value
+                            )
+                        )
+            )
 
 
 u32BE : Bytes.Decode.Decoder Int

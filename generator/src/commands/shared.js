@@ -850,6 +850,113 @@ no db.bin file exists yet.`;
 }
 
 /**
+ * Generate the wrapper module that boots an Elm-script worker. Mirrors
+ * `generatorWrapperFile` but produces a uniquely-named module so a worker
+ * compile (`elm-stuff/elm-pages/workers/X.cjs`) doesn't clobber the main
+ * script's compile (`elm-stuff/elm-pages/elm.cjs`).
+ *
+ * @param {string} workerModule
+ */
+export function workerWrapperFile(workerModule) {
+  return `port module WorkerMain_${workerModule} exposing (main)
+
+import Bytes exposing (Bytes)
+import Json.Decode
+import Json.Encode
+import Pages.Internal.Platform.GeneratorApplication
+import ${workerModule}
+
+
+main : Pages.Internal.Platform.GeneratorApplication.Program
+main =
+    Pages.Internal.Platform.GeneratorApplication.app
+        { data = ${workerModule}.run
+        , scriptModuleName = "${workerModule}"
+        , toJsPort = toJsPort
+        , fromJsPort = fromJsPort identity
+        , gotBatchSub = gotBatchSub identity
+        , sendPageData = \\_ -> Cmd.none
+        }
+
+
+port toJsPort : { json : Json.Encode.Value, bytes : List { key : String, data : Bytes } } -> Cmd msg
+
+
+port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
+
+
+port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe Bytes } -> msg) -> Sub msg
+`;
+}
+
+/**
+ * Compile a worker script (a `Pages.Script` exported as `run` from the
+ * given module) into its own `.cjs` so it can be loaded by a Node Worker
+ * thread without colliding with the main script's `elm.cjs`.
+ *
+ * Reuses the main script's `elm.json` rewrite + codegen setup (which
+ * `compileElmForScript` already produced for the main script that called
+ * `Parallel.worker`), so this only needs to write a fresh wrapper file
+ * and re-invoke `lamdera make` with a different entrypoint and output.
+ *
+ * @param {string} workerModule
+ * @param {string} projectDirectory
+ * @returns {Promise<string>} absolute path to the compiled `.cjs`
+ */
+export async function compileWorkerScript(workerModule, projectDirectory) {
+  if (workerModule.includes(".")) {
+    throw `BackendTask.Parallel.worker: nested module names like "${workerModule}" are not yet supported as worker modules. Use a top-level module.`;
+  }
+
+  const elmJsonPath = path.join(projectDirectory, "elm.json");
+  if (!fs.existsSync(elmJsonPath)) {
+    throw `Could not find elm.json at ${elmJsonPath}.`;
+  }
+  const elmJson = JSON.parse(await fs.promises.readFile(elmJsonPath, "utf8"));
+  const sourceDirs = elmJson["source-directories"] || ["src"];
+  let foundSource = null;
+  for (const dir of sourceDirs) {
+    const candidate = path.resolve(projectDirectory, dir, `${workerModule}.elm`);
+    if (fs.existsSync(candidate)) {
+      foundSource = candidate;
+      break;
+    }
+  }
+  if (!foundSource) {
+    throw `Worker module ${workerModule}.elm not found in any source-directory of ${projectDirectory}.`;
+  }
+
+  const { ensureDirSync, writeFileIfChanged } = await import("../file-helpers.js");
+  ensureDirSync(path.join(projectDirectory, "elm-stuff/elm-pages/.elm-pages"));
+  ensureDirSync(path.join(projectDirectory, "elm-stuff/elm-pages/workers"));
+
+  const wrapperPath = path.join(
+    projectDirectory,
+    "elm-stuff/elm-pages/.elm-pages",
+    `WorkerMain_${workerModule}.elm`
+  );
+  await writeFileIfChanged(wrapperPath, workerWrapperFile(workerModule));
+
+  const elmOutputPath = path.join(
+    projectDirectory,
+    "elm-stuff/elm-pages/workers",
+    `${workerModule}.js`
+  );
+  const compiledCjsPath = elmOutputPath.replace(/\.js$/, ".cjs");
+
+  const { compileCliApp } = await import("../compile-elm.js");
+  await compileCliApp(
+    { debug: true },
+    wrapperPath,
+    elmOutputPath,
+    path.join(projectDirectory, "elm-stuff/elm-pages"),
+    elmOutputPath
+  );
+
+  return compiledCjsPath;
+}
+
+/**
  * Check if an Elm module exposes a given value name.
  * @param {string} filePath - Path to the .elm file
  * @param {string} valueName - The name to look for in the exposing list

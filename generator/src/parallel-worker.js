@@ -1,15 +1,26 @@
 /**
- * Worker-thread entrypoint for BackendTask.Parallel.run.
+ * Worker-thread entrypoint for BackendTask.Parallel.
  *
- * Each worker loads the project's custom-backend-task module once on startup
- * and then services tasks in a loop. Tasks arrive as
- *   { taskId, portName, inputBytes, context }
- * via parentPort.postMessage and responses go back as
- *   { taskId, outputBytes }   // on success
- *   { taskId, error }         // on failure
+ * Two modes, selected by `workerData.workerKind`:
  *
- * Workers are spawned by parallel-worker-pool.js and persist for the lifetime
- * of `elm-pages run`.
+ *   "js-port"     — used by `BackendTask.Parallel.run`. Loads the
+ *                   project's `custom-backend-task` module once on
+ *                   startup, then services tasks as
+ *                     { taskId, portName, inputBytes, context }
+ *                   from `parentPort.postMessage`. Responses go back as
+ *                     { taskId, outputBytes } | { taskId, error }
+ *
+ *   "elm-script"  — used by `BackendTask.Parallel.worker` /
+ *                   `Parallel.runOn`. Boots a compiled Elm worker script
+ *                   in this thread (long-lived; loops via andThen) and
+ *                   bridges the worker-side primitives
+ *                   `initShared` / `receiveTask` / `sendResult` to
+ *                   parent-thread messages:
+ *                     - parent posts { tag: "task", taskId, inputBytes }
+ *                     - worker posts { tag: "result", taskId, outputBytes }
+ *
+ * Workers are spawned by parallel-worker-pool.js and persist for the
+ * lifetime of `elm-pages run` (or until the sub-pool is respawned).
  */
 
 import { parentPort, workerData } from "node:worker_threads";
@@ -22,84 +33,333 @@ if (!parentPort) {
   );
 }
 
-// Load the project's compiled custom-backend-task module. Fires once per
-// worker; all task dispatches share this module reference in-worker.
-let portsFile = null;
-let portsLoadError = null;
-if (workerData && workerData.portsPath) {
-  try {
-    const portsUrl = url
-      .pathToFileURL(path.resolve(workerData.portsPath))
-      .href;
-    portsFile = await import(portsUrl);
-  } catch (e) {
-    portsLoadError = e;
-  }
+const workerKind = (workerData && workerData.workerKind) || "js-port";
+
+// Surface uncaught worker exceptions back to the parent before exiting so
+// debugging the elm-script bridge isn't silent.
+process.on("uncaughtException", (err) => {
+  console.error(`[parallel-worker uncaughtException] ${err.stack || err}`);
+});
+process.on("unhandledRejection", (err) => {
+  console.error(`[parallel-worker unhandledRejection] ${err && err.stack ? err.stack : err}`);
+});
+
+if (workerKind === "elm-script") {
+  await runElmScriptWorker();
+} else {
+  await runJsPortWorker();
 }
 
-parentPort.on("message", async (message) => {
-  const { taskId, portName, inputBytes, context } = message;
-  try {
-    if (portsLoadError) {
-      throw new Error(
-        "Failed to import custom-backend-task module in worker: " +
-          portsLoadError.message
-      );
-    }
-    if (portsFile === null) {
-      throw new Error(
-        "No custom-backend-task module available in worker (no portsPath passed)."
-      );
-    }
-    if (!portsFile[portName]) {
-      throw new Error(
-        `No export named \`${portName}\` in custom-backend-task module.`
-      );
-    }
-    if (typeof portsFile[portName] !== "function") {
-      throw new Error(
-        `Export \`${portName}\` is not a function (found ${typeof portsFile[
-          portName
-        ]}).`
-      );
-    }
+// ───────────────────────── js-port (default) ─────────────────────────
 
-    // Node structured-clones Buffer instances as Uint8Array across worker
-    // boundaries, which strips Buffer-specific methods (readUInt32BE, etc.).
-    // Restore a zero-copy Buffer view over the same memory so port functions
-    // see the same type they would on the main thread.
-    const inputBuffer = Buffer.isBuffer(inputBytes)
-      ? inputBytes
-      : Buffer.from(
-          inputBytes.buffer,
-          inputBytes.byteOffset,
-          inputBytes.byteLength
-        );
-
-    const result = await portsFile[portName](inputBuffer, context);
-
-    let outputBuffer;
-    if (Buffer.isBuffer(result)) {
-      outputBuffer = result;
-    } else if (result instanceof Uint8Array) {
-      outputBuffer = Buffer.from(
-        result.buffer,
-        result.byteOffset,
-        result.byteLength
-      );
-    } else if (result instanceof ArrayBuffer) {
-      outputBuffer = Buffer.from(result);
-    } else {
-      throw new Error(
-        `Port \`${portName}\` must return Bytes (Buffer/Uint8Array/ArrayBuffer). Got: ${typeof result}`
-      );
+async function runJsPortWorker() {
+  let portsFile = null;
+  let portsLoadError = null;
+  if (workerData && workerData.portsPath) {
+    try {
+      const portsUrl = url
+        .pathToFileURL(path.resolve(workerData.portsPath))
+        .href;
+      portsFile = await import(portsUrl);
+    } catch (e) {
+      portsLoadError = e;
     }
-
-    parentPort.postMessage({ taskId, outputBytes: outputBuffer });
-  } catch (err) {
-    parentPort.postMessage({
-      taskId,
-      error: err instanceof Error ? err.message : String(err),
-    });
   }
-});
+
+  parentPort.on("message", async (message) => {
+    const { taskId, portName, inputBytes, context } = message;
+    try {
+      if (portsLoadError) {
+        throw new Error(
+          "Failed to import custom-backend-task module in worker: " +
+            portsLoadError.message
+        );
+      }
+      if (portsFile === null) {
+        throw new Error(
+          "No custom-backend-task module available in worker (no portsPath passed)."
+        );
+      }
+      if (!portsFile[portName]) {
+        throw new Error(
+          `No export named \`${portName}\` in custom-backend-task module.`
+        );
+      }
+      if (typeof portsFile[portName] !== "function") {
+        throw new Error(
+          `Export \`${portName}\` is not a function (found ${typeof portsFile[
+            portName
+          ]}).`
+        );
+      }
+
+      // Node structured-clones Buffer instances as Uint8Array across
+      // worker boundaries, which strips Buffer-specific methods
+      // (readUInt32BE, etc.). Restore a zero-copy Buffer view over the
+      // same memory so port functions see the same type they would on
+      // the main thread.
+      const inputBuffer = Buffer.isBuffer(inputBytes)
+        ? inputBytes
+        : Buffer.from(
+            inputBytes.buffer,
+            inputBytes.byteOffset,
+            inputBytes.byteLength
+          );
+
+      const result = await portsFile[portName](inputBuffer, context);
+
+      let outputBuffer;
+      if (Buffer.isBuffer(result)) {
+        outputBuffer = result;
+      } else if (result instanceof Uint8Array) {
+        outputBuffer = Buffer.from(
+          result.buffer,
+          result.byteOffset,
+          result.byteLength
+        );
+      } else if (result instanceof ArrayBuffer) {
+        outputBuffer = Buffer.from(result);
+      } else {
+        throw new Error(
+          `Port \`${portName}\` must return Bytes (Buffer/Uint8Array/ArrayBuffer). Got: ${typeof result}`
+        );
+      }
+
+      parentPort.postMessage({ taskId, outputBytes: outputBuffer });
+    } catch (err) {
+      parentPort.postMessage({
+        taskId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+}
+
+// ───────────────────────── elm-script ─────────────────────────
+
+async function runElmScriptWorker() {
+  const { compiledElmPath, workerModule, sharedBytes } = workerData;
+  const sharedBuffer = bytesToBuffer(sharedBytes);
+
+  // The sub-pool sends tasks as { tag: "task", taskId, inputBytes }.
+  // We queue them until the Elm runtime's next `receiveTask` request
+  // pulls one off, and remember which task is currently in flight so
+  // the next `sendResult` knows which task to reply to.
+  /** @type {Array<{ taskId: string, inputBuffer: Buffer }>} */
+  const incomingTaskQueue = [];
+  /** @type {((task: { taskId: string, inputBuffer: Buffer }) => void) | null} */
+  let pendingReceive = null;
+  /** @type {string | null} */
+  let inFlightTaskId = null;
+
+  parentPort.on("message", (msg) => {
+    if (msg && msg.tag === "task") {
+      const inputBuffer = bytesToBuffer(msg.inputBytes);
+      const task = { taskId: msg.taskId, inputBuffer };
+      if (pendingReceive) {
+        const r = pendingReceive;
+        pendingReceive = null;
+        r(task);
+      } else {
+        incomingTaskQueue.push(task);
+      }
+    }
+  });
+
+  // Boot the compiled Elm worker app. The compiled module exposes
+  // `Elm.WorkerMain_<workerModule>` (see commands/shared.js
+  // `workerWrapperFile`).
+  const elmFileUrl = url.pathToFileURL(path.resolve(compiledElmPath)).href;
+  const warnOriginal = console.warn;
+  console.warn = function () {};
+  /** @type {any} */
+  const elmModule = (await import(elmFileUrl)).default;
+  console.warn = warnOriginal;
+
+  const wrapperName = `WorkerMain_${workerModule}`;
+  if (!elmModule.Elm[wrapperName]) {
+    throw new Error(
+      `Compiled worker module did not expose Elm.${wrapperName}. Got: ${Object.keys(
+        elmModule.Elm
+      ).join(", ")}`
+    );
+  }
+
+  // The compatibilityKey is read by GeneratorApplication; mirroring the
+  // value used by the main runGenerator path. We re-import it from the
+  // generator's compiled JS so any version bump there stays in sync.
+  const { compatibilityKey } = await import("./compatibility-key.js");
+
+  const app = elmModule.Elm[wrapperName].init({
+    flags: {
+      compatibilityKey,
+      argv: ["", `elm-pages worker ${workerModule}`],
+      versionMessage: "",
+      colorMode: false,
+    },
+  });
+
+  app.ports.toJsPort.subscribe(async (newThing) => {
+    let fromElm;
+    let outgoingBytes = [];
+    if ("json" in newThing) {
+      fromElm = newThing.json;
+      outgoingBytes = newThing.bytes || [];
+    } else {
+      fromElm = newThing;
+    }
+
+    if (typeof fromElm === "string") {
+      // printAndExitSuccess (e.g. --help). Workers shouldn't be told to
+      // print --help, so this is unexpected.
+      console.error(
+        `[parallel elm-worker ${workerModule}] unexpected printAndExitSuccess: ${fromElm}`
+      );
+      return;
+    }
+    if (fromElm.command === "log") {
+      console.log(fromElm.value);
+      return;
+    }
+    if (fromElm.tag === "ApiResponse") {
+      // The Elm worker's BackendTask chain terminated. A well-formed
+      // worker loops via andThen and never reaches ApiResponse.
+      console.error(
+        `[parallel elm-worker ${workerModule}] worker script terminated; expected an infinite loop via andThen.`
+      );
+      return;
+    }
+    if (fromElm.tag === "Errors") {
+      const errorsJson = fromElm.args[0].errorsJson;
+      const message =
+        typeof errorsJson === "string" ? errorsJson : JSON.stringify(errorsJson);
+      // Surface the error against whichever task is currently in flight
+      // so the parent's runOn promise rejects rather than hanging.
+      if (inFlightTaskId !== null) {
+        parentPort.postMessage({
+          tag: "error",
+          taskId: inFlightTaskId,
+          error: message,
+        });
+        inFlightTaskId = null;
+      } else {
+        console.error(
+          `[parallel elm-worker ${workerModule}] error before any task: ${message}`
+        );
+      }
+      return;
+    }
+    if (fromElm.tag !== "DoHttp") {
+      console.error(
+        `[parallel elm-worker ${workerModule}] unhandled toJsPort message: ${JSON.stringify(
+          fromElm
+        )}`
+      );
+      return;
+    }
+
+    const outgoingBytesMap = new Map(
+      outgoingBytes.map(({ key, data }) => [key, dataViewToBuffer(data)])
+    );
+
+    const results = await Promise.all(
+      fromElm.args[0].map(async ([requestHash, requestToPerform]) => {
+        const reqBytes = outgoingBytesMap.get(requestHash);
+        const u = requestToPerform.url;
+
+        if (u === "elm-pages-internal://parallel-worker-init-shared") {
+          // Worker's `initShared` request: respond with the cached
+          // shared payload that was passed in via workerData.
+          return bytesResponseEntry(requestHash, requestToPerform, sharedBuffer);
+        }
+
+        if (u === "elm-pages-internal://parallel-worker-receive-task") {
+          // Worker's `receiveTask` request: hand it the next pending
+          // task from the parent — blocking until one arrives.
+          const task = await new Promise((resolve) => {
+            const queued = incomingTaskQueue.shift();
+            if (queued) {
+              resolve(queued);
+            } else {
+              pendingReceive = resolve;
+            }
+          });
+          inFlightTaskId = task.taskId;
+          return bytesResponseEntry(
+            requestHash,
+            requestToPerform,
+            task.inputBuffer
+          );
+        }
+
+        if (u === "elm-pages-internal://parallel-worker-send-result") {
+          // Worker's `sendResult` request: ship the bytes to the
+          // parent and resolve with `()` (which decodes from empty
+          // bytes).
+          const outputBuffer = reqBytes || Buffer.alloc(0);
+          if (inFlightTaskId === null) {
+            console.error(
+              `[parallel elm-worker ${workerModule}] sendResult called with no in-flight task.`
+            );
+          } else {
+            parentPort.postMessage({
+              tag: "result",
+              taskId: inFlightTaskId,
+              outputBytes: outputBuffer,
+            });
+            inFlightTaskId = null;
+          }
+          return bytesResponseEntry(
+            requestHash,
+            requestToPerform,
+            Buffer.alloc(0)
+          );
+        }
+
+        // No other internal URLs are supported inside an Elm-script
+        // worker for v1: the worker is expected to do pure CPU work
+        // against the shared payload + per-task input. If the user
+        // wires e.g. BackendTask.Glob into a worker, surface a clear
+        // error rather than silently hanging.
+        throw new Error(
+          `[parallel elm-worker ${workerModule}] unsupported BackendTask URL: ${u}. Workers may only use BackendTask.Parallel primitives in v1.`
+        );
+      })
+    );
+
+    app.ports.gotBatchSub.send(results);
+  });
+}
+
+function bytesResponseEntry(requestHash, requestToPerform, buffer) {
+  return {
+    key: requestHash,
+    json: {
+      request: requestToPerform,
+      response: { bodyKind: "bytes", body: null },
+    },
+    bytes: bufferToDataView(buffer),
+  };
+}
+
+function bufferToDataView(buf) {
+  return new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+}
+
+function dataViewToBuffer(dv) {
+  return Buffer.from(dv.buffer, dv.byteOffset, dv.byteLength);
+}
+
+function bytesToBuffer(bytes) {
+  if (Buffer.isBuffer(bytes)) return bytes;
+  if (bytes instanceof Uint8Array) {
+    return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  }
+  if (bytes instanceof ArrayBuffer) return Buffer.from(bytes);
+  if (bytes && typeof bytes === "object" && "buffer" in bytes) {
+    return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  }
+  // Empty / null payload — represent as zero-length buffer so the Elm
+  // side decodes successfully against e.g. `Bytes.Decode.succeed ()`.
+  return Buffer.alloc(0);
+}

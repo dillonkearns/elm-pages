@@ -272,6 +272,12 @@ function runGeneratorAppHelp(
               !requestToPerform.url.startsWith(
                 "elm-pages-internal://parallel-port-bytes/"
               ) &&
+              !requestToPerform.url.startsWith(
+                "elm-pages-internal://parallel-spawn-worker/"
+              ) &&
+              !requestToPerform.url.startsWith(
+                "elm-pages-internal://parallel-worker-task/"
+              ) &&
               requestToPerform.url !==
                 "elm-pages-internal://parallel-worker-init-shared" &&
               requestToPerform.url !==
@@ -458,6 +464,12 @@ function runElmApp(
               ) &&
               !requestToPerform.url.startsWith(
                 "elm-pages-internal://parallel-port-bytes/"
+              ) &&
+              !requestToPerform.url.startsWith(
+                "elm-pages-internal://parallel-spawn-worker/"
+              ) &&
+              !requestToPerform.url.startsWith(
+                "elm-pages-internal://parallel-worker-task/"
               ) &&
               requestToPerform.url !==
                 "elm-pages-internal://parallel-worker-init-shared" &&

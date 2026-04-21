@@ -225,6 +225,7 @@ export async function run(elmModulePath, options, options2) {
     // initialized lazily on the first BackendTask.Parallel.run call.
     parallelWorkerPool.configure({
       portsPath: portsPath ? path.resolve(portsPath) : null,
+      projectDirectory,
     });
 
     await renderer.runGenerator(
