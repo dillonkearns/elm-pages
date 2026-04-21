@@ -45,7 +45,14 @@ const compiledWorkerCache = new Map(); // workerModule -> Promise<string>
 // hits (via `Cache.computeAsync` in the TestRunner pipeline) never
 // trigger `dispatchElmTask`, so the worker pool stays idle and we skip
 // compile + load + worker-boot entirely.
-const pendingElmPools = new Map(); // workerModule -> { sharedBytes }
+//
+// `sharedSab` is a SharedArrayBuffer holding the wire-encoded shared
+// payload. Storing as SAB (not Buffer) means the same memory backs the
+// payload across all worker threads without per-worker structured-
+// clone copies — critical for heavy projects whose shared payload runs
+// into the megabytes (see .scratch/parallel-ceiling.md "Tier-2 Option
+// A first attempt"). Workers get a `Buffer.from(sab)` zero-copy view.
+const pendingElmPools = new Map(); // workerModule -> { sharedSab }
 const inFlightSpawns = new Map(); // workerModule -> Promise<void>
 
 /**
@@ -293,9 +300,17 @@ export async function spawnElmWorkerPool({ workerModule, sharedBytes }) {
     elmSubPools.delete(workerModule);
   }
 
+  // Allocate a SharedArrayBuffer once and copy the wire-encoded shared
+  // payload into it. SABs are inherently shared across worker threads:
+  // passing the same SAB reference in `workerData` to multiple workers
+  // gives them all zero-copy views over the same memory, instead of
+  // structured-cloning the bytes per worker.
+  const sharedSab = new SharedArrayBuffer(sharedBytes.length);
+  new Uint8Array(sharedSab).set(sharedBytes);
+
   // Record the config; actual worker spawn is deferred to the first
   // dispatch via `ensureElmWorkerPoolSpawned`.
-  pendingElmPools.set(workerModule, { sharedBytes });
+  pendingElmPools.set(workerModule, { sharedSab });
 }
 
 /**
@@ -320,7 +335,7 @@ function ensureElmWorkerPoolSpawned(workerModule) {
       )
     );
   }
-  const spawnPromise = actuallySpawnElmPool(workerModule, pending.sharedBytes);
+  const spawnPromise = actuallySpawnElmPool(workerModule, pending.sharedSab);
   inFlightSpawns.set(workerModule, spawnPromise);
   spawnPromise
     .then(() => {
@@ -334,7 +349,7 @@ function ensureElmWorkerPoolSpawned(workerModule) {
   return spawnPromise;
 }
 
-async function actuallySpawnElmPool(workerModule, sharedBytes) {
+async function actuallySpawnElmPool(workerModule, sharedSab) {
   const compiledElmPath = await ensureWorkerCompiled(workerModule);
 
   const size = resolvePoolSize();
@@ -345,7 +360,7 @@ async function actuallySpawnElmPool(workerModule, sharedBytes) {
         workerKind: "elm-script",
         compiledElmPath,
         workerModule,
-        sharedBytes,
+        sharedSab,
         portsPath: config.portsPath,
         mode: "build",
       },

@@ -138,9 +138,15 @@ async function runJsPortWorker() {
 // ───────────────────────── elm-script ─────────────────────────
 
 async function runElmScriptWorker() {
-  const { compiledElmPath, workerModule, sharedBytes, portsPath, mode } =
+  const { compiledElmPath, workerModule, sharedSab, portsPath, mode } =
     workerData;
-  const sharedBuffer = bytesToBuffer(sharedBytes);
+  // `sharedSab` is a SharedArrayBuffer allocated once on the main
+  // thread and passed to every worker for this module. `Buffer.from`
+  // on a SAB returns a Buffer view over the same memory — no copy.
+  // The Elm runtime treats it as opaque Bytes (read-only via
+  // `Bytes.Decode`), so concurrent workers reading the same SAB is
+  // safe; nobody mutates.
+  const sharedBuffer = Buffer.from(sharedSab);
 
   // Lazily load the project's custom-backend-task + the request-cache so
   // the worker can resolve any non-`parallel-worker-*` BackendTask URL it
