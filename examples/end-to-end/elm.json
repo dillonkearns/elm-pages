@@ -37,7 +37,7 @@
             "elm/virtual-dom": "1.0.3",
             "elm-community/dict-extra": "2.4.0",
             "elm-community/list-extra": "8.7.0",
-            "elm-explorations/test": "2.0.1",
+            "elm-explorations/test": "2.1.1",
             "hecrj/html-parser": "2.4.0",
             "jluckyiv/elm-utc-date-strings": "1.0.0",
             "justinmimbs/date": "4.0.1",

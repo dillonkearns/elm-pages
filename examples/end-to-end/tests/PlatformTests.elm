@@ -106,7 +106,7 @@ suite =
                     |> PagesProgram.fillIn "feedback-form" "message" "Hello from test!"
                     |> PagesProgram.ensureViewHas
                         [ PSelector.tag "input"
-                        , PSelector.attribute "name=\"message\"" (Selector.attribute (Attr.name "message"))
+                        , PSelector.attribute "name=\"message\"" (Attr.name "message")
                         , PSelector.value "Hello from test!"
                         ]
                     |> PagesProgram.done

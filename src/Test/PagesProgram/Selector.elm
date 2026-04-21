@@ -1,14 +1,17 @@
 module Test.PagesProgram.Selector exposing
     ( Selector
-    , text, tag, class, id, value, attribute, containing, disabled
-    , raw
+    , text, exactText, tag, class, classes, exactClassName, id, value, attribute
+    , containing, all
+    , disabled, checked, selected, style
     )
 
 {-| Labeled selectors for the elm-pages visual test runner.
 
-These wrap `Test.Html.Selector` so that every selector carries a human-readable
-label. The visual test runner displays these labels in the command log sidebar,
-making assertions instantly scannable without reading source code.
+Mirrors every constructor in [`Test.Html.Selector`](https://package.elm-lang.org/packages/elm-explorations/test/latest/Test-Html-Selector)
+so that every selector you use in a `Test.PagesProgram` assertion carries a
+human-readable label. The visual test runner displays these labels in the
+command log sidebar, making assertions instantly scannable without reading
+source code.
 
     import Test.PagesProgram.Selector as Selector
 
@@ -19,13 +22,29 @@ making assertions instantly scannable without reading source code.
 
 @docs Selector
 
-@docs text, tag, class, id, value, attribute, containing, disabled
 
-@docs raw
+## Matching by content
+
+@docs text, exactText, tag, class, classes, exactClassName, id, value, attribute
+
+
+## Combining
+
+@docs containing, all
+
+
+## Form state
+
+@docs disabled, checked, selected
+
+
+## Inline styles
+
+@docs style
 
 -}
 
-import Test.Html.Selector as HtmlSelector
+import Html
 import Test.PagesProgram.Selector.Internal as Internal
 
 
@@ -36,7 +55,7 @@ type alias Selector =
     Internal.Selector
 
 
-{-| Match elements containing the given text.
+{-| Match elements containing the given text (substring match).
 
     Selector.text "Hello"
     -- label: text "Hello"
@@ -45,6 +64,17 @@ type alias Selector =
 text : String -> Selector
 text =
     Internal.text
+
+
+{-| Match elements containing exactly the given text.
+
+    Selector.exactText "Log in"
+    -- label: exactText "Log in"
+
+-}
+exactText : String -> Selector
+exactText =
+    Internal.exactText
 
 
 {-| Match elements with the given tag name.
@@ -58,7 +88,7 @@ tag =
     Internal.tag
 
 
-{-| Match elements with the given CSS class.
+{-| Match elements that have the given CSS class.
 
     Selector.class "todo-count"
     -- label: .todo-count
@@ -67,6 +97,28 @@ tag =
 class : String -> Selector
 class =
     Internal.class
+
+
+{-| Match elements that have all of the given CSS classes.
+
+    Selector.classes [ "btn", "btn-primary" ]
+    -- label: classes [btn, btn-primary]
+
+-}
+classes : List String -> Selector
+classes =
+    Internal.classes
+
+
+{-| Match elements whose `className` attribute equals the given string exactly.
+
+    Selector.exactClassName "btn primary"
+    -- label: className="btn primary"
+
+-}
+exactClassName : String -> Selector
+exactClassName =
+    Internal.exactClassName
 
 
 {-| Match elements with the given id.
@@ -81,7 +133,7 @@ id =
 
 
 {-| Match elements with the given `value` attribute. This is a shorthand
-for the common pattern `Selector.attribute (Attr.value ...)`.
+for the common pattern `Selector.attribute "value=..." (Attr.value ...)`.
 
     Selector.value "Buy milk"
     -- label: value="Buy milk"
@@ -92,14 +144,14 @@ value =
     Internal.value
 
 
-{-| Match elements with the given HTML attribute. You provide a label
-and the attribute.
+{-| Match elements with the given HTML attribute. You provide a label and the
+attribute value.
 
-    Selector.attribute "href" (Attr.href "/about")
+    Selector.attribute "href=\"/about\"" (Attr.href "/about")
     -- label: href="/about"
 
 -}
-attribute : String -> HtmlSelector.Selector -> Selector
+attribute : String -> Html.Attribute Never -> Selector
 attribute =
     Internal.attribute
 
@@ -115,7 +167,21 @@ containing =
     Internal.containing
 
 
-{-| Match elements based on their disabled state.
+{-| Combine selectors into one that requires all of them to match a single
+element. Useful for composing selectors inside [`containing`](#containing) or
+for grouping related matchers.
+
+    Selector.containing
+        [ Selector.all [ Selector.tag "button", Selector.class "primary" ] ]
+    -- label: :has(all [<button>, .primary])
+
+-}
+all : List Selector -> Selector
+all =
+    Internal.all
+
+
+{-| Match elements by their disabled state.
 
     Selector.disabled True
     -- label: [disabled]
@@ -126,12 +192,34 @@ disabled =
     Internal.disabled
 
 
-{-| Escape hatch: wrap any `Test.Html.Selector.Selector` with a custom label.
-Use this for selectors not covered by the convenience constructors above.
+{-| Match form inputs by their checked state.
 
-    Selector.raw "custom-attr" (HtmlSelector.attribute (Attr.attribute "data-testid" "foo"))
+    Selector.checked True
+    -- label: [checked]
 
 -}
-raw : String -> HtmlSelector.Selector -> Selector
-raw =
-    Internal.raw
+checked : Bool -> Selector
+checked =
+    Internal.checked
+
+
+{-| Match `<option>` elements by their selected state.
+
+    Selector.selected True
+    -- label: [selected]
+
+-}
+selected : Bool -> Selector
+selected =
+    Internal.selected
+
+
+{-| Match elements with the given inline style declaration.
+
+    Selector.style "color" "red"
+    -- label: style "color: red"
+
+-}
+style : String -> String -> Selector
+style =
+    Internal.style
