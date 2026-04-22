@@ -361,6 +361,15 @@ You could read a file called `hello.jpg` in your root project directory like thi
 -}
 binaryFile : String -> BackendTask { fatal : FatalError, recoverable : FileReadError decoderError } Bytes
 binaryFile filePath =
+    -- The bytes decoder yields `Maybe Bytes` rather than failing on the
+    -- "missing" sentinel (-1 length): a `Bytes.Decode.fail` here would
+    -- bubble up as an unrecoverable `InternalError` from `requestBytes`,
+    -- which would skip the `mapError` to `fileNotFound` below — meaning
+    -- callers' `File.optional` / `BackendTask.toResult` couldn't catch
+    -- the missing-file case. Decoding to `Maybe`, then converting
+    -- `Nothing` into a recoverable `FileDoesntExist`, keeps the missing
+    -- branch on the recoverable error path that the rest of the API
+    -- promises.
     BackendTask.Internal.Request.requestBytes
         { name = "read-file-binary"
         , body = BackendTask.Http.stringBody "" filePath
@@ -369,13 +378,22 @@ binaryFile filePath =
                 |> Bytes.Decode.andThen
                     (\length ->
                         if length < 0 then
-                            Bytes.Decode.fail
+                            Bytes.Decode.succeed Nothing
 
                         else
-                            Bytes.Decode.bytes length
+                            Bytes.Decode.bytes length |> Bytes.Decode.map Just
                     )
         }
         |> BackendTask.mapError (\_ -> fileNotFound filePath)
+        |> BackendTask.andThen
+            (\maybeBytes ->
+                case maybeBytes of
+                    Just b ->
+                        BackendTask.succeed b
+
+                    Nothing ->
+                        BackendTask.fail (fileNotFound filePath)
+            )
 
 
 {-| Read a file as JSON.

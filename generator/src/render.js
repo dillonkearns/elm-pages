@@ -1391,8 +1391,16 @@ async function readFileBinaryJobNew(req, patternsToWatch) {
 
     return bytesResponse(req, buffer);
   } catch (error) {
-    const buffer = new Int32Array(1);
-    buffer[0] = -1;
+    // Missing-file sentinel: 4-byte signed int -1 in big-endian.
+    // The Elm-side `binaryFile` decoder reads `signedInt32 BE` and
+    // treats negative as "missing"; if we send it via
+    // `Buffer.from(new Int32Array([-1]))` instead, that returns just
+    // ONE byte (255) — `Buffer.from(typedArray)` reads each element as
+    // a uint8 — and the decoder fails with "Bytes decoding failed for
+    // internal request" rather than producing a recoverable
+    // FileDoesntExist. Build the 4-byte buffer explicitly.
+    const buffer = new Uint8Array(4);
+    new DataView(buffer.buffer).setInt32(0, -1);
     return bytesResponse(req, buffer);
   }
 }
