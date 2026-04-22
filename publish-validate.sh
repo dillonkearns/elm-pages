@@ -128,6 +128,12 @@ trap cleanup EXIT
 # ── Step 2: Register local Elm package with elm-wrap ─────────────────────
 echo ""
 echo "--- Registering local Elm package with elm-wrap ---"
+# Clear any stale package-artifact cache from prior runs. Since --local-dev
+# symlinks the repo root as the "package directory", Elm reads artifacts.dat
+# from here; if that cache predates current elm.json changes (e.g. a newly
+# exposed module), compiles see the old exposed-modules list and fail
+# confusingly. A fresh install by a real user wouldn't have these.
+rm -f "$REPO_ROOT/artifacts.dat" "$REPO_ROOT/artifacts.x.dat"
 wrap install --local-dev dillonkearns/elm-pages -y -q
 echo "  Registered dillonkearns/elm-pages@$ELM_PKG_VERSION from $REPO_ROOT"
 

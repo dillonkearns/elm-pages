@@ -1,5 +1,13 @@
 module BackendTask.Internal.Request exposing (request, request2, requestBytes, requestWithHeaders)
 
+{-| Low-level `BackendTask` primitives used by elm-pages generated code
+(e.g. `Pages.Db`). Not part of the public API; these are exposed so that
+generated modules can call them through the published package.
+
+@docs request, request2, requestBytes, requestWithHeaders
+
+-}
+
 import BackendTask exposing (BackendTask)
 import BackendTask.Http exposing (Body)
 import Bytes.Decode
@@ -12,6 +20,8 @@ import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending
 
 
+{-| Internal JSON-decoding request used by generated modules.
+-}
 request :
     { name : String
     , body : Body
@@ -27,6 +37,8 @@ request { name, body, expect } =
         }
 
 
+{-| Internal JSON-decoding request with custom headers.
+-}
 requestWithHeaders :
     { name : String
     , headers : List ( String, String )
@@ -73,6 +85,8 @@ requestWithHeaders { name, headers, body, expect } =
         )
 
 
+{-| Internal request variant that decodes an error payload alongside the success decoder.
+-}
 request2 :
     { name : String
     , body : Body
@@ -131,6 +145,8 @@ request2 { name, body, expect, onError, errorDecoder } =
         )
 
 
+{-| Internal bytes-decoding request used by generated modules.
+-}
 requestBytes :
     { name : String
     , body : Body

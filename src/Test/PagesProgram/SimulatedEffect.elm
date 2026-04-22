@@ -12,6 +12,7 @@ your `Effect` type into something the test framework can process.
 
     import Test.PagesProgram.SimulatedEffect as SimulatedEffect
 
+
     -- In your Effect module:
     testPerform : Effect msg -> SimulatedEffect msg
     testPerform effect =
