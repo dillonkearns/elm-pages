@@ -10,12 +10,12 @@ import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.Html.Selector as PSelector
 import Test.PagesProgram as PagesProgram
-import Test.PagesProgram.Harness as Harness
+import Test.PagesProgram.Internal as PagesProgramInternal
 
 
 blogApp : PagesProgram.ProgramTest Blog.Model Blog.Msg
 blogApp =
-    Harness.start
+    PagesProgramInternal.initialProgramTest
         { data = Blog.data
         , init = Blog.init
         , update = Blog.update

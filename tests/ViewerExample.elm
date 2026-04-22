@@ -20,7 +20,7 @@ import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
 import Test.Html.Selector as PSelector
 import Test.PagesProgram as PagesProgram
-import Test.PagesProgram.Harness as Harness
+import Test.PagesProgram.Internal as PagesProgramInternal
 import Test.PagesProgram.Viewer as Viewer
 
 
@@ -77,7 +77,7 @@ post title author excerpt =
 
 blogFullJourney : PagesProgram.ProgramTest Blog.Model Blog.Msg
 blogFullJourney =
-    Harness.start
+    PagesProgramInternal.initialProgramTest
         { data = Blog.data
         , init = Blog.init
         , update = Blog.update
@@ -125,7 +125,7 @@ loginFlowTest :
         }
         LoginMsg
 loginFlowTest =
-    Harness.start
+    PagesProgramInternal.initialProgramTest
         { data = BackendTask.succeed ()
         , init =
             \() ->
@@ -256,7 +256,7 @@ todoAppTest :
         }
         TodoMsg
 todoAppTest =
-    Harness.start
+    PagesProgramInternal.initialProgramTest
         { data = BackendTask.succeed ()
         , init =
             \() ->
@@ -429,7 +429,7 @@ todoAppTest =
 
 blogLoadsPostsTest : PagesProgram.ProgramTest Blog.Model Blog.Msg
 blogLoadsPostsTest =
-    Harness.start
+    PagesProgramInternal.initialProgramTest
         { data = Blog.data
         , init = Blog.init
         , update = Blog.update
@@ -453,7 +453,7 @@ type CounterMsg
 
 counterTest : PagesProgram.ProgramTest { count : Int } CounterMsg
 counterTest =
-    Harness.start
+    PagesProgramInternal.initialProgramTest
         { data = BackendTask.succeed ()
         , init = \() -> ( { count = 0 }, [] )
         , update =
@@ -502,7 +502,7 @@ type SearchMsg
 
 searchTest : PagesProgram.ProgramTest { search : String, items : List String } SearchMsg
 searchTest =
-    Harness.start
+    PagesProgramInternal.initialProgramTest
         { data =
             BackendTask.succeed
                 { items =

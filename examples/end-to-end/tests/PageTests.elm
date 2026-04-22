@@ -21,7 +21,7 @@ import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.Html.Selector as PSelector
 import Test.PagesProgram as PagesProgram exposing (ProgramTest)
-import Test.PagesProgram.Harness as Harness
+import Test.PagesProgram.Internal as PagesProgramInternal
 
 
 
@@ -38,7 +38,7 @@ type LoginMsg
 
 loginFlowTest : ProgramTest { email : String, password : String, remember : Bool, loggedIn : Bool, userName : String, error : Maybe String } LoginMsg
 loginFlowTest =
-    Harness.start
+    PagesProgramInternal.initialProgramTest
         { data = BackendTask.succeed ()
         , init =
             \() ->
@@ -156,7 +156,7 @@ type TodoMsg
 
 todoAppTest : ProgramTest { newTodo : String, todos : List { id : Int, text : String, done : Bool }, nextId : Int } TodoMsg
 todoAppTest =
-    Harness.start
+    PagesProgramInternal.initialProgramTest
         { data = BackendTask.succeed ()
         , init =
             \() ->
@@ -326,7 +326,7 @@ type SearchMsg
 
 searchFilterTest : ProgramTest { search : String, items : List String } SearchMsg
 searchFilterTest =
-    Harness.start
+    PagesProgramInternal.initialProgramTest
         { data =
             BackendTask.succeed
                 { items =
@@ -407,7 +407,7 @@ type CounterMsg
 
 counterTest : ProgramTest { count : Int } CounterMsg
 counterTest =
-    Harness.start
+    PagesProgramInternal.initialProgramTest
         { data = BackendTask.succeed ()
         , init = \() -> ( { count = 0 }, [] )
         , update =

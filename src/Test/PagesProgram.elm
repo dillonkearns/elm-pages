@@ -15,7 +15,6 @@ module Test.PagesProgram exposing
     , withSimulatedSubscriptions, simulateIncomingPort
     , Snapshot, toSnapshots, withModelInspector
     , start
-    , initialProgramTest
     )
 
 {-| Write pure tests for your elm-pages Route Modules. These tests will not actually perform
@@ -195,15 +194,6 @@ your app's config, so a typical test file writes:
 
 @docs start
 
-
-## Framework-internal
-
-Exposed for use by [`Test.PagesProgram.Harness`](Test-PagesProgram-Harness)
-(the lightweight harness used to test the framework itself). Application code
-should not call this — use [`start`](#start) above.
-
-@docs initialProgramTest
-
 -}
 
 import BackendTask exposing (BackendTask)
@@ -239,12 +229,32 @@ import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.PagesProgram.Internal as Internal
     exposing
-        ( AssertionSelector(..)
+        ( AdvanceResult(..)
+        , AssertionSelector(..)
         , FetcherStatus(..)
         , NetworkSource(..)
         , NetworkStatus(..)
+        , Phase(..)
+        , ProgramTest(..)
+        , ReadyState
+        , Resolver(..)
+        , ResolverKind(..)
+        , Simulation(..)
+        , State
         , StepKind(..)
         , TargetSelector(..)
+        , bodyToString
+        , crashNever
+        , describeEffects
+        , describeHttpRequest
+        , initialProgramTest
+        , initialProgramTestWithEffects
+        , mapViewToSnapshot
+        , requestDetailsFromRequests
+        , requestToDetails
+        , resolveDataPhase
+        , stillRunningDescription
+        , unsafeCoerceHtmlList
         )
 import Test.PagesProgram.SelectorLabel as SelectorLabel
 import Test.PagesProgram.SimulatedEffect as SimulatedEffect
@@ -260,21 +270,8 @@ import UrlPath
 interact with it using simulation and assertion functions, and finalize with
 [`done`](#done).
 -}
-type ProgramTest model msg
-    = ProgramTest (State model msg)
-
-
-type alias State model msg =
-    { phase : Phase model msg
-    , error : Maybe String
-    , snapshots : List Snapshot
-    , modelToString : Maybe (model -> String)
-    , fetcherExtractor : Maybe (model -> List FetcherEntry)
-    , pendingFetcherEffects : List (Resolver model msg)
-    , lastReadyModel : Maybe model
-    , networkLog : List NetworkEntry
-    , subscriptions : Maybe (model -> SimulatedSub msg)
-    }
+type alias ProgramTest model msg =
+    Internal.ProgramTest model msg
 
 
 {-| A snapshot of the program state at a point in the test pipeline.
@@ -314,58 +311,6 @@ type alias FetcherStatus =
     Internal.FetcherStatus
 
 
-type Phase model msg
-    = Resolving (Resolver model msg)
-    | Ready (ReadyState model msg)
-
-
-type ResolverKind
-    = BackendResolver
-    | FetcherResolver
-    | BackgroundReloadResolver
-
-
-{-| Hides the `data` type parameter behind closures so `ProgramTest` only
-needs `model` and `msg` type parameters.
--}
-type Resolver model msg
-    = Resolver
-        { kind : ResolverKind
-        , advance : Maybe model -> Simulation -> AdvanceResult model msg
-        , pendingDescription : String
-        , pendingUrls : List String
-        , pendingRequestDetails : List { url : String, method : String, headers : List ( String, String ), body : Maybe String }
-        }
-
-
-type Simulation
-    = SimHttpGet String Encode.Value
-    | SimHttpPost String Encode.Value
-    | SimHttpError String String String
-    | SimCustom String Encode.Value
-
-
-type AdvanceResult model msg
-    = Advanced (Phase model msg) (Maybe model) (List (Resolver model msg))
-    | AdvanceError String
-
-
-type alias ReadyState model msg =
-    { model : model
-    , getView : model -> { title : String, body : List (Html msg) }
-    , update : msg -> model -> { model : model, effects : List (BackendTask FatalError msg), pendingPhase : Maybe (Phase model msg), fetcherResolvers : List (Resolver model msg) }
-    , pendingEffects : List (BackendTask FatalError msg)
-    , onNavigate : Maybe (String -> msg)
-    , getBrowserUrl : Maybe (model -> String)
-    , onFormSubmit : Maybe ({ formId : String, action : String, fields : List ( String, String ), method : Form.Method, useFetcher : Bool } -> msg)
-    , getFormFields : Maybe (model -> List ( String, String ))
-    , viewScope : Query.Single msg -> Query.Single msg
-    , scopeLabels : List String
-    , scopeSelectors : List (List AssertionSelector)
-    , getModelError : model -> Maybe String
-    }
-
-
 type alias RequestDefaults =
     { requestTime : Time.Posix
     , headers : Dict.Dict String String
@@ -374,89 +319,6 @@ type alias RequestDefaults =
 
 
 -- START
-
-
-{-| Framework-internal. Build an initial `ProgramTest` from a lightweight
-`(data, init, update, view)` config that doesn't go through the elm-pages
-`Main.config`. Used by [`Test.PagesProgram.Harness`](Test-PagesProgram-Harness)
-to test framework internals in isolation. Application code should use
-[`start`](#start) instead.
--}
-initialProgramTest :
-    { data : BackendTask FatalError data
-    , init : data -> ( model, List (BackendTask FatalError msg) )
-    , update : msg -> model -> ( model, List (BackendTask FatalError msg) )
-    , view : data -> model -> { title : String, body : List (Html msg) }
-    }
-    -> ProgramTest model msg
-initialProgramTest config =
-    let
-        bt : BackendTaskTest.BackendTaskTest data
-        bt =
-            BackendTaskTest.fromBackendTask config.data
-
-        phase : Phase model msg
-        phase =
-            resolveDataPhase bt config.init config.view config.update
-
-        initSnapshot : List Snapshot
-        initSnapshot =
-            case phase of
-                Ready ready ->
-                    let
-                        viewResult =
-                            ready.getView ready.model
-                    in
-                    [ { label = "start"
-                      , title = viewResult.title
-                      , body = (mapViewToSnapshot viewResult).body
-                      , rerender = \() -> mapViewToSnapshot (ready.getView ready.model)
-                      , hasPendingEffects = not (List.isEmpty ready.pendingEffects)
-                      , modelState = Nothing
-                      , stepKind = Start
-                      , browserUrl = ready.getBrowserUrl |> Maybe.map (\getUrl -> getUrl ready.model)
-                      , errorMessage = Nothing
-                      , pendingEffects = describeEffects ready.pendingEffects
-                      , networkLog = []
-                      , targetElement = Nothing
-                      , assertionSelectors = []
-                      , scopeSelectors = []
-                      , fetcherLog = []
-                      , groupLabel = Nothing
-                      }
-                    ]
-
-                Resolving _ ->
-                    [ { label = "start"
-                      , title = "(resolving data...)"
-                      , body = []
-                      , rerender = \() -> { title = "(resolving data...)", body = [] }
-                      , hasPendingEffects = True
-                      , modelState = Nothing
-                      , stepKind = Start
-                      , browserUrl = Nothing
-                      , errorMessage = Nothing
-                      , pendingEffects = []
-                      , networkLog = []
-                      , targetElement = Nothing
-                      , assertionSelectors = []
-                      , scopeSelectors = []
-                      , fetcherLog = []
-                      , groupLabel = Nothing
-                      }
-                    ]
-    in
-    ProgramTest
-        { phase = phase
-        , error = Nothing
-        , snapshots = initSnapshot
-        , modelToString = Nothing
-        , fetcherExtractor = Nothing
-        , pendingFetcherEffects = []
-        , lastReadyModel = Nothing
-        , networkLog = []
-        , subscriptions = Nothing
-        }
 
 
 {-| Start a full-fidelity elm-pages test by driving `Pages.Internal.Platform`
@@ -4203,37 +4065,6 @@ makeSnapshot label kind target assertionSels ready modelToString fetcherExtracto
     }
 
 
-{-| Convert pending BackendTask effects into human-readable descriptions.
-Each effect is auto-resolved as far as possible, then we extract what's still
-pending (HTTP URLs, commands, etc.).
--}
-describeEffects : List (BackendTask FatalError msg) -> List String
-describeEffects effects =
-    effects
-        |> List.concatMap
-            (\bt ->
-                case BackendTaskTest.fromBackendTask bt of
-                    BackendTaskTest.Running runningState ->
-                        if List.isEmpty runningState.pendingRequests then
-                            [ "BackendTask (pending)" ]
-
-                        else
-                            runningState.pendingRequests
-                                |> List.map describeHttpRequest
-
-                    BackendTaskTest.Done _ ->
-                        []
-
-                    BackendTaskTest.TestError errMsg ->
-                        [ "Error: " ++ errMsg ]
-            )
-
-
-describeHttpRequest : StaticHttpRequest.Request -> String
-describeHttpRequest req =
-    req.method ++ " " ++ req.url
-
-
 {-| Auto-resolve pure BackendTask effects (those with no external dependencies).
 When `update` returns `BackendTask.succeed msg`, the effect resolves immediately
 without user intervention. Chains through update until only external-dependency
@@ -4373,130 +4204,6 @@ pendingEntriesFromResolver stepIndex (Resolver resolver) =
                                     , requestHeaders = matchingRequest |> Maybe.map .headers |> Maybe.withDefault []
                                 }
                             )
-                )
-
-
-mapViewToSnapshot : { title : String, body : List (Html msg) } -> { title : String, body : List (Html Never) }
-mapViewToSnapshot v =
-    -- We store body as Html Never for the snapshot viewer (non-interactive).
-    -- This is safe because the viewer maps all events to NoOp anyway.
-    { title = v.title, body = unsafeCoerceHtmlList v.body }
-
-
-unsafeCoerceHtmlList : List (Html a) -> List (Html b)
-unsafeCoerceHtmlList =
-    -- elm-explorations/test uses the same trick internally.
-    -- Html is a virtual-dom node; the msg type param is phantom.
-    List.map (Html.map (\_ -> crashNever ()))
-
-
-crashNever : () -> a
-crashNever () =
-    crashNever ()
-
-
-{-| Build a data-phase resolver that hides the `data` type parameter.
-When the BackendTask resolves, calls `initFn` to get the model and transitions
-to `Ready`. When it can't resolve yet, returns a new `Resolving` with updated
-BackendTask state.
--}
-resolveDataPhase :
-    BackendTaskTest.BackendTaskTest data
-    -> (data -> ( model, List (BackendTask FatalError msg) ))
-    -> (data -> model -> { title : String, body : List (Html msg) })
-    -> (msg -> model -> ( model, List (BackendTask FatalError msg) ))
-    -> Phase model msg
-resolveDataPhase bt initFn viewFn updateFn =
-    case bt of
-        BackendTaskTest.Done doneState ->
-            case doneState.result of
-                Ok data ->
-                    let
-                        ( model, effects ) =
-                            initFn data
-                    in
-                    Ready
-                        { model = model
-                        , getView = viewFn data
-                        , update =
-                            \msg m ->
-                                let
-                                    ( m2, effs ) =
-                                        updateFn msg m
-                                in
-                                { model = m2, effects = effs, pendingPhase = Nothing, fetcherResolvers = [] }
-                        , pendingEffects = effects
-                        , onNavigate = Nothing
-                        , getBrowserUrl = Nothing
-                        , onFormSubmit = Nothing
-                        , getFormFields = Nothing
-                        , viewScope = identity
-                        , scopeLabels = []
-                        , scopeSelectors = []
-                        , getModelError = \_ -> Nothing
-                        }
-
-                Err err ->
-                    -- BackendTask completed with FatalError -- produce a clean error
-                    let
-                        (Pages.Internal.FatalError.FatalError errInfo) =
-                            err
-                    in
-                    Resolving
-                        (Resolver
-                            { kind = BackendResolver
-                            , advance = \_ _ -> AdvanceError (errInfo.title ++ ": " ++ errInfo.body)
-                            , pendingDescription =
-                                "Data BackendTask failed with FatalError:\n\n"
-                                    ++ errInfo.title
-                                    ++ "\n"
-                                    ++ errInfo.body
-                            , pendingUrls = []
-                            , pendingRequestDetails = []
-                            }
-                        )
-
-        BackendTaskTest.Running runningState ->
-            Resolving
-                (Resolver
-                    { kind = BackendResolver
-                    , advance =
-                        \_ sim ->
-                            let
-                                newBt : BackendTaskTest.BackendTaskTest data
-                                newBt =
-                                    case sim of
-                                        SimHttpGet url resp ->
-                                            BackendTaskTest.simulateHttpGet url resp bt
-
-                                        SimHttpPost url resp ->
-                                            BackendTaskTest.simulateHttpPost url resp bt
-
-                                        SimHttpError method url errorString ->
-                                            BackendTaskTest.simulateHttpError method url errorString bt
-
-                                        SimCustom portName resp ->
-                                            BackendTaskTest.simulateCustom portName resp bt
-                            in
-                            Advanced (resolveDataPhase newBt initFn viewFn updateFn) Nothing []
-                    , pendingDescription =
-                        stillRunningDescription runningState.pendingRequests
-                    , pendingUrls =
-                        List.map .url runningState.pendingRequests
-                    , pendingRequestDetails =
-                        requestDetailsFromRequests runningState.pendingRequests
-                    }
-                )
-
-        BackendTaskTest.TestError msg ->
-            Resolving
-                (Resolver
-                    { kind = BackendResolver
-                    , advance = \_ _ -> AdvanceError msg
-                    , pendingDescription = msg
-                    , pendingUrls = []
-                    , pendingRequestDetails = []
-                    }
                 )
 
 
@@ -5143,13 +4850,6 @@ getFailureMessage expectation =
             Nothing
 
 
-stillRunningDescription : List { a | url : String } -> String
-stillRunningDescription pendingRequests =
-    "Pending requests:\n\n"
-        ++ (pendingRequests
-                |> List.map (\req -> "    " ++ req.url)
-                |> String.join "\n"
-           )
 
 
 
@@ -6406,43 +6106,6 @@ btPendingRequestDetails bt =
 
         _ ->
             []
-
-
-{-| Convert a StaticHttpRequest.Request to the simplified details we need for network display.
--}
-requestToDetails : StaticHttpRequest.Request -> { url : String, method : String, headers : List ( String, String ), body : Maybe String }
-requestToDetails req =
-    { url = req.url
-    , method = req.method
-    , headers = req.headers
-    , body = bodyToString req.body
-    }
-
-
-{-| Serialize a request body to a string for display in the network panel.
--}
-bodyToString : StaticHttpBody.Body -> Maybe String
-bodyToString body =
-    case body of
-        StaticHttpBody.EmptyBody ->
-            Nothing
-
-        StaticHttpBody.JsonBody value ->
-            Just (Encode.encode 2 value)
-
-        StaticHttpBody.StringBody _ content ->
-            Just content
-
-        StaticHttpBody.BytesBody _ _ ->
-            Just "<binary data>"
-
-        StaticHttpBody.MultipartBody _ _ ->
-            Just "<multipart data>"
-
-
-requestDetailsFromRequests : List StaticHttpRequest.Request -> List { url : String, method : String, headers : List ( String, String ), body : Maybe String }
-requestDetailsFromRequests =
-    List.map requestToDetails
 
 
 {-| Handle the result of advancing an action BackendTaskTest after simulation.
