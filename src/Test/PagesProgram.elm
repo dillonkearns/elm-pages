@@ -1059,7 +1059,7 @@ start simulateEffect config initialPath testSetup =
                                                     let
                                                         updatedJar =
                                                             wrappedModel.cookieJar
-                                                                |> CookieJar.applySetCookieHeaders
+                                                                |> CookieJar.withSetCookieHeaders
                                                                     (extractSetCookieHeaders (ServerResponse serverResponse))
 
                                                         redirectUrl =
@@ -5428,7 +5428,7 @@ processEffectsWrapped config baseUrl requestDefaults makeReady makePlatformResol
                                         let
                                             updatedJar =
                                                 wrappedModel.cookieJar
-                                                    |> CookieJar.applySetCookieHeaders
+                                                    |> CookieJar.withSetCookieHeaders
                                                         (extractSetCookieHeaders (ServerResponse serverResponse))
                                         in
                                         case PageServerResponse.toRedirect serverResponse of
@@ -5463,7 +5463,7 @@ processEffectsWrapped config baseUrl requestDefaults makeReady makePlatformResol
                                         let
                                             updatedJar =
                                                 wrappedModel.cookieJar
-                                                    |> CookieJar.applySetCookieHeaders
+                                                    |> CookieJar.withSetCookieHeaders
                                                         (extractSetCookieHeaders renderResponse)
 
                                             ( vfsAfterData, dataResult ) =
@@ -5538,7 +5538,7 @@ processEffectsWrapped config baseUrl requestDefaults makeReady makePlatformResol
                                 let
                                     updatedJar =
                                         wrappedModel.cookieJar
-                                            |> CookieJar.applySetCookieHeaders
+                                            |> CookieJar.withSetCookieHeaders
                                                 (extractSetCookieHeaders (ServerResponse serverResponse))
                                 in
                                 case PageServerResponse.toRedirect serverResponse of
@@ -5704,7 +5704,7 @@ processEffectsWrapped config baseUrl requestDefaults makeReady makePlatformResol
                                     let
                                         updatedJar =
                                             wrappedModel.cookieJar
-                                                |> CookieJar.applySetCookieHeaders
+                                                |> CookieJar.withSetCookieHeaders
                                                     (extractSetCookieHeaders (ServerResponse serverResponse))
                                     in
                                     case PageServerResponse.toRedirect serverResponse of
@@ -5743,7 +5743,7 @@ processEffectsWrapped config baseUrl requestDefaults makeReady makePlatformResol
                                     let
                                         updatedJar =
                                             wrappedModel.cookieJar
-                                                |> CookieJar.applySetCookieHeaders
+                                                |> CookieJar.withSetCookieHeaders
                                                     (extractSetCookieHeaders renderResponse)
 
                                         ( vfsAfterData, dataResult ) =
@@ -5885,7 +5885,7 @@ processEffectsWrapped config baseUrl requestDefaults makeReady makePlatformResol
                                                             case actionResult of
                                                                 ServerResponse serverResponse ->
                                                                     effectiveModel.cookieJar
-                                                                        |> CookieJar.applySetCookieHeaders
+                                                                        |> CookieJar.withSetCookieHeaders
                                                                             (extractSetCookieHeaders (ServerResponse serverResponse))
 
                                                                 _ ->
@@ -6001,7 +6001,7 @@ processEffectsWrapped config baseUrl requestDefaults makeReady makePlatformResol
                                 case actionResult of
                                     Ok response ->
                                         wrappedModel.cookieJar
-                                            |> CookieJar.applySetCookieHeaders
+                                            |> CookieJar.withSetCookieHeaders
                                                 (extractSetCookieHeaders response)
 
                                     Err _ ->
@@ -6246,7 +6246,7 @@ cookieJarAfterPageResponse cookieJar result =
     case result of
         Ok response ->
             cookieJar
-                |> CookieJar.applySetCookieHeaders (extractSetCookieHeaders response)
+                |> CookieJar.withSetCookieHeaders (extractSetCookieHeaders response)
 
         Err _ ->
             cookieJar
@@ -6464,7 +6464,7 @@ continueActionWithBt config baseUrl requestDefaults makeReady makePlatformResolv
                     let
                         updatedJar =
                             wrappedModel.cookieJar
-                                |> CookieJar.applySetCookieHeaders
+                                |> CookieJar.withSetCookieHeaders
                                     (extractSetCookieHeaders (ServerResponse serverResponse))
                     in
                     case PageServerResponse.toRedirect serverResponse of
@@ -6539,7 +6539,7 @@ continueActionWithBt config baseUrl requestDefaults makeReady makePlatformResolv
                     let
                         updatedJar =
                             wrappedModel.cookieJar
-                                |> CookieJar.applySetCookieHeaders
+                                |> CookieJar.withSetCookieHeaders
                                     (extractSetCookieHeaders renderResponse)
 
                         ( vfsAfterData, dataResult ) =

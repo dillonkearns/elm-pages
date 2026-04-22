@@ -1432,7 +1432,7 @@ all =
             , test "CookieJar.fromSetCookieHeaders parses Set-Cookie headers" <|
                 \() ->
                     CookieJar.empty
-                        |> CookieJar.applySetCookieHeaders
+                        |> CookieJar.withSetCookieHeaders
                             [ "session=abc123; Path=/; HttpOnly"
                             , "theme=dark; Path=/"
                             ]
@@ -1449,7 +1449,7 @@ all =
             , test "Set-Cookie with multiple attributes parsed correctly" <|
                 \() ->
                     CookieJar.empty
-                        |> CookieJar.applySetCookieHeaders
+                        |> CookieJar.withSetCookieHeaders
                             [ "token=xyz789; Path=/; Domain=.example.com; Secure; HttpOnly; SameSite=Strict; Max-Age=3600" ]
                         |> CookieJar.get "token"
                         |> Expect.equal (Just "xyz789")
@@ -1459,7 +1459,7 @@ all =
                         jar : CookieJar.CookieJar
                         jar =
                             CookieJar.empty
-                                |> CookieJar.applySetCookieHeaders
+                                |> CookieJar.withSetCookieHeaders
                                     [ "a=1; Path=/"
                                     , "b=2; Path=/"
                                     , "c=3; Path=/"
@@ -1474,14 +1474,14 @@ all =
                 \() ->
                     CookieJar.empty
                         |> CookieJar.set "theme" "light"
-                        |> CookieJar.applySetCookieHeaders
+                        |> CookieJar.withSetCookieHeaders
                             [ "theme=dark; Path=/" ]
                         |> CookieJar.get "theme"
                         |> Expect.equal (Just "dark")
             , test "URL-encoded cookie values are decoded" <|
                 \() ->
                     CookieJar.empty
-                        |> CookieJar.applySetCookieHeaders
+                        |> CookieJar.withSetCookieHeaders
                             [ "data=hello%20world; Path=/" ]
                         |> CookieJar.get "data"
                         |> Expect.equal (Just "hello world")
@@ -2099,7 +2099,7 @@ all =
                 \() ->
                     -- "Path=/; HttpOnly" is not a valid cookie, just attributes
                     CookieJar.empty
-                        |> CookieJar.applySetCookieHeaders
+                        |> CookieJar.withSetCookieHeaders
                             [ "Path=/; HttpOnly" ]
                         |> CookieJar.get "Path"
                         |> Expect.equal Nothing

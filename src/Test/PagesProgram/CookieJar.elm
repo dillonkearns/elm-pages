@@ -1,7 +1,7 @@
 module Test.PagesProgram.CookieJar exposing
     ( CookieJar
     , empty, set, get, toDict
-    , applySetCookieHeaders
+    , withSetCookieHeaders
     )
 
 {-| A simple cookie jar that tracks cookies across requests in the test framework.
@@ -16,7 +16,7 @@ Supports:
 
 @docs empty, set, get, toDict
 
-@docs applySetCookieHeaders
+@docs withSetCookieHeaders
 
 -}
 
@@ -63,7 +63,7 @@ Parses each header to extract the cookie name and value, ignoring
 attributes like Path, Domain, HttpOnly, etc.
 
     CookieJar.empty
-        |> CookieJar.applySetCookieHeaders
+        |> CookieJar.withSetCookieHeaders
             [ "session=abc123; Path=/; HttpOnly"
             , "theme=dark"
             ]
@@ -71,8 +71,8 @@ attributes like Path, Domain, HttpOnly, etc.
         -- Just "abc123"
 
 -}
-applySetCookieHeaders : List String -> CookieJar -> CookieJar
-applySetCookieHeaders headers jar =
+withSetCookieHeaders : List String -> CookieJar -> CookieJar
+withSetCookieHeaders headers jar =
     List.foldl applyOneSetCookie jar headers
 
 
