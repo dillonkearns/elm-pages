@@ -236,7 +236,7 @@ suite =
                     Tui.Screen.text "hello world"
                         |> Tui.Screen.link { url = "https://example.com" }
                         |> Tui.Screen.wrapWidth 6
-                        |> List.map (\s -> leadingStyleOfLine s |> Tui.Screen.styleHyperlink)
+                        |> List.map (\s -> leadingStyleOfLine s |> ScreenAdvanced.styleHyperlink)
                         |> Expect.equal [ Just "https://example.com", Just "https://example.com" ]
             ]
         , describe "Input"
@@ -304,7 +304,7 @@ suite =
                     Tui.Screen.text "hello world"
                         |> Tui.Screen.bold
                         |> Tui.Screen.wrapWidth 6
-                        |> List.map (\s -> ( Tui.Screen.toString s, Tui.Screen.styleAttributes (leadingStyleOfLine s) ))
+                        |> List.map (\s -> ( Tui.Screen.toString s, ScreenAdvanced.styleAttributes (leadingStyleOfLine s) ))
                         |> Expect.equal
                             [ ( "hello", [ Tui.Screen.Bold ] )
                             , ( "world", [ Tui.Screen.Bold ] )

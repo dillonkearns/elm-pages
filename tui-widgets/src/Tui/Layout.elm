@@ -3330,7 +3330,7 @@ resolveHyperlinkAt targetCol screen =
             in
             case right of
                 span :: _ ->
-                    TuiScreen.styleHyperlink span.style
+                    TuiScreenAdvanced.styleHyperlink span.style
 
                 [] ->
                     Nothing
@@ -3359,7 +3359,7 @@ stylingFromStyle style =
     let
         withFg : Screen -> Screen
         withFg =
-            case TuiScreen.styleForeground style of
+            case TuiScreenAdvanced.styleForeground style of
                 Just color ->
                     TuiScreen.fg color
 
@@ -3368,7 +3368,7 @@ stylingFromStyle style =
 
         withBg : Screen -> Screen
         withBg =
-            case TuiScreen.styleBackground style of
+            case TuiScreenAdvanced.styleBackground style of
                 Just color ->
                     TuiScreen.bg color
 
@@ -3377,7 +3377,7 @@ stylingFromStyle style =
 
         withAttrs : Screen -> Screen
         withAttrs =
-            TuiScreen.withAttributes (TuiScreen.styleAttributes style)
+            TuiScreen.withAttributes (TuiScreenAdvanced.styleAttributes style)
     in
     withFg >> withBg >> withAttrs
 

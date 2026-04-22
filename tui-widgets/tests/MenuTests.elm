@@ -146,7 +146,7 @@ leadingBgOfLine screen =
         firstLine :: _ ->
             case firstLine of
                 firstSpan :: _ ->
-                    Tui.Screen.styleBackground firstSpan.style
+                    ScreenAdvanced.styleBackground firstSpan.style
 
                 [] ->
                     Nothing

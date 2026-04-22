@@ -2,7 +2,6 @@ module Tui.Screen exposing
     ( Screen, text, lines, concat, empty, blank
     , fg, bg, bold, dim, italic, underline, strikethrough, inverse, withAttributes, link
     , Style, Attribute(..)
-    , styleForeground, styleBackground, styleAttributes, styleHyperlink
     , truncateWidth, wrapWidth
     , toString
     , FlatStyle, styleToFlatStyle, flatStyleToStyle
@@ -51,14 +50,10 @@ screens:
 
 @docs Style, Attribute
 
-
-## Reading a Style
-
-Use these getters when inspecting the `style` field of a
-[`Tui.Screen.Advanced.Span`](Tui-Screen-Advanced#Span). `Style` is opaque so
-that future releases can add fields without breaking user code.
-
-@docs styleForeground, styleBackground, styleAttributes, styleHyperlink
+`Style` is opaque so that future releases can add fields without breaking
+user code. To inspect a `Style` obtained from a
+[`Tui.Screen.Advanced.Span`](Tui-Screen-Advanced#Span), use the getter
+functions in [`Tui.Screen.Advanced`](Tui-Screen-Advanced).
 
 
 ## Text Manipulation
@@ -105,7 +100,8 @@ Opaque so the field list can grow in future releases without breaking user
 code. To build styled text, use the Screen-level builders
 ([`fg`](#fg), [`bold`](#bold), etc.) directly on a `Screen`. To read the
 style of a [`Tui.Screen.Advanced.Span`](Tui-Screen-Advanced#Span), use
-[`styleForeground`](#styleForeground) and friends.
+[`Tui.Screen.Advanced.styleForeground`](Tui-Screen-Advanced#styleForeground)
+and friends.
 
 -}
 type Style
@@ -143,6 +139,8 @@ type Attribute
     | Underline
     | Strikethrough
     | Inverse
+
+
 
 
 {-| Unstyled text.
@@ -309,46 +307,6 @@ individual builders.
 withAttributes : List Attribute -> Screen -> Screen
 withAttributes attrs screen =
     List.foldl addAttr screen attrs
-
-
-
--- STYLE INSPECTION
-
-
-{-| Read the foreground color of a [`Style`](#Style). Mainly useful for
-inspecting the `style` field of a [`Tui.Screen.Advanced.Span`](Tui-Screen-Advanced#Span).
--}
-styleForeground : Style -> Maybe Ansi.Color.Color
-styleForeground (Style s) =
-    s.fg
-
-
-{-| Read the background color of a [`Style`](#Style). See
-[`styleForeground`](#styleForeground).
--}
-styleBackground : Style -> Maybe Ansi.Color.Color
-styleBackground (Style s) =
-    s.bg
-
-
-{-| Read the attribute list of a [`Style`](#Style). See
-[`styleForeground`](#styleForeground).
-
-    if List.member Screen.Bold (Screen.styleAttributes span.style) then
-        ...
-
--}
-styleAttributes : Style -> List Attribute
-styleAttributes (Style s) =
-    s.attributes
-
-
-{-| Read the hyperlink URL of a [`Style`](#Style), if any. See
-[`styleForeground`](#styleForeground).
--}
-styleHyperlink : Style -> Maybe String
-styleHyperlink (Style s) =
-    s.hyperlink
 
 
 

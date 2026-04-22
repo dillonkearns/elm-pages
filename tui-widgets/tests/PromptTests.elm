@@ -71,7 +71,7 @@ renderedBodyHasInverseCursor state =
         |> Tui.Screen.lines
         |> ScreenAdvanced.toLines
         |> List.concat
-        |> List.any (\span -> List.member Tui.Screen.Inverse (Tui.Screen.styleAttributes span.style))
+        |> List.any (\span -> List.member Tui.Screen.Inverse (ScreenAdvanced.styleAttributes span.style))
 
 
 fruitSuggestions : String -> List String

@@ -1,6 +1,7 @@
 module Tui.Screen.Advanced exposing
     ( Line, Span, toLines
     , fromLine
+    , styleForeground, styleBackground, styleAttributes, styleHyperlink
     )
 
 {-| Framework-level helpers for inspecting and rebuilding styled terminal lines.
@@ -39,8 +40,19 @@ positions without losing styles, or implementing diff-style overlays. The
 
 @docs fromLine
 
+
+## Reading a Style
+
+Getters for the `style` field of a [`Span`](#Span). The `Style` type from
+[`Tui.Screen`](Tui-Screen) is opaque so that future releases can add
+fields without breaking user code; these getters are the supported way
+to inspect it.
+
+@docs styleForeground, styleBackground, styleAttributes, styleHyperlink
+
 -}
 
+import Ansi.Color
 import Tui.Screen
 import Tui.Screen.Internal as Internal
 
@@ -60,10 +72,10 @@ type alias Line =
 
 {-| A styled segment within a rendered line. Obtain spans by calling
 [`toLines`](#toLines) on a rendered `Tui.Screen.Screen`. Inspect the `style`
-field with [`Tui.Screen.styleForeground`](Tui-Screen#styleForeground),
-[`styleBackground`](Tui-Screen#styleBackground),
-[`styleAttributes`](Tui-Screen#styleAttributes), and
-[`styleHyperlink`](Tui-Screen#styleHyperlink).
+field with [`styleForeground`](#styleForeground),
+[`styleBackground`](#styleBackground),
+[`styleAttributes`](#styleAttributes), and
+[`styleHyperlink`](#styleHyperlink).
 -}
 type alias Span =
     { text : String
@@ -149,3 +161,49 @@ spanFromInternal span =
     { text = span.text
     , style = flatStyleToStyle span.style
     }
+
+
+{-| Read the foreground color of a [`Style`](Tui-Screen#Style).
+-}
+styleForeground : Tui.Screen.Style -> Maybe Ansi.Color.Color
+styleForeground style =
+    (Tui.Screen.styleToFlatStyle style).foreground
+
+
+{-| Read the background color of a [`Style`](Tui-Screen#Style).
+-}
+styleBackground : Tui.Screen.Style -> Maybe Ansi.Color.Color
+styleBackground style =
+    (Tui.Screen.styleToFlatStyle style).background
+
+
+{-| Read the attribute list of a [`Style`](Tui-Screen#Style).
+
+    import Tui.Screen as Screen
+    import Tui.Screen.Advanced as Advanced
+
+    if List.member Screen.Bold (Advanced.styleAttributes span.style) then
+        ...
+
+-}
+styleAttributes : Tui.Screen.Style -> List Tui.Screen.Attribute
+styleAttributes style =
+    let
+        flat : Tui.Screen.FlatStyle
+        flat =
+            Tui.Screen.styleToFlatStyle style
+    in
+    []
+        |> (if flat.strikethrough then (::) Tui.Screen.Strikethrough else identity)
+        |> (if flat.underline then (::) Tui.Screen.Underline else identity)
+        |> (if flat.italic then (::) Tui.Screen.Italic else identity)
+        |> (if flat.inverse then (::) Tui.Screen.Inverse else identity)
+        |> (if flat.dim then (::) Tui.Screen.Dim else identity)
+        |> (if flat.bold then (::) Tui.Screen.Bold else identity)
+
+
+{-| Read the hyperlink URL of a [`Style`](Tui-Screen#Style), if any.
+-}
+styleHyperlink : Tui.Screen.Style -> Maybe String
+styleHyperlink style =
+    (Tui.Screen.styleToFlatStyle style).hyperlink

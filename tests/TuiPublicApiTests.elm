@@ -27,10 +27,10 @@ suite =
                         [ [ first, _, third ] ] ->
                             Expect.all
                                 [ \_ -> Expect.equal "Hello" first.text
-                                , \_ -> Expect.equal (Just Ansi.Color.red) (Screen.styleForeground first.style)
-                                , \_ -> Expect.equal [ Screen.Bold ] (Screen.styleAttributes first.style)
+                                , \_ -> Expect.equal (Just Ansi.Color.red) (Advanced.styleForeground first.style)
+                                , \_ -> Expect.equal [ Screen.Bold ] (Advanced.styleAttributes first.style)
                                 , \_ -> Expect.equal "elm-pages" third.text
-                                , \_ -> Expect.equal (Just "https://elm-pages.com") (Screen.styleHyperlink third.style)
+                                , \_ -> Expect.equal (Just "https://elm-pages.com") (Advanced.styleHyperlink third.style)
                                 ]
                                 ()
 
