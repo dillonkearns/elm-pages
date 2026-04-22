@@ -270,15 +270,16 @@ echo "--- Smoke test: elm-pages test (TestApp compiles against installed package
 
 mkdir -p tests
 
-# elm-test requires elm-explorations/test. Init template is app-only and
-# doesn't ship it by default — install it here so test can proceed.
+# Install elm-explorations/test. Needs to be in regular direct deps (not
+# just test-dependencies) because dev-server's /_tests compile uses
+# `elm make` rather than `elm-test` — test-dependencies would be invisible.
 python3 - <<PYEOF
 import json
 path = 'elm.json'
 with open(path) as f:
     d = json.load(f)
-td = d.setdefault('test-dependencies', {'direct': {}, 'indirect': {}})
-td.setdefault('direct', {})['elm-explorations/test'] = '2.1.1'
+d['dependencies']['direct']['elm-explorations/test'] = '2.2.1'
+d['dependencies'].setdefault('indirect', {}).pop('elm-explorations/test', None)
 with open(path, 'w') as f:
     json.dump(d, f, indent=4)
     f.write('\n')
@@ -302,7 +303,64 @@ ELMEOF
 npx elm-pages test tests/IndexTest.elm
 echo "  test smoke test succeeded."
 
-# ── Step 10: Outdated dependency report ──────────────────────────────────
+# ── Step 10: Smoke test — dev-server TestViewer compiles ────────────────
+# `elm-pages dev` generates TestViewer.elm (importing
+# Test.PagesProgram.Viewer) at elm-stuff/elm-pages/test-viewer/ for the
+# /_tests browser route. Compile-path is separate from `elm-pages test`,
+# so we exercise it directly here to catch internal-import leaks that
+# only affect the dev server.
+echo ""
+echo "--- Smoke test: dev /_tests TestViewer compiles against installed package ---"
+
+mkdir -p elm-stuff/elm-pages/test-viewer
+
+cat > elm-stuff/elm-pages/test-viewer/TestViewer.elm <<'ELMEOF'
+module TestViewer exposing (main)
+
+import IndexTest
+import Test.PagesProgram
+import Test.PagesProgram.Viewer as Viewer
+
+
+main : Program Viewer.Flags Viewer.Model Viewer.Msg
+main =
+    Viewer.app
+        [ ( "IndexTest.indexTest"
+          , IndexTest.indexTest |> Test.PagesProgram.toSnapshots
+          )
+        ]
+ELMEOF
+
+# Set up the test-viewer elm.json the same way dev-server.js does:
+# start from the project elm.json, adjust source-dirs to be relative to
+# the test-viewer compile dir, add tests/ for IndexTest, and inject
+# lamdera/codecs + elm/bytes (generated TestApp imports Lamdera.Wire3).
+python3 - <<PYEOF
+import json, os
+
+with open('elm.json') as f:
+    d = json.load(f)
+
+dirs = [os.path.join('../../..', sd) for sd in d['source-directories']]
+dirs = [sd for sd in dirs if 'test-viewer' not in sd]
+dirs.append('../../../tests')
+dirs.append('.')
+d['source-directories'] = dirs
+
+# Inject the same deps dev-server.js injects
+d['dependencies'].setdefault('direct', {})['lamdera/codecs'] = '1.0.0'
+d['dependencies'].setdefault('indirect', {}).pop('lamdera/codecs', None)
+d['dependencies']['direct']['elm/bytes'] = '1.0.8'
+d['dependencies'].setdefault('indirect', {}).pop('elm/bytes', None)
+
+with open('elm-stuff/elm-pages/test-viewer/elm.json', 'w') as f:
+    json.dump(d, f, indent=4)
+PYEOF
+
+(cd elm-stuff/elm-pages/test-viewer && lamdera make TestViewer.elm --output=/dev/null 2>&1 | tail -5)
+echo "  dev /_tests smoke test succeeded."
+
+# ── Step 11: Outdated dependency report ──────────────────────────────────
 echo ""
 echo "--- Outdated dependencies (informational) ---"
 

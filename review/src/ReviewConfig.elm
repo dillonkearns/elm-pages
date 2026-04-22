@@ -20,6 +20,7 @@ import NoDebug.TodoOrToString
 import NoExposingEverything
 import NoImportingEverything
 import NoInconsistentAliases
+import NoInternalImports
 import NoMissingTypeAnnotation
 import NoMissingTypeAnnotationInLetIn
 import NoMissingTypeExpose
@@ -89,6 +90,7 @@ config =
             , "src/ApiRoute.elm" -- incorrect result
             ]
      , NoUnmatchedUnit.rule
+     , NoInternalImports.rule []
      ]
         ++ (noUnusedRules
                 |> List.map
@@ -131,7 +133,6 @@ config =
                         , "src/TestResult.elm"
                         , "src/Parser/Extra/String.elm"
                         ]
-                    |> Rule.ignoreErrorsForFiles [ "src/Stub.elm" ]
             )
 
 

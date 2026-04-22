@@ -429,7 +429,8 @@ main =
     const elmJson = JSON.parse(
       fs.readFileSync(path.resolve("elm.json"), "utf8")
     );
-    const testViewerElmJson = { ...elmJson };
+    // Deep clone so we don't mutate shared nested objects.
+    const testViewerElmJson = JSON.parse(JSON.stringify(elmJson));
     const extraSourceDirectories = ["tests"];
     if (fs.existsSync(path.resolve("snapshot-tests/src"))) {
       extraSourceDirectories.push("snapshot-tests/src");
@@ -438,6 +439,36 @@ main =
       .filter((dir) => !dir.includes("elm-stuff/elm-pages/test-viewer"))
       .map((dir) => path.join("../../..", dir))
       .concat(extraSourceDirectories.map((dir) => path.join("../../..", dir)), ["."]);
+
+    // Generated TestApp.elm imports Lamdera.Wire3 for codec support, and
+    // Test.Html.Selector comes from elm-explorations/test. Neither is
+    // automatically in the user's elm.json, so inject them here the same
+    // way `elm-pages test` does.
+    testViewerElmJson["dependencies"] = testViewerElmJson["dependencies"] || {};
+    testViewerElmJson["dependencies"]["direct"] =
+      testViewerElmJson["dependencies"]["direct"] || {};
+    testViewerElmJson["dependencies"]["indirect"] =
+      testViewerElmJson["dependencies"]["indirect"] || {};
+    const ensureDirectDep = (pkg, version) => {
+      testViewerElmJson["dependencies"]["direct"][pkg] = version;
+      delete testViewerElmJson["dependencies"]["indirect"][pkg];
+    };
+    ensureDirectDep("lamdera/codecs", "1.0.0");
+    ensureDirectDep("elm/bytes", "1.0.8");
+    // Promote elm-explorations/test from test-dependencies if present,
+    // then ensure a minimum version. `elm make` doesn't honor
+    // test-dependencies, so tests referencing Test.Html.Selector must
+    // see it as a regular dependency.
+    const testDirect = (elmJson["test-dependencies"] || {}).direct || {};
+    if (testDirect["elm-explorations/test"]) {
+      ensureDirectDep(
+        "elm-explorations/test",
+        testDirect["elm-explorations/test"]
+      );
+    } else if (!testViewerElmJson["dependencies"]["direct"]["elm-explorations/test"]) {
+      ensureDirectDep("elm-explorations/test", "2.2.1");
+    }
+
     fs.writeFileSync(
       path.join(testViewerDir, "elm.json"),
       JSON.stringify(testViewerElmJson, null, 4)

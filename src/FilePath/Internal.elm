@@ -1,8 +1,5 @@
 module FilePath.Internal exposing (isAbsolute)
 
-import Char
-
-
 {-| Whether a path string represents an absolute path. Package-internal only — not
 exposed to consumers.
 
@@ -13,6 +10,8 @@ Works on the normalized string form produced by `FilePath.toString`:
   - `X:/...` → Windows drive absolute
 
 -}
+
+
 isAbsolute : String -> Bool
 isAbsolute str =
     String.startsWith "/" str

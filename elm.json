@@ -60,7 +60,8 @@
         "Test.BackendTask.Time",
         "Test.PagesProgram",
         "Test.PagesProgram.SimulatedEffect",
-        "Test.PagesProgram.SimulatedSub"
+        "Test.PagesProgram.SimulatedSub",
+        "Test.PagesProgram.Viewer"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
