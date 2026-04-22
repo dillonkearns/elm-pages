@@ -320,7 +320,7 @@ submit toMsg options =
 
 /**
  * Generate the TestApp module used by framework-driven ProgramTests.
- * It exposes a single start helper backed by Test.PagesProgram.startPlatform,
+ * It exposes a single start helper backed by Test.PagesProgram.start,
  * which drives the real elm-pages runtime for higher-fidelity route tests.
  * @param {string[][]} templates
  * @returns {string}
@@ -403,7 +403,7 @@ it alongside the initial path:
 
 -}
 start =
-    Test.PagesProgram.startPlatform Effect.testPerform Main.config
+    Test.PagesProgram.start Effect.testPerform Main.config
 `;
 }
 

@@ -21,6 +21,7 @@ import Test.BackendTask as BackendTaskTest
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.PagesProgram as PagesProgram
+import Test.PagesProgram.Harness as Harness
 import Test.Html.Selector as PSelector
 import Test.PagesProgram.Viewer as Viewer
 
@@ -78,7 +79,7 @@ post title author excerpt =
 
 blogFullJourney : PagesProgram.ProgramTest Blog.Model Blog.Msg
 blogFullJourney =
-    PagesProgram.start
+    Harness.start
         { data = Blog.data
         , init = Blog.init
         , update = Blog.update
@@ -126,7 +127,7 @@ loginFlowTest :
         }
         LoginMsg
 loginFlowTest =
-    PagesProgram.start
+    Harness.start
         { data = BackendTask.succeed ()
         , init =
             \() ->
@@ -257,7 +258,7 @@ todoAppTest :
         }
         TodoMsg
 todoAppTest =
-    PagesProgram.start
+    Harness.start
         { data = BackendTask.succeed ()
         , init =
             \() ->
@@ -430,7 +431,7 @@ todoAppTest =
 
 blogLoadsPostsTest : PagesProgram.ProgramTest Blog.Model Blog.Msg
 blogLoadsPostsTest =
-    PagesProgram.start
+    Harness.start
         { data = Blog.data
         , init = Blog.init
         , update = Blog.update
@@ -454,7 +455,7 @@ type CounterMsg
 
 counterTest : PagesProgram.ProgramTest { count : Int } CounterMsg
 counterTest =
-    PagesProgram.start
+    Harness.start
         { data = BackendTask.succeed ()
         , init = \() -> ( { count = 0 }, [] )
         , update =
@@ -503,7 +504,7 @@ type SearchMsg
 
 searchTest : PagesProgram.ProgramTest { search : String, items : List String } SearchMsg
 searchTest =
-    PagesProgram.start
+    Harness.start
         { data =
             BackendTask.succeed
                 { items =

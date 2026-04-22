@@ -18,6 +18,7 @@ import Test.Html.Event as Event
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
 import Test.PagesProgram as PagesProgram
+import Test.PagesProgram.Harness as Harness
 import Test.PagesProgram.Internal exposing (NetworkStatus(..))
 import Test.Html.Selector as PSelector
 import Test.PagesProgram.Internal exposing (AssertionSelector(..))
@@ -32,7 +33,7 @@ all =
         [ describe "Step 1: static page rendering"
             [ test "renders a page with auto-resolved data" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed "Hello, World!"
                         , init = \greeting -> ( { greeting = greeting }, [] )
                         , update = \_ model -> ( model, [] )
@@ -42,7 +43,7 @@ all =
                         |> PagesProgram.done
             , test "renders a page with unit data" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -52,7 +53,7 @@ all =
                         |> PagesProgram.done
             , test "can assert on HTML structure" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -74,7 +75,7 @@ all =
                         |> PagesProgram.done
             , test "data value flows through init into model and view" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed { name = "Alice", role = "Admin" }
                         , init = \user -> ( user, [] )
                         , update = \_ model -> ( model, [] )
@@ -92,7 +93,7 @@ all =
         , describe "Step 2: data BackendTask with HTTP simulation"
             [ test "resolves data with simulated HTTP GET" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.getJson
                                 "https://api.example.com/user"
@@ -109,7 +110,7 @@ all =
                         |> PagesProgram.done
             , test "resolves multiple sequential HTTP POST requests with different bodies to the same URL" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.map2 (\a b -> a ++ " & " ++ b)
                                 (BackendTask.Http.request
@@ -148,7 +149,7 @@ all =
                         |> PagesProgram.done
             , test "done fails when data BackendTask is unresolved" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.getJson
                                 "https://api.example.com/user"
@@ -162,7 +163,7 @@ all =
                         |> expectFailContaining "still resolving"
             , test "ensureViewHas fails with helpful message when data not resolved" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.getJson
                                 "https://api.example.com/user"
@@ -177,7 +178,7 @@ all =
                         |> expectFailContaining "Cannot check view"
             , test "expectView error during resolving lists the pending URL" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.getJson
                                 "https://api.example.com/user"
@@ -193,7 +194,7 @@ all =
         , describe "Step 3: user interaction"
             [ test "clicking a button updates the view" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { count = 0 }, [] )
                         , update =
@@ -225,7 +226,7 @@ all =
                         |> PagesProgram.done
             , test "clickButton fails with helpful message for missing button" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -242,7 +243,7 @@ all =
         , describe "fillIn"
             [ test "typing into an input updates the view" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { query = "" }, [] )
                         , update =
@@ -276,7 +277,7 @@ all =
         , describe "simulateHttpGet for effects from update"
             [ test "simulateHttpGet resolves BackendTask effect from update" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { stars = Nothing }, [] )
                         , update =
@@ -316,7 +317,7 @@ all =
                         |> PagesProgram.done
             , test "simulateHttpGet works for BackendTask effects from update (not just data loading)" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { stars = Nothing }, [] )
                         , update =
@@ -357,7 +358,7 @@ all =
         , describe "check"
             [ test "checking a checkbox updates the view" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { agreed = False }, [] )
                         , update =
@@ -393,7 +394,7 @@ all =
         , describe "Snapshots"
             [ test "toSnapshots records init snapshot" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -404,7 +405,7 @@ all =
                         |> Expect.equal [ "start" ]
             , test "toSnapshots records each interaction" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { count = 0 }, [] )
                         , update =
@@ -432,7 +433,7 @@ all =
                         |> Expect.equal [ "start", "clickButton \"+1\"", "clickButton \"+1\"", "ensureViewHas text \"2\"" ]
             , test "snapshots contain rendered HTML" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { count = 0 }, [] )
                         , update =
@@ -458,7 +459,7 @@ all =
                         |> Expect.equal [ "Count: 0", "Count: 1" ]
             , test "error snapshots include the error" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -470,7 +471,7 @@ all =
                         |> Expect.equal 2
             , test "snapshot labels show selector details for ensureViewHas" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { count = 0 }, [] )
                         , update =
@@ -507,7 +508,7 @@ all =
                             ]
             , test "snapshot labels show multiple selectors comma-separated" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -527,7 +528,7 @@ all =
                             ]
             , test "clickButtonWith snapshot labels show selector details" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { clicked = False }, [] )
                         , update =
@@ -554,7 +555,7 @@ all =
                             ]
             , test "withinFind adds scope label to assertion snapshots" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { count = 0 }, [] )
                         , update =
@@ -587,7 +588,7 @@ all =
                             ]
             , test "nested withinFind shows chained scope labels" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -616,7 +617,7 @@ all =
                             ]
             , test "plain within does not add scope labels" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -640,7 +641,7 @@ all =
                             ]
             , test "assertion snapshots carry selector data for highlighting" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -666,7 +667,7 @@ all =
                             ]
             , test "ensureViewHasNot stores assertion selectors for highlighting" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -685,7 +686,7 @@ all =
                             ]
             , test "value selectors stored in assertion snapshots" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -706,7 +707,7 @@ all =
                             ]
             , test "withinFind snapshots carry scope selectors for highlighting" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { count = 0 }, [] )
                         , update =
@@ -737,7 +738,7 @@ all =
                             ]
             , test "nested withinFind carries nested scope selectors" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -766,7 +767,7 @@ all =
                             ]
             , test "plain within has empty scope selectors" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -790,7 +791,7 @@ all =
                             ]
             , test "clickButtonWith inside withinFind carries scope selectors" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { count = 0 }, [] )
                         , update =
@@ -823,7 +824,7 @@ all =
                             ]
             , test "non-scoped assertions have empty scope selectors" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -844,7 +845,7 @@ all =
         , describe "disabled button detection"
             [ test "clickButton fails on disabled button" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -863,7 +864,7 @@ all =
                         |> expectFailContaining "disabled"
             , test "clickButton succeeds on enabled button" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { clicked = False }, [] )
                         , update =
@@ -890,7 +891,7 @@ all =
                         |> PagesProgram.done
             , test "clickButtonWith fails on disabled button" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { clicked = False }, [] )
                         , update =
@@ -926,7 +927,7 @@ all =
         , describe "ambiguous button detection"
             [ test "clickButton fails when multiple buttons match" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -947,7 +948,7 @@ all =
                         |> expectFailContaining "Delete"
             , test "clickButtonWith fails when multiple buttons match selectors" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -974,7 +975,7 @@ all =
                     -- Bug: clicking a button that triggers an effect, then clicking
                     -- another button before resolving, used to silently drop the effect.
                     -- After fix: done should fail because there's still a pending effect.
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { result = Nothing, other = False }, [] )
                         , update =
@@ -1019,7 +1020,7 @@ all =
             , test "simulateHttpGet works after another interaction" <|
                 \() ->
                     -- The effect from the first click should survive a second click
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { result = Nothing, other = False }, [] )
                         , update =
@@ -1067,7 +1068,7 @@ all =
         , describe "Bug fix: FatalError in data produces clean test failure"
             [ test "done fails cleanly when data BackendTask produces FatalError" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.fail (FatalError.fromString "Database connection failed")
                         , init = \name -> ( { name = name }, [] )
@@ -1078,7 +1079,7 @@ all =
                         |> expectFailContaining "Database connection failed"
             , test "ensureViewHas fails cleanly when data BackendTask produces FatalError" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.fail (FatalError.fromString "Service unavailable")
                         , init = \_ -> ( {}, [] )
@@ -1092,7 +1093,7 @@ all =
         , describe "simulateIncomingPort (elm-program-test style)"
             [ test "can simulate an incoming port message" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { messages = [] }, [] )
                         , update =
@@ -1129,7 +1130,7 @@ all =
                         |> PagesProgram.done
             , test "simulateIncomingPort fails when not subscribed to port" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -1143,7 +1144,7 @@ all =
                         |> expectFailContaining "not currently subscribed"
             , test "simulateIncomingPort fails without withSimulatedSubscriptions" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -1157,7 +1158,7 @@ all =
                 \() ->
                     -- The subscription function re-evaluates with the current
                     -- model. When listening is False, port is not subscribed.
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { listening = False, lastMessage = Nothing }, [] )
                         , update =
@@ -1205,7 +1206,7 @@ all =
         , describe "ensureHttpGet"
             [ test "passes when a GET request to the URL is pending" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.getJson
                                 "https://api.example.com/user"
@@ -1222,7 +1223,7 @@ all =
                         |> PagesProgram.done
             , test "fails when no GET request to the URL is pending" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed "static"
                         , init = \name -> ( { name = name }, [] )
                         , update = \_ model -> ( model, [] )
@@ -1233,7 +1234,7 @@ all =
                         |> expectFailContaining "https://api.example.com/user"
             , test "fails when the URL is wrong" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.getJson
                                 "https://api.example.com/user"
@@ -1250,7 +1251,7 @@ all =
         , describe "ensureCustom"
             [ test "passes when a custom BackendTask port is pending" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Custom.run "getTodos"
                                 Encode.null
@@ -1267,7 +1268,7 @@ all =
         , describe "simulateHttpError"
             [ test "simulates a network error on data loading" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.getJson
                                 "https://api.example.com/data"
@@ -1284,7 +1285,7 @@ all =
                         |> expectFailContaining "NetworkError"
             , test "simulates a timeout on data loading" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.getJson
                                 "https://api.example.com/data"
@@ -1303,7 +1304,7 @@ all =
         , describe "HTTP simulation error messages"
             [ test "simulateHttpPost with no pending requests shows the URL you tried" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed "ready"
                         , init = \msg -> ( { text = msg }, [] )
                         , update = \_ model -> ( model, [] )
@@ -1316,7 +1317,7 @@ all =
                         |> expectFailContaining "api.example.com/data"
             , test "simulateHttpGet with no pending requests shows the URL you tried" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed "ready"
                         , init = \msg -> ( { text = msg }, [] )
                         , update = \_ model -> ( model, [] )
@@ -1329,7 +1330,7 @@ all =
                         |> expectFailContaining "api.example.com/users"
             , test "simulateHttpPost with wrong URL shows both the attempted URL and the pending request" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.getJson
                                 "https://api.example.com/actual-endpoint"
@@ -1351,7 +1352,7 @@ all =
         , describe "selectOption"
             [ test "selecting a dropdown option updates the view" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { color = "red" }, [] )
                         , update =
@@ -1382,7 +1383,7 @@ all =
                         |> PagesProgram.done
             , test "selectOption fails when no label matches" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -1393,7 +1394,7 @@ all =
                         |> expectFailContaining "selectOption"
             , test "selectOption fails when the option text does not exist" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { color = "red" }, [] )
                         , update =
@@ -1422,7 +1423,7 @@ all =
                         |> expectFailContaining "Not Blue"
             , test "selectOption fails when multiple labels match" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -1446,7 +1447,7 @@ all =
         , describe "expectViewHas (terminal assertion)"
             [ test "passes when view has selector" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -1455,7 +1456,7 @@ all =
                         |> PagesProgram.expectViewHas [ PSelector.text "Hello" ]
             , test "fails when view does not have selector" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -1538,7 +1539,7 @@ all =
                 \() ->
                     -- Users have a custom Effect type. They provide a function
                     -- to convert it to BackendTasks the framework can handle.
-                    PagesProgram.startWithEffects
+                    Harness.startWithEffects
                         (\effect ->
                             case effect of
                                 MyEffectNone ->
@@ -1606,7 +1607,7 @@ all =
                 \() ->
                     -- When there are pending effects at the end, done should
                     -- report how many AND describe what's pending
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { value = Nothing }, [] )
                         , update =
@@ -1643,7 +1644,7 @@ all =
                         |> expectFailContaining "1 pending"
             , test "multiple effects from different interactions all tracked" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { value = Nothing }, [] )
                         , update =
@@ -1676,7 +1677,7 @@ all =
             , test "done describes what effects are pending" <|
                 \() ->
                     -- done should include the URLs of pending HTTP requests
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { value = Nothing }, [] )
                         , update =
@@ -1708,7 +1709,7 @@ all =
         , describe "withModelInspector"
             [ test "annotates the latest snapshot when enabled mid-test without rewriting history" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { count = 0 }, [] )
                         , update =
@@ -1742,7 +1743,7 @@ all =
         , describe "within (DOM scoping)"
             [ test "scopes clickButton to a specific element" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { a = 0, b = 0 }, [] )
                         , update =
@@ -1776,7 +1777,7 @@ all =
                         |> PagesProgram.done
             , test "within resets scope after block" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { a = 0, b = 0 }, [] )
                         , update =
@@ -1818,7 +1819,7 @@ all =
         , describe "fillInTextarea"
             [ test "fills in a textarea by finding the first one" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { content = "" }, [] )
                         , update =
@@ -1846,7 +1847,7 @@ all =
         , describe "expectView (terminal)"
             [ test "passes with custom query assertion" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -1865,7 +1866,7 @@ all =
                             )
             , test "fails with useful message" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -1878,7 +1879,7 @@ all =
         , describe "simulateDomEvent"
             [ test "simulates a custom event on a targeted element" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { focused = False }, [] )
                         , update =
@@ -1913,7 +1914,7 @@ all =
         , describe "clickLink"
             [ test "clickLink extracts href from DOM and navigates" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { page = "home" }, [] )
                         , update =
@@ -1939,7 +1940,7 @@ all =
                         |> PagesProgram.done
             , test "clickLink fails when link text not found" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -1954,7 +1955,7 @@ all =
                         |> expectFailContaining "clickLink"
             , test "clickLink navigates using href from the DOM, not user-supplied" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { page = "home" }, [] )
                         , update =
@@ -1983,7 +1984,7 @@ all =
                     let
                         result : Expectation
                         result =
-                            PagesProgram.start
+                            Harness.start
                                 { data = BackendTask.succeed ()
                                 , init = \() -> ( {}, [] )
                                 , update = \_ model -> ( model, [] )
@@ -2025,7 +2026,7 @@ all =
                                     ]
             , test "clickLink fails when no <a> element has the given text" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -2043,7 +2044,7 @@ all =
                         |> expectFailContaining "clickLink"
             , test "clickLink gives helpful error when <a> has no href" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -2061,7 +2062,7 @@ all =
         , describe "navigateTo"
             [ test "navigateTo fails without startPlatform" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -2072,7 +2073,7 @@ all =
                         |> expectFailContaining "Navigation is only supported"
             , test "navigateTo fails while data is resolving" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.getJson
                                 "https://api.example.com/data"
@@ -2089,7 +2090,7 @@ all =
         , describe "ensureBrowserUrl"
             [ test "ensureBrowserUrl fails without startPlatform" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -2103,7 +2104,7 @@ all =
         , describe "fillInTextarea errors"
             [ test "fillInTextarea fails when no textarea found" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -2116,7 +2117,7 @@ all =
         , describe "simulateDomEvent errors"
             [ test "simulateDomEvent fails when element not found" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -2131,7 +2132,7 @@ all =
         , describe "selectOption errors"
             [ test "selectOption fails when select not found" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -2154,7 +2155,7 @@ all =
         , describe "within error handling"
             [ test "within gives clear error when scope element doesn't exist" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -2169,7 +2170,7 @@ all =
         , describe "textarea support (legacy)"
             [ test "fillIn works with textarea" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { content = "" }, [] )
                         , update =
@@ -2201,7 +2202,7 @@ all =
                     -- The startWithEffects path converts custom effects to BackendTasks.
                     -- When an effect is pure (no HTTP needed), use BackendTask.succeed
                     -- Pure effects (BackendTask.succeed msg) auto-resolve immediately.
-                    PagesProgram.startWithEffects
+                    Harness.startWithEffects
                         (\effect ->
                             case effect of
                                 SimEffectNone ->
@@ -2307,7 +2308,7 @@ all =
         , describe "expectBrowserUrl (terminal)"
             [ test "expectBrowserUrl fails without startPlatform" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -2320,7 +2321,7 @@ all =
         , describe "ensureBrowserHistory / expectBrowserHistory"
             [ test "ensureBrowserHistory fails without startPlatform" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -2332,7 +2333,7 @@ all =
                         |> expectFailContaining "only supported with startPlatform"
             , test "expectBrowserHistory fails without startPlatform" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -2345,7 +2346,7 @@ all =
         , describe "check with label"
             [ test "check verifies label is associated with the checkbox" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { agreed = False }, [] )
                         , update =
@@ -2378,7 +2379,7 @@ all =
                         |> PagesProgram.done
             , test "check fails when label doesn't match" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { agreed = False }, [] )
                         , update =
@@ -2406,7 +2407,7 @@ all =
                         |> expectFailContaining "Could not find"
             , test "check works with label wrapping the input" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( { agreed = False }, [] )
                         , update =
@@ -2440,7 +2441,7 @@ all =
                         |> PagesProgram.done
             , test "check fails when multiple checkboxes match the label" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data = BackendTask.succeed ()
                         , init = \() -> ( {}, [] )
                         , update = \_ model -> ( model, [] )
@@ -2474,7 +2475,7 @@ all =
         , describe "Network entry enrichment"
             [ test "GET request has no requestBody" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.getJson
                                 "https://api.example.com/user"
@@ -2495,7 +2496,7 @@ all =
                         |> Expect.equal (Just Nothing)
             , test "POST request captures requestBody as pretty-printed JSON" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.request
                                 { url = "https://api.example.com/graphql"
@@ -2522,7 +2523,7 @@ all =
                         |> Expect.equal (Just (Just "{\n  \"query\": \"{ users }\"\n}"))
             , test "POST request captures requestHeaders" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.request
                                 { url = "https://api.example.com/data"
@@ -2549,7 +2550,7 @@ all =
                         |> Expect.equal (Just [ ( "Authorization", "Bearer token123" ), ( "X-Custom", "value" ) ])
             , test "response preview is captured" <|
                 \() ->
-                    PagesProgram.start
+                    Harness.start
                         { data =
                             BackendTask.Http.getJson
                                 "https://api.example.com/user"

@@ -14,7 +14,8 @@ module Test.PagesProgram exposing
     , ensureHttpGet, ensureHttpGetCount, ensureHttpPost, ensureCustom
     , withSimulatedSubscriptions, simulateIncomingPort
     , Snapshot, toSnapshots, withModelInspector
-    , start, startWithEffects, startPlatform
+    , start
+    , initialProgramTest
     )
 
 {-| Write pure tests for your elm-pages Route Modules. These tests will not actually perform
@@ -182,20 +183,26 @@ step through test execution in the browser.
 @docs Snapshot, toSnapshots, withModelInspector
 
 
-## Internal: starting a test
+## Starting a test
 
-Most users will not call these directly. The generated `TestApp` module in your
-project wraps `startPlatform` with your app's config, so you typically write:
+The generated `TestApp` module in your project wraps [`start`](#start) with
+your app's config, so a typical test file writes:
 
     myTest =
         TestApp.start "/my-page" BackendTaskTest.init
             |> PagesProgram.ensureViewHas [ Selector.text "Hello" ]
             |> PagesProgram.done
 
-These functions are exposed for the generated code and for standalone tests
-that don't use the full elm-pages routing (e.g. testing a single page in isolation).
+@docs start
 
-@docs start, startWithEffects, startPlatform
+
+## Framework-internal
+
+Exposed for use by [`Test.PagesProgram.Harness`](Test-PagesProgram-Harness)
+(the lightweight harness used to test the framework itself). Application code
+should not call this — use [`start`](#start) above.
+
+@docs initialProgramTest
 
 -}
 
@@ -402,30 +409,20 @@ type alias PlatformTestResult userMsg userModel pageData actionData sharedData e
 -- START
 
 
-{-| Start a program test. Provide the same fields as a route module: a `data`
-BackendTask, an `init` function, an `update` function, and a `view` function.
-
-The `data` BackendTask is auto-resolved as far as possible. If it has no
-external dependencies (HTTP, custom ports, etc.), the page initializes
-immediately. Otherwise, use [`simulateHttpGet`](#simulateHttpGet) or similar
-to provide responses before asserting on the view.
-
-    PagesProgram.start
-        { data = BackendTask.succeed ()
-        , init = \() -> ( {}, [] )
-        , update = \_ model -> ( model, [] )
-        , view = \() model -> { title = "Home", body = [ Html.text "Hello" ] }
-        }
-
+{-| Framework-internal. Build an initial `ProgramTest` from a lightweight
+`(data, init, update, view)` config that doesn't go through the elm-pages
+`Main.config`. Used by [`Test.PagesProgram.Harness`](Test-PagesProgram-Harness)
+to test framework internals in isolation. Application code should use
+[`start`](#start) instead.
 -}
-start :
+initialProgramTest :
     { data : BackendTask FatalError data
     , init : data -> ( model, List (BackendTask FatalError msg) )
     , update : msg -> model -> ( model, List (BackendTask FatalError msg) )
     , view : data -> model -> { title : String, body : List (Html msg) }
     }
     -> ProgramTest model msg
-start config =
+initialProgramTest config =
     let
         bt : BackendTaskTest.BackendTaskTest data
         bt =
@@ -495,71 +492,15 @@ start config =
         }
 
 
-{-| Like `start`, but for programs that use a custom `Effect` type instead of
-raw `List (BackendTask FatalError msg)`. This is the pattern used by elm-pages
-route modules, where you define your own `Effect msg` type in `app/Effect.elm`.
-
-Provide a function that converts your Effect type into a list of BackendTasks
-the test framework can simulate:
-
-    PagesProgram.startWithEffects
-        (\effect ->
-            case effect of
-                Effect.None -> []
-                Effect.Batch effects -> List.concatMap myExtract effects
-                Effect.FetchApi toMsg ->
-                    [ BackendTask.Http.getJson url decoder
-                        |> BackendTask.allowFatal
-                        |> BackendTask.map toMsg
-                    ]
-                Effect.Cmd _ -> []  -- Cmd is opaque, use simulateMsg instead
-        )
-        { data = ...
-        , init = \d -> ( model, Effect.none )
-        , update = \msg model -> ( newModel, Effect.fetchApi GotResult )
-        , view = \d model -> { title = "...", body = [...] }
-        }
-
--}
-startWithEffects :
-    (effect -> List (BackendTask FatalError msg))
-    ->
-        { data : BackendTask FatalError data
-        , init : data -> ( model, effect )
-        , update : msg -> model -> ( model, effect )
-        , view : data -> model -> { title : String, body : List (Html msg) }
-        }
-    -> ProgramTest model msg
-startWithEffects extractEffects config =
-    start
-        { data = config.data
-        , init =
-            \pageData ->
-                let
-                    ( model, effect ) =
-                        config.init pageData
-                in
-                ( model, extractEffects effect )
-        , update =
-            \msg model ->
-                let
-                    ( newModel, effect ) =
-                        config.update msg model
-                in
-                ( newModel, extractEffects effect )
-        , view = config.view
-        }
-
-
 {-| Start a full-fidelity elm-pages test by driving `Pages.Internal.Platform`
-directly. The generated `TestApp` module provides the `config` (which is
-`Main.config`), so the typical usage is:
+directly. The generated `TestApp` module wraps this with your app's
+`Main.config`, so the typical usage is:
 
     TestApp.start "/" BackendTaskTest.init
         |> PagesProgram.ensureViewHas [ Selector.text "Hello" ]
         |> PagesProgram.done
 
-Where `TestApp.start = PagesProgram.startPlatform Main.config`.
+Where the generated `TestApp.start` is `PagesProgram.start Main.config`.
 
 You can seed the initial incoming request through [`Test.BackendTask`](Test-BackendTask)
 using [`withRequestCookie`](Test-BackendTask#withRequestCookie),
@@ -572,13 +513,13 @@ out of the box. File writes in actions automatically update the virtual FS,
 and subsequent data resolution sees the updated files.
 
 -}
-startPlatform :
+start :
     (effect -> SimulatedEffect.SimulatedEffect userMsg)
     -> PlatformTestConfig userMsg userModel route pageData actionData sharedData effect errorPage
     -> String
     -> BackendTaskTest.TestSetup
     -> PlatformTestResult userMsg userModel pageData actionData sharedData errorPage
-startPlatform simulateEffect config initialPath testSetup =
+start simulateEffect config initialPath testSetup =
     let
         baseUrl =
             "https://localhost:1234"

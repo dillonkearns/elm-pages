@@ -8,13 +8,14 @@ PagesProgram.start, simulate HTTP responses, and assert on the rendered view.
 import Blog
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
-import Test.PagesProgram as PagesProgram
 import Test.Html.Selector as PSelector
+import Test.PagesProgram as PagesProgram
+import Test.PagesProgram.Harness as Harness
 
 
 blogApp : PagesProgram.ProgramTest Blog.Model Blog.Msg
 blogApp =
-    PagesProgram.start
+    Harness.start
         { data = Blog.data
         , init = Blog.init
         , update = Blog.update
