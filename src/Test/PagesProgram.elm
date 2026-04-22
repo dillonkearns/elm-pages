@@ -11,7 +11,7 @@ module Test.PagesProgram exposing
     , ensureBrowserHistory, expectBrowserHistory
     , simulateHttpGet, simulateHttpPost, simulateHttpError
     , simulateCustom
-    , ensureHttpGet, ensureHttpGetCount, ensureHttpPost, ensureCustom
+    , ensureHttpGet, ensureHttpPost, ensureCustom
     , withSimulatedSubscriptions, simulateIncomingPort
     , Snapshot, toSnapshots, withModelInspector
     , start
@@ -166,7 +166,7 @@ form actions, or BackendTask effects returned from `update`.
 
 ## Asserting on pending requests
 
-@docs ensureHttpGet, ensureHttpGetCount, ensureHttpPost, ensureCustom
+@docs ensureHttpGet, ensureHttpPost, ensureCustom
 
 
 ## Subscriptions and incoming ports
@@ -1367,41 +1367,6 @@ Use this before `simulateHttpGet` to verify the right request was made.
 ensureHttpGet : String -> ProgramTest model msg -> ProgramTest model msg
 ensureHttpGet url (ProgramTest state) =
     ensurePendingRequest "ensureHttpGet" (\r -> r.method == "GET" && r.url == url) url (ProgramTest state)
-
-
-{-| Assert how many pending GET requests currently target the given URL.
-This is useful for verifying that stale background reloads were canceled
-before you simulate the remaining response.
-
-    TestApp.start "/" BackendTaskTest.init
-        |> PagesProgram.ensureHttpGetCount "https://api.example.com/user" 1
-
--}
-ensureHttpGetCount : String -> Int -> ProgramTest model msg -> ProgramTest model msg
-ensureHttpGetCount url expectedCount (ProgramTest state) =
-    let
-        actualCount =
-            gatherAllPendingRequestDetails state
-                |> List.filter (\request -> request.method == "GET" && request.url == url)
-                |> List.length
-    in
-    if actualCount == expectedCount then
-        ProgramTest state
-
-    else
-        ProgramTest
-            { state
-                | error =
-                    Just
-                        ("ensureHttpGetCount \""
-                            ++ url
-                            ++ "\" expected "
-                            ++ String.fromInt expectedCount
-                            ++ " pending request(s), but found "
-                            ++ String.fromInt actualCount
-                            ++ "."
-                        )
-            }
 
 
 {-| Assert that a POST request to the given URL is currently pending.

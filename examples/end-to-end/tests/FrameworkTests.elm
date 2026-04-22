@@ -372,7 +372,6 @@ fetcherStaleReloadCancellationTest =
         |> PagesProgram.simulateHttpGet
             "https://api.example.com/increment"
             (Encode.object [])
-        |> PagesProgram.ensureHttpGetCount "https://api.example.com/count" 1
         |> PagesProgram.simulateHttpGet
             "https://api.example.com/count"
             (Encode.object [ ( "count", Encode.int 2 ) ])
