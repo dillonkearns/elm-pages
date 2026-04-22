@@ -1,6 +1,6 @@
 module Test.PagesProgram.CookieJar exposing
     ( CookieJar
-    , empty, set, setSession, get, toDict
+    , init, set, setSession, get, toDict
     , withSetCookieHeaders
     , withCookies
     )
@@ -19,7 +19,7 @@ cookies across subsequent requests. Supports:
 
 ## Building
 
-@docs empty, set, setSession, get, toDict
+@docs init, set, setSession, get, toDict
 
 
 ## Capturing from responses
@@ -45,10 +45,11 @@ type CookieJar
     = CookieJar (Dict String String)
 
 
-{-| An empty cookie jar.
+{-| An empty cookie jar, ready for [`set`](#set) and
+[`setSession`](#setSession).
 -}
-empty : CookieJar
-empty =
+init : CookieJar
+init =
     CookieJar Dict.empty
 
 
@@ -67,9 +68,9 @@ reading the cookie get the seeded values back out.
     import Test.PagesProgram.CookieJar as CookieJar
     import Test.PagesProgram.Session as Session
 
-    CookieJar.empty
+    CookieJar.init
         |> CookieJar.setSession "mysession"
-            (Session.empty
+            (Session.init
                 |> Session.withValue "userId" "42"
             )
 
@@ -97,7 +98,7 @@ toDict (CookieJar cookies) =
 Parses each header to extract the cookie name and value, ignoring
 attributes like Path, Domain, HttpOnly, etc.
 
-    CookieJar.empty
+    CookieJar.init
         |> CookieJar.withSetCookieHeaders
             [ "session=abc123; Path=/; HttpOnly"
             , "theme=dark"
@@ -160,7 +161,7 @@ seeding every cookie in the jar on the initial request.
 
     BackendTaskTest.init
         |> CookieJar.withCookies
-            (CookieJar.empty
+            (CookieJar.init
                 |> CookieJar.set "theme" "dark"
             )
 

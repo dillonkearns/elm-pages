@@ -1,6 +1,6 @@
 module Test.PagesProgram.Session exposing
     ( Session
-    , empty, withValue, withFlash
+    , init, withValue, withFlash
     )
 
 {-| Build a session payload to seed into a signed session cookie. Pair with
@@ -13,9 +13,9 @@ to place the signed value into the cookie jar for a test.
 
     BackendTaskTest.init
         |> CookieJar.withCookies
-            (CookieJar.empty
+            (CookieJar.init
                 |> CookieJar.setSession "mysession"
-                    (Session.empty
+                    (Session.init
                         |> Session.withValue "userId" "42"
                         |> Session.withFlash "greeting" "Welcome back!"
                     )
@@ -26,7 +26,7 @@ to place the signed value into the cookie jar for a test.
 
 ## Building
 
-@docs empty, withValue, withFlash
+@docs init, withValue, withFlash
 
 -}
 
@@ -41,10 +41,11 @@ type alias Session =
     Internal.Session
 
 
-{-| An empty session with no values.
+{-| An empty session with no values, ready for [`withValue`](#withValue) and
+[`withFlash`](#withFlash).
 -}
-empty : Session
-empty =
+init : Session
+init =
     Internal.session
 
 

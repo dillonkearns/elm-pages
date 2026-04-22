@@ -391,7 +391,7 @@ start simulateEffect config initialPath testSetup =
         initialCookieJar : CookieJar
         initialCookieJar =
             setup.requestCookies
-                |> Dict.foldl CookieJar.set CookieJar.empty
+                |> Dict.foldl CookieJar.set CookieJar.init
 
         initialVirtualFs =
             setup.virtualFS

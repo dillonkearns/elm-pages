@@ -119,9 +119,9 @@ startSignedInWithTodos todos =
     TestApp.start "/"
         (baseSetup
             |> CookieJar.withCookies
-                (CookieJar.empty
+                (CookieJar.init
                     |> CookieJar.setSession "mysession"
-                        (Session.empty
+                        (Session.init
                             |> Session.withValue "sessionId" "test-session-id"
                         )
                 )

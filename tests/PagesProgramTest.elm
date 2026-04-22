@@ -1418,20 +1418,20 @@ all =
                         |> expectFailContaining "Goodbye"
             ]
         , describe "cookie jar"
-            [ test "CookieJar.empty has no cookies" <|
+            [ test "CookieJar.init has no cookies" <|
                 \() ->
-                    CookieJar.empty
+                    CookieJar.init
                         |> CookieJar.get "anything"
                         |> Expect.equal Nothing
             , test "CookieJar.set adds a cookie" <|
                 \() ->
-                    CookieJar.empty
+                    CookieJar.init
                         |> CookieJar.set "theme" "dark"
                         |> CookieJar.get "theme"
                         |> Expect.equal (Just "dark")
             , test "CookieJar.fromSetCookieHeaders parses Set-Cookie headers" <|
                 \() ->
-                    CookieJar.empty
+                    CookieJar.init
                         |> CookieJar.withSetCookieHeaders
                             [ "session=abc123; Path=/; HttpOnly"
                             , "theme=dark; Path=/"
@@ -1440,7 +1440,7 @@ all =
                         |> Expect.equal (Just "abc123")
             , test "CookieJar.toCookieDict produces dict for request" <|
                 \() ->
-                    CookieJar.empty
+                    CookieJar.init
                         |> CookieJar.set "a" "1"
                         |> CookieJar.set "b" "2"
                         |> CookieJar.toDict
@@ -1448,7 +1448,7 @@ all =
                         |> Expect.equal (Just "1")
             , test "Set-Cookie with multiple attributes parsed correctly" <|
                 \() ->
-                    CookieJar.empty
+                    CookieJar.init
                         |> CookieJar.withSetCookieHeaders
                             [ "token=xyz789; Path=/; Domain=.example.com; Secure; HttpOnly; SameSite=Strict; Max-Age=3600" ]
                         |> CookieJar.get "token"
@@ -1458,7 +1458,7 @@ all =
                     let
                         jar : CookieJar.CookieJar
                         jar =
-                            CookieJar.empty
+                            CookieJar.init
                                 |> CookieJar.withSetCookieHeaders
                                     [ "a=1; Path=/"
                                     , "b=2; Path=/"
@@ -1472,7 +1472,7 @@ all =
                         |> Expect.equal ( Just "1", Just "2", Just "3" )
             , test "Set-Cookie overwrites existing cookie" <|
                 \() ->
-                    CookieJar.empty
+                    CookieJar.init
                         |> CookieJar.set "theme" "light"
                         |> CookieJar.withSetCookieHeaders
                             [ "theme=dark; Path=/" ]
@@ -1480,7 +1480,7 @@ all =
                         |> Expect.equal (Just "dark")
             , test "URL-encoded cookie values are decoded" <|
                 \() ->
-                    CookieJar.empty
+                    CookieJar.init
                         |> CookieJar.withSetCookieHeaders
                             [ "data=hello%20world; Path=/" ]
                         |> CookieJar.get "data"
@@ -2098,7 +2098,7 @@ all =
             [ test "malformed Set-Cookie without name=value is ignored" <|
                 \() ->
                     -- "Path=/; HttpOnly" is not a valid cookie, just attributes
-                    CookieJar.empty
+                    CookieJar.init
                         |> CookieJar.withSetCookieHeaders
                             [ "Path=/; HttpOnly" ]
                         |> CookieJar.get "Path"

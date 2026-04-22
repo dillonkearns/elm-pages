@@ -193,9 +193,9 @@ seededSessionFlashTest =
         (BackendTaskTest.init
             |> BackendTaskTest.withEnv "SESSION_SECRET" "test-secret"
             |> CookieJar.withCookies
-                (CookieJar.empty
+                (CookieJar.init
                     |> CookieJar.setSession "mysession"
-                        (Session.empty
+                        (Session.init
                             |> Session.withValue "name" "Alice"
                             |> Session.withFlash "message" "Welcome Alice!"
                         )
