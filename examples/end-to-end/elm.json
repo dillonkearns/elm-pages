@@ -6,7 +6,6 @@
         "../../src",
         ".elm-pages",
         "../../plugins",
-        "elm-program-test-src",
         "elm-stuff/elm-pages/test-viewer"
     ],
     "elm-version": "0.19.1",

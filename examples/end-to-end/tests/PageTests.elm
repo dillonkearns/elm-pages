@@ -19,8 +19,9 @@ import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
-import Test.PagesProgram as PagesProgram exposing (ProgramTest)
 import Test.Html.Selector as PSelector
+import Test.PagesProgram as PagesProgram exposing (ProgramTest)
+import Test.PagesProgram.Harness as Harness
 
 
 
@@ -37,7 +38,7 @@ type LoginMsg
 
 loginFlowTest : ProgramTest { email : String, password : String, remember : Bool, loggedIn : Bool, userName : String, error : Maybe String } LoginMsg
 loginFlowTest =
-    PagesProgram.start
+    Harness.start
         { data = BackendTask.succeed ()
         , init =
             \() ->
@@ -155,7 +156,7 @@ type TodoMsg
 
 todoAppTest : ProgramTest { newTodo : String, todos : List { id : Int, text : String, done : Bool }, nextId : Int } TodoMsg
 todoAppTest =
-    PagesProgram.start
+    Harness.start
         { data = BackendTask.succeed ()
         , init =
             \() ->
@@ -325,7 +326,7 @@ type SearchMsg
 
 searchFilterTest : ProgramTest { search : String, items : List String } SearchMsg
 searchFilterTest =
-    PagesProgram.start
+    Harness.start
         { data =
             BackendTask.succeed
                 { items =
@@ -406,7 +407,7 @@ type CounterMsg
 
 counterTest : ProgramTest { count : Int } CounterMsg
 counterTest =
-    PagesProgram.start
+    Harness.start
         { data = BackendTask.succeed ()
         , init = \() -> ( { count = 0 }, [] )
         , update =
