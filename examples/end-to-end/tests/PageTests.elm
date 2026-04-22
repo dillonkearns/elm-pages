@@ -309,8 +309,8 @@ todoAppTest =
         |> PagesProgram.ensureViewHas [ PSelector.text "2 of 4 completed" ]
         |> PagesProgram.check "Write tests" True
         |> PagesProgram.ensureViewHas [ PSelector.text "3 of 4 completed" ]
-        |> PagesProgram.within
-            (Query.find [ Selector.tag "li", Selector.containing [ Selector.text "Learn Elm" ] ])
+        |> PagesProgram.withinFind
+            [ Selector.tag "li", Selector.containing [ Selector.text "Learn Elm" ] ]
             (PagesProgram.clickButton "Delete")
         |> PagesProgram.ensureViewHas [ PSelector.text "2 of 3 completed" ]
 

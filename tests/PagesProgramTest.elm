@@ -615,30 +615,6 @@ all =
                             [ "start"
                             , "ensureViewHas text \"Hello\" (within attribute \"id\" \"outer\" > class \"inner\")"
                             ]
-            , test "plain within does not add scope labels" <|
-                \() ->
-                    Harness.start
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Home"
-                                , body =
-                                    [ Html.div [ Attr.id "main" ]
-                                        [ Html.text "Content" ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.within
-                            (Query.find [ Selector.id "main" ])
-                            (PagesProgram.ensureViewHas [ PSelector.text "Content" ])
-                        |> PagesProgram.toSnapshots
-                        |> List.map .label
-                        |> Expect.equal
-                            [ "start"
-                            , "ensureViewHas text \"Content\""
-                            ]
             , test "assertion snapshots carry selector data for highlighting" <|
                 \() ->
                     Harness.start
@@ -764,30 +740,6 @@ all =
                         |> Expect.equal
                             [ [] -- start
                             , [ [ ById_ "outer" ], [ ByClass "inner" ] ] -- nested scopes
-                            ]
-            , test "plain within has empty scope selectors" <|
-                \() ->
-                    Harness.start
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Home"
-                                , body =
-                                    [ Html.div [ Attr.id "main" ]
-                                        [ Html.text "Content" ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.within
-                            (Query.find [ Selector.id "main" ])
-                            (PagesProgram.ensureViewHas [ PSelector.text "Content" ])
-                        |> PagesProgram.toSnapshots
-                        |> List.map .scopeSelectors
-                        |> Expect.equal
-                            [ [] -- start
-                            , [] -- plain within = no scope selectors
                             ]
             , test "clickButtonWith inside withinFind carries scope selectors" <|
                 \() ->
@@ -1769,8 +1721,8 @@ all =
                                     ]
                                 }
                         }
-                        |> PagesProgram.within
-                            (Query.find [ Selector.id "section-b" ])
+                        |> PagesProgram.withinFind
+                            [ Selector.id "section-b" ]
                             (PagesProgram.clickButton "+1")
                         |> PagesProgram.ensureViewHas [ PSelector.text "A: 0" ]
                         |> PagesProgram.ensureViewHas [ PSelector.text "B: 1" ]
@@ -1804,13 +1756,13 @@ all =
                                 }
                         }
                         -- Click in section-b
-                        |> PagesProgram.within
-                            (Query.find [ Selector.id "section-b" ])
+                        |> PagesProgram.withinFind
+                            [ Selector.id "section-b" ]
                             (PagesProgram.clickButton "+1")
                         -- After within, scope resets to full view.
                         -- Use within again to target section-a specifically.
-                        |> PagesProgram.within
-                            (Query.find [ Selector.id "section-a" ])
+                        |> PagesProgram.withinFind
+                            [ Selector.id "section-a" ]
                             (PagesProgram.clickButton "+1")
                         |> PagesProgram.ensureViewHas [ PSelector.text "A: 1" ]
                         |> PagesProgram.ensureViewHas [ PSelector.text "B: 1" ]
@@ -2161,8 +2113,8 @@ all =
                         , update = \_ model -> ( model, [] )
                         , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
                         }
-                        |> PagesProgram.within
-                            (Query.find [ Selector.id "nonexistent" ])
+                        |> PagesProgram.withinFind
+                            [ Selector.id "nonexistent" ]
                             (PagesProgram.ensureViewHas [ PSelector.text "anything" ])
                         |> PagesProgram.done
                         |> expectFailContaining "nonexistent"

@@ -5,7 +5,7 @@ module Test.PagesProgram exposing
     , simulateDomEvent
     , ensureViewHas, ensureViewHasNot, ensureView
     , expectViewHas, expectViewHasNot, expectView
-    , within, withinFind
+    , withinFind
     , group
     , navigateTo, ensureBrowserUrl, expectBrowserUrl
     , ensureBrowserHistory, expectBrowserHistory
@@ -137,7 +137,7 @@ making our apps accessible and usable.
 
 ## Scoping
 
-@docs within, withinFind
+@docs withinFind
 
 
 ## Grouping
@@ -2129,14 +2129,14 @@ clickButton buttonText (ProgramTest state) =
 
 {-| Like [`clickButton`](#clickButton), but finds the button by CSS selectors
 instead of text content. Useful for icon buttons (SVGs, empty buttons) that
-have no text. Composes with [`within`](#within) to scope interactions.
+have no text. Composes with [`withinFind`](#withinFind) to scope interactions.
 
     import Test.Html.Selector as Selector exposing (class, tag)
 
     -- Within the "Buy milk" todo, click its toggle checkbox
     TestApp.start "/" setup
-        |> PagesProgram.within
-            (Query.find [ tag "li", Selector.containing [ attribute (Attr.value "Buy milk") ] ])
+        |> PagesProgram.withinFind
+            [ tag "li", Selector.containing [ attribute (Attr.value "Buy milk") ] ]
             (PagesProgram.clickButtonWith [ class "toggle" ])
 
 If the button is inside a `<form>`, the form submit event is simulated
@@ -3418,25 +3418,8 @@ expectView assertion (ProgramTest state) =
 
 
 {-| Scope interactions and assertions to a specific part of the DOM.
-Like elm-program-test's `within`, the first argument narrows the query
-and the second is the interaction to perform within that scope.
-
-    myTest
-        |> PagesProgram.within
-            (Query.find [ Selector.id "sidebar" ])
-            (PagesProgram.clickButton "Submit")
-        |> PagesProgram.done
-
-The scope is reset after the function returns.
-
--}
-within : (Query.Single msg -> Query.Single msg) -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
-within scopeFn action =
-    withinInternal Nothing Nothing scopeFn action
-
-
-{-| Like `within`, but takes labeled selectors for the scope, which makes
-assertions inside the scope self-describing in the visual test runner.
+The first argument narrows the query via `Query.find`, and the second is
+the interaction to perform within that scope.
 
     myTest
         |> PagesProgram.withinFind
@@ -3448,28 +3431,12 @@ The scope label appears in assertion labels, e.g.,
 `ensureViewHas text "2" (within .todo-count)`.
 
 The scope container is also highlighted with a dashed border in the preview.
+The scope is reset after the action returns; nest `withinFind` calls to
+drill into child scopes.
 
 -}
 withinFind : List Selector.Selector -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
-withinFind selectors action =
-    let
-        labelList : List String
-        labelList =
-            SelectorLabel.extractLabels selectors
-
-        label : String
-        label =
-            String.join ", " labelList
-
-        assertionSels : List AssertionSelector
-        assertionSels =
-            List.map SelectorLabel.parseLabelToAssertion labelList
-    in
-    withinInternal (Just label) (Just assertionSels) (Query.find selectors) action
-
-
-withinInternal : Maybe String -> Maybe (List AssertionSelector) -> (Query.Single msg -> Query.Single msg) -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
-withinInternal maybeLabel maybeScopeSelectors scopeFn action (ProgramTest state) =
+withinFind selectors action (ProgramTest state) =
     case state.error of
         Just _ ->
             ProgramTest state
@@ -3481,30 +3448,28 @@ withinInternal maybeLabel maybeScopeSelectors scopeFn action (ProgramTest state)
 
                 Ready ready ->
                     let
-                        -- Apply the new scope on top of any existing scope
+                        labelList : List String
+                        labelList =
+                            SelectorLabel.extractLabels selectors
+
+                        label : String
+                        label =
+                            String.join ", " labelList
+
+                        assertionSels : List AssertionSelector
+                        assertionSels =
+                            List.map SelectorLabel.parseLabelToAssertion labelList
+
                         scopedReady =
                             { ready
-                                | viewScope = ready.viewScope >> scopeFn
-                                , scopeLabels =
-                                    case maybeLabel of
-                                        Just label ->
-                                            ready.scopeLabels ++ [ label ]
-
-                                        Nothing ->
-                                            ready.scopeLabels
-                                , scopeSelectors =
-                                    case maybeScopeSelectors of
-                                        Just sels ->
-                                            ready.scopeSelectors ++ [ sels ]
-
-                                        Nothing ->
-                                            ready.scopeSelectors
+                                | viewScope = ready.viewScope >> Query.find selectors
+                                , scopeLabels = ready.scopeLabels ++ [ label ]
+                                , scopeSelectors = ready.scopeSelectors ++ [ assertionSels ]
                             }
 
                         scopedState =
                             { state | phase = Ready scopedReady }
 
-                        -- Run the action with the scoped view
                         (ProgramTest resultState) =
                             action (ProgramTest scopedState)
                     in

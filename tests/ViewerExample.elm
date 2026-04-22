@@ -18,11 +18,9 @@ import Html.Events
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
-import Test.Html.Query as Query
-import Test.Html.Selector as Selector
+import Test.Html.Selector as PSelector
 import Test.PagesProgram as PagesProgram
 import Test.PagesProgram.Harness as Harness
-import Test.Html.Selector as PSelector
 import Test.PagesProgram.Viewer as Viewer
 
 
@@ -419,8 +417,8 @@ todoAppTest =
         |> PagesProgram.check "todo-3" True
         |> PagesProgram.ensureViewHas [ PSelector.text "3 of 4 completed" ]
         -- Delete completed "Learn Elm" (use within to scope since multiple Delete buttons)
-        |> PagesProgram.within
-            (Query.find [ Selector.tag "li", Selector.containing [ Selector.text "Learn Elm" ] ])
+        |> PagesProgram.withinFind
+            [ Selector.tag "li", Selector.containing [ Selector.text "Learn Elm" ] ]
             (PagesProgram.clickButton "Delete")
         |> PagesProgram.ensureViewHas [ PSelector.text "2 of 3 completed" ]
 
@@ -508,9 +506,16 @@ searchTest =
         { data =
             BackendTask.succeed
                 { items =
-                    [ "Elm", "elm-pages", "elm-ui", "elm-css"
-                    , "elm-test", "elm-review", "elm-format"
-                    , "Haskell", "PureScript", "Rust"
+                    [ "Elm"
+                    , "elm-pages"
+                    , "elm-ui"
+                    , "elm-css"
+                    , "elm-test"
+                    , "elm-review"
+                    , "elm-format"
+                    , "Haskell"
+                    , "PureScript"
+                    , "Rust"
                     ]
                 }
         , init = \pageData -> ( { search = "", items = pageData.items }, [] )

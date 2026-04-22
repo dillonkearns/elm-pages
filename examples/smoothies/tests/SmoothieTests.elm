@@ -293,8 +293,8 @@ addToCartTest =
         |> simulateIndexData
         |> PagesProgram.ensureViewHas [ PSelector.text "Checkout (0)" ]
         -- Click "+" on Pink Berry
-        |> PagesProgram.within
-            (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
+        |> PagesProgram.withinFind
+            [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ]
             (PagesProgram.clickButton "+")
         -- Fetcher action: addItemToCart mutation (HTTP)
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
@@ -318,15 +318,15 @@ optimisticCartTest =
         |> PagesProgram.ensureViewHas [ PSelector.text "Pink Berry" ]
         |> PagesProgram.ensureViewHas [ PSelector.text "Checkout (0)" ]
         -- Click "+" on Pink Berry
-        |> PagesProgram.within
-            (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
+        |> PagesProgram.withinFind
+            [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ]
             (PagesProgram.clickButton "+")
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
         |> simulateIndexDataWithCart oneItemOrders
         |> PagesProgram.ensureViewHas [ PSelector.text "Checkout (1)" ]
         -- Click "+" again
-        |> PagesProgram.within
-            (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
+        |> PagesProgram.withinFind
+            [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ]
             (PagesProgram.clickButton "+")
         |> PagesProgram.simulateHttpPost hasuraUrl addToCartMutationResponse
         |> simulateIndexDataWithCart twoItemOrders
@@ -346,12 +346,12 @@ concurrentFetchersTest =
         |> simulateIndexData
         |> PagesProgram.ensureViewHas [ PSelector.text "Checkout (0)" ]
         -- Click "+" on Pink Berry (triggers fetcher HTTP, but don't resolve)
-        |> PagesProgram.within
-            (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
+        |> PagesProgram.withinFind
+            [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ]
             (PagesProgram.clickButton "+")
         -- Click "+" again immediately, before resolving the first.
-        |> PagesProgram.within
-            (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
+        |> PagesProgram.withinFind
+            [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ]
             (PagesProgram.clickButton "+")
         -- Both fetchers pending. Optimistic UI shows Checkout (2) immediately!
         -- (Second click sees optimistic qty=1, computes 1+1=2)
@@ -384,11 +384,11 @@ staleFetcherDataReloadTest =
         |> simulateLogin
         |> simulateIndexData
         -- Click "+" twice
-        |> PagesProgram.within
-            (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
+        |> PagesProgram.withinFind
+            [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ]
             (PagesProgram.clickButton "+")
-        |> PagesProgram.within
-            (Query.find [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ])
+        |> PagesProgram.withinFind
+            [ Selector.tag "li", Selector.containing [ text "Pink Berry" ] ]
             (PagesProgram.clickButton "+")
         -- Resolve both mutations. Fetcher effects tried first, so sims
         -- go to fetcher resolvers, not the stale data reload.
