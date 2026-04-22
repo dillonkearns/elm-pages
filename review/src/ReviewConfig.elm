@@ -46,6 +46,10 @@ config =
        --    { document = onlyExposed
        --    , from = exposedModules
        --    }
+       -- Pre-existing gaps in core modules — not enforced for now. The
+       -- 12.2.0 additions (Tui, Test.Tui, Test.PagesProgram*, CookieJar,
+       -- BackendTask.Internal.Request) all pass this rule cleanly; the
+       -- 128 flagged sites live in older modules and are a follow-up.
        Docs.ReviewLinksAndSections.rule
      , Docs.ReviewAtDocs.rule
      , Docs.UpToDateReadmeLinks.rule
