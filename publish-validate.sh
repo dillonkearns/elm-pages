@@ -192,7 +192,69 @@ echo "--- Smoke test: elm-pages run script/src/Stars.elm ---"
 npx elm-pages run script/src/Stars.elm
 echo "  Script succeeded."
 
-# ── Step 8: Outdated dependency report ───────────────────────────────────
+# ── Step 8: Smoke test — DB feature ─────────────────────────────────────
+# Exercises Pages.Db + migration infrastructure against the real installed
+# package (not source-directories) so internal-import leaks get caught.
+echo ""
+echo "--- Smoke test: DB script (Pages.Db against installed package) ---"
+
+# Schema lives in script source; migrations live at runtime-dir root
+# (where `elm-pages run` is invoked), matching the convention in
+# examples/end-to-end/.
+mkdir -p db/Db/Migrate
+
+cat > script/src/Db.elm <<'ELMEOF'
+module Db exposing (Db, Todo)
+
+
+type alias Db =
+    { todos : List Todo }
+
+
+type alias Todo =
+    { title : String
+    , done : Bool
+    }
+ELMEOF
+
+cat > db/Db/Migrate/V1.elm <<'ELMEOF'
+module Db.Migrate.V1 exposing (migrate, seed)
+
+import Db
+
+
+seed : () -> Db.Db
+seed () =
+    { todos = [] }
+
+
+migrate : () -> Db.Db
+migrate =
+    seed
+ELMEOF
+
+cat > script/src/TestDb.elm <<'ELMEOF'
+module TestDb exposing (run)
+
+import BackendTask
+import Pages.Db
+import Pages.Script as Script exposing (Script)
+
+
+run : Script
+run =
+    Script.withoutCliOptions
+        (Pages.Db.update Pages.Db.default
+            (\db -> { db | todos = [ { title = "milk", done = False } ] })
+            |> BackendTask.andThen (\_ -> Script.log "DB smoke test passed.")
+        )
+        |> Script.withDatabasePath ".elm-pages-data/smoke.db.bin"
+ELMEOF
+
+npx elm-pages run script/src/TestDb.elm
+echo "  DB smoke test succeeded."
+
+# ── Step 9: Outdated dependency report ───────────────────────────────────
 echo ""
 echo "--- Outdated dependencies (informational) ---"
 
