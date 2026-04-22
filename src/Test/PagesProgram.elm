@@ -3869,10 +3869,11 @@ simulationUrl sim =
 
 
 {-| Target string used to match a simulation against pending BackendTask
-requests. For HTTP this is the URL; for custom ports this is the
-`elm-pages-internal://<portName>` URL that `BackendTask.Custom.run` uses
-internally. Kept separate from [`simulationUrl`](#simulationUrl) which is
-for user-facing display.
+requests. For HTTP this is the URL; for custom ports this is just the
+port name (the `elm-pages-internal://port` URL scheme that
+`BackendTask.Custom.run` uses internally is stripped so the test layer
+matches on user-facing port names). Kept separate from
+[`simulationUrl`](#simulationUrl) which is for display.
 -}
 simulationTarget : Simulation -> String
 simulationTarget sim =
@@ -3887,7 +3888,7 @@ simulationTarget sim =
             url
 
         SimCustom portName _ ->
-            "elm-pages-internal://" ++ portName
+            portName
 
 
 {-| Find the first resolver in the list whose pendingUrls contains the target URL.
@@ -6104,11 +6105,11 @@ applySimToBt sim bt =
             BackendTaskTest.simulateCustom portName resp bt
 
 
-{-| Extract pending HTTP URLs from a BackendTaskTest. Used to populate
-the Resolver's pendingUrls field for URL-targeted simulation. Custom port
+{-| Extract pending targets from a BackendTaskTest. Used to populate the
+Resolver's pendingUrls field for URL-targeted simulation. Custom port
 requests (which all share the `elm-pages-internal://port` URL) are
-normalized to `elm-pages-internal://<portName>` so `simulateCustom` can
-route to the correct resolver.
+reduced to the bare port name so `simulateCustom` can route to the
+correct resolver without leaking the internal URL scheme.
 -}
 btPendingUrls : BackendTaskTest.BackendTaskTest a -> List String
 btPendingUrls bt =
@@ -6123,12 +6124,8 @@ btPendingUrls bt =
 requestTargetUrl : StaticHttpRequest.Request -> String
 requestTargetUrl req =
     if req.url == "elm-pages-internal://port" then
-        case BackendTaskTest.getPortName req of
-            Just portName ->
-                "elm-pages-internal://" ++ portName
-
-            Nothing ->
-                req.url
+        BackendTaskTest.getPortName req
+            |> Maybe.withDefault req.url
 
     else
         req.url
