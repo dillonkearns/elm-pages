@@ -7,27 +7,41 @@ will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [12.2.0] - 2026-04-20
+## [12.2.0] - 2026-04-22
 
 ### Added
 
-- `Tui` module — build interactive Text-Based User Interfaces (TUIs) as elm-pages scripts. Programs have `data`, `init`, `update`, `view`, and `subscriptions` like a standard TEA app, but render to the terminal instead of the DOM.
-  - `Tui.program` builds an opaque `Tui.Program` value; `Tui.toScript` finalizes it into a runnable `Pages.Script.Script`. Keeping the intermediate `Program` as its own type lets future releases add pipeable modifiers (themes, key bindings, etc.) without changing the shape of existing user code.
-  - `Tui.programWithCliOptions` — TUI entry point with CLI option parsing.
-  - `Tui.ProgramConfig` — the record shape that `Tui.program` and `Test.Tui.start` both accept, so one config can be shared between production and tests.
-  - `Tui.programOrScript` and `Tui.isInteractive` — for programs that run as a TUI interactively and fall back to a plain `BackendTask` in non-interactive environments (CI, agents piping output).
-  - `Tui.Effect` module — `perform` and `attempt` to run `BackendTask`s from `init`/`update`, plus `exit` and `exitWithCode`.
-  - `Tui.Sub` module — subscribe to keyboard, mouse, paste, resize, and periodic tick events.
-  - `Tui.Screen` module — build styled terminal output with colors, bold, italic, underline, strikethrough, hyperlinks, text wrapping, and truncation.
-  - `Tui.Screen.Advanced` module — low-level line/span inspection for framework authors building on top of `Tui.Screen`.
-  - `Tui.Input` module — single-line text input primitive with cursor movement and editing.
-- `Test.Tui` module — pure Elm tests for `Tui.program` values, inspired by [elm-program-test](https://package.elm-lang.org/packages/avh4/elm-program-test/latest/). Simulate keypresses, clicks, paste events, resizes, and time; assert on rendered screen output or model state; resolve pending `BackendTask` effects with the sibling `Test.BackendTask` simulators.
-- `Test.PagesProgram` module — end-to-end tests for elm-pages routes. Exercises the real framework runtime (data loading, form submissions, redirects, cookies, error pages, optimistic UI via concurrent fetchers) with simulated HTTP responses and custom ports. Tests are deterministic and run in-process via `elm-test`, and can also be stepped through visually with `elm-pages test-view`.
-  - `Test.PagesProgram.Selector` — labeled selectors that wrap `Test.Html.Selector` so assertions appear as human-readable labels in the visual test runner.
-  - `Test.PagesProgram.SimulatedEffect` — data representation of client-side `Effect` values for route modules that use client-side TEA.
-  - `Test.PagesProgram.SimulatedSub` — data representation of client-side `Sub` values so tests can simulate incoming port messages.
+Two big new capabilities land in this release, pitched at the same core
+idea: elm-pages controls the framework and the runtime, so tests can be
+pure, deterministic, and fast.
 
+**TUIs as elm-pages scripts.** The new `Tui` module family lets you
+build interactive terminal UIs with the same `(data, init, update,
+view, subscriptions)` shape as a TEA web app. Render styled output with
+colors, bold, italics, hyperlinks, wrapping, and truncation. Subscribe
+to keypresses, mouse events, paste, window resize, and time. Run
+`BackendTask` effects from `init`/`update` through `Tui.Effect`, and
+fall back to a plain `BackendTask` in non-interactive environments (CI,
+agents piping output) with `Tui.programOrScript`.
 
+**Pure Elm tests for elm-pages routes and TUIs.** Inspired by
+[elm-program-test](https://package.elm-lang.org/packages/avh4/elm-program-test/latest/),
+`Test.PagesProgram` and `Test.Tui` test real Elm programs without a
+browser or terminal. For elm-pages routes: exercise the full framework
+runtime — data loading, form submissions, redirects, cookies, error
+pages, and optimistic UI via concurrent fetchers — with simulated HTTP
+responses and custom port effects. For TUIs: simulate keypresses,
+mouse, paste, resizes, and time, and assert on rendered screen output
+or model state. Both share `Test.BackendTask`'s simulators, so one
+virtual filesystem, environment, HTTP stub set, and DB seed can be
+reused across a TUI test, a route test, and a standalone `BackendTask`
+test.
+
+**Visual test viewer** — the browser-based stepper at `/_tests` runs as
+part of `elm-pages dev`. It renders every assertion and interaction in
+your route tests as a timeline: inspect the rendered page at each step,
+see which element an assertion targeted, and watch network requests
+and fetcher submissions resolve in real time.
 
 ### Fixed
 
