@@ -5,7 +5,7 @@ module Tui.Screen exposing
     , styleForeground, styleBackground, styleAttributes, styleHyperlink
     , truncateWidth, wrapWidth
     , toString
-    , styleToFlatStyle, flatStyleToStyle
+    , FlatStyle, styleToFlatStyle, flatStyleToStyle
     )
 
 {-| Styled terminal output for a [`Tui.Program`](Tui#Program)'s `view` function.
@@ -79,7 +79,7 @@ styled output, see [`Tui.Screen.Advanced`](Tui-Screen-Advanced).
 These conversions are exposed for use by other modules in the
 `dillonkearns/elm-pages` package. Application code should not call them.
 
-@docs styleToFlatStyle, flatStyleToStyle
+@docs FlatStyle, styleToFlatStyle, flatStyleToStyle
 
 -}
 
@@ -106,6 +106,7 @@ code. To build styled text, use the Screen-level builders
 ([`fg`](#fg), [`bold`](#bold), etc.) directly on a `Screen`. To read the
 style of a [`Tui.Screen.Advanced.Span`](Tui-Screen-Advanced#Span), use
 [`styleForeground`](#styleForeground) and friends.
+
 -}
 type Style
     = Style StyleFields
@@ -149,15 +150,6 @@ type Attribute
 text : String -> Screen
 text =
     Internal.ScreenText
-
-
-{-| Internal: styled text primitive used by `Tui.Screen.Advanced.fromLine`.
-Not exposed to application code; use the builders
-([`fg`](#fg), [`bold`](#bold), etc.) on a [`text`](#text) value instead.
--}
-styled : Style -> String -> Screen
-styled =
-    Internal.ScreenStyled
 
 
 {-| Stack screens vertically. Each item starts on a new line.
@@ -363,11 +355,19 @@ styleHyperlink (Style s) =
 -- STYLE CONVERSION (package-internal, used by span helpers)
 
 
+{-| Flat record representation of a [`Style`](#Style), exposed so framework
+modules can annotate the conversion helpers below. Application code should
+not need this.
+-}
+type alias FlatStyle =
+    Internal.FlatStyle
+
+
 {-| Framework-internal. Converts an opaque [`Style`](#Style) to the flat record
 representation used by the renderer and serializer. Application code should
 not need this.
 -}
-styleToFlatStyle : Style -> Internal.FlatStyle
+styleToFlatStyle : Style -> FlatStyle
 styleToFlatStyle (Style s) =
     let
         def : Internal.FlatStyle
@@ -451,7 +451,7 @@ flattenToSpanLines =
 {-| Framework-internal. Inverse of [`styleToFlatStyle`](#styleToFlatStyle).
 Application code should not need this.
 -}
-flatStyleToStyle : Internal.FlatStyle -> Style
+flatStyleToStyle : FlatStyle -> Style
 flatStyleToStyle fs =
     Style
         { fg = fs.foreground

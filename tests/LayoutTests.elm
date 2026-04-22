@@ -5,7 +5,7 @@ import Expect
 import Json.Encode
 import Test exposing (Test, describe, test)
 import Tui.Layout as Layout
-import Tui.Screen exposing (plain)
+import Tui.Screen
 import Tui.Screen.Internal.Encode as ScreenEncode
 import Tui.Sub
 
