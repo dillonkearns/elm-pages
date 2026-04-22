@@ -444,7 +444,7 @@ withTime time (TestSetup setup) =
 
 
 {-| Set a fixed request time for server-rendered route requests in
-[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+[`Test.PagesProgram.start`](Test-PagesProgram#start).
 
     import Time
     import Test.BackendTask as BackendTaskTest
@@ -459,7 +459,7 @@ withRequestTime time (TestSetup setup) =
 
 
 {-| Seed a request header for server-rendered route requests in
-[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+[`Test.PagesProgram.start`](Test-PagesProgram#start).
 
 Header names are normalized to lowercase.
 
@@ -479,7 +479,7 @@ withRequestHeader name value (TestSetup setup) =
 
 
 {-| Seed a cookie on the initial server-rendered request in
-[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+[`Test.PagesProgram.start`](Test-PagesProgram#start).
 
     import Test.BackendTask as BackendTaskTest
 
@@ -3866,7 +3866,7 @@ toResult scriptTest =
 
 
 {-| Resolve a BackendTask with a VirtualFS and return both the updated VirtualFS
-and the result. Used by `Test.PagesProgram.startPlatform` to resolve data and
+and the result. Used by `Test.PagesProgram.start` to resolve data and
 action BackendTasks with stateful file tracking.
 -}
 resolveWithVirtualFs : VirtualFS -> BackendTask FatalError a -> ( VirtualFS, Result String a )

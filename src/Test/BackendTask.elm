@@ -427,7 +427,7 @@ withTime =
 
 
 {-| Set a fixed request time for server-rendered route requests in
-[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+[`Test.PagesProgram.start`](Test-PagesProgram#start).
 
     import Time
 
@@ -441,7 +441,7 @@ withRequestTime =
 
 
 {-| Seed a request header for server-rendered route requests in
-[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+[`Test.PagesProgram.start`](Test-PagesProgram#start).
 
 Header names are normalized to lowercase.
 
@@ -455,7 +455,7 @@ withRequestHeader =
 
 
 {-| Seed a cookie on the initial server-rendered request in
-[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+[`Test.PagesProgram.start`](Test-PagesProgram#start).
 
     BackendTaskTest.init
         |> BackendTaskTest.withRequestCookie "mysession" "signed-cookie"
@@ -512,7 +512,7 @@ withFlashValue =
 
 
 {-| Seed a signed session cookie for the initial request in
-[`Test.PagesProgram.startPlatform`](Test-PagesProgram#startPlatform).
+[`Test.PagesProgram.start`](Test-PagesProgram#start).
 
 This keeps the cookie format internal to the test framework, so your tests
 work with session values instead of raw signed cookie strings.
