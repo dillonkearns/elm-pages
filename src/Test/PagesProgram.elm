@@ -3722,7 +3722,7 @@ applySimulation sim (ProgramTest state) =
             let
                 target : String
                 target =
-                    simulationUrl sim
+                    simulationTarget sim
             in
             case findResolverByUrl target state.pendingFetcherEffects of
                 Just ( matchedFetcher, restFetchers ) ->
@@ -3866,6 +3866,28 @@ simulationUrl sim =
 
         SimCustom portName _ ->
             portName
+
+
+{-| Target string used to match a simulation against pending BackendTask
+requests. For HTTP this is the URL; for custom ports this is the
+`elm-pages-internal://<portName>` URL that `BackendTask.Custom.run` uses
+internally. Kept separate from [`simulationUrl`](#simulationUrl) which is
+for user-facing display.
+-}
+simulationTarget : Simulation -> String
+simulationTarget sim =
+    case sim of
+        SimHttpGet url _ ->
+            url
+
+        SimHttpPost url _ ->
+            url
+
+        SimHttpError _ url _ ->
+            url
+
+        SimCustom portName _ ->
+            "elm-pages-internal://" ++ portName
 
 
 {-| Find the first resolver in the list whose pendingUrls contains the target URL.
@@ -5668,7 +5690,7 @@ processEffectsWrapped config baseUrl requestDefaults makeReady makePlatformResol
                                     , pendingDescription =
                                         stillRunningDescription runningState.pendingRequests
                                     , pendingUrls =
-                                        List.map .url runningState.pendingRequests
+                                        List.map requestTargetUrl runningState.pendingRequests
                                     , pendingRequestDetails =
                                         requestDetailsFromRequests runningState.pendingRequests
                                     }
@@ -6083,16 +6105,33 @@ applySimToBt sim bt =
 
 
 {-| Extract pending HTTP URLs from a BackendTaskTest. Used to populate
-the Resolver's pendingUrls field for URL-targeted simulation.
+the Resolver's pendingUrls field for URL-targeted simulation. Custom port
+requests (which all share the `elm-pages-internal://port` URL) are
+normalized to `elm-pages-internal://<portName>` so `simulateCustom` can
+route to the correct resolver.
 -}
 btPendingUrls : BackendTaskTest.BackendTaskTest a -> List String
 btPendingUrls bt =
     case bt of
         BackendTaskTest.Running runningState ->
-            List.map .url runningState.pendingRequests
+            List.map requestTargetUrl runningState.pendingRequests
 
         _ ->
             []
+
+
+requestTargetUrl : StaticHttpRequest.Request -> String
+requestTargetUrl req =
+    if req.url == "elm-pages-internal://port" then
+        case BackendTaskTest.getPortName req of
+            Just portName ->
+                "elm-pages-internal://" ++ portName
+
+            Nothing ->
+                req.url
+
+    else
+        req.url
 
 
 {-| Extract pending request details from a BackendTaskTest. Used to populate

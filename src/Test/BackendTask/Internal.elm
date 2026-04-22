@@ -11,6 +11,7 @@ module Test.BackendTask.Internal exposing
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
     , VirtualFS, emptyVirtualFS, extractVirtualFs, resolveWithVirtualFs, resolveWithVirtualFsPartial, toResult
     , encodeSession, mockSignValue
+    , getPortName
     )
 
 {-| Internal implementation for [`Test.BackendTask`](Test-BackendTask) and its sub-modules.
