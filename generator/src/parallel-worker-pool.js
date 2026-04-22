@@ -289,10 +289,23 @@ function ensureWorkerCompiled(workerModule) {
  * Re-registering for the same module tears down any already-spawned
  * pool so the next dispatch picks up the new `sharedBytes`.
  *
- * @param {{ workerModule: string, sharedBytes: Buffer }} options
+ * `poolSizeHint` is an optional caller-provided cap on workers for
+ * this module. Each worker pays a fixed bundle-parse cost on spawn
+ * (~1-2 s for the elm-pages3-bundled worker entry), so the default
+ * `min(cpus, 16)` is wasteful when the caller dispatches fewer tasks
+ * than CPUs. Callers (e.g. elm-build's TestRunner) that know their
+ * task count up front can pass it as the hint to right-size the pool.
+ * Always clamped down by `min(cpus, 16)` — never exceeds the
+ * machine's CPU budget regardless of hint.
+ *
+ * @param {{ workerModule: string, sharedBytes: Buffer, poolSizeHint?: number | null }} options
  * @returns {Promise<void>}
  */
-export async function spawnElmWorkerPool({ workerModule, sharedBytes }) {
+export async function spawnElmWorkerPool({
+  workerModule,
+  sharedBytes,
+  poolSizeHint,
+}) {
   // Tear down any pre-existing sub-pool for this module (idempotent
   // if no prior pool existed). This happens immediately because the
   // old pool might still be holding memory / worker threads we don't
@@ -320,7 +333,7 @@ export async function spawnElmWorkerPool({ workerModule, sharedBytes }) {
 
   // Record the config; actual worker spawn is deferred to the first
   // dispatch via `ensureElmWorkerPoolSpawned`.
-  pendingElmPools.set(workerModule, { sharedSab });
+  pendingElmPools.set(workerModule, { sharedSab, poolSizeHint });
 }
 
 /**
@@ -345,7 +358,11 @@ function ensureElmWorkerPoolSpawned(workerModule) {
       )
     );
   }
-  const spawnPromise = actuallySpawnElmPool(workerModule, pending.sharedSab);
+  const spawnPromise = actuallySpawnElmPool(
+    workerModule,
+    pending.sharedSab,
+    pending.poolSizeHint
+  );
   inFlightSpawns.set(workerModule, spawnPromise);
   spawnPromise
     .then(() => {
@@ -359,10 +376,20 @@ function ensureElmWorkerPoolSpawned(workerModule) {
   return spawnPromise;
 }
 
-async function actuallySpawnElmPool(workerModule, sharedSab) {
+async function actuallySpawnElmPool(workerModule, sharedSab, poolSizeHint) {
   const compiledElmPath = await ensureWorkerCompiled(workerModule);
 
-  const size = resolvePoolSize();
+  const baseSize = resolvePoolSize();
+  // Apply the per-spawn hint by clamping `baseSize` (which already
+  // honors the explicit `configure({ poolSize })` call, the
+  // `ELM_PAGES_PARALLEL_POOL_SIZE` env var, and the cpus/16 ceiling)
+  // down to the caller's hint. The hint never INCREASES pool size
+  // beyond what the machine + global config allow; it only lets a
+  // caller say "I have N tasks, don't spin up more workers than that".
+  const size =
+    typeof poolSizeHint === "number" && poolSizeHint > 0
+      ? Math.min(baseSize, Math.floor(poolSizeHint))
+      : baseSize;
   const sub = { workers: [], queue: [] };
   for (let i = 0; i < size; i++) {
     const worker = new Worker(config.workerEntryPath, {

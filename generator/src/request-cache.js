@@ -51,11 +51,25 @@ export function lookupOrPerform(portsFile, mode, rawRequest) {
       );
       try {
         const sharedBytes = rawRequest.__rawBytes || Buffer.alloc(0);
+        // Optional `pool-size` header lets callers right-size the pool
+        // for their workload. Each worker pays a fixed bundle-parse cost
+        // on spawn, so the default `min(cpus, 16)` is wasteful for small
+        // dispatch counts. When present, we clamp to `min(hint, cpus,
+        // 16)` so callers can pass `Just task_count` without worrying
+        // about over-allocating beyond what the host can actually run.
+        // `rawRequest.headers` is a list of `[key, value]` pairs, not a
+        // dict — that's how Elm's BackendTask.Http encodes them. Find
+        // the pool-size pair if present.
+        const poolSizeHeader = Array.isArray(rawRequest.headers)
+          ? rawRequest.headers.find(([k]) => k === "pool-size")?.[1]
+          : null;
+        const poolSizeHint = poolSizeHeader ? Number(poolSizeHeader) : null;
         timeStart(`BackendTask.Parallel.worker "${workerModule}"`);
         try {
           await parallelWorkerPool.spawnElmWorkerPool({
             workerModule,
             sharedBytes,
+            poolSizeHint,
           });
         } finally {
           timeEnd(`BackendTask.Parallel.worker "${workerModule}"`);

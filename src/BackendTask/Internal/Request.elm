@@ -1,4 +1,4 @@
-module BackendTask.Internal.Request exposing (request, request2, requestBytes, requestWithHeaders)
+module BackendTask.Internal.Request exposing (request, request2, requestBytes, requestBytesWithHeaders, requestWithHeaders)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http exposing (Body)

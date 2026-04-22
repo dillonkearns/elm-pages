@@ -167,11 +167,25 @@ should call `initShared` once and then loop calling `receiveTask` /
 worker :
     { workerModule : String
     , shared : Bytes
+    , poolSize : Maybe Int
     }
     -> BackendTask FatalError Worker
-worker { workerModule, shared } =
-    BackendTask.Internal.Request.requestBytes
+worker { workerModule, shared, poolSize } =
+    BackendTask.Internal.Request.requestBytesWithHeaders
         { name = "parallel-spawn-worker/" ++ workerModule
+        , headers =
+            -- `pool-size` is a HINT (clamped to `min(hint, cpus)` JS-side).
+            -- Setting it lets callers right-size the worker pool to their
+            -- actual workload; the default `min(cpus, 16)` is wasteful for
+            -- small dispatch counts (each worker pays a fixed bundle-parse
+            -- cost on spawn that doesn't amortize with fewer than ~one
+            -- task per worker).
+            case poolSize of
+                Just n ->
+                    [ ( "pool-size", String.fromInt n ) ]
+
+                Nothing ->
+                    []
         , body = BackendTask.Http.bytesBody "application/octet-stream" shared
         , expect = Bytes.Decode.succeed (Worker workerModule)
         }
