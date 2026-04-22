@@ -2,7 +2,7 @@ module Test.BackendTask exposing
     ( TestSetup
     , fromBackendTask, fromBackendTaskWith
     , fromScript, fromScriptWith
-    , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, Session, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
+    , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRandomSeed, withWhich
     , withTimeZoneConfig, withTimeZoneByNameConfig
     , withDb, withDbSetTo
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateHttpStream
@@ -146,7 +146,7 @@ simulate it.
 
 Seed initial state before the test starts running.
 
-@docs TestSetup, init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, Session, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
+@docs TestSetup, init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRandomSeed, withWhich
 
 ## Companion Module Helpers
 
@@ -222,7 +222,7 @@ import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Json.Encode as Encode
 import Pages.Script exposing (Script)
-import Test.BackendTask.Internal as Internal exposing (BackendTaskTest, Session)
+import Test.BackendTask.Internal as Internal exposing (BackendTaskTest)
 import Time
 
 
@@ -443,96 +443,6 @@ Header names are normalized to lowercase.
 withRequestHeader : String -> String -> TestSetup -> TestSetup
 withRequestHeader =
     Internal.withRequestHeader
-
-
-{-| Seed a cookie on the initial server-rendered request in
-[`Test.PagesProgram.start`](Test-PagesProgram#start).
-
-    BackendTaskTest.init
-        |> BackendTaskTest.withRequestCookie "mysession" "signed-cookie"
-
--}
-withRequestCookie : String -> String -> TestSetup -> TestSetup
-withRequestCookie =
-    Internal.withRequestCookie
-
-
-{-| A session value, built up with [`withSessionValue`](#withSessionValue)
-and [`withFlashValue`](#withFlashValue), then passed to
-[`withSessionCookie`](#withSessionCookie) to sign into a request.
--}
-type alias Session =
-    Internal.Session
-
-
-{-| An empty [`Session`](#Session) to build on with
-[`withSessionValue`](#withSessionValue) and [`withFlashValue`](#withFlashValue),
-then hand off to [`withSessionCookie`](#withSessionCookie).
-
-    import Test.BackendTask as BackendTaskTest
-
-    signedInSession =
-        BackendTaskTest.session
-            |> BackendTaskTest.withSessionValue "sessionId" "abc123"
-
--}
-session : Session
-session =
-    Internal.session
-
-
-{-| Add a persistent session value to a [`Session`](#Session).
-
-    import Test.BackendTask as BackendTaskTest
-
-    signedInSession =
-        BackendTaskTest.session
-            |> BackendTaskTest.withSessionValue "sessionId" "abc123"
-
--}
-withSessionValue : String -> String -> Session -> Session
-withSessionValue =
-    Internal.withSessionValue
-
-
-{-| Add a flash session value to a [`Session`](#Session).
-
-Flash values are available on the next request only, matching
-[`Server.Session.withFlash`](Server-Session#withFlash).
-
-    import Test.BackendTask as BackendTaskTest
-
-    sessionWithFlash =
-        BackendTaskTest.session
-            |> BackendTaskTest.withFlashValue "message" "Welcome back!"
-
--}
-withFlashValue : String -> String -> Session -> Session
-withFlashValue =
-    Internal.withFlashValue
-
-
-{-| Seed a signed session cookie for the initial request in
-[`Test.PagesProgram.start`](Test-PagesProgram#start).
-
-This keeps the cookie format internal to the test framework, so your tests
-work with session values instead of raw signed cookie strings.
-
-    import Test.BackendTask as BackendTaskTest
-
-    BackendTaskTest.init
-        |> BackendTaskTest.withSessionCookie
-            { name = "mysession"
-            , session =
-                BackendTaskTest.session
-                    |> BackendTaskTest.withSessionValue "sessionId" "abc123"
-                    |> BackendTaskTest.withFlashValue "message" "Welcome back!"
-            }
-
--}
-withSessionCookie : { name : String, session : Session } -> TestSetup -> TestSetup
-withSessionCookie =
-    Internal.withSessionCookie
 
 
 {-| Set a fixed random seed for `BackendTask.Random.int32` and `BackendTask.Random.generate`.

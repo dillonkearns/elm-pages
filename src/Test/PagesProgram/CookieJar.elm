@@ -1,26 +1,41 @@
 module Test.PagesProgram.CookieJar exposing
     ( CookieJar
-    , empty, set, get, toDict
+    , empty, set, setSession, get, toDict
     , withSetCookieHeaders
+    , withCookies
     )
 
-{-| A simple cookie jar that tracks cookies across requests in the test framework.
-
-Supports:
+{-| A cookie jar used to seed the initial request of a test and to track
+cookies across subsequent requests. Supports:
 
   - Setting/getting individual cookies
-  - Parsing `Set-Cookie` response headers to capture cookies
-  - Converting to a `Dict String String` for request construction
+  - Seeding a signed session cookie via [`setSession`](#setSession)
+  - Parsing `Set-Cookie` response headers to capture cookies across requests
+  - Applying the jar to a [`Test.BackendTask.TestSetup`](Test-BackendTask#TestSetup)
+    via [`withCookies`](#withCookies)
 
 @docs CookieJar
 
-@docs empty, set, get, toDict
+
+## Building
+
+@docs empty, set, setSession, get, toDict
+
+
+## Capturing from responses
 
 @docs withSetCookieHeaders
+
+
+## Seeding a test
+
+@docs withCookies
 
 -}
 
 import Dict exposing (Dict)
+import Test.BackendTask.Internal as TestInternal
+import Test.PagesProgram.Session exposing (Session)
 import Url
 
 
@@ -42,6 +57,26 @@ empty =
 set : String -> String -> CookieJar -> CookieJar
 set name value (CookieJar cookies) =
     CookieJar (Dict.insert name value cookies)
+
+
+{-| Set a signed session cookie in the jar. The [`Session`](Test-PagesProgram-Session#Session)
+value is encoded and signed the same way
+[`Server.Session`](Server-Session) encodes its payload at runtime, so routes
+reading the cookie get the seeded values back out.
+
+    import Test.PagesProgram.CookieJar as CookieJar
+    import Test.PagesProgram.Session as Session
+
+    CookieJar.empty
+        |> CookieJar.setSession "mysession"
+            (Session.empty
+                |> Session.withValue "userId" "42"
+            )
+
+-}
+setSession : String -> Session -> CookieJar -> CookieJar
+setSession name sessionValue jar =
+    set name (TestInternal.mockSignValue (TestInternal.encodeSession sessionValue)) jar
 
 
 {-| Get a cookie from the jar.
@@ -115,3 +150,21 @@ isCookieAttribute : String -> Bool
 isCookieAttribute name =
     List.member (String.toLower name)
         [ "path", "domain", "expires", "max-age", "secure", "httponly", "samesite" ]
+
+
+{-| Apply the jar to a [`Test.BackendTask.TestSetup`](Test-BackendTask#TestSetup),
+seeding every cookie in the jar on the initial request.
+
+    import Test.BackendTask as BackendTaskTest
+    import Test.PagesProgram.CookieJar as CookieJar
+
+    BackendTaskTest.init
+        |> CookieJar.withCookies
+            (CookieJar.empty
+                |> CookieJar.set "theme" "dark"
+            )
+
+-}
+withCookies : CookieJar -> TestInternal.TestSetup -> TestInternal.TestSetup
+withCookies (CookieJar cookies) setup =
+    Dict.foldl TestInternal.withRequestCookie setup cookies

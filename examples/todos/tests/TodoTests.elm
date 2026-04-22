@@ -26,6 +26,8 @@ import Test.BackendTask as BackendTaskTest
 import Test.Html.Selector as Selector
 import Test.Html.Query as Query
 import Test.PagesProgram as PagesProgram
+import Test.PagesProgram.CookieJar as CookieJar
+import Test.PagesProgram.Session as Session
 import Test.Html.Selector as PSelector
 import TestApp
 import Time
@@ -116,12 +118,13 @@ startSignedInWithTodos : Encode.Value -> TestApp.ProgramTest
 startSignedInWithTodos todos =
     TestApp.start "/"
         (baseSetup
-            |> BackendTaskTest.withSessionCookie
-                { name = "mysession"
-                , session =
-                    BackendTaskTest.session
-                        |> BackendTaskTest.withSessionValue "sessionId" "test-session-id"
-                }
+            |> CookieJar.withCookies
+                (CookieJar.empty
+                    |> CookieJar.setSession "mysession"
+                        (Session.empty
+                            |> Session.withValue "sessionId" "test-session-id"
+                        )
+                )
         )
         |> PagesProgram.ensureCustom "getTodosBySession"
         |> PagesProgram.simulateCustom "getTodosBySession" todos

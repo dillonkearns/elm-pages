@@ -60,6 +60,7 @@
         "Test.BackendTask.Time",
         "Test.PagesProgram",
         "Test.PagesProgram.CookieJar",
+        "Test.PagesProgram.Session",
         "Test.PagesProgram.SimulatedEffect",
         "Test.PagesProgram.SimulatedSub",
         "Test.PagesProgram.Viewer"

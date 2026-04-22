@@ -31,6 +31,8 @@ import Expect
 import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
 import Test.PagesProgram as PagesProgram
+import Test.PagesProgram.CookieJar as CookieJar
+import Test.PagesProgram.Session as Session
 import Test.Html.Selector as PSelector
 import TestApp
 
@@ -190,13 +192,14 @@ seededSessionFlashTest =
     TestApp.start "/greet"
         (BackendTaskTest.init
             |> BackendTaskTest.withEnv "SESSION_SECRET" "test-secret"
-            |> BackendTaskTest.withSessionCookie
-                { name = "mysession"
-                , session =
-                    BackendTaskTest.session
-                        |> BackendTaskTest.withSessionValue "name" "Alice"
-                        |> BackendTaskTest.withFlashValue "message" "Welcome Alice!"
-                }
+            |> CookieJar.withCookies
+                (CookieJar.empty
+                    |> CookieJar.setSession "mysession"
+                        (Session.empty
+                            |> Session.withValue "name" "Alice"
+                            |> Session.withFlash "message" "Welcome Alice!"
+                        )
+                )
         )
         |> PagesProgram.ensureViewHas [ PSelector.text "Welcome Alice!" ]
         |> PagesProgram.ensureViewHas [ PSelector.text "Hello Alice!" ]

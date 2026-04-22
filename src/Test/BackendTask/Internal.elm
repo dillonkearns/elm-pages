@@ -10,6 +10,7 @@ module Test.BackendTask.Internal exposing
     , withVirtualEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
     , VirtualFS, emptyVirtualFS, extractVirtualFs, resolveWithVirtualFs, resolveWithVirtualFsPartial, toResult
+    , encodeSession, mockSignValue
     )
 
 {-| Internal implementation for [`Test.BackendTask`](Test-BackendTask) and its sub-modules.
