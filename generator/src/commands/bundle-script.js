@@ -128,11 +128,20 @@ export async function run(elmModulePath, options) {
       format: "esm",
       bundle: true,
       outfile: bundledWorkerEntryPath,
-      external: ["node:*"],
-      // Bundle all node_modules deps (e.g. cross-spawn, used by render.js)
-      // into the worker file so it doesn't need node_modules resolution
-      // relative to its runtime location — the bundled .mjs sits next to
-      // the user's script, not next to elm-pages3's node_modules.
+      external: [
+        "node:*",
+        // `elm-optimize-level-2` pulls in TypeScript (~8 MB) for its
+        // AST passes — used by `compile-elm.js` at build time. Workers
+        // never compile Elm; this is dead weight that 4-10× the worker
+        // bundle size and adds ~1 s of parse time per worker spawn.
+        // Externalize so workers don't carry it; if some future code
+        // path on the worker side accidentally imports it, the failure
+        // is loud (MODULE_NOT_FOUND) rather than silent bloat.
+        "elm-optimize-level-2",
+      ],
+      // Other node_modules deps stay bundled (cross-spawn, globby, etc.)
+      // because they're invoked from generator/src/* code paths a worker
+      // genuinely needs at runtime — file IO, port resolution, glob.
       banner: { js: WORKER_ESM_REQUIRE_SHIM },
       logLevel: "silent",
     });
