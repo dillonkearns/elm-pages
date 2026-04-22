@@ -2,7 +2,7 @@ module Test.BackendTask exposing
     ( TestSetup
     , fromBackendTask, fromBackendTaskWith
     , fromScript, fromScriptWith
-    , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
+    , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, SessionSeed, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
     , withTimeZoneConfig, withTimeZoneByNameConfig
     , withDb, withDbSetTo
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateHttpStream
@@ -146,7 +146,7 @@ simulate it.
 
 Seed initial state before the test starts running.
 
-@docs TestSetup, init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
+@docs TestSetup, init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, SessionSeed, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
 
 ## Companion Module Helpers
 
@@ -455,6 +455,14 @@ withRequestHeader =
 withRequestCookie : String -> String -> TestSetup -> TestSetup
 withRequestCookie =
     Internal.withRequestCookie
+
+
+{-| A seeded session value, built up with [`withSessionValue`](#withSessionValue)
+and [`withFlashValue`](#withFlashValue), then passed to
+[`withSessionCookie`](#withSessionCookie) to sign into a request.
+-}
+type alias SessionSeed =
+    Internal.SessionSeed
 
 
 {-| Start building a seeded session for [`withSessionCookie`](#withSessionCookie).
