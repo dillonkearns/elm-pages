@@ -5,7 +5,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
+import { createRequire } from "node:module";
 import * as globby from "globby";
+
+const requireCJS = createRequire(import.meta.url);
+const elmTestParser = requireCJS("../vendor/elm-test-parser.cjs");
 
 // Cache for lamdera executable check
 let lamderaVerified = false;
@@ -1187,172 +1191,382 @@ function moduleDefinesValue(content, valueName) {
   return annotationPattern.test(content) || definitionPattern.test(content);
 }
 
-/**
- * Find all exposed values whose type annotation mentions TuiTest.
- * Returns an array of value names.
- * @param {string} filePath
- * @returns {string[]}
- */
-/**
- * Scan an Elm source file for exposed ProgramTest values.
- * @param {string} filePath
- * @returns {string[]}
- */
-export function findProgramTestValues(filePath) {
-  return findAnnotatedValues(filePath, /ProgramTest/);
-}
+// ─── Test value discovery ───────────────────────────────────────────────
+//
+// Discovery has two phases:
+//   1. extractExposedNames: robust streaming tokenizer (vendored from
+//      elm-test) returns all exposed lowercase top-level names in a file,
+//      handling comments, strings, ports, and `exposing (..)` correctly.
+//   2. classifyAllTestValues: reads the file once, strips comments and
+//      string literals, then parses each name's top-level type annotation
+//      to classify it as a Test, Test.Tui.Test, or ProgramTest. Function
+//      types are rejected (a helper returning a Test is not itself a test).
 
-export function discoverProgramTestModules(
-  searchRoots = [
-    { glob: "tests/**/*.elm", baseDir: "tests" },
-    { glob: "snapshot-tests/src/**/*.elm", baseDir: "snapshot-tests/src" },
-  ]
-) {
-  return discoverAnnotatedModules(searchRoots, findProgramTestValues);
-}
+const DEFAULT_TEST_ROOTS = [
+  { glob: "tests/**/*.elm", baseDir: "tests" },
+  { glob: "snapshot-tests/src/**/*.elm", baseDir: "snapshot-tests/src" },
+];
 
+// Result types we recognize. Matched against the annotation's final
+// component after stripping any top-level function arrows.
+const VANILLA_RESULT_RE = /^(?:Test|Test\.Test)$/;
+const TUI_RESULT_RE = /^(?:Test\.Tui\.Test|TuiTest\.Test)$/;
+const PROGRAM_RESULT_RE = /^(?:\S+\.)?ProgramTest(?:\s+.+)?$/;
 
 /**
- * Scan an Elm source file for exposed named TUI test values.
- * These are values annotated as `TuiTest.Test` or `Test.Tui.Test`.
+ * Return the exposed lowercase top-level names in an Elm module using the
+ * vendored elm-test streaming tokenizer. Returns `[]` on I/O error or if
+ * the file is an effect module.
  * @param {string} filePath
- * @returns {string[]}
+ * @returns {Promise<string[]>}
  */
-export function findTuiTestValues(filePath) {
-  return findAnnotatedValues(filePath, /TuiTest\.Test|Test\.Tui\.Test/);
-}
-
-export function discoverTuiTestModules(
-  searchRoots = [
-    { glob: "tests/**/*.elm", baseDir: "tests" },
-    { glob: "snapshot-tests/src/**/*.elm", baseDir: "snapshot-tests/src" },
-  ]
-) {
-  return discoverAnnotatedModules(searchRoots, findTuiTestValues);
-}
-
-
-/**
- * Scan an Elm source file for exposed values annotated as vanilla
- * `elm-explorations/test` Test values (either `: Test` after
- * `import Test exposing (Test)` or the fully-qualified `: Test.Test`).
- * Excludes the framework-specific annotations handled by
- * findProgramTestValues / findTuiTestValues.
- * @param {string} filePath
- * @returns {string[]}
- */
-export function findVanillaTestValues(filePath) {
-  // Matches annotations whose RHS is exactly `Test` or `Test.Test`.
-  // `(?!\.)` skips `Test.PagesProgram.ProgramTest`, `Test.Tui.Test`, etc.
-  // `\s*$` (no /m) anchors to end-of-annotation-string so function types
-  // ending in Test (e.g. `String -> Test`) aren't picked up.
-  return findAnnotatedValues(filePath, /(?:^|\s):\s*(?:Test(?!\.)|Test\.Test)\s*$/);
-}
-
-export function discoverVanillaTestModules(
-  searchRoots = [
-    { glob: "tests/**/*.elm", baseDir: "tests" },
-    { glob: "snapshot-tests/src/**/*.elm", baseDir: "snapshot-tests/src" },
-  ]
-) {
-  return discoverAnnotatedModules(searchRoots, findVanillaTestValues);
-}
-
-
-/**
- * Scan an Elm source file for exposed values whose type annotation
- * matches the given pattern. Shared logic for TuiTest and ProgramTest
- * discovery.
- * @param {string} filePath
- * @param {RegExp} typePattern
- * @returns {string[]}
- */
-function findAnnotatedValues(filePath, typePattern) {
+export async function extractExposedNames(filePath) {
   try {
-    const content = fs.readFileSync(filePath, "utf8");
-
-    // Get exposed value names
-    const moduleMatch = content.match(
-      /^module\s+\S+\s+exposing\s*\(([\s\S]*?)\)/m
+    return await elmTestParser.extractExposedPossiblyTests(
+      filePath,
+      fs.createReadStream
     );
-    if (!moduleMatch) return [];
-    const exposingBlock = moduleMatch[1].trim();
-
-    let exposedNames;
-    if (exposingBlock === "..") {
-      // exposing (..) — find all top-level definitions
-      const defRegex = /^([a-z][a-zA-Z0-9_]*)\s*[=:]/gm;
-      exposedNames = [];
-      let m;
-      while ((m = defRegex.exec(content)) !== null) {
-        if (!exposedNames.includes(m[1])) {
-          exposedNames.push(m[1]);
-        }
-      }
-    } else {
-      // Parse explicit exposing list
-      exposedNames = exposingBlock
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => /^[a-z]/.test(s)) // only value names, not types
-        .map((s) => s.replace(/\(.*\)/, "").trim()); // strip (..) from type exports
-    }
-
-    // Filter to values whose type annotation matches the pattern
-    return exposedNames.filter((name) => {
-      const annotation = findTopLevelAnnotation(content, name);
-      return annotation !== null && typePattern.test(annotation);
-    });
   } catch (_) {
     return [];
   }
 }
 
-function findTopLevelAnnotation(content, name) {
-  const lines = content.split(/\r?\n/);
-  const annotationStart = new RegExp(`^${name}\\s*:`);
+/**
+ * Replace the contents of Elm line/block comments (nestable) and string
+ * literals with spaces of equal length, preserving newlines. Lets later
+ * regex passes scan annotations without false matches inside comments or
+ * strings.
+ * @param {string} source
+ * @returns {string}
+ */
+export function stripCommentsAndStrings(source) {
+  let out = "";
+  let i = 0;
+  const n = source.length;
+  while (i < n) {
+    const ch = source[i];
+    const next = i + 1 < n ? source[i + 1] : "";
 
-  for (let index = 0; index < lines.length; index++) {
-    if (!annotationStart.test(lines[index])) {
+    if (ch === "-" && next === "-") {
+      out += "  ";
+      i += 2;
+      while (i < n && source[i] !== "\n") {
+        out += " ";
+        i++;
+      }
       continue;
     }
 
-    const annotationLines = [lines[index]];
-
-    for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex++) {
-      if (/^[a-z][a-zA-Z0-9_]*\s*(?::|=)/.test(lines[nextIndex])) {
-        break;
+    if (ch === "{" && next === "-") {
+      let depth = 1;
+      out += "  ";
+      i += 2;
+      while (i < n && depth > 0) {
+        const c = source[i];
+        const c2 = i + 1 < n ? source[i + 1] : "";
+        if (c === "{" && c2 === "-") {
+          depth++;
+          out += "  ";
+          i += 2;
+        } else if (c === "-" && c2 === "}") {
+          depth--;
+          out += "  ";
+          i += 2;
+        } else if (c === "\n") {
+          out += "\n";
+          i++;
+        } else {
+          out += " ";
+          i++;
+        }
       }
-
-      annotationLines.push(lines[nextIndex]);
+      continue;
     }
 
-    return annotationLines.join("\n");
-  }
+    if (ch === '"' && next === '"' && source[i + 2] === '"') {
+      out += "   ";
+      i += 3;
+      while (i < n) {
+        if (
+          source[i] === '"' &&
+          source[i + 1] === '"' &&
+          source[i + 2] === '"'
+        ) {
+          out += "   ";
+          i += 3;
+          break;
+        }
+        out += source[i] === "\n" ? "\n" : " ";
+        i++;
+      }
+      continue;
+    }
 
+    if (ch === '"') {
+      out += '"';
+      i++;
+      while (i < n && source[i] !== '"' && source[i] !== "\n") {
+        if (source[i] === "\\" && i + 1 < n) {
+          out += "  ";
+          i += 2;
+        } else {
+          out += " ";
+          i++;
+        }
+      }
+      if (i < n) {
+        out += source[i] === '"' ? '"' : "\n";
+        i++;
+      }
+      continue;
+    }
+
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
+/**
+ * Extract the top-level type annotation for `name` from (already-stripped)
+ * content. Returns null if no annotation is present.
+ * @param {string} strippedContent
+ * @param {string} name
+ * @returns {string|null}
+ */
+function findTopLevelAnnotation(strippedContent, name) {
+  const lines = strippedContent.split(/\r?\n/);
+  const annotationStart = new RegExp(`^${name}\\s*:`);
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!annotationStart.test(lines[i])) continue;
+
+    const collected = [lines[i]];
+    for (let j = i + 1; j < lines.length; j++) {
+      if (/^[a-z][a-zA-Z0-9_]*\s*(?::|=)/.test(lines[j])) break;
+      collected.push(lines[j]);
+    }
+    return collected.join("\n");
+  }
   return null;
 }
 
-function discoverAnnotatedModules(searchRoots, findValues) {
-  const discovered = [];
+/**
+ * Given an annotation like `myFn : A -> B -> C`, return `{ resultType: "C",
+ * isFunction: true }`. For `myTest : Test` returns `{ resultType: "Test",
+ * isFunction: false }`. The search for `->` respects paren/bracket/brace
+ * nesting so record-field arrows don't count.
+ * @param {string} annotation
+ * @returns {{ resultType: string, isFunction: boolean }}
+ */
+function parseAnnotationResult(annotation) {
+  const body = annotation.replace(/^[a-z][a-zA-Z0-9_]*\s*:/, "");
+  let depth = 0;
+  let lastArrow = -1;
+  for (let i = 0; i < body.length - 1; i++) {
+    const c = body[i];
+    if (c === "(" || c === "[" || c === "{") depth++;
+    else if (c === ")" || c === "]" || c === "}") depth--;
+    else if (c === "-" && body[i + 1] === ">" && depth === 0) lastArrow = i;
+  }
+  const rawResult = lastArrow >= 0 ? body.slice(lastArrow + 2) : body;
+  return {
+    resultType: rawResult.replace(/\s+/g, " ").trim(),
+    isFunction: lastArrow >= 0,
+  };
+}
+
+/**
+ * Classify each exposed name in a file as:
+ *   - program/tui/vanilla: matched a known test type
+ *   - missingAnnotation: exposed but no top-level type annotation
+ *     (a forgotten annotation is the usual cause — the caller should
+ *      treat this as a hard error)
+ *   - nonTest: annotated but the annotation isn't a recognized test type
+ *     (e.g. an exposed helper function — intentional, pass through)
+ *
+ * Reads and strips the file once.
+ *
+ * @param {string} filePath
+ * @returns {Promise<{
+ *   program: string[],
+ *   tui: string[],
+ *   vanilla: string[],
+ *   missingAnnotation: string[],
+ *   nonTest: string[],
+ * }>}
+ */
+export async function classifyAllTestValues(filePath) {
+  const names = await extractExposedNames(filePath);
+  const empty = {
+    program: [],
+    tui: [],
+    vanilla: [],
+    missingAnnotation: [],
+    nonTest: [],
+  };
+  if (names.length === 0) return empty;
+
+  let content;
+  try {
+    content = fs.readFileSync(filePath, "utf8");
+  } catch (_) {
+    return empty;
+  }
+  const stripped = stripCommentsAndStrings(content);
+
+  const result = {
+    program: [],
+    tui: [],
+    vanilla: [],
+    missingAnnotation: [],
+    nonTest: [],
+  };
+  for (const name of names) {
+    const annotation = findTopLevelAnnotation(stripped, name);
+    if (annotation === null) {
+      result.missingAnnotation.push(name);
+      continue;
+    }
+    const { resultType, isFunction } = parseAnnotationResult(annotation);
+    if (isFunction) {
+      result.nonTest.push(name);
+      continue;
+    }
+    if (PROGRAM_RESULT_RE.test(resultType)) result.program.push(name);
+    else if (TUI_RESULT_RE.test(resultType)) result.tui.push(name);
+    else if (VANILLA_RESULT_RE.test(resultType)) result.vanilla.push(name);
+    else result.nonTest.push(name);
+  }
+
+  return result;
+}
+
+/**
+ * Scan an Elm source file for exposed ProgramTest values.
+ * @param {string} filePath
+ * @returns {Promise<string[]>}
+ */
+export async function findProgramTestValues(filePath) {
+  return (await classifyAllTestValues(filePath)).program;
+}
+
+/**
+ * Scan an Elm source file for exposed named TUI test values.
+ * @param {string} filePath
+ * @returns {Promise<string[]>}
+ */
+export async function findTuiTestValues(filePath) {
+  return (await classifyAllTestValues(filePath)).tui;
+}
+
+/**
+ * Scan an Elm source file for exposed vanilla elm-explorations/test Test
+ * values. Excludes the framework-specific ProgramTest and TuiTest types.
+ * @param {string} filePath
+ * @returns {Promise<string[]>}
+ */
+export async function findVanillaTestValues(filePath) {
+  return (await classifyAllTestValues(filePath)).vanilla;
+}
+
+export async function discoverProgramTestModules(
+  searchRoots = DEFAULT_TEST_ROOTS
+) {
+  return (await discoverAllTestModules(searchRoots)).program;
+}
+
+export async function discoverTuiTestModules(
+  searchRoots = DEFAULT_TEST_ROOTS
+) {
+  return (await discoverAllTestModules(searchRoots)).tui;
+}
+
+export async function discoverVanillaTestModules(
+  searchRoots = DEFAULT_TEST_ROOTS
+) {
+  return (await discoverAllTestModules(searchRoots)).vanilla;
+}
+
+/**
+ * Walk the search roots once, classifying every file. Returns the three
+ * test buckets plus a `warnings` list naming files that have at least one
+ * classified test AND at least one exposed-but-unclassified value (a
+ * likely-forgotten annotation the user should know about).
+ *
+ * @param {{glob: string, baseDir: string}[]} [searchRoots]
+ * @returns {Promise<{
+ *   program: {moduleName: string, file: string, values: string[]}[],
+ *   tui: {moduleName: string, file: string, values: string[]}[],
+ *   vanilla: {moduleName: string, file: string, values: string[]}[],
+ *   missingAnnotations: {file: string, moduleName: string, names: string[]}[],
+ * }>}
+ */
+export async function discoverAllTestModules(
+  searchRoots = DEFAULT_TEST_ROOTS
+) {
+  const program = [];
+  const tui = [];
+  const vanilla = [];
+  const missingAnnotations = [];
 
   for (const { glob, baseDir } of searchRoots) {
     const files = globby.globbySync([glob]);
-
     for (const file of files) {
-      const values = findValues(file);
-      if (values.length === 0) {
-        continue;
-      }
-
+      const classified = await classifyAllTestValues(file);
       const moduleName = path
         .relative(baseDir, file)
         .replace(/\.elm$/, "")
         .replace(/[/\\]/g, ".");
 
-      discovered.push({ moduleName, file, values });
+      if (classified.program.length > 0) {
+        program.push({ moduleName, file, values: classified.program });
+      }
+      if (classified.tui.length > 0) {
+        tui.push({ moduleName, file, values: classified.tui });
+      }
+      if (classified.vanilla.length > 0) {
+        vanilla.push({ moduleName, file, values: classified.vanilla });
+      }
+
+      if (classified.missingAnnotation.length > 0) {
+        missingAnnotations.push({
+          file,
+          moduleName,
+          names: classified.missingAnnotation,
+        });
+      }
     }
   }
+  return { program, tui, vanilla, missingAnnotations };
+}
 
-  return discovered;
+/**
+ * Build a hard-error message describing exposed values that have no
+ * top-level type annotation. Discovery treats these as "forgotten
+ * annotation" footguns and fails rather than skipping them silently.
+ *
+ * @param {{file: string, names: string[]}[]} missingAnnotations
+ * @returns {string}
+ */
+export function missingAnnotationsError(missingAnnotations) {
+  const lines = [
+    "Exposed values without a type annotation.",
+    "",
+    "These values are exposed from test modules but have no top-level type",
+    "annotation, so elm-pages can't tell whether they're tests. Either add a",
+    "type annotation or remove them from the module's exposing list.",
+    "",
+  ];
+  for (const { file, names } of missingAnnotations) {
+    for (const name of names) {
+      lines.push(`  ${file}: ${name}`);
+    }
+  }
+  lines.push("");
+  lines.push("Expected test annotations:");
+  lines.push("  : Test                 (elm-explorations/test)");
+  lines.push("  : Test.Tui.Test        (TUI test)");
+  lines.push("  : TestApp.ProgramTest  (page/program test)");
+  return lines.join("\n");
 }

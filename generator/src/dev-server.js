@@ -374,7 +374,7 @@ export async function start(options) {
       "./file-helpers.js"
     );
 
-    const allTests = discoverProgramTestModules().map(
+    const allTests = (await discoverProgramTestModules()).map(
       ({ moduleName, values }) => ({ moduleName, values })
     );
 

@@ -4,8 +4,10 @@
  *   - TuiTest.Test / Test.Tui.Test values
  *   - Vanilla Test values (elm-explorations/test)
  *
- * Generates a TestRunner.elm that wraps each type appropriately, then
- * runs elm-test with the lamdera compiler. Replaces direct use of
+ * Generates a per-module companion file under GeneratedTests/<Mod>.elm
+ * that wraps each test type as a vanilla Test, plus a root
+ * GeneratedTests/All.elm that aggregates them. Runs elm-test with the
+ * lamdera compiler on the aggregated root. Replaces direct use of
  * `elm-test` for elm-pages projects.
  *
  * For the interactive TUI stepper over named TUI tests, use `--visual`.
@@ -24,12 +26,9 @@ import * as url from "node:url";
 import { restoreColorSafe } from "../error-formatter.js";
 import { resolveTestInputPath } from "../resolve-elm-module.js";
 import {
-  discoverProgramTestModules,
-  discoverTuiTestModules,
-  discoverVanillaTestModules,
-  findProgramTestValues,
-  findTuiTestValues,
-  findVanillaTestValues,
+  classifyAllTestValues,
+  discoverAllTestModules,
+  missingAnnotationsError,
   printCaughtError,
 } from "./shared.js";
 import { ensureDirSync, writeFileIfChanged } from "../file-helpers.js";
@@ -81,6 +80,8 @@ export async function run(elmModulePath, options, options2) {
     let allProgramTests = [];
     let allTuiTests = [];
     let allVanillaTests = [];
+    /** @type {{file: string, moduleName: string, names: string[]}[]} */
+    let missingAnnotations = [];
 
     if (resolved) {
       const modName = resolved.moduleName;
@@ -88,31 +89,49 @@ export async function run(elmModulePath, options, options2) {
         resolved.sourceDirectory,
         modName.replace(/\./g, "/") + ".elm"
       );
-      const programValues = findProgramTestValues(filePath);
-      const tuiValues = findTuiTestValues(filePath);
-      const vanillaValues = findVanillaTestValues(filePath);
-      if (programValues.length > 0) {
-        allProgramTests.push({ moduleName: modName, values: programValues });
+      const classified = await classifyAllTestValues(filePath);
+      if (classified.program.length > 0) {
+        allProgramTests.push({
+          moduleName: modName,
+          values: classified.program,
+        });
       }
-      if (tuiValues.length > 0) {
-        allTuiTests.push({ moduleName: modName, values: tuiValues });
+      if (classified.tui.length > 0) {
+        allTuiTests.push({ moduleName: modName, values: classified.tui });
       }
-      if (vanillaValues.length > 0) {
-        allVanillaTests.push({ moduleName: modName, values: vanillaValues });
+      if (classified.vanilla.length > 0) {
+        allVanillaTests.push({
+          moduleName: modName,
+          values: classified.vanilla,
+        });
+      }
+      if (classified.missingAnnotation.length > 0) {
+        missingAnnotations.push({
+          file: filePath,
+          moduleName: modName,
+          names: classified.missingAnnotation,
+        });
       }
     } else {
-      allProgramTests = discoverProgramTestModules().map(({ moduleName, values }) => ({
+      const discovered = await discoverAllTestModules();
+      allProgramTests = discovered.program.map(({ moduleName, values }) => ({
         moduleName,
         values,
       }));
-      allTuiTests = discoverTuiTestModules().map(({ moduleName, values }) => ({
+      allTuiTests = discovered.tui.map(({ moduleName, values }) => ({
         moduleName,
         values,
       }));
-      allVanillaTests = discoverVanillaTestModules().map(({ moduleName, values }) => ({
+      allVanillaTests = discovered.vanilla.map(({ moduleName, values }) => ({
         moduleName,
         values,
       }));
+      missingAnnotations = discovered.missingAnnotations;
+    }
+
+    if (missingAnnotations.length > 0) {
+      console.error(missingAnnotationsError(missingAnnotations));
+      process.exit(1);
     }
 
     // Always regenerate elm-pages code — even vanilla Test modules may
@@ -218,17 +237,31 @@ export async function run(elmModulePath, options, options2) {
       } catch {}
     }
 
-    // Generate the headless test runner module in the test-viewer dir
-    // (where TestApp.elm also lives)
-    const runnerModule = generateTestRunnerModule(
+    // Generate per-module companion files under GeneratedTests/ plus a
+    // root GeneratedTests.All that aggregates them. Each companion
+    // converts ProgramTest/TuiTest values to vanilla Test values so
+    // elm-test's own parser discovers them through `suite : Test`.
+    const generatedDir = path.join(testViewerDir, "GeneratedTests");
+    fs.rmSync(generatedDir, { recursive: true, force: true });
+    // Remove the pre-restructure single-runner file if it lingers from an
+    // older elm-pages test run — otherwise elm-test will try to compile
+    // it and fail against stale user modules.
+    const legacyRunner = path.join(testViewerDir, "TestRunner.elm");
+    if (fs.existsSync(legacyRunner)) fs.unlinkSync(legacyRunner);
+
+    const { companionModules, rootSource } = generateCompanionFiles(
       allProgramTests,
       allTuiTests,
       allVanillaTests
     );
-    await writeFileIfChanged(
-      path.join(testViewerDir, "TestRunner.elm"),
-      runnerModule
-    );
+    for (const m of companionModules) {
+      const outPath = path.join(testViewerDir, m.companionPath);
+      ensureDirSync(path.dirname(outPath));
+      await writeFileIfChanged(outPath, m.source);
+    }
+    const rootPath = path.join(testViewerDir, "GeneratedTests", "All.elm");
+    ensureDirSync(path.dirname(rootPath));
+    await writeFileIfChanged(rootPath, rootSource);
 
     // Create elm.json in the test-run directory (where elm-test will run).
     // Source-directories point back to test-viewer (for TestRunner.elm,
@@ -300,13 +333,13 @@ export async function run(elmModulePath, options, options2) {
     console.log(`Running ${totalTopLevelEntries} discovered test entr${totalTopLevelEntries === 1 ? "y" : "ies"}...\n`);
 
     // Run elm-test from the test-run directory.
-    // TestRunner.elm is in ../test-viewer/ which is in source-directories.
+    // GeneratedTests/All.elm is in ../test-viewer/ which is in source-directories.
     const result = spawnSync(
       "npx",
       [
         "elm-test",
         compilerFlag,
-        "../test-viewer/TestRunner.elm",
+        "../test-viewer/GeneratedTests/All.elm",
       ],
       {
         stdio: "inherit",
@@ -386,73 +419,127 @@ if (outputFile) {
 }
 
 /**
- * Generate the TestRunner.elm module that wraps ProgramTest values,
- * named TUI tests, and vanilla elm-explorations/test Test values for
- * headless execution.
+ * Generate per-module companion files (one per user test module) plus a
+ * root `GeneratedTests.All` that aggregates them.
+ *
+ * Each companion re-exposes the user module's tests as a single `suite :
+ * Test`, applying `Test.PagesProgram.done` to ProgramTest values and
+ * `Test.Tui.toTest` to TuiTest values. Vanilla Test values pass through
+ * unchanged. The root runner `Test.describe`s the per-module suites.
+ *
+ * @returns {{
+ *   companionModules: { companionName: string, companionPath: string, source: string }[],
+ *   rootSource: string,
+ * }}
  */
-function generateTestRunnerModule(programTests, tuiTests, vanillaTests) {
-  const testPagesProgramImport =
-    programTests.length > 0 ? "import Test.PagesProgram\n" : "";
-  const tuiTestImport =
-    tuiTests.length > 0 ? "import Test.Tui\n" : "";
+function generateCompanionFiles(programTests, tuiTests, vanillaTests) {
+  const byModule = new Map();
+  const ensure = (moduleName) => {
+    if (!byModule.has(moduleName)) {
+      byModule.set(moduleName, { program: [], tui: [], vanilla: [] });
+    }
+    return byModule.get(moduleName);
+  };
+  for (const t of programTests) ensure(t.moduleName).program = t.values;
+  for (const t of tuiTests) ensure(t.moduleName).tui = t.values;
+  for (const t of vanillaTests) ensure(t.moduleName).vanilla = t.values;
 
-  const imports = Array.from(
-    new Set(
-      programTests
-        .concat(tuiTests)
-        .concat(vanillaTests)
-        .map((t) => t.moduleName)
-    )
-  )
-    .map((moduleName) => `import ${moduleName}`)
+  const companionModules = [];
+  for (const [userModule, { program, tui, vanilla }] of byModule) {
+    const companionName = `GeneratedTests.${userModule}`;
+    const companionPath =
+      companionName.replace(/\./g, "/") + ".elm";
+    const source = generateCompanionModule(
+      companionName,
+      userModule,
+      program,
+      tui,
+      vanilla
+    );
+    companionModules.push({ companionName, companionPath, source });
+  }
+
+  return {
+    companionModules,
+    rootSource: generateRootRunner(companionModules),
+  };
+}
+
+function generateCompanionModule(
+  companionName,
+  userModule,
+  program,
+  tui,
+  vanilla
+) {
+  const entries = [];
+  for (const name of program) {
+    entries.push(
+      `Test.test "${name}" <|\n` +
+        `            \\() ->\n` +
+        `                ${userModule}.${name}\n` +
+        `                    |> Test.PagesProgram.done`
+    );
+  }
+  for (const name of tui) {
+    entries.push(
+      `Test.describe "${name}"\n` +
+        `            [ Test.Tui.toTest ${userModule}.${name} ]`
+    );
+  }
+  for (const name of vanilla) {
+    entries.push(
+      `Test.describe "${name}"\n` + `            [ ${userModule}.${name} ]`
+    );
+  }
+
+  const extraImports = [
+    program.length > 0 ? "import Test.PagesProgram" : null,
+    tui.length > 0 ? "import Test.Tui" : null,
+  ]
+    .filter(Boolean)
     .join("\n");
 
-  const programEntries = programTests.flatMap((t) =>
-    t.values.map(
-      (name) =>
-        `        Test.test "${t.moduleName}.${name}" <|\n` +
-        `            \\() ->\n` +
-        `                ${t.moduleName}.${name}\n` +
-        `                    |> Test.PagesProgram.done`
-    )
-  );
+  return `module ${companionName} exposing (suite)
 
-  const tuiEntries = tuiTests.flatMap((t) =>
-    t.values.map(
-      (name) =>
-        `        Test.describe "${t.moduleName}.${name}"\n` +
-        `            [ Test.Tui.toTest ${t.moduleName}.${name} ]`
-    )
-  );
+{-| Generated test wrapper for ${userModule}. Do not edit.
+-}
 
-  const vanillaEntries = vanillaTests.flatMap((t) =>
-    t.values.map(
-      (name) =>
-        `        Test.describe "${t.moduleName}.${name}"\n` +
-        `            [ ${t.moduleName}.${name} ]`
-    )
-  );
+import ${userModule}
+import Test exposing (Test)
+${extraImports ? extraImports + "\n" : ""}
 
-  const testEntries = programEntries
-    .concat(tuiEntries)
-    .concat(vanillaEntries)
+suite : Test
+suite =
+    Test.describe "${userModule}"
+        [ ${entries.join("\n        , ")}
+        ]
+`;
+}
+
+function generateRootRunner(companionModules) {
+  const imports = companionModules
+    .map((m) => `import ${m.companionName}`)
+    .join("\n");
+  const entries = companionModules
+    .map((m) => `${m.companionName}.suite`)
     .join("\n        , ");
 
-  return `module TestRunner exposing (suite)
+  return `module GeneratedTests.All exposing (suite)
 
-{-| Generated headless test runner. Do not edit manually.
-Wraps ProgramTest values and named TUI test trees so they can be run via elm-test.
+{-| Aggregated elm-pages test runner. Do not edit manually.
+Each import corresponds to a per-module companion that wraps the user's
+tests as vanilla elm-explorations/test Test values.
 -}
 
 ${imports}
-import Test
-${testPagesProgramImport}${tuiTestImport}
+import Test exposing (Test)
 
 
-suite : Test.Test
+suite : Test
 suite =
     Test.describe "elm-pages tests"
-        [ ${testEntries}
+        [ ${entries}
         ]
 `;
 }

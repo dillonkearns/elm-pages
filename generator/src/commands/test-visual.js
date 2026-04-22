@@ -56,7 +56,7 @@ export async function run(elmModulePath, options, options2) {
       moduleName.replace(/\./g, "/") + ".elm"
     );
 
-    const tuiTestValues = findTuiTestValues(fullPath);
+    const tuiTestValues = await findTuiTestValues(fullPath);
 
     if (tuiTestValues.length === 0) {
       console.error(
