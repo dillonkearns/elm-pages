@@ -1,4 +1,4 @@
-module CookieJar exposing
+module Test.PagesProgram.CookieJar exposing
     ( CookieJar
     , empty, set, get, toDict
     , applySetCookieHeaders

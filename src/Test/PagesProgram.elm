@@ -211,7 +211,7 @@ import Browser
 import Bytes
 import Bytes.Decode
 import Bytes.Encode
-import CookieJar exposing (CookieJar)
+import Test.PagesProgram.CookieJar as CookieJar exposing (CookieJar)
 import Dict
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)

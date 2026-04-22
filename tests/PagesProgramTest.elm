@@ -3,7 +3,7 @@ module PagesProgramTest exposing (all)
 import BackendTask
 import BackendTask.Custom
 import BackendTask.Http
-import CookieJar
+import Test.PagesProgram.CookieJar as CookieJar
 import Dict
 import Expect exposing (Expectation)
 import FatalError
