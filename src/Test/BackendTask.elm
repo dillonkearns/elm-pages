@@ -2,7 +2,7 @@ module Test.BackendTask exposing
     ( TestSetup
     , fromBackendTask, fromBackendTaskWith
     , fromScript, fromScriptWith
-    , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, SessionSeed, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
+    , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, Session, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
     , withTimeZoneConfig, withTimeZoneByNameConfig
     , withDb, withDbSetTo
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateHttpStream
@@ -146,7 +146,7 @@ simulate it.
 
 Seed initial state before the test starts running.
 
-@docs TestSetup, init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, SessionSeed, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
+@docs TestSetup, init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, Session, session, withSessionValue, withFlashValue, withSessionCookie, withRandomSeed, withWhich
 
 ## Companion Module Helpers
 
@@ -222,7 +222,7 @@ import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Json.Encode as Encode
 import Pages.Script exposing (Script)
-import Test.BackendTask.Internal as Internal exposing (BackendTaskTest, SessionSeed)
+import Test.BackendTask.Internal as Internal exposing (BackendTaskTest, Session)
 import Time
 
 
@@ -457,15 +457,17 @@ withRequestCookie =
     Internal.withRequestCookie
 
 
-{-| A seeded session value, built up with [`withSessionValue`](#withSessionValue)
+{-| A session value, built up with [`withSessionValue`](#withSessionValue)
 and [`withFlashValue`](#withFlashValue), then passed to
 [`withSessionCookie`](#withSessionCookie) to sign into a request.
 -}
-type alias SessionSeed =
-    Internal.SessionSeed
+type alias Session =
+    Internal.Session
 
 
-{-| Start building a seeded session for [`withSessionCookie`](#withSessionCookie).
+{-| An empty [`Session`](#Session) to build on with
+[`withSessionValue`](#withSessionValue) and [`withFlashValue`](#withFlashValue),
+then hand off to [`withSessionCookie`](#withSessionCookie).
 
     import Test.BackendTask as BackendTaskTest
 
@@ -474,12 +476,12 @@ type alias SessionSeed =
             |> BackendTaskTest.withSessionValue "sessionId" "abc123"
 
 -}
-session : SessionSeed
+session : Session
 session =
     Internal.session
 
 
-{-| Add a persistent session value to a [`session`](#session) seed.
+{-| Add a persistent session value to a [`Session`](#Session).
 
     import Test.BackendTask as BackendTaskTest
 
@@ -488,12 +490,12 @@ session =
             |> BackendTaskTest.withSessionValue "sessionId" "abc123"
 
 -}
-withSessionValue : String -> String -> SessionSeed -> SessionSeed
+withSessionValue : String -> String -> Session -> Session
 withSessionValue =
     Internal.withSessionValue
 
 
-{-| Add a flash session value to a [`session`](#session) seed.
+{-| Add a flash session value to a [`Session`](#Session).
 
 Flash values are available on the next request only, matching
 [`Server.Session.withFlash`](Server-Session#withFlash).
@@ -505,7 +507,7 @@ Flash values are available on the next request only, matching
             |> BackendTaskTest.withFlashValue "message" "Welcome back!"
 
 -}
-withFlashValue : String -> String -> SessionSeed -> SessionSeed
+withFlashValue : String -> String -> Session -> Session
 withFlashValue =
     Internal.withFlashValue
 
@@ -528,7 +530,7 @@ work with session values instead of raw signed cookie strings.
             }
 
 -}
-withSessionCookie : { name : String, session : SessionSeed } -> TestSetup -> TestSetup
+withSessionCookie : { name : String, session : Session } -> TestSetup -> TestSetup
 withSessionCookie =
     Internal.withSessionCookie
 

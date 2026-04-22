@@ -1,5 +1,5 @@
 module Test.BackendTask.Internal exposing
-    ( BackendTaskTest(..), TestSetup(..), SessionSeed(..), Output(..), SimulatedEffect(..), TimeZoneData
+    ( BackendTaskTest(..), TestSetup(..), Session(..), Output(..), SimulatedEffect(..), TimeZoneData
     , fromBackendTask, fromBackendTaskWith, fromScript, fromScriptWith
     , init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, session, withSessionValue, withFlashValue, withSessionCookie, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
@@ -21,7 +21,7 @@ only when you need type annotations or pattern matching on internal types.
 
 ## Types
 
-@docs BackendTaskTest, TestSetup, SessionSeed, Output, SimulatedEffect, TimeZoneData
+@docs BackendTaskTest, TestSetup, Session, Output, SimulatedEffect, TimeZoneData
 
 
 ## Building
@@ -207,8 +207,8 @@ Use [`session`](#session) to create one, then add persistent values with
             |> BackendTaskTest.withFlashValue "message" "Welcome back!"
 
 -}
-type SessionSeed
-    = SessionSeed
+type Session
+    = Session
         { persistentValues : Dict String String
         , flashValues : Dict String String
         }
@@ -505,9 +505,9 @@ withRequestCookie name value (TestSetup setup) =
             |> BackendTaskTest.withSessionValue "sessionId" "abc123"
 
 -}
-session : SessionSeed
+session : Session
 session =
-    SessionSeed
+    Session
         { persistentValues = Dict.empty
         , flashValues = Dict.empty
         }
@@ -522,9 +522,9 @@ session =
             |> BackendTaskTest.withSessionValue "sessionId" "abc123"
 
 -}
-withSessionValue : String -> String -> SessionSeed -> SessionSeed
-withSessionValue key value (SessionSeed seed) =
-    SessionSeed
+withSessionValue : String -> String -> Session -> Session
+withSessionValue key value (Session seed) =
+    Session
         { seed
             | persistentValues =
                 Dict.insert key value seed.persistentValues
@@ -540,9 +540,9 @@ withSessionValue key value (SessionSeed seed) =
             |> BackendTaskTest.withFlashValue "message" "Welcome back!"
 
 -}
-withFlashValue : String -> String -> SessionSeed -> SessionSeed
-withFlashValue key value (SessionSeed seed) =
-    SessionSeed
+withFlashValue : String -> String -> Session -> Session
+withFlashValue key value (Session seed) =
+    Session
         { seed
             | flashValues =
                 Dict.insert key value seed.flashValues
@@ -566,13 +566,13 @@ flash values that are consumed after the first request.
             }
 
 -}
-withSessionCookie : { name : String, session : SessionSeed } -> TestSetup -> TestSetup
+withSessionCookie : { name : String, session : Session } -> TestSetup -> TestSetup
 withSessionCookie config =
-    withRequestCookie config.name (mockSignValue (encodeSessionSeed config.session))
+    withRequestCookie config.name (mockSignValue (encodeSession config.session))
 
 
-encodeSessionSeed : SessionSeed -> Encode.Value
-encodeSessionSeed (SessionSeed seed) =
+encodeSession : Session -> Encode.Value
+encodeSession (Session seed) =
     let
         persistentEntries : List ( String, String )
         persistentEntries =
