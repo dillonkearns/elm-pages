@@ -15,6 +15,7 @@ import Time
 import Tui
 import Tui.Effect as Effect exposing (Effect)
 import Tui.Input as Input
+import Tui.Attribute as Attr
 import Tui.Screen
 import Tui.Screen.Advanced as ScreenAdvanced
 import Tui.Screen.Internal as ScreenInternal
@@ -306,8 +307,8 @@ suite =
                         |> Tui.Screen.wrapWidth 6
                         |> List.map (\s -> ( Tui.Screen.toString s, ScreenAdvanced.styleAttributes (leadingStyleOfLine s) ))
                         |> Expect.equal
-                            [ ( "hello", [ Tui.Screen.Bold ] )
-                            , ( "world", [ Tui.Screen.Bold ] )
+                            [ ( "hello", [ Attr.Bold ] )
+                            , ( "world", [ Attr.Bold ] )
                             ]
             , test "preserves styles in concat across wrap boundary" <|
                 \() ->
@@ -1065,7 +1066,7 @@ leadingStyleOfLine screen =
 
 plainStyle : Tui.Screen.Style
 plainStyle =
-    Tui.Screen.flatStyleToStyle ScreenInternal.defaultFlatStyle
+    ScreenInternal.flatStyleToStyle ScreenInternal.defaultFlatStyle
 
 
 {-| Apply a function N times.

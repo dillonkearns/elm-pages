@@ -49,6 +49,7 @@
         "Pages.Internal.NotFoundReason",
         "BackendTask.Internal.Request",
         "Tui",
+        "Tui.Attribute",
         "Tui.Effect",
         "Tui.Input",
         "Tui.Screen",

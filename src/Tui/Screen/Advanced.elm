@@ -2,6 +2,7 @@ module Tui.Screen.Advanced exposing
     ( Line, Span, toLines
     , fromLine
     , styleForeground, styleBackground, styleAttributes, styleHyperlink
+    , FlatStyle, styleToFlatStyle, flatStyleToStyle
     )
 
 {-| Framework-level helpers for inspecting and rebuilding styled terminal lines.
@@ -50,9 +51,20 @@ to inspect it.
 
 @docs styleForeground, styleBackground, styleAttributes, styleHyperlink
 
+
+## Flat Style Records
+
+For lower-level access, `FlatStyle` is a plain record with one `Bool`
+field per [`Tui.Attribute.Attribute`](Tui-Attribute#Attribute) plus the
+color/hyperlink fields. Conversion to/from a `Style` is provided for
+framework-level consumers that need to manipulate styles as records.
+
+@docs FlatStyle, styleToFlatStyle, flatStyleToStyle
+
 -}
 
 import Ansi.Color
+import Tui.Attribute exposing (Attribute)
 import Tui.Screen
 import Tui.Screen.Internal as Internal
 
@@ -139,14 +151,26 @@ fromLine line =
             |> Internal.spansToScreen flatStyleToStyle
 
 
-styleToFlatStyle : Tui.Screen.Style -> Internal.FlatStyle
+{-| Flat record representation of a [`Style`](Tui-Screen#Style), with one
+`Bool` per attribute plus color and hyperlink fields.
+-}
+type alias FlatStyle =
+    Internal.FlatStyle
+
+
+{-| Convert an opaque `Style` to its flat record form.
+-}
+styleToFlatStyle : Tui.Screen.Style -> FlatStyle
 styleToFlatStyle =
-    Tui.Screen.styleToFlatStyle
+    Internal.styleToFlatStyle
 
 
-flatStyleToStyle : Internal.FlatStyle -> Tui.Screen.Style
+{-| Convert a flat record back to an opaque `Style`. Inverse of
+[`styleToFlatStyle`](#styleToFlatStyle).
+-}
+flatStyleToStyle : FlatStyle -> Tui.Screen.Style
 flatStyleToStyle =
-    Tui.Screen.flatStyleToStyle
+    Internal.flatStyleToStyle
 
 
 spanToInternal : Span -> Internal.Span
@@ -167,43 +191,43 @@ spanFromInternal span =
 -}
 styleForeground : Tui.Screen.Style -> Maybe Ansi.Color.Color
 styleForeground style =
-    (Tui.Screen.styleToFlatStyle style).foreground
+    (styleToFlatStyle style).foreground
 
 
 {-| Read the background color of a [`Style`](Tui-Screen#Style).
 -}
 styleBackground : Tui.Screen.Style -> Maybe Ansi.Color.Color
 styleBackground style =
-    (Tui.Screen.styleToFlatStyle style).background
+    (styleToFlatStyle style).background
 
 
 {-| Read the attribute list of a [`Style`](Tui-Screen#Style).
 
-    import Tui.Screen as Screen
+    import Tui.Attribute as Attr
     import Tui.Screen.Advanced as Advanced
 
-    if List.member Screen.Bold (Advanced.styleAttributes span.style) then
+    if List.member Attr.Bold (Advanced.styleAttributes span.style) then
         ...
 
 -}
-styleAttributes : Tui.Screen.Style -> List Tui.Screen.Attribute
+styleAttributes : Tui.Screen.Style -> List Attribute
 styleAttributes style =
     let
-        flat : Tui.Screen.FlatStyle
+        flat : FlatStyle
         flat =
-            Tui.Screen.styleToFlatStyle style
+            styleToFlatStyle style
     in
     []
-        |> (if flat.strikethrough then (::) Tui.Screen.Strikethrough else identity)
-        |> (if flat.underline then (::) Tui.Screen.Underline else identity)
-        |> (if flat.italic then (::) Tui.Screen.Italic else identity)
-        |> (if flat.inverse then (::) Tui.Screen.Inverse else identity)
-        |> (if flat.dim then (::) Tui.Screen.Dim else identity)
-        |> (if flat.bold then (::) Tui.Screen.Bold else identity)
+        |> (if flat.strikethrough then (::) Tui.Attribute.Strikethrough else identity)
+        |> (if flat.underline then (::) Tui.Attribute.Underline else identity)
+        |> (if flat.italic then (::) Tui.Attribute.Italic else identity)
+        |> (if flat.inverse then (::) Tui.Attribute.Inverse else identity)
+        |> (if flat.dim then (::) Tui.Attribute.Dim else identity)
+        |> (if flat.bold then (::) Tui.Attribute.Bold else identity)
 
 
 {-| Read the hyperlink URL of a [`Style`](Tui-Screen#Style), if any.
 -}
 styleHyperlink : Tui.Screen.Style -> Maybe String
 styleHyperlink style =
-    (Tui.Screen.styleToFlatStyle style).hyperlink
+    (styleToFlatStyle style).hyperlink

@@ -1447,7 +1447,7 @@ describeCheck (StyleCheck check) =
 
 tuiStyleToFlatStyle : Tui.Screen.Style -> ScreenInternal.FlatStyle
 tuiStyleToFlatStyle =
-    Tui.Screen.styleToFlatStyle
+    ScreenInternal.styleToFlatStyle
 
 
 

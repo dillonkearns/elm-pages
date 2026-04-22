@@ -125,4 +125,4 @@ encodeColor ansiColor =
 
 styleToFlatStyle : Tui.Screen.Style -> Internal.FlatStyle
 styleToFlatStyle =
-    Tui.Screen.styleToFlatStyle
+    Internal.styleToFlatStyle

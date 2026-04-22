@@ -1,10 +1,9 @@
 module Tui.Screen exposing
     ( Screen, text, lines, concat, empty, blank
     , fg, bg, bold, dim, italic, underline, strikethrough, inverse, withAttributes, link
-    , Style, Attribute(..)
+    , Style
     , truncateWidth, wrapWidth
     , toString
-    , FlatStyle, styleToFlatStyle, flatStyleToStyle
     )
 
 {-| Styled terminal output for a [`Tui.Program`](Tui#Program)'s `view` function.
@@ -48,7 +47,10 @@ screens:
 
 @docs fg, bg, bold, dim, italic, underline, strikethrough, inverse, withAttributes, link
 
-@docs Style, Attribute
+See [`Tui.Attribute`](Tui-Attribute) for the `Attribute` type used by
+[`withAttributes`](#withAttributes).
+
+@docs Style
 
 `Style` is opaque so that future releases can add fields without breaking
 user code. To inspect a `Style` obtained from a
@@ -68,18 +70,11 @@ functions in [`Tui.Screen.Advanced`](Tui-Screen-Advanced).
 For framework-level consumers that need to inspect rendered lines or rebuild
 styled output, see [`Tui.Screen.Advanced`](Tui-Screen-Advanced).
 
-
-## Framework-internal
-
-These conversions are exposed for use by other modules in the
-`dillonkearns/elm-pages` package. Application code should not call them.
-
-@docs FlatStyle, styleToFlatStyle, flatStyleToStyle
-
 -}
 
 import Ansi.Color
-import Tui.Screen.Internal as Internal
+import Tui.Attribute exposing (Attribute(..))
+import Tui.Screen.Internal as Internal exposing (plain)
 
 
 
@@ -104,43 +99,8 @@ style of a [`Tui.Screen.Advanced.Span`](Tui-Screen-Advanced#Span), use
 and friends.
 
 -}
-type Style
-    = Style StyleFields
-
-
-type alias StyleFields =
-    { fg : Maybe Ansi.Color.Color
-    , bg : Maybe Ansi.Color.Color
-    , attributes : List Attribute
-    , hyperlink : Maybe String
-    }
-
-
-plain : Style
-plain =
-    Style plainFields
-
-
-plainFields : StyleFields
-plainFields =
-    { fg = Nothing
-    , bg = Nothing
-    , attributes = []
-    , hyperlink = Nothing
-    }
-
-
-{-| A text decoration attribute.
--}
-type Attribute
-    = Bold
-    | Dim
-    | Italic
-    | Underline
-    | Strikethrough
-    | Inverse
-
-
+type alias Style =
+    Internal.Style
 
 
 {-| Unstyled text.
@@ -215,7 +175,7 @@ blank =
 -}
 fg : Ansi.Color.Color -> Screen -> Screen
 fg color screen =
-    Internal.applyStyle plain (\(Style s) -> Style { s | fg = Just color }) screen
+    Internal.applyStyle plain (\(Internal.Style s) -> Internal.Style { s | fg = Just color }) screen
 
 
 {-| Set background color on a Screen.
@@ -225,7 +185,7 @@ fg color screen =
 -}
 bg : Ansi.Color.Color -> Screen -> Screen
 bg color screen =
-    Internal.applyStyle plain (\(Style s) -> Style { s | bg = Just color }) screen
+    Internal.applyStyle plain (\(Internal.Style s) -> Internal.Style { s | bg = Just color }) screen
 
 
 {-| Apply bold attribute.
@@ -288,20 +248,23 @@ is silently ignored and the text renders normally.
 -}
 link : { url : String } -> Screen -> Screen
 link { url } =
-    Internal.applyStyle plain (\(Style s) -> Style { s | hyperlink = Just url })
+    Internal.applyStyle plain (\(Internal.Style s) -> Internal.Style { s | hyperlink = Just url })
 
 
 addAttr : Attribute -> Screen -> Screen
 addAttr attr =
-    Internal.applyStyle plain (\(Style s) -> Style { s | attributes = attr :: s.attributes })
+    Internal.applyStyle plain (\(Internal.Style s) -> Internal.Style { s | attributes = attr :: s.attributes })
 
 
 {-| Apply a list of attributes at once. Useful when the attribute set is
 dynamic (from a config, theme, or computed list). Equivalent to chaining the
 individual builders.
 
+    import Tui.Attribute as Attr
+    import Tui.Screen as Screen
+
     Screen.text "Heading"
-        |> Screen.withAttributes [ Screen.Bold, Screen.Underline ]
+        |> Screen.withAttributes [ Attr.Bold, Attr.Underline ]
 
 -}
 withAttributes : List Attribute -> Screen -> Screen
@@ -309,114 +272,9 @@ withAttributes attrs screen =
     List.foldl addAttr screen attrs
 
 
-
--- STYLE CONVERSION (package-internal, used by span helpers)
-
-
-{-| Flat record representation of a [`Style`](#Style), exposed so framework
-modules can annotate the conversion helpers below. Application code should
-not need this.
--}
-type alias FlatStyle =
-    Internal.FlatStyle
-
-
-{-| Framework-internal. Converts an opaque [`Style`](#Style) to the flat record
-representation used by the renderer and serializer. Application code should
-not need this.
--}
-styleToFlatStyle : Style -> FlatStyle
-styleToFlatStyle (Style s) =
-    let
-        def : Internal.FlatStyle
-        def =
-            Internal.defaultFlatStyle
-
-        base : Internal.FlatStyle
-        base =
-            { def
-                | foreground = s.fg
-                , background = s.bg
-                , hyperlink = s.hyperlink
-            }
-    in
-    List.foldl applyAttr base s.attributes
-
-
-applyAttr : Attribute -> Internal.FlatStyle -> Internal.FlatStyle
-applyAttr attr flatStyle =
-    case attr of
-        Bold ->
-            { flatStyle | bold = True }
-
-        Dim ->
-            { flatStyle | dim = True }
-
-        Italic ->
-            { flatStyle | italic = True }
-
-        Underline ->
-            { flatStyle | underline = True }
-
-        Strikethrough ->
-            { flatStyle | strikethrough = True }
-
-        Inverse ->
-            { flatStyle | inverse = True }
-
-
-flatStyleToAttrs : Internal.FlatStyle -> List Attribute
-flatStyleToAttrs s =
-    List.filterMap identity
-        [ if s.bold then
-            Just Bold
-
-          else
-            Nothing
-        , if s.dim then
-            Just Dim
-
-          else
-            Nothing
-        , if s.italic then
-            Just Italic
-
-          else
-            Nothing
-        , if s.underline then
-            Just Underline
-
-          else
-            Nothing
-        , if s.strikethrough then
-            Just Strikethrough
-
-          else
-            Nothing
-        , if s.inverse then
-            Just Inverse
-
-          else
-            Nothing
-        ]
-
-
 flattenToSpanLines : Screen -> List (List Internal.Span)
 flattenToSpanLines =
-    Internal.flattenToSpanLines styleToFlatStyle
-
-
-{-| Framework-internal. Inverse of [`styleToFlatStyle`](#styleToFlatStyle).
-Application code should not need this.
--}
-flatStyleToStyle : FlatStyle -> Style
-flatStyleToStyle fs =
-    Style
-        { fg = fs.foreground
-        , bg = fs.background
-        , attributes = flatStyleToAttrs fs
-        , hyperlink = fs.hyperlink
-        }
+    Internal.flattenToSpanLines Internal.styleToFlatStyle
 
 
 
@@ -463,7 +321,7 @@ truncateWidth maxWidth screen =
 
                         _ ->
                             truncated
-                                |> List.map (Internal.spanToScreen flatStyleToStyle)
+                                |> List.map (Internal.spanToScreen Internal.flatStyleToStyle)
                                 |> Internal.ScreenConcat
 
 
@@ -497,5 +355,5 @@ wrapWidth maxWidth screen =
 
                     else
                         Internal.wrapSpans maxWidth spanLine
-                            |> List.map (Internal.spansToScreen flatStyleToStyle)
+                            |> List.map (Internal.spansToScreen Internal.flatStyleToStyle)
                 )

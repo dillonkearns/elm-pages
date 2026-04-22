@@ -3,6 +3,7 @@ module TuiPublicApiTests exposing (suite)
 import Ansi.Color
 import Expect
 import Test exposing (Test, describe, test)
+import Tui.Attribute as Attr
 import Tui.Screen as Screen
 import Tui.Screen.Advanced as Advanced
 
@@ -28,7 +29,7 @@ suite =
                             Expect.all
                                 [ \_ -> Expect.equal "Hello" first.text
                                 , \_ -> Expect.equal (Just Ansi.Color.red) (Advanced.styleForeground first.style)
-                                , \_ -> Expect.equal [ Screen.Bold ] (Advanced.styleAttributes first.style)
+                                , \_ -> Expect.equal [ Attr.Bold ] (Advanced.styleAttributes first.style)
                                 , \_ -> Expect.equal "elm-pages" third.text
                                 , \_ -> Expect.equal (Just "https://elm-pages.com") (Advanced.styleHyperlink third.style)
                                 ]

@@ -4,6 +4,7 @@ import Expect
 import Test exposing (Test, describe, test)
 import Tui
 import Tui.Prompt as Prompt
+import Tui.Attribute as Attr
 import Tui.Screen
 import Tui.Screen.Advanced as ScreenAdvanced
 import Tui.Sub
@@ -71,7 +72,7 @@ renderedBodyHasInverseCursor state =
         |> Tui.Screen.lines
         |> ScreenAdvanced.toLines
         |> List.concat
-        |> List.any (\span -> List.member Tui.Screen.Inverse (ScreenAdvanced.styleAttributes span.style))
+        |> List.any (\span -> List.member Attr.Inverse (ScreenAdvanced.styleAttributes span.style))
 
 
 fruitSuggestions : String -> List String

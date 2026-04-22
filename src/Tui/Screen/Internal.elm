@@ -1,5 +1,7 @@
 module Tui.Screen.Internal exposing
     ( Screen(..), Span, FlatStyle
+    , Style(..), StyleFields, plain
+    , styleToFlatStyle, flatStyleToStyle
     , flattenToSpanLines, defaultFlatStyle
     , applyStyle
     , spanToScreen, spansToScreen
@@ -7,9 +9,11 @@ module Tui.Screen.Internal exposing
     , wrapSpans
     )
 
-{-| Internal module for Screen types and flattening.
+{-| Internal module for Screen types, styles, conversions, and line flattening.
 
 @docs Screen, Span, FlatStyle
+@docs Style, StyleFields, plain
+@docs styleToFlatStyle, flatStyleToStyle
 @docs flattenToSpanLines, defaultFlatStyle
 @docs applyStyle
 @docs spanToScreen, spansToScreen
@@ -20,6 +24,133 @@ module Tui.Screen.Internal exposing
 
 import Ansi.Color
 import String.Graphemes as Graphemes
+import Tui.Attribute exposing (Attribute(..))
+
+
+{-| Opaque styling carrier. Re-exposed from `Tui.Screen` as an opaque type;
+inspected via `Tui.Screen.Advanced` getters.
+-}
+type Style
+    = Style StyleFields
+
+
+{-| The inner record of `Style`. Package-internal.
+-}
+type alias StyleFields =
+    { fg : Maybe Ansi.Color.Color
+    , bg : Maybe Ansi.Color.Color
+    , attributes : List Attribute
+    , hyperlink : Maybe String
+    }
+
+
+{-| A `Style` with no attributes set.
+-}
+plain : Style
+plain =
+    Style plainFields
+
+
+{-| Empty inner record.
+-}
+plainFields : StyleFields
+plainFields =
+    { fg = Nothing
+    , bg = Nothing
+    , attributes = []
+    , hyperlink = Nothing
+    }
+
+
+{-| Convert an opaque `Style` to the flat `FlatStyle` record used by
+the renderer and by `Tui.Screen.Advanced` consumers.
+-}
+styleToFlatStyle : Style -> FlatStyle
+styleToFlatStyle (Style s) =
+    let
+        def : FlatStyle
+        def =
+            defaultFlatStyle
+
+        base : FlatStyle
+        base =
+            { def
+                | foreground = s.fg
+                , background = s.bg
+                , hyperlink = s.hyperlink
+            }
+    in
+    List.foldl applyAttr base s.attributes
+
+
+applyAttr : Attribute -> FlatStyle -> FlatStyle
+applyAttr attr flatStyle =
+    case attr of
+        Bold ->
+            { flatStyle | bold = True }
+
+        Dim ->
+            { flatStyle | dim = True }
+
+        Italic ->
+            { flatStyle | italic = True }
+
+        Underline ->
+            { flatStyle | underline = True }
+
+        Strikethrough ->
+            { flatStyle | strikethrough = True }
+
+        Inverse ->
+            { flatStyle | inverse = True }
+
+
+{-| Inverse of `styleToFlatStyle`.
+-}
+flatStyleToStyle : FlatStyle -> Style
+flatStyleToStyle fs =
+    Style
+        { fg = fs.foreground
+        , bg = fs.background
+        , attributes = flatStyleToAttrs fs
+        , hyperlink = fs.hyperlink
+        }
+
+
+flatStyleToAttrs : FlatStyle -> List Attribute
+flatStyleToAttrs s =
+    List.filterMap identity
+        [ if s.bold then
+            Just Bold
+
+          else
+            Nothing
+        , if s.dim then
+            Just Dim
+
+          else
+            Nothing
+        , if s.italic then
+            Just Italic
+
+          else
+            Nothing
+        , if s.underline then
+            Just Underline
+
+          else
+            Nothing
+        , if s.strikethrough then
+            Just Strikethrough
+
+          else
+            Nothing
+        , if s.inverse then
+            Just Inverse
+
+          else
+            Nothing
+        ]
 
 
 {-| Type representing terminal output, parameterized over the style type.
