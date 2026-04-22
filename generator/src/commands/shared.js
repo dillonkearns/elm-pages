@@ -181,7 +181,7 @@ import Pages.Internal.Platform.GeneratorApplication
 import Pages.Script as Script exposing (Script)
 import Tui
 import Tui.Effect as Effect
-import Tui.Screen as Screen exposing (plain)
+import Tui.Screen as Screen
 import Tui.Sub
 import Test.Tui
 import ${moduleName}
