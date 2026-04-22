@@ -192,7 +192,8 @@ export async function run(elmModulePath, options) {
     // TestApp.elm) and to the project's source directories.
     const elmJsonPath = path.resolve("elm.json");
     const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
-    const testRunnerElmJson = { ...elmJson };
+    // Deep clone so we don't mutate the shared dependencies object.
+    const testRunnerElmJson = JSON.parse(JSON.stringify(elmJson));
     const extraSourceDirectories = ["tests", "snapshot-tests/src"].filter((dir) =>
       fs.existsSync(path.join(projectDirectory, dir))
     );
@@ -213,6 +214,22 @@ export async function run(elmModulePath, options) {
         extraSourceDirectories.map((dir) => path.join("../../..", dir)),
         ["../test-viewer"]
       );
+
+    // Generated .elm-pages/Main.elm imports Lamdera.Wire3; make sure the
+    // codecs package is available in the test-run compile even if the user's
+    // elm.json doesn't list it (matches rewrite-elm-json.js behavior).
+    testRunnerElmJson["dependencies"] = testRunnerElmJson["dependencies"] || {};
+    testRunnerElmJson["dependencies"]["direct"] =
+      testRunnerElmJson["dependencies"]["direct"] || {};
+    testRunnerElmJson["dependencies"]["indirect"] =
+      testRunnerElmJson["dependencies"]["indirect"] || {};
+    const ensureDirectDep = (pkg, version) => {
+      testRunnerElmJson["dependencies"]["direct"][pkg] = version;
+      delete testRunnerElmJson["dependencies"]["indirect"][pkg];
+    };
+    ensureDirectDep("lamdera/codecs", "1.0.0");
+    ensureDirectDep("elm/bytes", "1.0.8");
+
     fs.writeFileSync(
       path.join(testRunDir, "elm.json"),
       JSON.stringify(testRunnerElmJson, null, 4)

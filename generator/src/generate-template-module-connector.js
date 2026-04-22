@@ -362,7 +362,7 @@ import Main
 import Pages.Flags
 import Pages.Internal.Platform
 import Shared
-import Test.BackendTask.Internal
+import Test.BackendTask
 import Test.PagesProgram
 
 
@@ -378,7 +378,7 @@ so the visual test runner can discover your tests:
 type alias ProgramTest =
     Test.PagesProgram.ProgramTest
         { platformModel : Pages.Internal.Platform.Model Main.Model Main.PageData Main.ActionData Shared.Data
-        , virtualFs : Test.BackendTask.Internal.VirtualFS
+        , virtualFs : Test.BackendTask.VirtualFS
         , cookieJar : CookieJar.CookieJar
         , pendingDataError : Maybe String
         , pendingDataPath : Maybe String

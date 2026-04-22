@@ -18,6 +18,7 @@ module Test.BackendTask exposing
     , SimulatedEffect, withVirtualEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectSuccessWith, expectFailure, expectFailureWith, expectTestError
     , expectDb
+    , VirtualFS
     )
 
 {-| Write pure tests for your `BackendTask`s and `Script`s that you can run with `elm-test`.
@@ -213,6 +214,14 @@ Every test must end with exactly one of these to produce an `Expectation`.
 @docs expectSuccess, expectSuccessWith, expectFailure, expectFailureWith, expectTestError
 
 @docs expectDb
+
+
+## Framework-internal
+
+Exposed for generated code (e.g. `TestApp`) in projects that consume
+the package. Application code should not need this.
+
+@docs VirtualFS
 
 -}
 
@@ -1262,3 +1271,12 @@ expectDb :
     -> Expectation
 expectDb config assertion =
     Internal.expectDb config assertion
+
+
+{-| The virtual filesystem + environment state threaded through a
+`Test.BackendTask` pipeline. Exposed for type annotations in generated
+code (e.g. `TestApp.ProgramTest`). Application code does not need to
+reference this directly.
+-}
+type alias VirtualFS =
+    Internal.VirtualFS

@@ -48,6 +48,7 @@
         "Pages.Internal.RoutePattern",
         "Pages.Internal.NotFoundReason",
         "BackendTask.Internal.Request",
+        "CookieJar",
         "Tui",
         "Tui.Effect",
         "Tui.Input",
