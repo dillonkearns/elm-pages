@@ -37,7 +37,7 @@ export async function getUserSourceDirs(projectDirectory) {
 /**
  * Instrument source files for coverage (copy, run elm-instrument, save metadata).
  * This is the shared core used by both `setupCoverage` (for `run`) and
- * `test-run` (which handles Coverage.elm placement and elm.json separately).
+ * `test` (which handles Coverage.elm placement and elm.json separately).
  *
  * @param {string} projectDirectory - The script's project directory
  * @param {string[]} userSourceDirs - Source dirs to instrument (relative to projectDirectory)

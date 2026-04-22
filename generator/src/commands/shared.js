@@ -1233,6 +1233,33 @@ export function discoverTuiTestModules(
 
 
 /**
+ * Scan an Elm source file for exposed values annotated as vanilla
+ * `elm-explorations/test` Test values (either `: Test` after
+ * `import Test exposing (Test)` or the fully-qualified `: Test.Test`).
+ * Excludes the framework-specific annotations handled by
+ * findProgramTestValues / findTuiTestValues.
+ * @param {string} filePath
+ * @returns {string[]}
+ */
+export function findVanillaTestValues(filePath) {
+  // Matches annotations whose RHS is exactly `Test` or `Test.Test`.
+  // `(?!\.)` skips `Test.PagesProgram.ProgramTest`, `Test.Tui.Test`, etc.
+  // `\s*$` (no /m) anchors to end-of-annotation-string so function types
+  // ending in Test (e.g. `String -> Test`) aren't picked up.
+  return findAnnotatedValues(filePath, /(?:^|\s):\s*(?:Test(?!\.)|Test\.Test)\s*$/);
+}
+
+export function discoverVanillaTestModules(
+  searchRoots = [
+    { glob: "tests/**/*.elm", baseDir: "tests" },
+    { glob: "snapshot-tests/src/**/*.elm", baseDir: "snapshot-tests/src" },
+  ]
+) {
+  return discoverAnnotatedModules(searchRoots, findVanillaTestValues);
+}
+
+
+/**
  * Scan an Elm source file for exposed values whose type annotation
  * matches the given pattern. Shared logic for TuiTest and ProgramTest
  * discovery.

@@ -136,30 +136,9 @@ async function main() {
     });
 
   program
-    .command("test <elmModulePath>")
-    .description("step through named TUI tests interactively")
-    .allowUnknownOption()
-    .allowExcessArguments()
-    .helpOption(false)
-    .action(async (elmModulePath, options, options2) => {
-      const { run } = await import("./commands/test.js");
-      await run(elmModulePath, options, options2);
-    });
-
-  program
-    .command("test-view [elmModulePath]")
-    .description("open page tests in the browser-based visual stepper")
-    .allowUnknownOption()
-    .allowExcessArguments()
-    .helpOption(false)
-    .action(async (elmModulePath, options) => {
-      const { run } = await import("./commands/test-view.js");
-      await run(elmModulePath || "", options);
-    });
-
-  program
-    .command("test-run [elmModulePath]")
-    .description("run page tests and TUI tests headlessly via elm-test")
+    .command("test [elmModulePath]")
+    .description("auto-discover and run ProgramTest, TuiTest.Test, and vanilla Test values via elm-test (use --visual for the interactive TUI stepper; use `elm-pages dev` + /_tests for browser stepping)")
+    .option("--visual", "Open named TUI tests in the interactive terminal stepper")
     .option("--coverage", "Instrument sources and generate a coverage report (requires elm-instrument from npm install -g elm-coverage)")
     .option("--coverage-include <dir>", "Only instrument files in these source directories (repeatable)", collect, [])
     .option("--coverage-exclude <dir>", "Exclude these source directories from instrumentation (repeatable)", collect, [])
@@ -168,9 +147,9 @@ async function main() {
     .allowUnknownOption()
     .allowExcessArguments()
     .helpOption(false)
-    .action(async (elmModulePath, options) => {
-      const { run } = await import("./commands/test-run.js");
-      await run(elmModulePath || "", options);
+    .action(async (elmModulePath, options, options2) => {
+      const { run } = await import("./commands/test.js");
+      await run(elmModulePath || "", options, options2);
     });
 
   program

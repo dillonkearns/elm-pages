@@ -1,181 +1,458 @@
 /**
- * Test command - runs named TUI tests through the interactive stepper.
+ * Test command - unified entry point that auto-discovers and runs:
+ *   - ProgramTest values (Test.PagesProgram)
+ *   - TuiTest.Test / Test.Tui.Test values
+ *   - Vanilla Test values (elm-explorations/test)
  *
- * Looks for exposed values annotated as `TuiTest.Test` / `Test.Tui.Test`,
- * generates a ScriptMain that renders their snapshots in the terminal
- * stepper, and runs the result as an interactive TUI.
+ * Generates a TestRunner.elm that wraps each type appropriately, then
+ * runs elm-test with the lamdera compiler. Replaces direct use of
+ * `elm-test` for elm-pages projects.
  *
- * Usage: elm-pages test tests/TuiTests.elm
- *        elm-pages test script/src/MyTuiTest.elm
+ * For the interactive TUI stepper over named TUI tests, use `--visual`.
+ * For the browser-based visual stepper over ProgramTest values, run
+ * `elm-pages dev` and open `/_tests`.
+ *
+ * Usage: elm-pages test
+ *        elm-pages test tests/MyTests.elm
+ *        elm-pages test --coverage
+ *        elm-pages test --visual tests/MyTuiTest.elm
  */
 
 import * as path from "node:path";
+import * as fs from "node:fs";
 import * as url from "node:url";
-import * as esbuild from "esbuild";
-import * as globby from "globby";
-import * as renderer from "../render.js";
-import { compileCliApp } from "../compile-elm.js";
-import {
-  resolveInputPathOrModuleName,
-  resolveTestInputPath,
-} from "../resolve-elm-module.js";
 import { restoreColorSafe } from "../error-formatter.js";
+import { resolveTestInputPath } from "../resolve-elm-module.js";
 import {
-  needsPortsRecompilation,
-  updateVersionMarker,
-} from "../script-cache.js";
-import {
-  compileElmForScript,
-  requireElm,
-  printCaughtError,
+  discoverProgramTestModules,
+  discoverTuiTestModules,
+  discoverVanillaTestModules,
+  findProgramTestValues,
   findTuiTestValues,
-  testStepperWrapperFile,
+  findVanillaTestValues,
+  printCaughtError,
 } from "./shared.js";
+import { ensureDirSync, writeFileIfChanged } from "../file-helpers.js";
+import { generate } from "../codegen.js";
 
 export async function run(elmModulePath, options, options2) {
   if (elmModulePath === "--help" || elmModulePath === "-h") {
     console.log(
-      "Usage: elm-pages test <path-to-module>\n\n" +
-        "Run named TUI tests through the interactive stepper.\n" +
-        "The module must expose a value with a TuiTest.Test type annotation.\n" +
-        "Test files in tests/ are automatically discovered (like elm-test).\n\n" +
+      "Usage: elm-pages test [path-to-module]\n\n" +
+        "Auto-discover and run all test values via elm-test:\n" +
+        "  - ProgramTest (Test.PagesProgram)\n" +
+        "  - TuiTest.Test / Test.Tui.Test\n" +
+        "  - Vanilla Test (elm-explorations/test)\n\n" +
+        "Options:\n" +
+        "  --visual                            Open named TUI tests in the interactive\n" +
+        "                                        terminal stepper instead of running headlessly.\n" +
+        "                                        For ProgramTest visual stepping, run\n" +
+        "                                        `elm-pages dev` and open `/_tests`.\n" +
+        "  --coverage                          Instrument sources and generate a coverage report\n" +
+        "  --coverage-include <dir>            Only instrument these source directories (repeatable)\n" +
+        "  --coverage-exclude <dir>            Exclude these source directories (repeatable)\n" +
+        "  --coverage-include-module <pattern>  Only show these modules in the report (repeatable)\n" +
+        "  --coverage-exclude-module <pattern>  Hide these modules from the report (repeatable)\n\n" +
         "Example:\n" +
-        "  elm-pages test tests/MyTuiTest.elm\n" +
-        "  elm-pages test script/tests/DocsTuiTest.elm\n"
+        "  elm-pages test tests/FrameworkTests.elm\n" +
+        "  elm-pages test --coverage\n" +
+        "  elm-pages test  (auto-discovers test files in tests/)\n" +
+        "  elm-pages test --visual tests/MyTuiTest.elm\n"
     );
     return;
   }
 
+  if (options && options.visual) {
+    const { run: runVisual } = await import("./test-visual.js");
+    await runVisual(elmModulePath, options, options2);
+    return;
+  }
+
   try {
-    const { moduleName, projectDirectory, sourceDirectory } =
-      await resolveTestInputPath(elmModulePath);
+    let resolved = null;
+    let projectDirectory = process.cwd();
 
-    // Find all exposed named TUI tests by scanning type annotations
-    const fullPath = path.resolve(
-      sourceDirectory,
-      moduleName.replace(/\./g, "/") + ".elm"
-    );
+    if (elmModulePath && elmModulePath !== "") {
+      resolved = await resolveTestInputPath(elmModulePath);
+      projectDirectory = resolved.projectDirectory;
+      process.chdir(projectDirectory);
+    }
 
-    const tuiTestValues = findTuiTestValues(fullPath);
+    let allProgramTests = [];
+    let allTuiTests = [];
+    let allVanillaTests = [];
 
-    if (tuiTestValues.length === 0) {
+    if (resolved) {
+      const modName = resolved.moduleName;
+      const filePath = path.join(
+        resolved.sourceDirectory,
+        modName.replace(/\./g, "/") + ".elm"
+      );
+      const programValues = findProgramTestValues(filePath);
+      const tuiValues = findTuiTestValues(filePath);
+      const vanillaValues = findVanillaTestValues(filePath);
+      if (programValues.length > 0) {
+        allProgramTests.push({ moduleName: modName, values: programValues });
+      }
+      if (tuiValues.length > 0) {
+        allTuiTests.push({ moduleName: modName, values: tuiValues });
+      }
+      if (vanillaValues.length > 0) {
+        allVanillaTests.push({ moduleName: modName, values: vanillaValues });
+      }
+    } else {
+      allProgramTests = discoverProgramTestModules().map(({ moduleName, values }) => ({
+        moduleName,
+        values,
+      }));
+      allTuiTests = discoverTuiTestModules().map(({ moduleName, values }) => ({
+        moduleName,
+        values,
+      }));
+      allVanillaTests = discoverVanillaTestModules().map(({ moduleName, values }) => ({
+        moduleName,
+        values,
+      }));
+    }
+
+    // Always regenerate elm-pages code — even vanilla Test modules may
+    // import TestApp (e.g. for type annotations) or depend on generated
+    // Pages.Db / Pages.DbSeed. Cheaper to always generate than to guess.
+    console.log("Generating elm-pages code...");
+    await generate(".");
+
+    if (
+      allProgramTests.length === 0 &&
+      allTuiTests.length === 0 &&
+      allVanillaTests.length === 0
+    ) {
       console.error(
-        `Error: No TUI test values found in ${moduleName}.\n\n` +
-          "elm-pages test discovers exposed values with a TuiTest.Test type annotation.\n" +
-          "Add a named test tree:\n\n" +
-          `    myTests : TuiTest.Test\n` +
-          `    myTests =\n` +
-          `        TuiTest.describe "My TUI"\n` +
-          `            [ TuiTest.test "navigates" <| ... ]\n`
+        "No test values found.\n\n" +
+          "Expose values with one of these type annotations:\n\n" +
+          "    myPageTest : TestApp.ProgramTest\n" +
+          "    myPageTest =\n" +
+          '        TestApp.start "/" BackendTaskTest.init\n' +
+          '            |> PagesProgram.ensureViewHas [ text "Hello" ]\n\n' +
+          "    myTuiTests : TuiTest.Test\n" +
+          "    myTuiTests =\n" +
+          '        TuiTest.describe "My TUI" [ TuiTest.test "works" <| ... ]\n\n' +
+          "    mySuite : Test\n" +
+          "    mySuite =\n" +
+          '        Test.describe "plain tests" [ Test.test "works" <| \\() -> ... ]\n'
       );
       process.exit(1);
     }
 
+    const totalProgramValues = allProgramTests.reduce((n, t) => n + t.values.length, 0);
+    const totalTuiValues = allTuiTests.reduce((n, t) => n + t.values.length, 0);
+    const totalVanillaValues = allVanillaTests.reduce((n, t) => n + t.values.length, 0);
     console.log(
-      `Found ${tuiTestValues.length} TUI test value${tuiTestValues.length > 1 ? "s" : ""}: ${tuiTestValues.join(", ")}`
+      `Found ${totalProgramValues} ProgramTest value${totalProgramValues === 1 ? "" : "s"}, ${totalTuiValues} TUI test tree${totalTuiValues === 1 ? "" : "s"}, ${totalVanillaValues} plain Test value${totalVanillaValues === 1 ? "" : "s"}`
     );
 
-    // Compile (reuses the same pipeline as `run`).
-    // Include tests/ and snapshot-tests/src/ as extra source directories
-    // so test files outside source-directories can be compiled.
-    // Only include directories that actually exist.
-    const [{ ensureDirSync, writeFileIfChanged }] = await Promise.all([
-      import("../file-helpers.js"),
-    ]);
-    const fs = await import("node:fs");
-    const possibleTestDirs = ["tests", "snapshot-tests/src"];
-    const extraSourceDirs = possibleTestDirs.filter((dir) => {
-      try {
-        fs.default.accessSync(path.join(projectDirectory, dir));
-        return true;
-      } catch (_) {
-        return false;
+    // Set up the build directory for the test runner.
+    // We put the generated TestRunner.elm in the test-viewer directory
+    // alongside the generated TestViewer.elm and TestApp.elm, and run
+    // elm-test from a separate empty directory to avoid source-directory
+    // overlap with elm-test's generated code.
+    const testViewerDir = path.resolve(
+      "elm-stuff/elm-pages/test-viewer"
+    );
+    const testRunDir = path.resolve(
+      "elm-stuff/elm-pages/test-run"
+    );
+    ensureDirSync(testViewerDir);
+    ensureDirSync(testRunDir);
+
+    // ── Coverage: instrument sources ──
+    const coverage = options.coverage;
+    let coverageDataDir;
+    let dirMapping;
+
+    if (coverage) {
+      const {
+        getUserSourceDirs,
+        instrumentSources,
+        COVERAGE_ELM_STUB,
+      } = await import("../coverage.js");
+
+      const compileDir = path.resolve("elm-stuff/elm-pages");
+      let userSourceDirs = await getUserSourceDirs(projectDirectory);
+
+      // Apply --coverage-include / --coverage-exclude filters
+      const include = options.coverageInclude || [];
+      const exclude = options.coverageExclude || [];
+      if (include.length > 0) {
+        userSourceDirs = userSourceDirs.filter((d) =>
+          include.some((inc) => path.normalize(d) === path.normalize(inc))
+        );
       }
-    });
+      if (exclude.length > 0) {
+        userSourceDirs = userSourceDirs.filter((d) =>
+          !exclude.some((exc) => path.normalize(d) === path.normalize(exc))
+        );
+      }
 
-    await compileElmForScript(
-      elmModulePath,
-      { moduleName, projectDirectory, sourceDirectory },
-      { usesDb: false, extraSourceDirs }
-    );
+      if (userSourceDirs.length === 0) {
+        console.warn("Warning: No user source directories found to instrument.");
+      } else {
+        const result = await instrumentSources(
+          projectDirectory,
+          userSourceDirs,
+          compileDir
+        );
+        coverageDataDir = result.coverageDir;
+        dirMapping = result.dirMapping;
 
-    // Overwrite the default script wrapper with the interactive TUI test runner.
-    ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages`);
+        // Write Coverage.elm stub to test-viewer dir (accessible as a source dir)
+        await writeFileIfChanged(
+          path.join(testViewerDir, "Coverage.elm"),
+          COVERAGE_ELM_STUB
+        );
+      }
 
-    await writeFileIfChanged(
-      path.join(
-        `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/ScriptMain.elm`
-      ),
-      testStepperWrapperFile(moduleName, tuiTestValues)
-    );
-
-    const portsCheck = await needsPortsRecompilation(projectDirectory);
-    let portsPath = portsCheck.outputPath;
-
-    if (portsCheck.needed) {
-      const portBackendTaskCompiled = esbuild
-        .build({
-          entryPoints: [
-            path.resolve(projectDirectory, "./custom-backend-task"),
-          ],
-          platform: "node",
-          outfile: path.resolve(
-            projectDirectory,
-            ".elm-pages/compiled-ports/custom-backend-task.mjs"
-          ),
-          assetNames: "[name]-[hash]",
-          chunkNames: "chunks/[name]-[hash]",
-          metafile: true,
-          bundle: true,
-          format: "esm",
-          packages: "external",
-          logLevel: "silent",
-        })
-        .then((result) => {
-          try {
-            return Object.keys(result.metafile.outputs)[0];
-          } catch (e) {
-            return null;
-          }
-        })
-        .catch(() => null);
-      portsPath = await portBackendTaskCompiled;
+      // Clean stale coverage output
+      try {
+        const staleLcov = path.join(process.cwd(), "coverage", "lcov.info");
+        if (fs.existsSync(staleLcov)) fs.unlinkSync(staleLcov);
+      } catch {}
     }
 
-    const cwd = process.cwd();
-    process.chdir(projectDirectory);
+    // Generate the headless test runner module in the test-viewer dir
+    // (where TestApp.elm also lives)
+    const runnerModule = generateTestRunnerModule(
+      allProgramTests,
+      allTuiTests,
+      allVanillaTests
+    );
+    await writeFileIfChanged(
+      path.join(testViewerDir, "TestRunner.elm"),
+      runnerModule
+    );
 
-    const elmEntrypointPath = path.join(
-      projectDirectory,
-      "elm-stuff/elm-pages/.elm-pages/ScriptMain.elm"
-    );
-    const elmOutputPath = path.join(
-      projectDirectory,
-      "elm-stuff/elm-pages/elm.js"
+    // Create elm.json in the test-run directory (where elm-test will run).
+    // Source-directories point back to test-viewer (for TestRunner.elm,
+    // TestApp.elm) and to the project's source directories.
+    const elmJsonPath = path.resolve("elm.json");
+    const elmJson = JSON.parse(fs.readFileSync(elmJsonPath, "utf8"));
+    // Deep clone so we don't mutate the shared dependencies object.
+    const testRunnerElmJson = JSON.parse(JSON.stringify(elmJson));
+    const extraSourceDirectories = ["tests", "snapshot-tests/src"].filter((dir) =>
+      fs.existsSync(path.join(projectDirectory, dir))
     );
 
-    await compileCliApp(
-      { debug: true },
-      elmEntrypointPath,
-      elmOutputPath,
-      path.join(projectDirectory, "elm-stuff/elm-pages"),
-      elmOutputPath
-    );
-    await updateVersionMarker(projectDirectory);
+    // Map source dirs: if coverage, remap instrumented dirs; otherwise use originals
+    const mapSourceDir = (dir) => {
+      if (coverage && dirMapping && dirMapping[dir] !== undefined) {
+        return path.join("../coverage/instrumented", dirMapping[dir]);
+      }
+      return path.join("../../..", dir);
+    };
 
-    process.chdir(cwd);
-    await renderer.runGenerator(
-      [],
-      portsPath
-        ? await import(url.pathToFileURL(path.resolve(portsPath)).href)
-        : null,
-      await requireElm(`${projectDirectory}/elm-stuff/elm-pages/elm.cjs`),
-      moduleName + ".Stepper",
-      undefined,
-      {}
+    testRunnerElmJson["source-directories"] = elmJson["source-directories"]
+      .filter((dir) => !dir.includes("elm-stuff/elm-pages/test-run"))
+      .filter((dir) => !dir.includes("elm-stuff/elm-pages/test-viewer"))
+      .map(mapSourceDir)
+      .concat(
+        extraSourceDirectories.map((dir) => path.join("../../..", dir)),
+        ["../test-viewer"]
+      );
+
+    // Generated .elm-pages/Main.elm imports Lamdera.Wire3; make sure the
+    // codecs package is available in the test-run compile even if the user's
+    // elm.json doesn't list it (matches rewrite-elm-json.js behavior).
+    testRunnerElmJson["dependencies"] = testRunnerElmJson["dependencies"] || {};
+    testRunnerElmJson["dependencies"]["direct"] =
+      testRunnerElmJson["dependencies"]["direct"] || {};
+    testRunnerElmJson["dependencies"]["indirect"] =
+      testRunnerElmJson["dependencies"]["indirect"] || {};
+    const ensureDirectDep = (pkg, version) => {
+      testRunnerElmJson["dependencies"]["direct"][pkg] = version;
+      delete testRunnerElmJson["dependencies"]["indirect"][pkg];
+    };
+    ensureDirectDep("lamdera/codecs", "1.0.0");
+    ensureDirectDep("elm/bytes", "1.0.8");
+
+    fs.writeFileSync(
+      path.join(testRunDir, "elm.json"),
+      JSON.stringify(testRunnerElmJson, null, 4)
     );
+
+    // Detect compiler: prefer lamdera for Wire3 codecs
+    const { execSync, spawnSync } = await import("node:child_process");
+    let compiler = "elm";
+    try {
+      execSync("lamdera --help", { stdio: "ignore" });
+      compiler = "lamdera";
+    } catch (e) {
+      // lamdera not available, use elm
+    }
+
+    // Coverage: create a compiler wrapper that injects tracking after compilation
+    let compilerFlag = `--compiler=${compiler}`;
+    if (coverage && coverageDataDir) {
+      const wrapperPath = await createCompilerWrapper(compiler, coverageDataDir);
+      compilerFlag = `--compiler=${wrapperPath}`;
+    }
+
+    const totalTopLevelEntries =
+      totalProgramValues + totalTuiValues + totalVanillaValues;
+    console.log(`Running ${totalTopLevelEntries} discovered test entr${totalTopLevelEntries === 1 ? "y" : "ies"}...\n`);
+
+    // Run elm-test from the test-run directory.
+    // TestRunner.elm is in ../test-viewer/ which is in source-directories.
+    const result = spawnSync(
+      "npx",
+      [
+        "elm-test",
+        compilerFlag,
+        "../test-viewer/TestRunner.elm",
+      ],
+      {
+        stdio: "inherit",
+        cwd: testRunDir,
+      }
+    );
+
+    // ── Coverage: print report ──
+    if (coverage && coverageDataDir) {
+      const { printCoverageReportSync } = await import("../coverage.js");
+      printCoverageReportSync(".", projectDirectory, {
+        include: options.coverageIncludeModule || [],
+        exclude: options.coverageExcludeModule || [],
+      });
+    }
+
+    process.exit(result.status || 0);
   } catch (error) {
     printCaughtError(error, restoreColorSafe);
     process.exit(1);
   }
+}
+
+/**
+ * Create a compiler wrapper script that calls the real compiler,
+ * then injects coverage tracking into the compiled JS output.
+ * elm-test calls this wrapper via --compiler=<path>.
+ *
+ * @param {string} compiler - Real compiler name ("elm" or "lamdera")
+ * @param {string} coverageDataDir - Where coverage data files are written
+ * @returns {Promise<string>} Path to the wrapper script
+ */
+async function createCompilerWrapper(compiler, coverageDataDir) {
+  const coverageJsPath = path.resolve(
+    path.dirname(url.fileURLToPath(import.meta.url)),
+    "../coverage.js"
+  );
+  const coverageJsUrl = url.pathToFileURL(coverageJsPath).href;
+
+  const wrapperDir = path.resolve("elm-stuff/elm-pages/coverage");
+  ensureDirSync(wrapperDir);
+  const wrapperPath = path.join(wrapperDir, "compiler-wrapper.mjs");
+
+  const content = `#!/usr/bin/env node
+import { execFileSync } from "node:child_process";
+import { injectCoverageTracking } from ${JSON.stringify(coverageJsUrl)};
+
+const compiler = ${JSON.stringify(compiler)};
+const coverageDir = ${JSON.stringify(coverageDataDir)};
+const args = process.argv.slice(2);
+
+try {
+  execFileSync(compiler, args, { stdio: "inherit" });
+} catch (e) {
+  process.exit(e.status || 1);
+}
+
+// Find --output file in compiler args
+let outputFile;
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === "--output" && i + 1 < args.length) {
+    outputFile = args[i + 1];
+  } else if (args[i].startsWith("--output=")) {
+    outputFile = args[i].slice("--output=".length);
+  }
+}
+
+if (outputFile) {
+  await injectCoverageTracking(outputFile, coverageDir);
+}
+`;
+
+  fs.writeFileSync(wrapperPath, content);
+  fs.chmodSync(wrapperPath, 0o755);
+
+  return wrapperPath;
+}
+
+/**
+ * Generate the TestRunner.elm module that wraps ProgramTest values,
+ * named TUI tests, and vanilla elm-explorations/test Test values for
+ * headless execution.
+ */
+function generateTestRunnerModule(programTests, tuiTests, vanillaTests) {
+  const testPagesProgramImport =
+    programTests.length > 0 ? "import Test.PagesProgram\n" : "";
+  const tuiTestImport =
+    tuiTests.length > 0 ? "import Test.Tui\n" : "";
+
+  const imports = Array.from(
+    new Set(
+      programTests
+        .concat(tuiTests)
+        .concat(vanillaTests)
+        .map((t) => t.moduleName)
+    )
+  )
+    .map((moduleName) => `import ${moduleName}`)
+    .join("\n");
+
+  const programEntries = programTests.flatMap((t) =>
+    t.values.map(
+      (name) =>
+        `        Test.test "${t.moduleName}.${name}" <|\n` +
+        `            \\() ->\n` +
+        `                ${t.moduleName}.${name}\n` +
+        `                    |> Test.PagesProgram.done`
+    )
+  );
+
+  const tuiEntries = tuiTests.flatMap((t) =>
+    t.values.map(
+      (name) =>
+        `        Test.describe "${t.moduleName}.${name}"\n` +
+        `            [ Test.Tui.toTest ${t.moduleName}.${name} ]`
+    )
+  );
+
+  const vanillaEntries = vanillaTests.flatMap((t) =>
+    t.values.map(
+      (name) =>
+        `        Test.describe "${t.moduleName}.${name}"\n` +
+        `            [ ${t.moduleName}.${name} ]`
+    )
+  );
+
+  const testEntries = programEntries
+    .concat(tuiEntries)
+    .concat(vanillaEntries)
+    .join("\n        , ");
+
+  return `module TestRunner exposing (suite)
+
+{-| Generated headless test runner. Do not edit manually.
+Wraps ProgramTest values and named TUI test trees so they can be run via elm-test.
+-}
+
+${imports}
+import Test
+${testPagesProgramImport}${tuiTestImport}
+
+
+suite : Test.Test
+suite =
+    Test.describe "elm-pages tests"
+        [ ${testEntries}
+        ]
+`;
 }
