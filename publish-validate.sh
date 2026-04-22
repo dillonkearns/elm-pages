@@ -260,7 +260,49 @@ ELMEOF
 npx elm-pages run script/src/TestDb.elm
 echo "  DB smoke test succeeded."
 
-# ── Step 9: Outdated dependency report ───────────────────────────────────
+# ── Step 9: Smoke test — test-run (TestApp + VirtualFS) ─────────────────
+# Exercises the generated TestApp.elm + Test.PagesProgram against the
+# real installed package. Catches internal-import leaks like
+# Test.BackendTask.Internal.VirtualFS that source-directory overrides
+# in examples mask.
+echo ""
+echo "--- Smoke test: elm-pages test-run (TestApp compiles against installed package) ---"
+
+mkdir -p tests
+
+# elm-test requires elm-explorations/test. Init template is app-only and
+# doesn't ship it by default — install it here so test-run can proceed.
+python3 - <<PYEOF
+import json
+path = 'elm.json'
+with open(path) as f:
+    d = json.load(f)
+td = d.setdefault('test-dependencies', {'direct': {}, 'indirect': {}})
+td.setdefault('direct', {})['elm-explorations/test'] = '2.1.1'
+with open(path, 'w') as f:
+    json.dump(d, f, indent=4)
+    f.write('\n')
+PYEOF
+
+cat > tests/IndexTest.elm <<'ELMEOF'
+module IndexTest exposing (indexTest)
+
+import Test.BackendTask as BackendTaskTest
+import Test.Html.Selector as Selector
+import Test.PagesProgram as PagesProgram
+import TestApp
+
+
+indexTest : TestApp.ProgramTest
+indexTest =
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.ensureViewHas [ Selector.text "elm-pages is up and running!" ]
+ELMEOF
+
+npx elm-pages test-run tests/IndexTest.elm
+echo "  test-run smoke test succeeded."
+
+# ── Step 10: Outdated dependency report ──────────────────────────────────
 echo ""
 echo "--- Outdated dependencies (informational) ---"
 
