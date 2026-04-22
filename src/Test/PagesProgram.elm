@@ -366,43 +366,10 @@ type alias ReadyState model msg =
     }
 
 
-type alias PlatformTestModel userModel pageData actionData sharedData =
-    { platformModel : Platform.Model userModel pageData actionData sharedData
-    , virtualFs : BackendTaskTest.VirtualFS
-    , cookieJar : CookieJar
-    , pendingDataError : Maybe String
-    , pendingDataPath : Maybe String
-    , pendingActionBody : Maybe { body : String, path : String }
-    }
-
-
 type alias RequestDefaults =
     { requestTime : Time.Posix
     , headers : Dict.Dict String String
     }
-
-
-type alias PlatformProgramMsg userMsg pageData actionData sharedData errorPage =
-    Platform.Msg userMsg pageData actionData sharedData errorPage
-
-
-type alias PlatformTestConfig userMsg userModel route pageData actionData sharedData effect errorPage =
-    Platform.ProgramConfig
-        userMsg
-        userModel
-        route
-        pageData
-        actionData
-        sharedData
-        effect
-        (PlatformProgramMsg userMsg pageData actionData sharedData errorPage)
-        errorPage
-
-
-type alias PlatformTestResult userMsg userModel pageData actionData sharedData errorPage =
-    ProgramTest
-        (PlatformTestModel userModel pageData actionData sharedData)
-        (PlatformProgramMsg userMsg pageData actionData sharedData errorPage)
 
 
 
@@ -515,10 +482,29 @@ and subsequent data resolution sees the updated files.
 -}
 start :
     (effect -> SimulatedEffect.SimulatedEffect userMsg)
-    -> PlatformTestConfig userMsg userModel route pageData actionData sharedData effect errorPage
+    ->
+        Platform.ProgramConfig
+            userMsg
+            userModel
+            route
+            pageData
+            actionData
+            sharedData
+            effect
+            (Platform.Msg userMsg pageData actionData sharedData errorPage)
+            errorPage
     -> String
     -> BackendTaskTest.TestSetup
-    -> PlatformTestResult userMsg userModel pageData actionData sharedData errorPage
+    ->
+        ProgramTest
+            { platformModel : Platform.Model userModel pageData actionData sharedData
+            , virtualFs : BackendTaskTest.VirtualFS
+            , cookieJar : CookieJar
+            , pendingDataError : Maybe String
+            , pendingDataPath : Maybe String
+            , pendingActionBody : Maybe { body : String, path : String }
+            }
+            (Platform.Msg userMsg pageData actionData sharedData errorPage)
 start simulateEffect config initialPath testSetup =
     let
         baseUrl =
