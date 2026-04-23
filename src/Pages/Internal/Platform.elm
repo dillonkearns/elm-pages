@@ -408,7 +408,7 @@ update config appMsg model =
                         ( model, BrowserLoadUrl redirectTo )
 
                     else
-                        ( model, NoEffect )
+                        ( { model | pendingRedirect = True }, NoEffect )
                             |> startNewGetLoad (currentUrlWithPath redirectTo model)
 
                 _ ->
