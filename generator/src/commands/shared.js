@@ -564,7 +564,6 @@ migrateFromV${fromVersion} old =
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
-import BackendTask.Internal.Request
 import Bytes exposing (Bytes)
 import Bytes.Decode as BD
 import Db
@@ -575,6 +574,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Lamdera.Wire3 as Wire
 import Pages.DbSeed
+import Pages.Internal.DbRequest
 
 
 schemaHash : String
@@ -706,34 +706,6 @@ hexDigit n =
         _ -> 'f'
 
 
-internalRequest : String -> BackendTask.Http.Body -> Decode.Decoder a -> BackendTask FatalError a
-internalRequest name body expect =
-    BackendTask.Internal.Request.request
-        { name = name
-        , body = body
-        , expect = expect
-        }
-
-
-internalRequestWithHeaders : String -> List ( String, String ) -> BackendTask.Http.Body -> Decode.Decoder a -> BackendTask FatalError a
-internalRequestWithHeaders name headers body expect =
-    BackendTask.Internal.Request.requestWithHeaders
-        { name = name
-        , headers = headers
-        , body = body
-        , expect = expect
-        }
-
-
-internalBytesRequest : String -> BackendTask.Http.Body -> BD.Decoder a -> BackendTask FatalError a
-internalBytesRequest name body expect =
-    BackendTask.Internal.Request.requestBytes
-        { name = name
-        , body = body
-        , expect = expect
-        }
-
-
 get : Connection -> BackendTask FatalError Db.Db
 get connection =
     loadDb connection
@@ -814,9 +786,10 @@ ${hasMigrations ? migrationBranches : ""}
 
 readPayload : Connection -> BackendTask FatalError DbReadPayload
 readPayload connection =
-    internalBytesRequest "db-read-meta"
-        (BackendTask.Http.jsonBody (Encode.object (connectionFields connection)))
-        dbReadPayloadBytesDecoder
+    Pages.Internal.DbRequest.readMeta
+        { body = BackendTask.Http.jsonBody (Encode.object (connectionFields connection))
+        , decoder = dbReadPayloadBytesDecoder
+        }
 
 
 persistMigrated : Connection -> Db.Db -> BackendTask FatalError Db.Db
@@ -825,10 +798,11 @@ persistMigrated connection db =
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db db)
     in
-    internalRequestWithHeaders "db-migrate-write"
-        (connectionHeaders connection)
-        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
-        (Decode.succeed ())
+    Pages.Internal.DbRequest.migrateWrite
+        { headers = connectionHeaders connection
+        , body = BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes
+        , decoder = Decode.succeed ()
+        }
         |> BackendTask.map (\\_ -> db)
 
 
@@ -875,30 +849,33 @@ write connection db =
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db db)
     in
-    internalRequestWithHeaders "db-write"
-        (( "x-schema-hash", schemaHash ) :: connectionHeaders connection)
-        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
-        (Decode.succeed ())
+    Pages.Internal.DbRequest.write
+        { headers = ( "x-schema-hash", schemaHash ) :: connectionHeaders connection
+        , body = BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes
+        , decoder = Decode.succeed ()
+        }
 
 
 acquireLock : Connection -> BackendTask FatalError String
 acquireLock connection =
-    internalRequest "db-lock-acquire"
-        (BackendTask.Http.jsonBody (Encode.object (connectionFields connection)))
-        Decode.string
+    Pages.Internal.DbRequest.lockAcquire
+        { body = BackendTask.Http.jsonBody (Encode.object (connectionFields connection))
+        , decoder = Decode.string
+        }
 
 
 releaseLock : Connection -> String -> BackendTask FatalError ()
 releaseLock connection token =
-    internalRequest "db-lock-release"
-        (BackendTask.Http.jsonBody
-            (Encode.object
-                ([ ( "token", Encode.string token ) ]
-                    ++ connectionFields connection
+    Pages.Internal.DbRequest.lockRelease
+        { body =
+            BackendTask.Http.jsonBody
+                (Encode.object
+                    ([ ( "token", Encode.string token ) ]
+                        ++ connectionFields connection
+                    )
                 )
-            )
-        )
-        (Decode.succeed ())
+        , decoder = Decode.succeed ()
+        }
 
 
 testConfig :

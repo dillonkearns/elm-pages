@@ -47,7 +47,7 @@
         "Pages.Internal.Router",
         "Pages.Internal.RoutePattern",
         "Pages.Internal.NotFoundReason",
-        "BackendTask.Internal.Request",
+        "Pages.Internal.DbRequest",
         "Tui",
         "Tui.Attribute",
         "Tui.Effect",

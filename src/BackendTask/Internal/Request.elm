@@ -1,10 +1,11 @@
 module BackendTask.Internal.Request exposing (request, request2, requestBytes, requestWithHeaders)
 
-{-| Low-level `BackendTask` primitives used by elm-pages generated code
-(e.g. `Pages.Db`). Not part of the public API; these are exposed so that
-generated modules can call them through the published package.
-
-@docs request, request2, requestBytes, requestWithHeaders
+{-| Internal `BackendTask` primitives used by framework modules
+(`BackendTask.File`, `BackendTask.Custom`, `BackendTask.Env`, etc.) to
+reach the `elm-pages-internal://*` JS handlers without going through the
+public `BackendTask.Http.requestRaw` URL guard. Not exposed in the
+package — generated user-facing code routes via `Pages.Internal.DbRequest`
+instead, which restricts callers to the `db-*` runtime handlers.
 
 -}
 
