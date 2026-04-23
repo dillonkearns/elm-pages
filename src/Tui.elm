@@ -245,12 +245,13 @@ toScript (Program fields) =
                     )
             )
             (\dir ->
-                { data = loadFiles dir
-                , init = init
-                , update = update
-                , view = view
-                , subscriptions = subscriptions
-                }
+                Tui.program
+                    { data = loadFiles dir
+                    , init = init
+                    , update = update
+                    , view = view
+                    , subscriptions = subscriptions
+                    }
             )
 
 -}

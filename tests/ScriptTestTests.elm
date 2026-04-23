@@ -678,14 +678,15 @@ elm-pages-test --name <NAME>"""
                         script =
                             Tui.programWithCliOptions cliConfig
                                 (\_ ->
-                                    { data =
-                                        BackendTask.Custom.run "checkQuiet" Encode.null (Decode.succeed ())
-                                            |> BackendTask.allowFatal
-                                    , init = \() -> ( (), TuiEffect.none )
-                                    , update = \_ model -> ( model, TuiEffect.none )
-                                    , view = \_ _ -> Tui.Screen.empty
-                                    , subscriptions = \_ -> TuiSub.none
-                                    }
+                                    Tui.program
+                                        { data =
+                                            BackendTask.Custom.run "checkQuiet" Encode.null (Decode.succeed ())
+                                                |> BackendTask.allowFatal
+                                        , init = \() -> ( (), TuiEffect.none )
+                                        , update = \_ model -> ( model, TuiEffect.none )
+                                        , view = \_ _ -> Tui.Screen.empty
+                                        , subscriptions = \_ -> TuiSub.none
+                                        }
                                 )
                     in
                     case BackendTaskInternal.fromScript [] script of

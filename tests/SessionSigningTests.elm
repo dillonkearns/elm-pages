@@ -21,6 +21,7 @@ all =
             [ test "preserves secret and values" <|
                 \() ->
                     let
+                        values : Encode.Value
                         values =
                             Encode.object [ ( "userId", Encode.string "42" ) ]
                     in
@@ -31,6 +32,7 @@ all =
             , test "different secrets produce different checksums" <|
                 \() ->
                     let
+                        values : Encode.Value
                         values =
                             Encode.object [ ( "a", Encode.int 1 ) ]
                     in
@@ -40,9 +42,11 @@ all =
             , test "round-trips values containing dots (floats)" <|
                 \() ->
                     let
+                        values : Encode.Value
                         values =
                             Encode.object [ ( "pi", Encode.float 3.14 ) ]
 
+                        signed : String
                         signed =
                             TestInternal.mockSignValue "rotating-key" values
                     in
@@ -72,10 +76,12 @@ all =
             , test "tampered checksum makes mockUnsignValue fail" <|
                 \() ->
                     let
+                        signed : String
                         signed =
                             TestInternal.mockSignValue "s"
                                 (Encode.object [ ( "k", Encode.string "v" ) ])
 
+                        tampered : String
                         tampered =
                             -- replace the checksum segment with a bogus but
                             -- still-all-digits value
@@ -93,10 +99,12 @@ all =
                     let
                         -- two-char value so the tampered string has the same
                         -- length as the original and we only perturb the JSON
+                        signed : String
                         signed =
                             TestInternal.mockSignValue "s"
                                 (Encode.object [ ( "k", Encode.string "ab" ) ])
 
+                        tampered : String
                         tampered =
                             String.replace "\"ab\"" "\"xy\"" signed
                     in
@@ -111,6 +119,7 @@ all =
             [ test "same secret: encrypt then decrypt recovers the payload" <|
                 \() ->
                     let
+                        payload : Encode.Value
                         payload =
                             Encode.object
                                 [ ( "userId", Encode.string "42" )
@@ -131,6 +140,7 @@ all =
                 -- returns false when no secret verifies).
                 \() ->
                     let
+                        payload : Encode.Value
                         payload =
                             Encode.object [ ( "marker", Encode.string "hello" ) ]
                     in
@@ -144,6 +154,7 @@ all =
             , test "secret rotation: decrypt succeeds when the list contains the embedded secret" <|
                 \() ->
                     let
+                        payload : Encode.Value
                         payload =
                             Encode.object [ ( "rotated", Encode.string "yes" ) ]
                     in
@@ -159,6 +170,7 @@ all =
             , test "tampered JSON: decrypt returns null" <|
                 \() ->
                     let
+                        payload : Encode.Value
                         payload =
                             Encode.object [ ( "role", Encode.string "user" ) ]
                     in
@@ -181,6 +193,7 @@ all =
             , test "empty secrets list: decrypt returns null" <|
                 \() ->
                     let
+                        payload : Encode.Value
                         payload =
                             Encode.object [ ( "marker", Encode.string "hello" ) ]
                     in
@@ -199,6 +212,7 @@ all =
             [ test "two sessions with different names + secrets coexist in the jar" <|
                 \() ->
                     let
+                        jar : CookieJar.CookieJar
                         jar =
                             CookieJar.init
                                 |> CookieJar.setSession
@@ -216,11 +230,13 @@ all =
                                             |> Session.withValue "adminId" "99"
                                     }
 
+                        userResult : Maybe ( String, String )
                         userResult =
                             CookieJar.get "user_session" jar
                                 |> Maybe.andThen TestInternal.mockUnsignValue
                                 |> Maybe.map (\r -> ( r.secret, Encode.encode 0 r.values ))
 
+                        adminResult : Maybe ( String, String )
                         adminResult =
                             CookieJar.get "admin_session" jar
                                 |> Maybe.andThen TestInternal.mockUnsignValue
@@ -248,6 +264,7 @@ all =
             , test "same name with a later setSession overwrites the earlier one" <|
                 \() ->
                     let
+                        signedAfter : Maybe { secret : String, values : Encode.Value }
                         signedAfter =
                             CookieJar.init
                                 |> CookieJar.setSession
