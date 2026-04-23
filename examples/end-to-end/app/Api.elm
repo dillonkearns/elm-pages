@@ -12,7 +12,9 @@ import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages
+import Random
 import Vendored.Result.Extra
+import Vendored.Test.Runner.Html
 import Route exposing (Route)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
@@ -166,10 +168,17 @@ requestPrinter =
         |> ApiRoute.serverRender
 
 
+config : Vendored.Test.Runner.Html.Config
+config =
+    Random.initialSeed (Pages.builtAt |> Time.posixToMillis)
+        |> Vendored.Test.Runner.Html.defaultConfig
+        |> Vendored.Test.Runner.Html.hidePassedTests
+
+
 viewHtmlResults tests =
     Html.div []
         [ Html.h1 [] [ Html.text "My Test Suite" ]
-        , Html.div [] [ Html.text "(test runner view removed)" ]
+        , Html.div [] [ Vendored.Test.Runner.Html.viewResults config tests ]
         ]
 
 
