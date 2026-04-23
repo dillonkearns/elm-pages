@@ -79,7 +79,22 @@ view :
 view app shared =
     { title = "Links"
     , body =
-        [ Html.a [ Attr.href "/" ]
-            [ text "Root page" ]
+        [ Html.div []
+            [ Html.h1 [] [ text "Links Page" ]
+            , Html.ul []
+                [ Html.li []
+                    [ Html.a [ Attr.href "/counter" ]
+                        [ text "Go to Counter" ]
+                    ]
+                , Html.li []
+                    [ Html.a [ Attr.href "/hello" ]
+                        [ text "Go to Hello" ]
+                    ]
+                , Html.li []
+                    [ Html.a [ Attr.href "/" ]
+                        [ text "Root page" ]
+                    ]
+                ]
+            ]
         ]
     }

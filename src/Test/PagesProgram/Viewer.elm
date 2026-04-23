@@ -21,6 +21,12 @@ alongside the rendered page view.
 
 Open the compiled HTML in your browser, then use arrow keys to step through.
 
+The Cookies sidebar (`c`) displays signed session cookies with the secret
+that was used. Note: the in-memory "checksum" shown next to the secret is a
+fast non-cryptographic FNV1a hash, not a real HMAC-SHA256 — it only exists
+so the visual runner can distinguish different secrets and detect
+test-time tampering of signed-cookie payloads.
+
 @docs app, Flags, Model, Msg
 
 -}
@@ -29,6 +35,7 @@ import Browser
 import Browser.Dom
 import Browser.Events
 import Browser.Navigation as Nav
+import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
@@ -2223,6 +2230,12 @@ viewNetworkSidebar model currentStep allSnapshots =
         ]
 
 
+type CookieDiff
+    = CookieNew
+    | CookieChanged
+    | CookieUnchanged
+
+
 viewCookieSidebar : Int -> List Snapshot -> Html Msg
 viewCookieSidebar currentStep allSnapshots =
     let
@@ -2253,10 +2266,10 @@ viewCookieSidebar currentStep allSnapshots =
                 |> List.filterMap identity
                 |> dedupeEntryTimeline
 
-        activeStep : List ( Int, CookieEntry ) -> Maybe ( Int, CookieEntry )
-        activeStep tl =
+        activeAtStep : Int -> List ( Int, CookieEntry ) -> Maybe ( Int, CookieEntry )
+        activeAtStep step tl =
             tl
-                |> List.filter (\( idx, _ ) -> idx <= currentStep)
+                |> List.filter (\( idx, _ ) -> idx <= step)
                 |> List.reverse
                 |> List.head
 
@@ -2265,7 +2278,7 @@ viewCookieSidebar currentStep allSnapshots =
             allNames
                 |> List.filter
                     (\n ->
-                        activeStep (timeline n) /= Nothing
+                        activeAtStep currentStep (timeline n) /= Nothing
                     )
                 |> List.length
     in
@@ -2284,17 +2297,31 @@ viewCookieSidebar currentStep allSnapshots =
                     |> List.map
                         (\name ->
                             let
+                                tl : List ( Int, CookieEntry )
                                 tl =
                                     timeline name
+
+                                active : Maybe ( Int, CookieEntry )
+                                active =
+                                    activeAtStep currentStep tl
+
+                                previous : Maybe CookieEntry
+                                previous =
+                                    if currentStep <= 0 then
+                                        Nothing
+
+                                    else
+                                        activeAtStep (currentStep - 1) tl
+                                            |> Maybe.map Tuple.second
                             in
-                            viewCookieCard currentStep name tl (activeStep tl)
+                            viewCookieCard currentStep name tl active previous
                         )
                 )
         ]
 
 
-viewCookieCard : Int -> String -> List ( Int, CookieEntry ) -> Maybe ( Int, CookieEntry ) -> Html Msg
-viewCookieCard currentStep name tl active =
+viewCookieCard : Int -> String -> List ( Int, CookieEntry ) -> Maybe ( Int, CookieEntry ) -> Maybe CookieEntry -> Html Msg
+viewCookieCard currentStep name tl active previous =
     let
         setAtStep : Maybe Int
         setAtStep =
@@ -2331,15 +2358,55 @@ viewCookieCard currentStep name tl active =
             shownEntry
                 |> Maybe.map .value
                 |> Maybe.andThen BackendTaskTest.mockUnsignValue
+
+        -- Step 0 is the baseline: everything is "there since the start",
+        -- so we suppress diff highlighting rather than marking every cookie NEW.
+        diff : CookieDiff
+        diff =
+            if currentStep <= 0 || isFuture then
+                CookieUnchanged
+
+            else
+                case ( active, previous ) of
+                    ( Just ( _, curr ), Nothing ) ->
+                        CookieNew
+
+                    ( Just ( _, curr ), Just prev ) ->
+                        if curr == prev then
+                            CookieUnchanged
+
+                        else
+                            CookieChanged
+
+                    ( Nothing, _ ) ->
+                        CookieUnchanged
+
+        previousSigned : Maybe Encode.Value
+        previousSigned =
+            previous
+                |> Maybe.map .value
+                |> Maybe.andThen BackendTaskTest.mockUnsignValue
+                |> Maybe.map .values
     in
     Html.div
         [ Attr.classList
             [ ( "cookie-row", True )
             , ( "cookie-row-future", isFuture )
+            , ( "cookie-row-new", diff == CookieNew )
+            , ( "cookie-row-changed", diff == CookieChanged )
             ]
         ]
         ([ Html.div [ Attr.class "cookie-row-top" ]
             [ Html.span [ Attr.class "cookie-name" ] [ Html.text name ]
+            , case diff of
+                CookieNew ->
+                    Html.span [ Attr.class "cookie-diff-badge cookie-diff-new" ] [ Html.text "new" ]
+
+                CookieChanged ->
+                    Html.span [ Attr.class "cookie-diff-badge cookie-diff-changed" ] [ Html.text "changed" ]
+
+                CookieUnchanged ->
+                    Html.text ""
             , case signed of
                 Just _ ->
                     Html.span [ Attr.class "cookie-signed-badge" ]
@@ -2371,8 +2438,6 @@ viewCookieCard currentStep name tl active =
                 Html.div [ Attr.class "cookie-secret-label" ]
                     [ Html.text "signed with "
                     , Html.code [] [ Html.text ("\"" ++ secret ++ "\"") ]
-                    , Html.span [ Attr.class "cookie-secret-note" ]
-                        [ Html.text " (test-mock checksum, not real HMAC)" ]
                     ]
 
             Nothing ->
@@ -2380,9 +2445,7 @@ viewCookieCard currentStep name tl active =
          ]
             ++ (case shownEntry of
                     Just entry ->
-                        [ Html.div [ Attr.class "cookie-value", Attr.title entry.value ]
-                            [ Html.text (truncateValue entry.value) ]
-                        , viewCookieAttrs entry
+                        [ viewCookieAttrs entry
                         , Html.details [ Attr.class "cookie-details" ]
                             [ Html.summary [ Attr.class "cookie-details-summary" ]
                                 [ Html.text "Raw value" ]
@@ -2392,7 +2455,7 @@ viewCookieCard currentStep name tl active =
                         ]
                             ++ (case signed of
                                     Just result ->
-                                        [ viewSignedSession result.values ]
+                                        [ viewDecodedPayload currentStep previousSigned result.values ]
 
                                     Nothing ->
                                         []
@@ -2406,74 +2469,185 @@ viewCookieCard currentStep name tl active =
 
 viewCookieAttrs : CookieEntry -> Html Msg
 viewCookieAttrs entry =
-    let
-        chips : List (Html Msg)
-        chips =
-            List.filterMap identity
-                [ entry.path |> Maybe.map (\v -> chip ("Path=" ++ v))
-                , entry.domain |> Maybe.map (\v -> chip ("Domain=" ++ v))
-                , entry.expires |> Maybe.map (\v -> chip ("Expires=" ++ v))
-                , entry.maxAge |> Maybe.map (\v -> chip ("Max-Age=" ++ String.fromInt v))
-                , if entry.secure then
-                    Just (chip "Secure")
+    Html.details [ Attr.class "cookie-details" ]
+        [ Html.summary [ Attr.class "cookie-details-summary" ]
+            [ Html.text "Attributes" ]
+        , Html.div [ Attr.class "cookie-attr-table" ]
+            [ attrRow "Path" (entry.path |> Maybe.withDefault unsetMarker)
+            , attrRow "Domain" (entry.domain |> Maybe.withDefault unsetMarker)
+            , attrRow "Expires" (entry.expires |> Maybe.withDefault unsetMarker)
+            , attrRow "Max-Age" (entry.maxAge |> Maybe.map String.fromInt |> Maybe.withDefault unsetMarker)
+            , attrRow "Secure" (boolMarker entry.secure)
+            , attrRow "HttpOnly" (boolMarker entry.httpOnly)
+            , attrRow "SameSite" (entry.sameSite |> Maybe.withDefault unsetMarker)
+            ]
+        ]
 
-                  else
-                    Nothing
-                , if entry.httpOnly then
-                    Just (chip "HttpOnly")
 
-                  else
-                    Nothing
-                , entry.sameSite |> Maybe.map (\v -> chip ("SameSite=" ++ v))
-                ]
+unsetMarker : String
+unsetMarker =
+    "—"
 
-        chip : String -> Html Msg
-        chip label =
-            Html.span [ Attr.class "cookie-attr-chip" ] [ Html.text label ]
-    in
-    if List.isEmpty chips then
-        Html.text ""
+
+boolMarker : Bool -> String
+boolMarker b =
+    if b then
+        "true"
 
     else
-        Html.div [ Attr.class "cookie-attrs" ] chips
+        "false"
 
 
-viewSignedSession : Encode.Value -> Html Msg
-viewSignedSession values =
+attrRow : String -> String -> Html Msg
+attrRow name value =
+    Html.div [ Attr.class "cookie-attr-row" ]
+        [ Html.span [ Attr.class "cookie-attr-name" ] [ Html.text name ]
+        , Html.span
+            [ Attr.classList
+                [ ( "cookie-attr-value", True )
+                , ( "cookie-attr-unset", value == unsetMarker )
+                ]
+            ]
+            [ Html.text value ]
+        ]
+
+
+type KeyDiff
+    = KeyNew
+    | KeyChanged String
+    | KeyUnchanged
+    | KeyRemoved String
+
+
+decodeStringPairs : Encode.Value -> List ( String, String )
+decodeStringPairs v =
+    Decode.decodeValue (Decode.keyValuePairs Decode.string) v
+        |> Result.withDefault []
+
+
+{-| Diff the persistent key/value pairs of a decoded session payload against
+the previous step's payload. Keys present only in `current` show up with
+`KeyNew`, keys present only in `previous` become `KeyRemoved` rows appended
+at the end (so the reader sees that the app removed them this step), and
+keys that changed carry the previous value in `KeyChanged`.
+-}
+diffPairs : List ( String, String ) -> List ( String, String ) -> List ( String, String, KeyDiff )
+diffPairs previous current =
+    let
+        prevDict : Dict String String
+        prevDict =
+            Dict.fromList previous
+
+        currDict : Dict String String
+        currDict =
+            Dict.fromList current
+
+        currentRows : List ( String, String, KeyDiff )
+        currentRows =
+            current
+                |> List.map
+                    (\( k, v ) ->
+                        case Dict.get k prevDict of
+                            Nothing ->
+                                ( k, v, KeyNew )
+
+                            Just prevV ->
+                                if prevV == v then
+                                    ( k, v, KeyUnchanged )
+
+                                else
+                                    ( k, v, KeyChanged prevV )
+                    )
+
+        removedRows : List ( String, String, KeyDiff )
+        removedRows =
+            previous
+                |> List.filter (\( k, _ ) -> Dict.get k currDict == Nothing)
+                |> List.map (\( k, v ) -> ( k, v, KeyRemoved v ))
+    in
+    currentRows ++ removedRows
+
+
+viewDecodedPayload : Int -> Maybe Encode.Value -> Encode.Value -> Html Msg
+viewDecodedPayload currentStep previousValues values =
     case Decode.decodeValue (Decode.keyValuePairs Decode.string) values of
         Ok pairs ->
             let
                 ( flash, persistent ) =
                     List.partition (\( k, _ ) -> String.startsWith BackendTaskTest.sessionFlashPrefix k) pairs
 
+                flashStripped : List ( String, String )
                 flashStripped =
                     flash
                         |> List.map
                             (\( k, v ) ->
                                 ( String.dropLeft (String.length BackendTaskTest.sessionFlashPrefix) k, v )
                             )
+
+                previousPairs : List ( String, String )
+                previousPairs =
+                    previousValues
+                        |> Maybe.map decodeStringPairs
+                        |> Maybe.withDefault []
+
+                ( prevFlash, prevPersistent ) =
+                    List.partition (\( k, _ ) -> String.startsWith BackendTaskTest.sessionFlashPrefix k) previousPairs
+
+                prevFlashStripped : List ( String, String )
+                prevFlashStripped =
+                    prevFlash
+                        |> List.map
+                            (\( k, v ) ->
+                                ( String.dropLeft (String.length BackendTaskTest.sessionFlashPrefix) k, v )
+                            )
+
+                -- At step 0 we're establishing the baseline, so don't highlight
+                -- anything as new/changed.
+                diffEnabled : Bool
+                diffEnabled =
+                    currentStep > 0
+
+                persistentRows : List ( String, String, KeyDiff )
+                persistentRows =
+                    if diffEnabled then
+                        diffPairs prevPersistent persistent
+
+                    else
+                        persistent |> List.map (\( k, v ) -> ( k, v, KeyUnchanged ))
+
+                flashRows : List ( String, String, KeyDiff )
+                flashRows =
+                    if diffEnabled then
+                        diffPairs prevFlashStripped flashStripped
+
+                    else
+                        flashStripped |> List.map (\( k, v ) -> ( k, v, KeyUnchanged ))
             in
             Html.details [ Attr.class "cookie-details", Attr.attribute "open" "" ]
                 [ Html.summary [ Attr.class "cookie-details-summary" ]
-                    [ Html.text "Session values" ]
-                , if List.isEmpty persistent then
-                    Html.text ""
+                    [ Html.text "Decoded" ]
+                , if List.isEmpty flashRows then
+                    -- No flash values: show a flat list, no subsection header.
+                    Html.div [ Attr.class "cookie-session-section" ]
+                        (List.map (sessionRow Nothing) persistentRows)
 
                   else
-                    Html.div [ Attr.class "cookie-session-section" ]
-                        (Html.div [ Attr.class "cookie-session-header" ]
-                            [ Html.text "Persistent" ]
-                            :: List.map (sessionRow Nothing) persistent
-                        )
-                , if List.isEmpty flashStripped then
-                    Html.text ""
+                    Html.div []
+                        [ if List.isEmpty persistentRows then
+                            Html.text ""
 
-                  else
-                    Html.div [ Attr.class "cookie-session-section" ]
-                        (Html.div [ Attr.class "cookie-session-header" ]
-                            [ Html.text "Flash (one-shot)" ]
-                            :: List.map (sessionRow (Just "flash")) flashStripped
-                        )
+                          else
+                            Html.div [ Attr.class "cookie-session-section" ]
+                                (Html.div [ Attr.class "cookie-session-header" ]
+                                    [ Html.text "Persistent" ]
+                                    :: List.map (sessionRow Nothing) persistentRows
+                                )
+                        , Html.div [ Attr.class "cookie-session-section" ]
+                            (Html.div [ Attr.class "cookie-session-header" ]
+                                [ Html.text "Flash (one-shot)" ]
+                                :: List.map (sessionRow (Just "flash")) flashRows
+                            )
+                        ]
                 ]
 
         Err _ ->
@@ -2481,18 +2655,70 @@ viewSignedSession values =
                 [ Html.text "signed payload isn't a { String : String } object" ]
 
 
-sessionRow : Maybe String -> ( String, String ) -> Html Msg
-sessionRow badge ( key, value ) =
-    Html.div [ Attr.class "cookie-session-row" ]
+sessionRow : Maybe String -> ( String, String, KeyDiff ) -> Html Msg
+sessionRow badge ( key, value, diff ) =
+    Html.div
+        [ Attr.classList
+            [ ( "cookie-session-row", True )
+            , ( "cookie-session-row-new", diff == KeyNew )
+            , ( "cookie-session-row-changed", isChanged diff )
+            , ( "cookie-session-row-removed", isRemoved diff )
+            ]
+        ]
         [ Html.span [ Attr.class "cookie-session-key" ] [ Html.text key ]
+        , case diff of
+            KeyNew ->
+                Html.span [ Attr.class "cookie-diff-badge cookie-diff-new" ] [ Html.text "new" ]
+
+            KeyChanged _ ->
+                Html.span [ Attr.class "cookie-diff-badge cookie-diff-changed" ] [ Html.text "changed" ]
+
+            KeyRemoved _ ->
+                Html.span [ Attr.class "cookie-diff-badge cookie-diff-removed" ] [ Html.text "removed" ]
+
+            KeyUnchanged ->
+                Html.text ""
         , case badge of
             Just label ->
                 Html.span [ Attr.class "cookie-flash-badge" ] [ Html.text label ]
 
             Nothing ->
                 Html.text ""
-        , Html.span [ Attr.class "cookie-session-value" ] [ Html.text value ]
+        , case diff of
+            KeyChanged prevValue ->
+                Html.span [ Attr.class "cookie-session-value" ]
+                    [ Html.span [ Attr.class "cookie-session-value-prev" ] [ Html.text prevValue ]
+                    , Html.text " → "
+                    , Html.text value
+                    ]
+
+            KeyRemoved prevValue ->
+                Html.span [ Attr.class "cookie-session-value cookie-session-value-removed" ]
+                    [ Html.text prevValue ]
+
+            _ ->
+                Html.span [ Attr.class "cookie-session-value" ] [ Html.text value ]
         ]
+
+
+isChanged : KeyDiff -> Bool
+isChanged d =
+    case d of
+        KeyChanged _ ->
+            True
+
+        _ ->
+            False
+
+
+isRemoved : KeyDiff -> Bool
+isRemoved d =
+    case d of
+        KeyRemoved _ ->
+            True
+
+        _ ->
+            False
 
 
 dedupeEntryTimeline : List ( Int, CookieEntry ) -> List ( Int, CookieEntry )
@@ -2513,15 +2739,6 @@ dedupeEntryTimeline entries =
             )
             []
         |> List.reverse
-
-
-truncateValue : String -> String
-truncateValue s =
-    if String.length s > 48 then
-        String.left 48 s ++ "…"
-
-    else
-        s
 
 
 {-| Deduplicate network entries, keeping the latest version of each unique entry
@@ -3875,6 +4092,43 @@ body {
     opacity: 0.4;
 }
 
+.cookie-row-new {
+    border-left: 3px solid rgba(126, 231, 135, 0.65);
+    padding-left: 9px;
+}
+
+.cookie-row-changed {
+    border-left: 3px solid rgba(234, 179, 8, 0.65);
+    padding-left: 9px;
+}
+
+.cookie-diff-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.cookie-diff-new {
+    background: rgba(126, 231, 135, 0.2);
+    color: #7ee787;
+    border: 1px solid rgba(126, 231, 135, 0.4);
+}
+
+.cookie-diff-changed {
+    background: rgba(234, 179, 8, 0.15);
+    color: #fde68a;
+    border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+.cookie-diff-removed {
+    background: rgba(231, 76, 60, 0.15);
+    color: #fca5a5;
+    border: 1px solid rgba(231, 76, 60, 0.35);
+}
+
 .cookie-row-top {
     display: flex;
     align-items: center;
@@ -3920,36 +4174,34 @@ body {
     font-size: 11px;
 }
 
-.cookie-secret-note {
-    font-style: italic;
-    color: #6b7280;
+.cookie-attr-table {
+    margin: 4px 0 0;
+    padding: 6px 8px;
+    background: rgba(13, 17, 23, 0.5);
+    border-radius: 4px;
 }
 
-.cookie-value {
+.cookie-attr-row {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 8px;
+    align-items: baseline;
     font-family: "SF Mono", "Fira Code", monospace;
     font-size: 11px;
-    color: #9ca3af;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-bottom: 4px;
+    padding: 1px 0;
 }
 
-.cookie-attrs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-bottom: 4px;
-}
-
-.cookie-attr-chip {
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 3px;
-    background: rgba(56, 189, 248, 0.12);
+.cookie-attr-name {
     color: #7dd3fc;
-    border: 1px solid rgba(56, 189, 248, 0.25);
-    font-family: "SF Mono", "Fira Code", monospace;
+}
+
+.cookie-attr-value {
+    color: #c9d1d9;
+    word-break: break-all;
+}
+
+.cookie-attr-unset {
+    color: #6b7280;
 }
 
 .cookie-details {
@@ -4011,6 +4263,11 @@ body {
     padding: 1px 0;
 }
 
+.cookie-session-row-removed .cookie-session-key {
+    text-decoration: line-through;
+    color: #fca5a5;
+}
+
 .cookie-session-key {
     color: #7ee787;
     font-weight: 600;
@@ -4019,6 +4276,16 @@ body {
 .cookie-session-value {
     color: #c9d1d9;
     word-break: break-all;
+}
+
+.cookie-session-value-prev {
+    color: #6b7280;
+    text-decoration: line-through;
+}
+
+.cookie-session-value-removed {
+    color: #6b7280;
+    text-decoration: line-through;
 }
 
 .cookie-flash-badge {
