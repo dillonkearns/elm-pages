@@ -120,10 +120,13 @@ startSignedInWithTodos todos =
         (baseSetup
             |> CookieJar.withCookies
                 (CookieJar.init
-                    |> CookieJar.setSession "mysession"
-                        (Session.init
-                            |> Session.withValue "sessionId" "test-session-id"
-                        )
+                    |> CookieJar.setSession
+                        { name = "mysession"
+                        , secret = "test-secret"
+                        , session =
+                            Session.init
+                                |> Session.withValue "sessionId" "test-session-id"
+                        }
                 )
         )
         |> PagesProgram.ensureCustom "getTodosBySession"

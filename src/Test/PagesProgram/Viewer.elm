@@ -36,8 +36,10 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Set exposing (Set)
 import Task
-import Test.PagesProgram.Internal exposing (AssertionSelector(..), FetcherEntry, FetcherStatus(..), NetworkEntry, NetworkSource(..), NetworkStatus(..), Snapshot, StepKind(..), TargetSelector(..))
+import Test.BackendTask.Internal as BackendTaskTest
+import Test.PagesProgram.CookieJar as CookieJar exposing (CookieEntry)
 import Test.PagesProgram.DebugParser as DebugParser
+import Test.PagesProgram.Internal exposing (AssertionSelector(..), FetcherEntry, FetcherStatus(..), NetworkEntry, NetworkSource(..), NetworkStatus(..), Snapshot, StepKind(..), TargetSelector(..))
 import Url exposing (Url)
 
 
@@ -70,6 +72,7 @@ type alias Model =
     , showNetworkBackend : Bool
     , showNetworkFrontend : Bool
     , showFetchers : Bool
+    , showCookies : Bool
     , previewMode : PreviewMode
     , expandedGroups : Set Int
     , modelTreeExpanded : Set String
@@ -108,6 +111,7 @@ type Msg
     | ToggleNetworkBackend
     | ToggleNetworkFrontend
     | ToggleFetchers
+    | ToggleCookies
     | SetPreviewMode PreviewMode
     | ToggleGroup Int
     | ToggleModelNode String
@@ -196,6 +200,7 @@ app tests =
                   , showNetworkBackend = True
                   , showNetworkFrontend = True
                   , showFetchers = False
+                  , showCookies = False
                   , previewMode = After
                   , expandedGroups = Set.empty
                   , modelTreeExpanded = Set.empty
@@ -664,6 +669,9 @@ update msg model =
         ToggleFetchers ->
             ( { model | showFetchers = not model.showFetchers }, Cmd.none )
 
+        ToggleCookies ->
+            ( { model | showCookies = not model.showCookies }, Cmd.none )
+
         SetPreviewMode mode ->
             ( { model | previewMode = mode }, Cmd.none )
 
@@ -782,6 +790,9 @@ update msg model =
 
                 "f" ->
                     update ToggleFetchers model
+
+                "c" ->
+                    update ToggleCookies model
 
                 _ ->
                     ( model, Cmd.none )
@@ -981,6 +992,13 @@ view model =
 
                   else
                     Html.text ""
+                , if model.showCookies then
+                    viewCookieSidebar
+                        (displayedStepIndex model)
+                        (currentSnapshots model)
+
+                  else
+                    Html.text ""
                 ]
             ]
         ]
@@ -1053,6 +1071,14 @@ viewHeader model =
                 , Html.Events.onClick ToggleFetchers
                 ]
                 [ Html.text "Fetchers" ]
+            , Html.button
+                [ Attr.classList
+                    [ ( "toggle-button", True )
+                    , ( "toggle-active", model.showCookies )
+                    ]
+                , Html.Events.onClick ToggleCookies
+                ]
+                [ Html.text "Cookies" ]
             , Html.button
                 [ Attr.classList
                     [ ( "toggle-button", True )
@@ -2195,6 +2221,307 @@ viewNetworkSidebar model currentStep allSnapshots =
                         )
                 )
         ]
+
+
+viewCookieSidebar : Int -> List Snapshot -> Html Msg
+viewCookieSidebar currentStep allSnapshots =
+    let
+        allNames : List String
+        allNames =
+            allSnapshots
+                |> List.concatMap (.cookieLog >> List.map Tuple.first)
+                |> List.foldl
+                    (\n acc ->
+                        if List.member n acc then
+                            acc
+
+                        else
+                            acc ++ [ n ]
+                    )
+                    []
+
+        timeline : String -> List ( Int, CookieEntry )
+        timeline name =
+            allSnapshots
+                |> List.indexedMap
+                    (\i snap ->
+                        snap.cookieLog
+                            |> List.filter (\( n, _ ) -> n == name)
+                            |> List.head
+                            |> Maybe.map (\( _, entry ) -> ( i, entry ))
+                    )
+                |> List.filterMap identity
+                |> dedupeEntryTimeline
+
+        activeStep : List ( Int, CookieEntry ) -> Maybe ( Int, CookieEntry )
+        activeStep tl =
+            tl
+                |> List.filter (\( idx, _ ) -> idx <= currentStep)
+                |> List.reverse
+                |> List.head
+
+        visibleCount : Int
+        visibleCount =
+            allNames
+                |> List.filter
+                    (\n ->
+                        activeStep (timeline n) /= Nothing
+                    )
+                |> List.length
+    in
+    Html.div [ Attr.class "cookie-sidebar" ]
+        [ Html.div [ Attr.class "cookie-sidebar-header" ]
+            [ Html.span [ Attr.class "sidebar-title" ]
+                [ Html.text ("Cookies (" ++ String.fromInt visibleCount ++ ")") ]
+            ]
+        , if List.isEmpty allNames then
+            Html.div [ Attr.class "cookie-empty" ]
+                [ Html.text "No cookies set by this test." ]
+
+          else
+            Html.div [ Attr.class "cookie-list" ]
+                (allNames
+                    |> List.map
+                        (\name ->
+                            let
+                                tl =
+                                    timeline name
+                            in
+                            viewCookieCard currentStep name tl (activeStep tl)
+                        )
+                )
+        ]
+
+
+viewCookieCard : Int -> String -> List ( Int, CookieEntry ) -> Maybe ( Int, CookieEntry ) -> Html Msg
+viewCookieCard currentStep name tl active =
+    let
+        setAtStep : Maybe Int
+        setAtStep =
+            tl |> List.head |> Maybe.map Tuple.first
+
+        changedAtStep : Maybe Int
+        changedAtStep =
+            case active of
+                Just ( idx, _ ) ->
+                    if Just idx /= setAtStep then
+                        Just idx
+
+                    else
+                        Nothing
+
+                Nothing ->
+                    Nothing
+
+        isFuture : Bool
+        isFuture =
+            active == Nothing
+
+        shownEntry : Maybe CookieEntry
+        shownEntry =
+            case active of
+                Just ( _, entry ) ->
+                    Just entry
+
+                Nothing ->
+                    tl |> List.head |> Maybe.map Tuple.second
+
+        signed : Maybe { secret : String, values : Encode.Value }
+        signed =
+            shownEntry
+                |> Maybe.map .value
+                |> Maybe.andThen BackendTaskTest.mockUnsignValue
+    in
+    Html.div
+        [ Attr.classList
+            [ ( "cookie-row", True )
+            , ( "cookie-row-future", isFuture )
+            ]
+        ]
+        ([ Html.div [ Attr.class "cookie-row-top" ]
+            [ Html.span [ Attr.class "cookie-name" ] [ Html.text name ]
+            , case signed of
+                Just _ ->
+                    Html.span [ Attr.class "cookie-signed-badge" ]
+                        [ Html.text "signed" ]
+
+                Nothing ->
+                    Html.text ""
+            , case setAtStep of
+                Just s ->
+                    Html.span [ Attr.class "cookie-step" ]
+                        [ Html.text
+                            ("set at step "
+                                ++ String.fromInt (s + 1)
+                                ++ (case changedAtStep of
+                                        Just c ->
+                                            " (changed at step " ++ String.fromInt (c + 1) ++ ")"
+
+                                        Nothing ->
+                                            ""
+                                   )
+                            )
+                        ]
+
+                Nothing ->
+                    Html.text ""
+            ]
+         , case signed of
+            Just { secret } ->
+                Html.div [ Attr.class "cookie-secret-label" ]
+                    [ Html.text "signed with "
+                    , Html.code [] [ Html.text ("\"" ++ secret ++ "\"") ]
+                    , Html.span [ Attr.class "cookie-secret-note" ]
+                        [ Html.text " (test-mock checksum, not real HMAC)" ]
+                    ]
+
+            Nothing ->
+                Html.text ""
+         ]
+            ++ (case shownEntry of
+                    Just entry ->
+                        [ Html.div [ Attr.class "cookie-value", Attr.title entry.value ]
+                            [ Html.text (truncateValue entry.value) ]
+                        , viewCookieAttrs entry
+                        , Html.details [ Attr.class "cookie-details" ]
+                            [ Html.summary [ Attr.class "cookie-details-summary" ]
+                                [ Html.text "Raw value" ]
+                            , Html.pre [ Attr.class "cookie-raw-value" ]
+                                [ Html.text entry.value ]
+                            ]
+                        ]
+                            ++ (case signed of
+                                    Just result ->
+                                        [ viewSignedSession result.values ]
+
+                                    Nothing ->
+                                        []
+                               )
+
+                    Nothing ->
+                        []
+               )
+        )
+
+
+viewCookieAttrs : CookieEntry -> Html Msg
+viewCookieAttrs entry =
+    let
+        chips : List (Html Msg)
+        chips =
+            List.filterMap identity
+                [ entry.path |> Maybe.map (\v -> chip ("Path=" ++ v))
+                , entry.domain |> Maybe.map (\v -> chip ("Domain=" ++ v))
+                , entry.expires |> Maybe.map (\v -> chip ("Expires=" ++ v))
+                , entry.maxAge |> Maybe.map (\v -> chip ("Max-Age=" ++ String.fromInt v))
+                , if entry.secure then
+                    Just (chip "Secure")
+
+                  else
+                    Nothing
+                , if entry.httpOnly then
+                    Just (chip "HttpOnly")
+
+                  else
+                    Nothing
+                , entry.sameSite |> Maybe.map (\v -> chip ("SameSite=" ++ v))
+                ]
+
+        chip : String -> Html Msg
+        chip label =
+            Html.span [ Attr.class "cookie-attr-chip" ] [ Html.text label ]
+    in
+    if List.isEmpty chips then
+        Html.text ""
+
+    else
+        Html.div [ Attr.class "cookie-attrs" ] chips
+
+
+viewSignedSession : Encode.Value -> Html Msg
+viewSignedSession values =
+    case Decode.decodeValue (Decode.keyValuePairs Decode.string) values of
+        Ok pairs ->
+            let
+                ( flash, persistent ) =
+                    List.partition (\( k, _ ) -> String.startsWith BackendTaskTest.sessionFlashPrefix k) pairs
+
+                flashStripped =
+                    flash
+                        |> List.map
+                            (\( k, v ) ->
+                                ( String.dropLeft (String.length BackendTaskTest.sessionFlashPrefix) k, v )
+                            )
+            in
+            Html.details [ Attr.class "cookie-details", Attr.attribute "open" "" ]
+                [ Html.summary [ Attr.class "cookie-details-summary" ]
+                    [ Html.text "Session values" ]
+                , if List.isEmpty persistent then
+                    Html.text ""
+
+                  else
+                    Html.div [ Attr.class "cookie-session-section" ]
+                        (Html.div [ Attr.class "cookie-session-header" ]
+                            [ Html.text "Persistent" ]
+                            :: List.map (sessionRow Nothing) persistent
+                        )
+                , if List.isEmpty flashStripped then
+                    Html.text ""
+
+                  else
+                    Html.div [ Attr.class "cookie-session-section" ]
+                        (Html.div [ Attr.class "cookie-session-header" ]
+                            [ Html.text "Flash (one-shot)" ]
+                            :: List.map (sessionRow (Just "flash")) flashStripped
+                        )
+                ]
+
+        Err _ ->
+            Html.div [ Attr.class "cookie-session-section" ]
+                [ Html.text "signed payload isn't a { String : String } object" ]
+
+
+sessionRow : Maybe String -> ( String, String ) -> Html Msg
+sessionRow badge ( key, value ) =
+    Html.div [ Attr.class "cookie-session-row" ]
+        [ Html.span [ Attr.class "cookie-session-key" ] [ Html.text key ]
+        , case badge of
+            Just label ->
+                Html.span [ Attr.class "cookie-flash-badge" ] [ Html.text label ]
+
+            Nothing ->
+                Html.text ""
+        , Html.span [ Attr.class "cookie-session-value" ] [ Html.text value ]
+        ]
+
+
+dedupeEntryTimeline : List ( Int, CookieEntry ) -> List ( Int, CookieEntry )
+dedupeEntryTimeline entries =
+    entries
+        |> List.foldl
+            (\( i, entry ) acc ->
+                case acc of
+                    ( _, prev ) :: _ ->
+                        if prev == entry then
+                            acc
+
+                        else
+                            ( i, entry ) :: acc
+
+                    [] ->
+                        [ ( i, entry ) ]
+            )
+            []
+        |> List.reverse
+
+
+truncateValue : String -> String
+truncateValue s =
+    if String.length s > 48 then
+        String.left 48 s ++ "…"
+
+    else
+        s
 
 
 {-| Deduplicate network entries, keeping the latest version of each unique entry
@@ -3503,6 +3830,207 @@ body {
     color: #0d1117;
     border-color: #4cc9f0;
     font-weight: 600;
+}
+
+/* === COOKIE SIDEBAR === */
+
+.cookie-sidebar {
+    width: 320px;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    background: #16213e;
+    border-left: 1px solid #0f3460;
+    overflow: hidden;
+}
+
+.cookie-sidebar-header {
+    padding: 10px 12px 8px;
+    border-bottom: 1px solid #0f3460;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.cookie-empty {
+    padding: 12px;
+    color: #556677;
+    font-size: 12px;
+    font-style: italic;
+}
+
+.cookie-list {
+    overflow-y: auto;
+    padding: 4px 0 8px;
+}
+
+.cookie-row {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: 12px;
+    color: #c9d1d9;
+}
+
+.cookie-row-future {
+    opacity: 0.4;
+}
+
+.cookie-row-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.cookie-name {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-weight: 700;
+    color: #e6edf3;
+}
+
+.cookie-step {
+    font-size: 10px;
+    color: #7d8590;
+    margin-left: auto;
+}
+
+.cookie-signed-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+    background: rgba(234, 179, 8, 0.2);
+    color: #fde68a;
+    border: 1px solid rgba(234, 179, 8, 0.4);
+}
+
+.cookie-secret-label {
+    font-size: 11px;
+    color: #9ca3af;
+    margin: 2px 0 4px;
+}
+
+.cookie-secret-label code {
+    background: rgba(234, 179, 8, 0.1);
+    color: #fde68a;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 11px;
+}
+
+.cookie-secret-note {
+    font-style: italic;
+    color: #6b7280;
+}
+
+.cookie-value {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 11px;
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+}
+
+.cookie-attrs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.cookie-attr-chip {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: rgba(56, 189, 248, 0.12);
+    color: #7dd3fc;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    font-family: "SF Mono", "Fira Code", monospace;
+}
+
+.cookie-details {
+    margin-top: 4px;
+}
+
+.cookie-details-summary {
+    cursor: pointer;
+    font-size: 10px;
+    color: #7d8590;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 0;
+}
+
+.cookie-details-summary:hover {
+    color: #c9d1d9;
+}
+
+.cookie-raw-value {
+    margin: 4px 0 0;
+    padding: 6px 8px;
+    background: #0d1117;
+    border-radius: 4px;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 10px;
+    color: #c9d1d9;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 160px;
+    overflow: auto;
+}
+
+.cookie-session-section {
+    margin-top: 4px;
+    padding: 6px 8px;
+    background: rgba(13, 17, 23, 0.5);
+    border-radius: 4px;
+}
+
+.cookie-session-section + .cookie-session-section {
+    margin-top: 4px;
+}
+
+.cookie-session-header {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #7d8590;
+    margin-bottom: 3px;
+}
+
+.cookie-session-row {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 11px;
+    padding: 1px 0;
+}
+
+.cookie-session-key {
+    color: #7ee787;
+    font-weight: 600;
+}
+
+.cookie-session-value {
+    color: #c9d1d9;
+    word-break: break-all;
+}
+
+.cookie-flash-badge {
+    font-size: 8px;
+    font-weight: 700;
+    padding: 0 4px;
+    border-radius: 2px;
+    background: rgba(147, 51, 234, 0.2);
+    color: #d8b4fe;
+    border: 1px solid rgba(147, 51, 234, 0.4);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
 }
 
 /* === EFFECT INSPECTOR === */

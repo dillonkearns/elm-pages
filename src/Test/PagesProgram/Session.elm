@@ -14,11 +14,14 @@ to place the signed value into the cookie jar for a test.
     BackendTaskTest.init
         |> CookieJar.withCookies
             (CookieJar.init
-                |> CookieJar.setSession "mysession"
-                    (Session.init
-                        |> Session.withValue "userId" "42"
-                        |> Session.withFlash "greeting" "Welcome back!"
-                    )
+                |> CookieJar.setSession
+                    { name = "mysession"
+                    , secret = "test-secret"
+                    , session =
+                        Session.init
+                            |> Session.withValue "userId" "42"
+                            |> Session.withFlash "greeting" "Welcome back!"
+                    }
             )
 
 @docs Session

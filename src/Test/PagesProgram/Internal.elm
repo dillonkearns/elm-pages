@@ -53,6 +53,7 @@ import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.StaticHttp.Request as StaticHttpRequest
 import Test.BackendTask.Internal as BackendTaskTest
 import Test.Html.Query as Query
+import Test.PagesProgram.CookieJar as CookieJar exposing (CookieEntry)
 import Test.PagesProgram.SimulatedSub exposing (SimulatedSub)
 
 
@@ -88,6 +89,7 @@ type alias Snapshot =
     , assertionSelectors : List AssertionSelector
     , scopeSelectors : List (List AssertionSelector)
     , fetcherLog : List FetcherEntry
+    , cookieLog : List ( String, CookieEntry )
     , groupLabel : Maybe String
     }
 
@@ -180,6 +182,7 @@ type alias State model msg =
     , snapshots : List Snapshot
     , modelToString : Maybe (model -> String)
     , fetcherExtractor : Maybe (model -> List FetcherEntry)
+    , cookieExtractor : Maybe (model -> List ( String, CookieEntry ))
     , pendingFetcherEffects : List (Resolver model msg)
     , lastReadyModel : Maybe model
     , networkLog : List NetworkEntry
@@ -300,6 +303,7 @@ initialProgramTest config =
                       , assertionSelectors = []
                       , scopeSelectors = []
                       , fetcherLog = []
+                      , cookieLog = []
                       , groupLabel = Nothing
                       }
                     ]
@@ -320,6 +324,7 @@ initialProgramTest config =
                       , assertionSelectors = []
                       , scopeSelectors = []
                       , fetcherLog = []
+                      , cookieLog = []
                       , groupLabel = Nothing
                       }
                     ]
@@ -330,6 +335,7 @@ initialProgramTest config =
         , snapshots = initSnapshot
         , modelToString = Nothing
         , fetcherExtractor = Nothing
+        , cookieExtractor = Nothing
         , pendingFetcherEffects = []
         , lastReadyModel = Nothing
         , networkLog = []

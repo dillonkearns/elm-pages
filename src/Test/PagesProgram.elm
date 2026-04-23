@@ -201,7 +201,7 @@ import Browser
 import Bytes
 import Bytes.Decode
 import Bytes.Encode
-import Test.PagesProgram.CookieJar as CookieJar exposing (CookieJar)
+import Test.PagesProgram.CookieJar as CookieJar exposing (CookieEntry, CookieJar)
 import Dict
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
@@ -413,6 +413,7 @@ start simulateEffect config initialPath testSetup =
                 , snapshots = []
                 , modelToString = Nothing
                 , fetcherExtractor = Nothing
+                , cookieExtractor = Nothing
                 , pendingFetcherEffects = []
                 , lastReadyModel = Nothing
                 , networkLog = []
@@ -1101,6 +1102,7 @@ start simulateEffect config initialPath testSetup =
                               , assertionSelectors = []
                               , scopeSelectors = []
                               , fetcherLog = []
+                              , cookieLog = CookieJar.entries readyState.model.cookieJar
                               , groupLabel = Nothing
                               }
                             ]
@@ -1135,6 +1137,8 @@ start simulateEffect config initialPath testSetup =
                                             "POST"
                                 }
                             )
+                extractCookies wrappedModel =
+                    CookieJar.entries wrappedModel.cookieJar
             in
             ProgramTest
                 { phase = initialPhase
@@ -1142,6 +1146,7 @@ start simulateEffect config initialPath testSetup =
                 , snapshots = initSnapshots
                 , modelToString = Just platformModelToString
                 , fetcherExtractor = Just extractFetchers
+                , cookieExtractor = Just extractCookies
                 , pendingFetcherEffects = []
                 , lastReadyModel = Nothing
                 , networkLog = []
@@ -3013,7 +3018,7 @@ resolveBackendTask simulate (ProgramTest state) =
                                                     , lastReadyModel = Just updateResult.model
                                                     , snapshots =
                                                         state.snapshots
-                                                            ++ [ makeSnapshot "resolveBackendTask" EffectResolution Nothing [] { ready | model = updateResult.model } state.modelToString state.fetcherExtractor state.networkLog ]
+                                                            ++ [ makeSnapshot "resolveBackendTask" EffectResolution Nothing [] { ready | model = updateResult.model } state.modelToString state.fetcherExtractor state.cookieExtractor state.networkLog ]
                                                 }
 
                                         Nothing ->
@@ -3042,7 +3047,7 @@ resolveBackendTask simulate (ProgramTest state) =
                                                     , pendingFetcherEffects = mergePendingResolvers state.pendingFetcherEffects updateResult.fetcherResolvers
                                                     , snapshots =
                                                         state.snapshots
-                                                            ++ [ makeSnapshot "resolveBackendTask" EffectResolution Nothing [] newReady state.modelToString state.fetcherExtractor updatedLog ]
+                                                            ++ [ makeSnapshot "resolveBackendTask" EffectResolution Nothing [] newReady state.modelToString state.fetcherExtractor state.cookieExtractor updatedLog ]
                                                     , networkLog = updatedLog
                                                 }
 
@@ -3496,6 +3501,15 @@ toSnapshots : ProgramTest model msg -> List Snapshot
 toSnapshots (ProgramTest state) =
     case state.error of
         Just errorMsg ->
+            let
+                latestCookieLog : List ( String, CookieEntry )
+                latestCookieLog =
+                    state.snapshots
+                        |> List.reverse
+                        |> List.head
+                        |> Maybe.map .cookieLog
+                        |> Maybe.withDefault []
+            in
             state.snapshots
                 ++ [ { label = "ERROR"
                      , title = "Error"
@@ -3512,6 +3526,7 @@ toSnapshots (ProgramTest state) =
                      , assertionSelectors = []
                      , scopeSelectors = []
                      , fetcherLog = []
+                     , cookieLog = latestCookieLog
                      , groupLabel = Nothing
                      }
                    ]
@@ -3676,7 +3691,7 @@ advanceResolver source maybeModel remainingPendingResolvers sim state (Resolver 
                 snapshot =
                     case newPhase of
                         Ready ready ->
-                            [ makeSnapshot simInfo.label EffectResolution Nothing [] ready state.modelToString state.fetcherExtractor updatedLog ]
+                            [ makeSnapshot simInfo.label EffectResolution Nothing [] ready state.modelToString state.fetcherExtractor state.cookieExtractor updatedLog ]
 
                         Resolving _ ->
                             []
@@ -3778,7 +3793,7 @@ applySimulation sim (ProgramTest state) =
                                                             , lastReadyModel = Just updateResult.model
                                                             , snapshots =
                                                                 state.snapshots
-                                                                    ++ [ makeSnapshot stepLabel EffectResolution Nothing [] { ready | model = updateResult.model } state.modelToString state.fetcherExtractor state.networkLog ]
+                                                                    ++ [ makeSnapshot stepLabel EffectResolution Nothing [] { ready | model = updateResult.model } state.modelToString state.fetcherExtractor state.cookieExtractor state.networkLog ]
                                                         }
 
                                                 Nothing ->
@@ -3806,7 +3821,7 @@ applySimulation sim (ProgramTest state) =
                                                             , pendingFetcherEffects = mergePendingResolvers state.pendingFetcherEffects updateResult.fetcherResolvers
                                                             , snapshots =
                                                                 state.snapshots
-                                                                    ++ [ makeSnapshot stepLabel EffectResolution Nothing [] newReady state.modelToString state.fetcherExtractor updatedLog ]
+                                                                    ++ [ makeSnapshot stepLabel EffectResolution Nothing [] newReady state.modelToString state.fetcherExtractor state.cookieExtractor updatedLog ]
                                                             , networkLog = updatedLog
                                                         }
 
@@ -3933,7 +3948,7 @@ recordAssertionSnapshot label assertionSels (ProgramTest state) =
                 { state
                     | snapshots =
                         state.snapshots
-                            ++ [ makeSnapshot labelWithScope Assertion Nothing assertionSels ready state.modelToString state.fetcherExtractor state.networkLog ]
+                            ++ [ makeSnapshot labelWithScope Assertion Nothing assertionSels ready state.modelToString state.fetcherExtractor state.cookieExtractor state.networkLog ]
                 }
 
         _ ->
@@ -3996,7 +4011,7 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                                     , lastReadyModel = Just updateResult.model
                                     , snapshots =
                                         state.snapshots
-                                            ++ [ makeSnapshot label kind target [] newReady state.modelToString state.fetcherExtractor updatedLog ]
+                                            ++ [ makeSnapshot label kind target [] newReady state.modelToString state.fetcherExtractor state.cookieExtractor updatedLog ]
                                     , networkLog = updatedLog
                                 }
 
@@ -4038,7 +4053,7 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                                             , lastReadyModel = Just autoResolved.model
                                             , snapshots =
                                                 state.snapshots
-                                                    ++ [ makeSnapshot label kind target [] { ready | model = autoResolved.model } state.modelToString state.fetcherExtractor updatedLog ]
+                                                    ++ [ makeSnapshot label kind target [] { ready | model = autoResolved.model } state.modelToString state.fetcherExtractor state.cookieExtractor updatedLog ]
                                             , networkLog = updatedLog
                                         }
 
@@ -4049,19 +4064,24 @@ applyMsgWithLabel label kind target msg (ProgramTest state) =
                                             , pendingFetcherEffects = mergePendingResolvers state.pendingFetcherEffects updateResult.fetcherResolvers
                                             , snapshots =
                                                 state.snapshots
-                                                    ++ [ makeSnapshot label kind target [] newReady state.modelToString state.fetcherExtractor updatedLog ]
+                                                    ++ [ makeSnapshot label kind target [] newReady state.modelToString state.fetcherExtractor state.cookieExtractor updatedLog ]
                                             , networkLog = updatedLog
                                         }
 
 
-makeSnapshot : String -> StepKind -> Maybe TargetSelector -> List AssertionSelector -> ReadyState model msg -> Maybe (model -> String) -> Maybe (model -> List FetcherEntry) -> List NetworkEntry -> Snapshot
-makeSnapshot label kind target assertionSels ready modelToString fetcherExtractor currentNetworkLog =
+makeSnapshot : String -> StepKind -> Maybe TargetSelector -> List AssertionSelector -> ReadyState model msg -> Maybe (model -> String) -> Maybe (model -> List FetcherEntry) -> Maybe (model -> List ( String, CookieEntry )) -> List NetworkEntry -> Snapshot
+makeSnapshot label kind target assertionSels ready modelToString fetcherExtractor cookieExtractor currentNetworkLog =
     let
         viewResult =
             ready.getView ready.model
 
         fetcherLog =
             fetcherExtractor
+                |> Maybe.map (\fn -> fn ready.model)
+                |> Maybe.withDefault []
+
+        cookieLog =
+            cookieExtractor
                 |> Maybe.map (\fn -> fn ready.model)
                 |> Maybe.withDefault []
 
@@ -4084,6 +4104,7 @@ makeSnapshot label kind target assertionSels ready modelToString fetcherExtracto
     , assertionSelectors = assertionSels
     , scopeSelectors = ready.scopeSelectors
     , fetcherLog = fetcherLog
+    , cookieLog = cookieLog
     , groupLabel = Nothing
     }
 

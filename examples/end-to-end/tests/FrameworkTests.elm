@@ -194,11 +194,14 @@ seededSessionFlashTest =
             |> BackendTaskTest.withEnv "SESSION_SECRET" "test-secret"
             |> CookieJar.withCookies
                 (CookieJar.init
-                    |> CookieJar.setSession "mysession"
-                        (Session.init
-                            |> Session.withValue "name" "Alice"
-                            |> Session.withFlash "message" "Welcome Alice!"
-                        )
+                    |> CookieJar.setSession
+                        { name = "mysession"
+                        , secret = "test-secret"
+                        , session =
+                            Session.init
+                                |> Session.withValue "name" "Alice"
+                                |> Session.withFlash "message" "Welcome Alice!"
+                        }
                 )
         )
         |> PagesProgram.ensureViewHas [ PSelector.text "Welcome Alice!" ]

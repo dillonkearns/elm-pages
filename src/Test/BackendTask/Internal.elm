@@ -10,7 +10,7 @@ module Test.BackendTask.Internal exposing
     , withVirtualEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
     , VirtualFS, emptyVirtualFS, extractVirtualFs, resolveWithVirtualFs, resolveWithVirtualFsPartial, toResult
-    , encodeSession, mockSignValue
+    , encodeSession, mockSignValue, mockUnsignValue, sessionFlashPrefix
     , getPortName
     )
 
@@ -69,6 +69,7 @@ import Bytes.Encode as BE
 import Cli.Program as Program
 import Dict exposing (Dict)
 import Expect exposing (Expectation)
+import FNV1a
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -561,16 +562,21 @@ flash values that are consumed after the first request.
     BackendTaskTest.init
         |> BackendTaskTest.withSessionCookie
             { name = "mysession"
+            , secret = "test-secret"
             , session =
                 BackendTaskTest.session
                     |> BackendTaskTest.withSessionValue "sessionId" "abc123"
                     |> BackendTaskTest.withFlashValue "message" "Welcome back!"
             }
 
+The `secret` is recorded alongside the signed cookie so tests can exercise
+rotating-secret flows. The test mock doesn't use real HMAC, so `secret` may
+be any non-empty string **without `.` characters**.
+
 -}
-withSessionCookie : { name : String, session : Session } -> TestSetup -> TestSetup
+withSessionCookie : { name : String, secret : String, session : Session } -> TestSetup -> TestSetup
 withSessionCookie config =
-    withRequestCookie config.name (mockSignValue (encodeSession config.session))
+    withRequestCookie config.name (mockSignValue config.secret (encodeSession config.session))
 
 
 encodeSession : Session -> Encode.Value
@@ -598,29 +604,73 @@ sessionFlashPrefix =
     "__flash__"
 
 
-mockSignedPrefix : String
-mockSignedPrefix =
-    "****SIGNED****"
+{-| Mirrors the `cookie-signature` npm package's `<value>.<signature>` wire
+format (see `generator/src/render.js`), but with an FNV1a-based checksum
+instead of HMAC-SHA256. The secret is embedded in a second dotted segment so
+the test visual runner can surface which secret produced each signed cookie.
+
+Layout: `<JSON>.<secret>.<fnv1a-checksum>`.
+
+Test secrets must not contain `.` — the envelope splits on the last two dots.
+-}
+mockSignValue : String -> Encode.Value -> String
+mockSignValue secret values =
+    let
+        json : String
+        json =
+            Encode.encode 0 values
+
+        checksum : Int
+        checksum =
+            FNV1a.hashWithSeed json (FNV1a.hash secret)
+    in
+    json ++ "." ++ secret ++ "." ++ String.fromInt checksum
 
 
-mockSignValue : Encode.Value -> String
-mockSignValue value =
-    mockSignedPrefix ++ Encode.encode 0 value
+{-| Inverse of [`mockSignValue`](#mockSignValue). Returns `Nothing` if the
+string isn't a signed envelope (plain cookies fall through) or if the
+checksum fails to verify against `FNV1a(secret ++ json)` — catches tampering
+with either the JSON payload or the embedded secret.
 
+This performs the format + checksum check only. The caller (the `decrypt`
+intercept, or the visual runner) decides whether the embedded `secret` is
+acceptable for the current context.
 
-mockUnsignValue : String -> Maybe Encode.Value
+-}
+mockUnsignValue : String -> Maybe { secret : String, values : Encode.Value }
 mockUnsignValue input =
-    if String.startsWith mockSignedPrefix input then
-        let
-            jsonString : String
-            jsonString =
-                String.dropLeft (String.length mockSignedPrefix) input
-        in
-        Decode.decodeString Decode.value jsonString
-            |> Result.toMaybe
+    splitLastDot input
+        |> Maybe.andThen
+            (\( prefix, checksumPart ) ->
+                if String.isEmpty checksumPart || not (String.all Char.isDigit checksumPart) then
+                    Nothing
 
-    else
-        Nothing
+                else
+                    splitLastDot prefix
+                        |> Maybe.andThen
+                            (\( jsonPart, secretPart ) ->
+                                if String.isEmpty secretPart then
+                                    Nothing
+
+                                else if String.fromInt (FNV1a.hashWithSeed jsonPart (FNV1a.hash secretPart)) /= checksumPart then
+                                    Nothing
+
+                                else
+                                    Decode.decodeString Decode.value jsonPart
+                                        |> Result.toMaybe
+                                        |> Maybe.map (\values -> { secret = secretPart, values = values })
+                            )
+            )
+
+
+splitLastDot : String -> Maybe ( String, String )
+splitLastDot input =
+    case String.indexes "." input |> List.reverse |> List.head of
+        Just idx ->
+            Just ( String.left idx input, String.dropLeft (idx + 1) input )
+
+        Nothing ->
+            Nothing
 
 
 {-| Internal representation of a time zone. Use [`Test.BackendTask.Time.TimeZone`](Test-BackendTask-Time#TimeZone)
@@ -1427,23 +1477,43 @@ autoResponseBody vfs req =
                     Ok Encode.null
 
         "elm-pages-internal://encrypt" ->
-            case decodeJsonBody (Decode.field "values" Decode.value) req of
-                Just values ->
-                    Ok (Encode.string (mockSignValue values))
+            case
+                decodeJsonBody
+                    (Decode.map2 Tuple.pair
+                        (Decode.field "secret" Decode.string)
+                        (Decode.field "values" Decode.value)
+                    )
+                    req
+            of
+                Just ( secret, values ) ->
+                    Ok (Encode.string (mockSignValue secret values))
 
                 Nothing ->
-                    Err "encrypt: missing 'values' field in request body"
+                    Err "encrypt: missing 'secret' or 'values' field in request body"
 
         "elm-pages-internal://decrypt" ->
-            case decodeJsonBody (Decode.field "input" Decode.string) req of
-                Just input ->
-                    input
-                        |> mockUnsignValue
-                        |> Maybe.withDefault Encode.null
-                        |> Ok
+            case
+                decodeJsonBody
+                    (Decode.map2 Tuple.pair
+                        (Decode.field "input" Decode.string)
+                        (Decode.field "secrets" (Decode.list Decode.string))
+                    )
+                    req
+            of
+                Just ( input, secrets ) ->
+                    case mockUnsignValue input of
+                        Just { secret, values } ->
+                            if List.member secret secrets then
+                                Ok values
+
+                            else
+                                Ok Encode.null
+
+                        Nothing ->
+                            Ok Encode.null
 
                 Nothing ->
-                    Err "decrypt: missing 'input' field in request body"
+                    Err "decrypt: missing 'input' or 'secrets' field in request body"
 
         _ ->
             Err
