@@ -3003,21 +3003,6 @@ viewCookieStack currentStep totalSteps name events =
                 _ ->
                     False
 
-        -- Only show the SET/CHANGED/REMOVED pill in the header when the active
-        -- event's step is literally the current step — this tells the reader
-        -- "something happened to this cookie right now".
-        headerEventPill : Html Msg
-        headerEventPill =
-            case activeEvent of
-                Just ( evStep, ev ) ->
-                    if evStep == currentStep then
-                        viewCookieEventBadge ev
-
-                    else
-                        Html.text ""
-
-                Nothing ->
-                    Html.text ""
     in
     Html.div [ Attr.class "cookie-stack" ]
         [ Html.div [ Attr.class "cookie-stack-header" ]
@@ -3029,7 +3014,6 @@ viewCookieStack currentStep totalSteps name events =
 
                 Nothing ->
                     Html.text ""
-            , headerEventPill
             , Html.span [ Attr.class "cookie-stack-count" ]
                 [ Html.text
                     (String.fromInt eventCount
@@ -3098,29 +3082,6 @@ viewCookieStack currentStep totalSteps name events =
           else
             Html.text ""
         ]
-
-
-viewCookieEventBadge : CookieEvent -> Html Msg
-viewCookieEventBadge ev =
-    let
-        ( cls, label ) =
-            case ev of
-                CookieSet _ ->
-                    ( "cookie-event-badge-set", "SET" )
-
-                CookieUpdated _ ->
-                    ( "cookie-event-badge-changed", "CHANGED" )
-
-                CookieRemoved ->
-                    ( "cookie-event-badge-removed", "REMOVED" )
-    in
-    Html.span
-        [ Attr.classList
-            [ ( "cookie-event-badge", True )
-            , ( cls, True )
-            ]
-        ]
-        [ Html.text label ]
 
 
 {-| C3 "box-pills" step selector. One pill per value-change event; left border
@@ -5189,32 +5150,6 @@ body {
 
 .cookie-box-pill-active .cookie-box-pill-now {
     color: #7dd3fc;
-}
-
-/* Header event pill on the cookie name row (SET / CHANGED / REMOVED). */
-.cookie-event-badge {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    padding: 1px 6px;
-    border-radius: 3px;
-    font-family: "JetBrains Mono", monospace;
-    text-transform: uppercase;
-}
-
-.cookie-event-badge-set {
-    background: rgba(134, 239, 172, 0.14);
-    color: #86efac;
-}
-
-.cookie-event-badge-changed {
-    background: rgba(252, 211, 77, 0.14);
-    color: #fcd34d;
-}
-
-.cookie-event-badge-removed {
-    background: rgba(252, 165, 165, 0.14);
-    color: #fca5a5;
 }
 
 /* Single diff card per cookie: INITIAL / DIFF / REMOVED panel. */
