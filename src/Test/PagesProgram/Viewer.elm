@@ -2813,8 +2813,6 @@ viewCookieSidebar currentStep allSnapshots =
             [ Icons.eventCookieSized 16 Icons.channelColorCookie
             , Html.span [ Attr.class "sidebar-title" ]
                 [ Html.text "Cookies" ]
-            , Html.span [ Attr.class "sidebar-subtitle" ]
-                [ Html.text "diff · box pills" ]
             ]
         , if List.isEmpty allNames then
             Html.div [ Attr.class "cookie-empty" ]
