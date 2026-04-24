@@ -2272,14 +2272,11 @@ viewFetcherInspector currentStep allSnapshots =
 
                   else
                     Html.div [ Attr.class "fetcher-fields" ]
-                        [ Html.text "optimistic: "
-                        , Html.span [ Attr.class "fetcher-fields-payload" ]
-                            [ Html.text
-                                (submitFields
-                                    |> List.map (\( k, v ) -> k ++ "=" ++ v)
-                                    |> String.join ", "
-                                )
-                            ]
+                        [ Html.text
+                            (submitFields
+                                |> List.map (\( k, v ) -> k ++ "=" ++ v)
+                                |> String.join ", "
+                            )
                         ]
                 ]
     in
@@ -5562,15 +5559,9 @@ body {
 .fetcher-fields {
     font-family: "JetBrains Mono", monospace;
     font-size: 10px;
-    color: #8b99ad;
-    font-style: italic;
+    color: #c9d1d9;
     margin-top: 4px;
     padding-left: 22px;
-}
-
-.fetcher-fields-payload {
-    color: #e6ecf4;
-    font-style: normal;
 }
 
 .effect-inspector {
