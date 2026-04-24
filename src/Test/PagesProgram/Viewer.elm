@@ -5506,10 +5506,6 @@ body {
     pointer-events: none;
 }
 
-.fetcher-card-live {
-    background: rgba(134, 239, 172, 0.12);
-}
-
 .fetcher-card-live::before {
     background: var(--pulse-color, #86efac);
     box-shadow: 0 0 10px var(--pulse-color, rgba(134, 239, 172, 0.8));
