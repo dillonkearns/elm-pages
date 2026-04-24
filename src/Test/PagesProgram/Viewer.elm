@@ -1027,24 +1027,14 @@ viewHeader model =
                         ]
 
                 CommandLog ->
-                    Html.span [ Attr.class "test-name" ]
-                        [ Html.text (currentTestName model) ]
+                    Html.div [ Attr.class "header-center-row" ]
+                        [ Html.span [ Attr.class "test-name" ]
+                            [ Html.text (currentTestName model) ]
+                        , viewStepCounter model
+                        ]
             ]
         , Html.div [ Attr.class "header-right" ]
-            [ case model.sidebarMode of
-                CommandLog ->
-                    Html.span [ Attr.class "step-counter" ]
-                        [ Html.text
-                            ("Step "
-                                ++ String.fromInt (model.currentStepIndex + 1)
-                                ++ " / "
-                                ++ String.fromInt (currentSnapshotCount model)
-                            )
-                        ]
-
-                TestList ->
-                    Html.text ""
-            , viewViewportPicker model.viewportWidth
+            [ viewViewportPicker model.viewportWidth
             , viewChannelToggle
                 { on = model.showNetwork
                 , msg = ToggleNetwork
@@ -1111,6 +1101,22 @@ viewChannelToggle cfg =
         ]
         [ cfg.icon 14 iconColor
         , Html.text cfg.label
+        ]
+
+
+{-| Step counter pill — the most important piece of state in the viewer,
+so give it a real anchor. Soft cyan wash pill with the current step
+number rendered bold and bright (channel-cyan, matching the steps-rail
+current-step indicator).
+-}
+viewStepCounter : Model -> Html Msg
+viewStepCounter model =
+    Html.span [ Attr.class "step-counter" ]
+        [ Html.span [ Attr.class "step-counter-label" ] [ Html.text "Step" ]
+        , Html.span [ Attr.class "step-counter-current" ]
+            [ Html.text (String.fromInt (model.currentStepIndex + 1)) ]
+        , Html.span [ Attr.class "step-counter-total" ]
+            [ Html.text ("/ " ++ String.fromInt (currentSnapshotCount model)) ]
         ]
 
 
@@ -2272,12 +2278,24 @@ viewFetcherInspector currentStep allSnapshots =
 
                   else
                     Html.div [ Attr.class "fetcher-fields" ]
-                        [ Html.text
-                            (submitFields
-                                |> List.map (\( k, v ) -> k ++ "=" ++ v)
-                                |> String.join ", "
-                            )
-                        ]
+                        (submitFields
+                            |> List.indexedMap
+                                (\i ( k, v ) ->
+                                    Html.span [ Attr.class "fetcher-field" ]
+                                        [ if i == 0 then
+                                            Html.text ""
+
+                                          else
+                                            Html.span [ Attr.class "fetcher-field-sep" ]
+                                                [ Html.text " · " ]
+                                        , Html.span [ Attr.class "fetcher-field-key" ]
+                                            [ Html.text k ]
+                                        , Html.text " "
+                                        , Html.span [ Attr.class "fetcher-field-value" ]
+                                            [ Html.text v ]
+                                        ]
+                                )
+                        )
                 ]
     in
     Html.div [ Attr.class "fetcher-inspector" ]
@@ -2285,8 +2303,6 @@ viewFetcherInspector currentStep allSnapshots =
             [ Icons.eventFetcherSized 16 Icons.channelColorFetcher
             , Html.span [ Attr.class "sidebar-title" ]
                 [ Html.text "Fetchers" ]
-            , Html.span [ Attr.class "sidebar-subtitle" ]
-                [ Html.text (String.fromInt (List.length allFetcherIds)) ]
             ]
         , if List.isEmpty allFetcherIds then
             Html.div [ Attr.class "fetcher-empty" ]
@@ -4090,7 +4106,14 @@ body {
     flex: 1;
     display: flex;
     justify-content: center;
+    align-items: center;
     overflow-x: auto;
+}
+
+.header-center-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .test-name {
@@ -4106,9 +4129,34 @@ body {
 }
 
 .step-counter {
-    color: #8899aa;
-    font-size: 13px;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: rgba(125, 211, 252, 0.08);
+    border: 1px solid rgba(125, 211, 252, 0.25);
     font-variant-numeric: tabular-nums;
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+}
+
+.step-counter-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #8896a6;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.step-counter-current {
+    font-size: 14px;
+    font-weight: 700;
+    color: #7dd3fc;
+}
+
+.step-counter-total {
+    font-size: 12px;
+    color: #5c6a7e;
 }
 
 .viewport-picker {
@@ -4215,8 +4263,8 @@ body {
 }
 
 .step-row-active {
-    background: rgba(76, 201, 240, 0.1);
-    border-left-color: #4cc9f0;
+    background: rgba(125, 211, 252, 0.06);
+    border-left-color: #7dd3fc;
 }
 
 .step-row-hovered {
@@ -4694,7 +4742,9 @@ body {
 
 .sidebar-subtitle {
     font-size: 11px;
-    color: #5c6a7e;
+    color: #556677;
+    font-variant-numeric: tabular-nums;
+    margin-left: 4px;
 }
 
 .net-live-count {
@@ -4705,6 +4755,7 @@ body {
 .net-filter-buttons {
     display: flex;
     gap: 4px;
+    margin-top: 6px;
 }
 
 .net-filter-btn {
@@ -4724,15 +4775,17 @@ body {
 }
 
 .net-filter-backend.net-filter-active {
-    background: rgba(244, 114, 182, 0.15);
-    border-color: #f472b6;
+    background: rgba(244, 114, 182, 0.22);
+    border-color: rgba(244, 114, 182, 0.65);
     color: #f472b6;
+    font-weight: 600;
 }
 
 .net-filter-frontend.net-filter-active {
-    background: rgba(125, 211, 252, 0.15);
-    border-color: #7dd3fc;
+    background: rgba(125, 211, 252, 0.22);
+    border-color: rgba(125, 211, 252, 0.65);
     color: #7dd3fc;
+    font-weight: 600;
 }
 
 .network-empty,
@@ -4792,7 +4845,7 @@ body {
 }
 
 .net-row-future {
-    opacity: 0.5;
+    opacity: 0.42;
 }
 
 /* Same phase-sync trick as `.fetcher-card`: attach the pulse
@@ -5097,16 +5150,22 @@ body {
     border-color: rgba(255, 255, 255, 0.18);
 }
 
+/* Cookie box-pill left stripe: keep it kind-distinct but stay within
+   the cookie channel's tonal range (amber). Reviewer feedback: the
+   old green/yellow/red palette borrowed from the Network/Fetcher event
+   vocabulary, making the Cookies panel read as if it showed those
+   events. Single-channel coloring instead — the diff card's header
+   pill already communicates set/changed/removed. */
 .cookie-box-pill-kind-set {
-    border-left-color: #86efac;
+    border-left-color: rgba(252, 211, 77, 0.75);
 }
 
 .cookie-box-pill-kind-changed {
-    border-left-color: #fcd34d;
+    border-left-color: rgba(252, 211, 77, 0.5);
 }
 
 .cookie-box-pill-kind-removed {
-    border-left-color: #fca5a5;
+    border-left-color: rgba(252, 211, 77, 0.25);
 }
 
 /* Active pill: set the three non-left borders explicitly so the left border
@@ -5375,11 +5434,16 @@ body {
 .event-chip {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 4px;
     /* Dimensions match the active variant so flipping the active flag
        on a chip doesn't resize the row. Only color/weight/fill change
        between states. */
     padding: 2px 7px 2px 6px;
+    /* Fixed min-width so solo-chip rows line up with the first chip
+       of paired rows (start chip of both shares the same x-coord). */
+    min-width: 34px;
+    box-sizing: border-box;
     border-radius: 3px;
     border: 1px solid currentColor;
     background: transparent;
@@ -5460,7 +5524,8 @@ body {
 }
 
 /* Thin connector between two chips. Takes the destination chip's kind
-   color at ~33% alpha; future connectors use a muted white. */
+   color at 50% alpha so the cause→effect thread reads clearly; future
+   connectors use a muted white. */
 .event-chip-connector {
     width: 8px;
     height: 1px;
@@ -5470,11 +5535,11 @@ body {
     background: rgba(255, 255, 255, 0.2);
 }
 
-.event-chip-connector.event-chip-kind-submit { background: rgba(134, 239, 172, 0.33); }
-.event-chip-connector.event-chip-kind-reload { background: rgba(252, 211, 77, 0.33); }
-.event-chip-connector.event-chip-kind-complete { background: rgba(125, 211, 252, 0.33); }
-.event-chip-connector.event-chip-kind-fail { background: rgba(252, 165, 165, 0.33); }
-.event-chip-connector.event-chip-kind-sent { background: rgba(134, 239, 172, 0.33); }
+.event-chip-connector.event-chip-kind-submit { background: rgba(134, 239, 172, 0.5); }
+.event-chip-connector.event-chip-kind-reload { background: rgba(252, 211, 77, 0.5); }
+.event-chip-connector.event-chip-kind-complete { background: rgba(125, 211, 252, 0.5); }
+.event-chip-connector.event-chip-kind-fail { background: rgba(252, 165, 165, 0.5); }
+.event-chip-connector.event-chip-kind-sent { background: rgba(134, 239, 172, 0.5); }
 
 .event-chip-connector-future {
     background: rgba(255, 255, 255, 0.12);
@@ -5553,9 +5618,21 @@ body {
 .fetcher-fields {
     font-family: "JetBrains Mono", monospace;
     font-size: 10px;
-    color: #c9d1d9;
+    font-weight: 400;
     margin-top: 4px;
     padding-left: 22px;
+}
+
+.fetcher-field-key {
+    color: #5c6a7e;
+}
+
+.fetcher-field-value {
+    color: #8896a6;
+}
+
+.fetcher-field-sep {
+    color: #3a4458;
 }
 
 .effect-inspector {
