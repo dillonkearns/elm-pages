@@ -1109,7 +1109,7 @@ viewChannelToggle cfg =
             ]
         , Html.Events.onClick cfg.msg
         ]
-        [ cfg.icon 12 iconColor
+        [ cfg.icon 14 iconColor
         , Html.text cfg.label
         ]
 
@@ -2268,14 +2268,14 @@ viewFetcherInspector currentStep allSnapshots =
                 , Html.div [ Attr.class "fetcher-lanes" ]
                     [ Html.div [ Attr.class "fetcher-lane fetcher-lane-submit" ]
                         [ Html.span [ Attr.class "fetcher-lane-label" ]
-                            [ Icons.eventFetcherSubmit 10 Icons.channelColorFetcher
+                            [ Icons.eventFetcherSubmit 12 Icons.channelColorFetcher
                             , Html.text "SUBMIT"
                             ]
                         , submitLaneBody
                         ]
                     , Html.div [ Attr.class "fetcher-lane fetcher-lane-resolve" ]
                         [ Html.span [ Attr.class "fetcher-lane-label" ]
-                            [ Icons.eventFetcherResolve 10 Icons.channelColorNetworkBackend
+                            [ Icons.eventFetcherResolve 12 Icons.channelColorNetworkBackend
                             , Html.text "RESOLVE"
                             ]
                         , resolveLaneBody
@@ -2285,7 +2285,7 @@ viewFetcherInspector currentStep allSnapshots =
     in
     Html.div [ Attr.class "fetcher-inspector" ]
         [ Html.div [ Attr.class "inspector-header" ]
-            [ Icons.eventFetcherSized 14 Icons.channelColorFetcher
+            [ Icons.eventFetcherSized 16 Icons.channelColorFetcher
             , Html.span [ Attr.class "sidebar-title" ]
                 [ Html.text "Fetchers" ]
             , Html.span [ Attr.class "sidebar-subtitle" ]
@@ -2301,7 +2301,7 @@ viewFetcherInspector currentStep allSnapshots =
         , if List.isEmpty allFetcherIds then
             Html.div [ Attr.class "fetcher-empty" ]
                 [ Html.div [ Attr.class "channel-empty-icon" ]
-                    [ Icons.eventFetcherSized 40 Icons.channelColorFetcher ]
+                    [ Icons.eventFetcherSized 48 Icons.channelColorFetcher ]
                 , Html.text "No fetcher submissions in this test."
                 ]
 
@@ -2335,7 +2335,7 @@ viewEffectInspector : Snapshot -> Html Msg
 viewEffectInspector snapshot =
     Html.div [ Attr.class "effect-inspector" ]
         [ Html.div [ Attr.class "inspector-header" ]
-            [ Icons.eventEffectSized 14 Icons.channelColorEffect
+            [ Icons.eventEffectSized 16 Icons.channelColorEffect
             , Html.span [ Attr.class "sidebar-title" ]
                 [ Html.text "Effects" ]
             , Html.span [ Attr.class "sidebar-subtitle" ]
@@ -2344,7 +2344,7 @@ viewEffectInspector snapshot =
         , if List.isEmpty snapshot.pendingEffects then
             Html.div [ Attr.class "effect-empty" ]
                 [ Html.div [ Attr.class "channel-empty-icon" ]
-                    [ Icons.eventEffectSized 40 Icons.channelColorEffect ]
+                    [ Icons.eventEffectSized 48 Icons.channelColorEffect ]
                 , Html.text "No pending effects at this step."
                 ]
 
@@ -2514,7 +2514,7 @@ viewNetworkSidebar model currentStep allSnapshots =
     Html.div [ Attr.class "network-sidebar" ]
         [ Html.div [ Attr.class "network-sidebar-header" ]
             [ Html.div [ Attr.class "network-sidebar-title-row" ]
-                [ Icons.eventNetworkSized 14 Icons.channelColorNetworkBackend
+                [ Icons.eventNetworkSized 16 Icons.channelColorNetworkBackend
                 , Html.span [ Attr.class "sidebar-title" ]
                     [ Html.text "Network" ]
                 , Html.span [ Attr.class "sidebar-subtitle" ]
@@ -2553,7 +2553,7 @@ viewNetworkSidebar model currentStep allSnapshots =
         , if List.isEmpty visibleLanes then
             Html.div [ Attr.class "network-empty" ]
                 [ Html.div [ Attr.class "channel-empty-icon" ]
-                    [ Icons.eventNetworkSized 40 Icons.channelColorNetworkBackend ]
+                    [ Icons.eventNetworkSized 48 Icons.channelColorNetworkBackend ]
                 , Html.text
                     (if List.isEmpty allLanes then
                         "No HTTP requests recorded."
@@ -2808,7 +2808,7 @@ viewCookieSidebar currentStep allSnapshots =
     in
     Html.div [ Attr.class "cookie-sidebar" ]
         [ Html.div [ Attr.class "cookie-sidebar-header" ]
-            [ Icons.eventCookieSized 14 Icons.channelColorCookie
+            [ Icons.eventCookieSized 16 Icons.channelColorCookie
             , Html.span [ Attr.class "sidebar-title" ]
                 [ Html.text "Cookies" ]
             , Html.span [ Attr.class "sidebar-subtitle" ]
@@ -2817,7 +2817,7 @@ viewCookieSidebar currentStep allSnapshots =
         , if List.isEmpty allNames then
             Html.div [ Attr.class "cookie-empty" ]
                 [ Html.div [ Attr.class "channel-empty-icon" ]
-                    [ Icons.eventCookieSized 40 Icons.channelColorCookie ]
+                    [ Icons.eventCookieSized 48 Icons.channelColorCookie ]
                 , Html.text "No cookies set by this test."
                 ]
 
