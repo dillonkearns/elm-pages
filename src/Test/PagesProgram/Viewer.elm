@@ -5353,13 +5353,16 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 1px 6px;
+    /* Dimensions match the active variant so flipping the active flag
+       on a chip doesn't resize the row. Only color/weight/fill change
+       between states. */
+    padding: 2px 7px 2px 6px;
     border-radius: 3px;
     border: 1px solid currentColor;
     background: transparent;
     cursor: pointer;
     font-family: "JetBrains Mono", ui-monospace, monospace;
-    font-size: 10px;
+    font-size: 10.5px;
     font-weight: 500;
     line-height: 1.3;
     font-variant-numeric: tabular-nums;
@@ -5384,11 +5387,11 @@ body {
 .event-chip-kind-fail { border-color: rgba(252, 165, 165, 0.33); }
 .event-chip-kind-sent { border-color: rgba(134, 239, 172, 0.33); }
 
-/* Active: filled pill, dark icon/text, soft colored glow. */
+/* Active: filled pill, dark icon/text, soft colored glow. Dimensions
+   match the base `.event-chip` rule above — only color/weight/fill
+   change so the row height stays stable. */
 .event-chip-active {
     color: #0f1620;
-    padding: 2px 7px 2px 6px;
-    font-size: 10.5px;
     font-weight: 700;
 }
 
