@@ -1366,7 +1366,7 @@ viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isCh
     Html.div
         [ Attr.classList
             [ ( "step-row", True )
-            , ( "step-row-active", isActive && not isHovering )
+            , ( "step-row-active", isActive )
             , ( "step-row-hovered", isHovered )
             , ( "step-row-past", isPast && not isActive )
             , ( "step-row-error", snapshot.stepKind == Error )
@@ -2084,6 +2084,7 @@ viewEventChip :
     , kind : EventKind
     , active : Bool
     , future : Bool
+    , currentStepHere : Bool
     }
     -> Html Msg
 viewEventChip cfg =
@@ -2094,19 +2095,35 @@ viewEventChip cfg =
 
             else
                 "currentColor"
+
+        chip =
+            Html.button
+                [ Attr.classList
+                    [ ( "event-chip", True )
+                    , ( eventKindClass cfg.kind, True )
+                    , ( "event-chip-active", cfg.active )
+                    , ( "event-chip-future", cfg.future )
+                    ]
+                , Html.Events.onClick (GoToStep cfg.step)
+                ]
+                [ eventKindGlyph cfg.kind 9 iconColor
+                , Html.text (String.fromInt (cfg.step + 1))
+                ]
     in
-    Html.button
-        [ Attr.classList
-            [ ( "event-chip", True )
-            , ( eventKindClass cfg.kind, True )
-            , ( "event-chip-active", cfg.active )
-            , ( "event-chip-future", cfg.future )
+    if cfg.active && cfg.currentStepHere then
+        -- Wrap in an alignment-safe shell so the ring + glow halo
+        -- doesn't contribute to the chip's layout bounding box.
+        Html.span [ Attr.class "event-chip-now-shell" ]
+            [ chip
+            , Html.span
+                [ Attr.class "event-chip-now-ring"
+                , Attr.style "--ring-color" (eventKindColor cfg.kind)
+                ]
+                []
             ]
-        , Html.Events.onClick (GoToStep cfg.step)
-        ]
-        [ eventKindGlyph cfg.kind 9 iconColor
-        , Html.text (String.fromInt (cfg.step + 1))
-        ]
+
+    else
+        chip
 
 
 {-| Thin 8×1 line linking two event chips. Color follows the destination
@@ -2134,6 +2151,7 @@ viewEventChipRow :
         , kind : EventKind
         , active : Bool
         , future : Bool
+        , currentStepHere : Bool
         }
     -> List (Html Msg)
 viewEventChipRow entries =
@@ -2251,6 +2269,7 @@ viewFetcherInspector currentStep allSnapshots =
                                         Nothing ->
                                             False
                                 , future = stepIdx > currentStep
+                                , currentStepHere = stepIdx == currentStep
                                 }
                             )
             in
@@ -2634,6 +2653,7 @@ viewNetworkRow currentStep lane =
                 , kind = EventSent
                 , active = startActive
                 , future = isFuture
+                , currentStepHere = lane.startStep == currentStep
                 }
 
         -- Network is a two-event model: `sent` + `resolved`. In-flight is
@@ -2653,6 +2673,7 @@ viewNetworkRow currentStep lane =
                         , kind = endKind
                         , active = endActive
                         , future = isFuture || not endReached
+                        , currentStepHere = end == currentStep
                         }
                     ]
 
@@ -4235,7 +4256,7 @@ body {
 }
 
 .step-row-active {
-    background: rgba(125, 211, 252, 0.06);
+    background: rgba(125, 211, 252, 0.1);
     border-left-color: #7dd3fc;
 }
 
@@ -4509,9 +4530,11 @@ body {
     letter-spacing: 0.12em;
     font-weight: 600;
     margin-top: 4px;
+    opacity: 0.55;
 }
 
 .named-group-header:hover {
+    opacity: 0.85;
     background-color: rgba(125, 211, 252, 0.04);
 }
 
@@ -5041,13 +5064,13 @@ body {
 
 .cookie-signed-badge {
     font-size: 9px;
-    font-weight: 600;
+    font-weight: 500;
     padding: 1px 5px;
     border-radius: 3px;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    background: rgba(125, 211, 252, 0.14);
-    color: #7dd3fc;
+    background: rgba(125, 211, 252, 0.1);
+    color: rgba(125, 211, 252, 0.85);
 }
 
 .cookie-stack-count {
@@ -5469,6 +5492,25 @@ body {
     filter: brightness(1.1);
 }
 
+/* Current-step ring: wraps an active chip that happens to sit on the
+   current step with an alignment-safe halo. The ring is absolutely
+   positioned INSIDE a zero-padding shell, so the chip's bounding box
+   and the row's layout are unchanged. */
+.event-chip-now-shell {
+    display: inline-flex;
+    position: relative;
+}
+
+.event-chip-now-ring {
+    position: absolute;
+    inset: -3px;
+    border-radius: 6px;
+    box-shadow:
+        0 0 0 1.5px var(--ring-color, #7dd3fc),
+        0 0 10px color-mix(in oklab, var(--ring-color, #7dd3fc), transparent 50%);
+    pointer-events: none;
+}
+
 /* Thin connector between two chips. Takes the destination chip's kind
    color at 50% alpha so the cause→effect thread reads clearly; future
    connectors use a muted white. */
@@ -5578,7 +5620,8 @@ body {
 }
 
 .fetcher-field-sep {
-    color: #3a4458;
+    color: #4a5568;
+    margin: 0 4px;
 }
 
 .effect-inspector {
