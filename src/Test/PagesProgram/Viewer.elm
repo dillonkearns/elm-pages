@@ -1999,75 +1999,150 @@ viewModelInspector expandedNodes snapshot =
         ]
 
 
-{-| Step-chip vocabulary shared between the Cookie, Network, and Fetcher panels.
+{-| Icon-event chip vocabulary shared by the Network and Fetcher panels.
+Each `EventKind` determines the glyph and color; `active` flips the chip
+from outlined to filled-pill (the "current state" treatment); `future`
+dims the chip to hint at "hasn't happened yet".
 -}
-type ChipKind
-    = ChipNow
-    | ChipStart
-    | ChipEnd
-    | ChipChange
-    | ChipError
-    | ChipPast
-    | ChipFuture
+type EventKind
+    = EventSubmit
+    | EventReload
+    | EventComplete
+    | EventFail
+    | EventSent
 
 
-chipClass : ChipKind -> String
-chipClass kind =
+eventKindColor : EventKind -> String
+eventKindColor kind =
     case kind of
-        ChipNow ->
-            "step-chip step-chip-now"
+        EventSubmit ->
+            "#86efac"
 
-        ChipStart ->
-            "step-chip step-chip-start"
+        EventReload ->
+            "#fcd34d"
 
-        ChipEnd ->
-            "step-chip step-chip-end"
+        EventComplete ->
+            "#7dd3fc"
 
-        ChipChange ->
-            "step-chip step-chip-change"
+        EventFail ->
+            "#fca5a5"
 
-        ChipError ->
-            "step-chip step-chip-error"
-
-        ChipPast ->
-            "step-chip step-chip-past"
-
-        ChipFuture ->
-            "step-chip step-chip-future"
+        EventSent ->
+            "#86efac"
 
 
-viewStepChip : { step : Int, kind : ChipKind, label : Maybe String } -> Html Msg
-viewStepChip { step, kind, label } =
+eventKindClass : EventKind -> String
+eventKindClass kind =
+    case kind of
+        EventSubmit ->
+            "event-chip-kind-submit"
+
+        EventReload ->
+            "event-chip-kind-reload"
+
+        EventComplete ->
+            "event-chip-kind-complete"
+
+        EventFail ->
+            "event-chip-kind-fail"
+
+        EventSent ->
+            "event-chip-kind-sent"
+
+
+eventKindGlyph : EventKind -> (Int -> String -> Html msg)
+eventKindGlyph kind =
+    case kind of
+        EventSubmit ->
+            Icons.eventUp
+
+        EventReload ->
+            Icons.eventDown
+
+        EventComplete ->
+            Icons.eventCheck
+
+        EventFail ->
+            Icons.eventCross
+
+        EventSent ->
+            Icons.eventUpRight
+
+
+{-| A single icon + step-number pill. The chip is a `<button>` that
+navigates to the event's step on click. `active` (filled-pill) and
+`future` (dimmed outline) are mutually exclusive in practice.
+-}
+viewEventChip :
+    { step : Int
+    , kind : EventKind
+    , active : Bool
+    , future : Bool
+    }
+    -> Html Msg
+viewEventChip cfg =
+    let
+        iconColor =
+            if cfg.active then
+                "#0f1620"
+
+            else
+                "currentColor"
+    in
     Html.button
-        [ Attr.class (chipClass kind)
-        , Html.Events.onClick (GoToStep step)
+        [ Attr.classList
+            [ ( "event-chip", True )
+            , ( eventKindClass cfg.kind, True )
+            , ( "event-chip-active", cfg.active )
+            , ( "event-chip-future", cfg.future )
+            ]
+        , Html.Events.onClick (GoToStep cfg.step)
         ]
-        [ Html.span [ Attr.class "step-chip-num" ] [ Html.text (String.fromInt (step + 1)) ]
-        , case label of
-            Just text ->
-                Html.span [ Attr.class "step-chip-label" ] [ Html.text text ]
-
-            Nothing ->
-                Html.text ""
+        [ eventKindGlyph cfg.kind 9 iconColor
+        , Html.text (String.fromInt (cfg.step + 1))
         ]
 
 
-viewChipTimeline : List { step : Int, kind : ChipKind, label : Maybe String } -> Html Msg
-viewChipTimeline items =
-    Html.span [ Attr.class "step-chip-timeline" ]
-        (items
-            |> List.indexedMap
-                (\i it ->
-                    if i == 0 then
-                        viewStepChip it
+{-| Thin 8×1 line linking two event chips. Color follows the destination
+chip's state — past chips get a translucent slice of their own color,
+future chips get a muted neutral. No arrow glyph.
+-}
+viewEventChipConnector : { kind : EventKind, future : Bool } -> Html Msg
+viewEventChipConnector cfg =
+    Html.span
+        [ Attr.classList
+            [ ( "event-chip-connector", True )
+            , ( eventKindClass cfg.kind, True )
+            , ( "event-chip-connector-future", cfg.future )
+            ]
+        ]
+        []
 
-                    else
-                        Html.span [ Attr.class "step-chip-group" ]
-                            [ Html.span [ Attr.class "step-chip-arrow" ] [ Html.text "→" ]
-                            , viewStepChip it
-                            ]
-                )
-        )
+
+{-| Render a list of event chips joined by connectors. Each connector
+adopts the destination chip's kind + future flag.
+-}
+viewEventChipRow :
+    List
+        { step : Int
+        , kind : EventKind
+        , active : Bool
+        , future : Bool
+        }
+    -> List (Html Msg)
+viewEventChipRow entries =
+    entries
+        |> List.indexedMap
+            (\i e ->
+                if i == 0 then
+                    [ viewEventChip e ]
+
+                else
+                    [ viewEventChipConnector { kind = e.kind, future = e.future }
+                    , viewEventChip e
+                    ]
+            )
+        |> List.concat
 
 
 viewFetcherInspector : Int -> List Snapshot -> Html Msg
@@ -2114,35 +2189,17 @@ viewFetcherInspector currentStep allSnapshots =
                 Nothing ->
                     False
 
-        liveCount =
-            allFetcherIds |> List.filter isLiveFetcher |> List.length
-
-        statusChipKind : Int -> FetcherStatus -> ChipKind
-        statusChipKind stepIdx status =
-            if stepIdx > currentStep then
-                ChipFuture
-
-            else
-                case status of
-                    FetcherSubmitting ->
-                        ChipStart
-
-                    FetcherReloading ->
-                        ChipChange
-
-                    FetcherComplete ->
-                        ChipEnd
-
-        statusWord status =
+        statusToEventKind : FetcherStatus -> EventKind
+        statusToEventKind status =
             case status of
                 FetcherSubmitting ->
-                    "submit"
+                    EventSubmit
 
                 FetcherReloading ->
-                    "reload"
+                    EventReload
 
                 FetcherComplete ->
-                    "done"
+                    EventComplete
 
         viewFetcherCard fetcherId =
             let
@@ -2158,100 +2215,45 @@ viewFetcherInspector currentStep allSnapshots =
                 isLive =
                     isLiveFetcher fetcherId
 
-                submitEntry : Maybe ( Int, FetcherEntry )
-                submitEntry =
+                submitFields : List ( String, String )
+                submitFields =
                     timeline
                         |> List.filter (\( _, e ) -> e.status == FetcherSubmitting)
                         |> List.head
-
-                submitFields : List ( String, String )
-                submitFields =
-                    submitEntry
                         |> Maybe.map (Tuple.second >> .fields)
                         |> Maybe.withDefault []
 
-                resolveEntries : List ( Int, FetcherEntry )
-                resolveEntries =
-                    timeline
-                        |> List.filter (\( _, e ) -> e.status /= FetcherSubmitting)
-
-                overallBadge : Html Msg
-                overallBadge =
-                    if isLive then
-                        Html.span [ Attr.class "fetcher-live-badge" ]
-                            [ Html.text "● LIVE" ]
-
-                    else
-                        case currentEntry of
-                            Just ( _, entry ) ->
-                                case entry.status of
-                                    FetcherComplete ->
-                                        Html.span
-                                            [ Attr.class "fetcher-done-badge" ]
-                                            [ Html.text "✓ done" ]
-
-                                    _ ->
-                                        Html.span [ Attr.class "fetcher-state-label" ]
-                                            [ Html.text (statusWord entry.status) ]
-
-                            Nothing ->
-                                Html.text ""
-
-                submitLaneBody : Html Msg
-                submitLaneBody =
-                    case submitEntry of
-                        Just ( stepIdx, _ ) ->
-                            Html.div [ Attr.class "fetcher-lane-body" ]
-                                [ viewStepChip
-                                    { step = stepIdx
-                                    , kind = statusChipKind stepIdx FetcherSubmitting
-                                    , label = Just "step"
-                                    }
-                                , if List.isEmpty submitFields then
-                                    Html.text ""
-
-                                  else
-                                    Html.span [ Attr.class "fetcher-fields" ]
-                                        [ Html.text "optimistic: "
-                                        , Html.span [ Attr.class "fetcher-fields-payload" ]
-                                            [ Html.text
-                                                (submitFields
-                                                    |> List.map (\( k, v ) -> k ++ "=" ++ v)
-                                                    |> String.join ", "
-                                                )
-                                            ]
-                                        ]
-                                ]
+                pulseColor =
+                    case currentEntry of
+                        Just ( _, entry ) ->
+                            eventKindColor (statusToEventKind entry.status)
 
                         Nothing ->
-                            Html.div [ Attr.class "fetcher-lane-body fetcher-lane-empty" ]
-                                [ Html.text "—" ]
+                            "#86efac"
 
-                resolveLaneBody : Html Msg
-                resolveLaneBody =
-                    if List.isEmpty resolveEntries then
-                        Html.div [ Attr.class "fetcher-lane-body fetcher-lane-empty" ]
-                            [ Html.text "pending…" ]
+                chipEntries =
+                    timeline
+                        |> List.map
+                            (\( stepIdx, entry ) ->
+                                { step = stepIdx
+                                , kind = statusToEventKind entry.status
+                                , active =
+                                    case currentEntry of
+                                        Just ( activeIdx, _ ) ->
+                                            stepIdx == activeIdx
 
-                    else
-                        Html.div [ Attr.class "fetcher-lane-body" ]
-                            [ viewChipTimeline
-                                (resolveEntries
-                                    |> List.map
-                                        (\( stepIdx, entry ) ->
-                                            { step = stepIdx
-                                            , kind = statusChipKind stepIdx entry.status
-                                            , label = Just (statusWord entry.status)
-                                            }
-                                        )
-                                )
-                            ]
+                                        Nothing ->
+                                            False
+                                , future = stepIdx > currentStep
+                                }
+                            )
             in
             Html.div
                 [ Attr.classList
                     [ ( "fetcher-card", True )
                     , ( "fetcher-card-live", isLive )
                     ]
+                , Attr.style "--pulse-color" pulseColor
                 ]
                 [ Html.div [ Attr.class "fetcher-card-header" ]
                     [ case firstEntry of
@@ -2262,25 +2264,23 @@ viewFetcherInspector currentStep allSnapshots =
                         Nothing ->
                             Html.text ""
                     , Html.span [ Attr.class "fetcher-id" ] [ Html.text ("\"" ++ fetcherId ++ "\"") ]
-                    , Html.span [ Attr.class "fetcher-spacer" ] []
-                    , overallBadge
                     ]
-                , Html.div [ Attr.class "fetcher-lanes" ]
-                    [ Html.div [ Attr.class "fetcher-lane fetcher-lane-submit" ]
-                        [ Html.span [ Attr.class "fetcher-lane-label" ]
-                            [ Icons.eventFetcherSubmit 12 Icons.channelColorFetcher
-                            , Html.text "SUBMIT"
+                , Html.div [ Attr.class "event-chip-row" ]
+                    (viewEventChipRow chipEntries)
+                , if List.isEmpty submitFields then
+                    Html.text ""
+
+                  else
+                    Html.div [ Attr.class "fetcher-fields" ]
+                        [ Html.text "optimistic: "
+                        , Html.span [ Attr.class "fetcher-fields-payload" ]
+                            [ Html.text
+                                (submitFields
+                                    |> List.map (\( k, v ) -> k ++ "=" ++ v)
+                                    |> String.join ", "
+                                )
                             ]
-                        , submitLaneBody
                         ]
-                    , Html.div [ Attr.class "fetcher-lane fetcher-lane-resolve" ]
-                        [ Html.span [ Attr.class "fetcher-lane-label" ]
-                            [ Icons.eventFetcherResolve 12 Icons.channelColorNetworkBackend
-                            , Html.text "RESOLVE"
-                            ]
-                        , resolveLaneBody
-                        ]
-                    ]
                 ]
     in
     Html.div [ Attr.class "fetcher-inspector" ]
@@ -2289,14 +2289,7 @@ viewFetcherInspector currentStep allSnapshots =
             , Html.span [ Attr.class "sidebar-title" ]
                 [ Html.text "Fetchers" ]
             , Html.span [ Attr.class "sidebar-subtitle" ]
-                [ Html.text (String.fromInt (List.length allFetcherIds) ++ " · step " ++ String.fromInt (currentStep + 1))
-                , if liveCount > 0 then
-                    Html.span [ Attr.class "fetcher-live-count" ]
-                        [ Html.text (" · " ++ String.fromInt liveCount ++ " live") ]
-
-                  else
-                    Html.text ""
-                ]
+                [ Html.text (String.fromInt (List.length allFetcherIds)) ]
             ]
         , if List.isEmpty allFetcherIds then
             Html.div [ Attr.class "fetcher-empty" ]
@@ -2443,34 +2436,6 @@ buildNetworkLanes allSnapshots =
         |> List.reverse
 
 
-type LaneState
-    = LaneFuture
-    | LaneInFlight
-    | LaneResolving
-    | LaneResolved
-
-
-laneStateAt : Int -> NetworkLane -> LaneState
-laneStateAt step lane =
-    if step < lane.startStep then
-        LaneFuture
-
-    else
-        case lane.endStep of
-            Nothing ->
-                LaneInFlight
-
-            Just end ->
-                if step < end then
-                    LaneInFlight
-
-                else if step == end then
-                    LaneResolving
-
-                else
-                    LaneResolved
-
-
 viewNetworkSidebar : Model -> Int -> List Snapshot -> Html Msg
 viewNetworkSidebar model currentStep allSnapshots =
     let
@@ -2494,22 +2459,6 @@ viewNetworkSidebar model currentStep allSnapshots =
                             Frontend ->
                                 model.showNetworkFrontend
                     )
-
-        liveCount =
-            visibleLanes
-                |> List.filter
-                    (\l ->
-                        case laneStateAt currentStep l of
-                            LaneInFlight ->
-                                True
-
-                            LaneResolving ->
-                                True
-
-                            _ ->
-                                False
-                    )
-                |> List.length
     in
     Html.div [ Attr.class "network-sidebar" ]
         [ Html.div [ Attr.class "network-sidebar-header" ]
@@ -2518,14 +2467,7 @@ viewNetworkSidebar model currentStep allSnapshots =
                 , Html.span [ Attr.class "sidebar-title" ]
                     [ Html.text "Network" ]
                 , Html.span [ Attr.class "sidebar-subtitle" ]
-                    [ Html.text (String.fromInt (List.length visibleLanes))
-                    , if liveCount > 0 then
-                        Html.span [ Attr.class "net-live-count" ]
-                            [ Html.text (" · " ++ String.fromInt liveCount ++ " live") ]
-
-                      else
-                        Html.text ""
-                    ]
+                    [ Html.text (String.fromInt (List.length visibleLanes)) ]
                 ]
             , if hasBackend || hasFrontend then
                 Html.div [ Attr.class "net-filter-buttons" ]
@@ -2572,22 +2514,44 @@ viewNetworkSidebar model currentStep allSnapshots =
 viewNetworkRow : Int -> NetworkLane -> Html Msg
 viewNetworkRow currentStep lane =
     let
-        state =
-            laneStateAt currentStep lane
+        isFuture =
+            currentStep < lane.startStep
+
+        endReached =
+            case lane.endStep of
+                Just e ->
+                    currentStep >= e
+
+                Nothing ->
+                    False
+
+        -- sent but not yet resolved (or no endStep at all)
+        isLive =
+            not isFuture && not endReached
+
+        startActive =
+            isLive
+
+        endActive =
+            endReached
+
+        -- `NetworkStatus = Stubbed | Pending` in the current data model, so
+        -- we can't distinguish errored from successful responses. Treat all
+        -- resolutions as EventComplete until the runtime grows a failed
+        -- variant.
+        endKind : EventKind
+        endKind =
+            EventComplete
 
         stateClass =
-            case state of
-                LaneFuture ->
-                    "net-row-future"
+            if isFuture then
+                "net-row-future"
 
-                LaneInFlight ->
-                    "net-row-inflight"
+            else if isLive then
+                "net-row-inflight"
 
-                LaneResolving ->
-                    "net-row-resolving"
-
-                LaneResolved ->
-                    "net-row-resolved"
+            else
+                "net-row-resolved"
 
         isPort =
             lane.entry.portName /= Nothing
@@ -2614,36 +2578,52 @@ viewNetworkRow currentStep lane =
                 || lane.entry.responsePreview
                 /= Nothing
 
+        pulseColor =
+            if isLive then
+                eventKindColor EventSent
+
+            else
+                "#86efac"
+
+        startChip =
+            viewEventChip
+                { step = lane.startStep
+                , kind = EventSent
+                , active = startActive
+                , future = isFuture
+                }
+
+        -- Network is a two-event model: `sent` + `resolved`. In-flight is
+        -- the gap between them, not a third event. We render the sent chip
+        -- as active while we're waiting, then flip the end chip to active
+        -- once it lands. No "live tail" chip — the filled ↗ says it all.
+        chipRow =
+            case lane.endStep of
+                Just end ->
+                    [ startChip
+                    , viewEventChipConnector
+                        { kind = endKind
+                        , future = isFuture || not endReached
+                        }
+                    , viewEventChip
+                        { step = end
+                        , kind = endKind
+                        , active = endActive
+                        , future = isFuture || not endReached
+                        }
+                    ]
+
+                Nothing ->
+                    [ startChip ]
+
         summaryContent =
             [ Html.div [ Attr.class "net-row-head" ]
-                [ viewNetStateBadge state
-                , Html.span [ Attr.class ("net-method " ++ methodClass) ]
+                [ Html.span [ Attr.class ("net-method " ++ methodClass) ]
                     [ Html.text lane.entry.method ]
                 , Html.span [ Attr.class "net-row-path", Attr.title lane.entry.url ]
                     [ Html.text pathLabel ]
                 ]
-            , Html.div [ Attr.class "net-row-chips" ]
-                (viewStepChip { step = lane.startStep, kind = ChipStart, label = Just "start" }
-                    :: (case lane.endStep of
-                            Just end ->
-                                [ Html.span [ Attr.class "step-chip-arrow" ] [ Html.text "→" ]
-                                , viewStepChip { step = end, kind = ChipEnd, label = Just "end" }
-                                ]
-
-                            Nothing ->
-                                [ Html.span [ Attr.class "step-chip-arrow net-row-chip-arrow-live" ] [ Html.text "→" ]
-                                , Html.span [ Attr.class "net-row-inflight-text" ] [ Html.text "in flight…" ]
-                                ]
-                       )
-                    ++ [ case state of
-                            LaneInFlight ->
-                                Html.span [ Attr.class "net-row-live-badge" ]
-                                    [ Html.text "● LIVE" ]
-
-                            _ ->
-                                Html.text ""
-                       ]
-                )
+            , Html.div [ Attr.class "event-chip-row" ] chipRow
             ]
     in
     if hasDetails then
@@ -2652,6 +2632,7 @@ viewNetworkRow currentStep lane =
                 [ ( "net-row", True )
                 , ( stateClass, True )
                 ]
+            , Attr.style "--pulse-color" pulseColor
             ]
             (Html.summary [ Attr.class "net-row-summary" ] summaryContent
                 :: [ viewNetRowDetails lane.entry ]
@@ -2663,31 +2644,9 @@ viewNetworkRow currentStep lane =
                 [ ( "net-row", True )
                 , ( stateClass, True )
                 ]
+            , Attr.style "--pulse-color" pulseColor
             ]
             summaryContent
-
-
-viewNetStateBadge : LaneState -> Html Msg
-viewNetStateBadge state =
-    let
-        ( cls, label, icon ) =
-            case state of
-                LaneFuture ->
-                    ( "net-state-future", "future", "○" )
-
-                LaneInFlight ->
-                    ( "net-state-inflight", "in flight", "●" )
-
-                LaneResolving ->
-                    ( "net-state-resolving", "resolved", "✓" )
-
-                LaneResolved ->
-                    ( "net-state-past", "past", "✓" )
-    in
-    Html.span [ Attr.class ("net-state-badge " ++ cls) ]
-        [ Html.span [ Attr.class "net-state-icon" ] [ Html.text icon ]
-        , Html.text label
-        ]
 
 
 viewNetRowDetails : NetworkEntry -> Html Msg
@@ -4828,12 +4787,8 @@ body {
 }
 
 .net-row-inflight::before {
-    background: #86efac;
-    box-shadow: 0 0 10px rgba(134, 239, 172, 0.8);
-}
-
-.net-row-resolving {
-    background: rgba(125, 211, 252, 0.05);
+    background: var(--pulse-color, #86efac);
+    box-shadow: 0 0 10px var(--pulse-color, rgba(134, 239, 172, 0.8));
 }
 
 .net-row-head {
@@ -4841,14 +4796,6 @@ body {
     align-items: center;
     gap: 6px;
     margin-bottom: 3px;
-}
-
-.net-row-chips {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-left: 18px;
-    flex-wrap: wrap;
 }
 
 .net-row-path {
@@ -4882,64 +4829,6 @@ body {
 .net-method-http {
     background: rgba(125, 211, 252, 0.15);
     color: #7dd3fc;
-}
-
-.net-state-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    border-radius: 2px;
-    font-size: 9px;
-    font-weight: 600;
-    padding: 1px 4px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    font-family: "JetBrains Mono", monospace;
-}
-
-.net-state-icon {
-    font-size: 9px;
-    line-height: 1;
-}
-
-.net-state-future {
-    background: transparent;
-    color: #5c6a7e;
-}
-
-.net-state-inflight {
-    background: rgba(134, 239, 172, 0.15);
-    color: #86efac;
-}
-
-.net-state-resolving {
-    background: rgba(125, 211, 252, 0.15);
-    color: #7dd3fc;
-}
-
-.net-state-past {
-    background: transparent;
-    color: #8b99ad;
-}
-
-.net-row-inflight-text {
-    font-size: 9px;
-    color: #86efac;
-    font-family: "JetBrains Mono", monospace;
-    font-style: italic;
-}
-
-.net-row-chip-arrow-live {
-    color: #86efac;
-    opacity: 0.7;
-}
-
-.net-row-live-badge {
-    margin-left: auto;
-    font-size: 9px;
-    color: #86efac;
-    font-weight: 600;
-    letter-spacing: 0.04em;
 }
 
 .net-row-details {
@@ -5449,95 +5338,120 @@ body {
     overflow: auto;
 }
 
-/* === STEP CHIP (shared: cookie/network/fetcher) === */
+/* === EVENT CHIP (icon + step-number pill, shared by Network + Fetcher
+      panels) === */
 
-.step-chip-timeline {
-    display: inline-flex;
+.event-chip-row {
+    display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 0;
+    margin-left: 22px;
     flex-wrap: wrap;
 }
 
-.step-chip-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-}
-
-.step-chip-arrow {
-    color: rgba(255, 255, 255, 0.25);
-    font-size: 10px;
-    margin: 0 1px;
-}
-
-.step-chip {
+.event-chip {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    border-left-width: 3px;
-    background: transparent;
     padding: 1px 6px;
     border-radius: 3px;
+    border: 1px solid currentColor;
+    background: transparent;
     cursor: pointer;
-    font-family: "JetBrains Mono", monospace;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
     font-size: 10px;
-    letter-spacing: 0.02em;
     font-weight: 500;
-    line-height: 1.4;
-    color: #8b99ad;
-}
-
-.step-chip:hover {
-    background: rgba(125, 211, 252, 0.08);
-}
-
-.step-chip-num {
+    line-height: 1.3;
     font-variant-numeric: tabular-nums;
 }
 
-.step-chip-label {
-    opacity: 0.75;
-    font-size: 9px;
+.event-chip-kind-submit { color: #86efac; }
+.event-chip-kind-reload { color: #fcd34d; }
+.event-chip-kind-complete { color: #7dd3fc; }
+.event-chip-kind-fail { color: #fca5a5; }
+.event-chip-kind-sent { color: #86efac; }
+
+/* Past chips: keep the kind color but use a 55-alpha border
+   (simulated via rgba) so the outline sits quieter. */
+.event-chip {
+    border-color: currentColor;
+    opacity: 1;
 }
 
-.step-chip-now {
-    background: rgba(125, 211, 252, 0.14);
-    border-color: rgba(125, 211, 252, 0.4);
-    border-left-color: #7dd3fc;
-    color: #7dd3fc;
-    font-weight: 600;
+.event-chip-kind-submit { border-color: rgba(134, 239, 172, 0.33); }
+.event-chip-kind-reload { border-color: rgba(252, 211, 77, 0.33); }
+.event-chip-kind-complete { border-color: rgba(125, 211, 252, 0.33); }
+.event-chip-kind-fail { border-color: rgba(252, 165, 165, 0.33); }
+.event-chip-kind-sent { border-color: rgba(134, 239, 172, 0.33); }
+
+/* Active: filled pill, dark icon/text, soft colored glow. */
+.event-chip-active {
+    color: #0f1620;
+    padding: 2px 7px 2px 6px;
+    font-size: 10.5px;
+    font-weight: 700;
 }
 
-.step-chip-start {
-    border-left-color: #86efac;
-    color: #86efac;
+.event-chip-active.event-chip-kind-submit {
+    background: #86efac;
+    border-color: rgba(134, 239, 172, 0.33);
+    box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.33), 0 0 8px rgba(134, 239, 172, 0.2);
 }
 
-.step-chip-end {
-    border-left-color: #7dd3fc;
-    color: #7dd3fc;
+.event-chip-active.event-chip-kind-reload {
+    background: #fcd34d;
+    border-color: rgba(252, 211, 77, 0.33);
+    box-shadow: 0 0 0 1px rgba(252, 211, 77, 0.33), 0 0 8px rgba(252, 211, 77, 0.2);
 }
 
-.step-chip-change {
-    border-left-color: #fcd34d;
-    color: #fcd34d;
+.event-chip-active.event-chip-kind-complete {
+    background: #7dd3fc;
+    border-color: rgba(125, 211, 252, 0.33);
+    box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.33), 0 0 8px rgba(125, 211, 252, 0.2);
 }
 
-.step-chip-error {
-    background: rgba(252, 165, 165, 0.10);
-    border-left-color: #fca5a5;
-    color: #fca5a5;
+.event-chip-active.event-chip-kind-fail {
+    background: #fca5a5;
+    border-color: rgba(252, 165, 165, 0.33);
+    box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.33), 0 0 8px rgba(252, 165, 165, 0.2);
 }
 
-.step-chip-past {
-    border-left-color: rgba(255, 255, 255, 0.12);
-    color: #8b99ad;
+.event-chip-active.event-chip-kind-sent {
+    background: #86efac;
+    border-color: rgba(134, 239, 172, 0.33);
+    box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.33), 0 0 8px rgba(134, 239, 172, 0.2);
 }
 
-.step-chip-future {
-    border-left-color: rgba(255, 255, 255, 0.06);
+/* Future: dim outline, muted neutral text, 70% opacity. */
+.event-chip-future {
     color: #5c6a7e;
+    border-color: rgba(255, 255, 255, 0.08);
+    opacity: 0.7;
+}
+
+.event-chip:hover {
+    filter: brightness(1.1);
+}
+
+/* Thin connector between two chips. Takes the destination chip's kind
+   color at ~33% alpha; future connectors use a muted white. */
+.event-chip-connector {
+    width: 8px;
+    height: 1px;
+    display: inline-block;
+    flex-shrink: 0;
+    margin: 0 1px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.event-chip-connector.event-chip-kind-submit { background: rgba(134, 239, 172, 0.33); }
+.event-chip-connector.event-chip-kind-reload { background: rgba(252, 211, 77, 0.33); }
+.event-chip-connector.event-chip-kind-complete { background: rgba(125, 211, 252, 0.33); }
+.event-chip-connector.event-chip-kind-fail { background: rgba(252, 165, 165, 0.33); }
+.event-chip-connector.event-chip-kind-sent { background: rgba(134, 239, 172, 0.33); }
+
+.event-chip-connector-future {
+    background: rgba(255, 255, 255, 0.12);
 }
 
 /* === FETCHER INSPECTOR (F1 · chip timeline) === */
@@ -5597,8 +5511,8 @@ body {
 }
 
 .fetcher-card-live::before {
-    background: #86efac;
-    box-shadow: 0 0 10px rgba(134, 239, 172, 0.8);
+    background: var(--pulse-color, #86efac);
+    box-shadow: 0 0 10px var(--pulse-color, rgba(134, 239, 172, 0.8));
 }
 
 .fetcher-card-header {
@@ -5614,101 +5528,13 @@ body {
     color: #e6ecf4;
 }
 
-.fetcher-spacer {
-    flex: 1;
-}
-
-.fetcher-live-badge {
-    font-size: 9px;
-    color: #86efac;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-}
-
-.fetcher-done-badge {
-    font-size: 9px;
-    color: #7dd3fc;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    padding: 1px 5px;
-    border-radius: 3px;
-    background: rgba(125, 211, 252, 0.14);
-    text-transform: uppercase;
-    font-family: "JetBrains Mono", monospace;
-}
-
-.fetcher-live-count {
-    color: #86efac;
-    font-weight: 600;
-}
-
-.fetcher-state-label {
-    font-size: 9px;
-    color: #5c6a7e;
-    letter-spacing: 0.05em;
-    text-transform: lowercase;
-    font-family: "JetBrains Mono", monospace;
-}
-
-.fetcher-lanes {
-    display: grid;
-    grid-template-columns: 62px 1fr;
-    row-gap: 3px;
-    column-gap: 8px;
-    align-items: center;
-}
-
-.fetcher-lane {
-    display: contents;
-}
-
-.fetcher-lane-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-}
-
-.fetcher-lane-submit .fetcher-lane-label {
-    color: #86efac;
-}
-
-.fetcher-lane-resolve .fetcher-lane-label {
-    color: #7dd3fc;
-}
-
-.fetcher-lane-body {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 6px;
-    border-radius: 3px;
-    flex-wrap: wrap;
-    min-height: 20px;
-}
-
-.fetcher-lane-submit .fetcher-lane-body {
-    background: rgba(134, 239, 172, 0.06);
-}
-
-.fetcher-lane-resolve .fetcher-lane-body {
-    background: rgba(125, 211, 252, 0.06);
-}
-
-.fetcher-lane-empty {
-    color: #5c6a7e;
-    font-size: 10px;
-    font-style: italic;
-}
-
 .fetcher-fields {
     font-family: "JetBrains Mono", monospace;
     font-size: 10px;
     color: #8b99ad;
     font-style: italic;
+    margin-top: 4px;
+    padding-left: 22px;
 }
 
 .fetcher-fields-payload {

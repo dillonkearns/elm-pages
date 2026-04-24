@@ -5,8 +5,11 @@ module Test.PagesProgram.Viewer.Icons exposing
     , channelColorFetcher
     , channelColorNetworkBackend
     , channelColorNetworkFrontend
+    , eventCheck
     , eventCookie
     , eventCookieSized
+    , eventCross
+    , eventDown
     , eventEffect
     , eventEffectSized
     , eventFetcher
@@ -15,6 +18,8 @@ module Test.PagesProgram.Viewer.Icons exposing
     , eventFetcherSubmit
     , eventNetwork
     , eventNetworkSized
+    , eventUp
+    , eventUpRight
     , kindColor
     , kindFromSnapshot
     , stepKind
@@ -371,6 +376,70 @@ eventEffectSized size color =
             [ attr "d" "M10 7.5l.4 1.1 1.1.4-1.1.4-.4 1.1-.4-1.1-1.1-.4 1.1-.4z"
             , attr "fill" color
             ]
+        ]
+
+
+-- EVENT-CHIP GLYPHS (9×9 default, stroke-based, used by the icon-event
+-- timeline in the Network and Fetcher panels). All use viewBox 0 0 12 12
+-- so the existing strokeSvg helper works. Pass "currentColor" as color to
+-- let the icon inherit from CSS.
+
+
+eventUp : Int -> String -> Html msg
+eventUp size color =
+    let
+        s =
+            String.fromInt size
+    in
+    strokeSvg s s "0 0 12 12" color "1.8"
+        [ path [ attr "d" "M6 10V2" ]
+        , path [ attr "d" "M3 5L6 2L9 5" ]
+        ]
+
+
+eventDown : Int -> String -> Html msg
+eventDown size color =
+    let
+        s =
+            String.fromInt size
+    in
+    strokeSvg s s "0 0 12 12" color "1.8"
+        [ path [ attr "d" "M6 2V10" ]
+        , path [ attr "d" "M3 7L6 10L9 7" ]
+        ]
+
+
+eventUpRight : Int -> String -> Html msg
+eventUpRight size color =
+    let
+        s =
+            String.fromInt size
+    in
+    strokeSvg s s "0 0 12 12" color "1.8"
+        [ path [ attr "d" "M3 9L9 3" ]
+        , path [ attr "d" "M4.5 3L9 3L9 7.5" ]
+        ]
+
+
+eventCheck : Int -> String -> Html msg
+eventCheck size color =
+    let
+        s =
+            String.fromInt size
+    in
+    strokeSvg s s "0 0 12 12" color "2"
+        [ path [ attr "d" "M2.5 6.5L5 9L9.5 3.5" ] ]
+
+
+eventCross : Int -> String -> Html msg
+eventCross size color =
+    let
+        s =
+            String.fromInt size
+    in
+    strokeSvg s s "0 0 12 12" color "2"
+        [ path [ attr "d" "M3 3L9 9" ]
+        , path [ attr "d" "M9 3L3 9" ]
         ]
 
 
