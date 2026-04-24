@@ -2386,54 +2386,86 @@ type alias NetworkLane =
     }
 
 
-{-| Compute the end step for each unique network entry by walking the cumulative
-snapshot logs. The *first* snapshot in which the entry's status becomes
-`Stubbed` is its end step.
+{-| Build one lane per network request by walking the cumulative snapshot
+logs.
+
+Caveat about `entry.stepIndex`: the runtime *overwrites* this field when
+a request resolves (see `resolveBackendTask` in `Test.PagesProgram` —
+`{ entry | status = Stubbed, stepIndex = List.length state.snapshots }`),
+so in later snapshots it reports the *resolution* step, not the creation
+step. We therefore can't use `stepIndex` alone as an identity or as
+`startStep`.
+
+Instead we lean on the fact that `networkLog` is append-only:
+
+  - Each entry keeps the same **position** in the log across snapshots,
+    even when mutated. So position is a stable identity for a request.
+  - `startStep` for position `p` = the first snapshot whose log is long
+    enough to contain `p`.
+  - `endStep` for position `p` = the first snapshot whose log has
+    `log[p].status == Stubbed`.
+
+The authoritative list of requests is the final snapshot's log (it's
+cumulative, so nothing is missing).
+
 -}
 buildNetworkLanes : List Snapshot -> List NetworkLane
 buildNetworkLanes allSnapshots =
     let
-        laneKey entry =
-            entry.url ++ ":" ++ String.fromInt entry.stepIndex
+        indexedSnapshots : List ( Int, Snapshot )
+        indexedSnapshots =
+            List.indexedMap Tuple.pair allSnapshots
 
-        endStepOf : NetworkEntry -> Maybe Int
-        endStepOf entry =
-            allSnapshots
-                |> List.indexedMap Tuple.pair
+        entryAt : Int -> Snapshot -> Maybe NetworkEntry
+        entryAt p snap =
+            snap.networkLog |> List.drop p |> List.head
+
+        startStepAt : Int -> Maybe Int
+        startStepAt p =
+            indexedSnapshots
                 |> List.filterMap
                     (\( i, snap ) ->
-                        snap.networkLog
-                            |> List.filter
-                                (\e ->
-                                    e.url == entry.url
-                                        && e.stepIndex == entry.stepIndex
-                                        && e.status
-                                        == Stubbed
-                                )
-                            |> List.head
-                            |> Maybe.map (\_ -> i)
+                        if List.length snap.networkLog > p then
+                            Just i
+
+                        else
+                            Nothing
                     )
                 |> List.head
-    in
-    allSnapshots
-        |> List.concatMap .networkLog
-        |> List.foldl
-            (\entry ( seenKeys, acc ) ->
-                let
-                    key =
-                        laneKey entry
-                in
-                if List.member key seenKeys then
-                    ( seenKeys, acc )
 
-                else
-                    ( key :: seenKeys
-                    , { entry = entry, startStep = entry.stepIndex, endStep = endStepOf entry } :: acc
+        endStepAt : Int -> Maybe Int
+        endStepAt p =
+            indexedSnapshots
+                |> List.filterMap
+                    (\( i, snap ) ->
+                        entryAt p snap
+                            |> Maybe.andThen
+                                (\e ->
+                                    if e.status == Stubbed then
+                                        Just i
+
+                                    else
+                                        Nothing
+                                )
                     )
+                |> List.head
+
+        finalLog : List NetworkEntry
+        finalLog =
+            allSnapshots
+                |> List.reverse
+                |> List.head
+                |> Maybe.map .networkLog
+                |> Maybe.withDefault []
+    in
+    finalLog
+        |> List.indexedMap
+            (\p entry ->
+                { entry = entry
+                , startStep = startStepAt p |> Maybe.withDefault entry.stepIndex
+                , endStep = endStepAt p
+                }
             )
-            ( [], [] )
-        |> Tuple.second
-        |> List.reverse
 
 
 viewNetworkSidebar : Model -> Int -> List Snapshot -> Html Msg
