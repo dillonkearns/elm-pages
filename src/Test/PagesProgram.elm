@@ -4210,45 +4210,61 @@ parseEffectToNetworkEntry stepIndex desc =
 -}
 pendingEntriesFromResolver : Int -> Resolver model msg -> List NetworkEntry
 pendingEntriesFromResolver stepIndex (Resolver resolver) =
-    if List.isEmpty resolver.pendingUrls then
-        -- Custom port or other BackendTask with no URL -- use the description
-        case String.split " " resolver.pendingDescription of
-            [] ->
-                []
+    resolver.pendingRequestDetails
+        |> List.filterMap (pendingEntryFromRequestDetails stepIndex)
 
-            _ ->
-                [ { method = "PORT"
-                  , url = resolver.pendingDescription
-                  , status = Pending
-                  , stepIndex = stepIndex
-                  , portName = Just resolver.pendingDescription
-                  , responsePreview = Nothing
-                  , source = Backend
-                  , requestBody = Nothing
-                  , requestHeaders = []
-                  }
-                ]
+
+{-| Build a Pending NetworkEntry from a pending request's details.
+
+Port calls arrive with `url == "elm-pages-internal://port"` and the
+actual port name encoded in the body JSON (field `portName`). We
+extract that name and use it as the entry's url + portName so
+downstream matching (advanceResolver, viewNetworkSidebar) can pair
+the Pending entry with the later Stubbed update by url equality.
+
+Plain HTTP requests are used as-is.
+
+-}
+pendingEntryFromRequestDetails :
+    Int
+    -> { url : String, method : String, headers : List ( String, String ), body : Maybe String }
+    -> Maybe NetworkEntry
+pendingEntryFromRequestDetails stepIndex req =
+    if req.url == "elm-pages-internal://port" then
+        req.body
+            |> Maybe.andThen
+                (\body ->
+                    Json.Decode.decodeString
+                        (Json.Decode.field "portName" Json.Decode.string)
+                        body
+                        |> Result.toMaybe
+                )
+            |> Maybe.map
+                (\portName ->
+                    { method = "PORT"
+                    , url = portName
+                    , status = Pending
+                    , stepIndex = stepIndex
+                    , portName = Just portName
+                    , responsePreview = Nothing
+                    , source = Backend
+                    , requestBody = req.body
+                    , requestHeaders = req.headers
+                    }
+                )
 
     else
-        resolver.pendingUrls
-            |> List.filterMap
-                (\url ->
-                    let
-                        matchingRequest =
-                            resolver.pendingRequestDetails
-                                |> List.filter (\r -> r.url == url)
-                                |> List.head
-                    in
-                    parseEffectToNetworkEntry stepIndex url
-                        |> Maybe.map
-                            (\entry ->
-                                { entry
-                                    | source = Backend
-                                    , requestBody = matchingRequest |> Maybe.andThen .body
-                                    , requestHeaders = matchingRequest |> Maybe.map .headers |> Maybe.withDefault []
-                                }
-                            )
-                )
+        Just
+            { method = req.method
+            , url = req.url
+            , status = Pending
+            , stepIndex = stepIndex
+            , portName = Nothing
+            , responsePreview = Nothing
+            , source = Backend
+            , requestBody = req.body
+            , requestHeaders = req.headers
+            }
 
 
 {-| Extract an attribute value from a DOM element found by selectors.
