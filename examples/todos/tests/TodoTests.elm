@@ -1,5 +1,7 @@
 module TodoTests exposing
     ( fullLoginFlowTest
+    , loginAndRevisitLoginTest
+    , logoutAndLoginAsDifferentUserTest
     , preSignedInSessionTest
     , toggleAllTest
     , clearCompletedTest
@@ -217,6 +219,104 @@ fullLoginFlowTest =
         |> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
         |> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
         |> ensureItemsLeft 2
+
+
+{-| Log in via the magic-link flow, then navigate back to `/login`
+while still signed in. Exercises the "already logged in" branch of the
+login page and shows the session cookie evolving across multiple steps
+(empty → `sessionId` inserted).
+
+Showcases the visual test runner's cookie panel: the `mysession` cookie
+picks up two change events (SET on form submit, CHANGED when the magic
+link inserts the session id), so the box-pill step selector and
+INITIAL / DIFF panels both render meaningfully.
+-}
+loginAndRevisitLoginTest : TestApp.ProgramTest
+loginAndRevisitLoginTest =
+    TestApp.start "/login" loginActionSetup
+        |> PagesProgram.group "Request a magic link"
+            (PagesProgram.ensureViewHas [ PSelector.text "You aren't logged in yet." ]
+                >> PagesProgram.fillIn "login" "email" "user@example.com"
+                >> PagesProgram.clickButton "Login"
+                >> PagesProgram.simulateCustom "encrypt" (Encode.string "fake-hash")
+                >> PagesProgram.simulateHttpPost "https://api.sendgrid.com/v3/mail/send" Encode.null
+                >> PagesProgram.ensureViewHas [ PSelector.text "Check your inbox for your login link!" ]
+            )
+        |> PagesProgram.group "Follow the magic link"
+            (PagesProgram.navigateTo "/login?magic=fake-hash"
+                >> finishMagicLinkLoginAndLoadTodos todosResponse
+                >> PagesProgram.ensureBrowserUrl (Expect.equal "https://localhost:1234/")
+                >> PagesProgram.ensureViewHas [ PSelector.text "todos" ]
+                >> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
+            )
+        |> PagesProgram.group "Revisit the login page while signed in"
+            (PagesProgram.navigateTo "/login"
+                >> PagesProgram.simulateCustom "getEmailBySessionId" (Encode.string "user@example.com")
+                >> PagesProgram.ensureViewHas
+                    [ PSelector.text "Hello! You are already logged in as user@example.com" ]
+                >> PagesProgram.ensureViewHas [ PSelector.text "Log out" ]
+            )
+
+
+{-| Full auth lifecycle: sign in as one user, log out, then sign in as
+a different user and load their todos.
+
+Showcases the cookie view end-to-end: the `mysession` cookie goes
+SET → CHANGED (sessionId inserted on magic link) → CHANGED (cleared
+on logout) → CHANGED (sessionId re-inserted for the second account).
+-}
+logoutAndLoginAsDifferentUserTest : TestApp.ProgramTest
+logoutAndLoginAsDifferentUserTest =
+    let
+        aliceTodosResponse =
+            Encode.list identity
+                [ Encode.object
+                    [ ( "title", Encode.string "Call mom" )
+                    , ( "complete", Encode.bool False )
+                    , ( "id", Encode.string "alice-todo-1" )
+                    ]
+                , Encode.object
+                    [ ( "title", Encode.string "Finish report" )
+                    , ( "complete", Encode.bool False )
+                    , ( "id", Encode.string "alice-todo-2" )
+                    ]
+                ]
+
+        aliceDecryptResponse =
+            Encode.string "{\"text\":\"alice@example.com\",\"expiresAt\":99999999999999}"
+    in
+    TestApp.start "/login" loginActionSetup
+        |> PagesProgram.group "Log in as user@example.com"
+            (PagesProgram.fillIn "login" "email" "user@example.com"
+                >> PagesProgram.clickButton "Login"
+                >> PagesProgram.simulateCustom "encrypt" (Encode.string "fake-hash-user")
+                >> PagesProgram.simulateHttpPost "https://api.sendgrid.com/v3/mail/send" Encode.null
+                >> PagesProgram.navigateTo "/login?magic=fake-hash-user"
+                >> finishMagicLinkLoginAndLoadTodos todosResponse
+                >> PagesProgram.ensureViewHas [ PSelector.text "todos" ]
+                >> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
+            )
+        |> PagesProgram.group "Log out"
+            (PagesProgram.navigateTo "/login"
+                >> PagesProgram.simulateCustom "getEmailBySessionId" (Encode.string "user@example.com")
+                >> PagesProgram.ensureViewHas
+                    [ PSelector.text "Hello! You are already logged in as user@example.com" ]
+                >> PagesProgram.clickButton "Log out"
+                >> PagesProgram.ensureViewHas [ PSelector.text "You aren't logged in yet." ]
+            )
+        |> PagesProgram.group "Log in as alice@example.com"
+            (PagesProgram.fillIn "login" "email" "alice@example.com"
+                >> PagesProgram.clickButton "Login"
+                >> PagesProgram.simulateCustom "encrypt" (Encode.string "fake-hash-alice")
+                >> PagesProgram.simulateHttpPost "https://api.sendgrid.com/v3/mail/send" Encode.null
+                >> PagesProgram.navigateTo "/login?magic=fake-hash-alice"
+                >> PagesProgram.simulateCustom "decrypt" aliceDecryptResponse
+                >> PagesProgram.simulateCustom "findOrCreateUserAndSession" (Encode.string "alice-session-id")
+                >> PagesProgram.simulateCustom "getTodosBySession" aliceTodosResponse
+                >> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Call mom") ]
+                >> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Finish report") ]
+                >> PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Buy milk") ]
+            )
 
 
 {-| Start with a pre-signed session cookie and go straight to the

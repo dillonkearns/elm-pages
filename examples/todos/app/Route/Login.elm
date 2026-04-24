@@ -294,15 +294,13 @@ data routeParams request =
             )
 
 
-allForms : Pages.Form.Handler String EmailAddress
+allForms : Pages.Form.Handler String Action
 allForms =
-    Form.Handler.init identity form
-
-
-
---logoutForm
---    |> Form.Handler.init (\_ -> Logout)
---    |> Form.Handler.with LogIn form
+    logoutForm
+        |> Form.Handler.init (\() -> BackendTask.succeed (Validation.succeed Logout))
+        |> Form.Handler.with
+            (\task -> task |> BackendTask.map (Validation.map LogIn))
+            form
 
 
 action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
@@ -338,13 +336,13 @@ action routeParams request =
                                             )
                                                 |> BackendTask.succeed
 
-                                        --Ok ( _, Logout ) ->
-                                        --    ( Session.empty
-                                        --    , Route.redirectTo Route.Login
-                                        --    )
-                                        --        |> BackendTask.succeed
-                                        --
-                                        Ok ( _, emailAddress ) ->
+                                        Ok ( _, Logout ) ->
+                                            ( Session.empty
+                                            , Route.redirectTo Route.Login
+                                            )
+                                                |> BackendTask.succeed
+
+                                        Ok ( _, LogIn emailAddress ) ->
                                             ( okSession
                                             , { maybeError = Nothing
                                               , sentLink = True
