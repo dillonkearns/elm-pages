@@ -2615,7 +2615,7 @@ viewNetworkRow currentStep lane =
                     lane.entry.url
 
         hasDetails =
-            not (List.isEmpty lane.entry.requestHeaders)
+            not (List.isEmpty (userFacingHeaders lane.entry.requestHeaders))
                 || lane.entry.requestBody
                 /= Nothing
                 || lane.entry.responsePreview
@@ -2692,20 +2692,33 @@ viewNetworkRow currentStep lane =
             summaryContent
 
 
+{-| Filter out headers used internally by elm-pages (names starting with
+`elm-pages-internal`). They're plumbing, not something the author wrote,
+so hiding them keeps the Headers accordion focused on user-visible data.
+-}
+userFacingHeaders : List ( String, String ) -> List ( String, String )
+userFacingHeaders =
+    List.filter (\( name, _ ) -> not (String.startsWith "elm-pages-internal" name))
+
+
 viewNetRowDetails : NetworkEntry -> Html Msg
 viewNetRowDetails entry =
+    let
+        visibleHeaders =
+            userFacingHeaders entry.requestHeaders
+    in
     Html.div [ Attr.class "net-row-details" ]
         (List.filterMap identity
-            [ if List.isEmpty entry.requestHeaders then
+            [ if List.isEmpty visibleHeaders then
                 Nothing
 
               else
                 Just
                     (Html.details [ Attr.class "net-response-details" ]
                         [ Html.summary [ Attr.class "net-response-summary net-headers-summary" ]
-                            [ Html.text ("Headers (" ++ String.fromInt (List.length entry.requestHeaders) ++ ")") ]
+                            [ Html.text ("Headers (" ++ String.fromInt (List.length visibleHeaders) ++ ")") ]
                         , Html.div [ Attr.class "net-headers-list" ]
-                            (entry.requestHeaders
+                            (visibleHeaders
                                 |> List.map
                                     (\( name, value ) ->
                                         Html.div [ Attr.class "net-header-row" ]
