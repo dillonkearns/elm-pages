@@ -4750,21 +4750,27 @@ body {
     opacity: 0.5;
 }
 
-.net-row-inflight {
-    background: rgba(134, 239, 172, 0.09);
-    animation: net-row-breath 1.6s ease-in-out infinite;
-}
-
-.net-row-inflight::before {
+/* Same phase-sync trick as `.fetcher-card`: attach the pulse
+   pseudo-element to every row, colorize only on in-flight ones. */
+.net-row::before {
     content: "";
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
     width: 3px;
+    background: transparent;
+    animation: net-pulse 1.2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.net-row-inflight {
+    background: rgba(134, 239, 172, 0.12);
+}
+
+.net-row-inflight::before {
     background: #86efac;
     box-shadow: 0 0 10px rgba(134, 239, 172, 0.8);
-    animation: net-pulse 1.2s ease-in-out infinite;
 }
 
 .net-row-resolving {
@@ -4887,11 +4893,6 @@ body {
 @keyframes net-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.25; }
-}
-
-@keyframes net-row-breath {
-    0%, 100% { background-color: rgba(134, 239, 172, 0.09); }
-    50% { background-color: rgba(134, 239, 172, 0.18); }
 }
 
 .net-response-details {
@@ -5528,21 +5529,29 @@ body {
     position: relative;
 }
 
-.fetcher-card-live {
-    background: rgba(134, 239, 172, 0.09);
-    animation: net-row-breath 1.6s ease-in-out infinite;
-}
-
-.fetcher-card-live::before {
+/* Every fetcher card renders the pulse bar pseudo-element; its
+   color + glow only kick in on `.fetcher-card-live`. Running the
+   animation on all cards from first mount keeps the phase aligned
+   across cards that become live at different steps. */
+.fetcher-card::before {
     content: "";
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
     width: 3px;
+    background: transparent;
+    animation: net-pulse 1.2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.fetcher-card-live {
+    background: rgba(134, 239, 172, 0.12);
+}
+
+.fetcher-card-live::before {
     background: #86efac;
     box-shadow: 0 0 10px rgba(134, 239, 172, 0.8);
-    animation: net-pulse 1.2s ease-in-out infinite;
 }
 
 .fetcher-card-header {
