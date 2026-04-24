@@ -4751,7 +4751,8 @@ body {
 }
 
 .net-row-inflight {
-    background: rgba(134, 239, 172, 0.05);
+    background: rgba(134, 239, 172, 0.09);
+    animation: net-row-breath 1.6s ease-in-out infinite;
 }
 
 .net-row-inflight::before {
@@ -4760,8 +4761,9 @@ body {
     left: 0;
     top: 0;
     bottom: 0;
-    width: 2px;
+    width: 3px;
     background: #86efac;
+    box-shadow: 0 0 10px rgba(134, 239, 172, 0.8);
     animation: net-pulse 1.2s ease-in-out infinite;
 }
 
@@ -4884,7 +4886,12 @@ body {
 
 @keyframes net-pulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.55; }
+    50% { opacity: 0.25; }
+}
+
+@keyframes net-row-breath {
+    0%, 100% { background-color: rgba(134, 239, 172, 0.09); }
+    50% { background-color: rgba(134, 239, 172, 0.18); }
 }
 
 .net-response-details {
@@ -5522,7 +5529,8 @@ body {
 }
 
 .fetcher-card-live {
-    background: rgba(134, 239, 172, 0.04);
+    background: rgba(134, 239, 172, 0.09);
+    animation: net-row-breath 1.6s ease-in-out infinite;
 }
 
 .fetcher-card-live::before {
@@ -5531,8 +5539,9 @@ body {
     left: 0;
     top: 0;
     bottom: 0;
-    width: 2px;
+    width: 3px;
     background: #86efac;
+    box-shadow: 0 0 10px rgba(134, 239, 172, 0.8);
     animation: net-pulse 1.2s ease-in-out infinite;
 }
 
